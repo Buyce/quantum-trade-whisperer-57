@@ -58,9 +58,13 @@ function PerformancePage() {
   const samples = effectiveScope === "mine" ? mine : baseline;
   const scopeLabel = effectiveScope === "mine" ? "Your trade log" : "The scanner baseline";
 
-  const stats = useMemo(() => computeExpectancy(samples), [samples]);
-  const dist = useMemo(() => rDistribution(samples), [samples]);
-  const cells = useMemo(() => heatMap(samples), [samples]);
+  // Global math reflects the core edge: C-Grade is excluded from the top-row KPIs,
+  // insights, distribution and heat map, but kept in the per-tier tables.
+  const coreSamples = useMemo(() => samples.filter((s) => s.grade !== "C"), [samples]);
+
+  const stats = useMemo(() => computeExpectancy(coreSamples), [coreSamples]);
+  const dist = useMemo(() => rDistribution(coreSamples), [coreSamples]);
+  const cells = useMemo(() => heatMap(coreSamples), [coreSamples]);
   const byInstrument = useMemo(() => groupBy(samples, (s) => s.instrument), [samples]);
   // All four tiers always render, even when a tier has no setups yet.
   const byGrade = useMemo(() => {
@@ -71,7 +75,8 @@ function PerformancePage() {
     });
   }, [samples]);
 
-  const insights = useMemo(() => generateInsights(samples, scopeLabel), [samples, scopeLabel]);
+  const insights = useMemo(() => generateInsights(coreSamples, scopeLabel), [coreSamples, scopeLabel]);
+
 
   const maxAbs = Math.max(0.01, ...cells.map((c) => Math.abs(c.expectancyR)));
 
