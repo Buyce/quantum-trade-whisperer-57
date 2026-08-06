@@ -333,7 +333,7 @@ export type Database = {
     }
     Enums: {
       decision_kind: "taken" | "skipped"
-      signal_grade: "A" | "B" | "C"
+      signal_grade: "A" | "B" | "C" | "A+"
       tf_code: "H4" | "H1" | "M15"
       trade_direction: "long" | "short"
       trade_outcome: "win" | "loss" | "breakeven" | "open"
@@ -465,7 +465,7 @@ export const Constants = {
   public: {
     Enums: {
       decision_kind: ["taken", "skipped"],
-      signal_grade: ["A", "B", "C"],
+      signal_grade: ["A", "B", "C", "A+"],
       tf_code: ["H4", "H1", "M15"],
       trade_direction: ["long", "short"],
       trade_outcome: ["win", "loss", "breakeven", "open"],
