@@ -1,0 +1,282 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Lightbulb } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { myTradesQuery, signalsQuery } from "@/lib/queries";
+import { INSTRUMENT_LABELS } from "@/lib/db-types";
+import {
+  computeExpectancy,
+  fmtR,
+  generateInsights,
+  groupBy,
+  heatMap,
+  pct,
+  rDistribution,
+  samplesFromSignals,
+  samplesFromTrades,
+} from "@/lib/performance";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
+
+export const Route = createFileRoute("/_authenticated/performance")({
+  head: () => ({
+    meta: [
+      { title: "Performance Engine — P-Trades Hub" },
+      {
+        name: "description",
+        content: "Trading expectancy in R, win rate, R distribution and a time-of-day heat map for your logged trades.",
+      },
+      { property: "og:title", content: "Performance Engine — P-Trades Hub" },
+      { property: "og:description", content: "R-multiple expectancy analytics for your forex trade log." },
+      { name: "robots", content: "noindex" },
+    ],
+  }),
+  component: PerformancePage,
+});
+
+const DAY_LABELS = ["", "Mon", "Tue", "Wed", "Thu", "Fri"];
+
+function PerformancePage() {
+  const { user } = useAuth();
+  const signals = useQuery(signalsQuery());
+  const trades = useQuery(myTradesQuery(user?.id));
+  const [scope, setScope] = useState<"mine" | "baseline">("mine");
+
+  const mine = useMemo(
+    () => samplesFromTrades(trades.data ?? [], signals.data ?? []),
+    [trades.data, signals.data],
+  );
+  const baseline = useMemo(() => samplesFromSignals(signals.data ?? []), [signals.data]);
+
+  const effectiveScope = scope === "mine" && mine.length === 0 ? "baseline" : scope;
+  const samples = effectiveScope === "mine" ? mine : baseline;
+  const scopeLabel = effectiveScope === "mine" ? "Your trade log" : "The scanner baseline";
+
+  const stats = useMemo(() => computeExpectancy(samples), [samples]);
+  const dist = useMemo(() => rDistribution(samples), [samples]);
+  const cells = useMemo(() => heatMap(samples), [samples]);
+  const byInstrument = useMemo(() => groupBy(samples, (s) => s.instrument), [samples]);
+  const byGrade = useMemo(() => groupBy(samples, (s) => s.grade), [samples]);
+  const insights = useMemo(() => generateInsights(samples, scopeLabel), [samples, scopeLabel]);
+
+  const maxAbs = Math.max(0.01, ...cells.map((c) => Math.abs(c.expectancyR)));
+
+  if (signals.isLoading || trades.isLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-24 w-full" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-end gap-4">
+        <div>
+          <p className="label-xs">Phase 3 · Performance engine</p>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Performance</h1>
+        </div>
+        <div className="ml-auto">
+          <Tabs value={effectiveScope} onValueChange={(v) => setScope(v as "mine" | "baseline")}>
+            <TabsList>
+              <TabsTrigger value="mine">My trade log</TabsTrigger>
+              <TabsTrigger value="baseline">Scanner baseline</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+      </div>
+
+      {scope === "mine" && mine.length === 0 ? (
+        <p className="rounded-md border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
+          You have no closed trades yet, so these numbers show the scanner baseline — every graded setup and how
+          it resolved. Log trades in the feed to see your own expectancy here.
+        </p>
+      ) : null}
+
+      <div className="grid gap-px overflow-hidden rounded-md border border-border bg-border sm:grid-cols-3 lg:grid-cols-6">
+        <Kpi
+          label="Expectancy / trade"
+          value={fmtR(stats.expectancyR)}
+          tone={stats.expectancyR > 0 ? "pos" : stats.expectancyR < 0 ? "neg" : undefined}
+        />
+        <Kpi label="Win rate" value={pct(stats.winRate)} />
+        <Kpi label="Avg win" value={fmtR(stats.avgWinR)} tone="pos" />
+        <Kpi label="Avg loss" value={fmtR(stats.avgLossR)} tone="neg" />
+        <Kpi label="Total R" value={fmtR(stats.totalR)} tone={stats.totalR >= 0 ? "pos" : "neg"} />
+        <Kpi label="Closed setups" value={String(stats.count)} />
+      </div>
+
+      <section className="rounded-md border border-border bg-card p-4">
+        <p className="label-xs flex items-center gap-1.5">
+          <Lightbulb className="size-3.5" /> Generated insights
+        </p>
+        <ul className="mt-3 space-y-2">
+          {insights.map((line, i) => (
+            <li key={i} className="flex gap-2 text-sm leading-relaxed text-foreground/90">
+              <span className="num text-muted-foreground">{String(i + 1).padStart(2, "0")}</span>
+              <span>{line}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <section className="rounded-md border border-border bg-card p-4">
+          <p className="label-xs">R-multiple distribution</p>
+          <div className="mt-4 h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={dist}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+                <XAxis dataKey="bucket" stroke="var(--color-muted-foreground)" fontSize={11} />
+                <YAxis stroke="var(--color-muted-foreground)" fontSize={11} allowDecimals={false} />
+                <Tooltip
+                  contentStyle={{
+                    background: "var(--color-popover)",
+                    border: "1px solid var(--color-border)",
+                    borderRadius: 6,
+                    fontSize: 12,
+                  }}
+                />
+                <Bar dataKey="count" fill="var(--color-chart-1)" radius={[3, 3, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
+
+        <section className="rounded-md border border-border bg-card p-4">
+          <p className="label-xs">Time-of-day heat map · expectancy in R (UTC)</p>
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full border-separate border-spacing-0.5">
+              <thead>
+                <tr>
+                  <th className="label-xs w-10 text-left" />
+                  {Array.from({ length: 8 }, (_, i) => i * 3).map((h) => (
+                    <th key={h} className="label-xs px-1 text-center">
+                      {String(h).padStart(2, "0")}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {[1, 2, 3, 4, 5].map((day) => (
+                  <tr key={day}>
+                    <td className="label-xs pr-1">{DAY_LABELS[day]}</td>
+                    {Array.from({ length: 8 }, (_, i) => i * 3).map((hour) => {
+                      const cell = cells.find((c) => c.dayOfWeek === day && c.hour === hour);
+                      const v = cell?.expectancyR ?? 0;
+                      const alpha = cell && cell.count > 0 ? Math.min(0.85, Math.abs(v) / maxAbs) : 0;
+                      const color = v >= 0 ? "var(--color-success)" : "var(--color-destructive)";
+                      return (
+                        <td key={hour} className="p-0">
+                          <div
+                            title={
+                              cell && cell.count
+                                ? `${DAY_LABELS[day]} ${String(hour).padStart(2, "0")}:00 — ${cell.count} trades, ${fmtR(v)}`
+                                : "No data"
+                            }
+                            className="grid h-9 place-items-center rounded-sm border border-border/60"
+                            style={{ backgroundColor: alpha ? `color-mix(in oklab, ${color} ${alpha * 100}%, transparent)` : undefined }}
+                          >
+                            <span className="num text-[10px] text-foreground/80">
+                              {cell && cell.count ? v.toFixed(1) : ""}
+                            </span>
+                          </div>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <BreakdownTable
+          title="By instrument"
+          rows={byInstrument.map((g) => ({
+            label: `${g.key} · ${INSTRUMENT_LABELS[g.key] ?? ""}`,
+            stats: g.stats,
+          }))}
+        />
+        <BreakdownTable
+          title="By grade tier"
+          rows={byGrade.map((g) => ({ label: `${g.key}-Grade`, stats: g.stats }))}
+        />
+      </div>
+    </div>
+  );
+}
+
+function Kpi({ label, value, tone }: { label: string; value: string; tone?: "pos" | "neg" | undefined }) {
+  return (
+    <div className="bg-card px-4 py-3">
+      <p className="label-xs">{label}</p>
+      <p
+        className={cn(
+          "num mt-1 text-xl font-bold",
+          tone === "pos" ? "text-success" : tone === "neg" ? "text-destructive" : "text-foreground",
+        )}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function BreakdownTable({
+  title,
+  rows,
+}: {
+  title: string;
+  rows: Array<{ label: string; stats: ReturnType<typeof computeExpectancy> }>;
+}) {
+  return (
+    <section className="rounded-md border border-border bg-card">
+      <p className="label-xs border-b border-border px-4 py-3">{title}</p>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-border">
+            {["", "N", "Win%", "Avg win", "Avg loss", "Expectancy"].map((h) => (
+              <th key={h} className="label-xs px-3 py-2 text-right first:text-left">
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.length === 0 ? (
+            <tr>
+              <td colSpan={6} className="px-3 py-6 text-center text-xs text-muted-foreground">
+                No closed results yet.
+              </td>
+            </tr>
+          ) : (
+            rows.map((r) => (
+              <tr key={r.label} className="border-b border-border/60 last:border-0">
+                <td className="num px-3 py-2 text-left text-xs">{r.label}</td>
+                <td className="num px-3 py-2 text-right text-xs">{r.stats.count}</td>
+                <td className="num px-3 py-2 text-right text-xs">{pct(r.stats.winRate)}</td>
+                <td className="num px-3 py-2 text-right text-xs text-success">{fmtR(r.stats.avgWinR)}</td>
+                <td className="num px-3 py-2 text-right text-xs text-destructive">{fmtR(r.stats.avgLossR)}</td>
+                <td
+                  className={cn(
+                    "num px-3 py-2 text-right text-xs font-semibold",
+                    r.stats.expectancyR >= 0 ? "text-success" : "text-destructive",
+                  )}
+                >
+                  {fmtR(r.stats.expectancyR)}
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </section>
+  );
+}
