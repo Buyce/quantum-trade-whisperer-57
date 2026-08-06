@@ -38,6 +38,8 @@ export const Route = createFileRoute("/_authenticated/performance")({
 });
 
 const DAY_LABELS = ["", "Mon", "Tue", "Wed", "Thu", "Fri"];
+const GRADE_TIERS = ["A+", "A", "B", "C"] as const;
+
 
 function PerformancePage() {
   const { user } = useAuth();
