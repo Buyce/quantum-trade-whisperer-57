@@ -220,7 +220,9 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
 
     return await finish("published", `${profile.grade}-grade ${profile.direction}`);
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = describeError(err);
+    console.error(`[pipeline] ${job.instrument} failed:`, message);
+
     if (err instanceof MetaApiTimeoutError || err instanceof MetaApiNotConfiguredError) {
       // Graceful abort: flag the instrument, skip it, let the next job run.
       await flagInstrument(db, job.instrument, message);
