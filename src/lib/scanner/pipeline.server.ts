@@ -142,10 +142,6 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
   };
 
   try {
-    if ((await countToday(db)) >= DEFAULT_DAILY_SETUP_CAP) {
-      return await finish("capped", `Daily cap of ${DEFAULT_DAILY_SETUP_CAP} setups already reached`);
-    }
-
     // Sequential per-timeframe fetch keeps peak memory to one candle series.
     const candles = {} as Record<Timeframe, Candle[]>;
     for (const tf of TIMEFRAMES) {
@@ -155,6 +151,12 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
 
     const profile = buildTradeProfile({ instrument: job.instrument, candles: candles });
     if (!profile) return await finish("no_trade", "No structure satisfied the ABC grading rules");
+
+    // Cap is evaluated after grading: C-Grade bypasses the daily quota entirely.
+    if (CAPPED_GRADES.includes(profile.grade) && (await countToday(db)) >= DEFAULT_DAILY_SETUP_CAP) {
+      return await finish("capped", `Daily cap of ${DEFAULT_DAILY_SETUP_CAP} setups already reached`);
+    }
+
 
     const now = new Date();
     const m15Atr = profile.atr;
