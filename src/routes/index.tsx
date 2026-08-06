@@ -1,6 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Activity, BarChart3, ShieldCheck, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import ptradesMark from "@/assets/ptrades-mark.png.asset.json";
+
 
 export const Route = createFileRoute("/")({
   head: () => ({
