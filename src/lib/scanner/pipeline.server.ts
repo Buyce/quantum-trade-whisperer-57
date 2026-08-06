@@ -50,32 +50,60 @@ async function countToday(db: SupabaseClient) {
   return count ?? 0;
 }
 
+/** Serialize thrown values — Supabase/PostgREST errors are plain objects, not Errors. */
+export function describeError(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (err && typeof err === "object") {
+    const e = err as { message?: string; code?: string; details?: string; hint?: string };
+    const parts = [
+      e.code ? `[${e.code}]` : null,
+      e.message ?? null,
+      e.details ?? null,
+      e.hint ? `hint: ${e.hint}` : null,
+    ].filter(Boolean);
+    if (parts.length) return parts.join(" ");
+    try {
+      return JSON.stringify(err);
+    } catch {
+      return "Unserializable error object";
+    }
+  }
+  return String(err);
+}
+
+async function writeHealth(
+  db: SupabaseClient,
+  row: {
+    instrument: string;
+    available: boolean;
+    last_error: string | null;
+    unavailable_until: string | null;
+  },
+) {
+  const { error } = await db
+    .from("instrument_health")
+    .upsert({ ...row, updated_at: new Date().toISOString() }, { onConflict: "instrument" });
+  if (error) console.error("[pipeline] instrument_health write failed:", describeError(error));
+}
+
 async function flagInstrument(db: SupabaseClient, instrument: string, message: string) {
-  const until = new Date(Date.now() + 30 * 60_000).toISOString();
-  await db.from("instrument_health").upsert(
-    {
-      instrument,
-      available: false,
-      last_error: message.slice(0, 500),
-      unavailable_until: until,
-      checked_at: new Date().toISOString(),
-    },
-    { onConflict: "instrument" },
-  );
+  await writeHealth(db, {
+    instrument,
+    available: false,
+    last_error: message.slice(0, 500),
+    unavailable_until: new Date(Date.now() + 30 * 60_000).toISOString(),
+  });
 }
 
 async function clearInstrument(db: SupabaseClient, instrument: string) {
-  await db.from("instrument_health").upsert(
-    {
-      instrument,
-      available: true,
-      last_error: null,
-      unavailable_until: null,
-      checked_at: new Date().toISOString(),
-    },
-    { onConflict: "instrument" },
-  );
+  await writeHealth(db, {
+    instrument,
+    available: true,
+    last_error: null,
+    unavailable_until: null,
+  });
 }
+
 
 export interface JobResult {
   jobId: string;
