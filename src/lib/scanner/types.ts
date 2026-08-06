@@ -89,5 +89,11 @@ export const CONFIDENCE_WEIGHTS = {
   volatilityExpansion: 0.2,
 } as const;
 
-/** Maximum number of published setups per calendar day (No-Trade philosophy). */
-export const DEFAULT_DAILY_SETUP_CAP = 15;
+/**
+ * Maximum number of published setups per calendar day (No-Trade philosophy).
+ * C-Grade setups do NOT consume this quota — only A+, A and B count.
+ */
+export const DEFAULT_DAILY_SETUP_CAP = 30;
+
+/** Grades that deduct from the daily setup quota. */
+export const CAPPED_GRADES: Grade[] = ["A+", "A", "B"];
