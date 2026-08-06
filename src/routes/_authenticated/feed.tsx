@@ -57,8 +57,15 @@ function FeedPage() {
     const channel = supabase
       .channel("scanned-signals-feed")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "scanned_signals" }, (payload) => {
-        const row = payload.new as { instrument?: string; grade?: string };
-        toast.info(`New ${row.grade ?? ""}-Grade setup on ${row.instrument ?? "market"}`);
+        const row = payload.new as { instrument?: string; grade?: string; direction?: string };
+        const title = `New ${row.grade ?? ""}-Grade setup on ${row.instrument ?? "market"}`;
+        toast.info(title);
+        if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+          new Notification("P-Trades Hub", {
+            body: `${title}${row.direction ? ` · ${row.direction.toUpperCase()}` : ""}`,
+            tag: "ptrades-signal",
+          });
+        }
         void queryClient.invalidateQueries({ queryKey: ["signals"] });
       })
       .subscribe();

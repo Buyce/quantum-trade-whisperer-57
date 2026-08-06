@@ -186,7 +186,12 @@ function SettingsPage() {
           title="Browser & Android push"
           desc="Fires when a new signal that passes your filters is inserted by the scanner."
           checked={push}
-          onChange={setPush}
+          onChange={(v) => {
+            setPush(v);
+            if (v && typeof Notification !== "undefined" && Notification.permission === "default") {
+              void Notification.requestPermission();
+            }
+          }}
         />
         <Row
           id="notify-email"
