@@ -5,6 +5,7 @@ Feasible with no schema restructuring — one small migration for the default, p
 ## 1. Daily cap: 15 → 30
 
 - Migration: change the `scanner_settings.daily_setup_cap` column default to 30, and update existing rows still sitting at 15 so current users get the new limit.
+- Same migration adds `alert_min_grade` (signal_grade, default `B`) to `scanner_settings`, separate from the existing `min_grade` feed filter.
 - Scanner constant `DEFAULT_DAILY_SETUP_CAP` in `src/lib/scanner/types.ts`: 15 → 30.
 - Frontend fallbacks: Settings form initial state (`useState(15)`) and the feed's `cfg?.daily_setup_cap ?? 15` both become 30.
 
@@ -14,10 +15,13 @@ Feasible with no schema restructuring — one small migration for the default, p
 - The cap gate runs before grading, so it moves to after the trade profile is built: if the graded setup is C, publish it regardless of the count; if it is B or better, apply the 30 cap. Cap message and `capped` job result stay as-is.
 - Feed "Setups today" counter mirrors this: counts only A+/A/B against the cap, so the number on screen matches the scanner's quota. C-Grade signals still render in the feed list.
 
-## 3. C-Grade alerts muted
+## 3. User-configurable alert threshold (no server-side C mute)
 
-- `src/lib/scanner/alerts.server.ts`: return early for C-Grade before the recipient fan-out, so no transactional email is sent even when a user's minimum grade is C and email alerts are on.
-- Browser/Android push: the realtime handler in `src/routes/_authenticated/feed.tsx` fires a `Notification` on every insert — gate it to B-Grade and above.
+- Settings page gains an "Alert minimum grade" control in the Alerts block: `A+ only`, `A and above`, `B and above`, `C and above`, saved to `alert_min_grade` and independent of the feed's minimum-grade filter.
+- `scannerSettingsQuery` in `src/lib/queries.ts` and the `ScannerSettingsRow` type in `src/lib/db-types.ts` select/expose the new column.
+- `src/lib/scanner/alerts.server.ts`: fan-out reads `alert_min_grade` (falling back to `B` when unset) and compares the signal's grade rank against it — no hardcoded C exclusion. A user on "C and above" receives C-grade emails.
+- Browser/Android push in `src/routes/_authenticated/feed.tsx`: the realtime insert handler checks the inserted signal's grade against the same saved threshold before firing a `Notification`.
+
 
 ## 4. Global KPIs exclude C-Grade
 
