@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { GuideModeToggle } from "@/components/GuideMode";
 import ptradesMark from "@/assets/ptrades-mark.png.asset.json";
 
 
