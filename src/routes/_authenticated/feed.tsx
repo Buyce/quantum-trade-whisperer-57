@@ -162,7 +162,7 @@ function FeedPage() {
 
         <div className="ml-auto flex flex-wrap items-center gap-4">
           <div className="rounded-md border border-border bg-card px-3 py-2">
-            <p className="label-xs">Setups today</p>
+            <p className="label-xs">Setups today · A+/A/B</p>
             <p className="num text-sm font-semibold">
               <span className={cn(todayCount >= cap ? "text-destructive" : "text-foreground")}>{todayCount}</span>
               <span className="text-muted-foreground"> / {cap}</span>
