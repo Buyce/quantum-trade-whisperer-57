@@ -157,7 +157,7 @@ function PerformancePage() {
 
 
       <section className="rounded-md border border-border bg-card p-4">
-        <p className="label-xs flex items-center gap-1.5">
+        <h2 className="label-xs flex items-center gap-1.5">
           <Lightbulb className="size-3.5" /> Generated insights
         </h2>
         <ul className="mt-3 space-y-2">
