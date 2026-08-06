@@ -109,6 +109,7 @@ function FeedPage() {
 
   const cap = cfg?.daily_setup_cap ?? 15;
   const unavailable = (health.data ?? []).filter((h) => !h.available);
+  const lastScanAt = (health.data ?? []).find((h) => h.instrument === "XAUUSD")?.updated_at ?? null;
 
   async function decide(signalId: string, decision: "taken" | "skipped") {
     if (!user) return;
@@ -243,6 +244,9 @@ function FeedPage() {
               error — the scanner only publishes structures that pass the ABC rules.
             </p>
           )}
+          <div className="mt-6">
+            <ScanHeartbeat lastScanAt={lastScanAt} />
+          </div>
         </div>
       ) : (
         <div className="space-y-4">
