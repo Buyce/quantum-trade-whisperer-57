@@ -47,7 +47,8 @@ function SettingsPage() {
   const [timeframes, setTimeframes] = useState<string[]>([...ALL_TIMEFRAMES]);
   const [sessions, setSessions] = useState<string[]>([...ALL_SESSIONS]);
   const [minGrade, setMinGrade] = useState<Grade>("C");
-  const [cap, setCap] = useState(15);
+  const [alertMinGrade, setAlertMinGrade] = useState<Grade>("B");
+  const [cap, setCap] = useState(30);
   const [push, setPush] = useState(true);
   const [email, setEmail] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -81,6 +82,7 @@ function SettingsPage() {
     setTimeframes(s.timeframes);
     setSessions(s.sessions);
     setMinGrade(s.min_grade);
+    setAlertMinGrade(s.alert_min_grade ?? "B");
     setCap(s.daily_setup_cap);
     setPush(s.notify_push);
     setEmail(s.notify_email);
@@ -100,6 +102,7 @@ function SettingsPage() {
         timeframes,
         sessions,
         min_grade: minGrade,
+        alert_min_grade: alertMinGrade,
         daily_setup_cap: cap,
         notify_push: push,
         notify_email: email,
@@ -235,13 +238,14 @@ function SettingsPage() {
               id="cap"
               type="number"
               min={1}
-              max={15}
+              max={30}
               className="num mt-2"
               value={cap}
-              onChange={(e) => setCap(Math.max(1, Math.min(15, Number(e.target.value) || 1)))}
+              onChange={(e) => setCap(Math.max(1, Math.min(30, Number(e.target.value) || 1)))}
             />
             <p className="mt-1 text-xs text-muted-foreground">
-              Hard ceiling is 15/day. The engine defaults to No Trade rather than filling the quota.
+              Hard ceiling is 30/day and only A+, A and B setups deduct from it — C-Grade publishes outside the
+              quota. The engine defaults to No Trade rather than filling the cap.
             </p>
           </div>
         </div>
@@ -249,10 +253,30 @@ function SettingsPage() {
 
       <section className="space-y-4 rounded-md border border-border bg-card p-4">
         <p className="label-xs">Alerts</p>
+        <div>
+          <Label className="text-xs" htmlFor="alert-min-grade">
+            Alert minimum grade
+          </Label>
+          <Select value={alertMinGrade} onValueChange={(v) => setAlertMinGrade(v as Grade)}>
+            <SelectTrigger id="alert-min-grade" className="mt-2 sm:max-w-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="A+">A+ only</SelectItem>
+              <SelectItem value="A">A and above</SelectItem>
+              <SelectItem value="B">B and above</SelectItem>
+              <SelectItem value="C">C and above</SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Which tiers may trigger push and email alerts. Independent of your feed minimum grade — set it to
+            “C and above” if you want to be alerted on every tier.
+          </p>
+        </div>
         <Row
           id="notify-push"
           title="Browser & Android push"
-          desc="Fires when a new signal that passes your filters is inserted by the scanner."
+          desc="Fires when a new signal at or above your alert minimum grade is inserted by the scanner."
           checked={push}
           onChange={(v) => {
             setPush(v);
@@ -269,6 +293,7 @@ function SettingsPage() {
           onChange={setEmail}
         />
       </section>
+
 
       <section className="space-y-3 rounded-md border border-border bg-card p-4">
         <p className="label-xs">Sender domain · getptrades.com</p>

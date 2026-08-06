@@ -31,7 +31,7 @@ function fmt(v: number) {
 export async function sendSignalAlerts(db: SupabaseClient, signal: AlertSignal) {
   const { data: rows, error } = await db
     .from("scanner_settings")
-    .select("user_id, instruments, sessions, min_grade, notify_email")
+    .select("user_id, instruments, sessions, alert_min_grade, notify_email")
     .eq("notify_email", true);
   if (error || !rows?.length) return;
 
@@ -41,11 +41,13 @@ export async function sendSignalAlerts(db: SupabaseClient, signal: AlertSignal) 
     user_id: string;
     instruments: string[] | null;
     sessions: string[] | null;
-    min_grade: string | null;
+    alert_min_grade: string | null;
     }>) {
     if (row.instruments?.length && !row.instruments.includes(signal.instrument)) continue;
     if (row.sessions?.length && !row.sessions.includes(signal.session)) continue;
-    if (signalRank < (GRADE_RANK[row.min_grade ?? "C"] ?? 1)) continue;
+    // Per-user alert threshold — no hardcoded grade muting.
+    if (signalRank < (GRADE_RANK[row.alert_min_grade ?? "B"] ?? 2)) continue;
+
 
     try {
       const { data: userRes } = await db.auth.admin.getUserById(row.user_id);

@@ -56,15 +56,24 @@ function FeedPage() {
   const [applyFilters, setApplyFilters] = useState(true);
   const [openOnly, setOpenOnly] = useState(false);
 
+  // Per-user alert threshold, independent of the feed filter.
+  const alertMinGrade: Grade = settings.data?.alert_min_grade ?? "B";
+
   // Realtime: new scanner output pushes straight into the feed.
   useEffect(() => {
     const channel = supabase
       .channel("scanned-signals-feed")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "scanned_signals" }, (payload) => {
-        const row = payload.new as { instrument?: string; grade?: string; direction?: string };
+        const row = payload.new as { instrument?: string; grade?: Grade; direction?: string };
         const title = `New ${row.grade === "A+" ? "A+" : `${row.grade ?? ""}-`}Grade setup on ${row.instrument ?? "market"}`;
         toast.info(title);
-        if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+        const rank = row.grade ? (GRADE_ORDER[row.grade] ?? 0) : 0;
+        const meetsAlertThreshold = rank >= GRADE_ORDER[alertMinGrade];
+        if (
+          meetsAlertThreshold &&
+          typeof Notification !== "undefined" &&
+          Notification.permission === "granted"
+        ) {
           new Notification("P-Trades Hub", {
             body: `${title}${row.direction ? ` · ${row.direction.toUpperCase()}` : ""}`,
             tag: "ptrades-signal",
@@ -76,7 +85,8 @@ function FeedPage() {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [queryClient]);
+  }, [queryClient, alertMinGrade]);
+
 
   const tradeBySignal = useMemo(() => {
     const map = new Map<string, TradeRow>();
@@ -101,13 +111,16 @@ function FeedPage() {
     return rows;
   }, [signals.data, applyFilters, cfg, openOnly]);
 
+  // Only A+/A/B consume the daily quota — C-Grade publishes outside the cap.
   const todayCount = useMemo(() => {
     const start = new Date();
     start.setHours(0, 0, 0, 0);
-    return (signals.data ?? []).filter((s) => new Date(s.detected_at) >= start).length;
+    return (signals.data ?? []).filter(
+      (s) => new Date(s.detected_at) >= start && s.grade !== "C",
+    ).length;
   }, [signals.data]);
 
-  const cap = cfg?.daily_setup_cap ?? 15;
+  const cap = cfg?.daily_setup_cap ?? 30;
   const unavailable = (health.data ?? []).filter((h) => !h.available);
   const lastScanAt = (health.data ?? []).find((h) => h.instrument === "XAUUSD")?.updated_at ?? null;
 
@@ -149,7 +162,7 @@ function FeedPage() {
 
         <div className="ml-auto flex flex-wrap items-center gap-4">
           <div className="rounded-md border border-border bg-card px-3 py-2">
-            <p className="label-xs">Setups today</p>
+            <p className="label-xs">Setups today · A+/A/B</p>
             <p className="num text-sm font-semibold">
               <span className={cn(todayCount >= cap ? "text-destructive" : "text-foreground")}>{todayCount}</span>
               <span className="text-muted-foreground"> / {cap}</span>

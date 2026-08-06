@@ -51,7 +51,7 @@ export function settingsQuery(userId: string | undefined) {
     queryFn: async (): Promise<ScannerSettingsRow | null> => {
       const { data, error } = await supabase
         .from("scanner_settings" as never)
-        .select("user_id, instruments, timeframes, sessions, min_grade, daily_setup_cap, notify_push, notify_email")
+        .select("user_id, instruments, timeframes, sessions, min_grade, alert_min_grade, daily_setup_cap, notify_push, notify_email")
         .maybeSingle();
       if (error) throw error;
       return (data ?? null) as unknown as ScannerSettingsRow | null;
