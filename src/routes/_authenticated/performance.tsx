@@ -19,6 +19,7 @@ import {
 } from "@/lib/performance";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { InfoLabel } from "@/components/GuideMode";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/performance")({
