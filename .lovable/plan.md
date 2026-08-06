@@ -33,5 +33,5 @@ Feasible with no schema restructuring — one small migration for the default, p
 
 - No changes to grading, MetaApi fetching, or queue mechanics; C setups are still detected, stored, and shown.
 - Cap enforcement stays central (scanner-side, `DEFAULT_DAILY_SETUP_CAP`); per-user `daily_setup_cap` remains a display/filter value as today.
-- Files touched: migration, `src/lib/scanner/types.ts`, `src/lib/scanner/pipeline.server.ts`, `src/lib/scanner/alerts.server.ts`, `src/routes/_authenticated/feed.tsx`, `src/routes/_authenticated/performance.tsx`, `src/routes/_authenticated/settings.tsx`.
+- Files touched: migration, `src/lib/scanner/types.ts`, `src/lib/scanner/pipeline.server.ts`, `src/lib/scanner/alerts.server.ts`, `src/lib/queries.ts`, `src/lib/db-types.ts`, `src/routes/_authenticated/feed.tsx`, `src/routes/_authenticated/performance.tsx`, `src/routes/_authenticated/settings.tsx`.
 - Zero-Hallucination rule respected: no seeds, no placeholder rows; empty states unchanged.
