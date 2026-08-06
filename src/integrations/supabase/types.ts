@@ -296,6 +296,7 @@ export type Database = {
       }
       scanner_settings: {
         Row: {
+          alert_min_grade: Database["public"]["Enums"]["signal_grade"]
           created_at: string
           daily_setup_cap: number
           instruments: string[]
@@ -308,6 +309,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          alert_min_grade?: Database["public"]["Enums"]["signal_grade"]
           created_at?: string
           daily_setup_cap?: number
           instruments?: string[]
@@ -320,6 +322,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          alert_min_grade?: Database["public"]["Enums"]["signal_grade"]
           created_at?: string
           daily_setup_cap?: number
           instruments?: string[]
