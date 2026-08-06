@@ -210,7 +210,12 @@ export type Database = {
           id: string
           instrument: string
           m15_bias: string | null
+          p_momentum: number | null
+          p_order_block: number | null
+          p_trend: number | null
+          p_volatility_expansion: number | null
           pattern_symmetry: number
+          pillars_passed: number | null
           qualitative_breakdown: string
           resolved_outcome: Database["public"]["Enums"]["trade_outcome"]
           resolved_r_multiple: number | null
@@ -238,7 +243,12 @@ export type Database = {
           id?: string
           instrument: string
           m15_bias?: string | null
+          p_momentum?: number | null
+          p_order_block?: number | null
+          p_trend?: number | null
+          p_volatility_expansion?: number | null
           pattern_symmetry?: number
+          pillars_passed?: number | null
           qualitative_breakdown?: string
           resolved_outcome?: Database["public"]["Enums"]["trade_outcome"]
           resolved_r_multiple?: number | null
@@ -266,7 +276,12 @@ export type Database = {
           id?: string
           instrument?: string
           m15_bias?: string | null
+          p_momentum?: number | null
+          p_order_block?: number | null
+          p_trend?: number | null
+          p_volatility_expansion?: number | null
           pattern_symmetry?: number
+          pillars_passed?: number | null
           qualitative_breakdown?: string
           resolved_outcome?: Database["public"]["Enums"]["trade_outcome"]
           resolved_r_multiple?: number | null
