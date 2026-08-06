@@ -6,7 +6,7 @@ import { TEMPLATES } from './registry'
 // Server-only: reads LOVABLE_API_KEY. Never import from client components.
 
 // Configuration baked in at scaffold time
-const SITE_NAME = "quantum-trade-whisperer-57"
+const SITE_NAME = "P-Trades Hub"
 // SENDER_DOMAIN is the verified sender subdomain FQDN (e.g., "notify.example.com").
 // It MUST match the subdomain delegated to Lovable's nameservers. NEVER use the root domain.
 const SENDER_DOMAIN = "notify.getptrades.com"
@@ -77,7 +77,7 @@ export async function sendTemplateEmail(
         purpose: 'transactional',
         label: templateName,
         idempotency_key: options.idempotencyKey || crypto.randomUUID(),
-        reply_to: options.replyTo,
+        ...(options.replyTo ? { reply_to: options.replyTo } : {}),
       },
       { apiKey, sendUrl: process.env['LOVABLE_SEND_URL'] }
     )
