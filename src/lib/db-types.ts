@@ -65,10 +65,15 @@ export interface ScannerSettingsRow {
   timeframes: string[];
   sessions: string[];
   min_grade: Grade;
+  /** Independent alert threshold — which tiers may trigger push/email alerts. */
+  alert_min_grade: Grade;
   daily_setup_cap: number;
   notify_push: boolean;
   notify_email: boolean;
 }
+
+export const GRADE_RANK: Record<Grade, number> = { "A+": 4, A: 3, B: 2, C: 1 };
+
 
 export const SESSION_LABELS: Record<string, string> = {
   sydney: "Sydney",
