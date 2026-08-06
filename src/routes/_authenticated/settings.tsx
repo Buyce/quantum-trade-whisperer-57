@@ -31,9 +31,8 @@ export const Route = createFileRoute("/_authenticated/settings")({
 });
 
 const DNS_RECORDS = [
-  { type: "TXT", name: "_lovable", value: "lovable_verify=<value shown in Cloud → Emails>" },
-  { type: "NS", name: "notify", value: "ns1.lovable.cloud (exact host shown in Cloud → Emails)" },
-  { type: "NS", name: "notify", value: "ns2.lovable.cloud (exact host shown in Cloud → Emails)" },
+  { type: "NS", name: "notify", value: "ns3.lovable.cloud" },
+  { type: "NS", name: "notify", value: "ns4.lovable.cloud" },
 ];
 
 function SettingsPage() {
