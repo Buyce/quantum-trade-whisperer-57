@@ -15,6 +15,7 @@ import {
 } from "@/lib/queries";
 import { contextOf, type Grade, type SignalRow, type TradeRow } from "@/lib/db-types";
 import { SignalCard } from "@/components/SignalCard";
+import { MarketTicker, ScanHeartbeat } from "@/components/MarketTicker";
 import { OnboardingBanner } from "@/components/OnboardingBanner";
 import { useGuideMode } from "@/components/GuideMode";
 import { Button } from "@/components/ui/button";
