@@ -218,11 +218,30 @@ function FeedPage() {
         </p>
       ) : visible.length === 0 ? (
         <div className="rounded-md border border-border bg-card px-6 py-16 text-center">
-          <p className="num text-lg font-semibold text-foreground">NO TRADE</p>
-          <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-            No setup currently satisfies your grading and session filters. This is the system default, not an
-            error — the scanner only publishes structures that pass the ABC rules.
+          <p className="num text-lg font-semibold text-foreground">
+            {guide ? "CAPITAL PRESERVATION MODE" : "NO TRADE"}
           </p>
+          {guide ? (
+            <div className="mx-auto mt-3 max-w-lg space-y-3 text-sm text-muted-foreground">
+              <p>
+                Nothing here means nothing qualified — and that is a result, not a failure. The scanner keeps
+                your capital flat until a setup earns its place.
+              </p>
+              <p>
+                It re-checks XAUUSD, GBPAUD and EURUSD every 15 minutes. New setups appear here automatically,
+                so you can close the tab and come back later.
+              </p>
+              <p className="text-xs">
+                Waiting too long? Loosen the minimum grade or add sessions in Settings, or turn off "My settings
+                filter" above to see everything the scanner published.
+              </p>
+            </div>
+          ) : (
+            <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+              No setup currently satisfies your grading and session filters. This is the system default, not an
+              error — the scanner only publishes structures that pass the ABC rules.
+            </p>
+          )}
         </div>
       ) : (
         <div className="space-y-4">
