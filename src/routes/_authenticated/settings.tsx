@@ -126,6 +126,49 @@ function SettingsPage() {
         </p>
       </div>
 
+      <section className="space-y-3 rounded-md border border-border bg-card p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="label-xs">Scanner diagnostics</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              The scan runs automatically every 15 minutes. Run it on demand to verify the pipeline end to end.
+            </p>
+          </div>
+          <Button variant="outline" onClick={onRunScanNow} disabled={scanning}>
+            <RefreshCw className={cn("mr-2 h-4 w-4", scanning && "animate-spin")} />
+            {scanning ? "Scanning…" : "Run scan now"}
+          </Button>
+        </div>
+
+        {scanReport && (
+          <div className="space-y-1 rounded border border-border bg-background p-3 font-mono text-xs">
+            <p className="text-muted-foreground">
+              run {scanReport.runId.slice(0, 8)} · {scanReport.enqueued} enqueued
+            </p>
+            {scanReport.processed.length === 0 && <p className="text-muted-foreground">No jobs processed.</p>}
+            {scanReport.processed.map((p, i) => (
+              <p key={`${p.instrument}-${i}`}>
+                <span className="text-foreground">{p.instrument}</span>{" "}
+                <span
+                  className={cn(
+                    p.status === "failed"
+                      ? "text-destructive"
+                      : p.status === "published"
+                        ? "text-emerald-400"
+                        : "text-muted-foreground",
+                  )}
+                >
+                  {p.status}
+                </span>
+                {p.detail ? <span className="text-muted-foreground"> — {p.detail}</span> : null}
+              </p>
+            ))}
+          </div>
+        )}
+      </section>
+
+
+
       <section className="space-y-5 rounded-md border border-border bg-card p-4">
         <p className="label-xs">Feed filters</p>
 
