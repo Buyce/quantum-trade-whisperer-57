@@ -12,6 +12,8 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { GuideModeProvider } from "@/components/GuideMode";
 import { supabase } from "@/integrations/supabase/client";
 
 function NotFoundComponent() {
@@ -133,8 +135,12 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
+      <TooltipProvider delayDuration={150}>
+        <GuideModeProvider>
+          {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+          <Outlet />
+        </GuideModeProvider>
+      </TooltipProvider>
       <Toaster />
     </QueryClientProvider>
   );

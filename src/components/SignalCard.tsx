@@ -1,8 +1,10 @@
-import { ArrowDownRight, ArrowUpRight, Check, X } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Check, Copy, X } from "lucide-react";
+import { toast } from "sonner";
 import { contextOf, INSTRUMENT_LABELS, SESSION_LABELS, type SignalRow, type TradeRow } from "@/lib/db-types";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { InfoLabel, useGuideMode } from "@/components/GuideMode";
 
 const GRADE_STYLES: Record<string, string> = {
   "A+": "bg-grade-aplus/15 text-grade-aplus border-grade-aplus/50",
@@ -45,6 +47,29 @@ export function SignalCard({
   const ctx = contextOf(signal);
   const long = signal.direction === "long";
   const conf = Number(signal.confidence_score);
+  const { guide } = useGuideMode();
+  const orderType = long ? "BUY LIMIT" : "SELL LIMIT";
+
+  async function copyOrder() {
+    const p = (v: number) => price(v, signal.instrument);
+    const text = [
+      `${signal.instrument} — ${orderType} (${long ? "LONG" : "SHORT"})`,
+      `Entry:      ${p(signal.entry_price)}`,
+      `Stop-loss:  ${p(signal.stop_loss)}`,
+      `TP1 (1:1):  ${p(signal.tp1)}`,
+      `TP2 (1:2):  ${p(signal.tp2)}`,
+      `TP3 (1:3):  ${p(signal.tp3)}`,
+      `R:R:        ${Number(signal.rr_ratio).toFixed(2)}`,
+      `Confidence: ${conf.toFixed(1)}%  ·  Grade ${signal.grade}`,
+      `Not financial advice — size the position yourself.`,
+    ].join("\n");
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Order details copied");
+    } catch {
+      toast.error("Clipboard blocked by your browser");
+    }
+  }
 
   return (
     <article className="rounded-md border border-border bg-card">
@@ -63,7 +88,7 @@ export function SignalCard({
           )}
         >
           {long ? <ArrowUpRight className="size-3.5" /> : <ArrowDownRight className="size-3.5" />}
-          {long ? "LONG" : "SHORT"}
+          {guide ? `${orderType} (${long ? "LONG" : "SHORT"})` : long ? "LONG" : "SHORT"}
         </span>
         {ctx ? (
           <Badge variant="outline" className="num text-xs font-normal">
@@ -81,13 +106,42 @@ export function SignalCard({
       </div>
 
       <div className="grid gap-px bg-border sm:grid-cols-3 lg:grid-cols-6">
-        <Metric label="Entry (M15 break)" value={price(signal.entry_price, signal.instrument)} />
-        <Metric label="Stop-loss" value={price(signal.stop_loss, signal.instrument)} tone="short" />
-        <Metric label="TP1 · 1:1" value={price(signal.tp1, signal.instrument)} tone="long" />
-        <Metric label="TP2 · 1:2" value={price(signal.tp2, signal.instrument)} tone="long" />
-        <Metric label="TP3 · 1:3" value={price(signal.tp3, signal.instrument)} tone="long" />
-        <Metric label="R:R" value={`${Number(signal.rr_ratio).toFixed(2)}`} />
+        <Metric
+          label="Entry (M15 break)"
+          hint="The price to place your pending order at — where the 15-minute chart broke structure."
+          value={price(signal.entry_price, signal.instrument)}
+        />
+        <Metric
+          label="Stop-loss"
+          hint="Where the plan is wrong. Place this order with the trade: it caps the loss at 1R."
+          value={price(signal.stop_loss, signal.instrument)}
+          tone="short"
+        />
+        <Metric
+          label="TP1 · 1:1"
+          hint="First take-profit. Closing here returns the same amount you risked (+1R)."
+          value={price(signal.tp1, signal.instrument)}
+          tone="long"
+        />
+        <Metric
+          label="TP2 · 1:2"
+          hint="Second take-profit — twice what you risked (+2R)."
+          value={price(signal.tp2, signal.instrument)}
+          tone="long"
+        />
+        <Metric
+          label="TP3 · 1:3"
+          hint="Final take-profit — three times what you risked (+3R)."
+          value={price(signal.tp3, signal.instrument)}
+          tone="long"
+        />
+        <Metric
+          label="R:R"
+          hint="Risk-to-reward: how much this setup can win compared to what it risks. Higher is better."
+          value={`${Number(signal.rr_ratio).toFixed(2)}`}
+        />
       </div>
+
 
       <div className="grid gap-4 border-t border-border px-4 py-4 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div>
@@ -103,14 +157,22 @@ export function SignalCard({
 
         <div>
           <div className="flex items-baseline justify-between">
-            <p className="label-xs">Confidence</p>
+            <p className="label-xs">
+              <InfoLabel hint="How strongly this setup matched the model's rules. It is a quality score, not a probability of profit.">
+                Confidence
+              </InfoLabel>
+            </p>
             <span className="num text-xl font-bold text-primary">{conf.toFixed(1)}%</span>
           </div>
           <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
             <div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(100, conf)}%` }} />
           </div>
           <div className="mt-3 flex items-baseline justify-between">
-            <p className="label-xs">Confluence pillars</p>
+            <p className="label-xs">
+              <InfoLabel hint="Four independent checks the setup must satisfy. All four passing is what earns the A+ tier.">
+                Confluence pillars
+              </InfoLabel>
+            </p>
             <span className="num text-xs text-muted-foreground">
               {signal.pillars_passed ?? "—"}/4 passed
             </span>
@@ -142,6 +204,9 @@ export function SignalCard({
       </div>
 
       <div className="flex flex-wrap items-center gap-2 border-t border-border bg-surface/50 px-4 py-3">
+        <Button size="sm" variant="outline" onClick={() => void copyOrder()}>
+          <Copy className="size-4" /> Copy order details
+        </Button>
         {!trade ? (
           <>
             <Button size="sm" disabled={busy} onClick={() => onDecision("taken")}>
@@ -151,7 +216,9 @@ export function SignalCard({
               <X className="size-4" /> Log as Skipped
             </Button>
             <span className="ml-auto text-xs text-muted-foreground">
-              No-Trade is the default. Nothing here is an instruction to execute.
+              {guide
+                ? "You decide whether to trade. Logging it here only records your choice — it never places an order."
+                : "No-Trade is the default. Nothing here is an instruction to execute."}
             </span>
           </>
         ) : (
@@ -208,10 +275,20 @@ export function SignalCard({
   );
 }
 
-function Metric({ label, value, tone }: { label: string; value: string; tone?: "long" | "short" }) {
+function Metric({
+  label,
+  value,
+  tone,
+  hint,
+}: {
+  label: string;
+  value: string;
+  tone?: "long" | "short";
+  hint?: string;
+}) {
   return (
     <div className="bg-card px-4 py-3">
-      <p className="label-xs">{label}</p>
+      <p className="label-xs">{hint ? <InfoLabel hint={hint}>{label}</InfoLabel> : label}</p>
       <p
         className={cn(
           "num mt-1 text-sm font-semibold",

@@ -19,6 +19,7 @@ import {
 } from "@/lib/performance";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { InfoLabel } from "@/components/GuideMode";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/performance")({
@@ -110,14 +111,38 @@ function PerformancePage() {
       <div className="grid gap-px overflow-hidden rounded-md border border-border bg-border sm:grid-cols-3 lg:grid-cols-6">
         <Kpi
           label="Expectancy / trade"
+          hint="What one average setup is worth in R. +0.30R means every trade adds 0.3× your risk over the long run."
           value={fmtR(stats.expectancyR)}
           tone={stats.expectancyR > 0 ? "pos" : stats.expectancyR < 0 ? "neg" : undefined}
         />
-        <Kpi label="Win rate" value={pct(stats.winRate)} />
-        <Kpi label="Avg win" value={fmtR(stats.avgWinR)} tone="pos" />
-        <Kpi label="Avg loss" value={fmtR(stats.avgLossR)} tone="neg" />
-        <Kpi label="Total R" value={fmtR(stats.totalR)} tone={stats.totalR >= 0 ? "pos" : "neg"} />
-        <Kpi label="Closed setups" value={String(stats.count)} />
+        <Kpi
+          label="Win rate"
+          hint="Share of closed setups that finished profitable. A low win rate can still be profitable if wins are large."
+          value={pct(stats.winRate)}
+        />
+        <Kpi
+          label="Avg win"
+          hint="Average size of a winning trade in R — multiples of the amount you risked."
+          value={fmtR(stats.avgWinR)}
+          tone="pos"
+        />
+        <Kpi
+          label="Avg loss"
+          hint="Average size of a losing trade in R. Respecting the stop-loss keeps this near −1R."
+          value={fmtR(stats.avgLossR)}
+          tone="neg"
+        />
+        <Kpi
+          label="Total R"
+          hint="All closed results added up, in R. Multiply by your risk per trade to get currency."
+          value={fmtR(stats.totalR)}
+          tone={stats.totalR >= 0 ? "pos" : "neg"}
+        />
+        <Kpi
+          label="Closed setups"
+          hint="How many trades have a recorded result. Below ~30, treat these numbers as early signals only."
+          value={String(stats.count)}
+        />
       </div>
 
       <section className="rounded-md border border-border bg-card p-4">
@@ -226,10 +251,20 @@ function PerformancePage() {
   );
 }
 
-function Kpi({ label, value, tone }: { label: string; value: string; tone?: "pos" | "neg" | undefined }) {
+function Kpi({
+  label,
+  value,
+  tone,
+  hint,
+}: {
+  label: string;
+  value: string;
+  tone?: "pos" | "neg" | undefined;
+  hint?: string;
+}) {
   return (
     <div className="bg-card px-4 py-3">
-      <p className="label-xs">{label}</p>
+      <p className="label-xs">{hint ? <InfoLabel hint={hint}>{label}</InfoLabel> : label}</p>
       <p
         className={cn(
           "num mt-1 text-xl font-bold",

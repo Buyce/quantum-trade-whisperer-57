@@ -15,6 +15,8 @@ import {
 } from "@/lib/queries";
 import { contextOf, type Grade, type SignalRow, type TradeRow } from "@/lib/db-types";
 import { SignalCard } from "@/components/SignalCard";
+import { OnboardingBanner } from "@/components/OnboardingBanner";
+import { useGuideMode } from "@/components/GuideMode";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -42,6 +44,7 @@ const GRADE_ORDER: Record<Grade, number> = { "A+": 4, A: 3, B: 2, C: 1 };
 
 function FeedPage() {
   const { user } = useAuth();
+  const { guide } = useGuideMode();
   const queryClient = useQueryClient();
   const signals = useQuery(signalsQuery());
   const trades = useQuery(myTradesQuery(user?.id));
@@ -135,6 +138,7 @@ function FeedPage() {
 
   return (
     <div className="space-y-5">
+      <OnboardingBanner />
       <div className="flex flex-wrap items-end gap-4">
         <div>
           <p className="label-xs">Phase 2 · Trade assistant</p>
@@ -214,11 +218,30 @@ function FeedPage() {
         </p>
       ) : visible.length === 0 ? (
         <div className="rounded-md border border-border bg-card px-6 py-16 text-center">
-          <p className="num text-lg font-semibold text-foreground">NO TRADE</p>
-          <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-            No setup currently satisfies your grading and session filters. This is the system default, not an
-            error — the scanner only publishes structures that pass the ABC rules.
+          <p className="num text-lg font-semibold text-foreground">
+            {guide ? "CAPITAL PRESERVATION MODE" : "NO TRADE"}
           </p>
+          {guide ? (
+            <div className="mx-auto mt-3 max-w-lg space-y-3 text-sm text-muted-foreground">
+              <p>
+                Nothing here means nothing qualified — and that is a result, not a failure. The scanner keeps
+                your capital flat until a setup earns its place.
+              </p>
+              <p>
+                It re-checks XAUUSD, GBPAUD and EURUSD every 15 minutes. New setups appear here automatically,
+                so you can close the tab and come back later.
+              </p>
+              <p className="text-xs">
+                Waiting too long? Loosen the minimum grade or add sessions in Settings, or turn off "My settings
+                filter" above to see everything the scanner published.
+              </p>
+            </div>
+          ) : (
+            <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+              No setup currently satisfies your grading and session filters. This is the system default, not an
+              error — the scanner only publishes structures that pass the ABC rules.
+            </p>
+          )}
         </div>
       ) : (
         <div className="space-y-4">
