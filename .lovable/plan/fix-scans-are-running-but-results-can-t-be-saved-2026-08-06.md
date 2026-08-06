@@ -37,3 +37,27 @@ The amber indicator is real, but it is pointing at a different problem: the scan
 - No schema migration needed — the tables are correct; the code was writing to the wrong shape.
 - The Zero-Hallucination rule is preserved: nothing is seeded, and "No Trade" cycles continue to render the empty state.
 - Intermittent MetaApi `504` responses (seen at 08:45) are upstream broker hiccups already handled by the graceful skip path; they are unrelated to these bugs.
+
+&nbsp;
+
+The investigation and fix plan are APPROVED! Please execute the plan immediately:
+
+1. In `src/lib/scanner/pipeline.server.ts`:
+
+   - Fix the pipeline insertion order: Insert `scanned_signals` first, then insert `market_context` with the returned `signal_id`. Remove the invalid `market_context_id` field.
+
+   - Update `instrument_health` writes to use the correct `updated_at` column name, and log any database errors cleanly.
+
+   - Properly serialize all database error objects so error codes and messages are logged instead of `[object Object]`.
+
+2. In `src/routes/_authenticated/settings.tsx`:
+
+   - Add the "Run scan now" manual trigger button (calling the new server function) so I can verify scan execution on demand.
+
+3. Run a manual scan test immediately after the fix to confirm:
+
+   - All three jobs complete with status `done`.
+
+   - `instrument_health.updated_at` advances to the current timestamp.
+
+   - The amber UI warning converts back to a green heartbeat.
