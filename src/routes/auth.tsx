@@ -120,7 +120,9 @@ function AuthPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Terminal access</CardTitle>
+            <CardTitle asChild>
+              <h1 className="text-lg">Sign in to the P-Trades Hub terminal</h1>
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {awaitingConfirm ? (

@@ -323,6 +323,7 @@ function SettingsPage() {
                     <Button
                       size="sm"
                       variant="ghost"
+                      aria-label={`Copy ${r.type} record value`}
                       onClick={() => {
                         void navigator.clipboard.writeText(r.value);
                         toast.success("Copied");

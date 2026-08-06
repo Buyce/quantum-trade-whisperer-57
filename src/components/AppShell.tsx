@@ -66,7 +66,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
           <div className="ml-auto flex items-center gap-1">
             <GuideModeToggle />
-            <Button variant="ghost" size="sm" onClick={() => void signOut()}>
+            <Button variant="ghost" size="sm" aria-label="Sign out" onClick={() => void signOut()}>
               <LogOut className="size-4" />
               <span className="hidden sm:inline">Sign out</span>
             </Button>
