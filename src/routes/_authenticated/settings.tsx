@@ -82,6 +82,7 @@ function SettingsPage() {
     setTimeframes(s.timeframes);
     setSessions(s.sessions);
     setMinGrade(s.min_grade);
+    setAlertMinGrade(s.alert_min_grade ?? "B");
     setCap(s.daily_setup_cap);
     setPush(s.notify_push);
     setEmail(s.notify_email);
