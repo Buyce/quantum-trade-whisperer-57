@@ -1,10 +1,17 @@
 export type Timeframe = "H4" | "H1" | "M15";
-export type Grade = "A" | "B" | "C";
+/** A+ is the institutional-confluence tier: an A structure with all 4 pillars. */
+export type Grade = "A+" | "A" | "B" | "C";
 export type Direction = "long" | "short";
 export type Bias = "bullish" | "bearish" | "neutral";
 
 export const INSTRUMENTS = ["XAUUSD", "GBPAUD", "EURUSD"] as const;
 export const TIMEFRAMES: Timeframe[] = ["H4", "H1", "M15"];
+
+/**
+ * Per-timeframe candle depth. H4/H1 fetch 300 so the 200-period EMA has real
+ * warm-up and order-block detection sees more unmitigated structure.
+ */
+export const CANDLE_LIMITS: Record<Timeframe, number> = { H4: 300, H1: 300, M15: 200 };
 
 export interface Candle {
   time: string;
@@ -25,6 +32,25 @@ export interface TimeframeRead {
   atPointC: boolean;
 }
 
+/** The four institutional confluence pillars, each scored 0-100. */
+export interface PillarScores {
+  /** Pillar 1 — H4/H1/M15 moving-average stack pointing the same way. */
+  trend: number;
+  /** Pillar 2 — Point C lands inside an H1/H4 institutional supply/demand zone. */
+  orderBlock: number;
+  /** Pillar 3 — M15 RSI extreme or divergence at Point C. */
+  momentum: number;
+  /** Pillar 4 — M15 ATR at or above its 20-period ATR moving average. */
+  volatilityExpansion: number;
+  /** How many pillars cleared the pass threshold (0-4). */
+  passed: number;
+  /** Human-readable one-liner per pillar, folded into the qualitative breakdown. */
+  notes: string[];
+}
+
+/** A pillar counts as satisfied at or above this score. */
+export const PILLAR_PASS_SCORE = 60;
+
 export interface ConfidenceBreakdown
   extends Record<"alignment" | "rr" | "symmetry" | "volatility", number> {
   score: number;
@@ -43,18 +69,24 @@ export interface TradeProfile {
   rrRatio: number;
   patternSymmetry: number;
   confidence: ConfidenceBreakdown;
+  pillars: PillarScores;
   h4Bias: string;
   h1Bias: string;
   m15Bias: string;
   qualitativeBreakdown: string;
 }
 
-/** Weighted confidence model: 40% alignment, 30% R:R, 20% symmetry, 10% volatility. */
+/**
+ * Institutional confluence weighting: 35% trend alignment, 25% order-block
+ * retest, 20% momentum exhaustion, 20% volatility expansion. R:R is applied
+ * afterwards as a multiplier cap rather than a fifth weight, so a great
+ * structure with a poor payoff cannot score highly.
+ */
 export const CONFIDENCE_WEIGHTS = {
-  alignment: 0.4,
-  rr: 0.3,
-  symmetry: 0.2,
-  volatility: 0.1,
+  trend: 0.35,
+  orderBlock: 0.25,
+  momentum: 0.2,
+  volatilityExpansion: 0.2,
 } as const;
 
 /** Maximum number of published setups per calendar day (No-Trade philosophy). */
