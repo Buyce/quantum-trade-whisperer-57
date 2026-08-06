@@ -138,6 +138,7 @@ function FeedPage() {
 
   return (
     <div className="space-y-5">
+      <OnboardingBanner />
       <div className="flex flex-wrap items-end gap-4">
         <div>
           <p className="label-xs">Phase 2 · Trade assistant</p>
