@@ -7,6 +7,7 @@ Current row counts confirmed: 180 scanned signals, 180 market context rows, 6 ex
 ## 1. Database purge (migration)
 
 One migration that clears demo rows in dependency order:
+
 - delete all executed trades
 - delete all market context rows
 - delete all scanned signals
@@ -32,4 +33,12 @@ After the migration runs: re-count all three tables (expect 0 signals, 0 context
 
 - Purge is a data-only migration; no schema, RLS, or grant changes.
 - Nothing in the scanner engine (`metaapi.server.ts`, `pipeline.server.ts`, `grading.ts`, `profile.ts`, `indicators.ts`) is touched — the live pipeline stays exactly as verified.
-- The next 15-minute cron cycle will repopulate signals only when the grading rules actually qualify a setup.
+- The next 15-minute cron cycle will repopulate signals only when the grading rules actually qualify a setup.  
+  
+  
+The Database Purge & Zero-Mock Data plan is APPROVED. Please execute the plan exactly as written:
+  1. Run the data-only migration to delete rows in strict dependency order (executed_trades -> market_context -> scanned_signals). Keep instrument_health, scanner_settings, and user profiles intact.
+  2. Neutralize the synthetic-signal generator in the historical Build 1 migration file.
+  3. Update [AGENTS.md](http://AGENTS.md) with the strict "Zero-Hallucination" rule and add the defensive comments in the signal fetcher.
+  4. Verify the feed immediately renders the "Capital Preservation Mode Active" empty state, and the performance dashboard cleanly renders zeroed tiers without errors.
+  Confirm when the database is fully purged and the terminal is live.
