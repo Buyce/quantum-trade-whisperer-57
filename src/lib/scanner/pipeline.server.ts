@@ -138,33 +138,54 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
       .single();
     if (ctxError) throw ctxError;
 
-    const { error: sigError } = await db.from("scanned_signals").insert({
+    const { data: inserted, error: sigError } = await db
+      .from("scanned_signals")
+      .insert({
+        instrument: profile.instrument,
+        grade: profile.grade,
+        direction: profile.direction,
+        entry_price: profile.entryPrice,
+        stop_loss: profile.stopLoss,
+        tp1: profile.tp1,
+        tp2: profile.tp2,
+        tp3: profile.tp3,
+        atr: profile.atr,
+        rr_ratio: profile.rrRatio,
+        confidence_score: profile.confidence.score,
+        c_alignment: profile.confidence.alignment,
+        c_rr: profile.confidence.rr,
+        c_symmetry: profile.confidence.symmetry,
+        c_volatility: profile.confidence.volatility,
+        pattern_symmetry: profile.patternSymmetry,
+        h4_bias: profile.h4Bias,
+        h1_bias: profile.h1Bias,
+        m15_bias: profile.m15Bias,
+        qualitative_breakdown: profile.qualitativeBreakdown,
+        market_context_id: (ctx as { id: string }).id,
+        detected_at: now.toISOString(),
+        status: "active",
+        resolved_outcome: "open",
+      })
+      .select("id")
+      .single();
+    if (sigError) throw sigError;
+
+    const { sendSignalAlerts } = await import("./alerts.server");
+    await sendSignalAlerts(db, {
+      id: (inserted as { id: string }).id,
       instrument: profile.instrument,
       grade: profile.grade,
       direction: profile.direction,
-      entry_price: profile.entryPrice,
-      stop_loss: profile.stopLoss,
+      entryPrice: profile.entryPrice,
+      stopLoss: profile.stopLoss,
       tp1: profile.tp1,
       tp2: profile.tp2,
       tp3: profile.tp3,
-      atr: profile.atr,
-      rr_ratio: profile.rrRatio,
-      confidence_score: profile.confidence.score,
-      c_alignment: profile.confidence.alignment,
-      c_rr: profile.confidence.rr,
-      c_symmetry: profile.confidence.symmetry,
-      c_volatility: profile.confidence.volatility,
-      pattern_symmetry: profile.patternSymmetry,
-      h4_bias: profile.h4Bias,
-      h1_bias: profile.h1Bias,
-      m15_bias: profile.m15Bias,
-      qualitative_breakdown: profile.qualitativeBreakdown,
-      market_context_id: (ctx as { id: string }).id,
-      detected_at: now.toISOString(),
-      status: "active",
-      resolved_outcome: "open",
+      rrRatio: profile.rrRatio,
+      confidence: profile.confidence.score,
+      breakdown: profile.qualitativeBreakdown,
+      session: sessionOf(now),
     });
-    if (sigError) throw sigError;
 
     return await finish("published", `${profile.grade}-grade ${profile.direction}`);
   } catch (err) {

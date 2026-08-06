@@ -31,9 +31,8 @@ export const Route = createFileRoute("/_authenticated/settings")({
 });
 
 const DNS_RECORDS = [
-  { type: "TXT", name: "_lovable", value: "lovable_verify=<value shown in Cloud → Emails>" },
-  { type: "NS", name: "notify", value: "ns1.lovable.cloud (exact host shown in Cloud → Emails)" },
-  { type: "NS", name: "notify", value: "ns2.lovable.cloud (exact host shown in Cloud → Emails)" },
+  { type: "NS", name: "notify", value: "ns3.lovable.cloud" },
+  { type: "NS", name: "notify", value: "ns4.lovable.cloud" },
 ];
 
 function SettingsPage() {
@@ -196,7 +195,7 @@ function SettingsPage() {
         <Row
           id="notify-email"
           title="Email alerts"
-          desc="Sent from notify.getptrades.com once the sender domain below is verified."
+          desc="Branded alerts sent from notify.getptrades.com — the sender domain is verified and live."
           checked={email}
           onChange={setEmail}
         />
@@ -205,9 +204,9 @@ function SettingsPage() {
       <section className="space-y-3 rounded-md border border-border bg-card p-4">
         <p className="label-xs">Sender domain · getptrades.com</p>
         <p className="text-sm text-muted-foreground">
-          To send alerts from <span className="num text-foreground">notify.getptrades.com</span>, add these records
-          at your domain registrar. The exact values for your project are shown in Cloud → Emails after you start
-          the email setup — copy them verbatim; the entries below show the shape and record names.
+          <span className="num text-long">Verified</span> — alerts send from{" "}
+          <span className="num text-foreground">notify.getptrades.com</span>. The records below are the
+          delegation currently in place; keep them at your registrar so deliverability stays intact.
         </p>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -244,10 +243,9 @@ function SettingsPage() {
           </table>
         </div>
         <ol className="list-decimal space-y-1 pl-5 text-xs text-muted-foreground">
-          <li>Open your registrar's DNS panel for getptrades.com.</li>
-          <li>Add the TXT record on _lovable to prove ownership.</li>
-          <li>Delegate the notify subdomain with both NS records so SPF, DKIM and MX are managed for you.</li>
-          <li>Propagation can take up to 72 hours; alerts fall back to a default sender until it verifies.</li>
+          <li>These NS records delegate the notify subdomain so SPF, DKIM and MX are managed for you.</li>
+          <li>Removing them stops alert delivery from notify.getptrades.com.</li>
+          <li>New sending domains warm up over 2–4 weeks — deliverability improves as volume stays steady.</li>
         </ol>
       </section>
 
