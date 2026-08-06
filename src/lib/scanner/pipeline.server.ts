@@ -6,7 +6,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { buildTradeProfile } from "./profile";
 import { fetchCandles, MetaApiNotConfiguredError, MetaApiTimeoutError } from "./metaapi.server";
-import { DAILY_SETUP_CAP, INSTRUMENTS, type Candle, type Timeframe } from "./types";
+import { DEFAULT_DAILY_SETUP_CAP, INSTRUMENTS, type Candle, type Timeframe } from "./types";
 
 const TIMEFRAMES: Timeframe[] = ["H4", "H1", "M15"];
 
@@ -108,8 +108,8 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
   };
 
   try {
-    if ((await countToday(db)) >= DAILY_SETUP_CAP) {
-      return await finish("capped", `Daily cap of ${DAILY_SETUP_CAP} setups already reached`);
+    if ((await countToday(db)) >= DEFAULT_DAILY_SETUP_CAP) {
+      return await finish("capped", `Daily cap of ${DEFAULT_DAILY_SETUP_CAP} setups already reached`);
     }
 
     // Sequential per-timeframe fetch keeps peak memory to one candle series.
