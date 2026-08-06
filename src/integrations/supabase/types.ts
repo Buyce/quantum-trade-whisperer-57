@@ -153,9 +153,12 @@ export type Database = {
           id: number
           instrument: string
           payload: Json | null
+          processed_at: string | null
+          result: string | null
+          run_id: string | null
           started_at: string | null
           status: string
-          timeframe: Database["public"]["Enums"]["tf_code"]
+          timeframe: Database["public"]["Enums"]["tf_code"] | null
         }
         Insert: {
           attempts?: number
@@ -165,9 +168,12 @@ export type Database = {
           id?: number
           instrument: string
           payload?: Json | null
+          processed_at?: string | null
+          result?: string | null
+          run_id?: string | null
           started_at?: string | null
           status?: string
-          timeframe: Database["public"]["Enums"]["tf_code"]
+          timeframe?: Database["public"]["Enums"]["tf_code"] | null
         }
         Update: {
           attempts?: number
@@ -177,9 +183,12 @@ export type Database = {
           id?: number
           instrument?: string
           payload?: Json | null
+          processed_at?: string | null
+          result?: string | null
+          run_id?: string | null
           started_at?: string | null
           status?: string
-          timeframe?: Database["public"]["Enums"]["tf_code"]
+          timeframe?: Database["public"]["Enums"]["tf_code"] | null
         }
         Relationships: []
       }
@@ -314,7 +323,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      claim_scan_job: {
+        Args: never
+        Returns: {
+          id: number
+          instrument: string
+        }[]
+      }
     }
     Enums: {
       decision_kind: "taken" | "skipped"
