@@ -111,13 +111,16 @@ function FeedPage() {
     return rows;
   }, [signals.data, applyFilters, cfg, openOnly]);
 
+  // Only A+/A/B consume the daily quota — C-Grade publishes outside the cap.
   const todayCount = useMemo(() => {
     const start = new Date();
     start.setHours(0, 0, 0, 0);
-    return (signals.data ?? []).filter((s) => new Date(s.detected_at) >= start).length;
+    return (signals.data ?? []).filter(
+      (s) => new Date(s.detected_at) >= start && s.grade !== "C",
+    ).length;
   }, [signals.data]);
 
-  const cap = cfg?.daily_setup_cap ?? 15;
+  const cap = cfg?.daily_setup_cap ?? 30;
   const unavailable = (health.data ?? []).filter((h) => !h.available);
   const lastScanAt = (health.data ?? []).find((h) => h.instrument === "XAUUSD")?.updated_at ?? null;
 
