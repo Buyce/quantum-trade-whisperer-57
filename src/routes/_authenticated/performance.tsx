@@ -59,7 +59,15 @@ function PerformancePage() {
   const dist = useMemo(() => rDistribution(samples), [samples]);
   const cells = useMemo(() => heatMap(samples), [samples]);
   const byInstrument = useMemo(() => groupBy(samples, (s) => s.instrument), [samples]);
-  const byGrade = useMemo(() => groupBy(samples, (s) => s.grade), [samples]);
+  // All four tiers always render, even when a tier has no setups yet.
+  const byGrade = useMemo(() => {
+    const grouped = groupBy(samples, (s) => s.grade);
+    return GRADE_TIERS.map((tier) => {
+      const found = grouped.find((g) => g.key === tier);
+      return { key: tier, stats: found ? found.stats : computeExpectancy([]) };
+    });
+  }, [samples]);
+
   const insights = useMemo(() => generateInsights(samples, scopeLabel), [samples, scopeLabel]);
 
   const maxAbs = Math.max(0.01, ...cells.map((c) => Math.abs(c.expectancyR)));
