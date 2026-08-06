@@ -154,18 +154,7 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
     const m15Atr = profile.atr;
     const h1Atr = candles.H1.length ? Math.abs(candles.H1[candles.H1.length - 1]!.close) : 0;
 
-    const { data: ctx, error: ctxError } = await db
-      .from("market_context")
-      .insert({
-        trading_session: sessionOf(now),
-        volatility_index: Number((h1Atr > 0 ? (m15Atr / h1Atr) * 1000 : 1).toFixed(4)),
-        time_of_day: now.getUTCHours(),
-        day_of_week: now.getUTCDay(),
-      })
-      .select("id")
-      .single();
-    if (ctxError) throw ctxError;
-
+    // Signal first — market_context.signal_id is required and references it.
     const { data: inserted, error: sigError } = await db
       .from("scanned_signals")
       .insert({
@@ -194,7 +183,6 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
         h1_bias: profile.h1Bias,
         m15_bias: profile.m15Bias,
         qualitative_breakdown: profile.qualitativeBreakdown,
-        market_context_id: (ctx as { id: string }).id,
         detected_at: now.toISOString(),
         status: "active",
         resolved_outcome: "open",
@@ -202,6 +190,16 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
       .select("id")
       .single();
     if (sigError) throw sigError;
+
+    const { error: ctxError } = await db.from("market_context").insert({
+      signal_id: (inserted as { id: string }).id,
+      trading_session: sessionOf(now),
+      volatility_index: Number((h1Atr > 0 ? (m15Atr / h1Atr) * 1000 : 1).toFixed(4)),
+      time_of_day: now.getUTCHours(),
+      day_of_week: now.getUTCDay(),
+    });
+    if (ctxError) throw ctxError;
+
 
     const { sendSignalAlerts } = await import("./alerts.server");
     await sendSignalAlerts(db, {
