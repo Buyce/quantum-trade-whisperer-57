@@ -13,7 +13,7 @@ import {
   signalsQuery,
   updateTradeResult,
 } from "@/lib/queries";
-import { contextOf, type Grade, type SignalRow } from "@/lib/db-types";
+import { contextOf, type Grade, type SignalRow, type TradeRow } from "@/lib/db-types";
 import { SignalCard } from "@/components/SignalCard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -68,7 +68,7 @@ function FeedPage() {
   }, [queryClient]);
 
   const tradeBySignal = useMemo(() => {
-    const map = new Map<string, (typeof trades.data)[number]>();
+    const map = new Map<string, TradeRow>();
     for (const t of trades.data ?? []) map.set(t.signal_id, t);
     return map;
   }, [trades.data]);

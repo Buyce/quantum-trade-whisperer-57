@@ -213,7 +213,7 @@ function PerformancePage() {
   );
 }
 
-function Kpi({ label, value, tone }: { label: string; value: string; tone?: "pos" | "neg" }) {
+function Kpi({ label, value, tone }: { label: string; value: string; tone?: "pos" | "neg" | undefined }) {
   return (
     <div className="bg-card px-4 py-3">
       <p className="label-xs">{label}</p>
