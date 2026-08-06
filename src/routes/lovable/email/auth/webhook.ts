@@ -9,7 +9,7 @@ import { EmailChangeEmail } from '@/lib/email-templates/email-change'
 import { ReauthenticationEmail } from '@/lib/email-templates/reauthentication'
 
 // Configuration
-const SITE_NAME = "quantum-trade-whisperer-57"
+const SITE_NAME = "P-Trades Hub"
 const SENDER_DOMAIN = "notify.getptrades.com"
 const ROOT_DOMAIN = "getptrades.com"
 const FROM_DOMAIN = "notify.getptrades.com"
