@@ -205,9 +205,9 @@ function SettingsPage() {
       <section className="space-y-3 rounded-md border border-border bg-card p-4">
         <p className="label-xs">Sender domain · getptrades.com</p>
         <p className="text-sm text-muted-foreground">
-          To send alerts from <span className="num text-foreground">notify.getptrades.com</span>, add these records
-          at your domain registrar. The exact values for your project are shown in Cloud → Emails after you start
-          the email setup — copy them verbatim; the entries below show the shape and record names.
+          <span className="num text-long">Verified</span> — alerts send from{" "}
+          <span className="num text-foreground">notify.getptrades.com</span>. The records below are the
+          delegation currently in place; keep them at your registrar so deliverability stays intact.
         </p>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
