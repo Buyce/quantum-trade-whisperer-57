@@ -6,7 +6,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { buildTradeProfile } from "./profile";
 import { fetchCandles, MetaApiNotConfiguredError, MetaApiTimeoutError } from "./metaapi.server";
-import { CANDLE_LIMITS, DEFAULT_DAILY_SETUP_CAP, INSTRUMENTS, type Candle, type Timeframe } from "./types";
+import { CANDLE_LIMITS, CAPPED_GRADES, DEFAULT_DAILY_SETUP_CAP, INSTRUMENTS, type Candle, type Timeframe } from "./types";
 
 const TIMEFRAMES: Timeframe[] = ["H4", "H1", "M15"];
 
