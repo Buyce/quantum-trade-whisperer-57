@@ -56,15 +56,24 @@ function FeedPage() {
   const [applyFilters, setApplyFilters] = useState(true);
   const [openOnly, setOpenOnly] = useState(false);
 
+  // Per-user alert threshold, independent of the feed filter.
+  const alertMinGrade: Grade = settings.data?.alert_min_grade ?? "B";
+
   // Realtime: new scanner output pushes straight into the feed.
   useEffect(() => {
     const channel = supabase
       .channel("scanned-signals-feed")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "scanned_signals" }, (payload) => {
-        const row = payload.new as { instrument?: string; grade?: string; direction?: string };
+        const row = payload.new as { instrument?: string; grade?: Grade; direction?: string };
         const title = `New ${row.grade === "A+" ? "A+" : `${row.grade ?? ""}-`}Grade setup on ${row.instrument ?? "market"}`;
         toast.info(title);
-        if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+        const rank = row.grade ? (GRADE_ORDER[row.grade] ?? 0) : 0;
+        const meetsAlertThreshold = rank >= GRADE_ORDER[alertMinGrade];
+        if (
+          meetsAlertThreshold &&
+          typeof Notification !== "undefined" &&
+          Notification.permission === "granted"
+        ) {
           new Notification("P-Trades Hub", {
             body: `${title}${row.direction ? ` · ${row.direction.toUpperCase()}` : ""}`,
             tag: "ptrades-signal",
@@ -76,7 +85,8 @@ function FeedPage() {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [queryClient]);
+  }, [queryClient, alertMinGrade]);
+
 
   const tradeBySignal = useMemo(() => {
     const map = new Map<string, TradeRow>();
