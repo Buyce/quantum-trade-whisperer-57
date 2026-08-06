@@ -47,6 +47,29 @@ export function SignalCard({
   const ctx = contextOf(signal);
   const long = signal.direction === "long";
   const conf = Number(signal.confidence_score);
+  const { guide } = useGuideMode();
+  const orderType = long ? "BUY LIMIT" : "SELL LIMIT";
+
+  async function copyOrder() {
+    const p = (v: number) => price(v, signal.instrument);
+    const text = [
+      `${signal.instrument} — ${orderType} (${long ? "LONG" : "SHORT"})`,
+      `Entry:      ${p(signal.entry_price)}`,
+      `Stop-loss:  ${p(signal.stop_loss)}`,
+      `TP1 (1:1):  ${p(signal.tp1)}`,
+      `TP2 (1:2):  ${p(signal.tp2)}`,
+      `TP3 (1:3):  ${p(signal.tp3)}`,
+      `R:R:        ${Number(signal.rr_ratio).toFixed(2)}`,
+      `Confidence: ${conf.toFixed(1)}%  ·  Grade ${signal.grade}`,
+      `Not financial advice — size the position yourself.`,
+    ].join("\n");
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Order details copied");
+    } catch {
+      toast.error("Clipboard blocked by your browser");
+    }
+  }
 
   return (
     <article className="rounded-md border border-border bg-card">
@@ -65,7 +88,7 @@ export function SignalCard({
           )}
         >
           {long ? <ArrowUpRight className="size-3.5" /> : <ArrowDownRight className="size-3.5" />}
-          {long ? "LONG" : "SHORT"}
+          {guide ? `${orderType} (${long ? "LONG" : "SHORT"})` : long ? "LONG" : "SHORT"}
         </span>
         {ctx ? (
           <Badge variant="outline" className="num text-xs font-normal">
@@ -83,13 +106,42 @@ export function SignalCard({
       </div>
 
       <div className="grid gap-px bg-border sm:grid-cols-3 lg:grid-cols-6">
-        <Metric label="Entry (M15 break)" value={price(signal.entry_price, signal.instrument)} />
-        <Metric label="Stop-loss" value={price(signal.stop_loss, signal.instrument)} tone="short" />
-        <Metric label="TP1 · 1:1" value={price(signal.tp1, signal.instrument)} tone="long" />
-        <Metric label="TP2 · 1:2" value={price(signal.tp2, signal.instrument)} tone="long" />
-        <Metric label="TP3 · 1:3" value={price(signal.tp3, signal.instrument)} tone="long" />
-        <Metric label="R:R" value={`${Number(signal.rr_ratio).toFixed(2)}`} />
+        <Metric
+          label="Entry (M15 break)"
+          hint="The price to place your pending order at — where the 15-minute chart broke structure."
+          value={price(signal.entry_price, signal.instrument)}
+        />
+        <Metric
+          label="Stop-loss"
+          hint="Where the plan is wrong. Place this order with the trade: it caps the loss at 1R."
+          value={price(signal.stop_loss, signal.instrument)}
+          tone="short"
+        />
+        <Metric
+          label="TP1 · 1:1"
+          hint="First take-profit. Closing here returns the same amount you risked (+1R)."
+          value={price(signal.tp1, signal.instrument)}
+          tone="long"
+        />
+        <Metric
+          label="TP2 · 1:2"
+          hint="Second take-profit — twice what you risked (+2R)."
+          value={price(signal.tp2, signal.instrument)}
+          tone="long"
+        />
+        <Metric
+          label="TP3 · 1:3"
+          hint="Final take-profit — three times what you risked (+3R)."
+          value={price(signal.tp3, signal.instrument)}
+          tone="long"
+        />
+        <Metric
+          label="R:R"
+          hint="Risk-to-reward: how much this setup can win compared to what it risks. Higher is better."
+          value={`${Number(signal.rr_ratio).toFixed(2)}`}
+        />
       </div>
+
 
       <div className="grid gap-4 border-t border-border px-4 py-4 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div>
