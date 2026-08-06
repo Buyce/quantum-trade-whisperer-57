@@ -150,6 +150,12 @@ function PerformancePage() {
         />
       </div>
 
+      <p className="text-xs text-muted-foreground">
+        Global metrics above reflect B-Grade and above — C-Grade setups are excluded so they do not drag down the
+        core edge. C-Grade performance is tracked separately in the “By grade tier” table below.
+      </p>
+
+
       <section className="rounded-md border border-border bg-card p-4">
         <p className="label-xs flex items-center gap-1.5">
           <Lightbulb className="size-3.5" /> Generated insights
