@@ -65,13 +65,14 @@ export function instrumentHealthQuery() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("instrument_health" as never)
-        .select("instrument, available, last_error, unavailable_until");
+        .select("instrument, available, last_error, unavailable_until, updated_at");
       if (error) throw error;
       return (data ?? []) as unknown as Array<{
         instrument: string;
         available: boolean;
         last_error: string | null;
         unavailable_until: string | null;
+        updated_at: string | null;
       }>;
     },
   });
