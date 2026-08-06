@@ -14,7 +14,301 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      executed_trades: {
+        Row: {
+          created_at: string
+          id: string
+          notes: string | null
+          outcome: Database["public"]["Enums"]["trade_outcome"]
+          realized_r_multiple: number | null
+          signal_id: string
+          updated_at: string
+          user_decision: Database["public"]["Enums"]["decision_kind"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          outcome?: Database["public"]["Enums"]["trade_outcome"]
+          realized_r_multiple?: number | null
+          signal_id: string
+          updated_at?: string
+          user_decision: Database["public"]["Enums"]["decision_kind"]
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          outcome?: Database["public"]["Enums"]["trade_outcome"]
+          realized_r_multiple?: number | null
+          signal_id?: string
+          updated_at?: string
+          user_decision?: Database["public"]["Enums"]["decision_kind"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "executed_trades_signal_id_fkey"
+            columns: ["signal_id"]
+            isOneToOne: false
+            referencedRelation: "scanned_signals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      instrument_health: {
+        Row: {
+          available: boolean
+          instrument: string
+          last_error: string | null
+          unavailable_until: string | null
+          updated_at: string
+        }
+        Insert: {
+          available?: boolean
+          instrument: string
+          last_error?: string | null
+          unavailable_until?: string | null
+          updated_at?: string
+        }
+        Update: {
+          available?: boolean
+          instrument?: string
+          last_error?: string | null
+          unavailable_until?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      market_context: {
+        Row: {
+          created_at: string
+          day_of_week: number
+          id: string
+          signal_id: string
+          time_of_day: number
+          trading_session: string
+          volatility_index: number
+        }
+        Insert: {
+          created_at?: string
+          day_of_week: number
+          id?: string
+          signal_id: string
+          time_of_day: number
+          trading_session: string
+          volatility_index?: number
+        }
+        Update: {
+          created_at?: string
+          day_of_week?: number
+          id?: string
+          signal_id?: string
+          time_of_day?: number
+          trading_session?: string
+          volatility_index?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "market_context_signal_id_fkey"
+            columns: ["signal_id"]
+            isOneToOne: true
+            referencedRelation: "scanned_signals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      scan_queue: {
+        Row: {
+          attempts: number
+          enqueued_at: string
+          error: string | null
+          finished_at: string | null
+          id: number
+          instrument: string
+          payload: Json | null
+          started_at: string | null
+          status: string
+          timeframe: Database["public"]["Enums"]["tf_code"]
+        }
+        Insert: {
+          attempts?: number
+          enqueued_at?: string
+          error?: string | null
+          finished_at?: string | null
+          id?: number
+          instrument: string
+          payload?: Json | null
+          started_at?: string | null
+          status?: string
+          timeframe: Database["public"]["Enums"]["tf_code"]
+        }
+        Update: {
+          attempts?: number
+          enqueued_at?: string
+          error?: string | null
+          finished_at?: string | null
+          id?: number
+          instrument?: string
+          payload?: Json | null
+          started_at?: string | null
+          status?: string
+          timeframe?: Database["public"]["Enums"]["tf_code"]
+        }
+        Relationships: []
+      }
+      scanned_signals: {
+        Row: {
+          atr: number
+          c_alignment: number
+          c_rr: number
+          c_symmetry: number
+          c_volatility: number
+          confidence_score: number
+          created_at: string
+          detected_at: string
+          direction: Database["public"]["Enums"]["trade_direction"]
+          entry_price: number
+          grade: Database["public"]["Enums"]["signal_grade"]
+          h1_bias: string | null
+          h4_bias: string | null
+          id: string
+          instrument: string
+          m15_bias: string | null
+          pattern_symmetry: number
+          qualitative_breakdown: string
+          resolved_outcome: Database["public"]["Enums"]["trade_outcome"]
+          resolved_r_multiple: number | null
+          rr_ratio: number
+          status: string
+          stop_loss: number
+          tp1: number
+          tp2: number
+          tp3: number
+        }
+        Insert: {
+          atr: number
+          c_alignment?: number
+          c_rr?: number
+          c_symmetry?: number
+          c_volatility?: number
+          confidence_score: number
+          created_at?: string
+          detected_at?: string
+          direction: Database["public"]["Enums"]["trade_direction"]
+          entry_price: number
+          grade: Database["public"]["Enums"]["signal_grade"]
+          h1_bias?: string | null
+          h4_bias?: string | null
+          id?: string
+          instrument: string
+          m15_bias?: string | null
+          pattern_symmetry?: number
+          qualitative_breakdown?: string
+          resolved_outcome?: Database["public"]["Enums"]["trade_outcome"]
+          resolved_r_multiple?: number | null
+          rr_ratio: number
+          status?: string
+          stop_loss: number
+          tp1: number
+          tp2: number
+          tp3: number
+        }
+        Update: {
+          atr?: number
+          c_alignment?: number
+          c_rr?: number
+          c_symmetry?: number
+          c_volatility?: number
+          confidence_score?: number
+          created_at?: string
+          detected_at?: string
+          direction?: Database["public"]["Enums"]["trade_direction"]
+          entry_price?: number
+          grade?: Database["public"]["Enums"]["signal_grade"]
+          h1_bias?: string | null
+          h4_bias?: string | null
+          id?: string
+          instrument?: string
+          m15_bias?: string | null
+          pattern_symmetry?: number
+          qualitative_breakdown?: string
+          resolved_outcome?: Database["public"]["Enums"]["trade_outcome"]
+          resolved_r_multiple?: number | null
+          rr_ratio?: number
+          status?: string
+          stop_loss?: number
+          tp1?: number
+          tp2?: number
+          tp3?: number
+        }
+        Relationships: []
+      }
+      scanner_settings: {
+        Row: {
+          created_at: string
+          daily_setup_cap: number
+          instruments: string[]
+          min_grade: Database["public"]["Enums"]["signal_grade"]
+          notify_email: boolean
+          notify_push: boolean
+          sessions: string[]
+          timeframes: string[]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          daily_setup_cap?: number
+          instruments?: string[]
+          min_grade?: Database["public"]["Enums"]["signal_grade"]
+          notify_email?: boolean
+          notify_push?: boolean
+          sessions?: string[]
+          timeframes?: string[]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          daily_setup_cap?: number
+          instruments?: string[]
+          min_grade?: Database["public"]["Enums"]["signal_grade"]
+          notify_email?: boolean
+          notify_push?: boolean
+          sessions?: string[]
+          timeframes?: string[]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +317,11 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      decision_kind: "taken" | "skipped"
+      signal_grade: "A" | "B" | "C"
+      tf_code: "H4" | "H1" | "M15"
+      trade_direction: "long" | "short"
+      trade_outcome: "win" | "loss" | "breakeven" | "open"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +448,12 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      decision_kind: ["taken", "skipped"],
+      signal_grade: ["A", "B", "C"],
+      tf_code: ["H4", "H1", "M15"],
+      trade_direction: ["long", "short"],
+      trade_outcome: ["win", "loss", "breakeven", "open"],
+    },
   },
 } as const
