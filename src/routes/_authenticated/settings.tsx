@@ -2,7 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Copy, Save } from "lucide-react";
+import { Copy, RefreshCw, Save } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { runScanNow, type ManualScanResult } from "@/lib/scanner/scan.functions";
+
 import { useAuth } from "@/hooks/useAuth";
 import { saveSettings, settingsQuery } from "@/lib/queries";
 import { ALL_INSTRUMENTS, ALL_SESSIONS, ALL_TIMEFRAMES, SESSION_LABELS, INSTRUMENT_LABELS, type Grade } from "@/lib/db-types";
@@ -48,6 +51,28 @@ function SettingsPage() {
   const [push, setPush] = useState(true);
   const [email, setEmail] = useState(false);
   const [saving, setSaving] = useState(false);
+  const triggerScan = useServerFn(runScanNow);
+  const [scanning, setScanning] = useState(false);
+  const [scanReport, setScanReport] = useState<ManualScanResult | null>(null);
+
+  async function onRunScanNow() {
+    setScanning(true);
+    setScanReport(null);
+    try {
+      const result = await triggerScan({ data: undefined });
+      setScanReport(result);
+      const failed = result.processed.filter((p) => p.status === "failed").length;
+      if (failed > 0) toast.error(`Scan finished with ${failed} failed job(s)`);
+      else toast.success(`Scan cycle complete — ${result.processed.length} instrument(s) processed`);
+      await queryClient.invalidateQueries({ queryKey: ["instrument-health"] });
+      await queryClient.invalidateQueries({ queryKey: ["signals"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not run the scan");
+    } finally {
+      setScanning(false);
+    }
+  }
+
 
   useEffect(() => {
     const s = settings.data;
@@ -100,6 +125,49 @@ function SettingsPage() {
           feed and alerts — they never change the scan itself.
         </p>
       </div>
+
+      <section className="space-y-3 rounded-md border border-border bg-card p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="label-xs">Scanner diagnostics</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              The scan runs automatically every 15 minutes. Run it on demand to verify the pipeline end to end.
+            </p>
+          </div>
+          <Button variant="outline" onClick={onRunScanNow} disabled={scanning}>
+            <RefreshCw className={cn("mr-2 h-4 w-4", scanning && "animate-spin")} />
+            {scanning ? "Scanning…" : "Run scan now"}
+          </Button>
+        </div>
+
+        {scanReport && (
+          <div className="space-y-1 rounded border border-border bg-background p-3 font-mono text-xs">
+            <p className="text-muted-foreground">
+              run {scanReport.runId.slice(0, 8)} · {scanReport.enqueued} enqueued
+            </p>
+            {scanReport.processed.length === 0 && <p className="text-muted-foreground">No jobs processed.</p>}
+            {scanReport.processed.map((p, i) => (
+              <p key={`${p.instrument}-${i}`}>
+                <span className="text-foreground">{p.instrument}</span>{" "}
+                <span
+                  className={cn(
+                    p.status === "failed"
+                      ? "text-destructive"
+                      : p.status === "published"
+                        ? "text-emerald-400"
+                        : "text-muted-foreground",
+                  )}
+                >
+                  {p.status}
+                </span>
+                {p.detail ? <span className="text-muted-foreground"> — {p.detail}</span> : null}
+              </p>
+            ))}
+          </div>
+        )}
+      </section>
+
+
 
       <section className="space-y-5 rounded-md border border-border bg-card p-4">
         <p className="label-xs">Feed filters</p>

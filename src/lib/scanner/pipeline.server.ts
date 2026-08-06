@@ -50,32 +50,60 @@ async function countToday(db: SupabaseClient) {
   return count ?? 0;
 }
 
+/** Serialize thrown values — Supabase/PostgREST errors are plain objects, not Errors. */
+export function describeError(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (err && typeof err === "object") {
+    const e = err as { message?: string; code?: string; details?: string; hint?: string };
+    const parts = [
+      e.code ? `[${e.code}]` : null,
+      e.message ?? null,
+      e.details ?? null,
+      e.hint ? `hint: ${e.hint}` : null,
+    ].filter(Boolean);
+    if (parts.length) return parts.join(" ");
+    try {
+      return JSON.stringify(err);
+    } catch {
+      return "Unserializable error object";
+    }
+  }
+  return String(err);
+}
+
+async function writeHealth(
+  db: SupabaseClient,
+  row: {
+    instrument: string;
+    available: boolean;
+    last_error: string | null;
+    unavailable_until: string | null;
+  },
+) {
+  const { error } = await db
+    .from("instrument_health")
+    .upsert({ ...row, updated_at: new Date().toISOString() }, { onConflict: "instrument" });
+  if (error) console.error("[pipeline] instrument_health write failed:", describeError(error));
+}
+
 async function flagInstrument(db: SupabaseClient, instrument: string, message: string) {
-  const until = new Date(Date.now() + 30 * 60_000).toISOString();
-  await db.from("instrument_health").upsert(
-    {
-      instrument,
-      available: false,
-      last_error: message.slice(0, 500),
-      unavailable_until: until,
-      checked_at: new Date().toISOString(),
-    },
-    { onConflict: "instrument" },
-  );
+  await writeHealth(db, {
+    instrument,
+    available: false,
+    last_error: message.slice(0, 500),
+    unavailable_until: new Date(Date.now() + 30 * 60_000).toISOString(),
+  });
 }
 
 async function clearInstrument(db: SupabaseClient, instrument: string) {
-  await db.from("instrument_health").upsert(
-    {
-      instrument,
-      available: true,
-      last_error: null,
-      unavailable_until: null,
-      checked_at: new Date().toISOString(),
-    },
-    { onConflict: "instrument" },
-  );
+  await writeHealth(db, {
+    instrument,
+    available: true,
+    last_error: null,
+    unavailable_until: null,
+  });
 }
+
 
 export interface JobResult {
   jobId: string;
@@ -126,18 +154,7 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
     const m15Atr = profile.atr;
     const h1Atr = candles.H1.length ? Math.abs(candles.H1[candles.H1.length - 1]!.close) : 0;
 
-    const { data: ctx, error: ctxError } = await db
-      .from("market_context")
-      .insert({
-        trading_session: sessionOf(now),
-        volatility_index: Number((h1Atr > 0 ? (m15Atr / h1Atr) * 1000 : 1).toFixed(4)),
-        time_of_day: now.getUTCHours(),
-        day_of_week: now.getUTCDay(),
-      })
-      .select("id")
-      .single();
-    if (ctxError) throw ctxError;
-
+    // Signal first — market_context.signal_id is required and references it.
     const { data: inserted, error: sigError } = await db
       .from("scanned_signals")
       .insert({
@@ -166,7 +183,6 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
         h1_bias: profile.h1Bias,
         m15_bias: profile.m15Bias,
         qualitative_breakdown: profile.qualitativeBreakdown,
-        market_context_id: (ctx as { id: string }).id,
         detected_at: now.toISOString(),
         status: "active",
         resolved_outcome: "open",
@@ -174,6 +190,16 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
       .select("id")
       .single();
     if (sigError) throw sigError;
+
+    const { error: ctxError } = await db.from("market_context").insert({
+      signal_id: (inserted as { id: string }).id,
+      trading_session: sessionOf(now),
+      volatility_index: Number((h1Atr > 0 ? (m15Atr / h1Atr) * 1000 : 1).toFixed(4)),
+      time_of_day: now.getUTCHours(),
+      day_of_week: now.getUTCDay(),
+    });
+    if (ctxError) throw ctxError;
+
 
     const { sendSignalAlerts } = await import("./alerts.server");
     await sendSignalAlerts(db, {
@@ -194,7 +220,9 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
 
     return await finish("published", `${profile.grade}-grade ${profile.direction}`);
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = describeError(err);
+    console.error(`[pipeline] ${job.instrument} failed:`, message);
+
     if (err instanceof MetaApiTimeoutError || err instanceof MetaApiNotConfiguredError) {
       // Graceful abort: flag the instrument, skip it, let the next job run.
       await flagInstrument(db, job.instrument, message);
