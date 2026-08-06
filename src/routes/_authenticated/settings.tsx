@@ -243,10 +243,9 @@ function SettingsPage() {
           </table>
         </div>
         <ol className="list-decimal space-y-1 pl-5 text-xs text-muted-foreground">
-          <li>Open your registrar's DNS panel for getptrades.com.</li>
-          <li>Add the TXT record on _lovable to prove ownership.</li>
-          <li>Delegate the notify subdomain with both NS records so SPF, DKIM and MX are managed for you.</li>
-          <li>Propagation can take up to 72 hours; alerts fall back to a default sender until it verifies.</li>
+          <li>These NS records delegate the notify subdomain so SPF, DKIM and MX are managed for you.</li>
+          <li>Removing them stops alert delivery from notify.getptrades.com.</li>
+          <li>New sending domains warm up over 2–4 weeks — deliverability improves as volume stays steady.</li>
         </ol>
       </section>
 
