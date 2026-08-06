@@ -216,7 +216,10 @@ function PerformancePage() {
         />
         <BreakdownTable
           title="By grade tier"
-          rows={byGrade.map((g) => ({ label: `${g.key}-Grade`, stats: g.stats }))}
+          rows={byGrade.map((g) => ({
+            label: g.key === "A+" ? "A+ Grade" : `${g.key}-Grade`,
+            stats: g.stats,
+          }))}
         />
       </div>
     </div>
