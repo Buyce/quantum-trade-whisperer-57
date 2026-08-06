@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import ptradesMark from "@/assets/ptrades-mark.png.asset.json";
+
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -105,9 +107,14 @@ function AuthPage() {
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
       <div className="w-full max-w-md">
         <Link to="/" className="mb-6 flex items-center justify-center gap-2">
-          <span className="grid size-7 place-items-center rounded-sm bg-primary num text-xs font-bold text-primary-foreground">
-            PT
-          </span>
+          <img
+            src={ptradesMark.url}
+            alt="P-Trades Hub logo"
+            width={28}
+            height={28}
+            className="size-7"
+          />
+
           <span className="num text-sm font-semibold">P-TRADES HUB</span>
         </Link>
 

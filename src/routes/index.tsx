@@ -1,6 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Activity, BarChart3, ShieldCheck, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import ptradesMark from "@/assets/ptrades-mark.png.asset.json";
+
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -51,11 +53,16 @@ function Landing() {
       <header className="border-b border-border">
         <div className="mx-auto flex h-14 max-w-6xl items-center px-4">
           <div className="flex items-center gap-2">
-            <span className="grid size-7 place-items-center rounded-sm bg-primary num text-xs font-bold text-primary-foreground">
-              PT
-            </span>
+            <img
+              src={ptradesMark.url}
+              alt="P-Trades Hub logo"
+              width={28}
+              height={28}
+              className="size-7"
+            />
             <span className="num text-sm font-semibold">P-TRADES HUB</span>
           </div>
+
           <div className="ml-auto">
             <Button asChild size="sm">
               <Link to="/auth">Open terminal</Link>
