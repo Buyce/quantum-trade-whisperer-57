@@ -157,9 +157,9 @@ function PerformancePage() {
 
 
       <section className="rounded-md border border-border bg-card p-4">
-        <p className="label-xs flex items-center gap-1.5">
+        <h2 className="label-xs flex items-center gap-1.5">
           <Lightbulb className="size-3.5" /> Generated insights
-        </p>
+        </h2>
         <ul className="mt-3 space-y-2">
           {insights.map((line, i) => (
             <li key={i} className="flex gap-2 text-sm leading-relaxed text-foreground/90">
@@ -172,7 +172,7 @@ function PerformancePage() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="rounded-md border border-border bg-card p-4">
-          <p className="label-xs">R-multiple distribution</p>
+          <h2 className="label-xs">R-multiple distribution</h2>
           <div className="mt-4 h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={dist}>
@@ -194,7 +194,7 @@ function PerformancePage() {
         </section>
 
         <section className="rounded-md border border-border bg-card p-4">
-          <p className="label-xs">Time-of-day heat map · expectancy in R (UTC)</p>
+          <h2 className="label-xs">Time-of-day heat map · expectancy in R (UTC)</h2>
           <div className="mt-4 overflow-x-auto">
             <table className="w-full border-separate border-spacing-0.5">
               <thead>

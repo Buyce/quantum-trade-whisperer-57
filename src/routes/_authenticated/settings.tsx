@@ -132,7 +132,7 @@ function SettingsPage() {
       <section className="space-y-3 rounded-md border border-border bg-card p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="label-xs">Scanner diagnostics</p>
+            <h2 className="label-xs">Scanner diagnostics</h2>
             <p className="mt-1 text-sm text-muted-foreground">
               The scan runs automatically every 15 minutes. Run it on demand to verify the pipeline end to end.
             </p>
@@ -173,7 +173,7 @@ function SettingsPage() {
 
 
       <section className="space-y-5 rounded-md border border-border bg-card p-4">
-        <p className="label-xs">Feed filters</p>
+        <h2 className="label-xs">Feed filters</h2>
 
         <div>
           <Label className="text-xs">Instruments</Label>
@@ -252,7 +252,7 @@ function SettingsPage() {
       </section>
 
       <section className="space-y-4 rounded-md border border-border bg-card p-4">
-        <p className="label-xs">Alerts</p>
+        <h2 className="label-xs">Alerts</h2>
         <div>
           <Label className="text-xs" htmlFor="alert-min-grade">
             Alert minimum grade
@@ -296,7 +296,7 @@ function SettingsPage() {
 
 
       <section className="space-y-3 rounded-md border border-border bg-card p-4">
-        <p className="label-xs">Sender domain · getptrades.com</p>
+        <h2 className="label-xs">Sender domain · getptrades.com</h2>
         <p className="text-sm text-muted-foreground">
           <span className="num text-long">Verified</span> — alerts send from{" "}
           <span className="num text-foreground">notify.getptrades.com</span>. The records below are the
@@ -323,6 +323,7 @@ function SettingsPage() {
                     <Button
                       size="sm"
                       variant="ghost"
+                      aria-label={`Copy ${r.type} record value`}
                       onClick={() => {
                         void navigator.clipboard.writeText(r.value);
                         toast.success("Copied");

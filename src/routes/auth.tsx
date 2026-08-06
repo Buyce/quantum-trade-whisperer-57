@@ -7,7 +7,7 @@ import { lovable } from "@/integrations/lovable/index";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ptradesMark from "@/assets/ptrades-mark.png.asset.json";
 
@@ -120,7 +120,9 @@ function AuthPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Terminal access</CardTitle>
+            <h1 className="text-lg font-semibold leading-none tracking-tight">
+              Sign in to the P-Trades Hub terminal
+            </h1>
           </CardHeader>
           <CardContent>
             {awaitingConfirm ? (
