@@ -1,37 +1,42 @@
 import { clamp, detectAbc } from "./indicators";
-import { gradeSetup, readTimeframe } from "./grading";
+import { gradeSetup, readTimeframe, scoreConfluence } from "./grading";
 import {
   CONFIDENCE_WEIGHTS,
+  PILLAR_PASS_SCORE,
   type Candle,
   type ConfidenceBreakdown,
   type Direction,
   type Grade,
+  type PillarScores,
   type TradeProfile,
   type TimeframeRead,
 } from "./types";
 
+/**
+ * Confidence is the weighted confluence of the four pillars, then capped by the
+ * planned payoff: a flawless structure with a 1:0.5 payoff cannot score high.
+ */
 export function scoreConfidence(input: {
-  alignment: number;
+  pillars: PillarScores;
   rrRatio: number;
   symmetry: number;
-  volatilityAtrRatio: number;
 }): ConfidenceBreakdown {
-  const alignment = clamp(input.alignment, 0, 100);
+  const p = input.pillars;
   const rr = clamp((input.rrRatio / 3) * 100, 0, 100);
-  const symmetry = clamp(input.symmetry, 0, 100);
-  // Healthy expansion sits near 1x average ATR; too dead or too wild both score down.
-  const volatility = clamp(100 - Math.abs(input.volatilityAtrRatio - 1) * 90, 0, 100);
-  const score =
-    alignment * CONFIDENCE_WEIGHTS.alignment +
-    rr * CONFIDENCE_WEIGHTS.rr +
-    symmetry * CONFIDENCE_WEIGHTS.symmetry +
-    volatility * CONFIDENCE_WEIGHTS.volatility;
+  const weighted =
+    p.trend * CONFIDENCE_WEIGHTS.trend +
+    p.orderBlock * CONFIDENCE_WEIGHTS.orderBlock +
+    p.momentum * CONFIDENCE_WEIGHTS.momentum +
+    p.volatilityExpansion * CONFIDENCE_WEIGHTS.volatilityExpansion;
+  // R:R multiplier cap — 1:2 or better is neutral, thinner payoffs discount.
+  const rrMultiplier = clamp(input.rrRatio / 2, 0.7, 1);
+
   return {
-    alignment: round(alignment),
+    alignment: round(p.trend),
     rr: round(rr),
-    symmetry: round(symmetry),
-    volatility: round(volatility),
-    score: round(score),
+    symmetry: round(clamp(input.symmetry, 0, 100)),
+    volatility: round(p.volatilityExpansion),
+    score: round(clamp(weighted * rrMultiplier, 0, 100)),
   };
 }
 
@@ -44,30 +49,37 @@ export function buildBreakdown(args: {
   alignment: number;
   rrRatio: number;
   atr: number;
+  pillars: PillarScores;
 }): string {
   const dirw = args.direction === "long" ? "bullish" : "bearish";
   const head =
-    args.grade === "A"
-      ? `A-Grade: full ${dirw} continuation structure. Every tier rule is satisfied.`
-      : args.grade === "B"
-        ? `B-Grade: primary ${dirw} trend alignment on H1 and M15, but H4 context caps the extension.`
-        : `C-Grade: aggressive localized M15 ${dirw} structural break with conflicting higher timeframes — mean-reversion only.`;
+    args.grade === "A+"
+      ? `A+ Grade: institutional confluence — a full ${dirw} continuation structure with all four confluence pillars satisfied.`
+      : args.grade === "A"
+        ? `A-Grade: full ${dirw} continuation structure. Every tier rule is satisfied.`
+        : args.grade === "B"
+          ? `B-Grade: primary ${dirw} trend alignment on H1 and M15, but H4 context caps the extension.`
+          : `C-Grade: aggressive localized M15 ${dirw} structural break with conflicting higher timeframes — mean-reversion only.`;
 
   const sat = args.satisfied.length
     ? `Rules satisfied: ${args.satisfied.join("; ")}.`
     : "Rules satisfied: none of the tier-A structural rules were met.";
   const vio = args.violated.length ? `Rules violated: ${args.violated.join("; ")}.` : "Rules violated: none.";
 
+  const pillars = `Confluence pillars ${args.pillars.passed}/4 — ${args.pillars.notes.join("; ")}.`;
+
   const metrics = `Pattern symmetry ${args.symmetry.toFixed(1)}%, timeframe alignment ${args.alignment.toFixed(1)}%, planned R:R ${args.rrRatio.toFixed(2)} with a stop placed beyond the structural extreme plus a ${args.atr.toFixed(5)} ATR buffer.`;
 
   const advice =
-    args.grade === "A"
-      ? "Full 1:3 extension is on the table."
-      : args.grade === "B"
-        ? "Manage to 1:2 unless H4 clears its barrier."
-        : "Default philosophy is No Trade unless the volatility context is exceptional.";
+    args.grade === "A+"
+      ? "Highest-conviction tier: full 1:3 extension with trailing management is justified."
+      : args.grade === "A"
+        ? "Full 1:3 extension is on the table."
+        : args.grade === "B"
+          ? "Manage to 1:2 unless H4 clears its barrier."
+          : "Default philosophy is No Trade unless the volatility context is exceptional.";
 
-  return `${head} ${sat} ${vio} ${metrics} ${advice}`;
+  return `${head} ${sat} ${vio} ${pillars} ${metrics} ${advice}`;
 }
 
 export interface BuildProfileInput {
@@ -115,18 +127,34 @@ export function buildTradeProfile(input: BuildProfileInput): TradeProfile | null
   const reachableAtr = Math.max(1, Math.min(3, h4.barrierDistanceAtr));
   const rrRatio = round(clamp(reachableAtr * (m15.atr / risk), 0.5, 3));
 
-  const volatilityAtrRatio = h1.atr > 0 ? m15.atr / (h1.atr / 2) : 1;
-
-  const confidence = scoreConfidence({
-    alignment: graded.alignmentScore,
-    rrRatio,
-    symmetry: abc.symmetry,
-    volatilityAtrRatio,
+  const pillars = scoreConfluence({
+    direction,
+    pointC: abc.c,
+    alignmentScore: graded.alignmentScore,
+    allAligned: h4.bias !== "neutral" && h4.bias === h1.bias && h1.bias === m15.bias,
+    h4Candles: input.candles.H4,
+    h1Candles: input.candles.H1,
+    m15Candles,
+    m15Atr: m15.atr,
   });
+
+  // A+ is a strict superset of A: the same structure plus all four pillars.
+  const grade: Grade = graded.grade === "A" && pillars.passed === 4 ? "A+" : graded.grade;
+
+  const confidence = scoreConfidence({ pillars, rrRatio, symmetry: abc.symmetry });
+
+  const satisfied = [...graded.reasonsSatisfied];
+  const violated = [...graded.reasonsViolated];
+  if (pillars.orderBlock >= PILLAR_PASS_SCORE) satisfied.push("Point C is retesting an institutional order block");
+  else violated.push("Point C is not inside an unmitigated H1/H4 order block");
+  if (pillars.momentum >= PILLAR_PASS_SCORE) satisfied.push("M15 momentum shows exhaustion at Point C");
+  else violated.push("M15 momentum shows no exhaustion or divergence at Point C");
+  if (pillars.volatilityExpansion >= PILLAR_PASS_SCORE) satisfied.push("M15 volatility is expanding above its 20-period ATR average");
+  else violated.push("M15 volatility is below its 20-period ATR average");
 
   return {
     instrument: input.instrument,
-    grade: graded.grade,
+    grade,
     direction,
     entryPrice: round(entryPrice, 5),
     stopLoss: round(stopLoss, 5),
@@ -137,18 +165,20 @@ export function buildTradeProfile(input: BuildProfileInput): TradeProfile | null
     rrRatio,
     patternSymmetry: round(abc.symmetry),
     confidence,
+    pillars,
     h4Bias: describe(h4),
     h1Bias: describe(h1),
     m15Bias: describe(m15),
     qualitativeBreakdown: buildBreakdown({
-      grade: graded.grade,
+      grade,
       direction,
-      satisfied: graded.reasonsSatisfied,
-      violated: graded.reasonsViolated,
+      satisfied,
+      violated,
       symmetry: abc.symmetry,
       alignment: graded.alignmentScore,
       rrRatio,
       atr: m15.atr,
+      pillars,
     }),
   };
 }
