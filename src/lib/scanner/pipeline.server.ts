@@ -6,7 +6,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { buildTradeProfile } from "./profile";
 import { fetchCandles, MetaApiNotConfiguredError, MetaApiTimeoutError } from "./metaapi.server";
-import { DEFAULT_DAILY_SETUP_CAP, INSTRUMENTS, type Candle, type Timeframe } from "./types";
+import { CANDLE_LIMITS, DEFAULT_DAILY_SETUP_CAP, INSTRUMENTS, type Candle, type Timeframe } from "./types";
 
 const TIMEFRAMES: Timeframe[] = ["H4", "H1", "M15"];
 
@@ -115,7 +115,7 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
     // Sequential per-timeframe fetch keeps peak memory to one candle series.
     const candles = {} as Record<Timeframe, Candle[]>;
     for (const tf of TIMEFRAMES) {
-      candles[tf] = await fetchCandles(job.instrument, tf, 200);
+      candles[tf] = await fetchCandles(job.instrument, tf, CANDLE_LIMITS[tf]);
     }
     await clearInstrument(db, job.instrument);
 
@@ -157,6 +157,11 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
         c_symmetry: profile.confidence.symmetry,
         c_volatility: profile.confidence.volatility,
         pattern_symmetry: profile.patternSymmetry,
+        p_trend: profile.pillars.trend,
+        p_order_block: profile.pillars.orderBlock,
+        p_momentum: profile.pillars.momentum,
+        p_volatility_expansion: profile.pillars.volatilityExpansion,
+        pillars_passed: profile.pillars.passed,
         h4_bias: profile.h4Bias,
         h1_bias: profile.h1Bias,
         m15_bias: profile.m15Bias,

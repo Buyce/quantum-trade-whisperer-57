@@ -38,7 +38,7 @@ export const Route = createFileRoute("/_authenticated/feed")({
   component: FeedPage,
 });
 
-const GRADE_ORDER: Record<Grade, number> = { A: 3, B: 2, C: 1 };
+const GRADE_ORDER: Record<Grade, number> = { "A+": 4, A: 3, B: 2, C: 1 };
 
 function FeedPage() {
   const { user } = useAuth();
@@ -58,7 +58,7 @@ function FeedPage() {
       .channel("scanned-signals-feed")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "scanned_signals" }, (payload) => {
         const row = payload.new as { instrument?: string; grade?: string; direction?: string };
-        const title = `New ${row.grade ?? ""}-Grade setup on ${row.instrument ?? "market"}`;
+        const title = `New ${row.grade === "A+" ? "A+" : `${row.grade ?? ""}-`}Grade setup on ${row.instrument ?? "market"}`;
         toast.info(title);
         if (typeof Notification !== "undefined" && Notification.permission === "granted") {
           new Notification("P-Trades Hub", {

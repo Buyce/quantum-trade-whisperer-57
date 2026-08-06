@@ -1,0 +1,1 @@
+ALTER TYPE public.signal_grade ADD VALUE IF NOT EXISTS 'A+';

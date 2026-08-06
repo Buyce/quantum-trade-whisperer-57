@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
 const GRADE_STYLES: Record<string, string> = {
+  "A+": "bg-grade-aplus/15 text-grade-aplus border-grade-aplus/50",
   A: "bg-grade-a/15 text-grade-a border-grade-a/40",
   B: "bg-grade-b/15 text-grade-b border-grade-b/40",
   C: "bg-grade-c/15 text-grade-c border-grade-c/40",
@@ -18,10 +19,11 @@ export function GradeBadge({ grade }: { grade: string }) {
         GRADE_STYLES[grade] ?? "",
       )}
     >
-      {grade}-GRADE
+      {grade === "A+" ? "A+ GRADE" : `${grade}-GRADE`}
     </span>
   );
 }
+
 
 function price(v: number, instrument: string) {
   return instrument === "XAUUSD" ? Number(v).toFixed(2) : Number(v).toFixed(5);
@@ -107,13 +109,36 @@ export function SignalCard({
           <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
             <div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(100, conf)}%` }} />
           </div>
-          <dl className="mt-3 space-y-1.5">
-            <Component label="Timeframe alignment" weight="40%" value={Number(signal.c_alignment)} />
-            <Component label="R:R ratio" weight="30%" value={Number(signal.c_rr)} />
-            <Component label="Pattern symmetry" weight="20%" value={Number(signal.c_symmetry)} />
-            <Component label="Volatility context" weight="10%" value={Number(signal.c_volatility)} />
+          <div className="mt-3 flex items-baseline justify-between">
+            <p className="label-xs">Confluence pillars</p>
+            <span className="num text-xs text-muted-foreground">
+              {signal.pillars_passed ?? "—"}/4 passed
+            </span>
+          </div>
+          <dl className="mt-2 space-y-1.5">
+            <Component
+              label="Trend alignment"
+              weight="35%"
+              value={Number(signal.p_trend ?? signal.c_alignment)}
+            />
+            <Component
+              label="Order block retest"
+              weight="25%"
+              value={Number(signal.p_order_block ?? signal.c_symmetry)}
+            />
+            <Component
+              label="Momentum exhaustion"
+              weight="20%"
+              value={Number(signal.p_momentum ?? signal.c_rr)}
+            />
+            <Component
+              label="Volatility expansion"
+              weight="20%"
+              value={Number(signal.p_volatility_expansion ?? signal.c_volatility)}
+            />
           </dl>
         </div>
+
       </div>
 
       <div className="flex flex-wrap items-center gap-2 border-t border-border bg-surface/50 px-4 py-3">

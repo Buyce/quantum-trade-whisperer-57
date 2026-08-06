@@ -31,12 +31,14 @@ No meaningful impact. RSI, ATR, an ATR moving average, and order-block sweeps ar
 
 The model is compatible, and it maps cleanly onto structures that already exist — two pillars are already half-built:
 
-| Pillar | Current state | Work needed |
-| --- | --- | --- |
-| 1. Trend alignment | Already computed as `allAligned` / `alignmentScore` in `grading.ts` | Reuse as-is, expose as a pillar |
-| 2. Order block retest | Not built. Point C exists in `detectAbc`; `atPointC` is a crude midpoint proxy | New H1/H4 order-block detector + containment test |
-| 3. Momentum exhaustion | Not built. No RSI in `indicators.ts` | Add RSI + divergence check at Point C |
-| 4. Volatility expansion | Partly built. Confidence uses an M15/H1 ATR *ratio*, not ATR vs its own MA | Add ATR moving average, switch the test to ATR ≥ ATR-MA(20) |
+
+| Pillar                  | Current state                                                                  | Work needed                                                 |
+| ----------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------------------- |
+| 1. Trend alignment      | Already computed as `allAligned` / `alignmentScore` in `grading.ts`            | Reuse as-is, expose as a pillar                             |
+| 2. Order block retest   | Not built. Point C exists in `detectAbc`; `atPointC` is a crude midpoint proxy | New H1/H4 order-block detector + containment test           |
+| 3. Momentum exhaustion  | Not built. No RSI in `indicators.ts`                                           | Add RSI + divergence check at Point C                       |
+| 4. Volatility expansion | Partly built. Confidence uses an M15/H1 ATR *ratio*, not ATR vs its own MA     | Add ATR moving average, switch the test to ATR ≥ ATR-MA(20) |
+
 
 Cleaner implementation than a bolt-on, based on the existing structure:
 
@@ -68,3 +70,19 @@ Cleaner implementation than a bolt-on, based on the existing structure:
 - Files touched: `src/lib/scanner/{indicators,grading,profile,types,metaapi.server,pipeline.server}.ts`, `src/lib/scanner/alerts.server.ts`, `src/components/SignalCard.tsx`, `src/routes/_authenticated/{feed,settings}.tsx`, `src/styles.css`.
 - No RLS or grant changes required.
 - No change to the cron/queue architecture, the `CRON_SECRET` gate, or the 8s MetaApi abort behaviour.
+
+&nbsp;
+
+The audit report is approved! Please proceed with the proposed execution plan:
+
+1. Run Migration A (add 'A+' to signal_grade enum) and Migration B (add pillar columns to scanned_signals).
+
+2. Upgrade candle history fetches to 300 for H4 and H1 in metaapi.server.ts.
+
+3. Add pure indicator functions (RSI, ATR MA, Order Block detection) to indicators.ts.
+
+4. Integrate the 4-pillar confluence scoring into grading.ts and promote Grade A to A+ when all 4 pillars pass.
+
+5. Update types, confidence weighting, UI badges/styles, and the Settings minimum-grade filter.
+
+6. Run a live scan cycle to verify end-to-end data parsing and feed/performance rendering.
