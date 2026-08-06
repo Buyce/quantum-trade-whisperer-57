@@ -267,6 +267,7 @@ function FeedPage() {
           })}
         </div>
       )}
+      <MarketTicker />
     </div>
   );
 }
