@@ -5,6 +5,8 @@ import type { ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import ptradesMark from "@/assets/ptrades-mark.png.asset.json";
+
 
 const NAV = [
   { to: "/feed", label: "Signal Feed", icon: Activity },
