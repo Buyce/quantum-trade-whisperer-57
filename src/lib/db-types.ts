@@ -79,6 +79,17 @@ export const INSTRUMENT_LABELS: Record<string, string> = {
   EURUSD: "EUR/USD",
 };
 
+export const ALL_INSTRUMENTS: string[] = ["XAUUSD", "GBPAUD", "EURUSD"];
+export const ALL_TIMEFRAMES: string[] = ["H4", "H1", "M15"];
+export const ALL_SESSIONS: string[] = [
+  "sydney",
+  "tokyo",
+  "london",
+  "london_new_york_overlap",
+  "new_york",
+];
+
+
 export function contextOf(signal: SignalRow): MarketContextRow | null {
   const ctx = signal.market_context;
   if (!ctx) return null;
