@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
 const GRADE_STYLES: Record<string, string> = {
+  "A+": "bg-grade-aplus/15 text-grade-aplus border-grade-aplus/50",
   A: "bg-grade-a/15 text-grade-a border-grade-a/40",
   B: "bg-grade-b/15 text-grade-b border-grade-b/40",
   C: "bg-grade-c/15 text-grade-c border-grade-c/40",
@@ -18,10 +19,11 @@ export function GradeBadge({ grade }: { grade: string }) {
         GRADE_STYLES[grade] ?? "",
       )}
     >
-      {grade}-GRADE
+      {grade === "A+" ? "A+ GRADE" : `${grade}-GRADE`}
     </span>
   );
 }
+
 
 function price(v: number, instrument: string) {
   return instrument === "XAUUSD" ? Number(v).toFixed(2) : Number(v).toFixed(5);

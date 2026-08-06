@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendTemplateEmail } from "@/lib/email-templates/send-email";
 
-const GRADE_RANK: Record<string, number> = { A: 3, B: 2, C: 1 };
+const GRADE_RANK: Record<string, number> = { "A+": 4, A: 3, B: 2, C: 1 };
 
 export interface AlertSignal {
   id: string;

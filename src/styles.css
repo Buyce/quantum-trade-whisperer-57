@@ -46,6 +46,7 @@
   --color-warning-foreground: var(--warning-foreground);
   --color-long: var(--long);
   --color-short: var(--short);
+  --color-grade-aplus: var(--grade-aplus);
   --color-grade-a: var(--grade-a);
   --color-grade-b: var(--grade-b);
   --color-grade-c: var(--grade-c);
@@ -99,6 +100,7 @@
 
   --long: oklch(0.73 0.16 154);
   --short: oklch(0.66 0.2 22);
+  --grade-aplus: oklch(0.78 0.17 175);
   --grade-a: oklch(0.73 0.16 154);
   --grade-b: oklch(0.79 0.155 79);
   --grade-c: oklch(0.68 0.12 250);

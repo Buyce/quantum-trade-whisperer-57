@@ -2,7 +2,7 @@
  * Row shapes for the P-Trades tables. Declared locally so the app compiles
  * independently of generated type regeneration.
  */
-export type Grade = "A" | "B" | "C";
+export type Grade = "A+" | "A" | "B" | "C";
 export type Direction = "long" | "short";
 export type DecisionKind = "taken" | "skipped";
 export type Outcome = "win" | "loss" | "breakeven" | "open";
@@ -26,6 +26,11 @@ export interface SignalRow {
   c_symmetry: number;
   c_volatility: number;
   pattern_symmetry: number;
+  p_trend: number | null;
+  p_order_block: number | null;
+  p_momentum: number | null;
+  p_volatility_expansion: number | null;
+  pillars_passed: number | null;
   h4_bias: string | null;
   h1_bias: string | null;
   m15_bias: string | null;
