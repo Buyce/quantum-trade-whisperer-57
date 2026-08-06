@@ -226,10 +226,20 @@ function PerformancePage() {
   );
 }
 
-function Kpi({ label, value, tone }: { label: string; value: string; tone?: "pos" | "neg" | undefined }) {
+function Kpi({
+  label,
+  value,
+  tone,
+  hint,
+}: {
+  label: string;
+  value: string;
+  tone?: "pos" | "neg" | undefined;
+  hint?: string;
+}) {
   return (
     <div className="bg-card px-4 py-3">
-      <p className="label-xs">{label}</p>
+      <p className="label-xs">{hint ? <InfoLabel hint={hint}>{label}</InfoLabel> : label}</p>
       <p
         className={cn(
           "num mt-1 text-xl font-bold",
