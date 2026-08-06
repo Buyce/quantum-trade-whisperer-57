@@ -102,6 +102,7 @@ function SettingsPage() {
         timeframes,
         sessions,
         min_grade: minGrade,
+        alert_min_grade: alertMinGrade,
         daily_setup_cap: cap,
         notify_push: push,
         notify_email: email,
