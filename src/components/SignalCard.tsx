@@ -157,14 +157,22 @@ export function SignalCard({
 
         <div>
           <div className="flex items-baseline justify-between">
-            <p className="label-xs">Confidence</p>
+            <p className="label-xs">
+              <InfoLabel hint="How strongly this setup matched the model's rules. It is a quality score, not a probability of profit.">
+                Confidence
+              </InfoLabel>
+            </p>
             <span className="num text-xl font-bold text-primary">{conf.toFixed(1)}%</span>
           </div>
           <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
             <div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(100, conf)}%` }} />
           </div>
           <div className="mt-3 flex items-baseline justify-between">
-            <p className="label-xs">Confluence pillars</p>
+            <p className="label-xs">
+              <InfoLabel hint="Four independent checks the setup must satisfy. All four passing is what earns the A+ tier.">
+                Confluence pillars
+              </InfoLabel>
+            </p>
             <span className="num text-xs text-muted-foreground">
               {signal.pillars_passed ?? "—"}/4 passed
             </span>
