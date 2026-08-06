@@ -15,6 +15,8 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedFeedRouteImport } from './routes/_authenticated/feed'
 import { Route as AuthenticatedPerformanceRouteImport } from './routes/_authenticated/performance'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as ApiPublicCronScanRouteImport } from './routes/api/public/cron/scan'
+import { Route as ApiPublicWorkerProcessRouteImport } from './routes/api/public/worker/process'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -46,6 +48,16 @@ const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const ApiPublicCronScanRoute = ApiPublicCronScanRouteImport.update({
+  id: '/api/public/cron/scan',
+  path: '/api/public/cron/scan',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicWorkerProcessRoute = ApiPublicWorkerProcessRouteImport.update({
+  id: '/api/public/worker/process',
+  path: '/api/public/worker/process',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -53,6 +65,8 @@ export interface FileRoutesByFullPath {
   '/feed': typeof AuthenticatedFeedRoute
   '/performance': typeof AuthenticatedPerformanceRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/api/public/cron/scan': typeof ApiPublicCronScanRoute
+  '/api/public/worker/process': typeof ApiPublicWorkerProcessRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -60,6 +74,8 @@ export interface FileRoutesByTo {
   '/feed': typeof AuthenticatedFeedRoute
   '/performance': typeof AuthenticatedPerformanceRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/api/public/cron/scan': typeof ApiPublicCronScanRoute
+  '/api/public/worker/process': typeof ApiPublicWorkerProcessRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -69,12 +85,28 @@ export interface FileRoutesById {
   '/_authenticated/feed': typeof AuthenticatedFeedRoute
   '/_authenticated/performance': typeof AuthenticatedPerformanceRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/api/public/cron/scan': typeof ApiPublicCronScanRoute
+  '/api/public/worker/process': typeof ApiPublicWorkerProcessRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/feed' | '/performance' | '/settings'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/feed'
+    | '/performance'
+    | '/settings'
+    | '/api/public/cron/scan'
+    | '/api/public/worker/process'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/feed' | '/performance' | '/settings'
+  to:
+    | '/'
+    | '/auth'
+    | '/feed'
+    | '/performance'
+    | '/settings'
+    | '/api/public/cron/scan'
+    | '/api/public/worker/process'
   id:
     | '__root__'
     | '/'
@@ -83,12 +115,16 @@ export interface FileRouteTypes {
     | '/_authenticated/feed'
     | '/_authenticated/performance'
     | '/_authenticated/settings'
+    | '/api/public/cron/scan'
+    | '/api/public/worker/process'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiPublicCronScanRoute: typeof ApiPublicCronScanRoute
+  ApiPublicWorkerProcessRoute: typeof ApiPublicWorkerProcessRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -135,6 +171,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/public/cron/scan': {
+      id: '/api/public/cron/scan'
+      path: '/api/public/cron/scan'
+      fullPath: '/api/public/cron/scan'
+      preLoaderRoute: typeof ApiPublicCronScanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/worker/process': {
+      id: '/api/public/worker/process'
+      path: '/api/public/worker/process'
+      fullPath: '/api/public/worker/process'
+      preLoaderRoute: typeof ApiPublicWorkerProcessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -157,6 +207,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiPublicCronScanRoute: ApiPublicCronScanRoute,
+  ApiPublicWorkerProcessRoute: ApiPublicWorkerProcessRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
