@@ -38,6 +38,8 @@ export const Route = createFileRoute("/_authenticated/performance")({
 });
 
 const DAY_LABELS = ["", "Mon", "Tue", "Wed", "Thu", "Fri"];
+const GRADE_TIERS = ["A+", "A", "B", "C"] as const;
+
 
 function PerformancePage() {
   const { user } = useAuth();
@@ -59,7 +61,15 @@ function PerformancePage() {
   const dist = useMemo(() => rDistribution(samples), [samples]);
   const cells = useMemo(() => heatMap(samples), [samples]);
   const byInstrument = useMemo(() => groupBy(samples, (s) => s.instrument), [samples]);
-  const byGrade = useMemo(() => groupBy(samples, (s) => s.grade), [samples]);
+  // All four tiers always render, even when a tier has no setups yet.
+  const byGrade = useMemo(() => {
+    const grouped = groupBy(samples, (s) => s.grade);
+    return GRADE_TIERS.map((tier) => {
+      const found = grouped.find((g) => g.key === tier);
+      return { key: tier, stats: found ? found.stats : computeExpectancy([]) };
+    });
+  }, [samples]);
+
   const insights = useMemo(() => generateInsights(samples, scopeLabel), [samples, scopeLabel]);
 
   const maxAbs = Math.max(0.01, ...cells.map((c) => Math.abs(c.expectancyR)));
@@ -206,7 +216,10 @@ function PerformancePage() {
         />
         <BreakdownTable
           title="By grade tier"
-          rows={byGrade.map((g) => ({ label: `${g.key}-Grade`, stats: g.stats }))}
+          rows={byGrade.map((g) => ({
+            label: g.key === "A+" ? "A+ Grade" : `${g.key}-Grade`,
+            stats: g.stats,
+          }))}
         />
       </div>
     </div>
