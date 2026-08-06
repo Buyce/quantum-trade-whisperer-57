@@ -1,4 +1,5 @@
 import type { ComponentType } from 'react'
+import { template as signalAlertTemplate } from './signal-alert'
 
 export interface TemplateEntry {
   component: ComponentType<any>
