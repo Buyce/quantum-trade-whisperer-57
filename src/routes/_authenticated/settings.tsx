@@ -48,6 +48,28 @@ function SettingsPage() {
   const [push, setPush] = useState(true);
   const [email, setEmail] = useState(false);
   const [saving, setSaving] = useState(false);
+  const triggerScan = useServerFn(runScanNow);
+  const [scanning, setScanning] = useState(false);
+  const [scanReport, setScanReport] = useState<ManualScanResult | null>(null);
+
+  async function onRunScanNow() {
+    setScanning(true);
+    setScanReport(null);
+    try {
+      const result = await triggerScan({ data: undefined });
+      setScanReport(result);
+      const failed = result.processed.filter((p) => p.status === "failed").length;
+      if (failed > 0) toast.error(`Scan finished with ${failed} failed job(s)`);
+      else toast.success(`Scan cycle complete — ${result.processed.length} instrument(s) processed`);
+      await queryClient.invalidateQueries({ queryKey: ["instrument-health"] });
+      await queryClient.invalidateQueries({ queryKey: ["signals"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not run the scan");
+    } finally {
+      setScanning(false);
+    }
+  }
+
 
   useEffect(() => {
     const s = settings.data;
