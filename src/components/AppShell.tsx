@@ -29,9 +29,14 @@ export function AppShell({ children }: { children: ReactNode }) {
       <header className="sticky top-0 z-40 border-b border-border bg-surface/95 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-[1600px] items-center gap-6 px-4">
           <Link to="/feed" className="flex items-center gap-2">
-            <span className="grid size-7 place-items-center rounded-sm bg-primary text-primary-foreground num text-xs font-bold">
-              PT
-            </span>
+            <img
+              src={ptradesMark.url}
+              alt="P-Trades Hub logo"
+              width={28}
+              height={28}
+              className="size-7"
+            />
+
             <span className="num text-sm font-semibold tracking-tight">P-TRADES HUB</span>
           </Link>
 
