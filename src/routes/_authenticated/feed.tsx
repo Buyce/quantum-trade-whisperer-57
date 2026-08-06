@@ -139,7 +139,7 @@ function FeedPage() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 pb-14">
       <OnboardingBanner />
       <div className="flex flex-wrap items-end gap-4">
         <div>
