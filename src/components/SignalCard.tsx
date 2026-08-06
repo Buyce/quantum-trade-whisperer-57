@@ -204,6 +204,9 @@ export function SignalCard({
       </div>
 
       <div className="flex flex-wrap items-center gap-2 border-t border-border bg-surface/50 px-4 py-3">
+        <Button size="sm" variant="outline" onClick={() => void copyOrder()}>
+          <Copy className="size-4" /> Copy order details
+        </Button>
         {!trade ? (
           <>
             <Button size="sm" disabled={busy} onClick={() => onDecision("taken")}>
@@ -213,7 +216,9 @@ export function SignalCard({
               <X className="size-4" /> Log as Skipped
             </Button>
             <span className="ml-auto text-xs text-muted-foreground">
-              No-Trade is the default. Nothing here is an instruction to execute.
+              {guide
+                ? "You decide whether to trade. Logging it here only records your choice — it never places an order."
+                : "No-Trade is the default. Nothing here is an instruction to execute."}
             </span>
           </>
         ) : (
