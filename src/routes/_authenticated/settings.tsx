@@ -47,7 +47,8 @@ function SettingsPage() {
   const [timeframes, setTimeframes] = useState<string[]>([...ALL_TIMEFRAMES]);
   const [sessions, setSessions] = useState<string[]>([...ALL_SESSIONS]);
   const [minGrade, setMinGrade] = useState<Grade>("C");
-  const [cap, setCap] = useState(15);
+  const [alertMinGrade, setAlertMinGrade] = useState<Grade>("B");
+  const [cap, setCap] = useState(30);
   const [push, setPush] = useState(true);
   const [email, setEmail] = useState(false);
   const [saving, setSaving] = useState(false);
