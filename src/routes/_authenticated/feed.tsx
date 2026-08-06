@@ -15,6 +15,7 @@ import {
 } from "@/lib/queries";
 import { contextOf, type Grade, type SignalRow, type TradeRow } from "@/lib/db-types";
 import { SignalCard } from "@/components/SignalCard";
+import { MarketTicker, ScanHeartbeat } from "@/components/MarketTicker";
 import { OnboardingBanner } from "@/components/OnboardingBanner";
 import { useGuideMode } from "@/components/GuideMode";
 import { Button } from "@/components/ui/button";
@@ -108,6 +109,7 @@ function FeedPage() {
 
   const cap = cfg?.daily_setup_cap ?? 15;
   const unavailable = (health.data ?? []).filter((h) => !h.available);
+  const lastScanAt = (health.data ?? []).find((h) => h.instrument === "XAUUSD")?.updated_at ?? null;
 
   async function decide(signalId: string, decision: "taken" | "skipped") {
     if (!user) return;
@@ -137,7 +139,7 @@ function FeedPage() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 pb-14">
       <OnboardingBanner />
       <div className="flex flex-wrap items-end gap-4">
         <div>
@@ -242,6 +244,9 @@ function FeedPage() {
               error — the scanner only publishes structures that pass the ABC rules.
             </p>
           )}
+          <div className="mt-6">
+            <ScanHeartbeat lastScanAt={lastScanAt} />
+          </div>
         </div>
       ) : (
         <div className="space-y-4">
@@ -262,6 +267,7 @@ function FeedPage() {
           })}
         </div>
       )}
+      <MarketTicker />
     </div>
   );
 }
