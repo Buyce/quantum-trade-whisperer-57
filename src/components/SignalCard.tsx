@@ -1,8 +1,10 @@
-import { ArrowDownRight, ArrowUpRight, Check, X } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Check, Copy, X } from "lucide-react";
+import { toast } from "sonner";
 import { contextOf, INSTRUMENT_LABELS, SESSION_LABELS, type SignalRow, type TradeRow } from "@/lib/db-types";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { InfoLabel, useGuideMode } from "@/components/GuideMode";
 
 const GRADE_STYLES: Record<string, string> = {
   "A+": "bg-grade-aplus/15 text-grade-aplus border-grade-aplus/50",
