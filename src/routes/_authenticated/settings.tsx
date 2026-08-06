@@ -196,7 +196,7 @@ function SettingsPage() {
         <Row
           id="notify-email"
           title="Email alerts"
-          desc="Sent from notify.getptrades.com once the sender domain below is verified."
+          desc="Branded alerts sent from notify.getptrades.com — the sender domain is verified and live."
           checked={email}
           onChange={setEmail}
         />
