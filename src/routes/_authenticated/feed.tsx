@@ -44,6 +44,7 @@ const GRADE_ORDER: Record<Grade, number> = { "A+": 4, A: 3, B: 2, C: 1 };
 
 function FeedPage() {
   const { user } = useAuth();
+  const { guide } = useGuideMode();
   const queryClient = useQueryClient();
   const signals = useQuery(signalsQuery());
   const trades = useQuery(myTradesQuery(user?.id));
