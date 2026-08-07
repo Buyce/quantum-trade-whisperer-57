@@ -7,6 +7,7 @@
 import path from "node:path";
 import { loadEnv } from "vite";
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+import { mcpPlugin } from "@lovable.dev/mcp-js/stacks/tanstack/vite";
 
 // Load non-VITE_ env vars into process.env so server routes (email, cron, scanner)
 // can read secrets. These are NEVER injected into the client bundle.
@@ -20,6 +21,7 @@ export default defineConfig({
     server: { entry: "server" },
   },
   vite: {
+    plugins: [mcpPlugin()],
     resolve: {
       alias: {
         // React Email's htmlparser2 path needs entities v4.5.0; pin every import
