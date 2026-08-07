@@ -1,5 +1,9 @@
 import type { ComponentType } from 'react'
 import { template as signalAlertTemplate } from './signal-alert'
+import { template as accountCancellationTemplate } from './account-cancellation'
+import { template as accountCancellationAdminTemplate } from './account-cancellation-admin'
+import { template as feedbackReceivedTemplate } from './feedback-received'
+import { template as feedbackThankYouTemplate } from './feedback-thank-you'
 
 export interface TemplateEntry {
   component: ComponentType<any>
