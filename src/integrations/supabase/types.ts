@@ -58,6 +58,39 @@ export type Database = {
           },
         ]
       }
+      feedback: {
+        Row: {
+          category: string
+          contact_email: string | null
+          created_at: string
+          id: string
+          message: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string
+          contact_email?: string | null
+          created_at?: string
+          id?: string
+          message: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          category?: string
+          contact_email?: string | null
+          created_at?: string
+          id?: string
+          message?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       instrument_health: {
         Row: {
           available: boolean
@@ -124,6 +157,8 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string
+          deletion_requested_at: string | null
+          deletion_scheduled_for: string | null
           display_name: string | null
           id: string
           updated_at: string
@@ -131,6 +166,8 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           created_at?: string
+          deletion_requested_at?: string | null
+          deletion_scheduled_for?: string | null
           display_name?: string | null
           id: string
           updated_at?: string
@@ -138,6 +175,8 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           created_at?: string
+          deletion_requested_at?: string | null
+          deletion_scheduled_for?: string | null
           display_name?: string | null
           id?: string
           updated_at?: string
