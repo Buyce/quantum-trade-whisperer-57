@@ -24,4 +24,8 @@ export interface TemplateEntry {
  */
 export const TEMPLATES: Record<string, TemplateEntry> = {
   'signal-alert': signalAlertTemplate,
+  'account-cancellation': accountCancellationTemplate,
+  'account-cancellation-admin': accountCancellationAdminTemplate,
+  'feedback-received': feedbackReceivedTemplate,
+  'feedback-thank-you': feedbackThankYouTemplate,
 }
