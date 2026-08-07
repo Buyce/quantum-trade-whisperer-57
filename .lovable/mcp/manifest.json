@@ -1,0 +1,187 @@
+{
+  "version": 1,
+  "sdk_version": "0.26.1",
+  "path": "/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://qbraqpolgduqporknacx.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "p-trades-hub",
+      "version": "0.1.0",
+      "title": "P-Trades Hub"
+    },
+    "tools": [
+      {
+        "name": "list_signals",
+        "title": "List scanned signals",
+        "description": "List the most recent trade setups produced by the live P-Trades market scanner. Returns real broker-derived signals only; an empty list means the scanner is in Capital Preservation Mode (no valid setup).",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "instrument": {
+              "description": "Optional instrument filter, e.g. XAUUSD, GBPAUD or EURUSD.",
+              "type": "string"
+            },
+            "min_grade": {
+              "description": "Only return setups at or above this grade tier.",
+              "type": "string",
+              "enum": [
+                "A+",
+                "A",
+                "B",
+                "C"
+              ]
+            },
+            "limit": {
+              "description": "Maximum rows to return (1-50, default 10).",
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_scanner_status",
+        "title": "Get scanner status",
+        "description": "Report live scanner health per instrument (availability, last error, last scan timestamp) plus the signed-in user's feed and alert filter settings.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "log_trade_decision",
+        "title": "Log trade decision",
+        "description": "Record the signed-in user's decision on a scanned signal: taken or skipped. Creates or updates that user's trade journal entry for the signal.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "signal_id": {
+              "type": "string",
+              "description": "The id of a signal returned by list_signals."
+            },
+            "decision": {
+              "type": "string",
+              "enum": [
+                "taken",
+                "skipped"
+              ],
+              "description": "Whether the user took or skipped the setup."
+            }
+          },
+          "required": [
+            "signal_id",
+            "decision"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "update_trade_outcome",
+        "title": "Update trade outcome",
+        "description": "Set the outcome (win, loss, breakeven or open) and realized R-multiple on one of the signed-in user's logged trades.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "trade_id": {
+              "type": "string",
+              "description": "The id of a trade returned by list_my_trades."
+            },
+            "outcome": {
+              "type": "string",
+              "enum": [
+                "win",
+                "loss",
+                "breakeven",
+                "open"
+              ],
+              "description": "Resolved outcome of the trade."
+            },
+            "realized_r_multiple": {
+              "description": "Realized result in R multiples, e.g. 2.5 for a 2.5R win or -1 for a full stop.",
+              "type": "number"
+            }
+          },
+          "required": [
+            "trade_id",
+            "outcome"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_my_trades",
+        "title": "List my trades",
+        "description": "List the signed-in user's logged trade decisions and their outcomes.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "limit": {
+              "description": "Maximum rows to return (1-100, default 20).",
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_performance_summary",
+        "title": "Get performance summary",
+        "description": "Compute the signed-in user's trading performance from their logged trades: sample size, win rate, average win and loss in R, and expectancy in R.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
