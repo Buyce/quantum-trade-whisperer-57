@@ -16,6 +16,7 @@ import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as AuthenticatedFeedRouteImport } from './routes/_authenticated/feed'
 import { Route as AuthenticatedPerformanceRouteImport } from './routes/_authenticated/performance'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 import { Route as ApiPublicCronScanRouteImport } from './routes/api/public/cron/scan'
 import { Route as ApiPublicWorkerProcessRouteImport } from './routes/api/public/worker/process'
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
@@ -57,6 +58,11 @@ const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
+  id: '/.lovable/oauth/consent',
+  path: '/.lovable/oauth/consent',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicCronScanRoute = ApiPublicCronScanRouteImport.update({
   id: '/api/public/cron/scan',
   path: '/api/public/cron/scan',
@@ -91,6 +97,7 @@ export interface FileRoutesByFullPath {
   '/feed': typeof AuthenticatedFeedRoute
   '/performance': typeof AuthenticatedPerformanceRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/api/public/cron/scan': typeof ApiPublicCronScanRoute
   '/api/public/worker/process': typeof ApiPublicWorkerProcessRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -104,6 +111,7 @@ export interface FileRoutesByTo {
   '/feed': typeof AuthenticatedFeedRoute
   '/performance': typeof AuthenticatedPerformanceRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/api/public/cron/scan': typeof ApiPublicCronScanRoute
   '/api/public/worker/process': typeof ApiPublicWorkerProcessRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -119,6 +127,7 @@ export interface FileRoutesById {
   '/_authenticated/feed': typeof AuthenticatedFeedRoute
   '/_authenticated/performance': typeof AuthenticatedPerformanceRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/api/public/cron/scan': typeof ApiPublicCronScanRoute
   '/api/public/worker/process': typeof ApiPublicWorkerProcessRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -134,6 +143,7 @@ export interface FileRouteTypes {
     | '/feed'
     | '/performance'
     | '/settings'
+    | '/.lovable/oauth/consent'
     | '/api/public/cron/scan'
     | '/api/public/worker/process'
     | '/lovable/email/auth/preview'
@@ -147,6 +157,7 @@ export interface FileRouteTypes {
     | '/feed'
     | '/performance'
     | '/settings'
+    | '/.lovable/oauth/consent'
     | '/api/public/cron/scan'
     | '/api/public/worker/process'
     | '/lovable/email/auth/preview'
@@ -161,6 +172,7 @@ export interface FileRouteTypes {
     | '/_authenticated/feed'
     | '/_authenticated/performance'
     | '/_authenticated/settings'
+    | '/.lovable/oauth/consent'
     | '/api/public/cron/scan'
     | '/api/public/worker/process'
     | '/lovable/email/auth/preview'
@@ -173,6 +185,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   ApiPublicCronScanRoute: typeof ApiPublicCronScanRoute
   ApiPublicWorkerProcessRoute: typeof ApiPublicWorkerProcessRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
@@ -230,6 +243,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/settings'
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/.lovable/oauth/consent': {
+      id: '/.lovable/oauth/consent'
+      path: '/.lovable/oauth/consent'
+      fullPath: '/.lovable/oauth/consent'
+      preLoaderRoute: typeof DotlovableOauthConsentRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/public/cron/scan': {
       id: '/api/public/cron/scan'
@@ -289,6 +309,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
   ApiPublicCronScanRoute: ApiPublicCronScanRoute,
   ApiPublicWorkerProcessRoute: ApiPublicWorkerProcessRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
