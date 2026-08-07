@@ -1,5 +1,9 @@
 import type { ComponentType } from 'react'
 import { template as signalAlertTemplate } from './signal-alert'
+import { template as accountCancellationTemplate } from './account-cancellation'
+import { template as accountCancellationAdminTemplate } from './account-cancellation-admin'
+import { template as feedbackReceivedTemplate } from './feedback-received'
+import { template as feedbackThankYouTemplate } from './feedback-thank-you'
 
 export interface TemplateEntry {
   component: ComponentType<any>
@@ -20,4 +24,8 @@ export interface TemplateEntry {
  */
 export const TEMPLATES: Record<string, TemplateEntry> = {
   'signal-alert': signalAlertTemplate,
+  'account-cancellation': accountCancellationTemplate,
+  'account-cancellation-admin': accountCancellationAdminTemplate,
+  'feedback-received': feedbackReceivedTemplate,
+  'feedback-thank-you': feedbackThankYouTemplate,
 }

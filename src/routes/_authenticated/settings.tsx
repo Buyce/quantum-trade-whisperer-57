@@ -16,6 +16,8 @@ import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { FeedbackSection } from "@/components/FeedbackSection";
+import { DangerZoneSection } from "@/components/DangerZoneSection";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
@@ -349,6 +351,10 @@ function SettingsPage() {
           <Save className="size-4" /> {saving ? "Saving…" : "Save settings"}
         </Button>
       </div>
+
+      <FeedbackSection defaultEmail={user?.email ?? ""} />
+
+      <DangerZoneSection />
     </div>
   );
 }
