@@ -1,4 +1,4 @@
-import { auth, defineMcp, type AnyToolDefinition } from "@lovable.dev/mcp-js";
+import { auth, defineMcp } from "@lovable.dev/mcp-js";
 import listSignals from "./tools/list-signals";
 import logTradeDecision from "./tools/log-trade-decision";
 import updateTradeOutcome from "./tools/update-trade-outcome";
@@ -27,5 +27,5 @@ export default defineMcp({
     updateTradeOutcome,
     listMyTrades,
     getPerformanceSummary,
-  ] as unknown as AnyToolDefinition[]),
+  ] as unknown as Parameters<typeof defineMcp>[0]["tools"]),
 });
