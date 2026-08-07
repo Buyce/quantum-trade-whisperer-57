@@ -1,4 +1,4 @@
-import { auth, defineMcp } from "@lovable.dev/mcp-js";
+import { auth, defineMcp, type AnyToolDefinition } from "@lovable.dev/mcp-js";
 import listSignals from "./tools/list-signals";
 import logTradeDecision from "./tools/log-trade-decision";
 import updateTradeOutcome from "./tools/update-trade-outcome";
@@ -20,12 +20,12 @@ export default defineMcp({
     issuer: `https://${projectRef}.supabase.co/auth/v1`,
     acceptedAudiences: "authenticated",
   }),
-  tools: [
+  tools: ([
     listSignals,
     getScannerStatus,
     logTradeDecision,
     updateTradeOutcome,
     listMyTrades,
     getPerformanceSummary,
-  ],
+  ] as unknown as AnyToolDefinition[]),
 });
