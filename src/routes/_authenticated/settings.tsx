@@ -349,6 +349,10 @@ function SettingsPage() {
           <Save className="size-4" /> {saving ? "Saving…" : "Save settings"}
         </Button>
       </div>
+
+      <FeedbackSection defaultEmail={user?.email ?? ""} />
+
+      <DangerZoneSection />
     </div>
   );
 }
