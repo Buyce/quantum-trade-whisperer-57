@@ -25,8 +25,17 @@ export const Route = createFileRoute("/auth")({
       { name: "robots", content: "noindex" },
     ],
   }),
+  validateSearch: (s: Record<string, unknown>) => ({
+    next: typeof s["next"] === "string" ? s["next"] : undefined,
+  }),
   component: AuthPage,
 });
+
+/** Only same-origin relative paths may be used as a post-login redirect. */
+function safeNext(next: string | undefined): string | null {
+  if (!next || !next.startsWith("/") || next.startsWith("//")) return null;
+  return next;
+}
 
 const credentials = z.object({
   email: z.string().trim().email({ message: "Enter a valid email address" }).max(255),
@@ -35,6 +44,15 @@ const credentials = z.object({
 
 function AuthPage() {
   const navigate = useNavigate();
+  const { next } = Route.useSearch();
+  const nextPath = safeNext(next);
+  const afterAuth = () => {
+    if (nextPath) {
+      window.location.href = nextPath;
+      return;
+    }
+    navigate({ to: "/feed", replace: true });
+  };
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -43,7 +61,7 @@ function AuthPage() {
 
   useEffect(() => {
     void supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: "/feed", replace: true });
+      if (data.session) afterAuth();
     });
   }, [navigate]);
 
@@ -60,7 +78,7 @@ function AuthPage() {
       toast.error(error.message);
       return;
     }
-    navigate({ to: "/feed", replace: true });
+    afterAuth();
   }
 
   async function signUp() {
@@ -73,7 +91,9 @@ function AuthPage() {
     const { data, error } = await supabase.auth.signUp({
       ...parsed.data,
       options: {
-        emailRedirectTo: window.location.origin,
+        emailRedirectTo: nextPath
+          ? `${window.location.origin}${nextPath}`
+          : window.location.origin,
         data: { display_name: displayName.trim().slice(0, 60) || parsed.data.email.split("@")[0] },
       },
     });
@@ -83,7 +103,7 @@ function AuthPage() {
       return;
     }
     if (data.session) {
-      navigate({ to: "/feed", replace: true });
+      afterAuth();
       return;
     }
     setAwaitingConfirm(true);
@@ -92,7 +112,7 @@ function AuthPage() {
   async function google() {
     setBusy(true);
     const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
+      redirect_uri: nextPath ? `${window.location.origin}${nextPath}` : window.location.origin,
     });
     if (result.error) {
       setBusy(false);
@@ -100,7 +120,7 @@ function AuthPage() {
       return;
     }
     if (result.redirected) return;
-    navigate({ to: "/feed", replace: true });
+    afterAuth();
   }
 
   return (
