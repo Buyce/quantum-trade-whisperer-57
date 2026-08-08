@@ -35,8 +35,30 @@ export function sessionOf(date: Date): string {
   return "sydney";
 }
 
+/**
+ * Retire setups that are still `active` past their lifetime. They no longer
+ * reflect live structure, and clearing them lets a genuinely fresh version of
+ * the same setup publish again. Only touches rows the scanner itself wrote;
+ * resolved signals and user-logged trades are untouched.
+ */
+export async function expireStaleSignals(db: SupabaseClient) {
+  const cutoff = new Date(Date.now() - SIGNAL_MAX_AGE_HOURS * 3_600_000).toISOString();
+  const { data, error } = await db
+    .from("scanned_signals")
+    .update({ status: "expired" })
+    .eq("status", "active")
+    .lt("detected_at", cutoff)
+    .select("id");
+  if (error) {
+    console.error("[pipeline] expireStaleSignals failed:", describeError(error));
+    return 0;
+  }
+  return (data ?? []).length;
+}
+
 /** Enqueue one job per monitored instrument for this scan cycle. */
 export async function enqueueScanCycle(db: SupabaseClient) {
+  const expired = await expireStaleSignals(db);
   const runId = crypto.randomUUID();
   const rows = INSTRUMENTS.map((instrument) => ({
     run_id: runId,
@@ -45,7 +67,7 @@ export async function enqueueScanCycle(db: SupabaseClient) {
   }));
   const { error } = await db.from("scan_queue").insert(rows);
   if (error) throw error;
-  return { runId, enqueued: rows.length };
+  return { runId, enqueued: rows.length, expired };
 }
 
 /**
@@ -63,6 +85,32 @@ async function countToday(db: SupabaseClient) {
   if (error) throw error;
   return count ?? 0;
 }
+
+/**
+ * True when an identical setup is already live: same instrument, same
+ * direction, same entry price. Prevents the 15-minute cycle from re-publishing
+ * the same structure over and over (which used to burn the daily quota).
+ */
+async function isDuplicateSetup(
+  db: SupabaseClient,
+  instrument: string,
+  direction: string,
+  entryPrice: number,
+) {
+  const rounded = Number(entryPrice.toFixed(ENTRY_PRICE_DECIMALS));
+  const { data, error } = await db
+    .from("scanned_signals")
+    .select("id, entry_price")
+    .eq("instrument", instrument)
+    .eq("direction", direction)
+    .eq("status", "active")
+    .limit(200);
+  if (error) throw error;
+  return (data ?? []).some(
+    (row) => Number(Number((row as { entry_price: number }).entry_price).toFixed(ENTRY_PRICE_DECIMALS)) === rounded,
+  );
+}
+
 
 
 /** Serialize thrown values — Supabase/PostgREST errors are plain objects, not Errors. */
