@@ -50,7 +50,7 @@ function SettingsPage() {
   const [sessions, setSessions] = useState<string[]>([...ALL_SESSIONS]);
   const [minGrade, setMinGrade] = useState<Grade>("C");
   const [alertMinGrade, setAlertMinGrade] = useState<Grade>("B");
-  const [cap, setCap] = useState(30);
+  const [cap, setCap] = useState(50);
   const [push, setPush] = useState(true);
   const [email, setEmail] = useState(false);
   const [saving, setSaving] = useState(false);
