@@ -31,3 +31,5 @@ The feed's "Setups today" counter switches to UTC midnight and to the same cappe
 - Untouched: grading (`grading.ts`, `profile.ts`, `indicators.ts`), MetaApi fetching and timeouts, queue mechanics and `claim_scan_job`, alert fan-out rules and `alert_min_grade`, cap value (30) and the C-Grade bypass, performance KPIs.
 - Zero-Hallucination rule respected: no seeds, no synthetic rows, empty states unchanged. Expiry only changes `status` on rows the live scanner itself wrote.
 - No existing rows are deleted. Today's duplicate backlog will age out through the 24-hour expiry sweep; say the word if you want it cleared immediately instead.
+
+Also increase the dayli cup to 50
