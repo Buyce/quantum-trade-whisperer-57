@@ -240,13 +240,13 @@ function SettingsPage() {
               id="cap"
               type="number"
               min={1}
-              max={30}
+              max={50}
               className="num mt-2"
               value={cap}
-              onChange={(e) => setCap(Math.max(1, Math.min(30, Number(e.target.value) || 1)))}
+              onChange={(e) => setCap(Math.max(1, Math.min(50, Number(e.target.value) || 1)))}
             />
             <p className="mt-1 text-xs text-muted-foreground">
-              Hard ceiling is 30/day and only A+, A and B setups deduct from it — C-Grade publishes outside the
+              Hard ceiling is 50/day and only A+, A and B setups deduct from it — C-Grade publishes outside the
               quota. The engine defaults to No Trade rather than filling the cap.
             </p>
           </div>
