@@ -260,7 +260,13 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
       })
       .select("id")
       .single();
-    if (sigError) throw sigError;
+    if (sigError) {
+      // 23505 = the active-setup unique index caught a concurrent duplicate.
+      if ((sigError as { code?: string }).code === "23505") {
+        return await finish("duplicate", "An identical active setup is already published");
+      }
+      throw sigError;
+    }
 
     const { error: ctxError } = await db.from("market_context").insert({
       signal_id: (inserted as { id: string }).id,
