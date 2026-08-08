@@ -112,15 +112,16 @@ function FeedPage() {
   }, [signals.data, applyFilters, cfg, openOnly]);
 
   // Only A+/A/B consume the daily quota — C-Grade publishes outside the cap.
+  // Window is UTC midnight so the number matches the scanner's own quota query.
   const todayCount = useMemo(() => {
     const start = new Date();
-    start.setHours(0, 0, 0, 0);
+    start.setUTCHours(0, 0, 0, 0);
     return (signals.data ?? []).filter(
       (s) => new Date(s.detected_at) >= start && s.grade !== "C",
     ).length;
   }, [signals.data]);
 
-  const cap = cfg?.daily_setup_cap ?? 30;
+  const cap = cfg?.daily_setup_cap ?? 50;
   const unavailable = (health.data ?? []).filter((h) => !h.available);
   const lastScanAt = (health.data ?? []).find((h) => h.instrument === "XAUUSD")?.updated_at ?? null;
 

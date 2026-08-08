@@ -6,7 +6,16 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { buildTradeProfile } from "./profile";
 import { fetchCandles, MetaApiNotConfiguredError, MetaApiTimeoutError } from "./metaapi.server";
-import { CANDLE_LIMITS, CAPPED_GRADES, DEFAULT_DAILY_SETUP_CAP, INSTRUMENTS, type Candle, type Timeframe } from "./types";
+import {
+  CANDLE_LIMITS,
+  CAPPED_GRADES,
+  DEFAULT_DAILY_SETUP_CAP,
+  ENTRY_PRICE_DECIMALS,
+  INSTRUMENTS,
+  SIGNAL_MAX_AGE_HOURS,
+  type Candle,
+  type Timeframe,
+} from "./types";
 
 const TIMEFRAMES: Timeframe[] = ["H4", "H1", "M15"];
 
@@ -26,8 +35,30 @@ export function sessionOf(date: Date): string {
   return "sydney";
 }
 
+/**
+ * Retire setups that are still `active` past their lifetime. They no longer
+ * reflect live structure, and clearing them lets a genuinely fresh version of
+ * the same setup publish again. Only touches rows the scanner itself wrote;
+ * resolved signals and user-logged trades are untouched.
+ */
+export async function expireStaleSignals(db: SupabaseClient) {
+  const cutoff = new Date(Date.now() - SIGNAL_MAX_AGE_HOURS * 3_600_000).toISOString();
+  const { data, error } = await db
+    .from("scanned_signals")
+    .update({ status: "expired" })
+    .eq("status", "active")
+    .lt("detected_at", cutoff)
+    .select("id");
+  if (error) {
+    console.error("[pipeline] expireStaleSignals failed:", describeError(error));
+    return 0;
+  }
+  return (data ?? []).length;
+}
+
 /** Enqueue one job per monitored instrument for this scan cycle. */
 export async function enqueueScanCycle(db: SupabaseClient) {
+  const expired = await expireStaleSignals(db);
   const runId = crypto.randomUUID();
   const rows = INSTRUMENTS.map((instrument) => ({
     run_id: runId,
@@ -36,7 +67,7 @@ export async function enqueueScanCycle(db: SupabaseClient) {
   }));
   const { error } = await db.from("scan_queue").insert(rows);
   if (error) throw error;
-  return { runId, enqueued: rows.length };
+  return { runId, enqueued: rows.length, expired };
 }
 
 /**
@@ -54,6 +85,32 @@ async function countToday(db: SupabaseClient) {
   if (error) throw error;
   return count ?? 0;
 }
+
+/**
+ * True when an identical setup is already live: same instrument, same
+ * direction, same entry price. Prevents the 15-minute cycle from re-publishing
+ * the same structure over and over (which used to burn the daily quota).
+ */
+async function isDuplicateSetup(
+  db: SupabaseClient,
+  instrument: string,
+  direction: string,
+  entryPrice: number,
+) {
+  const rounded = Number(entryPrice.toFixed(ENTRY_PRICE_DECIMALS));
+  const { data, error } = await db
+    .from("scanned_signals")
+    .select("id, entry_price")
+    .eq("instrument", instrument)
+    .eq("direction", direction)
+    .eq("status", "active")
+    .limit(200);
+  if (error) throw error;
+  return (data ?? []).some(
+    (row) => Number(Number((row as { entry_price: number }).entry_price).toFixed(ENTRY_PRICE_DECIMALS)) === rounded,
+  );
+}
+
 
 
 /** Serialize thrown values — Supabase/PostgREST errors are plain objects, not Errors. */
@@ -114,7 +171,7 @@ async function clearInstrument(db: SupabaseClient, instrument: string) {
 export interface JobResult {
   jobId: string;
   instrument: string;
-  status: "published" | "no_trade" | "skipped" | "capped" | "failed";
+  status: "published" | "no_trade" | "skipped" | "capped" | "duplicate" | "failed";
   detail?: string;
 }
 
@@ -151,6 +208,12 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
 
     const profile = buildTradeProfile({ instrument: job.instrument, candles: candles });
     if (!profile) return await finish("no_trade", "No structure satisfied the ABC grading rules");
+
+    // Same structure already live → do not republish, do not alert, do not
+    // consume the daily quota.
+    if (await isDuplicateSetup(db, profile.instrument, profile.direction, profile.entryPrice)) {
+      return await finish("duplicate", "An identical active setup is already published");
+    }
 
     // Cap is evaluated after grading: C-Grade bypasses the daily quota entirely.
     if (CAPPED_GRADES.includes(profile.grade) && (await countToday(db)) >= DEFAULT_DAILY_SETUP_CAP) {
@@ -197,7 +260,13 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
       })
       .select("id")
       .single();
-    if (sigError) throw sigError;
+    if (sigError) {
+      // 23505 = the active-setup unique index caught a concurrent duplicate.
+      if ((sigError as { code?: string }).code === "23505") {
+        return await finish("duplicate", "An identical active setup is already published");
+      }
+      throw sigError;
+    }
 
     const { error: ctxError } = await db.from("market_context").insert({
       signal_id: (inserted as { id: string }).id,
