@@ -93,7 +93,19 @@ export const CONFIDENCE_WEIGHTS = {
  * Maximum number of published setups per calendar day (No-Trade philosophy).
  * C-Grade setups do NOT consume this quota — only A+, A and B count.
  */
-export const DEFAULT_DAILY_SETUP_CAP = 30;
+export const DEFAULT_DAILY_SETUP_CAP = 50;
 
 /** Grades that deduct from the daily setup quota. */
 export const CAPPED_GRADES: Grade[] = ["A+", "A", "B"];
+
+/**
+ * A still-active setup older than this no longer reflects live structure and is
+ * swept to `expired` at the start of each scan cycle.
+ */
+export const SIGNAL_MAX_AGE_HOURS = 24;
+
+/**
+ * Two setups count as the same structure when instrument, direction and entry
+ * price (to this many decimals) match. Re-publishing one is suppressed.
+ */
+export const ENTRY_PRICE_DECIMALS = 5;
