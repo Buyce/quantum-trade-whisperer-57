@@ -209,6 +209,12 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
     const profile = buildTradeProfile({ instrument: job.instrument, candles: candles });
     if (!profile) return await finish("no_trade", "No structure satisfied the ABC grading rules");
 
+    // Same structure already live → do not republish, do not alert, do not
+    // consume the daily quota.
+    if (await isDuplicateSetup(db, profile.instrument, profile.direction, profile.entryPrice)) {
+      return await finish("duplicate", "An identical active setup is already published");
+    }
+
     // Cap is evaluated after grading: C-Grade bypasses the daily quota entirely.
     if (CAPPED_GRADES.includes(profile.grade) && (await countToday(db)) >= DEFAULT_DAILY_SETUP_CAP) {
       return await finish("capped", `Daily cap of ${DEFAULT_DAILY_SETUP_CAP} setups already reached`);
