@@ -38,6 +38,7 @@ export interface SignalRow {
   status: string;
   resolved_outcome: Outcome;
   resolved_r_multiple: number | null;
+  expired_at: string | null;
   market_context?: MarketContextRow | MarketContextRow[] | null;
 }
 

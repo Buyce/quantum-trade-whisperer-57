@@ -43,9 +43,10 @@ export function sessionOf(date: Date): string {
  */
 export async function expireStaleSignals(db: SupabaseClient) {
   const cutoff = new Date(Date.now() - SIGNAL_MAX_AGE_HOURS * 3_600_000).toISOString();
+  const now = new Date().toISOString();
   const { data, error } = await db
     .from("scanned_signals")
-    .update({ status: "expired" })
+    .update({ status: "expired", expired_at: now })
     .eq("status", "active")
     .lt("detected_at", cutoff)
     .select("id");
