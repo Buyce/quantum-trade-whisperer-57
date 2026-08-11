@@ -243,6 +243,7 @@ export type Database = {
           detected_at: string
           direction: Database["public"]["Enums"]["trade_direction"]
           entry_price: number
+          expired_at: string | null
           grade: Database["public"]["Enums"]["signal_grade"]
           h1_bias: string | null
           h4_bias: string | null
@@ -276,6 +277,7 @@ export type Database = {
           detected_at?: string
           direction: Database["public"]["Enums"]["trade_direction"]
           entry_price: number
+          expired_at?: string | null
           grade: Database["public"]["Enums"]["signal_grade"]
           h1_bias?: string | null
           h4_bias?: string | null
@@ -309,6 +311,7 @@ export type Database = {
           detected_at?: string
           direction?: Database["public"]["Enums"]["trade_direction"]
           entry_price?: number
+          expired_at?: string | null
           grade?: Database["public"]["Enums"]["signal_grade"]
           h1_bias?: string | null
           h4_bias?: string | null
@@ -387,6 +390,7 @@ export type Database = {
           instrument: string
         }[]
       }
+      purge_expired_signals: { Args: never; Returns: number }
     }
     Enums: {
       decision_kind: "taken" | "skipped"
