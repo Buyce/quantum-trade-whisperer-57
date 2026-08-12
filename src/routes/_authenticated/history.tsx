@@ -214,12 +214,30 @@ function OutcomeEditor({
   onSubmit: (outcome: Outcome, r: number | null) => void;
 }) {
   const [r, setR] = useState(realizedR != null ? String(realizedR) : "");
+  // Expand-to-edit: an always-open editor on every row reads like unsaved work.
+  const [editing, setEditing] = useState(false);
 
   const parsed = r.trim() === "" ? null : Number(r);
   const valid = parsed === null || Number.isFinite(parsed);
 
+  if (!editing) {
+    return (
+      <div className="flex items-center gap-3 px-4 py-2.5">
+        <span className="label-xs">Recorded result</span>
+        <span className="num text-xs text-foreground">
+          {outcome === "open"
+            ? "Still open"
+            : `${outcome.toUpperCase()}${realizedR != null ? ` · ${Number(realizedR).toFixed(2)}R` : ""}`}
+        </span>
+        <Button size="sm" variant="ghost" className="ml-auto" onClick={() => setEditing(true)}>
+          <Pencil className="size-3.5" /> Edit outcome
+        </Button>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-wrap items-center gap-2 px-4 py-3">
+    <div className="flex flex-wrap items-center gap-2 border-t border-border px-4 py-3">
       <span className="label-xs mr-1">Record result</span>
       <Input
         value={r}
@@ -235,11 +253,17 @@ function OutcomeEditor({
           size="sm"
           variant={o === outcome ? "default" : "outline"}
           disabled={busy || !valid}
-          onClick={() => onSubmit(o, o === "open" ? null : parsed)}
+          onClick={() => {
+            onSubmit(o, o === "open" ? null : parsed);
+            setEditing(false);
+          }}
         >
           {o === "breakeven" ? "Break-even" : o[0]!.toUpperCase() + o.slice(1)}
         </Button>
       ))}
+      <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
+        Cancel
+      </Button>
       {!valid ? <span className="text-xs text-destructive">Enter a number</span> : null}
     </div>
   );
