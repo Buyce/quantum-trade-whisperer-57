@@ -196,21 +196,18 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
     const profile = buildTradeProfile({ instrument: job.instrument, candles: candles });
     if (!profile) return await finish("no_trade", "No structure satisfied the ABC grading rules");
 
-    // Same structure already live → do not republish, do not alert, do not
-    // consume the daily quota.
-    if (await isDuplicateSetup(db, profile.instrument, profile.direction, profile.entryPrice)) {
-      return await finish("duplicate", "An identical active setup is already published");
-    }
-
     // Cap is evaluated after grading: C-Grade bypasses the daily quota entirely.
     if (CAPPED_GRADES.includes(profile.grade) && (await countToday(db)) >= DEFAULT_DAILY_SETUP_CAP) {
       return await finish("capped", `Daily cap of ${DEFAULT_DAILY_SETUP_CAP} setups already reached`);
     }
 
-
     const now = new Date();
+    // Volatility regime = M15 ATR relative to H1 ATR. Both must be true ATRs;
+    // dividing by a raw close price (the previous behaviour) is meaningless.
     const m15Atr = profile.atr;
-    const h1Atr = candles.H1.length ? Math.abs(candles.H1[candles.H1.length - 1]!.close) : 0;
+    const h1Atr = atr(candles.H1, 14);
+    const volatilityIndex =
+      h1Atr > 0 && m15Atr > 0 ? Number((m15Atr / h1Atr).toFixed(4)) : null;
 
     // Signal first — market_context.signal_id is required and references it.
     const { data: inserted, error: sigError } = await db
