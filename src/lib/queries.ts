@@ -44,6 +44,28 @@ export function myTradesQuery(userId: string | undefined) {
   });
 }
 
+/**
+ * Trades the user actually took, joined to their originating signal. Skipped
+ * decisions are intentionally excluded — they are not retained.
+ */
+export function takenTradeHistoryQuery(userId: string | undefined) {
+  return queryOptions({
+    queryKey: ["taken-trade-history", userId],
+    enabled: !!userId,
+    queryFn: async (): Promise<TradeHistoryRow[]> => {
+      const { data, error } = await supabase
+        .from("executed_trades" as never)
+        .select(
+          `id, user_id, signal_id, user_decision, outcome, realized_r_multiple, notes, created_at, scanned_signals(${SIGNAL_COLUMNS})`,
+        )
+        .eq("user_decision", "taken")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as unknown as TradeHistoryRow[];
+    },
+  });
+}
+
 export function settingsQuery(userId: string | undefined) {
   return queryOptions({
     queryKey: ["scanner-settings", userId],
