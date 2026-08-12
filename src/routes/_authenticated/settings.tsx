@@ -283,7 +283,9 @@ function SettingsPage() {
           onChange={(v) => {
             setPush(v);
             if (v && typeof Notification !== "undefined" && Notification.permission === "default") {
-              void Notification.requestPermission();
+              void Notification.requestPermission().catch(() => {
+                toast.error("This browser blocked the notification permission prompt");
+              });
             }
           }}
         />

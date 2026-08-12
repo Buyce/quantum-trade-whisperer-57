@@ -29,6 +29,9 @@ export function signalsQuery(limit = 400) {
 }
 
 
+/** Bounded on purpose: an unlimited personal history grows without ceiling. */
+const TRADE_PAGE_SIZE = 500;
+
 export function myTradesQuery(userId: string | undefined) {
   return queryOptions({
     queryKey: ["my-trades", userId],
@@ -37,7 +40,8 @@ export function myTradesQuery(userId: string | undefined) {
       const { data, error } = await supabase
         .from("executed_trades" as never)
         .select("id, user_id, signal_id, user_decision, outcome, realized_r_multiple, notes, created_at")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(TRADE_PAGE_SIZE);
       if (error) throw error;
       return (data ?? []) as unknown as TradeRow[];
     },
@@ -59,7 +63,8 @@ export function takenTradeHistoryQuery(userId: string | undefined) {
           `id, user_id, signal_id, user_decision, outcome, realized_r_multiple, notes, created_at, scanned_signals(${SIGNAL_COLUMNS})`,
         )
         .eq("user_decision", "taken")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(TRADE_PAGE_SIZE);
       if (error) throw error;
       return (data ?? []) as unknown as TradeHistoryRow[];
     },
