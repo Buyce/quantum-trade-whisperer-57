@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { Lightbulb } from "lucide-react";
+import { Download, Lightbulb } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { myTradesQuery, signalsQuery } from "@/lib/queries";
 import { INSTRUMENT_LABELS } from "@/lib/db-types";
@@ -17,6 +17,8 @@ import {
   samplesFromSignals,
   samplesFromTrades,
 } from "@/lib/performance";
+import { downloadCsv, samplesToCsv, todayStamp } from "@/lib/export";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InfoLabel } from "@/components/GuideMode";
@@ -78,6 +80,11 @@ function PerformancePage() {
   const insights = useMemo(() => generateInsights(coreSamples, scopeLabel), [coreSamples, scopeLabel]);
 
 
+  function exportMetrics() {
+    if (samples.length === 0) return;
+    downloadCsv(`ptrades_performance_${effectiveScope}_${todayStamp()}.csv`, samplesToCsv(samples));
+  }
+
   const maxAbs = Math.max(0.01, ...cells.map((c) => Math.abs(c.expectancyR)));
 
   if (signals.isLoading || trades.isLoading) {
@@ -96,13 +103,16 @@ function PerformancePage() {
           <p className="label-xs">Phase 3 · Performance engine</p>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">Performance</h1>
         </div>
-        <div className="ml-auto">
+        <div className="ml-auto flex flex-wrap items-center gap-3">
           <Tabs value={effectiveScope} onValueChange={(v) => setScope(v as "mine" | "baseline")}>
             <TabsList>
               <TabsTrigger value="mine">My trade log</TabsTrigger>
               <TabsTrigger value="baseline">Scanner baseline</TabsTrigger>
             </TabsList>
           </Tabs>
+          <Button size="sm" variant="ghost" disabled={samples.length === 0} onClick={exportMetrics}>
+            <Download className="size-4" /> Export Metrics (CSV)
+          </Button>
         </div>
       </div>
 
