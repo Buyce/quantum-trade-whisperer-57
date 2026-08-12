@@ -138,235 +138,266 @@ function SettingsPage() {
         </p>
       ) : null}
 
-      <section className="space-y-3 rounded-md border border-border bg-card p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="label-xs">Scanner diagnostics</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              The scan runs automatically every 15 minutes. Run it on demand to verify the pipeline end to end.
-            </p>
-          </div>
-          <Button variant="outline" onClick={onRunScanNow} disabled={scanning}>
-            <RefreshCw className={cn("mr-2 h-4 w-4", scanning && "animate-spin")} />
-            {scanning ? "Scanning…" : "Run scan now"}
-          </Button>
-        </div>
+      {/* Tabs replace the long scroll: each concern is one screen, and the save
+          bar stays pinned under the tabs it applies to. */}
+      <Tabs defaultValue="filters" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-2 sm:inline-flex sm:w-auto">
+          <TabsTrigger value="filters">Filters &amp; alerts</TabsTrigger>
+          <TabsTrigger value="notifications">Notifications</TabsTrigger>
+          <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger>
+          <TabsTrigger value="account">Account</TabsTrigger>
+        </TabsList>
 
-        {scanReport && (
-          <div className="space-y-1 rounded border border-border bg-background p-3 font-mono text-xs">
-            <p className="text-muted-foreground">
-              run {scanReport.runId.slice(0, 8)} · {scanReport.enqueued} enqueued
-            </p>
-            {scanReport.processed.length === 0 && <p className="text-muted-foreground">No jobs processed.</p>}
-            {scanReport.processed.map((p, i) => (
-              <p key={`${p.instrument}-${i}`}>
-                <span className="text-foreground">{p.instrument}</span>{" "}
-                <span
-                  className={cn(
-                    p.status === "failed"
-                      ? "text-destructive"
-                      : p.status === "published"
-                        ? "text-emerald-400"
-                        : "text-muted-foreground",
-                  )}
-                >
-                  {p.status}
-                </span>
-                {p.detail ? <span className="text-muted-foreground"> — {p.detail}</span> : null}
-              </p>
-            ))}
-          </div>
-        )}
-      </section>
+        <TabsContent value="filters" className="space-y-4">
+          <section className="space-y-5 rounded-md border border-border bg-card p-4">
+            <h2 className="label-xs">Feed filters</h2>
 
-
-
-      <section className="space-y-5 rounded-md border border-border bg-card p-4">
-        <h2 className="label-xs">Feed filters</h2>
-
-        <div>
-          <Label className="text-xs">Instruments</Label>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {ALL_INSTRUMENTS.map((i) => (
-              <Chip
-                key={i}
-                active={instruments.includes(i)}
-                onClick={() => toggle(instruments, i, setInstruments)}
-              >
-                {i}
-                <span className="ml-1.5 opacity-60">{INSTRUMENT_LABELS[i]}</span>
-              </Chip>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <Label className="text-xs">Timeframes of interest</Label>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {ALL_TIMEFRAMES.map((t) => (
-              <Chip key={t} active={timeframes.includes(t)} onClick={() => toggle(timeframes, t, setTimeframes)}>
-                {t}
-              </Chip>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <Label className="text-xs">Active sessions</Label>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {ALL_SESSIONS.map((s) => (
-              <Chip key={s} active={sessions.includes(s)} onClick={() => toggle(sessions, s, setSessions)}>
-                {SESSION_LABELS[s] ?? s}
-              </Chip>
-            ))}
-          </div>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <Label className="text-xs" htmlFor="min-grade">
-              Minimum grade
-            </Label>
-            <Select value={minGrade} onValueChange={(v) => setMinGrade(v as Grade)}>
-              <SelectTrigger id="min-grade" className="mt-2">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="A+">A+ only — full institutional confluence</SelectItem>
-                <SelectItem value="A">A and above — perfect alignment</SelectItem>
-                <SelectItem value="B">B and above</SelectItem>
-                <SelectItem value="C">C and above — everything</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label className="text-xs" htmlFor="cap">
-              Daily setup cap
-            </Label>
-            <Input
-              id="cap"
-              type="number"
-              min={1}
-              max={50}
-              className="num mt-2"
-              value={cap}
-              onChange={(e) => setCap(Math.max(1, Math.min(50, Number(e.target.value) || 1)))}
-            />
-            <p className="mt-1 text-xs text-muted-foreground">
-              Hard ceiling is 50/day and only A+, A and B setups deduct from it — C-Grade publishes outside the
-              quota. The engine defaults to No Trade rather than filling the cap.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <section className="space-y-4 rounded-md border border-border bg-card p-4">
-        <h2 className="label-xs">Alerts</h2>
-        <div>
-          <Label className="text-xs" htmlFor="alert-min-grade">
-            Alert minimum grade
-          </Label>
-          <Select value={alertMinGrade} onValueChange={(v) => setAlertMinGrade(v as Grade)}>
-            <SelectTrigger id="alert-min-grade" className="mt-2 sm:max-w-sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="A+">A+ only</SelectItem>
-              <SelectItem value="A">A and above</SelectItem>
-              <SelectItem value="B">B and above</SelectItem>
-              <SelectItem value="C">C and above</SelectItem>
-            </SelectContent>
-          </Select>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Which tiers may trigger push and email alerts. Independent of your feed minimum grade — set it to
-            “C and above” if you want to be alerted on every tier.
-          </p>
-        </div>
-        <Row
-          id="notify-push"
-          title="Browser & Android push"
-          desc="Fires when a new signal at or above your alert minimum grade is inserted by the scanner."
-          checked={push}
-          onChange={(v) => {
-            setPush(v);
-            if (v && typeof Notification !== "undefined" && Notification.permission === "default") {
-              void Notification.requestPermission().catch(() => {
-                toast.error("This browser blocked the notification permission prompt");
-              });
-            }
-          }}
-        />
-        <Row
-          id="notify-email"
-          title="Email alerts"
-          desc="Branded alerts sent from notify.getptrades.com — the sender domain is verified and live."
-          checked={email}
-          onChange={setEmail}
-        />
-      </section>
-
-
-      <section className="space-y-3 rounded-md border border-border bg-card p-4">
-        <h2 className="label-xs">Sender domain · getptrades.com</h2>
-        <p className="text-sm text-muted-foreground">
-          <span className="num text-long">Verified</span> — alerts send from{" "}
-          <span className="num text-foreground">notify.getptrades.com</span>. The records below are the
-          delegation currently in place; keep them at your registrar so deliverability stays intact.
-        </p>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border">
-                {["Type", "Name / Host", "Value", ""].map((h) => (
-                  <th key={h} className="label-xs px-3 py-2 text-left">
-                    {h}
-                  </th>
+            <div>
+              <Label className="text-xs">Instruments</Label>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {ALL_INSTRUMENTS.map((i) => (
+                  <Chip
+                    key={i}
+                    active={instruments.includes(i)}
+                    onClick={() => toggle(instruments, i, setInstruments)}
+                  >
+                    {i}
+                    <span className="ml-1.5 opacity-60">{INSTRUMENT_LABELS[i]}</span>
+                  </Chip>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
-              {DNS_RECORDS.map((r, i) => (
-                <tr key={i} className="border-b border-border/60 last:border-0">
-                  <td className="num px-3 py-2 text-xs">{r.type}</td>
-                  <td className="num px-3 py-2 text-xs">{r.name}</td>
-                  <td className="num px-3 py-2 text-xs break-all text-muted-foreground">{r.value}</td>
-                  <td className="px-3 py-2 text-right">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      aria-label={`Copy ${r.type} record value`}
-                      onClick={() => {
-                        // Never claim success the clipboard did not deliver.
-                        void navigator.clipboard
-                          .writeText(r.value)
-                          .then(() => toast.success("Copied"))
-                          .catch(() => toast.error("Clipboard blocked — copy the value manually"));
-                      }}
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-xs">Timeframes of interest</Label>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {ALL_TIMEFRAMES.map((t) => (
+                  <Chip
+                    key={t}
+                    active={timeframes.includes(t)}
+                    onClick={() => toggle(timeframes, t, setTimeframes)}
+                  >
+                    {t}
+                  </Chip>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-xs">Active sessions</Label>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {ALL_SESSIONS.map((s) => (
+                  <Chip key={s} active={sessions.includes(s)} onClick={() => toggle(sessions, s, setSessions)}>
+                    {SESSION_LABELS[s] ?? s}
+                  </Chip>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <Label className="text-xs" htmlFor="min-grade">
+                  Minimum grade
+                </Label>
+                <Select value={minGrade} onValueChange={(v) => setMinGrade(v as Grade)}>
+                  <SelectTrigger id="min-grade" className="mt-2">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="A+">A+ only — full institutional confluence</SelectItem>
+                    <SelectItem value="A">A and above — perfect alignment</SelectItem>
+                    <SelectItem value="B">B and above</SelectItem>
+                    <SelectItem value="C">C and above — everything</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs" htmlFor="cap">
+                  Daily setup cap
+                </Label>
+                <Input
+                  id="cap"
+                  type="number"
+                  min={1}
+                  max={50}
+                  className="num mt-2"
+                  value={cap}
+                  onChange={(e) => setCap(Math.max(1, Math.min(50, Number(e.target.value) || 1)))}
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Hard ceiling is 50/day and only A+, A and B setups deduct from it — C-Grade publishes outside
+                  the quota. The engine defaults to No Trade rather than filling the cap.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <section className="space-y-4 rounded-md border border-border bg-card p-4">
+            <h2 className="label-xs">Alert threshold</h2>
+            <div>
+              <Label className="text-xs" htmlFor="alert-min-grade">
+                Alert minimum grade
+              </Label>
+              <Select value={alertMinGrade} onValueChange={(v) => setAlertMinGrade(v as Grade)}>
+                <SelectTrigger id="alert-min-grade" className="mt-2 sm:max-w-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="A+">A+ only</SelectItem>
+                  <SelectItem value="A">A and above</SelectItem>
+                  <SelectItem value="B">B and above</SelectItem>
+                  <SelectItem value="C">C and above</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Which tiers may trigger push and email alerts. Independent of your feed minimum grade — set it to
+                “C and above” if you want to be alerted on every tier.
+              </p>
+            </div>
+          </section>
+
+          <SaveBar saving={saving} onSave={() => void onSave()} />
+        </TabsContent>
+
+        <TabsContent value="notifications" className="space-y-4">
+          <section className="space-y-4 rounded-md border border-border bg-card p-4">
+            <h2 className="label-xs">Delivery channels</h2>
+            <Row
+              id="notify-push"
+              title="Browser & Android push"
+              desc="Fires when a new signal at or above your alert minimum grade is inserted by the scanner."
+              checked={push}
+              onChange={(v) => {
+                setPush(v);
+                if (v && typeof Notification !== "undefined" && Notification.permission === "default") {
+                  void Notification.requestPermission().catch(() => {
+                    toast.error("This browser blocked the notification permission prompt");
+                  });
+                }
+              }}
+            />
+            <Row
+              id="notify-email"
+              title="Email alerts"
+              desc="Branded alerts sent from notify.getptrades.com — the sender domain is verified and live."
+              checked={email}
+              onChange={setEmail}
+            />
+          </section>
+
+          <SaveBar saving={saving} onSave={() => void onSave()} />
+        </TabsContent>
+
+        <TabsContent value="diagnostics" className="space-y-4">
+          <section className="space-y-3 rounded-md border border-border bg-card p-4">
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 sm:flex sm:justify-between">
+              <div className="min-w-0">
+                <h2 className="label-xs">Scanner diagnostics</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  The scan runs automatically every 15 minutes. Run it on demand to verify the pipeline end to end.
+                </p>
+              </div>
+              <Button variant="outline" onClick={onRunScanNow} disabled={scanning} className="shrink-0">
+                <RefreshCw className={cn("mr-2 h-4 w-4", scanning && "animate-spin")} />
+                {scanning ? "Scanning…" : "Run scan now"}
+              </Button>
+            </div>
+
+            {scanReport && (
+              <div className="space-y-1 rounded border border-border bg-background p-3 font-mono text-xs">
+                <p className="text-muted-foreground">
+                  run {scanReport.runId.slice(0, 8)} · {scanReport.enqueued} enqueued
+                </p>
+                {scanReport.processed.length === 0 && <p className="text-muted-foreground">No jobs processed.</p>}
+                {scanReport.processed.map((p, i) => (
+                  <p key={`${p.instrument}-${i}`}>
+                    <span className="text-foreground">{p.instrument}</span>{" "}
+                    <span
+                      className={cn(
+                        p.status === "failed"
+                          ? "text-destructive"
+                          : p.status === "published"
+                            ? "text-emerald-400"
+                            : "text-muted-foreground",
+                      )}
                     >
-                      <Copy className="size-3.5" />
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <ol className="list-decimal space-y-1 pl-5 text-xs text-muted-foreground">
-          <li>These NS records delegate the notify subdomain so SPF, DKIM and MX are managed for you.</li>
-          <li>Removing them stops alert delivery from notify.getptrades.com.</li>
-          <li>New sending domains warm up over 2–4 weeks — deliverability improves as volume stays steady.</li>
-        </ol>
-      </section>
+                      {p.status}
+                    </span>
+                    {p.detail ? <span className="text-muted-foreground"> — {p.detail}</span> : null}
+                  </p>
+                ))}
+              </div>
+            )}
+          </section>
 
-      <div className="flex justify-end">
-        <Button onClick={() => void onSave()} disabled={saving}>
-          <Save className="size-4" /> {saving ? "Saving…" : "Save settings"}
-        </Button>
-      </div>
+          <section className="space-y-3 rounded-md border border-border bg-card p-4">
+            <h2 className="label-xs">Sender domain · getptrades.com</h2>
+            <p className="text-sm text-muted-foreground">
+              <span className="num text-long">Verified</span> — alerts send from{" "}
+              <span className="num text-foreground">notify.getptrades.com</span>. The records below are the
+              delegation currently in place; keep them at your registrar so deliverability stays intact.
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border">
+                    {["Type", "Name / Host", "Value", ""].map((h) => (
+                      <th key={h} className="label-xs px-3 py-2 text-left">
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {DNS_RECORDS.map((r, i) => (
+                    <tr key={i} className="border-b border-border/60 last:border-0">
+                      <td className="num px-3 py-2 text-xs">{r.type}</td>
+                      <td className="num px-3 py-2 text-xs">{r.name}</td>
+                      <td className="num px-3 py-2 text-xs break-all text-muted-foreground">{r.value}</td>
+                      <td className="px-3 py-2 text-right">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          aria-label={`Copy ${r.type} record value`}
+                          onClick={() => {
+                            // Never claim success the clipboard did not deliver.
+                            void navigator.clipboard
+                              .writeText(r.value)
+                              .then(() => toast.success("Copied"))
+                              .catch(() => toast.error("Clipboard blocked — copy the value manually"));
+                          }}
+                        >
+                          <Copy className="size-3.5" />
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <ol className="list-decimal space-y-1 pl-5 text-xs text-muted-foreground">
+              <li>These NS records delegate the notify subdomain so SPF, DKIM and MX are managed for you.</li>
+              <li>Removing them stops alert delivery from notify.getptrades.com.</li>
+              <li>New sending domains warm up over 2–4 weeks — deliverability improves as volume stays steady.</li>
+            </ol>
+          </section>
+        </TabsContent>
 
-      <FeedbackSection defaultEmail={user?.email ?? ""} />
+        <TabsContent value="account" className="space-y-4">
+          <FeedbackSection defaultEmail={user?.email ?? ""} />
+          <DangerZoneSection />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
 
-      <DangerZoneSection />
+function SaveBar({ saving, onSave }: { saving: boolean; onSave: () => void }) {
+  return (
+    <div className="flex justify-end">
+      <Button onClick={onSave} disabled={saving}>
+        <Save className="size-4" /> {saving ? "Saving…" : "Save settings"}
+      </Button>
     </div>
   );
 }
