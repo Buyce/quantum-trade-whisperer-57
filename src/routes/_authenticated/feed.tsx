@@ -13,7 +13,7 @@ import {
   signalsQuery,
   updateTradeResult,
 } from "@/lib/queries";
-import { contextOf, type Grade, type SignalRow, type TradeRow } from "@/lib/db-types";
+import { contextOf, isWithinRetention, type Grade, type SignalRow, type TradeRow } from "@/lib/db-types";
 import { SignalCard } from "@/components/SignalCard";
 import { MarketTicker, ScanHeartbeat } from "@/components/MarketTicker";
 import { OnboardingBanner } from "@/components/OnboardingBanner";
@@ -98,6 +98,10 @@ function FeedPage() {
 
   const visible = useMemo(() => {
     let rows: SignalRow[] = signals.data ?? [];
+    // Retention cutoff: a setup leaves the feed once its grade window elapses,
+    // even when the row survives deletion because a trade was logged on it.
+    const now = Date.now();
+    rows = rows.filter((s) => isWithinRetention(s, now));
     if (applyFilters && cfg) {
       rows = rows.filter((s) => {
         if (cfg.instruments.length && !cfg.instruments.includes(s.instrument)) return false;
