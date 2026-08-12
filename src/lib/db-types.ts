@@ -75,6 +75,18 @@ export interface ScannerSettingsRow {
 
 export const GRADE_RANK: Record<Grade, number> = { "A+": 4, A: 3, B: 2, C: 1 };
 
+/**
+ * Feed retention windows, measured from `detected_at`. These MUST mirror the
+ * thresholds in the SQL function `public.purge_expired_signals()`.
+ */
+export const RETENTION_HOURS: Record<Grade, number> = { "A+": 48, A: 48, B: 36, C: 24 };
+
+/** True while a signal is still inside its grade's retention window. */
+export function isWithinRetention(signal: Pick<SignalRow, "grade" | "detected_at">, now = Date.now()) {
+  const hours = RETENTION_HOURS[signal.grade] ?? 24;
+  return now - new Date(signal.detected_at).getTime() < hours * 3_600_000;
+}
+
 
 export const SESSION_LABELS: Record<string, string> = {
   sydney: "Sydney",
