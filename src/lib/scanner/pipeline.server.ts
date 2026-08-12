@@ -5,6 +5,7 @@
  */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { buildTradeProfile } from "./profile";
+import { atr } from "./indicators";
 import { fetchCandles, MetaApiNotConfiguredError, MetaApiTimeoutError } from "./metaapi.server";
 import {
   CANDLE_LIMITS,
@@ -41,7 +42,10 @@ export function sessionOf(date: Date): string {
  * the same setup publish again. Only touches rows the scanner itself wrote;
  * resolved signals and user-logged trades are untouched.
  */
-export async function expireStaleSignals(db: SupabaseClient) {
+export async function expireStaleSignals(db: SupabaseClient): Promise<{
+  expired: number;
+  error: string | null;
+}> {
   const cutoff = new Date(Date.now() - SIGNAL_MAX_AGE_HOURS * 3_600_000).toISOString();
   const now = new Date().toISOString();
   const { data, error } = await db
@@ -51,15 +55,18 @@ export async function expireStaleSignals(db: SupabaseClient) {
     .lt("detected_at", cutoff)
     .select("id");
   if (error) {
-    console.error("[pipeline] expireStaleSignals failed:", describeError(error));
-    return 0;
+    // Surfaced, not swallowed: "0 expired" and "the expire query broke" must be
+    // distinguishable in the cron response, or a wedged retention pass is invisible.
+    const message = describeError(error);
+    console.error("[pipeline] expireStaleSignals failed:", message);
+    return { expired: 0, error: message };
   }
-  return (data ?? []).length;
+  return { expired: (data ?? []).length, error: null };
 }
 
 /** Enqueue one job per monitored instrument for this scan cycle. */
 export async function enqueueScanCycle(db: SupabaseClient) {
-  const expired = await expireStaleSignals(db);
+  const { expired, error: expireError } = await expireStaleSignals(db);
   const runId = crypto.randomUUID();
   const rows = INSTRUMENTS.map((instrument) => ({
     run_id: runId,
@@ -68,7 +75,7 @@ export async function enqueueScanCycle(db: SupabaseClient) {
   }));
   const { error } = await db.from("scan_queue").insert(rows);
   if (error) throw error;
-  return { runId, enqueued: rows.length, expired };
+  return { runId, enqueued: rows.length, expired, expireError };
 }
 
 /**
@@ -88,34 +95,17 @@ async function countToday(db: SupabaseClient) {
 }
 
 /**
- * True when an identical setup is already live: same instrument, same
- * direction, same entry price. Prevents the 15-minute cycle from re-publishing
- * the same structure over and over (which used to burn the daily quota).
+ * Duplicate suppression is enforced by the partial unique index
+ * `scanned_signals_active_unique` on (instrument, direction, round(entry_price, 5))
+ * WHERE status = 'active'. The pre-flight SELECT that used to live here pulled up
+ * to 200 rows per job to reach the same verdict the index reaches for free, and
+ * it could not close the race window anyway — so the insert's 23505 is now the
+ * single source of truth.
  */
-async function isDuplicateSetup(
-  db: SupabaseClient,
-  instrument: string,
-  direction: string,
-  entryPrice: number,
-) {
-  const rounded = Number(entryPrice.toFixed(ENTRY_PRICE_DECIMALS));
-  const { data, error } = await db
-    .from("scanned_signals")
-    .select("id, entry_price")
-    .eq("instrument", instrument)
-    .eq("direction", direction)
-    .eq("status", "active")
-    .limit(200);
-  if (error) throw error;
-  return (data ?? []).some(
-    (row) => Number(Number((row as { entry_price: number }).entry_price).toFixed(ENTRY_PRICE_DECIMALS)) === rounded,
-  );
-}
-
-
 
 /** Serialize thrown values — Supabase/PostgREST errors are plain objects, not Errors. */
 export function describeError(err: unknown): string {
+
   if (err instanceof Error) return err.message;
   if (err && typeof err === "object") {
     const e = err as { message?: string; code?: string; details?: string; hint?: string };
@@ -187,13 +177,15 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
   if (!job) return null;
 
   const finish = async (status: JobResult["status"], detail?: string) => {
+    const stamp = new Date().toISOString();
     await db
       .from("scan_queue")
       .update({
         status: status === "failed" ? "failed" : "done",
         result: status,
         error: detail ?? null,
-        processed_at: new Date().toISOString(),
+        processed_at: stamp,
+        finished_at: stamp,
       })
       .eq("id", job.id);
     return { jobId: job.id, instrument: job.instrument, status, ...(detail ? { detail } : {}) };
@@ -210,21 +202,18 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
     const profile = buildTradeProfile({ instrument: job.instrument, candles: candles });
     if (!profile) return await finish("no_trade", "No structure satisfied the ABC grading rules");
 
-    // Same structure already live → do not republish, do not alert, do not
-    // consume the daily quota.
-    if (await isDuplicateSetup(db, profile.instrument, profile.direction, profile.entryPrice)) {
-      return await finish("duplicate", "An identical active setup is already published");
-    }
-
     // Cap is evaluated after grading: C-Grade bypasses the daily quota entirely.
     if (CAPPED_GRADES.includes(profile.grade) && (await countToday(db)) >= DEFAULT_DAILY_SETUP_CAP) {
       return await finish("capped", `Daily cap of ${DEFAULT_DAILY_SETUP_CAP} setups already reached`);
     }
 
-
     const now = new Date();
+    // Volatility regime = M15 ATR relative to H1 ATR. Both must be true ATRs;
+    // dividing by a raw close price (the previous behaviour) is meaningless.
     const m15Atr = profile.atr;
-    const h1Atr = candles.H1.length ? Math.abs(candles.H1[candles.H1.length - 1]!.close) : 0;
+    const h1Atr = atr(candles.H1, 14);
+    const volatilityIndex =
+      h1Atr > 0 && m15Atr > 0 ? Number((m15Atr / h1Atr).toFixed(4)) : null;
 
     // Signal first — market_context.signal_id is required and references it.
     const { data: inserted, error: sigError } = await db
@@ -269,40 +258,64 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
       throw sigError;
     }
 
+    const signalId = (inserted as { id: string }).id;
+
     const { error: ctxError } = await db.from("market_context").insert({
-      signal_id: (inserted as { id: string }).id,
+      signal_id: signalId,
       trading_session: sessionOf(now),
-      volatility_index: Number((h1Atr > 0 ? (m15Atr / h1Atr) * 1000 : 1).toFixed(4)),
+      volatility_index: volatilityIndex,
       time_of_day: now.getUTCHours(),
       day_of_week: now.getUTCDay(),
     });
-    if (ctxError) throw ctxError;
+    if (ctxError) {
+      // Compensating rollback: a signal with no context would sit in the feed
+      // forever as a half-written ghost row while the job reads as "failed".
+      // Remove it so the next cycle can publish the structure cleanly.
+      const { error: cleanupError } = await db.from("scanned_signals").delete().eq("id", signalId);
+      const detail = `Market context write failed, signal rolled back: ${describeError(ctxError)}${
+        cleanupError ? ` (rollback also failed: ${describeError(cleanupError)})` : ""
+      }`;
+      console.error(`[pipeline] ${job.instrument}`, detail);
+      return await finish("failed", detail);
+    }
 
-
-    const { sendSignalAlerts } = await import("./alerts.server");
-    await sendSignalAlerts(db, {
-      id: (inserted as { id: string }).id,
-      instrument: profile.instrument,
-      grade: profile.grade,
-      direction: profile.direction,
-      entryPrice: profile.entryPrice,
-      stopLoss: profile.stopLoss,
-      tp1: profile.tp1,
-      tp2: profile.tp2,
-      tp3: profile.tp3,
-      rrRatio: profile.rrRatio,
-      confidence: profile.confidence.score,
-      breakdown: profile.qualitativeBreakdown,
-      session: sessionOf(now),
-    });
+    // Both rows are committed: the setup is published no matter what email does.
+    // An alert failure must never re-label a successful publish as failed.
+    try {
+      const { sendSignalAlerts } = await import("./alerts.server");
+      await sendSignalAlerts(db, {
+        id: signalId,
+        instrument: profile.instrument,
+        grade: profile.grade,
+        direction: profile.direction,
+        entryPrice: profile.entryPrice,
+        stopLoss: profile.stopLoss,
+        tp1: profile.tp1,
+        tp2: profile.tp2,
+        tp3: profile.tp3,
+        rrRatio: profile.rrRatio,
+        confidence: profile.confidence.score,
+        breakdown: profile.qualitativeBreakdown,
+        session: sessionOf(now),
+      });
+    } catch (alertErr) {
+      console.error(`[pipeline] ${job.instrument} alert fan-out failed:`, describeError(alertErr));
+    }
 
     return await finish("published", `${profile.grade}-grade ${profile.direction}`);
   } catch (err) {
     const message = describeError(err);
     console.error(`[pipeline] ${job.instrument} failed:`, message);
 
+    // A unique-index collision is a benign duplicate, never a failure.
+    if ((err as { code?: string } | null)?.code === "23505") {
+      return await finish("duplicate", "An identical active setup is already published");
+    }
+
     if (err instanceof MetaApiTimeoutError || err instanceof MetaApiNotConfiguredError) {
       // Graceful abort: flag the instrument, skip it, let the next job run.
+      // Retry is deliberately deferred to the next 15-minute cycle rather than
+      // hammering the broker inside a known timeout window.
       await flagInstrument(db, job.instrument, message);
       return await finish("skipped", message);
     }

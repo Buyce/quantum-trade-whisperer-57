@@ -24,7 +24,12 @@ export function AppShell({ children }: { children: ReactNode }) {
   async function signOut() {
     await queryClient.cancelQueries();
     queryClient.clear();
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // Network failure must not trap the user in the terminal: the local cache
+      // is already cleared, so continue to the sign-in screen regardless.
+    }
     navigate({ to: "/auth", replace: true });
   }
 

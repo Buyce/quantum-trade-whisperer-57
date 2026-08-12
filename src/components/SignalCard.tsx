@@ -178,25 +178,16 @@ export function SignalCard({
             </span>
           </div>
           <dl className="mt-2 space-y-1.5">
-            <Component
-              label="Trend alignment"
-              weight="35%"
-              value={Number(signal.p_trend ?? signal.c_alignment)}
-            />
-            <Component
-              label="Order block retest"
-              weight="25%"
-              value={Number(signal.p_order_block ?? signal.c_symmetry)}
-            />
-            <Component
-              label="Momentum exhaustion"
-              weight="20%"
-              value={Number(signal.p_momentum ?? signal.c_rr)}
-            />
+            {/* Pillars are only ever shown from pillar columns. Older rows predate
+                them and render as "—" — substituting a confluence score here
+                displayed an unrelated metric under a pillar label. */}
+            <Component label="Trend alignment" weight="35%" value={signal.p_trend} />
+            <Component label="Order block retest" weight="25%" value={signal.p_order_block} />
+            <Component label="Momentum exhaustion" weight="20%" value={signal.p_momentum} />
             <Component
               label="Volatility expansion"
               weight="20%"
-              value={Number(signal.p_volatility_expansion ?? signal.c_volatility)}
+              value={signal.p_volatility_expansion}
             />
           </dl>
         </div>
@@ -301,16 +292,27 @@ function Metric({
   );
 }
 
-function Component({ label, weight, value }: { label: string; weight: string; value: number }) {
+function Component({
+  label,
+  weight,
+  value,
+}: {
+  label: string;
+  weight: string;
+  value: number | null;
+}) {
+  const score = value === null ? null : Number(value);
   return (
     <div className="flex items-center gap-2">
       <dt className="flex-1 text-xs text-muted-foreground">
         {label} <span className="num opacity-60">{weight}</span>
       </dt>
       <div className="h-1 w-16 overflow-hidden rounded-full bg-muted">
-        <div className="h-full bg-accent" style={{ width: `${Math.min(100, value)}%` }} />
+        <div className="h-full bg-accent" style={{ width: `${Math.min(100, score ?? 0)}%` }} />
       </div>
-      <dd className="num w-10 text-right text-xs text-foreground">{value.toFixed(0)}</dd>
+      <dd className="num w-10 text-right text-xs text-foreground">
+        {score === null ? "—" : score.toFixed(0)}
+      </dd>
     </div>
   );
 }

@@ -123,7 +123,7 @@ export type Database = {
           signal_id: string
           time_of_day: number
           trading_session: string
-          volatility_index: number
+          volatility_index: number | null
         }
         Insert: {
           created_at?: string
@@ -132,7 +132,7 @@ export type Database = {
           signal_id: string
           time_of_day: number
           trading_session: string
-          volatility_index?: number
+          volatility_index?: number | null
         }
         Update: {
           created_at?: string
@@ -141,7 +141,7 @@ export type Database = {
           signal_id?: string
           time_of_day?: number
           trading_session?: string
-          volatility_index?: number
+          volatility_index?: number | null
         }
         Relationships: [
           {
@@ -390,6 +390,7 @@ export type Database = {
           instrument: string
         }[]
       }
+      maintain_scan_queue: { Args: never; Returns: Json }
       purge_expired_signals: { Args: never; Returns: number }
     }
     Enums: {

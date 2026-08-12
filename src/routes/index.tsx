@@ -59,11 +59,16 @@ function Landing() {
 
   useEffect(() => {
     let active = true;
-    void supabase.auth.getUser().then(({ data }) => {
-      if (!active || !data.user) return;
-      setRedirecting(true);
-      void navigate({ to: "/feed", replace: true });
-    });
+    supabase.auth
+      .getUser()
+      .then(({ data }) => {
+        if (!active || !data.user) return;
+        setRedirecting(true);
+        void navigate({ to: "/feed", replace: true });
+      })
+      .catch(() => {
+        // Offline or auth unreachable: stay on the public landing page.
+      });
     return () => {
       active = false;
     };

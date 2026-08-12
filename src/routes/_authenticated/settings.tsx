@@ -131,6 +131,13 @@ function SettingsPage() {
         </p>
       </div>
 
+      {settings.isError ? (
+        <p className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm">
+          Could not load your preferences, so the values below may be defaults rather than your saved settings.
+          Reload before saving.
+        </p>
+      ) : null}
+
       <section className="space-y-3 rounded-md border border-border bg-card p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -283,7 +290,9 @@ function SettingsPage() {
           onChange={(v) => {
             setPush(v);
             if (v && typeof Notification !== "undefined" && Notification.permission === "default") {
-              void Notification.requestPermission();
+              void Notification.requestPermission().catch(() => {
+                toast.error("This browser blocked the notification permission prompt");
+              });
             }
           }}
         />
@@ -327,8 +336,11 @@ function SettingsPage() {
                       variant="ghost"
                       aria-label={`Copy ${r.type} record value`}
                       onClick={() => {
-                        void navigator.clipboard.writeText(r.value);
-                        toast.success("Copied");
+                        // Never claim success the clipboard did not deliver.
+                        void navigator.clipboard
+                          .writeText(r.value)
+                          .then(() => toast.success("Copied"))
+                          .catch(() => toast.error("Clipboard blocked — copy the value manually"));
                       }}
                     >
                       <Copy className="size-3.5" />
