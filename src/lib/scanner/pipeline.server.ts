@@ -42,7 +42,10 @@ export function sessionOf(date: Date): string {
  * the same setup publish again. Only touches rows the scanner itself wrote;
  * resolved signals and user-logged trades are untouched.
  */
-export async function expireStaleSignals(db: SupabaseClient) {
+export async function expireStaleSignals(db: SupabaseClient): Promise<{
+  expired: number;
+  error: string | null;
+}> {
   const cutoff = new Date(Date.now() - SIGNAL_MAX_AGE_HOURS * 3_600_000).toISOString();
   const now = new Date().toISOString();
   const { data, error } = await db
@@ -52,15 +55,18 @@ export async function expireStaleSignals(db: SupabaseClient) {
     .lt("detected_at", cutoff)
     .select("id");
   if (error) {
-    console.error("[pipeline] expireStaleSignals failed:", describeError(error));
-    return 0;
+    // Surfaced, not swallowed: "0 expired" and "the expire query broke" must be
+    // distinguishable in the cron response, or a wedged retention pass is invisible.
+    const message = describeError(error);
+    console.error("[pipeline] expireStaleSignals failed:", message);
+    return { expired: 0, error: message };
   }
-  return (data ?? []).length;
+  return { expired: (data ?? []).length, error: null };
 }
 
 /** Enqueue one job per monitored instrument for this scan cycle. */
 export async function enqueueScanCycle(db: SupabaseClient) {
-  const expired = await expireStaleSignals(db);
+  const { expired, error: expireError } = await expireStaleSignals(db);
   const runId = crypto.randomUUID();
   const rows = INSTRUMENTS.map((instrument) => ({
     run_id: runId,
@@ -69,7 +75,7 @@ export async function enqueueScanCycle(db: SupabaseClient) {
   }));
   const { error } = await db.from("scan_queue").insert(rows);
   if (error) throw error;
-  return { runId, enqueued: rows.length, expired };
+  return { runId, enqueued: rows.length, expired, expireError };
 }
 
 /**
