@@ -252,40 +252,64 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
       throw sigError;
     }
 
+    const signalId = (inserted as { id: string }).id;
+
     const { error: ctxError } = await db.from("market_context").insert({
-      signal_id: (inserted as { id: string }).id,
+      signal_id: signalId,
       trading_session: sessionOf(now),
-      volatility_index: Number((h1Atr > 0 ? (m15Atr / h1Atr) * 1000 : 1).toFixed(4)),
+      volatility_index: volatilityIndex,
       time_of_day: now.getUTCHours(),
       day_of_week: now.getUTCDay(),
     });
-    if (ctxError) throw ctxError;
+    if (ctxError) {
+      // Compensating rollback: a signal with no context would sit in the feed
+      // forever as a half-written ghost row while the job reads as "failed".
+      // Remove it so the next cycle can publish the structure cleanly.
+      const { error: cleanupError } = await db.from("scanned_signals").delete().eq("id", signalId);
+      const detail = `Market context write failed, signal rolled back: ${describeError(ctxError)}${
+        cleanupError ? ` (rollback also failed: ${describeError(cleanupError)})` : ""
+      }`;
+      console.error(`[pipeline] ${job.instrument}`, detail);
+      return await finish("failed", detail);
+    }
 
-
-    const { sendSignalAlerts } = await import("./alerts.server");
-    await sendSignalAlerts(db, {
-      id: (inserted as { id: string }).id,
-      instrument: profile.instrument,
-      grade: profile.grade,
-      direction: profile.direction,
-      entryPrice: profile.entryPrice,
-      stopLoss: profile.stopLoss,
-      tp1: profile.tp1,
-      tp2: profile.tp2,
-      tp3: profile.tp3,
-      rrRatio: profile.rrRatio,
-      confidence: profile.confidence.score,
-      breakdown: profile.qualitativeBreakdown,
-      session: sessionOf(now),
-    });
+    // Both rows are committed: the setup is published no matter what email does.
+    // An alert failure must never re-label a successful publish as failed.
+    try {
+      const { sendSignalAlerts } = await import("./alerts.server");
+      await sendSignalAlerts(db, {
+        id: signalId,
+        instrument: profile.instrument,
+        grade: profile.grade,
+        direction: profile.direction,
+        entryPrice: profile.entryPrice,
+        stopLoss: profile.stopLoss,
+        tp1: profile.tp1,
+        tp2: profile.tp2,
+        tp3: profile.tp3,
+        rrRatio: profile.rrRatio,
+        confidence: profile.confidence.score,
+        breakdown: profile.qualitativeBreakdown,
+        session: sessionOf(now),
+      });
+    } catch (alertErr) {
+      console.error(`[pipeline] ${job.instrument} alert fan-out failed:`, describeError(alertErr));
+    }
 
     return await finish("published", `${profile.grade}-grade ${profile.direction}`);
   } catch (err) {
     const message = describeError(err);
     console.error(`[pipeline] ${job.instrument} failed:`, message);
 
+    // A unique-index collision is a benign duplicate, never a failure.
+    if ((err as { code?: string } | null)?.code === "23505") {
+      return await finish("duplicate", "An identical active setup is already published");
+    }
+
     if (err instanceof MetaApiTimeoutError || err instanceof MetaApiNotConfiguredError) {
       // Graceful abort: flag the instrument, skip it, let the next job run.
+      // Retry is deliberately deferred to the next 15-minute cycle rather than
+      // hammering the broker inside a known timeout window.
       await flagInstrument(db, job.instrument, message);
       return await finish("skipped", message);
     }
