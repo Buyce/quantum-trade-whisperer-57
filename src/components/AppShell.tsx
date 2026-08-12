@@ -1,5 +1,5 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { Activity, BarChart3, LogOut, Settings as SettingsIcon } from "lucide-react";
+import { Activity, BarChart3, History, LogOut, Settings as SettingsIcon } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,6 +11,7 @@ import ptradesMark from "@/assets/ptrades-mark.png.asset.json";
 
 const NAV = [
   { to: "/feed", label: "Signal Feed", icon: Activity },
+  { to: "/history", label: "Trade History", icon: History },
   { to: "/performance", label: "Performance", icon: BarChart3 },
   { to: "/settings", label: "Settings", icon: SettingsIcon },
 ] as const;
