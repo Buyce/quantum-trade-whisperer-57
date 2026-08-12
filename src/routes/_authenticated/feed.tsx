@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { AlertTriangle, Download, Filter, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -59,6 +59,12 @@ function FeedPage() {
 
   // Per-user alert threshold, independent of the feed filter.
   const alertMinGrade: Grade = settings.data?.alert_min_grade ?? "B";
+  // Held in a ref so the realtime channel is never torn down and rebuilt just
+  // because settings loaded or changed — resubscribing drops INSERTs in the gap.
+  const alertMinGradeRef = useRef<Grade>(alertMinGrade);
+  useEffect(() => {
+    alertMinGradeRef.current = alertMinGrade;
+  }, [alertMinGrade]);
 
   // Realtime: new scanner output pushes straight into the feed.
   useEffect(() => {
@@ -69,7 +75,7 @@ function FeedPage() {
         const title = `New ${row.grade === "A+" ? "A+" : `${row.grade ?? ""}-`}Grade setup on ${row.instrument ?? "market"}`;
         toast.info(title);
         const rank = row.grade ? (GRADE_ORDER[row.grade] ?? 0) : 0;
-        const meetsAlertThreshold = rank >= GRADE_ORDER[alertMinGrade];
+        const meetsAlertThreshold = rank >= GRADE_ORDER[alertMinGradeRef.current];
         if (
           meetsAlertThreshold &&
           typeof Notification !== "undefined" &&
@@ -86,7 +92,7 @@ function FeedPage() {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [queryClient, alertMinGrade]);
+  }, [queryClient]);
 
 
   const tradeBySignal = useMemo(() => {

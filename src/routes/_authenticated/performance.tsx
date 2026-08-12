@@ -116,6 +116,13 @@ function PerformancePage() {
         </div>
       </div>
 
+      {signals.isError || trades.isError ? (
+        <p className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm">
+          Could not load performance data, so the metrics below are incomplete. Reload before drawing
+          conclusions from them.
+        </p>
+      ) : null}
+
       {scope === "mine" && mine.length === 0 ? (
         <p className="rounded-md border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
           You have no closed trades yet, so these numbers show the scanner baseline — every graded setup and how
