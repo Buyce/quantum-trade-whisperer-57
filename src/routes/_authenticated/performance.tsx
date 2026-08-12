@@ -391,3 +391,22 @@ function BreakdownTable({
     </section>
   );
 }
+
+/**
+ * Honest empty state. "Needs N more samples" tells the trader exactly what
+ * unlocks the view, instead of showing a chart drawn from two data points.
+ */
+function NeedsSamples({ have, need, what }: { have: number; need: number; what: string }) {
+  const missing = Math.max(0, need - have);
+  return (
+    <div className="mt-4 grid place-items-center rounded-md border border-dashed border-border px-6 py-14 text-center">
+      <p className="num text-sm font-semibold text-foreground">
+        Needs {missing} more sample{missing === 1 ? "" : "s"}
+      </p>
+      <p className="mt-1 max-w-sm text-xs text-muted-foreground">
+        {have} of {need} closed B-Grade-or-better results recorded. {what.charAt(0).toUpperCase() + what.slice(1)}{" "}
+        drawn from fewer samples would be noise, so it stays hidden until the data supports it.
+      </p>
+    </div>
+  );
+}
