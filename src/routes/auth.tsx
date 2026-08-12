@@ -91,8 +91,8 @@ function AuthPage() {
       ...parsed.data,
       options: {
         emailRedirectTo: nextPath
-          ? `${window.location.origin}${nextPath}`
-          : window.location.origin,
+          ? `${window.location.origin}/auth?next=${encodeURIComponent(nextPath)}`
+          : `${window.location.origin}/auth`,
         data: { display_name: displayName.trim().slice(0, 60) || parsed.data.email.split("@")[0] },
       },
     });
@@ -111,7 +111,12 @@ function AuthPage() {
   async function google() {
     setBusy(true);
     const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: nextPath ? `${window.location.origin}${nextPath}` : window.location.origin,
+      // Return to the public /auth route: it waits for the session, then
+      // forwards straight to /feed. Returning into the protected subtree
+      // before the session is written would bounce back to sign-in.
+      redirect_uri: nextPath
+        ? `${window.location.origin}/auth?next=${encodeURIComponent(nextPath)}`
+        : `${window.location.origin}/auth`,
     });
     if (result.error) {
       setBusy(false);
