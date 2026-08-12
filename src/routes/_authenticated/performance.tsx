@@ -20,7 +20,7 @@ import {
 import { downloadCsv, samplesToCsv, todayStamp } from "@/lib/export";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InfoLabel } from "@/components/GuideMode";
 import { cn } from "@/lib/utils";
 
@@ -42,6 +42,12 @@ export const Route = createFileRoute("/_authenticated/performance")({
 
 const DAY_LABELS = ["", "Mon", "Tue", "Wed", "Thu", "Fri"];
 const GRADE_TIERS = ["A+", "A", "B", "C"] as const;
+/**
+ * Below these counts a chart is noise dressed as analysis, so we say what is
+ * missing instead of drawing an empty grid.
+ */
+const MIN_SAMPLES_CHART = 5;
+const MIN_SAMPLES_HEATMAP = 10;
 
 
 function PerformancePage() {
@@ -173,6 +179,8 @@ function PerformancePage() {
       </p>
 
 
+      {/* Progressive disclosure: KPIs and insights are always visible, the heavier
+          charts and tables sit behind tabs so the page opens light. */}
       <section className="rounded-md border border-border bg-card p-4">
         <h2 className="label-xs flex items-center gap-1.5">
           <Lightbulb className="size-3.5" /> Generated insights
@@ -187,94 +195,121 @@ function PerformancePage() {
         </ul>
       </section>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <section className="rounded-md border border-border bg-card p-4">
-          <h2 className="label-xs">R-multiple distribution</h2>
-          <div className="mt-4 h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={dist}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
-                <XAxis dataKey="bucket" stroke="var(--color-muted-foreground)" fontSize={11} />
-                <YAxis stroke="var(--color-muted-foreground)" fontSize={11} allowDecimals={false} />
-                <Tooltip
-                  contentStyle={{
-                    background: "var(--color-popover)",
-                    border: "1px solid var(--color-border)",
-                    borderRadius: 6,
-                    fontSize: 12,
-                  }}
-                />
-                <Bar dataKey="count" fill="var(--color-chart-1)" radius={[3, 3, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </section>
+      <Tabs defaultValue="distribution" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-2 sm:inline-flex sm:w-auto">
+          <TabsTrigger value="distribution">R distribution</TabsTrigger>
+          <TabsTrigger value="timing">Timing</TabsTrigger>
+          <TabsTrigger value="instrument">By instrument</TabsTrigger>
+          <TabsTrigger value="grade">By grade</TabsTrigger>
+        </TabsList>
 
-        <section className="rounded-md border border-border bg-card p-4">
-          <h2 className="label-xs">Time-of-day heat map · expectancy in R (UTC)</h2>
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full border-separate border-spacing-0.5">
-              <thead>
-                <tr>
-                  <th className="label-xs w-10 text-left" />
-                  {Array.from({ length: 8 }, (_, i) => i * 3).map((h) => (
-                    <th key={h} className="label-xs px-1 text-center">
-                      {String(h).padStart(2, "0")}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {[1, 2, 3, 4, 5].map((day) => (
-                  <tr key={day}>
-                    <td className="label-xs pr-1">{DAY_LABELS[day]}</td>
-                    {Array.from({ length: 8 }, (_, i) => i * 3).map((hour) => {
-                      const cell = cells.find((c) => c.dayOfWeek === day && c.hour === hour);
-                      const v = cell?.expectancyR ?? 0;
-                      const alpha = cell && cell.count > 0 ? Math.min(0.85, Math.abs(v) / maxAbs) : 0;
-                      const color = v >= 0 ? "var(--color-success)" : "var(--color-destructive)";
-                      return (
-                        <td key={hour} className="p-0">
-                          <div
-                            title={
-                              cell && cell.count
-                                ? `${DAY_LABELS[day]} ${String(hour).padStart(2, "0")}:00 — ${cell.count} trades, ${fmtR(v)}`
-                                : "No data"
-                            }
-                            className="grid h-9 place-items-center rounded-sm border border-border/60"
-                            style={{ backgroundColor: alpha ? `color-mix(in oklab, ${color} ${alpha * 100}%, transparent)` : undefined }}
-                          >
-                            <span className="num text-[10px] text-foreground/80">
-                              {cell && cell.count ? v.toFixed(1) : ""}
-                            </span>
-                          </div>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      </div>
+        <TabsContent value="distribution">
+          <section className="rounded-md border border-border bg-card p-4">
+            <h2 className="label-xs">R-multiple distribution</h2>
+            {coreSamples.length < MIN_SAMPLES_CHART ? (
+              <NeedsSamples have={coreSamples.length} need={MIN_SAMPLES_CHART} what="a distribution" />
+            ) : (
+              <div className="mt-4 h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={dist}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+                    <XAxis dataKey="bucket" stroke="var(--color-muted-foreground)" fontSize={11} />
+                    <YAxis stroke="var(--color-muted-foreground)" fontSize={11} allowDecimals={false} />
+                    <Tooltip
+                      contentStyle={{
+                        background: "var(--color-popover)",
+                        border: "1px solid var(--color-border)",
+                        borderRadius: 6,
+                        fontSize: 12,
+                      }}
+                    />
+                    <Bar dataKey="count" fill="var(--color-chart-1)" radius={[3, 3, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </section>
+        </TabsContent>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <BreakdownTable
-          title="By instrument"
-          rows={byInstrument.map((g) => ({
-            label: `${g.key} · ${INSTRUMENT_LABELS[g.key] ?? ""}`,
-            stats: g.stats,
-          }))}
-        />
-        <BreakdownTable
-          title="By grade tier"
-          rows={byGrade.map((g) => ({
-            label: g.key === "A+" ? "A+ Grade" : `${g.key}-Grade`,
-            stats: g.stats,
-          }))}
-        />
-      </div>
+        <TabsContent value="timing">
+          <section className="rounded-md border border-border bg-card p-4">
+            <h2 className="label-xs">Time-of-day heat map · expectancy in R (UTC)</h2>
+            {coreSamples.length < MIN_SAMPLES_HEATMAP ? (
+              <NeedsSamples have={coreSamples.length} need={MIN_SAMPLES_HEATMAP} what="a time-of-day map" />
+            ) : (
+              <div className="mt-4 overflow-x-auto">
+                <table className="w-full border-separate border-spacing-0.5">
+                  <thead>
+                    <tr>
+                      <th className="label-xs w-10 text-left" />
+                      {Array.from({ length: 8 }, (_, i) => i * 3).map((h) => (
+                        <th key={h} className="label-xs px-1 text-center">
+                          {String(h).padStart(2, "0")}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[1, 2, 3, 4, 5].map((day) => (
+                      <tr key={day}>
+                        <td className="label-xs pr-1">{DAY_LABELS[day]}</td>
+                        {Array.from({ length: 8 }, (_, i) => i * 3).map((hour) => {
+                          const cell = cells.find((c) => c.dayOfWeek === day && c.hour === hour);
+                          const v = cell?.expectancyR ?? 0;
+                          const alpha = cell && cell.count > 0 ? Math.min(0.85, Math.abs(v) / maxAbs) : 0;
+                          const color = v >= 0 ? "var(--color-success)" : "var(--color-destructive)";
+                          return (
+                            <td key={hour} className="p-0">
+                              <div
+                                title={
+                                  cell && cell.count
+                                    ? `${DAY_LABELS[day]} ${String(hour).padStart(2, "0")}:00 — ${cell.count} trades, ${fmtR(v)}`
+                                    : "No data"
+                                }
+                                className="grid h-9 place-items-center rounded-sm border border-border/60"
+                                style={{
+                                  backgroundColor: alpha
+                                    ? `color-mix(in oklab, ${color} ${alpha * 100}%, transparent)`
+                                    : undefined,
+                                }}
+                              >
+                                <span className="num text-[10px] text-foreground/80">
+                                  {cell && cell.count ? v.toFixed(1) : ""}
+                                </span>
+                              </div>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        </TabsContent>
+
+        <TabsContent value="instrument">
+          <BreakdownTable
+            title="By instrument"
+            rows={byInstrument.map((g) => ({
+              label: `${g.key} · ${INSTRUMENT_LABELS[g.key] ?? ""}`,
+              stats: g.stats,
+            }))}
+          />
+        </TabsContent>
+
+        <TabsContent value="grade">
+          <BreakdownTable
+            title="By grade tier"
+            rows={byGrade.map((g) => ({
+              label: g.key === "A+" ? "A+ Grade" : `${g.key}-Grade`,
+              stats: g.stats,
+            }))}
+          />
+        </TabsContent>
+      </Tabs>
+
     </div>
   );
 }
