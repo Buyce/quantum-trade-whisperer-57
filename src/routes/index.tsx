@@ -54,24 +54,22 @@ function Landing() {
   // Signed-in visitors never need the marketing page: drop them into the
   // terminal in one step. Client-side only — the server cannot read the
   // browser session, so a beforeLoad gate would loop or break prerender.
-  const [checking, setChecking] = useState(true);
+  // Starts false so server HTML and the first client render match exactly.
+  const [redirecting, setRedirecting] = useState(false);
 
   useEffect(() => {
     let active = true;
     void supabase.auth.getUser().then(({ data }) => {
-      if (!active) return;
-      if (data.user) {
-        void navigate({ to: "/feed", replace: true });
-        return;
-      }
-      setChecking(false);
+      if (!active || !data.user) return;
+      setRedirecting(true);
+      void navigate({ to: "/feed", replace: true });
     });
     return () => {
       active = false;
     };
   }, [navigate]);
 
-  if (checking && typeof window !== "undefined") {
+  if (redirecting) {
     return <div className="min-h-screen bg-background" aria-busy="true" />;
   }
 
