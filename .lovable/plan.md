@@ -16,11 +16,18 @@ Feasibility confirmed: both pages already hold everything needed in React Query 
    - Headers: `Date, Instrument, Grade, Outcome, R_Yield`.
    - Downloads as `ptrades_performance_mine_YYYY-MM-DD.csv` or `..._baseline_...csv`. Disabled when there are no samples.
 
+3. **Trade History → Export Trade History (CSV + JSON)**
+   - Two ghost buttons in the History page header: `Export History (CSV)` and `Export History (JSON)`.
+   - Covers every trade you logged as *taken*, permanent record, ideal for trend hunting.
+   - CSV columns (flat, spreadsheet/LLM-ready): `Logged_At, Detected_At, Instrument, Grade, Direction, Session, Entry, Stop_Loss, TP1, TP2, TP3, Planned_RR, Confidence, Pillar_Trend, Pillar_Order_Block, Pillar_Momentum, Pillar_Volatility, Outcome, R_Yield, Notes`.
+   - JSON version keeps the same fields plus the qualitative breakdown text, nested per trade, for richer LLM reasoning.
+   - Filenames: `ptrades_trade_history_YYYY-MM-DD.csv` / `.json`. Disabled when the log is empty.
+
 Zero-data case is respected: no placeholder rows are ever written; an empty sample set simply disables the button.
 
 ## Technical notes
 
-- New `src/lib/export.ts`: `downloadBlob(filename, blob)`, `signalsToExportJson(signals)`, `samplesToCsv(samples)` with CSV escaping. Synchronous, browser-only, `URL.createObjectURL` + revoke.
+- New `src/lib/export.ts`: `downloadBlob(filename, blob)`, `signalsToExportJson(signals)`, `samplesToCsv(samples)`, `historyToCsv(rows)`, `historyToExportJson(rows)`, plus a shared `toCsv(headers, rows)` with proper escaping. Synchronous, browser-only, `URL.createObjectURL` + revoke.
 - `src/lib/performance.ts`: add a `detectedAt` (ISO string) field to `RSample` in both `samplesFromSignals` and `samplesFromTrades` so CSV can carry a Date column. Purely additive; existing math untouched.
-- `feed.tsx` exports from the existing `visible` memo; `performance.tsx` exports from the existing `samples` array.
+- `feed.tsx` exports from the existing `visible` memo; `performance.tsx` from the existing `samples` array; `history.tsx` from the existing `rows` memo (`takenTradeHistoryQuery`), flattening the joined `scanned_signals` record.
 - No changes to `pipeline.server.ts`, cron, migrations, or any `/api` route.
