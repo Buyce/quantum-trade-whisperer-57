@@ -23,6 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { downloadJson, signalsToExportJson, todayStamp } from "@/lib/export";
 import { cn } from "@/lib/utils";
 
@@ -169,67 +170,122 @@ function FeedPage() {
     }
   }
 
+  // One summary chip instead of a wall of badges: the detail lives in the popover.
+  const filterSummary = !applyFilters
+    ? "All published setups"
+    : cfg
+      ? [
+          `${cfg.instruments.length || "all"} instrument${cfg.instruments.length === 1 ? "" : "s"}`,
+          `min ${cfg.min_grade}`,
+          `${cfg.sessions.length || "all"} session${cfg.sessions.length === 1 ? "" : "s"}`,
+          openOnly ? "active only" : null,
+        ]
+          .filter(Boolean)
+          .join(" · ")
+      : "My settings filter";
+
+  const capPct = Math.min(100, cap > 0 ? (todayCount / cap) * 100 : 0);
+
   return (
     <div className="space-y-5 pb-14">
       <OnboardingBanner />
-      <div className="flex flex-wrap items-end gap-4">
-        <div>
+
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 sm:flex sm:flex-wrap">
+        <div className="min-w-0">
           <p className="label-xs">Phase 2 · Trade assistant</p>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Signal Feed</h1>
+          <h1 className="truncate text-xl font-bold tracking-tight text-foreground sm:text-2xl">Signal Feed</h1>
         </div>
 
-        <div className="ml-auto flex flex-wrap items-center gap-4">
-          <div className="rounded-md border border-border bg-card px-3 py-2">
-            <p className="label-xs">Setups today · A+/A/B</p>
-            <p className="num text-sm font-semibold">
-              <span className={cn(todayCount >= cap ? "text-destructive" : "text-foreground")}>{todayCount}</span>
-              <span className="text-muted-foreground"> / {cap}</span>
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Switch id="apply-filters" checked={applyFilters} onCheckedChange={setApplyFilters} />
-            <Label htmlFor="apply-filters" className="text-xs text-muted-foreground">
-              <Filter className="mr-1 inline size-3.5" />
-              My settings filter
-            </Label>
-          </div>
-          <div className="flex items-center gap-2">
-            <Switch id="open-only" checked={openOnly} onCheckedChange={setOpenOnly} />
-            <Label htmlFor="open-only" className="text-xs text-muted-foreground">
-              Active only
-            </Label>
-          </div>
+        <div className="flex shrink-0 items-center gap-2 sm:ml-auto">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button size="sm" variant="outline">
+                <Filter className="size-4" /> Filters
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-72 space-y-4">
+              <div className="flex items-start justify-between gap-3">
+                <Label htmlFor="apply-filters" className="text-xs leading-snug text-foreground">
+                  My settings filter
+                  <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
+                    Apply your instruments, minimum grade and sessions.
+                  </span>
+                </Label>
+                <Switch id="apply-filters" checked={applyFilters} onCheckedChange={setApplyFilters} />
+              </div>
+              <div className="flex items-start justify-between gap-3">
+                <Label htmlFor="open-only" className="text-xs leading-snug text-foreground">
+                  Active only
+                  <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
+                    Hide setups the scanner has already resolved.
+                  </span>
+                </Label>
+                <Switch id="open-only" checked={openOnly} onCheckedChange={setOpenOnly} />
+              </div>
+              {applyFilters && cfg ? (
+                <div className="flex flex-wrap gap-1.5 border-t border-border pt-3">
+                  {cfg.instruments.map((i) => (
+                    <Badge key={i} variant="outline" className="num font-normal">
+                      {i}
+                    </Badge>
+                  ))}
+                  <Badge variant="outline" className="num font-normal">
+                    min {cfg.min_grade}-grade
+                  </Badge>
+                  {cfg.sessions.map((s) => (
+                    <Badge key={s} variant="outline" className="num font-normal">
+                      {s.replace(/_/g, " ")}
+                    </Badge>
+                  ))}
+                </div>
+              ) : null}
+            </PopoverContent>
+          </Popover>
+
           <Button
             size="sm"
-            variant="outline"
+            variant="ghost"
+            aria-label="Refresh signals"
             onClick={() => void queryClient.invalidateQueries({ queryKey: ["signals"] })}
           >
-            <RefreshCw className="size-4" /> Refresh
+            <RefreshCw className="size-4" />
           </Button>
-          <Button size="sm" variant="ghost" disabled={visible.length === 0} onClick={exportSignals}>
-            <Download className="size-4" /> Export Signals (JSON)
+          <Button
+            size="sm"
+            variant="ghost"
+            aria-label="Export signals as JSON"
+            disabled={visible.length === 0}
+            onClick={exportSignals}
+          >
+            <Download className="size-4" />
           </Button>
         </div>
       </div>
 
-      {applyFilters && cfg ? (
-        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <span className="label-xs">Filtering</span>
-          {cfg.instruments.map((i) => (
-            <Badge key={i} variant="outline" className="num font-normal">
-              {i}
-            </Badge>
-          ))}
-          <Badge variant="outline" className="num font-normal">
-            min {cfg.min_grade}-grade
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+          <Badge variant="secondary" className="num font-normal">
+            {filterSummary}
           </Badge>
-          {cfg.sessions.map((s) => (
-            <Badge key={s} variant="outline" className="num font-normal">
-              {s.replace(/_/g, " ")}
-            </Badge>
-          ))}
+          <span className="num">
+            {visible.length} shown
+          </span>
+          <span className="num ml-auto">
+            Daily quota (A+/A/B){" "}
+            <span className={cn("font-semibold", todayCount >= cap ? "text-destructive" : "text-foreground")}>
+              {todayCount}
+            </span>
+            /{cap}
+          </span>
         </div>
-      ) : null}
+        <div className="h-0.5 w-full overflow-hidden rounded-full bg-border">
+          <div
+            className={cn("h-full rounded-full", todayCount >= cap ? "bg-destructive" : "bg-primary")}
+            style={{ width: `${capPct}%` }}
+          />
+        </div>
+      </div>
+
 
       {unavailable.length ? (
         <div className="flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 px-4 py-3 text-sm">
