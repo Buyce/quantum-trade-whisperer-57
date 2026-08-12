@@ -336,8 +336,11 @@ function SettingsPage() {
                       variant="ghost"
                       aria-label={`Copy ${r.type} record value`}
                       onClick={() => {
-                        void navigator.clipboard.writeText(r.value);
-                        toast.success("Copied");
+                        // Never claim success the clipboard did not deliver.
+                        void navigator.clipboard
+                          .writeText(r.value)
+                          .then(() => toast.success("Copied"))
+                          .catch(() => toast.error("Clipboard blocked — copy the value manually"));
                       }}
                     >
                       <Copy className="size-3.5" />
