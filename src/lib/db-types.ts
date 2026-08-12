@@ -60,6 +60,10 @@ export interface TradeRow {
   created_at: string;
 }
 
+export interface TradeHistoryRow extends TradeRow {
+  scanned_signals: SignalRow | SignalRow[] | null;
+}
+
 export interface ScannerSettingsRow {
   user_id: string;
   instruments: string[];
