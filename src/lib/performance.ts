@@ -6,6 +6,8 @@ export interface RSample {
   grade: Grade;
   outcome: "win" | "loss" | "breakeven";
   r: number;
+  /** ISO timestamp of when the setup was detected (used by CSV export). */
+  detectedAt: string;
   hour: number;
   dayOfWeek: number;
   session: string;
@@ -76,6 +78,7 @@ export function samplesFromSignals(signals: SignalRow[]): RSample[] {
       grade: s.grade,
       outcome: s.resolved_outcome,
       r: Number(s.resolved_r_multiple),
+      detectedAt: s.detected_at,
       hour: ctx?.time_of_day ?? d.getUTCHours(),
       dayOfWeek: ctx?.day_of_week ?? d.getUTCDay(),
       session: ctx?.trading_session ?? "unknown",
@@ -101,6 +104,7 @@ export function samplesFromTrades(trades: TradeRow[], signals: SignalRow[]): RSa
       grade: s.grade,
       outcome: t.outcome,
       r: Number(t.realized_r_multiple),
+      detectedAt: s.detected_at,
       hour: ctx?.time_of_day ?? d.getUTCHours(),
       dayOfWeek: ctx?.day_of_week ?? d.getUTCDay(),
       session: ctx?.trading_session ?? "unknown",
