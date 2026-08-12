@@ -27,7 +27,7 @@ Zero-data case is respected: no placeholder rows are ever written; an empty samp
 
 ## Technical notes
 
-- New `src/lib/export.ts`: `downloadBlob(filename, blob)`, `signalsToExportJson(signals)`, `samplesToCsv(samples)` with CSV escaping. Synchronous, browser-only, `URL.createObjectURL` + revoke.
+- New `src/lib/export.ts`: `downloadBlob(filename, blob)`, `signalsToExportJson(signals)`, `samplesToCsv(samples)`, `historyToCsv(rows)`, `historyToExportJson(rows)`, plus a shared `toCsv(headers, rows)` with proper escaping. Synchronous, browser-only, `URL.createObjectURL` + revoke.
 - `src/lib/performance.ts`: add a `detectedAt` (ISO string) field to `RSample` in both `samplesFromSignals` and `samplesFromTrades` so CSV can carry a Date column. Purely additive; existing math untouched.
-- `feed.tsx` exports from the existing `visible` memo; `performance.tsx` exports from the existing `samples` array.
+- `feed.tsx` exports from the existing `visible` memo; `performance.tsx` from the existing `samples` array; `history.tsx` from the existing `rows` memo (`takenTradeHistoryQuery`), flattening the joined `scanned_signals` record.
 - No changes to `pipeline.server.ts`, cron, migrations, or any `/api` route.
