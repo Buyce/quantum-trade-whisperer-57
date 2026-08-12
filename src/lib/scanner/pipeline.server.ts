@@ -171,13 +171,15 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
   if (!job) return null;
 
   const finish = async (status: JobResult["status"], detail?: string) => {
+    const stamp = new Date().toISOString();
     await db
       .from("scan_queue")
       .update({
         status: status === "failed" ? "failed" : "done",
         result: status,
         error: detail ?? null,
-        processed_at: new Date().toISOString(),
+        processed_at: stamp,
+        finished_at: stamp,
       })
       .eq("id", job.id);
     return { jobId: job.id, instrument: job.instrument, status, ...(detail ? { detail } : {}) };
