@@ -1,4 +1,6 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Activity, BarChart3, ShieldCheck, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ptradesMark from "@/assets/ptrades-mark.png.asset.json";
@@ -48,6 +50,29 @@ const FEATURES = [
 ] as const;
 
 function Landing() {
+  const navigate = useNavigate();
+  // Signed-in visitors never need the marketing page: drop them into the
+  // terminal in one step. Client-side only — the server cannot read the
+  // browser session, so a beforeLoad gate would loop or break prerender.
+  // Starts false so server HTML and the first client render match exactly.
+  const [redirecting, setRedirecting] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    void supabase.auth.getUser().then(({ data }) => {
+      if (!active || !data.user) return;
+      setRedirecting(true);
+      void navigate({ to: "/feed", replace: true });
+    });
+    return () => {
+      active = false;
+    };
+  }, [navigate]);
+
+  if (redirecting) {
+    return <div className="min-h-screen bg-background" aria-busy="true" />;
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border">
