@@ -5,6 +5,7 @@
  */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { buildTradeProfile } from "./profile";
+import { atr } from "./indicators";
 import { fetchCandles, MetaApiNotConfiguredError, MetaApiTimeoutError } from "./metaapi.server";
 import {
   CANDLE_LIMITS,
@@ -88,34 +89,14 @@ async function countToday(db: SupabaseClient) {
 }
 
 /**
- * True when an identical setup is already live: same instrument, same
- * direction, same entry price. Prevents the 15-minute cycle from re-publishing
- * the same structure over and over (which used to burn the daily quota).
+ * Duplicate suppression is enforced by the partial unique index
+ * `scanned_signals_active_unique` on (instrument, direction, round(entry_price, 5))
+ * WHERE status = 'active'. The pre-flight SELECT that used to live here pulled up
+ * to 200 rows per job to reach the same verdict the index reaches for free, and
+ * it could not close the race window anyway — so the insert's 23505 is now the
+ * single source of truth.
  */
-async function isDuplicateSetup(
-  db: SupabaseClient,
-  instrument: string,
-  direction: string,
-  entryPrice: number,
-) {
-  const rounded = Number(entryPrice.toFixed(ENTRY_PRICE_DECIMALS));
-  const { data, error } = await db
-    .from("scanned_signals")
-    .select("id, entry_price")
-    .eq("instrument", instrument)
-    .eq("direction", direction)
-    .eq("status", "active")
-    .limit(200);
-  if (error) throw error;
-  return (data ?? []).some(
-    (row) => Number(Number((row as { entry_price: number }).entry_price).toFixed(ENTRY_PRICE_DECIMALS)) === rounded,
-  );
-}
 
-
-
-/** Serialize thrown values — Supabase/PostgREST errors are plain objects, not Errors. */
-export function describeError(err: unknown): string {
   if (err instanceof Error) return err.message;
   if (err && typeof err === "object") {
     const e = err as { message?: string; code?: string; details?: string; hint?: string };
