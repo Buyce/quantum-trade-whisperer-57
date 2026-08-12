@@ -193,6 +193,9 @@ function FeedPage() {
           >
             <RefreshCw className="size-4" /> Refresh
           </Button>
+          <Button size="sm" variant="ghost" disabled={visible.length === 0} onClick={exportSignals}>
+            <Download className="size-4" /> Export Signals (JSON)
+          </Button>
         </div>
       </div>
 
