@@ -2,10 +2,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { ArrowDownRight, ArrowUpRight } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Download } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { takenTradeHistoryQuery, updateTradeResult } from "@/lib/queries";
 import { INSTRUMENT_LABELS, type Outcome, type SignalRow, type TradeHistoryRow } from "@/lib/db-types";
+import { downloadCsv, downloadJson, historyToCsv, historyToExportJson, todayStamp } from "@/lib/export";
 import { GradeBadge } from "@/components/SignalCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,6 +57,16 @@ function HistoryPage() {
     [history.data],
   );
 
+  function exportCsv() {
+    if (rows.length === 0) return;
+    downloadCsv(`ptrades_trade_history_${todayStamp()}.csv`, historyToCsv(rows));
+  }
+
+  function exportJson() {
+    if (rows.length === 0) return;
+    downloadJson(`ptrades_trade_history_${todayStamp()}.json`, historyToExportJson(rows));
+  }
+
   async function record(tradeId: string, outcome: Outcome, r: number | null) {
     setBusyId(tradeId);
     try {
@@ -81,13 +92,23 @@ function HistoryPage() {
 
   return (
     <div className="space-y-5">
-      <div>
+      <div className="flex flex-wrap items-start gap-4">
+        <div>
         <p className="label-xs">Permanent record</p>
         <h1 className="text-2xl font-bold tracking-tight text-foreground">Trade History</h1>
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
           Every setup you logged as taken is kept here for good, even after it leaves the signal feed. Skipped
           setups are not retained.
         </p>
+        </div>
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <Button size="sm" variant="ghost" disabled={rows.length === 0} onClick={exportCsv}>
+            <Download className="size-4" /> Export History (CSV)
+          </Button>
+          <Button size="sm" variant="ghost" disabled={rows.length === 0} onClick={exportJson}>
+            <Download className="size-4" /> Export History (JSON)
+          </Button>
+        </div>
       </div>
 
       {history.isError ? (

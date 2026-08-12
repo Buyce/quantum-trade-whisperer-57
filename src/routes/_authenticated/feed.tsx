@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { AlertTriangle, Filter, RefreshCw } from "lucide-react";
+import { AlertTriangle, Download, Filter, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -23,6 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { downloadJson, signalsToExportJson, todayStamp } from "@/lib/export";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/feed")({
@@ -129,6 +130,12 @@ function FeedPage() {
   const unavailable = (health.data ?? []).filter((h) => !h.available);
   const lastScanAt = (health.data ?? []).find((h) => h.instrument === "XAUUSD")?.updated_at ?? null;
 
+  function exportSignals() {
+    if (visible.length === 0) return;
+    downloadJson(`ptrades_signals_export_${todayStamp()}.json`, signalsToExportJson(visible));
+    toast.success(`Exported ${visible.length} setup${visible.length === 1 ? "" : "s"}`);
+  }
+
   async function decide(signalId: string, decision: "taken" | "skipped") {
     if (!user) return;
     setBusyId(signalId);
@@ -192,6 +199,9 @@ function FeedPage() {
             onClick={() => void queryClient.invalidateQueries({ queryKey: ["signals"] })}
           >
             <RefreshCw className="size-4" /> Refresh
+          </Button>
+          <Button size="sm" variant="ghost" disabled={visible.length === 0} onClick={exportSignals}>
+            <Download className="size-4" /> Export Signals (JSON)
           </Button>
         </div>
       </div>
