@@ -130,35 +130,41 @@ function HistoryPage() {
             const p = (v: number) => price(v, signal.instrument);
             return (
               <div key={row.id} className="rounded-md border border-border bg-card">
-                <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-2.5">
-                  <span className="num text-sm font-bold">{signal.instrument}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {INSTRUMENT_LABELS[signal.instrument] ?? ""}
-                  </span>
-                  <GradeBadge grade={signal.grade} />
-                  <span
-                    className={cn(
-                      "num inline-flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-xs",
-                      long
-                        ? "border-success/40 bg-success/10 text-success"
-                        : "border-destructive/40 bg-destructive/10 text-destructive",
-                    )}
-                  >
-                    {long ? <ArrowUpRight className="size-3" /> : <ArrowDownRight className="size-3" />}
-                    {long ? "LONG" : "SHORT"}
-                  </span>
-                  <span className={cn("num ml-auto text-xs font-semibold uppercase", OUTCOME_STYLES[row.outcome])}>
-                    {row.outcome}
-                    {row.realized_r_multiple != null ? ` · ${Number(row.realized_r_multiple).toFixed(2)}R` : ""}
-                  </span>
-                  <span className="num text-xs text-muted-foreground">
-                    {new Date(signal.detected_at).toLocaleString(undefined, {
-                      month: "short",
-                      day: "2-digit",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </span>
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-border px-4 py-2.5 sm:flex sm:flex-wrap">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    <span className="num text-sm font-bold">{signal.instrument}</span>
+                    <span className="truncate text-xs text-muted-foreground">
+                      {INSTRUMENT_LABELS[signal.instrument] ?? ""}
+                    </span>
+                    <GradeBadge grade={signal.grade} />
+                    <span
+                      className={cn(
+                        "num inline-flex shrink-0 items-center gap-1 rounded-sm border px-1.5 py-0.5 text-xs",
+                        long
+                          ? "border-success/40 bg-success/10 text-success"
+                          : "border-destructive/40 bg-destructive/10 text-destructive",
+                      )}
+                    >
+                      {long ? <ArrowUpRight className="size-3" /> : <ArrowDownRight className="size-3" />}
+                      {long ? "LONG" : "SHORT"}
+                    </span>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-3 sm:ml-auto">
+                    <span className={cn("num text-xs font-semibold uppercase", OUTCOME_STYLES[row.outcome])}>
+                      {row.outcome}
+                      {row.realized_r_multiple != null
+                        ? ` · ${Number(row.realized_r_multiple).toFixed(2)}R`
+                        : ""}
+                    </span>
+                    <span className="num hidden text-xs text-muted-foreground sm:inline">
+                      {new Date(signal.detected_at).toLocaleString(undefined, {
+                        month: "short",
+                        day: "2-digit",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-px bg-border sm:grid-cols-3 lg:grid-cols-6">
@@ -171,6 +177,7 @@ function HistoryPage() {
                 </div>
 
                 <OutcomeEditor
+                  key={`${row.id}-${row.outcome}-${row.realized_r_multiple ?? "none"}`}
                   busy={busyId === row.id}
                   outcome={row.outcome}
                   realizedR={row.realized_r_multiple}
@@ -180,6 +187,7 @@ function HistoryPage() {
             );
           })}
         </div>
+
       )}
     </div>
   );
