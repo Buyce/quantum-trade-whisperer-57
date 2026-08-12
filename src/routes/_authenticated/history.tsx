@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { ArrowDownRight, ArrowUpRight, Download } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Download, Pencil } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { takenTradeHistoryQuery, updateTradeResult } from "@/lib/queries";
 import { INSTRUMENT_LABELS, type Outcome, type SignalRow, type TradeHistoryRow } from "@/lib/db-types";
