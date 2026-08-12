@@ -292,16 +292,27 @@ function Metric({
   );
 }
 
-function Component({ label, weight, value }: { label: string; weight: string; value: number }) {
+function Component({
+  label,
+  weight,
+  value,
+}: {
+  label: string;
+  weight: string;
+  value: number | null;
+}) {
+  const score = value === null ? null : Number(value);
   return (
     <div className="flex items-center gap-2">
       <dt className="flex-1 text-xs text-muted-foreground">
         {label} <span className="num opacity-60">{weight}</span>
       </dt>
       <div className="h-1 w-16 overflow-hidden rounded-full bg-muted">
-        <div className="h-full bg-accent" style={{ width: `${Math.min(100, value)}%` }} />
+        <div className="h-full bg-accent" style={{ width: `${Math.min(100, score ?? 0)}%` }} />
       </div>
-      <dd className="num w-10 text-right text-xs text-foreground">{value.toFixed(0)}</dd>
+      <dd className="num w-10 text-right text-xs text-foreground">
+        {score === null ? "—" : score.toFixed(0)}
+      </dd>
     </div>
   );
 }
