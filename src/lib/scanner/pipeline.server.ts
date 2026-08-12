@@ -97,6 +97,9 @@ async function countToday(db: SupabaseClient) {
  * single source of truth.
  */
 
+/** Serialize thrown values — Supabase/PostgREST errors are plain objects, not Errors. */
+export function describeError(err: unknown): string {
+
   if (err instanceof Error) return err.message;
   if (err && typeof err === "object") {
     const e = err as { message?: string; code?: string; details?: string; hint?: string };
