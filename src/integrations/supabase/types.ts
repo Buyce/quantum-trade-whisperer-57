@@ -250,6 +250,7 @@ export type Database = {
           id: string
           instrument: string
           m15_bias: string | null
+          max_r: number | null
           p_momentum: number | null
           p_order_block: number | null
           p_trend: number | null
@@ -262,9 +263,13 @@ export type Database = {
           rr_ratio: number
           status: string
           stop_loss: number
+          structure_key: string | null
           tp1: number
+          tp1_r: number | null
           tp2: number
-          tp3: number
+          tp2_r: number | null
+          tp3: number | null
+          tp3_r: number | null
         }
         Insert: {
           atr: number
@@ -284,6 +289,7 @@ export type Database = {
           id?: string
           instrument: string
           m15_bias?: string | null
+          max_r?: number | null
           p_momentum?: number | null
           p_order_block?: number | null
           p_trend?: number | null
@@ -296,9 +302,13 @@ export type Database = {
           rr_ratio: number
           status?: string
           stop_loss: number
+          structure_key?: string | null
           tp1: number
+          tp1_r?: number | null
           tp2: number
-          tp3: number
+          tp2_r?: number | null
+          tp3?: number | null
+          tp3_r?: number | null
         }
         Update: {
           atr?: number
@@ -318,6 +328,7 @@ export type Database = {
           id?: string
           instrument?: string
           m15_bias?: string | null
+          max_r?: number | null
           p_momentum?: number | null
           p_order_block?: number | null
           p_trend?: number | null
@@ -330,9 +341,13 @@ export type Database = {
           rr_ratio?: number
           status?: string
           stop_loss?: number
+          structure_key?: string | null
           tp1?: number
+          tp1_r?: number | null
           tp2?: number
-          tp3?: number
+          tp2_r?: number | null
+          tp3?: number | null
+          tp3_r?: number | null
         }
         Relationships: []
       }

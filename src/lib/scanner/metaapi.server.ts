@@ -44,12 +44,23 @@ function baseUrl() {
   return `https://mt-market-data-client-api-v1.${METAAPI_ACCOUNT.region}.agiliumtrade.ai`;
 }
 
+/** Terminal/client API host — current prices live here, not on market-data. */
+function clientBaseUrl() {
+  return `https://mt-client-api-v1.${METAAPI_ACCOUNT.region}.agiliumtrade.ai`;
+}
+
 /** REST fetch with a hard 8s abort. Never retries — the caller skips the pair. */
-async function restGet(path: string, token: string, symbol: string, timeframe: string) {
+async function restGet(
+  path: string,
+  token: string,
+  symbol: string,
+  timeframe: string,
+  host: string = baseUrl(),
+) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    const res = await fetch(`${baseUrl()}${path}`, {
+    const res = await fetch(`${host}${path}`, {
       method: "GET",
       headers: {
         "auth-token": token,
@@ -112,4 +123,31 @@ export async function fetchCandles(
     }))
     .filter((c) => Number.isFinite(c.close) && Number.isFinite(c.high) && Number.isFinite(c.low))
     .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+}
+
+interface RawPrice {
+  time?: string;
+  bid?: number;
+  ask?: number;
+}
+
+/**
+ * Current bid/ask for one symbol over the REST client API. Used only by the
+ * shared, cached quotes endpoint — never per client, never inside the scanner.
+ */
+export async function fetchQuote(
+  symbol: string,
+): Promise<{ bid: number; ask: number; time: string } | null> {
+  const token = process.env["METAAPI_TOKEN"];
+  if (!token) throw new MetaApiNotConfiguredError();
+
+  const path =
+    `/users/current/accounts/${METAAPI_ACCOUNT.accountId}` +
+    `/symbols/${encodeURIComponent(symbol)}/current-price?keepSubscription=false`;
+
+  const raw = (await restGet(path, token, symbol, "quote", clientBaseUrl())) as RawPrice | null;
+  const bid = Number(raw?.bid);
+  const ask = Number(raw?.ask);
+  if (!Number.isFinite(bid) || !Number.isFinite(ask)) return null;
+  return { bid, ask, time: raw?.time ?? new Date().toISOString() };
 }

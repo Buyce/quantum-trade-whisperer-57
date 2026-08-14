@@ -17,7 +17,14 @@ export interface SignalRow {
   stop_loss: number;
   tp1: number;
   tp2: number;
-  tp3: number;
+  tp3: number | null;
+  /** True R multiple of each target — legacy rows are null and assume 1/2/3. */
+  tp1_r: number | null;
+  tp2_r: number | null;
+  tp3_r: number | null;
+  /** Maximum reachable R before the nearest H4 structural barrier. */
+  max_r: number | null;
+  structure_key: string | null;
   atr: number;
   rr_ratio: number;
   confidence_score: number;
@@ -116,6 +123,28 @@ export const ALL_SESSIONS: string[] = [
   "new_york",
 ];
 
+
+/**
+ * The R multiple of each target. Legacy rows predate the columns and were built
+ * on the fixed 1/2/3 ladder, so they fall back to it rather than showing "—".
+ */
+export function targetLadder(signal: SignalRow): Array<{ label: string; r: number; price: number }> {
+  const rows: Array<{ label: string; r: number; price: number }> = [];
+  const add = (n: number, r: number | null, price: number | null, fallback: number) => {
+    if (price === null || price === undefined) return;
+    const mult = r ?? fallback;
+    rows.push({ label: `TP${n} · 1:${mult.toFixed(mult % 1 === 0 ? 0 : 2)}`, r: mult, price });
+  };
+  add(1, signal.tp1_r, signal.tp1, 1);
+  add(2, signal.tp2_r, signal.tp2, 2);
+  add(3, signal.tp3_r, signal.tp3, 3);
+  return rows;
+}
+
+/** True when the H4 barrier, not the 1:3 default, sets the final target. */
+export function isCapped(signal: SignalRow): boolean {
+  return signal.max_r !== null && signal.max_r < 3;
+}
 
 export function contextOf(signal: SignalRow): MarketContextRow | null {
   const ctx = signal.market_context;

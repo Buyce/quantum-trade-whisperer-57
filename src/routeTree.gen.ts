@@ -22,6 +22,7 @@ import { Route as AuthenticatedPerformanceRouteImport } from './routes/_authenti
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
+import { Route as ApiPublicQuotesRouteImport } from './routes/api/public/quotes'
 import { Route as ApiPublicCronPurgeAccountsRouteImport } from './routes/api/public/cron/purge-accounts'
 import { Route as ApiPublicCronScanRouteImport } from './routes/api/public/cron/scan'
 import { Route as ApiPublicWorkerProcessRouteImport } from './routes/api/public/worker/process'
@@ -97,6 +98,11 @@ const Char91DotmcpChar93InvokeToolToolRoute =
     path: '/.mcp/invoke-tool/$tool',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicQuotesRoute = ApiPublicQuotesRouteImport.update({
+  id: '/api/public/quotes',
+  path: '/api/public/quotes',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicCronPurgeAccountsRoute =
   ApiPublicCronPurgeAccountsRouteImport.update({
     id: '/api/public/cron/purge-accounts',
@@ -143,6 +149,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AuthenticatedSettingsRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
+  '/api/public/quotes': typeof ApiPublicQuotesRoute
   '/api/public/cron/purge-accounts': typeof ApiPublicCronPurgeAccountsRoute
   '/api/public/cron/scan': typeof ApiPublicCronScanRoute
   '/api/public/worker/process': typeof ApiPublicWorkerProcessRoute
@@ -163,6 +170,7 @@ export interface FileRoutesByTo {
   '/settings': typeof AuthenticatedSettingsRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
+  '/api/public/quotes': typeof ApiPublicQuotesRoute
   '/api/public/cron/purge-accounts': typeof ApiPublicCronPurgeAccountsRoute
   '/api/public/cron/scan': typeof ApiPublicCronScanRoute
   '/api/public/worker/process': typeof ApiPublicWorkerProcessRoute
@@ -185,6 +193,7 @@ export interface FileRoutesById {
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
+  '/api/public/quotes': typeof ApiPublicQuotesRoute
   '/api/public/cron/purge-accounts': typeof ApiPublicCronPurgeAccountsRoute
   '/api/public/cron/scan': typeof ApiPublicCronScanRoute
   '/api/public/worker/process': typeof ApiPublicWorkerProcessRoute
@@ -207,6 +216,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
+    | '/api/public/quotes'
     | '/api/public/cron/purge-accounts'
     | '/api/public/cron/scan'
     | '/api/public/worker/process'
@@ -227,6 +237,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
+    | '/api/public/quotes'
     | '/api/public/cron/purge-accounts'
     | '/api/public/cron/scan'
     | '/api/public/worker/process'
@@ -248,6 +259,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
+    | '/api/public/quotes'
     | '/api/public/cron/purge-accounts'
     | '/api/public/cron/scan'
     | '/api/public/worker/process'
@@ -266,6 +278,7 @@ export interface RootRouteChildren {
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
+  ApiPublicQuotesRoute: typeof ApiPublicQuotesRoute
   ApiPublicCronPurgeAccountsRoute: typeof ApiPublicCronPurgeAccountsRoute
   ApiPublicCronScanRoute: typeof ApiPublicCronScanRoute
   ApiPublicWorkerProcessRoute: typeof ApiPublicWorkerProcessRoute
@@ -367,6 +380,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof Char91DotmcpChar93InvokeToolToolRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/quotes': {
+      id: '/api/public/quotes'
+      path: '/api/public/quotes'
+      fullPath: '/api/public/quotes'
+      preLoaderRoute: typeof ApiPublicQuotesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/cron/purge-accounts': {
       id: '/api/public/cron/purge-accounts'
       path: '/api/public/cron/purge-accounts'
@@ -440,6 +460,7 @@ const rootRouteChildren: RootRouteChildren = {
     Char91DotwellKnownChar93OauthProtectedResourceRoute,
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
+  ApiPublicQuotesRoute: ApiPublicQuotesRoute,
   ApiPublicCronPurgeAccountsRoute: ApiPublicCronPurgeAccountsRoute,
   ApiPublicCronScanRoute: ApiPublicCronScanRoute,
   ApiPublicWorkerProcessRoute: ApiPublicWorkerProcessRoute,

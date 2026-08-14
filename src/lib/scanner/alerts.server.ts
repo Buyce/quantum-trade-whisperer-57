@@ -12,7 +12,7 @@ export interface AlertSignal {
   stopLoss: number;
   tp1: number;
   tp2: number;
-  tp3: number;
+  tp3: number | null;
   rrRatio: number;
   confidence: number;
   breakdown: string;
@@ -63,7 +63,7 @@ export async function sendSignalAlerts(db: SupabaseClient, signal: AlertSignal) 
           stopLoss: fmt(signal.stopLoss),
           tp1: fmt(signal.tp1),
           tp2: fmt(signal.tp2),
-          tp3: fmt(signal.tp3),
+          tp3: signal.tp3 === null ? "—" : fmt(signal.tp3),
           rrRatio: `1:${signal.rrRatio.toFixed(1)}`,
           confidence: String(Math.round(signal.confidence)),
           breakdown: signal.breakdown,
