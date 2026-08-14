@@ -119,7 +119,8 @@ function DistanceChip({ d }: { d: EntryDistance }) {
               : "border-border bg-surface text-muted-foreground",
       )}
     >
-      {copy}
+      <span className="sm:hidden">{short}</span>
+      <span className="hidden sm:inline">{full}</span>
     </span>
   );
 }
