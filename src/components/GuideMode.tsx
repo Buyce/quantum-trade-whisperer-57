@@ -55,7 +55,7 @@ export function GuideModeToggle() {
       className={cn(guide && "bg-secondary text-foreground")}
     >
       <HelpCircle className="size-4" />
-      <span className="hidden sm:inline">Guide{guide ? " on" : ""}</span>
+      <span className="hidden lg:inline">Guide{guide ? " on" : ""}</span>
     </Button>
   );
 }
