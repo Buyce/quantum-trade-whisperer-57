@@ -128,7 +128,7 @@ export function SignalCard({
   onResult: (outcome: "win" | "loss" | "breakeven", r: number) => void;
   busy: boolean;
   /** Shared live mid price for this instrument, when available. */
-  quoteMid?: number;
+  quoteMid?: number | undefined;
 }) {
   const ctx = contextOf(signal);
   const long = signal.direction === "long";
