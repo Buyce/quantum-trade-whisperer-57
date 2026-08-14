@@ -380,57 +380,110 @@ export function SignalCard({
         </div>
       ) : null}
 
-      <div className="flex flex-wrap items-center gap-2 border-t border-border bg-surface/50 px-4 py-3">
-        <Button size="sm" variant="outline" onClick={() => void copyOrder()}>
-          <Copy className="size-4" /> Copy order details
-        </Button>
+      <div className="border-t border-border bg-surface/50 px-3 py-3 sm:px-4">
         {!trade ? (
-          <>
-            <Button size="sm" disabled={busy} onClick={() => onDecision("taken")}>
-              <Check className="size-4" /> Log as Taken
-            </Button>
-            <Button size="sm" variant="outline" disabled={busy} onClick={() => onDecision("skipped")}>
-              <X className="size-4" /> Log as Skipped
+          <div className="space-y-2 sm:flex sm:flex-wrap sm:items-center sm:gap-2 sm:space-y-0">
+            {/* Phones: two full-height rows of tap targets. sm+: the original inline row. */}
+            <div className="grid grid-cols-2 gap-2 sm:contents">
+              <Button
+                size="sm"
+                disabled={busy}
+                onClick={() => onDecision("taken")}
+                className="h-10 w-full sm:h-8 sm:w-auto"
+              >
+                <Check className="size-4" /> Log as Taken
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={busy}
+                onClick={() => onDecision("skipped")}
+                className="h-10 w-full sm:h-8 sm:w-auto"
+              >
+                <X className="size-4" /> Log as Skipped
+              </Button>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => void copyOrder()}
+              className="h-10 w-full sm:order-first sm:h-8 sm:w-auto"
+            >
+              <Copy className="size-4" /> Copy order details
             </Button>
             {open ? (
-              <span className="ml-auto min-w-0 text-xs text-muted-foreground">
+              <span className="block text-xs leading-snug text-muted-foreground sm:ml-auto sm:min-w-0">
                 {guide
                   ? "You decide whether to trade. Logging it here only records your choice — it never places an order."
                   : "No-Trade is the default. Nothing here is an instruction to execute."}
               </span>
             ) : null}
-          </>
+          </div>
         ) : (
-          <>
+          <div className="space-y-3 sm:flex sm:flex-wrap sm:items-center sm:gap-2 sm:space-y-0">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => void copyOrder()}
+              className="h-10 w-full sm:h-8 sm:w-auto"
+            >
+              <Copy className="size-4" /> Copy order details
+            </Button>
             {trade.user_decision === "taken" && trade.outcome === "open" ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="label-xs">Close at</span>
-                <Button size="sm" variant="outline" disabled={busy} onClick={() => onResult("win", 1)}>
-                  +1R
-                </Button>
-                <Button size="sm" variant="outline" disabled={busy} onClick={() => onResult("win", 2)}>
-                  +2R
-                </Button>
-                <Button size="sm" variant="outline" disabled={busy} onClick={() => onResult("win", 3)}>
-                  +3R
-                </Button>
-                <Button size="sm" variant="outline" disabled={busy} onClick={() => onResult("breakeven", 0)}>
-                  BE
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={busy}
-                  onClick={() => onResult("loss", -1)}
-                  className="text-short"
-                >
-                  −1R
-                </Button>
+              <div className="space-y-1.5 sm:flex sm:items-center sm:gap-2 sm:space-y-0">
+                <span className="label-xs block">Close at</span>
+                <div className="grid grid-cols-5 gap-1.5 sm:contents">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() => onResult("win", 1)}
+                    className="h-10 px-0 sm:h-8 sm:px-3"
+                  >
+                    +1R
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() => onResult("win", 2)}
+                    className="h-10 px-0 sm:h-8 sm:px-3"
+                  >
+                    +2R
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() => onResult("win", 3)}
+                    className="h-10 px-0 sm:h-8 sm:px-3"
+                  >
+                    +3R
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() => onResult("breakeven", 0)}
+                    className="h-10 px-0 sm:h-8 sm:px-3"
+                  >
+                    BE
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() => onResult("loss", -1)}
+                    className="h-10 px-0 text-short sm:h-8 sm:px-3"
+                  >
+                    −1R
+                  </Button>
+                </div>
               </div>
             ) : trade.user_decision === "taken" ? (
               <span
                 className={cn(
-                  "num text-sm font-semibold",
+                  "num block text-sm font-semibold",
                   (trade.realized_r_multiple ?? 0) > 0
                     ? "text-long"
                     : (trade.realized_r_multiple ?? 0) < 0
@@ -441,13 +494,13 @@ export function SignalCard({
                 {trade.outcome.toUpperCase()} · {Number(trade.realized_r_multiple ?? 0).toFixed(2)}R
               </span>
             ) : null}
-            <span className="num ml-auto text-xs text-muted-foreground">
+            <span className="num block text-xs text-muted-foreground sm:ml-auto">
               Scanner outcome:{" "}
               {signal.resolved_outcome === "open"
                 ? "still open"
                 : `${signal.resolved_outcome} ${Number(signal.resolved_r_multiple ?? 0).toFixed(2)}R`}
             </span>
-          </>
+          </div>
         )}
       </div>
     </article>
