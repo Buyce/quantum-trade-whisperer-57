@@ -48,24 +48,88 @@ function age(detectedAt: string) {
   return `${Math.floor(hours / 24)}d`;
 }
 
+/** Pip size per instrument — used only to phrase live distance in trader units. */
+const PIP: Record<string, number> = { EURUSD: 0.0001, GBPAUD: 0.0001, XAUUSD: 0.01 };
+
+export interface EntryDistance {
+  state: "awaiting" | "at_entry" | "ran" | "invalidated";
+  pips: number;
+  r: number;
+}
+
+/**
+ * Live distance from a pending entry. Pure function of the stored setup and one
+ * shared quote — no per-client broker calls, and no output at all when the quote
+ * is missing (never an estimated price).
+ */
+export function entryDistance(signal: SignalRow, mid: number | undefined): EntryDistance | null {
+  if (mid === undefined || !Number.isFinite(mid)) return null;
+  const risk = Math.abs(Number(signal.entry_price) - Number(signal.stop_loss));
+  if (risk <= 0) return null;
+  const long = signal.direction === "long";
+  const gap = mid - Number(signal.entry_price);
+  const r = Math.abs(gap) / risk;
+  const pips = Math.abs(gap) / (PIP[signal.instrument] ?? 0.0001);
+
+  const beyondStop = long ? mid <= Number(signal.stop_loss) : mid >= Number(signal.stop_loss);
+  if (beyondStop) return { state: "invalidated", pips, r };
+  const ranAway = long ? gap > risk * 0.5 : gap < -risk * 0.5;
+  if (ranAway) return { state: "ran", pips, r };
+  if (r <= 0.1) return { state: "at_entry", pips, r };
+  return { state: "awaiting", pips, r };
+}
+
+function DistanceChip({ d }: { d: EntryDistance }) {
+  const copy =
+    d.state === "invalidated"
+      ? "Invalidated — price traded through the stop"
+      : d.state === "ran"
+        ? `Ran past entry — ${d.pips.toFixed(1)} pips (${d.r.toFixed(2)}R) away`
+        : d.state === "at_entry"
+          ? "At entry — limit order would fill now"
+          : `Awaiting fill — ${d.pips.toFixed(1)} pips (${d.r.toFixed(2)}R) away`;
+  return (
+    <span
+      className={cn(
+        "num inline-flex shrink-0 items-center rounded-sm border px-1.5 py-0.5 text-xs font-medium",
+        d.state === "invalidated"
+          ? "border-short/40 bg-short/10 text-short"
+          : d.state === "at_entry"
+            ? "border-long/40 bg-long/10 text-long"
+            : d.state === "ran"
+              ? "border-warning/40 bg-warning/10 text-warning"
+              : "border-border bg-surface text-muted-foreground",
+      )}
+    >
+      {copy}
+    </span>
+  );
+}
+
 export function SignalCard({
   signal,
   trade,
   onDecision,
   onResult,
   busy,
+  quoteMid,
 }: {
   signal: SignalRow;
   trade: TradeRow | undefined;
   onDecision: (decision: "taken" | "skipped") => void;
   onResult: (outcome: "win" | "loss" | "breakeven", r: number) => void;
   busy: boolean;
+  /** Shared live mid price for this instrument, when available. */
+  quoteMid?: number;
 }) {
   const ctx = contextOf(signal);
   const long = signal.direction === "long";
   const conf = Number(signal.confidence_score);
   const { guide } = useGuideMode();
   const orderType = long ? "BUY LIMIT" : "SELL LIMIT";
+  const ladder = targetLadder(signal);
+  const capped = isCapped(signal);
+  const distance = entryDistance(signal, quoteMid);
   // Progressive disclosure: the top tier opens by default because it is the one
   // setup a trader always wants the detail on; everything else starts collapsed.
   const [open, setOpen] = useState(signal.grade === "A+");
@@ -77,10 +141,8 @@ export function SignalCard({
       `${signal.instrument} — ${orderType} (${long ? "LONG" : "SHORT"})`,
       `Entry:      ${p(signal.entry_price)}`,
       `Stop-loss:  ${p(signal.stop_loss)}`,
-      `TP1 (1:1):  ${p(signal.tp1)}`,
-      `TP2 (1:2):  ${p(signal.tp2)}`,
-      `TP3 (1:3):  ${p(signal.tp3)}`,
-      `R:R:        ${Number(signal.rr_ratio).toFixed(2)}`,
+      ...ladder.map((t) => `${t.label.replace(" · ", " (")}):  ${p(t.price)}`),
+      `R:R:        ${Number(signal.rr_ratio).toFixed(2)}${capped ? " (capped by H4 barrier)" : ""}`,
       `Confidence: ${conf.toFixed(1)}%  ·  Grade ${signal.grade}`,
       `Not financial advice — size the position yourself.`,
     ].join("\n");
@@ -91,6 +153,7 @@ export function SignalCard({
       toast.error("Clipboard blocked by your browser");
     }
   }
+
 
   return (
     <article
