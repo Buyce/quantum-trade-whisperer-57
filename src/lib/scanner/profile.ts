@@ -6,6 +6,8 @@ import {
   MAX_RISK_ATR,
   MIN_REACHABLE_R,
   PILLAR_PASS_SCORE,
+  SLIPPAGE_TOLERANCE_R,
+  TIGHT_SLIPPAGE_TOLERANCE_R,
   SPREAD_FLOOR,
   STOP_H1_ATR_FLOOR,
   STOP_M15_ATR_MULTIPLIER,
@@ -215,6 +217,7 @@ export function buildTradeProfile(input: BuildProfileInput): TradeProfile | null
     tp2R,
     tp3R,
     maxR,
+    maxAcceptableEntry,
     capped,
     structureKey: structureKeyOf({
       instrument: input.instrument,
