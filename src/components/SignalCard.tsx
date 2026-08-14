@@ -1,7 +1,15 @@
 import { useState } from "react";
 import { ArrowDownRight, ArrowUpRight, Check, ChevronDown, Copy, X } from "lucide-react";
 import { toast } from "sonner";
-import { contextOf, INSTRUMENT_LABELS, SESSION_LABELS, type SignalRow, type TradeRow } from "@/lib/db-types";
+import {
+  contextOf,
+  INSTRUMENT_LABELS,
+  isCapped,
+  SESSION_LABELS,
+  targetLadder,
+  type SignalRow,
+  type TradeRow,
+} from "@/lib/db-types";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -190,6 +198,19 @@ export function SignalCard({
               {long ? <ArrowUpRight className="size-3.5" /> : <ArrowDownRight className="size-3.5" />}
               {long ? "LONG" : "SHORT"}
             </span>
+            {/* Always-on: these are pending limit orders, never market entries. */}
+            <Badge variant="outline" className="num shrink-0 font-normal">
+              {orderType}
+            </Badge>
+            {capped ? (
+              <Badge
+                variant="outline"
+                className="num shrink-0 border-warning/40 bg-warning/10 font-normal text-warning"
+              >
+                CAPPED {Number(signal.max_r ?? signal.rr_ratio).toFixed(2)}R
+              </Badge>
+            ) : null}
+            {distance ? <DistanceChip d={distance} /> : null}
           </div>
           <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground sm:ml-auto">
             <span className="num">
@@ -222,9 +243,7 @@ export function SignalCard({
           <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-2.5 text-xs text-muted-foreground">
             <span>{INSTRUMENT_LABELS[signal.instrument] ?? ""}</span>
             {guide ? (
-              <Badge variant="outline" className="num font-normal">
-                {orderType}
-              </Badge>
+              <span>Place this as a pending {orderType.toLowerCase()} and wait for the fill.</span>
             ) : null}
             {ctx ? (
               <Badge variant="outline" className="num font-normal">
