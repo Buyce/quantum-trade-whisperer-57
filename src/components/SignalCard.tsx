@@ -180,8 +180,8 @@ export function SignalCard({
 
           <div className="grid grid-cols-2 gap-px bg-border sm:grid-cols-3 lg:grid-cols-6">
             <Metric
-              label="Entry (M15 break)"
-              hint="The price to place your pending order at — where the 15-minute chart broke structure."
+              label="Entry (limit)"
+              hint="The price to place your pending limit order at — the Point C structural level."
               value={price(signal.entry_price, signal.instrument)}
             />
             <Metric
@@ -190,29 +190,23 @@ export function SignalCard({
               value={price(signal.stop_loss, signal.instrument)}
               tone="short"
             />
-            <Metric
-              label="TP1 · 1:1"
-              hint="First take-profit. Closing here returns the same amount you risked (+1R)."
-              value={price(signal.tp1, signal.instrument)}
-              tone="long"
-            />
-            <Metric
-              label="TP2 · 1:2"
-              hint="Second take-profit — twice what you risked (+2R)."
-              value={price(signal.tp2, signal.instrument)}
-              tone="long"
-            />
-            <Metric
-              label="TP3 · 1:3"
-              hint="Final take-profit — three times what you risked (+3R)."
-              value={price(signal.tp3, signal.instrument)}
-              tone="long"
-            />
+            {/* Targets are rendered from what the structure can actually reach.
+                A target the H4 barrier blocks is omitted, never faked as 1:3. */}
+            {ladder.map((t, i) => (
+              <Metric
+                key={t.label}
+                label={t.label}
+                hint={`Take-profit ${i + 1} — closing here returns ${t.r.toFixed(2)}x what you risked.`}
+                value={price(t.price, signal.instrument)}
+                tone="long"
+              />
+            ))}
             <Metric
               label="R:R"
-              hint="Risk-to-reward: how much this setup can win compared to what it risks. Higher is better."
+              hint="Risk-to-reward of the final target. This is the true reachable payoff, not a default 1:3."
               value={`${Number(signal.rr_ratio).toFixed(2)}`}
             />
+
           </div>
 
           <div className="grid gap-4 border-t border-border px-4 py-4 lg:grid-cols-[minmax(0,1fr)_320px]">
