@@ -6,6 +6,8 @@ import {
   MAX_RISK_ATR,
   MIN_REACHABLE_R,
   PILLAR_PASS_SCORE,
+  SLIPPAGE_TOLERANCE_R,
+  TIGHT_SLIPPAGE_TOLERANCE_R,
   SPREAD_FLOOR,
   STOP_H1_ATR_FLOOR,
   STOP_M15_ATR_MULTIPLIER,
@@ -169,6 +171,14 @@ export function buildTradeProfile(input: BuildProfileInput): TradeProfile | null
   // no longer disagree.
   const rrRatio = round(tp3R ?? tp2R);
 
+  // Slippage ceiling. Beyond this price the payoff the grade was based on is
+  // materially broken, so the setup becomes "limit order on the retest only".
+  // Thin extensions get the tighter tolerance: a marginal setup must not be
+  // slipped into negative expectancy.
+  const tolerance = maxR < 1.5 ? TIGHT_SLIPPAGE_TOLERANCE_R : SLIPPAGE_TOLERANCE_R;
+  const maxAcceptableEntry = round(entryPrice + sign * risk * tolerance, 5);
+
+
   const pillars = scoreConfluence({
     direction,
     pointC: abc.c,
@@ -207,6 +217,7 @@ export function buildTradeProfile(input: BuildProfileInput): TradeProfile | null
     tp2R,
     tp3R,
     maxR,
+    maxAcceptableEntry,
     capped,
     structureKey: structureKeyOf({
       instrument: input.instrument,

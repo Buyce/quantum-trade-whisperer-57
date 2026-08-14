@@ -250,6 +250,7 @@ export type Database = {
           id: string
           instrument: string
           m15_bias: string | null
+          max_acceptable_entry: number | null
           max_r: number | null
           p_momentum: number | null
           p_order_block: number | null
@@ -289,6 +290,7 @@ export type Database = {
           id?: string
           instrument: string
           m15_bias?: string | null
+          max_acceptable_entry?: number | null
           max_r?: number | null
           p_momentum?: number | null
           p_order_block?: number | null
@@ -328,6 +330,7 @@ export type Database = {
           id?: string
           instrument?: string
           m15_bias?: string | null
+          max_acceptable_entry?: number | null
           max_r?: number | null
           p_momentum?: number | null
           p_order_block?: number | null
@@ -360,10 +363,15 @@ export type Database = {
           min_grade: Database["public"]["Enums"]["signal_grade"]
           notify_email: boolean
           notify_push: boolean
+          order_strategy: string
           sessions: string[]
           timeframes: string[]
           updated_at: string
           user_id: string
+          webhook_enabled: boolean
+          webhook_format: string
+          webhook_secret: string | null
+          webhook_url: string | null
         }
         Insert: {
           alert_min_grade?: Database["public"]["Enums"]["signal_grade"]
@@ -373,10 +381,15 @@ export type Database = {
           min_grade?: Database["public"]["Enums"]["signal_grade"]
           notify_email?: boolean
           notify_push?: boolean
+          order_strategy?: string
           sessions?: string[]
           timeframes?: string[]
           updated_at?: string
           user_id: string
+          webhook_enabled?: boolean
+          webhook_format?: string
+          webhook_secret?: string | null
+          webhook_url?: string | null
         }
         Update: {
           alert_min_grade?: Database["public"]["Enums"]["signal_grade"]
@@ -386,10 +399,15 @@ export type Database = {
           min_grade?: Database["public"]["Enums"]["signal_grade"]
           notify_email?: boolean
           notify_push?: boolean
+          order_strategy?: string
           sessions?: string[]
           timeframes?: string[]
           updated_at?: string
           user_id?: string
+          webhook_enabled?: boolean
+          webhook_format?: string
+          webhook_secret?: string | null
+          webhook_url?: string | null
         }
         Relationships: []
       }

@@ -8,7 +8,7 @@ import { runScanNow, type ManualScanResult } from "@/lib/scanner/scan.functions"
 
 import { useAuth } from "@/hooks/useAuth";
 import { saveSettings, settingsQuery } from "@/lib/queries";
-import { ALL_INSTRUMENTS, ALL_SESSIONS, ALL_TIMEFRAMES, SESSION_LABELS, INSTRUMENT_LABELS, type Grade } from "@/lib/db-types";
+import { ALL_INSTRUMENTS, ALL_SESSIONS, ALL_TIMEFRAMES, SESSION_LABELS, INSTRUMENT_LABELS, ORDER_TIF_MINUTES, type Grade, type OrderStrategy, type WebhookFormat } from "@/lib/db-types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -54,6 +54,11 @@ function SettingsPage() {
   const [cap, setCap] = useState(50);
   const [push, setPush] = useState(true);
   const [email, setEmail] = useState(false);
+  const [orderStrategy, setOrderStrategy] = useState<OrderStrategy>("smart_adaptive");
+  const [webhookEnabled, setWebhookEnabled] = useState(false);
+  const [webhookUrl, setWebhookUrl] = useState("");
+  const [webhookSecret, setWebhookSecret] = useState("");
+  const [webhookFormat, setWebhookFormat] = useState<WebhookFormat>("json");
   const [saving, setSaving] = useState(false);
   const triggerScan = useServerFn(runScanNow);
   const [scanning, setScanning] = useState(false);
@@ -89,6 +94,11 @@ function SettingsPage() {
     setCap(s.daily_setup_cap);
     setPush(s.notify_push);
     setEmail(s.notify_email);
+    setOrderStrategy(s.order_strategy ?? "smart_adaptive");
+    setWebhookEnabled(s.webhook_enabled ?? false);
+    setWebhookUrl(s.webhook_url ?? "");
+    setWebhookSecret(s.webhook_secret ?? "");
+    setWebhookFormat(s.webhook_format ?? "json");
   }, [settings.data]);
 
   function toggle(list: string[], value: string, set: (v: string[]) => void) {
@@ -97,6 +107,17 @@ function SettingsPage() {
 
   async function onSave() {
     if (!user) return;
+    // The dispatcher must never be armed with an endpoint we cannot reach.
+    if (webhookEnabled) {
+      if (!/^https:\/\//i.test(webhookUrl.trim())) {
+        toast.error("Webhook URL must be a full https:// address");
+        return;
+      }
+      if (!webhookSecret.trim()) {
+        toast.error("A webhook secret or licence ID is required");
+        return;
+      }
+    }
     setSaving(true);
     try {
       await saveSettings({
@@ -109,6 +130,11 @@ function SettingsPage() {
         daily_setup_cap: cap,
         notify_push: push,
         notify_email: email,
+        order_strategy: orderStrategy,
+        webhook_enabled: webhookEnabled,
+        webhook_url: webhookUrl.trim() || null,
+        webhook_secret: webhookSecret.trim() || null,
+        webhook_format: webhookFormat,
       });
       await queryClient.invalidateQueries({ queryKey: ["scanner-settings"] });
       toast.success("Settings saved");
@@ -286,6 +312,100 @@ function SettingsPage() {
             />
           </section>
 
+          <section className="space-y-5 rounded-md border border-border bg-card p-4">
+            <div>
+              <h2 className="label-xs">Execution &amp; delivery preferences</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                How the terminal phrases order guidance, and where — if anywhere — a copy of each
+                alert is POSTed for your own broker bridge. We never hold broker credentials.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm text-foreground">Order guidance (manual)</Label>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <StrategyOption
+                  active={orderStrategy === "smart_adaptive"}
+                  onClick={() => setOrderStrategy("smart_adaptive")}
+                  title="Smart Adaptive"
+                  desc="Market entry while price is inside the safe zone, limit order on the retest once it is beyond the ceiling."
+                />
+                <StrategyOption
+                  active={orderStrategy === "strict_retest"}
+                  onClick={() => setOrderStrategy("strict_retest")}
+                  title="Strict Break-and-Retest"
+                  desc="Limit orders only. The card never suggests a market entry, whatever the live price does."
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Either way, un-filled orders should be cancelled after {ORDER_TIF_MINUTES} minutes
+                (2 candles).
+              </p>
+            </div>
+
+            <div className="space-y-4 border-t border-border pt-4">
+              <Row
+                id="webhook-enabled"
+                title="Enable webhook dispatcher"
+                desc="POST every alert-eligible setup to your own bridge (PineConnector, an EA relay, an automation platform). Dispatch is non-blocking and times out after 5 seconds."
+                checked={webhookEnabled}
+                onChange={setWebhookEnabled}
+              />
+              {webhookEnabled ? (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label htmlFor="webhook-url" className="text-sm text-foreground">
+                      Webhook URL
+                    </Label>
+                    <Input
+                      id="webhook-url"
+                      type="url"
+                      inputMode="url"
+                      placeholder="https://your-bridge.example.com/hook"
+                      value={webhookUrl}
+                      onChange={(e) => setWebhookUrl(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="webhook-secret" className="text-sm text-foreground">
+                      Webhook secret / licence ID
+                    </Label>
+                    <Input
+                      id="webhook-secret"
+                      type="password"
+                      autoComplete="off"
+                      placeholder="PineConnector licence or shared secret"
+                      value={webhookSecret}
+                      onChange={(e) => setWebhookSecret(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="webhook-format" className="text-sm text-foreground">
+                      Payload format
+                    </Label>
+                    <Select
+                      value={webhookFormat}
+                      onValueChange={(v) => setWebhookFormat(v as WebhookFormat)}
+                    >
+                      <SelectTrigger id="webhook-format">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pineconnector">PineConnector (comma separated)</SelectItem>
+                        <SelectItem value="json">JSON</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <p className="text-xs text-muted-foreground sm:col-span-2">
+                    Orders are always dispatched as buy/sell <span className="num">limit</span> at the
+                    structural entry with the {ORDER_TIF_MINUTES}-minute expiry attached — never a
+                    stop order, which your platform would reject once price has passed the level.
+                  </p>
+                </div>
+              ) : null}
+            </div>
+          </section>
+
           <SaveBar saving={saving} onSave={() => void onSave()} />
         </TabsContent>
 
@@ -400,6 +520,44 @@ function SaveBar({ saving, onSave }: { saving: boolean; onSave: () => void }) {
         <Save className="size-4" /> {saving ? "Saving…" : "Save settings"}
       </Button>
     </div>
+  );
+}
+
+function StrategyOption({
+  active,
+  onClick,
+  title,
+  desc,
+}: {
+  active: boolean;
+  onClick: () => void;
+  title: string;
+  desc: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={active}
+      onClick={onClick}
+      className={cn(
+        "rounded-md border p-3 text-left transition-colors",
+        active ? "border-primary/60 bg-primary/10" : "border-border bg-surface hover:border-border/80",
+      )}
+    >
+      <span className="flex items-center gap-2">
+        <span
+          className={cn(
+            "inline-flex size-4 shrink-0 items-center justify-center rounded-full border",
+            active ? "border-primary" : "border-muted-foreground/50",
+          )}
+        >
+          {active ? <span className="size-2 rounded-full bg-primary" /> : null}
+        </span>
+        <span className="text-sm font-semibold text-foreground">{title}</span>
+      </span>
+      <span className="mt-1.5 block text-xs leading-relaxed text-muted-foreground">{desc}</span>
+    </button>
   );
 }
 

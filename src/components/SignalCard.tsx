@@ -4,6 +4,9 @@ import { toast } from "sonner";
 import {
   contextOf,
   INSTRUMENT_LABELS,
+  maxAcceptableEntry,
+  ORDER_TIF_MINUTES,
+  type OrderStrategy,
   isCapped,
   SESSION_LABELS,
   targetLadder,
@@ -125,6 +128,68 @@ function DistanceChip({ d }: { d: EntryDistance }) {
   );
 }
 
+export type ExecutionState = "safe" | "beyond" | "invalidated";
+
+export interface ExecutionRead {
+  state: ExecutionState;
+  /** The slippage ceiling this verdict was measured against. */
+  limit: number;
+  mid: number;
+}
+
+/**
+ * Tier 1 order guidance. Compares the shared live mid to the stored slippage
+ * ceiling: at or inside it the setup can still be taken now, beyond it the only
+ * valid order is a limit back at the entry for the retest (a stop order on the
+ * wrong side of price is rejected by MT4/MT5, so it is never suggested).
+ */
+export function executionRead(signal: SignalRow, mid: number | undefined): ExecutionRead | null {
+  if (mid === undefined || !Number.isFinite(mid)) return null;
+  const limit = maxAcceptableEntry(signal);
+  const long = signal.direction === "long";
+  const stop = Number(signal.stop_loss);
+  if (long ? mid <= stop : mid >= stop) return { state: "invalidated", limit, mid };
+  const beyond = long ? mid > limit : mid < limit;
+  return { state: beyond ? "beyond" : "safe", limit, mid };
+}
+
+function ExecutionChip({
+  read,
+  instrument,
+  strategy,
+}: {
+  read: ExecutionRead;
+  instrument: string;
+  strategy: OrderStrategy;
+}) {
+  if (read.state === "invalidated") return null;
+  const safe = read.state === "safe";
+  const shortText = safe
+    ? strategy === "strict_retest"
+      ? "IN SAFE ZONE — LIMIT AT ENTRY"
+      : "SAFE TO ENTER"
+    : "BEYOND SAFE LIMIT — USE LIMIT";
+  const fullText = safe
+    ? strategy === "strict_retest"
+      ? `IN SAFE ZONE — PLACE YOUR LIMIT AT ENTRY (ceiling ${price(read.limit, instrument)})`
+      : `SAFE TO ENTER — price is inside the ${price(read.limit, instrument)} ceiling`
+    : `PRICE BEYOND SAFE LIMIT (${price(read.limit, instrument)}) — PLACE LIMIT ORDER FOR RETEST`;
+  return (
+    <span
+      className={cn(
+        "num inline-flex items-center rounded-sm border px-1.5 py-0.5 text-xs font-semibold",
+        safe
+          ? "animate-pulse border-long/50 bg-long/15 text-long"
+          : "animate-pulse border-short/50 bg-short/15 text-short",
+      )}
+      role="status"
+    >
+      <span className="sm:hidden">{shortText}</span>
+      <span className="hidden sm:inline">{fullText}</span>
+    </span>
+  );
+}
+
 export function SignalCard({
   signal,
   trade,
@@ -132,6 +197,7 @@ export function SignalCard({
   onResult,
   busy,
   quoteMid,
+  orderStrategy = "smart_adaptive",
 }: {
   signal: SignalRow;
   trade: TradeRow | undefined;
@@ -140,6 +206,8 @@ export function SignalCard({
   busy: boolean;
   /** Shared live mid price for this instrument, when available. */
   quoteMid?: number | undefined;
+  /** The user's manual order-guidance preference. */
+  orderStrategy?: OrderStrategy;
 }) {
   const ctx = contextOf(signal);
   const long = signal.direction === "long";
@@ -149,6 +217,8 @@ export function SignalCard({
   const ladder = targetLadder(signal);
   const capped = isCapped(signal);
   const distance = entryDistance(signal, quoteMid);
+  const execution = executionRead(signal, quoteMid);
+  const ceiling = maxAcceptableEntry(signal);
   // Progressive disclosure: the top tier opens by default because it is the one
   // setup a trader always wants the detail on; everything else starts collapsed.
   const [open, setOpen] = useState(signal.grade === "A+");
@@ -158,11 +228,14 @@ export function SignalCard({
     const p = (v: number) => price(v, signal.instrument);
     const text = [
       `${signal.instrument} — ${orderType} (${long ? "LONG" : "SHORT"})`,
-      `Entry:      ${p(signal.entry_price)}`,
+      `Entry (limit):        ${p(signal.entry_price)}`,
+      `Max acceptable entry: ${p(ceiling)}`,
       `Stop-loss:  ${p(signal.stop_loss)}`,
       ...ladder.map((t) => `${t.label.replace(" · ", " (")}):  ${p(t.price)}`),
       `R:R:        ${Number(signal.rr_ratio).toFixed(2)}${capped ? " (capped by H4 barrier)" : ""}`,
       `Confidence: ${conf.toFixed(1)}%  ·  Grade ${signal.grade}`,
+      `If price is beyond ${p(ceiling)}, do NOT enter at market — leave the limit at ${p(signal.entry_price)} for the retest.`,
+      `Cancel this order if unfilled within ${ORDER_TIF_MINUTES} minutes (2 candles).`,
       `Not financial advice — size the position yourself.`,
     ].join("\n");
     try {
@@ -225,7 +298,13 @@ export function SignalCard({
                 CAPPED {Number(signal.max_r ?? signal.rr_ratio).toFixed(2)}R
               </Badge>
             ) : null}
+            {execution ? (
+              <ExecutionChip read={execution} instrument={signal.instrument} strategy={orderStrategy} />
+            ) : null}
             {distance ? <DistanceChip d={distance} /> : null}
+            <Badge variant="outline" className="num shrink-0 font-normal text-muted-foreground">
+              TIF {ORDER_TIF_MINUTES}m
+            </Badge>
             {trade ? (
               <Badge
                 variant={trade.user_decision === "taken" ? "default" : "secondary"}
@@ -286,8 +365,16 @@ export function SignalCard({
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-border px-3 py-2.5 text-xs text-muted-foreground sm:px-4">
             <span>{INSTRUMENT_LABELS[signal.instrument] ?? ""}</span>
             {guide ? (
-              <span>Place this as a pending {orderType.toLowerCase()} and wait for the fill.</span>
+              <span>
+                Place this as a pending {orderType.toLowerCase()} and wait for the fill. Anything worse
+                than {price(ceiling, signal.instrument)} is a chase — leave the limit where it is.
+              </span>
             ) : null}
+            <Badge variant="outline" className="num font-normal">
+              <InfoLabel hint={`Time-in-force. If the market has not come back to your entry within ${ORDER_TIF_MINUTES} minutes (2 M15 candles), the structure that was graded is gone. Cancelling the un-filled order protects your capital from a stale setup.`}>
+                Cancel un-filled orders in {ORDER_TIF_MINUTES} minutes (2 candles)
+              </InfoLabel>
+            </Badge>
             {ctx ? (
               <Badge variant="outline" className="num font-normal">
                 {SESSION_LABELS[ctx.trading_session] ?? ctx.trading_session}
@@ -308,6 +395,12 @@ export function SignalCard({
               label="Entry (limit)"
               hint="The price to place your pending limit order at — the Point C structural level."
               value={price(signal.entry_price, signal.instrument)}
+            />
+            <Metric
+              label="Max acceptable entry"
+              hint="The worst price at which taking this setup at market still keeps the planned payoff intact. Beyond it, only a limit order back at the entry makes sense."
+              value={price(ceiling, signal.instrument)}
+              tone="long"
             />
             <Metric
               label="Stop-loss"

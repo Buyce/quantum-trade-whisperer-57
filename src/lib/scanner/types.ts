@@ -74,6 +74,8 @@ export interface TradeProfile {
   tp3R: number | null;
   /** Maximum reachable R before the nearest H4 structural barrier. */
   maxR: number;
+  /** Slippage ceiling: worst price at which entering at market is still sane. */
+  maxAcceptableEntry: number;
   /** True when maxR (not the 1:3 default) is what sets the final target. */
   capped: boolean;
   /** Stable identity of the ABC structure this setup came from. */
@@ -116,6 +118,21 @@ export const CAPPED_GRADES: Grade[] = ["A+", "A", "B"];
  * swept to `expired` at the start of each scan cycle.
  */
 export const SIGNAL_MAX_AGE_HOURS = 24;
+
+/**
+ * Slippage tolerance above (long) / below (short) the entry price before the
+ * planned payoff is materially broken. 0.15R turns a 1:3 into ~1:2.55 — a real
+ * but survivable haircut. Thin extensions (maxR < 1.5) use the tighter figure
+ * so a marginal setup cannot be slipped into negative expectancy.
+ */
+export const SLIPPAGE_TOLERANCE_R = 0.15;
+export const TIGHT_SLIPPAGE_TOLERANCE_R = 0.1;
+
+/**
+ * Time-in-force: an unfilled pending order is cancelled after two M15 candles.
+ * After that the market is no longer the one that was graded.
+ */
+export const ORDER_TIF_MINUTES = 30;
 
 /**
  * Stop-loss construction. Industry practice for a 15m breakout structure is

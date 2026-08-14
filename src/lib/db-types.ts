@@ -24,6 +24,8 @@ export interface SignalRow {
   tp3_r: number | null;
   /** Maximum reachable R before the nearest H4 structural barrier. */
   max_r: number | null;
+  /** Slippage ceiling — legacy rows are null and are derived client-side. */
+  max_acceptable_entry: number | null;
   structure_key: string | null;
   atr: number;
   rr_ratio: number;
@@ -82,6 +84,37 @@ export interface ScannerSettingsRow {
   daily_setup_cap: number;
   notify_push: boolean;
   notify_email: boolean;
+  /** Manual order guidance: adaptive market/limit, or limit-only on the retest. */
+  order_strategy: OrderStrategy;
+  webhook_enabled: boolean;
+  webhook_url: string | null;
+  webhook_secret: string | null;
+  webhook_format: WebhookFormat;
+}
+
+export type OrderStrategy = "smart_adaptive" | "strict_retest";
+export type WebhookFormat = "json" | "pineconnector";
+
+/**
+ * Time-in-force for every pending order: two M15 candles. After that the market
+ * is no longer the one the setup was graded in, so an unfilled order is stale.
+ */
+export const ORDER_TIF_MINUTES = 30;
+
+/**
+ * Worst price at which taking the setup at market still preserves the payoff the
+ * grade was based on. Stored per signal by the scanner; older rows predate the
+ * column and are derived from the same formula so the card never shows "—".
+ */
+export function maxAcceptableEntry(signal: Pick<SignalRow, "max_acceptable_entry" | "entry_price" | "stop_loss" | "direction" | "max_r">): number {
+  if (signal.max_acceptable_entry !== null && signal.max_acceptable_entry !== undefined) {
+    return Number(signal.max_acceptable_entry);
+  }
+  const entry = Number(signal.entry_price);
+  const risk = Math.abs(entry - Number(signal.stop_loss));
+  const tolerance = signal.max_r !== null && Number(signal.max_r) < 1.5 ? 0.1 : 0.15;
+  const sign = signal.direction === "long" ? 1 : -1;
+  return entry + sign * risk * tolerance;
 }
 
 export const GRADE_RANK: Record<Grade, number> = { "A+": 4, A: 3, B: 2, C: 1 };

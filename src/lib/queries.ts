@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { ScannerSettingsRow, SignalRow, TradeHistoryRow, TradeRow } from "./db-types";
 
 const SIGNAL_COLUMNS =
-  "id, detected_at, instrument, grade, direction, entry_price, stop_loss, tp1, tp2, tp3, tp1_r, tp2_r, tp3_r, max_r, structure_key, atr, rr_ratio, confidence_score, c_alignment, c_rr, c_symmetry, c_volatility, pattern_symmetry, p_trend, p_order_block, p_momentum, p_volatility_expansion, pillars_passed, h4_bias, h1_bias, m15_bias, qualitative_breakdown, status, resolved_outcome, resolved_r_multiple, expired_at, market_context(trading_session, volatility_index, time_of_day, day_of_week)";
+  "id, detected_at, instrument, grade, direction, entry_price, stop_loss, tp1, tp2, tp3, tp1_r, tp2_r, tp3_r, max_r, max_acceptable_entry, structure_key, atr, rr_ratio, confidence_score, c_alignment, c_rr, c_symmetry, c_volatility, pattern_symmetry, p_trend, p_order_block, p_momentum, p_volatility_expansion, pillars_passed, h4_bias, h1_bias, m15_bias, qualitative_breakdown, status, resolved_outcome, resolved_r_multiple, expired_at, market_context(trading_session, volatility_index, time_of_day, day_of_week)";
 
 /**
  * ZERO-HALLUCINATION CONTRACT: this fetcher returns exactly what the live
@@ -78,7 +78,7 @@ export function settingsQuery(userId: string | undefined) {
     queryFn: async (): Promise<ScannerSettingsRow | null> => {
       const { data, error } = await supabase
         .from("scanner_settings" as never)
-        .select("user_id, instruments, timeframes, sessions, min_grade, alert_min_grade, daily_setup_cap, notify_push, notify_email")
+        .select("user_id, instruments, timeframes, sessions, min_grade, alert_min_grade, daily_setup_cap, notify_push, notify_email, order_strategy, webhook_enabled, webhook_url, webhook_secret, webhook_format")
         .maybeSingle();
       if (error) throw error;
       return (data ?? null) as unknown as ScannerSettingsRow | null;
