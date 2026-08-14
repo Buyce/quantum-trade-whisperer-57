@@ -54,6 +54,33 @@ A new card in the existing Settings tabs (Notifications tab), matching current c
   - JSON: `{ secret, event:"signal", instrument, action, grade, entry, max_acceptable_entry, stop_loss, tp1, tp2, tp3, rr, confidence, expires_in_minutes: 30, signal_id }`.
 - Idempotent per `signal_id + user_id` so worker retries never double-send.
 
+### 4. Educational UX & email alert overhaul
+
+**Email (`src/lib/email-templates/signal-alert.tsx`)** — rebuilt as a standalone, self-sufficient trade brief, keeping the existing brand tokens and white body:
+
+```text
+Header      P-Trades Hub · Signal alert
+Headline    A-grade LONG · EURUSD
+Panel 1     Trade profile
+            Entry (limit)        1.15621
+            Max acceptable entry 1.15632   <- new, highlighted
+            Stop-loss            1.15548
+            TP1 / TP2 / TP3      ... with real R labels (no hardcoded 1:1/1:2/1:3)
+            R:R, Confidence, Grade
+Panel 2     Execution rule (amber callout)
+            "If your broker price is currently beyond 1.15632, DO NOT enter at
+             market. Place a Limit Order at 1.15621 to catch the retest."
+Panel 3     Expiration
+            "Cancel this order if it is not filled within 30 minutes (2 candles)."
+CTA         "Check Live Distance on Terminal" -> https://getptrades.com/feed
+Footer      existing alerts/not-advice disclaimer (Lovable appends unsubscribe)
+```
+
+`alerts.server.ts` passes the new `maxAcceptableEntry`, real target R labels and TIF fields into `templateData`; template props keep graceful `—` fallbacks. Preview data updated to match.
+
+**Guide Mode** — new tooltip entries on the feed and card explaining, in plain language: what Max Acceptable Entry is (the slippage ceiling where the planned payoff still holds), why the two live states differ, and why the 30-minute time-in-force protects capital (a setup unfilled after two candles is a different market than the one that was graded).
+
+
 ## Technical notes
 
 - Migration adds to `scanner_settings`: `order_strategy text default 'smart_adaptive'`, `webhook_enabled boolean default false`, `webhook_url text`, `webhook_secret text`, `webhook_format text default 'json'`. Existing own-row RLS covers them; no new grants needed beyond the table's current ones. Secrets are per-user config, readable only by that user.
