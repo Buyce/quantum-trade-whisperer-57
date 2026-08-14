@@ -15,7 +15,7 @@ import {
 } from "@/lib/queries";
 import { contextOf, isWithinRetention, type Grade, type SignalRow, type TradeRow } from "@/lib/db-types";
 import { SignalCard } from "@/components/SignalCard";
-import { MarketTicker, ScanHeartbeat } from "@/components/MarketTicker";
+import { ScanHeartbeat } from "@/components/ScanHeartbeat";
 import { OnboardingBanner } from "@/components/OnboardingBanner";
 import { useGuideMode } from "@/components/GuideMode";
 import { Button } from "@/components/ui/button";
@@ -190,7 +190,7 @@ function FeedPage() {
   const capPct = Math.min(100, cap > 0 ? (todayCount / cap) * 100 : 0);
 
   return (
-    <div className="space-y-5 pb-14">
+    <div className="space-y-5">
       <OnboardingBanner />
 
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 sm:flex sm:flex-wrap">
@@ -361,7 +361,7 @@ function FeedPage() {
           })}
         </div>
       )}
-      <MarketTicker />
+      
     </div>
   );
 }
