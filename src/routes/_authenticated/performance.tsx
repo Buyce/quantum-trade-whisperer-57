@@ -104,14 +104,14 @@ function PerformancePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end gap-4">
-        <div>
+      <div className="grid gap-4 sm:flex sm:flex-wrap sm:items-end">
+        <div className="min-w-0">
           <p className="label-xs">Phase 3 · Performance engine</p>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Performance</h1>
+          <h1 className="truncate text-xl font-bold tracking-tight text-foreground sm:text-2xl">Performance</h1>
         </div>
-        <div className="ml-auto flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3 sm:ml-auto">
           <Tabs value={effectiveScope} onValueChange={(v) => setScope(v as "mine" | "baseline")}>
-            <TabsList>
+            <TabsList className="grid w-full grid-cols-2 sm:inline-flex sm:w-auto">
               <TabsTrigger value="mine">My trade log</TabsTrigger>
               <TabsTrigger value="baseline">Scanner baseline</TabsTrigger>
             </TabsList>
@@ -136,7 +136,7 @@ function PerformancePage() {
         </p>
       ) : null}
 
-      <div className="grid gap-px overflow-hidden rounded-md border border-border bg-border sm:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-md border border-border bg-border sm:grid-cols-3 lg:grid-cols-6">
         <Kpi
           label="Expectancy / trade"
           hint="What one average setup is worth in R. +0.30R means every trade adds 0.3× your risk over the long run."
@@ -326,7 +326,7 @@ function Kpi({
   hint?: string;
 }) {
   return (
-    <div className="bg-card px-4 py-3">
+    <div className="min-w-0 bg-card px-3 py-3.5 sm:px-4 sm:py-3">
       <p className="label-xs">{hint ? <InfoLabel hint={hint}>{label}</InfoLabel> : label}</p>
       <p
         className={cn(
@@ -350,7 +350,8 @@ function BreakdownTable({
   return (
     <section className="rounded-md border border-border bg-card">
       <p className="label-xs border-b border-border px-4 py-3">{title}</p>
-      <table className="w-full text-sm">
+      <div className="overflow-x-auto">
+      <table className="w-full min-w-[520px] text-sm">
         <thead>
           <tr className="border-b border-border">
             {["", "N", "Win%", "Avg win", "Avg loss", "Expectancy"].map((h) => (
@@ -388,6 +389,7 @@ function BreakdownTable({
           )}
         </tbody>
       </table>
+      </div>
     </section>
   );
 }

@@ -36,51 +36,78 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-40 border-b border-border bg-surface/95 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-[1600px] items-center gap-6 px-4">
-          <Link to="/feed" className="flex items-center gap-2">
-            <img
-              src={ptradesMark.url}
-              alt="P-Trades Hub logo"
-              width={28}
-              height={28}
-              className="size-7"
-            />
+        <div className="mx-auto max-w-[1600px] px-3 sm:px-4">
+          {/* Phones: brand + account controls on top, nav on its own full-width row.
+              From sm up this is the original single 56px row. */}
+          <div className="flex h-14 items-center gap-3 sm:gap-6">
+            <Link to="/feed" className="flex min-w-0 shrink-0 items-center gap-2">
+              <img
+                src={ptradesMark.url}
+                alt="P-Trades Hub logo"
+                width={28}
+                height={28}
+                className="size-7 shrink-0"
+              />
 
-            <span className="num text-sm font-semibold tracking-tight">P-TRADES HUB</span>
-          </Link>
+              <span className="num hidden text-sm font-semibold tracking-tight md:inline">P-TRADES HUB</span>
+            </Link>
 
-          <nav className="flex items-center gap-1">
+            <nav className="hidden items-center gap-1 md:flex">
+              {NAV.map((item) => {
+                const active = pathname.startsWith(item.to);
+                return (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    className={cn(
+                      "flex items-center gap-2 rounded-sm px-3 py-1.5 text-sm transition-colors",
+                      active
+                        ? "bg-secondary text-foreground"
+                        : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
+                    )}
+                  >
+                    <item.icon className="size-4 shrink-0" />
+                    <span className="hidden lg:inline">{item.label}</span>
+                    <span className="lg:hidden">{item.label.split(" ")[1] ?? item.label}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+
+            <div className="ml-auto flex shrink-0 items-center gap-1">
+              <GuideModeToggle />
+              <Button variant="ghost" size="sm" aria-label="Sign out" onClick={() => void signOut()}>
+                <LogOut className="size-4" />
+                <span className="hidden lg:inline">Sign out</span>
+              </Button>
+            </div>
+          </div>
+
+          <nav className="grid grid-cols-4 border-t border-border md:hidden">
             {NAV.map((item) => {
               const active = pathname.startsWith(item.to);
               return (
                 <Link
                   key={item.to}
                   to={item.to}
+                  aria-label={item.label}
                   className={cn(
-                    "flex items-center gap-2 rounded-sm px-3 py-1.5 text-sm transition-colors",
+                    "flex min-h-11 flex-col items-center justify-center gap-0.5 border-b-2 text-[11px] transition-colors",
                     active
-                      ? "bg-secondary text-foreground"
-                      : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
+                      ? "border-primary text-foreground"
+                      : "border-transparent text-muted-foreground",
                   )}
                 >
                   <item.icon className="size-4" />
-                  <span className="hidden sm:inline">{item.label}</span>
+                  <span className="truncate px-1">{item.label.split(" ")[1] ?? item.label}</span>
                 </Link>
               );
             })}
           </nav>
-
-          <div className="ml-auto flex items-center gap-1">
-            <GuideModeToggle />
-            <Button variant="ghost" size="sm" aria-label="Sign out" onClick={() => void signOut()}>
-              <LogOut className="size-4" />
-              <span className="hidden sm:inline">Sign out</span>
-            </Button>
-          </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-[1600px] px-4 py-6">{children}</main>
+      <main className="mx-auto max-w-[1600px] px-3 py-5 sm:px-4 sm:py-6">{children}</main>
     </div>
   );
 }

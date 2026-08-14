@@ -125,7 +125,7 @@ function SettingsPage() {
     <div className="max-w-4xl space-y-6">
       <div>
         <p className="label-xs">Configuration</p>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">Settings</h1>
+        <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">Settings</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           The scanner runs centrally on every instrument and timeframe. These preferences filter what reaches your
           feed and alerts — they never change the scan itself.
@@ -339,7 +339,7 @@ function SettingsPage() {
               delegation currently in place; keep them at your registrar so deliverability stays intact.
             </p>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[520px] text-sm">
                 <thead>
                   <tr className="border-b border-border">
                     {["Type", "Name / Host", "Value", ""].map((h) => (

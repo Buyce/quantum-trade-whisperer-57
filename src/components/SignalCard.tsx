@@ -88,7 +88,17 @@ export function entryDistance(signal: SignalRow, mid: number | undefined): Entry
 }
 
 function DistanceChip({ d }: { d: EntryDistance }) {
-  const copy =
+  // Two phrasings of the same fact: phones get the short one so the chip never
+  // overflows the card and clips, desktops keep the fully explained version.
+  const short =
+    d.state === "invalidated"
+      ? "Invalidated"
+      : d.state === "ran"
+        ? `Ran past entry · ${d.pips.toFixed(1)} pips`
+        : d.state === "at_entry"
+          ? "At entry — fills now"
+          : `Awaiting fill · ${d.pips.toFixed(1)} pips`;
+  const full =
     d.state === "invalidated"
       ? "Invalidated — price traded through the stop"
       : d.state === "ran"
@@ -99,7 +109,7 @@ function DistanceChip({ d }: { d: EntryDistance }) {
   return (
     <span
       className={cn(
-        "num inline-flex shrink-0 items-center rounded-sm border px-1.5 py-0.5 text-xs font-medium",
+        "num inline-flex items-center rounded-sm border px-1.5 py-0.5 text-xs font-medium",
         d.state === "invalidated"
           ? "border-short/40 bg-short/10 text-short"
           : d.state === "at_entry"
@@ -109,7 +119,8 @@ function DistanceChip({ d }: { d: EntryDistance }) {
               : "border-border bg-surface text-muted-foreground",
       )}
     >
-      {copy}
+      <span className="sm:hidden">{short}</span>
+      <span className="hidden sm:inline">{full}</span>
     </span>
   );
 }
@@ -183,11 +194,15 @@ export function SignalCard({
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-controls={detailId}
-        className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-surface/60"
+        className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-start gap-3 px-3 py-3 text-left hover:bg-surface/60 sm:flex sm:items-center sm:px-4"
       >
-        <div className="grid min-w-0 flex-1 gap-1.5 sm:flex sm:items-center sm:gap-3">
-          <div className="flex min-w-0 items-center gap-2">
-            <span className="num truncate text-base font-bold text-foreground">{signal.instrument}</span>
+        <div className="grid min-w-0 flex-1 gap-2 sm:flex sm:items-center sm:gap-3">
+          {/* Identity line: instrument is never allowed to shrink away — it is
+              the single most important token on the card. */}
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5">
+            <span className="num shrink-0 text-lg font-bold leading-none text-foreground sm:text-base">
+              {signal.instrument}
+            </span>
             <GradeBadge grade={signal.grade} />
             <span
               className={cn(
@@ -211,36 +226,64 @@ export function SignalCard({
               </Badge>
             ) : null}
             {distance ? <DistanceChip d={distance} /> : null}
+            {trade ? (
+              <Badge
+                variant={trade.user_decision === "taken" ? "default" : "secondary"}
+                className="num shrink-0 sm:hidden"
+              >
+                {trade.user_decision === "taken" ? "TAKEN" : "SKIPPED"}
+              </Badge>
+            ) : null}
           </div>
-          <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground sm:ml-auto">
-            <span className="num">
-              R:R <span className="font-semibold text-foreground">{Number(signal.rr_ratio).toFixed(2)}</span>
+          {/* Key numbers: a labelled 2x2 grid on phones so they read as data,
+              collapsing back to the single inline row from sm up. */}
+          <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs text-muted-foreground sm:ml-auto sm:flex sm:min-w-0 sm:flex-wrap sm:items-center sm:gap-y-1">
+            <span className="num flex min-w-0 flex-col sm:block">
+              <span className="label-xs sm:hidden">R:R</span>
+              <span className="hidden sm:inline">R:R </span>
+              <span className="text-sm font-semibold text-foreground sm:text-xs">
+                {Number(signal.rr_ratio).toFixed(2)}
+              </span>
             </span>
-            <span className="num">
-              Conf <span className="font-semibold text-primary">{conf.toFixed(0)}%</span>
+            <span className="num flex min-w-0 flex-col sm:block">
+              <span className="label-xs sm:hidden">Confidence</span>
+              <span className="hidden sm:inline">Conf </span>
+              <span className="text-sm font-semibold text-primary sm:text-xs">{conf.toFixed(0)}%</span>
             </span>
-            <span className="num">
-              Entry{" "}
-              <span className="font-semibold text-foreground">
+            <span className="num flex min-w-0 flex-col sm:block">
+              <span className="label-xs sm:hidden">Entry (limit)</span>
+              <span className="hidden sm:inline">Entry </span>
+              <span className="text-sm font-semibold text-foreground sm:text-xs">
                 {price(signal.entry_price, signal.instrument)}
               </span>
             </span>
-            <span className="num">{age(signal.detected_at)} ago</span>
+            <span className="num flex min-w-0 flex-col sm:block">
+              <span className="label-xs sm:hidden">Detected</span>
+              <span className="text-sm font-semibold text-foreground sm:text-xs sm:font-normal sm:text-muted-foreground">
+                {age(signal.detected_at)} ago
+              </span>
+            </span>
             {trade ? (
-              <Badge variant={trade.user_decision === "taken" ? "default" : "secondary"} className="num">
+              <Badge
+                variant={trade.user_decision === "taken" ? "default" : "secondary"}
+                className="num hidden sm:inline-flex"
+              >
                 {trade.user_decision === "taken" ? "TAKEN" : "SKIPPED"}
               </Badge>
             ) : null}
           </div>
         </div>
         <ChevronDown
-          className={cn("size-4 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")}
+          className={cn(
+            "mt-0.5 size-5 shrink-0 text-muted-foreground transition-transform sm:mt-0 sm:size-4",
+            open && "rotate-180",
+          )}
         />
       </button>
 
       {open ? (
         <div id={detailId} className="border-t border-border">
-          <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-2.5 text-xs text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-border px-3 py-2.5 text-xs text-muted-foreground sm:px-4">
             <span>{INSTRUMENT_LABELS[signal.instrument] ?? ""}</span>
             {guide ? (
               <span>Place this as a pending {orderType.toLowerCase()} and wait for the fill.</span>
@@ -250,7 +293,7 @@ export function SignalCard({
                 {SESSION_LABELS[ctx.trading_session] ?? ctx.trading_session}
               </Badge>
             ) : null}
-            <span className="num ml-auto">
+            <span className="num sm:ml-auto">
               {new Date(signal.detected_at).toLocaleString(undefined, {
                 month: "short",
                 day: "2-digit",
@@ -291,7 +334,7 @@ export function SignalCard({
 
           </div>
 
-          <div className="grid gap-4 border-t border-border px-4 py-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="grid gap-5 border-t border-border px-3 py-4 sm:px-4 lg:grid-cols-[minmax(0,1fr)_320px]">
             <div className="min-w-0">
               <p className="label-xs">Qualitative breakdown</p>
               <p className="mt-2 text-sm leading-relaxed text-foreground/90">{signal.qualitative_breakdown}</p>
@@ -337,57 +380,110 @@ export function SignalCard({
         </div>
       ) : null}
 
-      <div className="flex flex-wrap items-center gap-2 border-t border-border bg-surface/50 px-4 py-3">
-        <Button size="sm" variant="outline" onClick={() => void copyOrder()}>
-          <Copy className="size-4" /> Copy order details
-        </Button>
+      <div className="border-t border-border bg-surface/50 px-3 py-3 sm:px-4">
         {!trade ? (
-          <>
-            <Button size="sm" disabled={busy} onClick={() => onDecision("taken")}>
-              <Check className="size-4" /> Log as Taken
-            </Button>
-            <Button size="sm" variant="outline" disabled={busy} onClick={() => onDecision("skipped")}>
-              <X className="size-4" /> Log as Skipped
+          <div className="space-y-2 sm:flex sm:flex-wrap sm:items-center sm:gap-2 sm:space-y-0">
+            {/* Phones: two full-height rows of tap targets. sm+: the original inline row. */}
+            <div className="grid grid-cols-2 gap-2 sm:contents">
+              <Button
+                size="sm"
+                disabled={busy}
+                onClick={() => onDecision("taken")}
+                className="h-10 w-full sm:h-8 sm:w-auto"
+              >
+                <Check className="size-4" /> Log as Taken
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={busy}
+                onClick={() => onDecision("skipped")}
+                className="h-10 w-full sm:h-8 sm:w-auto"
+              >
+                <X className="size-4" /> Log as Skipped
+              </Button>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => void copyOrder()}
+              className="h-10 w-full sm:order-first sm:h-8 sm:w-auto"
+            >
+              <Copy className="size-4" /> Copy order details
             </Button>
             {open ? (
-              <span className="ml-auto min-w-0 text-xs text-muted-foreground">
+              <span className="block text-xs leading-snug text-muted-foreground sm:ml-auto sm:min-w-0">
                 {guide
                   ? "You decide whether to trade. Logging it here only records your choice — it never places an order."
                   : "No-Trade is the default. Nothing here is an instruction to execute."}
               </span>
             ) : null}
-          </>
+          </div>
         ) : (
-          <>
+          <div className="space-y-3 sm:flex sm:flex-wrap sm:items-center sm:gap-2 sm:space-y-0">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => void copyOrder()}
+              className="h-10 w-full sm:h-8 sm:w-auto"
+            >
+              <Copy className="size-4" /> Copy order details
+            </Button>
             {trade.user_decision === "taken" && trade.outcome === "open" ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="label-xs">Close at</span>
-                <Button size="sm" variant="outline" disabled={busy} onClick={() => onResult("win", 1)}>
-                  +1R
-                </Button>
-                <Button size="sm" variant="outline" disabled={busy} onClick={() => onResult("win", 2)}>
-                  +2R
-                </Button>
-                <Button size="sm" variant="outline" disabled={busy} onClick={() => onResult("win", 3)}>
-                  +3R
-                </Button>
-                <Button size="sm" variant="outline" disabled={busy} onClick={() => onResult("breakeven", 0)}>
-                  BE
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={busy}
-                  onClick={() => onResult("loss", -1)}
-                  className="text-short"
-                >
-                  −1R
-                </Button>
+              <div className="space-y-1.5 sm:flex sm:items-center sm:gap-2 sm:space-y-0">
+                <span className="label-xs block">Close at</span>
+                <div className="grid grid-cols-5 gap-1.5 sm:contents">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() => onResult("win", 1)}
+                    className="h-10 px-0 sm:h-8 sm:px-3"
+                  >
+                    +1R
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() => onResult("win", 2)}
+                    className="h-10 px-0 sm:h-8 sm:px-3"
+                  >
+                    +2R
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() => onResult("win", 3)}
+                    className="h-10 px-0 sm:h-8 sm:px-3"
+                  >
+                    +3R
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() => onResult("breakeven", 0)}
+                    className="h-10 px-0 sm:h-8 sm:px-3"
+                  >
+                    BE
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() => onResult("loss", -1)}
+                    className="h-10 px-0 text-short sm:h-8 sm:px-3"
+                  >
+                    −1R
+                  </Button>
+                </div>
               </div>
             ) : trade.user_decision === "taken" ? (
               <span
                 className={cn(
-                  "num text-sm font-semibold",
+                  "num block text-sm font-semibold",
                   (trade.realized_r_multiple ?? 0) > 0
                     ? "text-long"
                     : (trade.realized_r_multiple ?? 0) < 0
@@ -398,13 +494,13 @@ export function SignalCard({
                 {trade.outcome.toUpperCase()} · {Number(trade.realized_r_multiple ?? 0).toFixed(2)}R
               </span>
             ) : null}
-            <span className="num ml-auto text-xs text-muted-foreground">
+            <span className="num block text-xs text-muted-foreground sm:ml-auto">
               Scanner outcome:{" "}
               {signal.resolved_outcome === "open"
                 ? "still open"
                 : `${signal.resolved_outcome} ${Number(signal.resolved_r_multiple ?? 0).toFixed(2)}R`}
             </span>
-          </>
+          </div>
         )}
       </div>
     </article>
@@ -423,11 +519,11 @@ function Metric({
   hint?: string;
 }) {
   return (
-    <div className="bg-card px-4 py-3">
-      <p className="label-xs">{hint ? <InfoLabel hint={hint}>{label}</InfoLabel> : label}</p>
+    <div className="min-w-0 bg-card px-3 py-3.5 sm:px-4 sm:py-3">
+      <p className="label-xs break-words">{hint ? <InfoLabel hint={hint}>{label}</InfoLabel> : label}</p>
       <p
         className={cn(
-          "num mt-1 text-sm font-semibold",
+          "num mt-1 break-words text-base font-semibold sm:text-sm",
           tone === "long" ? "text-long" : tone === "short" ? "text-short" : "text-foreground",
         )}
       >
