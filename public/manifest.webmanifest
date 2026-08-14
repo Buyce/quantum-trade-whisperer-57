@@ -1,7 +1,11 @@
 {
+  "id": "/",
+  "lang": "en",
+  "dir": "ltr",
   "name": "P-Trades Hub",
   "short_name": "P-Trades",
   "description": "Autonomous Forex market scanner and trade assistant terminal.",
+  "categories": ["finance", "productivity", "utilities"],
   "start_url": "/feed",
   "scope": "/",
   "display": "standalone",
@@ -13,13 +17,55 @@
       "src": "/icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "/icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshots/mobile-feed.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Graded trade setups in the signal feed"
+    },
+    {
+      "src": "/screenshots/desktop-feed.png",
+      "sizes": "1600x900",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "P-Trades Hub quantitative terminal"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Signal Feed",
+      "short_name": "Feed",
+      "url": "/feed",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Performance Engine",
+      "short_name": "Performance",
+      "url": "/performance",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Trade History",
+      "short_name": "History",
+      "url": "/history",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     }
   ]
 }

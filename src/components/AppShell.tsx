@@ -35,7 +35,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-40 border-b border-border bg-surface/95 backdrop-blur">
+      <header className="sticky top-0 z-40 border-b border-border bg-surface/95 pt-[env(safe-area-inset-top)] backdrop-blur">
         <div className="mx-auto max-w-[1600px] px-3 sm:px-4">
           {/* Phones: brand + account controls on top, nav on its own full-width row.
               From sm up this is the original single 56px row. */}
@@ -107,7 +107,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      <main className="mx-auto max-w-[1600px] px-3 py-5 sm:px-4 sm:py-6">{children}</main>
+      <main className="mx-auto max-w-[1600px] px-3 py-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:px-4 sm:py-6 sm:pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
+        {children}
+      </main>
     </div>
   );
 }

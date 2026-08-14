@@ -19,6 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { FeedbackSection } from "@/components/FeedbackSection";
 import { DangerZoneSection } from "@/components/DangerZoneSection";
+import { PushSection } from "@/components/PushSection";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
@@ -287,22 +288,10 @@ function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="notifications" className="space-y-4">
+          <PushSection enabled={push} onEnabledChange={setPush} />
+
           <section className="space-y-4 rounded-md border border-border bg-card p-4">
-            <h2 className="label-xs">Delivery channels</h2>
-            <Row
-              id="notify-push"
-              title="Browser & Android push"
-              desc="Fires when a new signal at or above your alert minimum grade is inserted by the scanner."
-              checked={push}
-              onChange={(v) => {
-                setPush(v);
-                if (v && typeof Notification !== "undefined" && Notification.permission === "default") {
-                  void Notification.requestPermission().catch(() => {
-                    toast.error("This browser blocked the notification permission prompt");
-                  });
-                }
-              }}
-            />
+            <h2 className="label-xs">Email delivery</h2>
             <Row
               id="notify-email"
               title="Email alerts"
@@ -311,6 +300,7 @@ function SettingsPage() {
               onChange={setEmail}
             />
           </section>
+
 
           <section className="space-y-5 rounded-md border border-border bg-card p-4">
             <div>
