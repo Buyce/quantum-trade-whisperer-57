@@ -283,7 +283,7 @@ export function SignalCard({
 
       {open ? (
         <div id={detailId} className="border-t border-border">
-          <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-2.5 text-xs text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-border px-3 py-2.5 text-xs text-muted-foreground sm:px-4">
             <span>{INSTRUMENT_LABELS[signal.instrument] ?? ""}</span>
             {guide ? (
               <span>Place this as a pending {orderType.toLowerCase()} and wait for the fill.</span>
@@ -293,7 +293,7 @@ export function SignalCard({
                 {SESSION_LABELS[ctx.trading_session] ?? ctx.trading_session}
               </Badge>
             ) : null}
-            <span className="num ml-auto">
+            <span className="num sm:ml-auto">
               {new Date(signal.detected_at).toLocaleString(undefined, {
                 month: "short",
                 day: "2-digit",
@@ -334,7 +334,7 @@ export function SignalCard({
 
           </div>
 
-          <div className="grid gap-4 border-t border-border px-4 py-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="grid gap-5 border-t border-border px-3 py-4 sm:px-4 lg:grid-cols-[minmax(0,1fr)_320px]">
             <div className="min-w-0">
               <p className="label-xs">Qualitative breakdown</p>
               <p className="mt-2 text-sm leading-relaxed text-foreground/90">{signal.qualitative_breakdown}</p>
@@ -519,11 +519,11 @@ function Metric({
   hint?: string;
 }) {
   return (
-    <div className="bg-card px-4 py-3">
-      <p className="label-xs">{hint ? <InfoLabel hint={hint}>{label}</InfoLabel> : label}</p>
+    <div className="min-w-0 bg-card px-3 py-3.5 sm:px-4 sm:py-3">
+      <p className="label-xs break-words">{hint ? <InfoLabel hint={hint}>{label}</InfoLabel> : label}</p>
       <p
         className={cn(
-          "num mt-1 text-sm font-semibold",
+          "num mt-1 break-words text-base font-semibold sm:text-sm",
           tone === "long" ? "text-long" : tone === "short" ? "text-short" : "text-foreground",
         )}
       >
