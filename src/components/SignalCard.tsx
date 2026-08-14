@@ -88,7 +88,17 @@ export function entryDistance(signal: SignalRow, mid: number | undefined): Entry
 }
 
 function DistanceChip({ d }: { d: EntryDistance }) {
-  const copy =
+  // Two phrasings of the same fact: phones get the short one so the chip never
+  // overflows the card and clips, desktops keep the fully explained version.
+  const short =
+    d.state === "invalidated"
+      ? "Invalidated"
+      : d.state === "ran"
+        ? `Ran past entry · ${d.pips.toFixed(1)} pips`
+        : d.state === "at_entry"
+          ? "At entry — fills now"
+          : `Awaiting fill · ${d.pips.toFixed(1)} pips`;
+  const full =
     d.state === "invalidated"
       ? "Invalidated — price traded through the stop"
       : d.state === "ran"
@@ -99,7 +109,7 @@ function DistanceChip({ d }: { d: EntryDistance }) {
   return (
     <span
       className={cn(
-        "num inline-flex shrink-0 items-center rounded-sm border px-1.5 py-0.5 text-xs font-medium",
+        "num inline-flex items-center rounded-sm border px-1.5 py-0.5 text-xs font-medium",
         d.state === "invalidated"
           ? "border-short/40 bg-short/10 text-short"
           : d.state === "at_entry"
