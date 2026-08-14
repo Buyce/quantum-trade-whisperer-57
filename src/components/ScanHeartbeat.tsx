@@ -1,51 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
-
-const SYMBOLS = [
-  { proName: "OANDA:XAUUSD", title: "Gold" },
-  { proName: "OANDA:GBPAUD", title: "GBP/AUD" },
-  { proName: "OANDA:EURUSD", title: "EUR/USD" },
-];
-
-/**
- * Client-only TradingView ticker tape. Purely presentational market heartbeat —
- * it never touches our MetaApi pipeline, backend or database.
- */
-export function MarketTicker() {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const mountedRef = useRef(false);
-
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container || mountedRef.current) return;
-    mountedRef.current = true;
-
-    const script = document.createElement("script");
-    script.src = "https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js";
-    script.async = true;
-    script.type = "text/javascript";
-    script.innerHTML = JSON.stringify({
-      symbols: SYMBOLS,
-      showSymbolLogo: false,
-      isTransparent: true,
-      displayMode: "compact",
-      colorTheme: "dark",
-      locale: "en",
-    });
-    container.appendChild(script);
-
-    return () => {
-      mountedRef.current = false;
-      container.innerHTML = "";
-    };
-  }, []);
-
-  return (
-    <div className="fixed inset-x-0 bottom-0 z-30 h-[46px] overflow-hidden border-t border-border bg-surface/95 backdrop-blur">
-      <div ref={containerRef} className="tradingview-widget-container h-full" />
-    </div>
-  );
-}
 
 function formatTime(date: Date) {
   return date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
