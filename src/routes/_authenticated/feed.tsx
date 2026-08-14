@@ -54,6 +54,8 @@ function FeedPage() {
   const trades = useQuery(myTradesQuery(user?.id));
   const settings = useQuery(settingsQuery(user?.id));
   const health = useQuery(instrumentHealthQuery());
+  // One shared cached quote poll for the whole page — cards read from this map.
+  const quotes = useQuotes();
 
   const [busyId, setBusyId] = useState<string | null>(null);
   const [applyFilters, setApplyFilters] = useState(true);
