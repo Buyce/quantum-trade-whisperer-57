@@ -49,10 +49,10 @@ export function AppShell({ children }: { children: ReactNode }) {
                 className="size-7 shrink-0"
               />
 
-              <span className="num hidden text-sm font-semibold tracking-tight sm:inline">P-TRADES HUB</span>
+              <span className="num hidden text-sm font-semibold tracking-tight md:inline">P-TRADES HUB</span>
             </Link>
 
-            <nav className="hidden items-center gap-1 sm:flex">
+            <nav className="hidden items-center gap-1 md:flex">
               {NAV.map((item) => {
                 const active = pathname.startsWith(item.to);
                 return (
@@ -66,8 +66,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                         : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
                     )}
                   >
-                    <item.icon className="size-4" />
-                    <span>{item.label}</span>
+                    <item.icon className="size-4 shrink-0" />
+                    <span className="hidden lg:inline">{item.label}</span>
+                    <span className="lg:hidden">{item.label.split(" ")[1] ?? item.label}</span>
                   </Link>
                 );
               })}
@@ -77,12 +78,12 @@ export function AppShell({ children }: { children: ReactNode }) {
               <GuideModeToggle />
               <Button variant="ghost" size="sm" aria-label="Sign out" onClick={() => void signOut()}>
                 <LogOut className="size-4" />
-                <span className="hidden sm:inline">Sign out</span>
+                <span className="hidden lg:inline">Sign out</span>
               </Button>
             </div>
           </div>
 
-          <nav className="grid grid-cols-4 border-t border-border sm:hidden">
+          <nav className="grid grid-cols-4 border-t border-border md:hidden">
             {NAV.map((item) => {
               const active = pathname.startsWith(item.to);
               return (
