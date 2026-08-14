@@ -92,16 +92,16 @@ function HistoryPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-start gap-4">
-        <div>
+      <div className="grid gap-4 sm:flex sm:flex-wrap sm:items-start">
+        <div className="min-w-0">
         <p className="label-xs">Permanent record</p>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">Trade History</h1>
+        <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">Trade History</h1>
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
           Every setup you logged as taken is kept here for good, even after it leaves the signal feed. Skipped
           setups are not retained.
         </p>
         </div>
-        <div className="ml-auto flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
           <Button size="sm" variant="ghost" disabled={rows.length === 0} onClick={exportCsv}>
             <Download className="size-4" /> Export History (CSV)
           </Button>
@@ -116,7 +116,7 @@ function HistoryPage() {
           Could not load your trade history. Try refreshing.
         </p>
       ) : rows.length === 0 ? (
-        <div className="rounded-md border border-border bg-card px-6 py-16 text-center">
+        <div className="rounded-md border border-border bg-card px-4 py-10 text-center sm:px-6 sm:py-16">
           <p className="num text-lg font-semibold text-foreground">NO TAKEN TRADES YET</p>
           <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
             When you press "Log as Taken" on a setup in the signal feed, it appears here permanently.
@@ -130,7 +130,7 @@ function HistoryPage() {
             const p = (v: number) => price(v, signal.instrument);
             return (
               <div key={row.id} className="rounded-md border border-border bg-card">
-                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-border px-4 py-2.5 sm:flex sm:flex-wrap">
+                <div className="grid gap-2 border-b border-border px-3 py-2.5 sm:flex sm:flex-wrap sm:items-center sm:gap-3 sm:px-4">
                   <div className="flex min-w-0 flex-wrap items-center gap-2">
                     <span className="num text-sm font-bold">{signal.instrument}</span>
                     <span className="truncate text-xs text-muted-foreground">
@@ -149,7 +149,7 @@ function HistoryPage() {
                       {long ? "LONG" : "SHORT"}
                     </span>
                   </div>
-                  <div className="flex shrink-0 items-center gap-3 sm:ml-auto">
+                  <div className="flex min-w-0 flex-wrap items-center gap-3 sm:ml-auto sm:shrink-0">
                     <span className={cn("num text-xs font-semibold uppercase", OUTCOME_STYLES[row.outcome])}>
                       {row.outcome}
                       {row.realized_r_multiple != null
@@ -236,7 +236,7 @@ function OutcomeEditor({
 
   if (!editing) {
     return (
-      <div className="flex items-center gap-3 px-4 py-2.5">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2.5 sm:px-4">
         <span className="label-xs">Recorded result</span>
         <span className="num text-xs text-foreground">
           {outcome === "open"
@@ -251,31 +251,34 @@ function OutcomeEditor({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2 border-t border-border px-4 py-3">
-      <span className="label-xs mr-1">Record result</span>
+    <div className="space-y-2 border-t border-border px-3 py-3 sm:flex sm:flex-wrap sm:items-center sm:gap-2 sm:space-y-0 sm:px-4">
+      <span className="label-xs block sm:mr-1">Record result</span>
       <Input
         value={r}
         onChange={(e) => setR(e.target.value)}
         inputMode="decimal"
         placeholder="R multiple"
         aria-label="Realized R multiple"
-        className="num h-8 w-28"
+        className="num h-10 w-full sm:h-8 sm:w-28"
       />
-      {(["win", "loss", "breakeven", "open"] as const).map((o) => (
-        <Button
-          key={o}
-          size="sm"
-          variant={o === outcome ? "default" : "outline"}
-          disabled={busy || !valid}
-          onClick={() => {
-            onSubmit(o, o === "open" ? null : parsed);
-            setEditing(false);
-          }}
-        >
-          {o === "breakeven" ? "Break-even" : o[0]!.toUpperCase() + o.slice(1)}
-        </Button>
-      ))}
-      <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
+      <div className="grid grid-cols-2 gap-2 sm:contents">
+        {(["win", "loss", "breakeven", "open"] as const).map((o) => (
+          <Button
+            key={o}
+            size="sm"
+            variant={o === outcome ? "default" : "outline"}
+            disabled={busy || !valid}
+            className="h-10 w-full sm:h-8 sm:w-auto"
+            onClick={() => {
+              onSubmit(o, o === "open" ? null : parsed);
+              setEditing(false);
+            }}
+          >
+            {o === "breakeven" ? "Break-even" : o[0]!.toUpperCase() + o.slice(1)}
+          </Button>
+        ))}
+      </div>
+      <Button size="sm" variant="ghost" className="h-10 w-full sm:h-8 sm:w-auto" onClick={() => setEditing(false)}>
         Cancel
       </Button>
       {!valid ? <span className="text-xs text-destructive">Enter a number</span> : null}

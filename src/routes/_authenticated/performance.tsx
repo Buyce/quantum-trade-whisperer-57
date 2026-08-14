@@ -326,7 +326,7 @@ function Kpi({
   hint?: string;
 }) {
   return (
-    <div className="bg-card px-4 py-3">
+    <div className="min-w-0 bg-card px-3 py-3.5 sm:px-4 sm:py-3">
       <p className="label-xs">{hint ? <InfoLabel hint={hint}>{label}</InfoLabel> : label}</p>
       <p
         className={cn(
@@ -350,7 +350,8 @@ function BreakdownTable({
   return (
     <section className="rounded-md border border-border bg-card">
       <p className="label-xs border-b border-border px-4 py-3">{title}</p>
-      <table className="w-full text-sm">
+      <div className="overflow-x-auto">
+      <table className="w-full min-w-[520px] text-sm">
         <thead>
           <tr className="border-b border-border">
             {["", "N", "Win%", "Avg win", "Avg loss", "Expectancy"].map((h) => (
