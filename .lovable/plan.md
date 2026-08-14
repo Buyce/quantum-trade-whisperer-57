@@ -1,64 +1,90 @@
-# P-Trades Hub — Full System Audit & Master Report
+# Review & Refinement Plan — Quantitative Algorithm & UX
 
-Audit is complete (code + live database). No files were changed: this session is in plan mode, so every fix below is queued for your approval rather than applied. Nothing in this plan touches the Zero-Hallucination rule — no seeds, mocks, or placeholder rows anywhere.
+I audited the live rows and the pipeline math. Three of your four hypotheses treat symptoms; the underlying causes are different, and one of them (R:R) is a genuine unit bug. Findings first, then the proposed work.
 
-## Part 1 — The Bug Ledger (confirmed, with root cause)
+## What the live data actually shows
 
-Ordered by severity. Each item was verified against the code and, where relevant, against live data.
+Last 10 EURUSD B-grade longs (08:00 → 10:30 today):
 
-1. **`volatility_index` is mathematically meaningless on every published signal.** `src/lib/scanner/pipeline.server.ts:227` computes `h1Atr` as `Math.abs(last H1 close)` — a raw price (e.g. 4343.88 for XAUUSD), not an ATR. It then divides M15 ATR by that price at line 275. Every `market_context` row written since launch has a corrupted volatility figure. Fix: use `atr(candles.H1, 14)` from `indicators.ts`.
-2. **Orphaned "ghost" signals.** If the `market_context` insert (`pipeline.server.ts:272`) fails after the signal insert succeeded, the throw is caught at line 300 and the job is marked `failed` — but the signal row stays `active` and visible in the feed with no context, and the alert has not been sent. Fix: on context failure, delete the just-inserted signal (compensating rollback) before failing the job, or move the context insert before alerts and treat its failure as non-fatal with a repair pass. Live check: 0 orphans today, so this is latent, not active damage.
-3. **A successful publish can be reported as `failed` because of email.** `sendSignalAlerts` is awaited unguarded at `pipeline.server.ts:283` after both rows are committed. Any throw from it (network-level fetch failure on the settings query) marks the job failed and flags the instrument unavailable even though the signal is live. Fix: wrap the alert call in its own try/catch and log-only.
-4. **Failed jobs are never retried; a 504 silently costs a whole 15-minute cycle.** Live data: **105 failed jobs** in `scan_queue`, nearly all `MetaApi 504 for … H4`, all with `attempts = 1`. `claim_scan_job` only ever claims `status = 'pending'`, so a failure is terminal. Fix: on transient failure (504/timeout), return the job to `pending` while `attempts < 3`, otherwise fail it.
-5. **Jobs stuck in `processing` are wedged forever.** `claim_scan_job` has no lease/reclaim, and nothing in the codebase sweeps stale `processing` rows. Live data: 1 row stuck since Aug 6. Any function timeout mid-job (worst case ~72s per request: 3 jobs × 3 timeframes × 8s) leaves a permanent zombie row. Fix: reclaim rows whose `started_at` is older than 5 minutes back to `pending`.
-6. **Duplicate-key failures are recorded as hard failures.** Two live jobs failed with `[23505] scanned_signals_active_unique` — a benign duplicate that the code already knows how to handle in `processNextJob`, but the constraint fires on the *insert path* in cases the pre-check missed and is only mapped to "duplicate" for that one code path. Fix: normalise every 23505 to `duplicate`, never `failed`.
-7. **`scan_queue` grows forever.** 1,968 rows and climbing (~288/day). It is pure telemetry with no retention. Fix: prune rows older than 7 days in the existing hourly cron.
-8. **Dead columns / inconsistent job bookkeeping.** `finish()` writes `processed_at` but never `finished_at`, so the schema carries two half-populated completion timestamps. Fix: write one, drop reliance on the other.
-9. **Unhandled promise rejections (silent console errors).**
-   - `src/routes/index.tsx:62` — `supabase.auth.getUser().then(...)` with no `.catch`.
-   - `src/routes/_authenticated/settings.tsx:329` — clipboard write is un-caught and still toasts "Copied" on failure.
-   - `src/routes/_authenticated/settings.tsx:285` — `Notification.requestPermission()` un-caught.
-   - `src/components/AppShell.tsx:24` — `signOut()` can reject, leaving the user stuck with no feedback.
-10. **Wrong-number-with-a-straight-face in the UI.** `SignalCard.tsx:181-200` falls back from pillar scores to confluence scores (`p_order_block ?? c_symmetry`, `p_momentum ?? c_rr`) — different metrics on the same axis. Fix: render "—" when a pillar is null instead of substituting an unrelated metric.
-11. **Missing error feedback.** `/performance` and `/settings` never check `isError` on their queries, so a failed fetch renders as an empty terminal rather than an error. There is also no per-route `errorComponent` under `_authenticated`, so one render crash blanks the whole shell.
-12. **Realtime resubscribe churn on the feed.** `feed.tsx:64-89` keys the Supabase channel effect on `alertMinGrade`, so the channel is torn down and rebuilt whenever settings load or change — with a window where INSERTs are missed. Fix: hold the threshold in a ref, depend only on `queryClient`.
+```text
+time   entry     stop      risk(ATR)  rr_ratio
+08:00  1.15515   1.15378     4.57      0.50
+08:30  1.15531   1.15377     4.97      0.50
+09:15  1.15550   1.15419     3.97      0.50
+09:45  1.15524   1.15436     2.67      0.68
+10:15  1.15547   1.15493     1.64      1.02
+10:30  1.15535   1.15493     1.31      1.34
+```
 
-## Part 2 — Performance Report (where time and data leak)
+Three verified facts:
 
-**Scanner (per job, up to 9 round-trips):**
-- `isDuplicateSetup` pulls up to 200 rows over the wire to compare in JS, while the DB unique index already guarantees correctness. Replace with an indexed equality filter, or delete the pre-check and rely on the 23505 path.
-- `countToday` runs once per instrument instead of once per cycle. Live data shows **327 `capped` outcomes** — the cap is doing a lot of work, so this query is hot.
-- `clearInstrument` upserts `instrument_health` on every success even when nothing was flagged.
-- `sendSignalAlerts` calls `auth.admin.getUserById` once per recipient (N+1).
-- Sequential 3×8s candle fetches per job; the worker chains 3 jobs per request with a job-count bound but no wall-clock budget. This is the most likely real-world trigger for bugs 2 and 5. Proposal: add a ~20s elapsed-time budget and stop chaining early.
+1. **The dedupe index is structurally unable to fire.** `scanned_signals_active_unique` keys on rounded `entry_price`, and entry is `last M15 close` — it drifts every candle. The *stop* (the structural anchor) is literally identical across six of those rows. So the engine is republishing one structure while the uniqueness key looks new every time. A pip-variance band on entry is the same flawed axis, just wider.
+2. **Stops are not uniformly tight — risk is unstable.** Risk ranged 1.3–5.5 M15 ATR on the same structure. Cause: risk = distance from *drifting entry* to a fixed 10-bar extreme, plus a `0.35 × M15 ATR` buffer. On EURUSD that buffer is ~0.4 pip — below spread + noise, so the extreme itself becomes the stop. Multiplying the buffer alone (your hypothesis) fixes the noise cushion but not the unstable risk.
+3. **`rr_ratio` is not the R:R of the printed targets.** TP1/TP2/TP3 are hardcoded at exactly 1R/2R/3R off entry, while `rr_ratio = clamp(reachableAtr × (m15Atr / risk), 0.5, 3)` — `reachableAtr` is measured in **H4** ATR units and multiplied by an **M15** ATR, a unit mismatch. The number is not derived from any target price. That is why a 1.02R headline sits above a "TP3 · 1:3" box.
 
-**Frontend:**
-- `signalsQuery` fetches 400 wide rows (with a joined relation) and filters entirely client-side; both `/feed` and `/performance` mount it.
-- `myTradesQuery` and `takenTradeHistoryQuery` have **no `.limit()` at all** — unbounded and growing forever.
-- All table/query results are cast through `as never` / `as unknown as`, so schema drift fails at runtime instead of build time.
-- Duplicated logic worth consolidating: `price()` (SignalCard + history), `signalOf()` (history + export), two grade-rank maps (`GRADE_RANK` vs `GRADE_ORDER`), three near-identical metric-card components, and the same `try/await/invalidate/toast/finally` block in four places.
+## Proposed solutions
 
-## Part 3 — UX / Market Proposal (not to be implemented yet)
+### 1. Structural dedupe (replaces the pip-variance cooldown)
 
-Benchmarked against TradingView and algo-desk dashboards, the terminal's problem is not looks — it is that everything shouts at once.
+Deduplicate on the **structure**, not the price:
 
-- **Feed:** above the first card sit an onboarding banner, title, cap counter, two switches, Refresh, Export, a filter-chip row, and a possible warning bar. Two overlapping grade gates ("My settings filter" vs Settings `min_grade`) make it unclear why a setup is hidden. Proposal: one compact control bar with a single "Filters" popover, filter state summarised as a single chip, and the cap counter demoted to a thin progress line.
-- **Signal card:** collapse to a scannable summary row (instrument, grade, direction, R:R, confidence, age) with details expanding on click. Grade colour should carry the hierarchy so the eye lands on A+ first.
-- **Performance:** KPI strip, chart, heatmap and two tables render unconditionally, so a new user sees mostly empty grids that read as broken. Proposal: progressive disclosure — KPIs and expectancy first, chart/heatmap behind tabs, and honest "needs N more samples" states instead of empty grids.
-- **History:** every row carries a permanently open outcome editor. Proposal: expand-to-edit.
-- **Settings:** seven unrelated concerns in one scroll. Proposal: tabs — Filters & Alerts / Notifications / Diagnostics / Account. The DNS/sender-domain table is an ops panel and should move behind Diagnostics or off the user-facing page entirely.
-- **Mobile:** the data-dense grids need a defined single-column collapse per card; worth a dedicated pass.
+- Add a `structure_key` on `scanned_signals`: `instrument | direction | swing-A time | swing-B time | rounded stop anchor`. Two scans of the same ABC leg produce an identical key; a genuine new leg (new swing B, new anchor) produces a new one.
+- Move the partial unique index to `(structure_key) WHERE status = 'active'`; keep it as the single source of truth (insert 23505 → `duplicate`), so the race window stays closed.
+- Add a **structure cooldown**: suppress a republish of the same `structure_key` within N minutes even after the prior one expired/resolved (default 120m, configurable constant). This is what preserves legitimate re-entries: a second tap of the same zone after a new swing B still publishes.
+- Backfill `structure_key` as NULL for legacy rows (the index is partial, so they are unaffected).
 
-## Suggested execution order (on approval)
+Rejected: pip-variance bands — they can't distinguish "same structure, price drifted 8 pips" from "genuine new break 8 pips higher", and the correct band differs per instrument (XAUUSD vs EURUSD).
 
-1. **Batch A — correctness (small, low risk):** bugs 1, 2, 3, 6, 9, 10, 11, 12.
-2. **Batch B — pipeline resilience (one migration + pipeline edits):** bugs 4, 5, 7, 8 plus the wall-clock budget.
-3. **Batch C — query hygiene:** row limits, indexed duplicate check, per-cycle cap count, alert batching, shared helpers.
-4. **Batch D — UX overhaul:** only the items you approve from Part 3.
+### 2. Stop-loss and risk normalisation
 
-## Questions before we proceed
+Industry practice for a 15m breakout is **1.0–1.5 × ATR beyond the structural extreme**, plus an explicit spread allowance; and the reference ATR should be the timeframe you're managing risk on with a higher-timeframe floor so the stop survives H1 noise.
 
-1. Should I apply Batch A + B immediately (they are bug fixes with no UX change), and keep Batch C/D for separate approval?
-2. Retry policy on MetaApi 504s: retry the same instrument up to 3 times within the same cycle, or defer it to the next 15-minute cycle?
-3. `volatility_index` is currently corrupt on all historical rows. Recompute is impossible without re-fetching candles — do you want the bad historical values left as-is, or nulled so charts don't trust them?
-4. Which of the UX items above are in scope for you: the feed control bar, the collapsible signal card, the Performance tabs, or the Settings tabs?
+Proposed math (per instrument, in `profile.ts`):
+
+```text
+buffer      = max(1.2 × M15_ATR, 0.5 × H1_ATR, spreadFloor(instrument))
+stop        = structuralExtreme ∓ buffer
+risk        = |entry − stop|
+riskCapATR  = clamp(risk, 1.0 × M15_ATR, 3.0 × M15_ATR)   // reject if risk > cap
+```
+
+- Setups whose risk exceeds 3 × M15 ATR are **rejected as No-Trade** rather than published with a 0.50 R:R — that alone removes most of the 08:00–09:15 spam batch.
+- `spreadFloor` is a per-instrument constant (EURUSD ≈ 1.5 pip, GBPAUD ≈ 3 pip, XAUUSD ≈ 0.30) so the buffer can never fall below realistic execution cost.
+- Entry becomes the **structural break level** rather than "wherever the last candle closed", which is what makes risk stable across consecutive scans and makes the limit-order framing honest.
+
+### 3. Honest targets and a real R:R
+
+Fix the number first, then the UI:
+
+- Compute a real reachable price: `barrierPrice` (nearest H4 structural barrier), then `maxR = (|barrier − entry|) / risk`, clamped to a floor of 1.0 (below that, No-Trade).
+- Derive targets from `maxR` instead of hardcoding 1/2/3:
+  - `maxR ≥ 3` → TP1 1R, TP2 2R, TP3 3R (unchanged).
+  - `1.5 ≤ maxR < 3` → scale to `0.5 × maxR`, `0.75 × maxR`, `maxR`.
+  - `maxR < 1.5` → **two** targets only (`0.6 × maxR`, `maxR`); TP3 is stored NULL.
+- `rr_ratio` becomes exactly `TP-final R` — the headline and the boxes can no longer disagree. Confidence's `rr` component reads the same value.
+- `SignalCard.tsx`: render targets from the stored values with their true multiples ("TP2 · 1:0.8"), omit the box entirely when the target is NULL, and show a "capped by H4 barrier" chip with the barrier reason in the breakdown. No fake 1:2/1:3 labels.
+
+Rejected: keeping three boxes and rescaling silently — the trader needs to *see* that the structure is capped, not just smaller numbers.
+
+### 4. Entry latency and live distance
+
+Architecture check: a per-client MetaApi quote poll would multiply requests by user count against the same broker token — not acceptable. The safe pattern is **one shared cached quote source**:
+
+- Add `GET /api/public/quotes` returning last price for the three instruments, with a short server-side cache (15s TTL) and `Cache-Control: public, max-age=15` so the edge, not MetaApi, absorbs the fan-out. One upstream call per 15s regardless of how many users are watching.
+- Feed cards show **live distance from entry** in pips and in R units (`+0.4R away — price has run past entry`), plus one of three states: *Awaiting fill* (price the correct side of entry), *At entry*, *Invalidated* (price beyond entry by > 0.5R, or already past stop).
+- Reinforce the limit-order framing: the existing `BUY LIMIT / SELL LIMIT` badge becomes always-on (not Guide-Mode only), and the copy block already emits the pending-order layout.
+- Latency itself is not removed — but the invalidation state means a stale signal visibly retires itself instead of quietly misleading.
+
+## Technical notes
+
+- Backend touch points: `src/lib/scanner/profile.ts` (stops, targets, maxR, entry level), `src/lib/scanner/indicators.ts` (barrier price accessor, swing timestamps for the structure key), `src/lib/scanner/pipeline.server.ts` (structure key + cooldown, NULL-able tp3), one migration (`structure_key` column, replacement partial unique index, `tp3` nullable).
+- Frontend: `SignalCard.tsx` (dynamic target grid, cap chip, live distance), `feed.tsx` (quote polling hook), new `src/routes/api/public/quotes.ts`.
+- Zero-hallucination rule respected: no seeds, no fixtures; if the quote endpoint fails, distance renders "—", never an estimate.
+- Cron schedule, worker budget, retention and grading tiers are untouched. Historical rows keep their stored values; no recompute.
+
+## Sequencing
+
+1. Migration + structure-key dedupe and cooldown (stops the spam immediately).
+2. Stop/risk normalisation and No-Trade rejection of over-wide risk.
+3. Real `maxR`, dynamic targets, `SignalCard` target grid.
+4. Cached quote endpoint and live-distance tracker.
