@@ -6,7 +6,7 @@ const KEY = "ptrades.onboarding.dismissed";
 
 const STEPS = [
   "The scanner reviews XAUUSD, GBPAUD and EURUSD every 15 minutes and only publishes setups that pass its rules — so an empty feed is normal.",
-  "Each card is a plan, not an instruction: it shows the order type, entry, stop-loss and three take-profit levels, plus how confident the model is.",
+  "Each card is a plan, not an instruction: it shows the pending limit order, entry, stop-loss and only the take-profit levels the structure can actually reach, plus how far price currently sits from entry.",
   "Use Copy order details to paste the levels into your broker, then log the setup as Taken or Skipped so the Performance page can measure your edge.",
 ];
 
