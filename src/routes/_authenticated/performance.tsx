@@ -111,7 +111,7 @@ function PerformancePage() {
         </div>
         <div className="ml-auto flex flex-wrap items-center gap-3">
           <Tabs value={effectiveScope} onValueChange={(v) => setScope(v as "mine" | "baseline")}>
-            <TabsList>
+            <TabsList className="grid w-full grid-cols-3 sm:inline-flex sm:w-auto">
               <TabsTrigger value="mine">My trade log</TabsTrigger>
               <TabsTrigger value="baseline">Scanner baseline</TabsTrigger>
             </TabsList>
@@ -136,7 +136,7 @@ function PerformancePage() {
         </p>
       ) : null}
 
-      <div className="grid gap-px overflow-hidden rounded-md border border-border bg-border sm:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-md border border-border bg-border sm:grid-cols-3 lg:grid-cols-6">
         <Kpi
           label="Expectancy / trade"
           hint="What one average setup is worth in R. +0.30R means every trade adds 0.3× your risk over the long run."

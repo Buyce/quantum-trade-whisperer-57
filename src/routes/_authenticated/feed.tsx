@@ -266,14 +266,14 @@ function FeedPage() {
       </div>
 
       <div className="space-y-2">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-          <Badge variant="secondary" className="num font-normal">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted-foreground">
+          <Badge variant="secondary" className="num max-w-full whitespace-normal text-left font-normal">
             {filterSummary}
           </Badge>
           <span className="num">
             {visible.length} shown
           </span>
-          <span className="num ml-auto">
+          <span className="num w-full sm:ml-auto sm:w-auto">
             Daily quota (A+/A/B){" "}
             <span className={cn("font-semibold", todayCount >= cap ? "text-destructive" : "text-foreground")}>
               {todayCount}
@@ -312,7 +312,7 @@ function FeedPage() {
           Could not load signals. Try refreshing.
         </p>
       ) : visible.length === 0 ? (
-        <div className="rounded-md border border-border bg-card px-6 py-16 text-center">
+        <div className="rounded-md border border-border bg-card px-4 py-10 text-center sm:px-6 sm:py-16">
           <p className="num text-lg font-semibold text-foreground">
             {guide ? "CAPITAL PRESERVATION MODE" : "NO TRADE"}
           </p>
