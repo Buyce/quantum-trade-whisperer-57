@@ -389,6 +389,7 @@ function BreakdownTable({
           )}
         </tbody>
       </table>
+      </div>
     </section>
   );
 }
