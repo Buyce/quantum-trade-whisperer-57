@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendTemplateEmail } from "@/lib/email-templates/send-email";
 import { ORDER_TIF_MINUTES } from "@/lib/db-types";
 import { dispatchWebhooks, type WebhookTarget } from "./webhook.server";
+import { sendPushToUsers } from "./push.server";
 
 const GRADE_RANK: Record<string, number> = { "A+": 4, A: 3, B: 2, C: 1 };
 
@@ -41,6 +42,7 @@ interface SettingsRow {
   sessions: string[] | null;
   alert_min_grade: string | null;
   notify_email: boolean | null;
+  notify_push: boolean | null;
   webhook_enabled: boolean | null;
   webhook_url: string | null;
   webhook_secret: string | null;
@@ -57,13 +59,14 @@ export async function sendSignalAlerts(db: SupabaseClient, signal: AlertSignal) 
   const { data: rows, error } = await db
     .from("scanner_settings")
     .select(
-      "user_id, instruments, sessions, alert_min_grade, notify_email, webhook_enabled, webhook_url, webhook_secret, webhook_format",
+      "user_id, instruments, sessions, alert_min_grade, notify_email, notify_push, webhook_enabled, webhook_url, webhook_secret, webhook_format",
     )
-    .or("notify_email.eq.true,webhook_enabled.eq.true");
+    .or("notify_email.eq.true,notify_push.eq.true,webhook_enabled.eq.true");
   if (error || !rows?.length) return;
 
   const signalRank = GRADE_RANK[signal.grade] ?? 0;
   const webhookTargets: WebhookTarget[] = [];
+  const pushUserIds: string[] = [];
 
   for (const row of rows as SettingsRow[]) {
     if (row.instruments?.length && !row.instruments.includes(signal.instrument)) continue;
@@ -79,6 +82,8 @@ export async function sendSignalAlerts(db: SupabaseClient, signal: AlertSignal) 
         format: row.webhook_format === "pineconnector" ? "pineconnector" : "json",
       });
     }
+
+    if (row.notify_push) pushUserIds.push(row.user_id);
 
     if (!row.notify_email) continue;
 
@@ -114,6 +119,20 @@ export async function sendSignalAlerts(db: SupabaseClient, signal: AlertSignal) 
       // Alerts must never fail a scan job.
       console.error("signal alert send failed", { user: row.user_id, err });
     }
+  }
+
+  // Push first: it is the lowest-latency channel and the one the trader acts on.
+  try {
+    await sendPushToUsers(db, pushUserIds, {
+      title: `${signal.grade} · ${signal.instrument} ${signal.direction === "long" ? "LONG" : "SHORT"}`,
+      body: `Entry ${fmt(signal.entryPrice)} · max ${fmt(signal.maxAcceptableEntry)} · SL ${fmt(
+        signal.stopLoss,
+      )} · R:R 1:${signal.rrRatio.toFixed(1)} · valid ${ORDER_TIF_MINUTES}m`,
+      url: "/feed",
+      tag: `signal-${signal.id}`,
+    });
+  } catch (err) {
+    console.error("signal push send failed", err);
   }
 
   // Dispatch last, after the signal is already committed: a hung broker bridge
