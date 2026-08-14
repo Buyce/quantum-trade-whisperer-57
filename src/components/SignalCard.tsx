@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowDownRight, ArrowUpRight, Check, ChevronDown, Copy, X } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Check, ChevronDown, Copy, Minus, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   contextOf,
@@ -59,74 +59,6 @@ function age(detectedAt: string) {
   return `${Math.floor(hours / 24)}d`;
 }
 
-/** Pip size per instrument — used only to phrase live distance in trader units. */
-const PIP: Record<string, number> = { EURUSD: 0.0001, GBPAUD: 0.0001, XAUUSD: 0.01 };
-
-export interface EntryDistance {
-  state: "awaiting" | "at_entry" | "ran" | "invalidated";
-  pips: number;
-  r: number;
-}
-
-/**
- * Live distance from a pending entry. Pure function of the stored setup and one
- * shared quote — no per-client broker calls, and no output at all when the quote
- * is missing (never an estimated price).
- */
-export function entryDistance(signal: SignalRow, mid: number | undefined): EntryDistance | null {
-  if (mid === undefined || !Number.isFinite(mid)) return null;
-  const risk = Math.abs(Number(signal.entry_price) - Number(signal.stop_loss));
-  if (risk <= 0) return null;
-  const long = signal.direction === "long";
-  const gap = mid - Number(signal.entry_price);
-  const r = Math.abs(gap) / risk;
-  const pips = Math.abs(gap) / (PIP[signal.instrument] ?? 0.0001);
-
-  const beyondStop = long ? mid <= Number(signal.stop_loss) : mid >= Number(signal.stop_loss);
-  if (beyondStop) return { state: "invalidated", pips, r };
-  const ranAway = long ? gap > risk * 0.5 : gap < -risk * 0.5;
-  if (ranAway) return { state: "ran", pips, r };
-  if (r <= 0.1) return { state: "at_entry", pips, r };
-  return { state: "awaiting", pips, r };
-}
-
-function DistanceChip({ d }: { d: EntryDistance }) {
-  // Two phrasings of the same fact: phones get the short one so the chip never
-  // overflows the card and clips, desktops keep the fully explained version.
-  const short =
-    d.state === "invalidated"
-      ? "Invalidated"
-      : d.state === "ran"
-        ? `Ran past entry · ${d.pips.toFixed(1)} pips`
-        : d.state === "at_entry"
-          ? "At entry — fills now"
-          : `Awaiting fill · ${d.pips.toFixed(1)} pips`;
-  const full =
-    d.state === "invalidated"
-      ? "Invalidated — price traded through the stop"
-      : d.state === "ran"
-        ? `Ran past entry — ${d.pips.toFixed(1)} pips (${d.r.toFixed(2)}R) away`
-        : d.state === "at_entry"
-          ? "At entry — limit order would fill now"
-          : `Awaiting fill — ${d.pips.toFixed(1)} pips (${d.r.toFixed(2)}R) away`;
-  return (
-    <span
-      className={cn(
-        "num inline-flex items-center rounded-sm border px-1.5 py-0.5 text-xs font-medium",
-        d.state === "invalidated"
-          ? "border-short/40 bg-short/10 text-short"
-          : d.state === "at_entry"
-            ? "border-long/40 bg-long/10 text-long"
-            : d.state === "ran"
-              ? "border-warning/40 bg-warning/10 text-warning"
-              : "border-border bg-surface text-muted-foreground",
-      )}
-    >
-      <span className="sm:hidden">{short}</span>
-      <span className="hidden sm:inline">{full}</span>
-    </span>
-  );
-}
 
 export type ExecutionState = "safe" | "beyond" | "invalidated";
 
@@ -153,40 +85,53 @@ export function executionRead(signal: SignalRow, mid: number | undefined): Execu
   return { state: beyond ? "beyond" : "safe", limit, mid };
 }
 
-function ExecutionChip({
-  read,
+
+function ActionZoneBanner({
+  signal,
+  execution,
   instrument,
   strategy,
 }: {
-  read: ExecutionRead;
+  signal: SignalRow;
+  execution: ExecutionRead | null;
   instrument: string;
   strategy: OrderStrategy;
 }) {
-  if (read.state === "invalidated") return null;
-  const safe = read.state === "safe";
-  const shortText = safe
-    ? strategy === "strict_retest"
-      ? "IN SAFE ZONE — LIMIT AT ENTRY"
-      : "SAFE TO ENTER"
-    : "BEYOND SAFE LIMIT — USE LIMIT";
-  const fullText = safe
-    ? strategy === "strict_retest"
-      ? `IN SAFE ZONE — PLACE YOUR LIMIT AT ENTRY (ceiling ${price(read.limit, instrument)})`
-      : `SAFE TO ENTER — price is inside the ${price(read.limit, instrument)} ceiling`
-    : `PRICE BEYOND SAFE LIMIT (${price(read.limit, instrument)}) — PLACE LIMIT ORDER FOR RETEST`;
+  if (!execution || execution.state === "invalidated") {
+    return (
+      <div className="border-b border-border bg-short/10 px-3 py-3 text-sm text-short sm:px-4">
+        <span className="font-semibold">Setup invalidated.</span> Price has traded through the stop-loss level. No
+        new entry should be taken on this signal.
+      </div>
+    );
+  }
+
+  const safe = execution.state === "safe";
+  const capped = isCapped(signal);
+  const maxR = Number(signal.max_r ?? signal.rr_ratio);
+  const entry = price(signal.entry_price, instrument);
+
+  const safeText =
+    strategy === "strict_retest"
+      ? `SAFE ENTRY: Price is inside the safe limit. Place Limit at ${entry}. Cancel un-filled orders in ${ORDER_TIF_MINUTES}m.`
+      : `SAFE ENTRY: Market or Limit at ${entry}. Cancel un-filled orders in ${ORDER_TIF_MINUTES}m.`;
+
+  const retestText = `⚠️ RETEST ONLY: Price ran past safe limit. Place Limit Order at ${entry}. Cancel un-filled orders in ${ORDER_TIF_MINUTES}m.`;
+
   return (
-    <span
+    <div
       className={cn(
-        "num inline-flex items-center rounded-sm border px-1.5 py-0.5 text-xs font-semibold",
-        safe
-          ? "animate-pulse border-long/50 bg-long/15 text-long"
-          : "animate-pulse border-short/50 bg-short/15 text-short",
+        "border-b border-border px-3 py-3 text-sm sm:px-4",
+        safe ? "bg-long/15 text-long" : "bg-warning/15 text-warning",
       )}
-      role="status"
     >
-      <span className="sm:hidden">{shortText}</span>
-      <span className="hidden sm:inline">{fullText}</span>
-    </span>
+      <span className="font-semibold">{safe ? safeText : retestText}</span>
+      {capped ? (
+        <span className="mt-1 block text-xs opacity-90">
+          Note: Extension is capped at {maxR.toFixed(2)}R by H4 barrier.
+        </span>
+      ) : null}
+    </div>
   );
 }
 
@@ -216,12 +161,13 @@ export function SignalCard({
   const orderType = long ? "BUY LIMIT" : "SELL LIMIT";
   const ladder = targetLadder(signal);
   const capped = isCapped(signal);
-  const distance = entryDistance(signal, quoteMid);
   const execution = executionRead(signal, quoteMid);
   const ceiling = maxAcceptableEntry(signal);
   // Progressive disclosure: the top tier opens by default because it is the one
   // setup a trader always wants the detail on; everything else starts collapsed.
   const [open, setOpen] = useState(signal.grade === "A+");
+  // The qualitative narrative is a wall of text — hide it behind a toggle.
+  const [showQualitative, setShowQualitative] = useState(false);
   const detailId = `signal-detail-${signal.id}`;
 
   async function copyOrder() {
@@ -286,37 +232,10 @@ export function SignalCard({
               {long ? <ArrowUpRight className="size-3.5" /> : <ArrowDownRight className="size-3.5" />}
               {long ? "LONG" : "SHORT"}
             </span>
-            {/* Always-on: these are pending limit orders, never market entries. */}
-            <Badge variant="outline" className="num shrink-0 font-normal">
-              {orderType}
-            </Badge>
-            {capped ? (
-              <Badge
-                variant="outline"
-                className="num shrink-0 border-warning/40 bg-warning/10 font-normal text-warning"
-              >
-                CAPPED {Number(signal.max_r ?? signal.rr_ratio).toFixed(2)}R
-              </Badge>
-            ) : null}
-            {execution ? (
-              <ExecutionChip read={execution} instrument={signal.instrument} strategy={orderStrategy} />
-            ) : null}
-            {distance ? <DistanceChip d={distance} /> : null}
-            <Badge variant="outline" className="num shrink-0 font-normal text-muted-foreground">
-              TIF {ORDER_TIF_MINUTES}m
-            </Badge>
-            {trade ? (
-              <Badge
-                variant={trade.user_decision === "taken" ? "default" : "secondary"}
-                className="num shrink-0 sm:hidden"
-              >
-                {trade.user_decision === "taken" ? "TAKEN" : "SKIPPED"}
-              </Badge>
-            ) : null}
           </div>
           {/* Key numbers: a labelled 2x2 grid on phones so they read as data,
               collapsing back to the single inline row from sm up. */}
-          <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs text-muted-foreground sm:ml-auto sm:flex sm:min-w-0 sm:flex-wrap sm:items-center sm:gap-y-1">
+          <div className="grid grid-cols-3 gap-x-4 gap-y-2 text-xs text-muted-foreground sm:ml-auto sm:flex sm:min-w-0 sm:flex-wrap sm:items-center sm:gap-y-1">
             <span className="num flex min-w-0 flex-col sm:block">
               <span className="label-xs sm:hidden">R:R</span>
               <span className="hidden sm:inline">R:R </span>
@@ -328,13 +247,6 @@ export function SignalCard({
               <span className="label-xs sm:hidden">Confidence</span>
               <span className="hidden sm:inline">Conf </span>
               <span className="text-sm font-semibold text-primary sm:text-xs">{conf.toFixed(0)}%</span>
-            </span>
-            <span className="num flex min-w-0 flex-col sm:block">
-              <span className="label-xs sm:hidden">Entry (limit)</span>
-              <span className="hidden sm:inline">Entry </span>
-              <span className="text-sm font-semibold text-foreground sm:text-xs">
-                {price(signal.entry_price, signal.instrument)}
-              </span>
             </span>
             <span className="num flex min-w-0 flex-col sm:block">
               <span className="label-xs sm:hidden">Detected</span>
@@ -364,17 +276,6 @@ export function SignalCard({
         <div id={detailId} className="border-t border-border">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-border px-3 py-2.5 text-xs text-muted-foreground sm:px-4">
             <span>{INSTRUMENT_LABELS[signal.instrument] ?? ""}</span>
-            {guide ? (
-              <span>
-                Place this as a pending {orderType.toLowerCase()} and wait for the fill. Anything worse
-                than {price(ceiling, signal.instrument)} is a chase — leave the limit where it is.
-              </span>
-            ) : null}
-            <Badge variant="outline" className="num font-normal">
-              <InfoLabel hint={`Time-in-force. If the market has not come back to your entry within ${ORDER_TIF_MINUTES} minutes (2 M15 candles), the structure that was graded is gone. Cancelling the un-filled order protects your capital from a stale setup.`}>
-                Cancel un-filled orders in {ORDER_TIF_MINUTES} minutes (2 candles)
-              </InfoLabel>
-            </Badge>
             {ctx ? (
               <Badge variant="outline" className="num font-normal">
                 {SESSION_LABELS[ctx.trading_session] ?? ctx.trading_session}
@@ -395,6 +296,7 @@ export function SignalCard({
               label="Entry (limit)"
               hint="The price to place your pending limit order at — the Point C structural level."
               value={price(signal.entry_price, signal.instrument)}
+              emphasis
             />
             <Metric
               label="Max acceptable entry"
@@ -407,6 +309,7 @@ export function SignalCard({
               hint="Where the plan is wrong. Place this order with the trade: it caps the loss at 1R."
               value={price(signal.stop_loss, signal.instrument)}
               tone="short"
+              emphasis
             />
             {/* Targets are rendered from what the structure can actually reach.
                 A target the H4 barrier blocks is omitted, never faked as 1:3. */}
@@ -424,19 +327,40 @@ export function SignalCard({
               hint="Risk-to-reward of the final target. This is the true reachable payoff, not a default 1:3."
               value={`${Number(signal.rr_ratio).toFixed(2)}`}
             />
-
           </div>
+
+          {/* Action Zone: single source of truth for execution guidance. */}
+          <ActionZoneBanner
+            signal={signal}
+            execution={execution}
+            instrument={signal.instrument}
+            strategy={orderStrategy}
+          />
 
           <div className="grid gap-5 border-t border-border px-3 py-4 sm:px-4 lg:grid-cols-[minmax(0,1fr)_320px]">
             <div className="min-w-0">
-              <p className="label-xs">Qualitative breakdown</p>
-              <p className="mt-2 text-sm leading-relaxed text-foreground/90">{signal.qualitative_breakdown}</p>
-              <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted-foreground">
-                <span className="num">H4: {signal.h4_bias ?? "—"}</span>
-                <span className="num">H1: {signal.h1_bias ?? "—"}</span>
-                <span className="num">M15: {signal.m15_bias ?? "—"}</span>
-                <span className="num">ATR: {Number(signal.atr).toFixed(5)}</span>
-              </div>
+              <button
+                type="button"
+                onClick={() => setShowQualitative((v) => !v)}
+                aria-expanded={showQualitative}
+                className="group inline-flex items-center gap-1.5 text-sm font-medium text-foreground transition-colors hover:text-primary"
+              >
+                <span className="inline-flex size-5 items-center justify-center rounded-sm border border-border bg-surface text-muted-foreground group-hover:border-primary/50 group-hover:text-primary">
+                  {showQualitative ? <Minus className="size-3" /> : <Plus className="size-3" />}
+                </span>
+                {showQualitative ? "Hide Qualitative Analysis" : "View Qualitative Analysis"}
+              </button>
+              {showQualitative ? (
+                <div className="mt-3 space-y-3">
+                  <p className="text-sm leading-relaxed text-foreground/90">{signal.qualitative_breakdown}</p>
+                  <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted-foreground">
+                    <span className="num">H4: {signal.h4_bias ?? "—"}</span>
+                    <span className="num">H1: {signal.h1_bias ?? "—"}</span>
+                    <span className="num">M15: {signal.m15_bias ?? "—"}</span>
+                    <span className="num">ATR: {Number(signal.atr).toFixed(5)}</span>
+                  </div>
+                </div>
+              ) : null}
             </div>
 
             <div className="min-w-0">
@@ -605,18 +529,21 @@ function Metric({
   value,
   tone,
   hint,
+  emphasis,
 }: {
   label: string;
   value: string;
   tone?: "long" | "short";
   hint?: string;
+  emphasis?: boolean;
 }) {
   return (
     <div className="min-w-0 bg-card px-3 py-3.5 sm:px-4 sm:py-3">
       <p className="label-xs break-words">{hint ? <InfoLabel hint={hint}>{label}</InfoLabel> : label}</p>
       <p
         className={cn(
-          "num mt-1 break-words text-base font-semibold sm:text-sm",
+          "num mt-1 break-words font-semibold",
+          emphasis ? "text-lg" : "text-base sm:text-sm",
           tone === "long" ? "text-long" : tone === "short" ? "text-short" : "text-foreground",
         )}
       >
