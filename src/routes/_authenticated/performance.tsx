@@ -104,14 +104,14 @@ function PerformancePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end gap-4">
-        <div>
+      <div className="grid gap-4 sm:flex sm:flex-wrap sm:items-end">
+        <div className="min-w-0">
           <p className="label-xs">Phase 3 · Performance engine</p>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Performance</h1>
+          <h1 className="truncate text-xl font-bold tracking-tight text-foreground sm:text-2xl">Performance</h1>
         </div>
-        <div className="ml-auto flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3 sm:ml-auto">
           <Tabs value={effectiveScope} onValueChange={(v) => setScope(v as "mine" | "baseline")}>
-            <TabsList className="grid w-full grid-cols-3 sm:inline-flex sm:w-auto">
+            <TabsList className="grid w-full grid-cols-2 sm:inline-flex sm:w-auto">
               <TabsTrigger value="mine">My trade log</TabsTrigger>
               <TabsTrigger value="baseline">Scanner baseline</TabsTrigger>
             </TabsList>
