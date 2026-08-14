@@ -71,6 +71,9 @@ export interface AbcPattern {
   retracement: number;
   /** 0..100 — how close the retracement is to the ideal 0.5-0.618 window. */
   symmetry: number;
+  /** Candle timestamps of swings A and B — the stable identity of the leg. */
+  aTime: string;
+  bTime: string;
 }
 
 export function detectAbc(candles: Candle[], direction: "long" | "short"): AbcPattern | null {
@@ -113,7 +116,17 @@ export function detectAbc(candles: Candle[], direction: "long" | "short"): AbcPa
   const symmetry = clamp(100 - (Math.abs(retracement - ideal) / 0.45) * 100, 0, 100);
 
   void last;
-  return { a, b, c, retracement, symmetry };
+  const aCandle = candles[(pts[aIdx] as SwingPoint).index] as Candle | undefined;
+  const bCandle = candles[(pts[bIdx] as SwingPoint).index] as Candle | undefined;
+  return {
+    a,
+    b,
+    c,
+    retracement,
+    symmetry,
+    aTime: aCandle?.time ?? "",
+    bTime: bCandle?.time ?? "",
+  };
 }
 
 export function clamp(v: number, min: number, max: number): number {

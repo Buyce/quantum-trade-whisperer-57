@@ -28,6 +28,8 @@ export interface TimeframeRead {
   /** Distance from price to the nearest higher-timeframe structural barrier, in ATR units. */
   barrierDistanceAtr: number;
   atr: number;
+  /** Absolute price of that nearest structural barrier. */
+  barrierPrice: number;
   /** True when price is reacting inside the Point C liquidity zone. */
   atPointC: boolean;
 }
@@ -64,7 +66,18 @@ export interface TradeProfile {
   stopLoss: number;
   tp1: number;
   tp2: number;
-  tp3: number;
+  /** Null when the structure cannot reach a third target before the H4 barrier. */
+  tp3: number | null;
+  /** True R multiple of each target — never assumed to be 1/2/3. */
+  tp1R: number;
+  tp2R: number;
+  tp3R: number | null;
+  /** Maximum reachable R before the nearest H4 structural barrier. */
+  maxR: number;
+  /** True when maxR (not the 1:3 default) is what sets the final target. */
+  capped: boolean;
+  /** Stable identity of the ABC structure this setup came from. */
+  structureKey: string;
   atr: number;
   rrRatio: number;
   patternSymmetry: number;
@@ -103,6 +116,32 @@ export const CAPPED_GRADES: Grade[] = ["A+", "A", "B"];
  * swept to `expired` at the start of each scan cycle.
  */
 export const SIGNAL_MAX_AGE_HOURS = 24;
+
+/**
+ * Stop-loss construction. Industry practice for a 15m breakout structure is
+ * 1.0-1.5x ATR beyond the structural extreme; we take 1.2x M15 ATR with a
+ * 0.5x H1 ATR floor so the stop also survives H1 noise, and a hard
+ * per-instrument spread floor so it can never sit inside execution cost.
+ */
+export const STOP_M15_ATR_MULTIPLIER = 1.2;
+export const STOP_H1_ATR_FLOOR = 0.5;
+
+/** Minimum stop buffer in absolute price terms — realistic spread + slippage. */
+export const SPREAD_FLOOR: Record<string, number> = {
+  EURUSD: 0.00015,
+  GBPAUD: 0.0003,
+  XAUUSD: 0.3,
+};
+export const DEFAULT_SPREAD_FLOOR = 0.0002;
+
+/** Risk wider than this many M15 ATR is rejected as No-Trade, not published. */
+export const MAX_RISK_ATR = 3;
+
+/** Below this reachable R the structure is not worth publishing at all. */
+export const MIN_REACHABLE_R = 1;
+
+/** A structure may not republish within this window, even once retired. */
+export const STRUCTURE_COOLDOWN_MINUTES = 120;
 
 /**
  * Two setups count as the same structure when instrument, direction and entry

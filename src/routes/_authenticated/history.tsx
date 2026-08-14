@@ -170,9 +170,23 @@ function HistoryPage() {
                 <div className="grid grid-cols-2 gap-px bg-border sm:grid-cols-3 lg:grid-cols-6">
                   <Cell label="Entry" value={p(signal.entry_price)} />
                   <Cell label="Stop-loss" value={p(signal.stop_loss)} className="text-destructive" />
-                  <Cell label="TP1 · 1:1" value={p(signal.tp1)} className="text-success" />
-                  <Cell label="TP2 · 1:2" value={p(signal.tp2)} className="text-success" />
-                  <Cell label="TP3 · 1:3" value={p(signal.tp3)} className="text-success" />
+                  <Cell
+                    label={`TP1 · 1:${Number(signal.tp1_r ?? 1).toFixed(signal.tp1_r === null ? 0 : 2)}`}
+                    value={p(signal.tp1)}
+                    className="text-success"
+                  />
+                  <Cell
+                    label={`TP2 · 1:${Number(signal.tp2_r ?? 2).toFixed(signal.tp2_r === null ? 0 : 2)}`}
+                    value={p(signal.tp2)}
+                    className="text-success"
+                  />
+                  {signal.tp3 !== null ? (
+                    <Cell
+                      label={`TP3 · 1:${Number(signal.tp3_r ?? 3).toFixed(signal.tp3_r === null ? 0 : 2)}`}
+                      value={p(signal.tp3)}
+                      className="text-success"
+                    />
+                  ) : null}
                   <Cell label="R:R" value={Number(signal.rr_ratio).toFixed(2)} />
                 </div>
 

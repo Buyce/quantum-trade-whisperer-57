@@ -1,7 +1,15 @@
 import { useState } from "react";
 import { ArrowDownRight, ArrowUpRight, Check, ChevronDown, Copy, X } from "lucide-react";
 import { toast } from "sonner";
-import { contextOf, INSTRUMENT_LABELS, SESSION_LABELS, type SignalRow, type TradeRow } from "@/lib/db-types";
+import {
+  contextOf,
+  INSTRUMENT_LABELS,
+  isCapped,
+  SESSION_LABELS,
+  targetLadder,
+  type SignalRow,
+  type TradeRow,
+} from "@/lib/db-types";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -48,24 +56,88 @@ function age(detectedAt: string) {
   return `${Math.floor(hours / 24)}d`;
 }
 
+/** Pip size per instrument — used only to phrase live distance in trader units. */
+const PIP: Record<string, number> = { EURUSD: 0.0001, GBPAUD: 0.0001, XAUUSD: 0.01 };
+
+export interface EntryDistance {
+  state: "awaiting" | "at_entry" | "ran" | "invalidated";
+  pips: number;
+  r: number;
+}
+
+/**
+ * Live distance from a pending entry. Pure function of the stored setup and one
+ * shared quote — no per-client broker calls, and no output at all when the quote
+ * is missing (never an estimated price).
+ */
+export function entryDistance(signal: SignalRow, mid: number | undefined): EntryDistance | null {
+  if (mid === undefined || !Number.isFinite(mid)) return null;
+  const risk = Math.abs(Number(signal.entry_price) - Number(signal.stop_loss));
+  if (risk <= 0) return null;
+  const long = signal.direction === "long";
+  const gap = mid - Number(signal.entry_price);
+  const r = Math.abs(gap) / risk;
+  const pips = Math.abs(gap) / (PIP[signal.instrument] ?? 0.0001);
+
+  const beyondStop = long ? mid <= Number(signal.stop_loss) : mid >= Number(signal.stop_loss);
+  if (beyondStop) return { state: "invalidated", pips, r };
+  const ranAway = long ? gap > risk * 0.5 : gap < -risk * 0.5;
+  if (ranAway) return { state: "ran", pips, r };
+  if (r <= 0.1) return { state: "at_entry", pips, r };
+  return { state: "awaiting", pips, r };
+}
+
+function DistanceChip({ d }: { d: EntryDistance }) {
+  const copy =
+    d.state === "invalidated"
+      ? "Invalidated — price traded through the stop"
+      : d.state === "ran"
+        ? `Ran past entry — ${d.pips.toFixed(1)} pips (${d.r.toFixed(2)}R) away`
+        : d.state === "at_entry"
+          ? "At entry — limit order would fill now"
+          : `Awaiting fill — ${d.pips.toFixed(1)} pips (${d.r.toFixed(2)}R) away`;
+  return (
+    <span
+      className={cn(
+        "num inline-flex shrink-0 items-center rounded-sm border px-1.5 py-0.5 text-xs font-medium",
+        d.state === "invalidated"
+          ? "border-short/40 bg-short/10 text-short"
+          : d.state === "at_entry"
+            ? "border-long/40 bg-long/10 text-long"
+            : d.state === "ran"
+              ? "border-warning/40 bg-warning/10 text-warning"
+              : "border-border bg-surface text-muted-foreground",
+      )}
+    >
+      {copy}
+    </span>
+  );
+}
+
 export function SignalCard({
   signal,
   trade,
   onDecision,
   onResult,
   busy,
+  quoteMid,
 }: {
   signal: SignalRow;
   trade: TradeRow | undefined;
   onDecision: (decision: "taken" | "skipped") => void;
   onResult: (outcome: "win" | "loss" | "breakeven", r: number) => void;
   busy: boolean;
+  /** Shared live mid price for this instrument, when available. */
+  quoteMid?: number | undefined;
 }) {
   const ctx = contextOf(signal);
   const long = signal.direction === "long";
   const conf = Number(signal.confidence_score);
   const { guide } = useGuideMode();
   const orderType = long ? "BUY LIMIT" : "SELL LIMIT";
+  const ladder = targetLadder(signal);
+  const capped = isCapped(signal);
+  const distance = entryDistance(signal, quoteMid);
   // Progressive disclosure: the top tier opens by default because it is the one
   // setup a trader always wants the detail on; everything else starts collapsed.
   const [open, setOpen] = useState(signal.grade === "A+");
@@ -77,10 +149,8 @@ export function SignalCard({
       `${signal.instrument} — ${orderType} (${long ? "LONG" : "SHORT"})`,
       `Entry:      ${p(signal.entry_price)}`,
       `Stop-loss:  ${p(signal.stop_loss)}`,
-      `TP1 (1:1):  ${p(signal.tp1)}`,
-      `TP2 (1:2):  ${p(signal.tp2)}`,
-      `TP3 (1:3):  ${p(signal.tp3)}`,
-      `R:R:        ${Number(signal.rr_ratio).toFixed(2)}`,
+      ...ladder.map((t) => `${t.label.replace(" · ", " (")}):  ${p(t.price)}`),
+      `R:R:        ${Number(signal.rr_ratio).toFixed(2)}${capped ? " (capped by H4 barrier)" : ""}`,
       `Confidence: ${conf.toFixed(1)}%  ·  Grade ${signal.grade}`,
       `Not financial advice — size the position yourself.`,
     ].join("\n");
@@ -91,6 +161,7 @@ export function SignalCard({
       toast.error("Clipboard blocked by your browser");
     }
   }
+
 
   return (
     <article
@@ -127,6 +198,19 @@ export function SignalCard({
               {long ? <ArrowUpRight className="size-3.5" /> : <ArrowDownRight className="size-3.5" />}
               {long ? "LONG" : "SHORT"}
             </span>
+            {/* Always-on: these are pending limit orders, never market entries. */}
+            <Badge variant="outline" className="num shrink-0 font-normal">
+              {orderType}
+            </Badge>
+            {capped ? (
+              <Badge
+                variant="outline"
+                className="num shrink-0 border-warning/40 bg-warning/10 font-normal text-warning"
+              >
+                CAPPED {Number(signal.max_r ?? signal.rr_ratio).toFixed(2)}R
+              </Badge>
+            ) : null}
+            {distance ? <DistanceChip d={distance} /> : null}
           </div>
           <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground sm:ml-auto">
             <span className="num">
@@ -159,9 +243,7 @@ export function SignalCard({
           <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-2.5 text-xs text-muted-foreground">
             <span>{INSTRUMENT_LABELS[signal.instrument] ?? ""}</span>
             {guide ? (
-              <Badge variant="outline" className="num font-normal">
-                {orderType}
-              </Badge>
+              <span>Place this as a pending {orderType.toLowerCase()} and wait for the fill.</span>
             ) : null}
             {ctx ? (
               <Badge variant="outline" className="num font-normal">
@@ -180,8 +262,8 @@ export function SignalCard({
 
           <div className="grid grid-cols-2 gap-px bg-border sm:grid-cols-3 lg:grid-cols-6">
             <Metric
-              label="Entry (M15 break)"
-              hint="The price to place your pending order at — where the 15-minute chart broke structure."
+              label="Entry (limit)"
+              hint="The price to place your pending limit order at — the Point C structural level."
               value={price(signal.entry_price, signal.instrument)}
             />
             <Metric
@@ -190,29 +272,23 @@ export function SignalCard({
               value={price(signal.stop_loss, signal.instrument)}
               tone="short"
             />
-            <Metric
-              label="TP1 · 1:1"
-              hint="First take-profit. Closing here returns the same amount you risked (+1R)."
-              value={price(signal.tp1, signal.instrument)}
-              tone="long"
-            />
-            <Metric
-              label="TP2 · 1:2"
-              hint="Second take-profit — twice what you risked (+2R)."
-              value={price(signal.tp2, signal.instrument)}
-              tone="long"
-            />
-            <Metric
-              label="TP3 · 1:3"
-              hint="Final take-profit — three times what you risked (+3R)."
-              value={price(signal.tp3, signal.instrument)}
-              tone="long"
-            />
+            {/* Targets are rendered from what the structure can actually reach.
+                A target the H4 barrier blocks is omitted, never faked as 1:3. */}
+            {ladder.map((t, i) => (
+              <Metric
+                key={t.label}
+                label={t.label}
+                hint={`Take-profit ${i + 1} — closing here returns ${t.r.toFixed(2)}x what you risked.`}
+                value={price(t.price, signal.instrument)}
+                tone="long"
+              />
+            ))}
             <Metric
               label="R:R"
-              hint="Risk-to-reward: how much this setup can win compared to what it risks. Higher is better."
+              hint="Risk-to-reward of the final target. This is the true reachable payoff, not a default 1:3."
               value={`${Number(signal.rr_ratio).toFixed(2)}`}
             />
+
           </div>
 
           <div className="grid gap-4 border-t border-border px-4 py-4 lg:grid-cols-[minmax(0,1fr)_320px]">

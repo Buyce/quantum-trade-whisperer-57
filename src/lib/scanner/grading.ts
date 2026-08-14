@@ -48,7 +48,7 @@ export function readTimeframe(timeframe: Timeframe, candles: Candle[]): Timefram
   const atPointC =
     bias === "bullish" ? price <= legMid + a * 0.75 : bias === "bearish" ? price >= legMid - a * 0.75 : false;
 
-  return { timeframe, bias, barrierDistanceAtr, atr: a, atPointC };
+  return { timeframe, bias, barrierDistanceAtr, barrierPrice: barrier, atr: a, atPointC };
 }
 
 export interface GradeResult {

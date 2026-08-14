@@ -25,6 +25,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { downloadJson, signalsToExportJson, todayStamp } from "@/lib/export";
+import { useQuotes } from "@/lib/useQuotes";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/feed")({
@@ -53,6 +54,8 @@ function FeedPage() {
   const trades = useQuery(myTradesQuery(user?.id));
   const settings = useQuery(settingsQuery(user?.id));
   const health = useQuery(instrumentHealthQuery());
+  // One shared cached quote poll for the whole page — cards read from this map.
+  const quotes = useQuotes();
 
   const [busyId, setBusyId] = useState<string | null>(null);
   const [applyFilters, setApplyFilters] = useState(true);
@@ -348,6 +351,7 @@ function FeedPage() {
                 signal={signal}
                 trade={trade}
                 busy={busyId === signal.id || busyId === trade?.id}
+                quoteMid={quotes[signal.instrument]?.mid}
                 onDecision={(d) => void decide(signal.id, d)}
                 onResult={(outcome, r) => {
                   if (trade) void close(trade.id, outcome, r);

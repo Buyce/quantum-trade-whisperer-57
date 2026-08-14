@@ -2,7 +2,13 @@ import { clamp, detectAbc } from "./indicators";
 import { gradeSetup, readTimeframe, scoreConfluence } from "./grading";
 import {
   CONFIDENCE_WEIGHTS,
+  DEFAULT_SPREAD_FLOOR,
+  MAX_RISK_ATR,
+  MIN_REACHABLE_R,
   PILLAR_PASS_SCORE,
+  SPREAD_FLOOR,
+  STOP_H1_ATR_FLOOR,
+  STOP_M15_ATR_MULTIPLIER,
   type Candle,
   type ConfidenceBreakdown,
   type Direction,
@@ -50,6 +56,8 @@ export function buildBreakdown(args: {
   rrRatio: number;
   atr: number;
   pillars: PillarScores;
+  capped?: boolean;
+  maxR?: number;
 }): string {
   const dirw = args.direction === "long" ? "bullish" : "bearish";
   const head =
@@ -79,7 +87,12 @@ export function buildBreakdown(args: {
           ? "Manage to 1:2 unless H4 clears its barrier."
           : "Default philosophy is No Trade unless the volatility context is exceptional.";
 
-  return `${head} ${sat} ${vio} ${pillars} ${metrics} ${advice}`;
+  const cap =
+    args.capped && typeof args.maxR === "number"
+      ? ` Extension is capped at ${args.maxR.toFixed(2)}R by the nearest H4 structural barrier — targets are scaled to what the structure can actually reach.`
+      : "";
+
+  return `${head} ${sat} ${vio} ${pillars} ${metrics} ${advice}${cap}`;
 }
 
 export interface BuildProfileInput {
@@ -107,25 +120,54 @@ export function buildTradeProfile(input: BuildProfileInput): TradeProfile | null
   const last = m15Candles[m15Candles.length - 1] as Candle | undefined;
   if (!last) return null;
 
-  const entryPrice = last.close;
-  const atrBuffer = m15.atr * 0.35;
+  // Entry is the Point C structural level, not "wherever the last candle
+  // closed". That is what makes this a genuine pending limit order and keeps
+  // risk stable across consecutive scans of the same leg.
+  const entryPrice = abc.c;
+
+  // 1.2x M15 ATR beyond the structural extreme, floored by 0.5x H1 ATR and by
+  // a realistic per-instrument spread allowance.
+  const buffer = Math.max(
+    m15.atr * STOP_M15_ATR_MULTIPLIER,
+    h1.atr * STOP_H1_ATR_FLOOR,
+    SPREAD_FLOOR[input.instrument] ?? DEFAULT_SPREAD_FLOOR,
+  );
   const recent = m15Candles.slice(-10);
   const structuralExtreme =
     direction === "long" ? Math.min(...recent.map((c) => c.low)) : Math.max(...recent.map((c) => c.high));
-  const stopLoss =
-    direction === "long" ? structuralExtreme - atrBuffer : structuralExtreme + atrBuffer;
+  const stopLoss = direction === "long" ? structuralExtreme - buffer : structuralExtreme + buffer;
 
   const risk = Math.abs(entryPrice - stopLoss);
   if (risk <= 0) return null;
+  // Over-wide risk is No-Trade, not a 0.5 R:R publication.
+  if (m15.atr > 0 && risk > m15.atr * MAX_RISK_ATR) return null;
 
   const sign = direction === "long" ? 1 : -1;
-  const tp1 = entryPrice + sign * risk;
-  const tp2 = entryPrice + sign * risk * 2;
-  const tp3 = entryPrice + sign * risk * 3;
 
-  // Effective R:R is capped by the distance to the nearest macro barrier.
-  const reachableAtr = Math.max(1, Math.min(3, h4.barrierDistanceAtr));
-  const rrRatio = round(clamp(reachableAtr * (m15.atr / risk), 0.5, 3));
+  // Real reachable extension: distance from entry to the nearest H4 structural
+  // barrier, expressed in R. No unit mixing, no invented multiples.
+  const barrierRoom = (h4.barrierPrice - entryPrice) * sign;
+  if (barrierRoom <= 0) return null;
+  const maxR = round(barrierRoom / risk);
+  if (maxR < MIN_REACHABLE_R) return null;
+
+  const capped = maxR < 3;
+  const multiples: [number, number, number | null] =
+    maxR >= 3
+      ? [1, 2, 3]
+      : maxR >= 1.5
+        ? [round(maxR * 0.5), round(maxR * 0.75), round(maxR)]
+        : [round(maxR * 0.6), round(maxR), null];
+
+  const [tp1R, tp2R, tp3R] = multiples;
+  const target = (r: number) => round(entryPrice + sign * risk * r, 5);
+  const tp1 = target(tp1R);
+  const tp2 = target(tp2R);
+  const tp3 = tp3R === null ? null : target(tp3R);
+
+  // R:R headline is exactly the final target's R — the card and the number can
+  // no longer disagree.
+  const rrRatio = round(tp3R ?? tp2R);
 
   const pillars = scoreConfluence({
     direction,
@@ -158,9 +200,21 @@ export function buildTradeProfile(input: BuildProfileInput): TradeProfile | null
     direction,
     entryPrice: round(entryPrice, 5),
     stopLoss: round(stopLoss, 5),
-    tp1: round(tp1, 5),
-    tp2: round(tp2, 5),
-    tp3: round(tp3, 5),
+    tp1,
+    tp2,
+    tp3,
+    tp1R,
+    tp2R,
+    tp3R,
+    maxR,
+    capped,
+    structureKey: structureKeyOf({
+      instrument: input.instrument,
+      direction,
+      aTime: abc.aTime,
+      bTime: abc.bTime,
+      stopLoss,
+    }),
     atr: round(m15.atr, 5),
     rrRatio,
     patternSymmetry: round(abc.symmetry),
@@ -179,9 +233,33 @@ export function buildTradeProfile(input: BuildProfileInput): TradeProfile | null
       rrRatio,
       atr: m15.atr,
       pillars,
+      capped,
+      maxR,
     }),
   };
 }
+
+/**
+ * Stable identity of one ABC leg: instrument, direction, the swing A/B candle
+ * timestamps and the structural stop anchor. Two scans of the same lingering
+ * structure produce the same key; a genuinely new leg produces a new one.
+ */
+export function structureKeyOf(args: {
+  instrument: string;
+  direction: Direction;
+  aTime: string;
+  bTime: string;
+  stopLoss: number;
+}): string {
+  return [
+    args.instrument,
+    args.direction,
+    args.aTime,
+    args.bTime,
+    args.stopLoss.toFixed(5),
+  ].join("|");
+}
+
 
 function describe(read: TimeframeRead): string {
   if (read.bias === "neutral") return "conflicting";

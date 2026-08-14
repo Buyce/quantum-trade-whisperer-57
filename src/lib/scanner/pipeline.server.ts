@@ -14,6 +14,7 @@ import {
   ENTRY_PRICE_DECIMALS,
   INSTRUMENTS,
   SIGNAL_MAX_AGE_HOURS,
+  STRUCTURE_COOLDOWN_MINUTES,
   type Candle,
   type Timeframe,
 } from "./types";
@@ -207,6 +208,26 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
       return await finish("capped", `Daily cap of ${DEFAULT_DAILY_SETUP_CAP} setups already reached`);
     }
 
+    // Structure cooldown: the same ABC leg may not republish inside this
+    // window even after the previous instance expired or resolved. This is what
+    // stops one lingering structure firing every 15 minutes.
+    const cooldownFrom = new Date(
+      Date.now() - STRUCTURE_COOLDOWN_MINUTES * 60_000,
+    ).toISOString();
+    const { data: recentSame, error: cooldownError } = await db
+      .from("scanned_signals")
+      .select("id")
+      .eq("structure_key", profile.structureKey)
+      .gte("detected_at", cooldownFrom)
+      .limit(1);
+    if (cooldownError) throw cooldownError;
+    if ((recentSame ?? []).length) {
+      return await finish(
+        "duplicate",
+        `Same structure already published within the last ${STRUCTURE_COOLDOWN_MINUTES} minutes`,
+      );
+    }
+
     const now = new Date();
     // Volatility regime = M15 ATR relative to H1 ATR. Both must be true ATRs;
     // dividing by a raw close price (the previous behaviour) is meaningless.
@@ -227,6 +248,11 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
         tp1: profile.tp1,
         tp2: profile.tp2,
         tp3: profile.tp3,
+        tp1_r: profile.tp1R,
+        tp2_r: profile.tp2R,
+        tp3_r: profile.tp3R,
+        max_r: profile.maxR,
+        structure_key: profile.structureKey,
         atr: profile.atr,
         rr_ratio: profile.rrRatio,
         confidence_score: profile.confidence.score,

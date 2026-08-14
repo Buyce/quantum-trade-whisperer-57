@@ -61,6 +61,8 @@ export function signalsToExportJson(signals: SignalRow[]) {
         entry: s.entry_price,
         stop_loss: s.stop_loss,
         targets: { tp1: s.tp1, tp2: s.tp2, tp3: s.tp3 },
+        target_r_multiples: { tp1: s.tp1_r, tp2: s.tp2_r, tp3: s.tp3_r },
+        max_reachable_r: s.max_r,
         r_multiple: s.rr_ratio,
         confidence_score: s.confidence_score,
         pillars: {
@@ -153,7 +155,7 @@ export function historyToCsv(rows: TradeHistoryRow[]): string {
       s.stop_loss,
       s.tp1,
       s.tp2,
-      s.tp3,
+      s.tp3 ?? "",
       s.rr_ratio,
       s.confidence_score,
       s.p_trend,
@@ -187,6 +189,8 @@ export function historyToExportJson(rows: TradeHistoryRow[]) {
       entry: s.entry_price,
       stop_loss: s.stop_loss,
       targets: { tp1: s.tp1, tp2: s.tp2, tp3: s.tp3 },
+      target_r_multiples: { tp1: s.tp1_r, tp2: s.tp2_r, tp3: s.tp3_r },
+      max_reachable_r: s.max_r,
       planned_r_multiple: s.rr_ratio,
       confidence_score: s.confidence_score,
       pillars: {
