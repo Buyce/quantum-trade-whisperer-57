@@ -18,6 +18,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { InfoLabel, useGuideMode } from "@/components/GuideMode";
 import { MIN_N_FILL, MIN_N_WIN } from "@/lib/learning/regime";
+import { explainRegime, PRIOR_STRENGTH } from "@/lib/learning/explain";
+import { regimeStatsQuery } from "@/lib/queries";
+import { useQuery } from "@tanstack/react-query";
 import {
   calculateRisk,
   money,
@@ -249,9 +252,149 @@ function IntelligencePanel({ signal }: { signal: SignalRow }) {
           ? "Sample size has cleared both statistical thresholds. These rates still do not place or block trades."
           : `Learning — insufficient sample (${n}/${fillGate ? MIN_N_WIN : MIN_N_FILL}). Shown for observation only: grading, alerts and the daily limit ignore these numbers entirely.`}
       </p>
+
+      <ModelExplain signal={signal} />
     </div>
   );
 }
+
+const PCT = (v: number | null) => (v == null ? "—" : `${(v * 100).toFixed(1)}%`);
+const SIGNED = (v: number | null) => (v == null ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(1)} pp`);
+
+/**
+ * Model-explain drawer: shows WHICH regimes and features drive this signal's
+ * win/fill estimate, and how much of the estimate is its own evidence versus
+ * borrowed from a broader regime.
+ *
+ * HONESTY: the engine is hierarchical Beta-Binomial shrinkage, not a weighted
+ * model, so this reports the real shrinkage ladder and measured per-feature
+ * differences from the replay dataset. No fabricated importances, and every
+ * figure is shown with the sample size behind it.
+ */
+function ModelExplain({ signal }: { signal: SignalRow }) {
+  const [open, setOpen] = useState(false);
+  const ctx = contextOf(signal);
+  const { data: rows } = useQuery({ ...regimeStatsQuery(), enabled: open });
+
+  const explanation =
+    open && rows && ctx
+      ? explainRegime(rows, {
+          instrument: signal.instrument,
+          direction: signal.direction,
+          session: ctx.trading_session,
+          volatilityIndex: ctx.volatility_index ?? null,
+        })
+      : null;
+
+  return (
+    <div className="mt-3">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")} />
+        {open ? "Hide" : "Why these rates?"}
+      </button>
+
+      {open ? (
+        !ctx ? (
+          <p className="mt-2 text-xs text-muted-foreground">
+            No market context was recorded for this setup, so the regime it belongs to cannot be
+            reconstructed.
+          </p>
+        ) : !rows ? (
+          <p className="mt-2 text-xs text-muted-foreground">Loading regime statistics…</p>
+        ) : !explanation ? (
+          <p className="mt-2 text-xs text-muted-foreground">
+            The learning engine has not produced statistics yet — nothing to explain.
+          </p>
+        ) : (
+          <div className="mt-3 space-y-4">
+            <div>
+              <p className="label-xs">Regime ladder</p>
+              <p className="mt-1 text-xs leading-snug text-muted-foreground">
+                The estimate starts from the widest pool and is pulled toward this setup&apos;s own
+                bucket only as fast as that bucket earns samples (prior strength k ={" "}
+                {PRIOR_STRENGTH}).
+              </p>
+              <ul className="mt-2 space-y-2">
+                {explanation.ladder.map((s) => (
+                  <li
+                    key={s.tier}
+                    className={cn(
+                      "rounded border px-2.5 py-2",
+                      s.matched ? "border-primary/50 bg-primary/5" : "border-border/60",
+                    )}
+                  >
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
+                      <span className="text-xs font-medium text-foreground">
+                        {s.label}
+                        {s.matched ? " · used" : null}
+                      </span>
+                      <span className="num text-[11px] text-muted-foreground">
+                        n = {s.nTotal} · filled {s.nFilled} · wins {s.wins}
+                      </span>
+                    </div>
+                    <div className="num mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-[11px] text-muted-foreground">
+                      <span>
+                        fill {PCT(s.pFillRaw)} raw → {PCT(s.pFillShrunk)} smoothed
+                      </span>
+                      <span>
+                        win {PCT(s.pWinRaw)} raw → {PCT(s.pWinShrunk)} smoothed
+                      </span>
+                      <span>own evidence {Math.round(s.ownWeightWin * 100)}% of win estimate</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div>
+              <p className="label-xs">Feature influence (measured, not modelled)</p>
+              {explanation.features.length === 0 ? (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  No feature slice has any resolved samples yet.
+                </p>
+              ) : (
+                <ul className="mt-2 divide-y divide-border/60">
+                  {explanation.features.map((f) => (
+                    <li key={f.feature} className="py-2">
+                      <div className="flex flex-wrap items-baseline justify-between gap-x-2">
+                        <span className="text-xs font-medium text-foreground">
+                          {f.feature}: {f.value}
+                        </span>
+                        <span className="num text-[11px] text-muted-foreground">
+                          win {SIGNED(f.deltaWinPp)} · fill {SIGNED(f.deltaFillPp)}
+                        </span>
+                      </div>
+                      <p className="num mt-0.5 text-[11px] text-muted-foreground">
+                        vs {f.baseline} · n = {f.nTotal}, filled {f.nFilled}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <p className="text-[11px] leading-snug text-muted-foreground">
+              Differences are raw, unsmoothed percentage points from the shadow replay dataset —
+              associations, not proven causes, and thin slices move easily. This estimate currently
+              leans on{" "}
+              {explanation.leansOn === "own-bucket"
+                ? "its own bucket's evidence"
+                : "broader parent regimes"}
+              . Volatility tercile:{" "}
+              {explanation.bucket === "unknown" ? "not classified" : explanation.bucket}.
+            </p>
+          </div>
+        )
+      ) : null}
+    </div>
+  );
+}
+
 
 /**
  * Per-user position sizing. Everything here is derived from the stored setup and

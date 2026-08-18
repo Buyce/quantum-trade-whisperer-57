@@ -1,5 +1,6 @@
 import { queryOptions } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import type { RegimeStatRow } from "./learning/regime";
 import type { ScannerSettingsRow, SignalRow, TradeHistoryRow, TradeRow } from "./db-types";
 
 const SIGNAL_COLUMNS =
@@ -139,4 +140,25 @@ export async function saveSettings(input: Partial<ScannerSettingsRow> & { user_i
     .from("scanner_settings" as never)
     .upsert(input as never, { onConflict: "user_id" });
   if (error) throw error;
+}
+
+/**
+ * Read-only feed of the learning engine's regime statistics, used by the
+ * model-explain panel. Rebuilt hourly by the shadow-resolve cron; a small
+ * table (~100 rows), so one cached select serves every open signal card.
+ */
+export function regimeStatsQuery() {
+  return queryOptions({
+    queryKey: ["regime-stats"],
+    staleTime: 5 * 60_000,
+    queryFn: async (): Promise<RegimeStatRow[]> => {
+      const { data, error } = await supabase
+        .from("regime_stats" as never)
+        .select(
+          "tier, regime_key, instrument, direction, session, vol_bucket, n_total, n_filled, wins, p_fill_raw, p_win_raw, p_fill_shrunk, p_win_shrunk, vol_t1, vol_t2",
+        );
+      if (error) throw error;
+      return (data ?? []) as unknown as RegimeStatRow[];
+    },
+  });
 }
