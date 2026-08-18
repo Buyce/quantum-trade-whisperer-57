@@ -152,6 +152,31 @@ function HistoryPage() {
           <Button size="sm" variant="ghost" disabled={rows.length === 0} onClick={exportJson}>
             <Download className="size-4" /> Export History (JSON)
           </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-destructive hover:text-destructive"
+                disabled={rows.length === 0 || busyId === "all"}
+              >
+                <Trash2 className="size-4" /> Delete all history
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete your entire trade history?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This permanently removes {rows.length} logged {rows.length === 1 ? "trade" : "trades"} from your
+                  personal log. Scanner signals and learning data are not affected. This cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Keep history</AlertDialogCancel>
+                <AlertDialogAction onClick={() => void removeAll()}>Delete everything</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
 
