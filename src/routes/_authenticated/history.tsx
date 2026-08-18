@@ -92,6 +92,39 @@ function HistoryPage() {
     }
   }
 
+  async function removeOne(tradeId: string) {
+    setBusyId(tradeId);
+    try {
+      await deleteTrade({ tradeId });
+      await refreshAfterDelete();
+      toast.success("Trade deleted");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not delete the trade");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function removeAll() {
+    if (!user?.id) return;
+    setBusyId("all");
+    try {
+      await deleteAllTrades({ userId: user.id });
+      await refreshAfterDelete();
+      toast.success("Trade history cleared");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not clear your history");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function refreshAfterDelete() {
+    await queryClient.invalidateQueries({ queryKey: ["taken-trade-history"] });
+    await queryClient.invalidateQueries({ queryKey: ["my-trades"] });
+    await queryClient.invalidateQueries({ queryKey: ["signals"] });
+  }
+
   if (history.isLoading) {
     return (
       <div className="space-y-4">
