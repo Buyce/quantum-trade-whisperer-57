@@ -1,67 +1,105 @@
-# Phase 0 — Fill Diagnostic (never_filled cohort)
+# Session-Aware Dynamic Entry Offset — Phase 1 Audit + Phase 2 Implementation
 
-Read-only analysis executed. 52 `never_filled` rows (72% of 72 shadow rows) were replayed against freshly fetched real M15 candles from the broker feed for the 30-minute TIF window after `detected_at`. Zero rows written, no schema touched.
+## Phase 1: Triple-check pre-audit
 
-## Headline finding
+### Checkpoint 1 — R-multiple cascade: CLEAR (with one ordering requirement)
 
-The TIF window is not the primary defect. **Two fill-detection bugs in `replay.ts` are mislabelling real fills as `never_filled`, and the entry offset is far too greedy on the rest.**
+Verified in `src/lib/scanner/profile.ts`: every downstream number is derived from `entryPrice` at
+computation time, not hardcoded.
 
-| Cohort (n=52) | Count | Share |
-|---|---|---|
-| Price actually traded through the limit inside 30m (should be filled) | 9 | 17% |
-| "Just missed" (< 0.2 x ATR) | 0 | 0% |
-| Missed by 0.2–1.0 x ATR | 16 | 31% |
-| "Runaway" (> 1.0 x ATR, never retraced) | 27 | 52% |
+```text
+entryPrice ──> risk = |entryPrice - stopLoss|
+           ──> barrierRoom = (h4Barrier - entryPrice) * sign
+                 └─> maxR = barrierRoom / risk
+                       └─> tp1R/tp2R/tp3R (scaled to maxR) ──> tp1/tp2/tp3 = entry + sign*risk*R
+                             └─> rrRatio = tp3R ?? tp2R
+           ──> maxAcceptableEntry = entry + sign*risk*tolerance
+```
 
-Closest-approach distribution for the 43 genuine misses: median **1.47 x ATR**, mean 1.62, p25 0.68, p75 2.26, max 5.25. Median miss in pips: EURUSD 5.5, GBPAUD 7.7, XAUUSD 57.8.
+So a wider stop automatically produces wider TP distances (they are `risk * R`, absolute prices are
+recomputed) and R:R stays truthful because `rrRatio` is literally the final target's R. `stopLoss`
+is independent of entry (structural extreme + ATR buffer), so it does not move.
 
-There is no "greedy by a hair" cohort at all — the gap between entry and the best price reached is structural, not marginal.
+Requirement: the offset must be applied **before** the `risk`/`maxR`/target block, i.e. immediately
+after `entryPrice` is first assigned. No target math may be duplicated.
 
-## Distribution
+### Checkpoint 2 — Risk invalidation guardrail: NOT SAFE AS-IS, needs fallback
 
-By instrument (n / traded-through / median true miss in ATR):
+Two existing rejections key off `risk`, and moving the entry toward the market widens it:
 
-- XAUUSD: 25 / 2 / 0.83
-- EURUSD: 21 / 4 / 1.77
-- GBPAUD: 6 / 3 / 1.15
+- `MAX_RISK_ATR = 3`: `if (m15.atr > 0 && risk > m15.atr * 3) return null` — hard No-Trade.
+- `MIN_REACHABLE_R = 1`: larger `risk` shrinks `maxR = barrierRoom / risk`, so a setup can drop
+  under 1R and be discarded.
 
-By session:
+Left untouched, the overlap regime would trade a 13% fill rate for silently dropped signals. Safe
+handling (proposed, no threshold weakening): treat the dynamic entry as an **attempt**. Compute the
+shifted entry, re-derive `risk` and `maxR`; if either guard fails, **fall back to the structural
+Point C entry** and continue through the unchanged guards. A setup is therefore never lost by the
+new feature — worst case it publishes exactly as it does today. `MAX_RISK_ATR` and
+`MIN_REACHABLE_R` are not changed.
 
-- tokyo: 19 / 2 traded through / median miss 0.74 ATR
-- london: 15 / 7 / 0.99
-- sydney: 9 / 0 / 2.00
-- london_new_york_overlap: 7 / 0 / 3.01
-- unlabelled: 2 / 0 / 1.59
+### Checkpoint 3 — Type and payload safety: CLEAR (session must be threaded in)
 
-Failures are **not** Asian-session specific. Tokyo has the *smallest* miss distance; the worst misses are in the London/NY overlap and Sydney, i.e. the momentum-driven and thin-liquidity extremes. 46 of 52 unfilled rows are longs — entries are being placed below a market that keeps ticking up.
+- `trading_session` is **not** currently available to `profile.ts`. It is computed in
+  `src/lib/scanner/pipeline.server.ts` as `sessionOf(now)` *after* `buildTradeProfile(...)` runs,
+  and written to `market_context.trading_session`. Fix: hoist `const session = sessionOf(now)`
+  above the profile build and pass it into `buildTradeProfile({ instrument, candles, session })`.
+  `market_context` keeps using the same variable, so the row and the entry math can never disagree.
+- `scanned_signals` schema: unchanged. `entry_price` is `numeric`; no new columns, no migration.
+- `structureKeyOf` keys on instrument/direction/A-time/B-time/**stopLoss** — not entry — so the
+  120-minute cooldown and the active-setup unique index behave identically after the shift.
+- Webhook: `src/lib/scanner/webhook.server.ts` emits `price=${fmt(signal.entryPrice)}` for
+  PineConnector and `entry: signal.entryPrice` for JSON. Both take whatever number the profile
+  produces; comma-separated syntax and field order are untouched. The webhook payload tester is
+  unaffected.
+- Shadow engine / `replay.ts`: consumes `entry_price` from the row. A closer entry improves the fill
+  leg; no code change needed. Existing rows keep their original entries, so the dataset stays honest
+  (post-change rows are simply a new regime).
 
-## TIF sensitivity (counterfactual fills)
+Audit verdict: cleared, conditional on the fallback in Checkpoint 2 and the session threading in
+Checkpoint 3.
 
-| TIF | Would have filled |
-|---|---|
-| 30m (current) | 9 / 52 (17%) |
-| 45m | 9 / 52 (17%) |
-| 60m | 13 / 52 (25%) |
-| 90m | 21 / 52 (40%) |
-| 120m | 22 / 52 (42%) |
-| 240m | 25 / 52 (48%) |
+## Phase 2: Implementation
 
-45 minutes buys literally nothing. Even a 4-hour TIF leaves half the cohort unfilled, and a long-lived limit order degrades label quality (the market it was graded in no longer exists).
+Files touched: `src/lib/scanner/profile.ts`, `src/lib/scanner/types.ts`,
+`src/lib/scanner/pipeline.server.ts`. No database or UI changes.
 
-## Confirmed replay defects
+1. `types.ts` — add constants:
+   - `RUNAWAY_SESSIONS = ["london_new_york_overlap"]`
+   - `DYNAMIC_ENTRY_ATR_FRACTION = 0.3`
+   - `MIN_DYNAMIC_RISK_ATR = 0.5` (stop-crossover floor)
+2. `profile.ts` — `BuildProfileInput` gains optional `session?: string`. After `entryPrice = abc.c`
+   and after `stopLoss` is computed, apply the offset when `session` is a runaway session:
 
-1. `relevant = candles.filter(c => ms(c.time) > cursor)` with `cursor = detected_at` discards the M15 bar that is in progress at detection. That bar is where a limit set near current price most often fills, so the effective TIF is one bar, not two.
-2. `touched = candle.low <= entry && candle.high >= entry` returns false when a bar trades entirely through the entry (long: whole bar below entry). The intended gap-fill branch below it is therefore unreachable, and such bars are counted as no-fill.
+   ```text
+   long : candidate = lastClose - 0.3 * atr
+   short: candidate = lastClose + 0.3 * atr
+   ```
 
-These two account for the 9 traded-through rows and bias the label set toward label 0.
+   Guardrails, applied in order:
+   - **No worse than market**: long `candidate <= lastClose - spreadFloor`; short
+     `candidate >= lastClose + spreadFloor`. (Satisfied by construction for 0.3 ATR > spread, but
+     enforced explicitly so a future fraction change cannot invert it.)
+   - **Never further from market than structural C**: long `candidate = max(candidate, abc.c)`,
+     short `candidate = min(candidate, abc.c)`. The offset can only ever move the entry *toward*
+     price, never deeper.
+   - **Never crosses the stop**: require `|candidate - stopLoss| >= MIN_DYNAMIC_RISK_ATR * m15.atr`
+     and the correct side of the stop; otherwise reject the candidate.
+   - **Risk / reachability**: recompute `risk` and `maxR` with the candidate; keep it only if
+     `risk <= MAX_RISK_ATR * atr` and `maxR >= MIN_REACHABLE_R`.
+   - Any failed guard ⇒ keep `abc.c`. Existing behaviour, byte for byte.
+3. All existing target, `maxR`, `rrRatio`, `maxAcceptableEntry` and slippage-tolerance math runs once
+   on the final entry — no duplication.
+4. `qualitativeBreakdown` gains one sentence when the offset fires, so the card explains why the
+   entry is not at Point C.
+5. `pipeline.server.ts` — move `sessionOf(now)` above the profile build and pass `session` in.
 
-## Recommendation
+### Verification after implementation
 
-Do **not** raise TIF to 45 minutes — the data shows a 0% marginal gain.
+- Typecheck.
+- Dry-run `buildTradeProfile` on freshly fetched live candles for XAUUSD / GBPAUD / EURUSD with
+  `session` forced to `london_new_york_overlap` vs `tokyo`, and print entry, stop, risk in ATR,
+  maxR, tp1..tp3 and R:R for both — proving the fallback path and that no setup is lost.
+- Confirm the webhook tester still renders a valid PineConnector line.
 
-1. Fix the two fill-detection defects (bar-inclusion window and gap-through fill) and re-replay the 52 rows. Expected: ~17% of the cohort re-labels to genuine win/loss outcomes, removing a systematic label-0 bias before any model training.
-2. Then address the entry offset, which is the real cause: the retracement entry sits a median 1.47 x ATR away from where price actually goes. Options to evaluate on the corrected dataset — cap the entry offset at a fraction of ATR from detection price, or split each signal into a limit leg plus a market/stop-entry leg for the >1.0 ATR runaway regime (52% of the cohort).
-3. Keep TIF at 30 minutes for now; re-measure fill rate after (1) and (2). If a TIF change is warranted later, 60m is the first point with real signal (17% -> 25%), not 45m.
-4. Log the closest-approach metric (`miss_atr` at TIF expiry) on unfilled shadow rows so this diagnostic becomes continuous rather than ad hoc.
-
-No schema or database changes were made by this diagnostic. Items 1–4 are proposals awaiting your approval.
+No seeding, no mock rows, no schema change.
