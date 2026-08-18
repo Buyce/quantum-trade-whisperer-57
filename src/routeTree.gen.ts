@@ -26,6 +26,7 @@ import { Route as ApiPublicQuotesRouteImport } from './routes/api/public/quotes'
 import { Route as ApiPublicCronPurgeAccountsRouteImport } from './routes/api/public/cron/purge-accounts'
 import { Route as ApiPublicCronScanRouteImport } from './routes/api/public/cron/scan'
 import { Route as ApiPublicWorkerProcessRouteImport } from './routes/api/public/worker/process'
+import { Route as ApiPublicWorkerShadowRouteImport } from './routes/api/public/worker/shadow'
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
 import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
 import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
@@ -119,6 +120,11 @@ const ApiPublicWorkerProcessRoute = ApiPublicWorkerProcessRouteImport.update({
   path: '/api/public/worker/process',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicWorkerShadowRoute = ApiPublicWorkerShadowRouteImport.update({
+  id: '/api/public/worker/shadow',
+  path: '/api/public/worker/shadow',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LovableEmailAuthPreviewRoute = LovableEmailAuthPreviewRouteImport.update({
   id: '/lovable/email/auth/preview',
   path: '/lovable/email/auth/preview',
@@ -153,6 +159,7 @@ export interface FileRoutesByFullPath {
   '/api/public/cron/purge-accounts': typeof ApiPublicCronPurgeAccountsRoute
   '/api/public/cron/scan': typeof ApiPublicCronScanRoute
   '/api/public/worker/process': typeof ApiPublicWorkerProcessRoute
+  '/api/public/worker/shadow': typeof ApiPublicWorkerShadowRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
@@ -174,6 +181,7 @@ export interface FileRoutesByTo {
   '/api/public/cron/purge-accounts': typeof ApiPublicCronPurgeAccountsRoute
   '/api/public/cron/scan': typeof ApiPublicCronScanRoute
   '/api/public/worker/process': typeof ApiPublicWorkerProcessRoute
+  '/api/public/worker/shadow': typeof ApiPublicWorkerShadowRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
@@ -197,6 +205,7 @@ export interface FileRoutesById {
   '/api/public/cron/purge-accounts': typeof ApiPublicCronPurgeAccountsRoute
   '/api/public/cron/scan': typeof ApiPublicCronScanRoute
   '/api/public/worker/process': typeof ApiPublicWorkerProcessRoute
+  '/api/public/worker/shadow': typeof ApiPublicWorkerShadowRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
@@ -220,6 +229,7 @@ export interface FileRouteTypes {
     | '/api/public/cron/purge-accounts'
     | '/api/public/cron/scan'
     | '/api/public/worker/process'
+    | '/api/public/worker/shadow'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/transactional/preview'
@@ -241,6 +251,7 @@ export interface FileRouteTypes {
     | '/api/public/cron/purge-accounts'
     | '/api/public/cron/scan'
     | '/api/public/worker/process'
+    | '/api/public/worker/shadow'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/transactional/preview'
@@ -263,6 +274,7 @@ export interface FileRouteTypes {
     | '/api/public/cron/purge-accounts'
     | '/api/public/cron/scan'
     | '/api/public/worker/process'
+    | '/api/public/worker/shadow'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/transactional/preview'
@@ -282,6 +294,7 @@ export interface RootRouteChildren {
   ApiPublicCronPurgeAccountsRoute: typeof ApiPublicCronPurgeAccountsRoute
   ApiPublicCronScanRoute: typeof ApiPublicCronScanRoute
   ApiPublicWorkerProcessRoute: typeof ApiPublicWorkerProcessRoute
+  ApiPublicWorkerShadowRoute: typeof ApiPublicWorkerShadowRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
   LovableEmailAuthWebhookRoute: typeof LovableEmailAuthWebhookRoute
   LovableEmailTransactionalPreviewRoute: typeof LovableEmailTransactionalPreviewRoute
@@ -408,6 +421,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicWorkerProcessRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/worker/shadow': {
+      id: '/api/public/worker/shadow'
+      path: '/api/public/worker/shadow'
+      fullPath: '/api/public/worker/shadow'
+      preLoaderRoute: typeof ApiPublicWorkerShadowRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/lovable/email/auth/preview': {
       id: '/lovable/email/auth/preview'
       path: '/lovable/email/auth/preview'
@@ -464,6 +484,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicCronPurgeAccountsRoute: ApiPublicCronPurgeAccountsRoute,
   ApiPublicCronScanRoute: ApiPublicCronScanRoute,
   ApiPublicWorkerProcessRoute: ApiPublicWorkerProcessRoute,
+  ApiPublicWorkerShadowRoute: ApiPublicWorkerShadowRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
   LovableEmailAuthWebhookRoute: LovableEmailAuthWebhookRoute,
   LovableEmailTransactionalPreviewRoute: LovableEmailTransactionalPreviewRoute,
