@@ -3,9 +3,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ACCOUNT_CURRENCIES, money } from "@/lib/risk";
-import { Copy, RefreshCw, Save } from "lucide-react";
+import { Copy, RefreshCw, Save, Send } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { runScanNow, type ManualScanResult } from "@/lib/scanner/scan.functions";
+import { sendTestWebhook } from "@/lib/webhook-test.functions";
 
 import { useAuth } from "@/hooks/useAuth";
 import { saveSettings, settingsQuery } from "@/lib/queries";
