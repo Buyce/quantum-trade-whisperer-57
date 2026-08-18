@@ -222,6 +222,63 @@ export type Database = {
         }
         Relationships: []
       }
+      regime_snapshots: {
+        Row: {
+          computed_at: string
+          direction: string | null
+          id: string
+          instrument: string | null
+          n_filled: number
+          n_total: number
+          p_fill_raw: number | null
+          p_fill_shrunk: number
+          p_win_raw: number | null
+          p_win_shrunk: number
+          regime_key: string
+          run_id: string
+          session: string | null
+          tier: number
+          vol_bucket: string | null
+          wins: number
+        }
+        Insert: {
+          computed_at?: string
+          direction?: string | null
+          id?: string
+          instrument?: string | null
+          n_filled?: number
+          n_total?: number
+          p_fill_raw?: number | null
+          p_fill_shrunk: number
+          p_win_raw?: number | null
+          p_win_shrunk: number
+          regime_key: string
+          run_id: string
+          session?: string | null
+          tier: number
+          vol_bucket?: string | null
+          wins?: number
+        }
+        Update: {
+          computed_at?: string
+          direction?: string | null
+          id?: string
+          instrument?: string | null
+          n_filled?: number
+          n_total?: number
+          p_fill_raw?: number | null
+          p_fill_shrunk?: number
+          p_win_raw?: number | null
+          p_win_shrunk?: number
+          regime_key?: string
+          run_id?: string
+          session?: string | null
+          tier?: number
+          vol_bucket?: string | null
+          wins?: number
+        }
+        Relationships: []
+      }
       regime_stats: {
         Row: {
           computed_at: string

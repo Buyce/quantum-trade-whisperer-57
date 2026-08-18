@@ -162,3 +162,44 @@ export function regimeStatsQuery() {
     },
   });
 }
+
+export interface RegimeSnapshotRow {
+  run_id: string;
+  computed_at: string;
+  tier: number;
+  regime_key: string;
+  instrument: string | null;
+  direction: string | null;
+  session: string | null;
+  vol_bucket: string | null;
+  n_total: number;
+  n_filled: number;
+  wins: number;
+  p_fill_raw: number | null;
+  p_win_raw: number | null;
+  p_fill_shrunk: number;
+  p_win_shrunk: number;
+}
+
+/**
+ * Training-data history: one row per regime per hourly recompute, appended by
+ * recompute_regime_stats(). Read-only; an empty result means the learning
+ * engine has not completed an iteration yet and MUST render as such.
+ */
+export function regimeSnapshotsQuery(limit = 4000) {
+  return queryOptions({
+    queryKey: ["regime-snapshots", limit],
+    staleTime: 5 * 60_000,
+    queryFn: async (): Promise<RegimeSnapshotRow[]> => {
+      const { data, error } = await supabase
+        .from("regime_snapshots" as never)
+        .select(
+          "run_id, computed_at, tier, regime_key, instrument, direction, session, vol_bucket, n_total, n_filled, wins, p_fill_raw, p_win_raw, p_fill_shrunk, p_win_shrunk",
+        )
+        .order("computed_at", { ascending: false })
+        .limit(limit);
+      if (error) throw error;
+      return (data ?? []) as unknown as RegimeSnapshotRow[];
+    },
+  });
+}
