@@ -1,0 +1,1 @@
+ALTER TABLE public.shadow_executions ADD COLUMN IF NOT EXISTS miss_distance_atr numeric;
