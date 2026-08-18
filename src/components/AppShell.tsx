@@ -21,6 +21,16 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  // Cosmetic gate only: the terminal itself is protected server-side and in SQL.
+  const { data: isOwner } = useQuery({
+    queryKey: ["is-owner"],
+    queryFn: async () => {
+      const { data } = await supabase.auth.getUser();
+      return (data.user?.email ?? "").toLowerCase() === "boatengampomah@gmail.com";
+    },
+    staleTime: Infinity,
+  });
+
 
   async function signOut() {
     await queryClient.cancelQueries();
