@@ -75,12 +75,21 @@ export function AppShell({ children }: { children: ReactNode }) {
             </nav>
 
             <div className="ml-auto flex shrink-0 items-center gap-1">
+              {isOwner ? (
+                <Button variant="ghost" size="sm" asChild aria-label="Admin intelligence">
+                  <Link to="/admin/intelligence">
+                    <ShieldCheck className="size-4" />
+                    <span className="hidden lg:inline">Admin</span>
+                  </Link>
+                </Button>
+              ) : null}
               <GuideModeToggle />
               <Button variant="ghost" size="sm" aria-label="Sign out" onClick={() => void signOut()}>
                 <LogOut className="size-4" />
                 <span className="hidden lg:inline">Sign out</span>
               </Button>
             </div>
+
           </div>
 
           <nav className="grid grid-cols-4 border-t border-border md:hidden">
