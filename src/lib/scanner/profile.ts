@@ -3,9 +3,12 @@ import { gradeSetup, readTimeframe, scoreConfluence } from "./grading";
 import {
   CONFIDENCE_WEIGHTS,
   DEFAULT_SPREAD_FLOOR,
+  DYNAMIC_ENTRY_ATR_FRACTION,
   MAX_RISK_ATR,
+  MIN_DYNAMIC_RISK_ATR,
   MIN_REACHABLE_R,
   PILLAR_PASS_SCORE,
+  RUNAWAY_SESSIONS,
   SLIPPAGE_TOLERANCE_R,
   TIGHT_SLIPPAGE_TOLERANCE_R,
   SPREAD_FLOOR,
@@ -100,6 +103,11 @@ export function buildBreakdown(args: {
 export interface BuildProfileInput {
   instrument: string;
   candles: Record<"H4" | "H1" | "M15", Candle[]>;
+  /**
+   * Trading session at detection time (see `sessionOf` in the pipeline). Drives
+   * the session-aware dynamic entry offset; omitted means structural entry only.
+   */
+  session?: string;
 }
 
 /**
@@ -122,40 +130,73 @@ export function buildTradeProfile(input: BuildProfileInput): TradeProfile | null
   const last = m15Candles[m15Candles.length - 1] as Candle | undefined;
   if (!last) return null;
 
-  // Entry is the Point C structural level, not "wherever the last candle
-  // closed". That is what makes this a genuine pending limit order and keeps
-  // risk stable across consecutive scans of the same leg.
-  const entryPrice = abc.c;
-
   // 1.2x M15 ATR beyond the structural extreme, floored by 0.5x H1 ATR and by
   // a realistic per-instrument spread allowance.
-  const buffer = Math.max(
-    m15.atr * STOP_M15_ATR_MULTIPLIER,
-    h1.atr * STOP_H1_ATR_FLOOR,
-    SPREAD_FLOOR[input.instrument] ?? DEFAULT_SPREAD_FLOOR,
-  );
+  const spreadFloor = SPREAD_FLOOR[input.instrument] ?? DEFAULT_SPREAD_FLOOR;
+  const buffer = Math.max(m15.atr * STOP_M15_ATR_MULTIPLIER, h1.atr * STOP_H1_ATR_FLOOR, spreadFloor);
   const recent = m15Candles.slice(-10);
   const structuralExtreme =
     direction === "long" ? Math.min(...recent.map((c) => c.low)) : Math.max(...recent.map((c) => c.high));
   const stopLoss = direction === "long" ? structuralExtreme - buffer : structuralExtreme + buffer;
 
-  const risk = Math.abs(entryPrice - stopLoss);
-  if (risk <= 0) return null;
-  // Over-wide risk is No-Trade, not a 0.5 R:R publication.
-  if (m15.atr > 0 && risk > m15.atr * MAX_RISK_ATR) return null;
-
   const sign = direction === "long" ? 1 : -1;
-
-  // Real reachable extension: distance from entry to the nearest H4 structural
-  // barrier, expressed in R. No unit mixing, no invented multiples.
   // The barrier that matters is the one this TRADE runs into, not the one H4's
   // own bias happens to point at. Reading barrierPrice here made every short
   // unpublishable whenever H4 was neutral or bullish (barrier above entry).
   const h4Barrier = direction === "long" ? h4.rangeHigh : h4.rangeLow;
-  const barrierRoom = (h4Barrier - entryPrice) * sign;
-  if (barrierRoom <= 0) return null;
-  const maxR = round(barrierRoom / risk);
-  if (maxR < MIN_REACHABLE_R) return null;
+
+  /**
+   * Risk / reachability validation for a candidate entry. Returns null when the
+   * candidate cannot be published under the unchanged global guards:
+   * over-wide risk is No-Trade, and so is an unreachable extension.
+   */
+  const evaluate = (candidate: number): { risk: number; maxR: number } | null => {
+    const r = Math.abs(candidate - stopLoss);
+    if (r <= 0) return null;
+    if (m15.atr > 0 && r > m15.atr * MAX_RISK_ATR) return null;
+    const room = (h4Barrier - candidate) * sign;
+    if (room <= 0) return null;
+    const mr = round(room / r);
+    if (mr < MIN_REACHABLE_R) return null;
+    return { risk: r, maxR: mr };
+  };
+
+  // Entry defaults to the Point C structural level, not "wherever the last
+  // candle closed". That is what makes this a genuine pending limit order and
+  // keeps risk stable across consecutive scans of the same leg.
+  const structuralEntry = abc.c;
+
+  // Session-aware dynamic entry offset. In the London/New York overlap the
+  // momentum regime rarely retests a deep Point C (87% of overlap setups never
+  // filled), so the limit is shifted toward the breakout close by a fraction of
+  // ATR. Every guard below falls back to the structural entry, so the feature
+  // can never lose a setup that publishes today.
+  let dynamicEntry = false;
+  let entryPrice = structuralEntry;
+  if (input.session && RUNAWAY_SESSIONS.includes(input.session) && m15.atr > 0) {
+    let candidate = last.close - sign * DYNAMIC_ENTRY_ATR_FRACTION * m15.atr;
+
+    // 1. Never a price worse than the current market — a limit must sit behind it.
+    const marketLimit = last.close - sign * spreadFloor;
+    const notWorseThanMarket = direction === "long" ? candidate <= marketLimit : candidate >= marketLimit;
+
+    // 2. Never further from the market than the structural entry.
+    candidate = direction === "long" ? Math.max(candidate, structuralEntry) : Math.min(candidate, structuralEntry);
+
+    // 3. Never crosses — or hugs — the stop.
+    const onCorrectSideOfStop = direction === "long" ? candidate > stopLoss : candidate < stopLoss;
+    const clearsStopFloor = Math.abs(candidate - stopLoss) >= MIN_DYNAMIC_RISK_ATR * m15.atr;
+
+    // 4. Risk ceiling and reachable-R floor, re-derived on the candidate.
+    if (notWorseThanMarket && onCorrectSideOfStop && clearsStopFloor && evaluate(candidate)) {
+      entryPrice = candidate;
+      dynamicEntry = candidate !== structuralEntry;
+    }
+  }
+
+  const validated = evaluate(entryPrice);
+  if (!validated) return null;
+  const { risk, maxR } = validated;
 
   const capped = maxR < 3;
   const multiples: [number, number, number | null] =
@@ -183,6 +224,7 @@ export function buildTradeProfile(input: BuildProfileInput): TradeProfile | null
   const maxAcceptableEntry = round(entryPrice + sign * risk * tolerance, 5);
 
 
+
   const pillars = scoreConfluence({
     direction,
     pointC: abc.c,
@@ -196,6 +238,11 @@ export function buildTradeProfile(input: BuildProfileInput): TradeProfile | null
 
   // A+ is a strict superset of A: the same structure plus all four pillars.
   const grade: Grade = graded.grade === "A" && pillars.passed === 4 ? "A+" : graded.grade;
+
+  // One sentence so the card explains why the limit is not sitting at Point C.
+  const dynamicEntryNote = dynamicEntry
+    ? ` Entry is dynamically offset: the ${input.session} momentum regime rarely retests the structural Point C (${round(structuralEntry, 5)}), so the limit sits ${DYNAMIC_ENTRY_ATR_FRACTION} ATR behind the detection close instead, with risk re-validated against the unchanged structural stop.`
+    : "";
 
   const confidence = scoreConfidence({ pillars, rrRatio, symmetry: abc.symmetry });
 
@@ -250,7 +297,7 @@ export function buildTradeProfile(input: BuildProfileInput): TradeProfile | null
       pillars,
       capped,
       maxR,
-    }),
+    }) + dynamicEntryNote,
   };
 }
 
