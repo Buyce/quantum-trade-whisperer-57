@@ -190,6 +190,62 @@ function ExecutionChip({
   );
 }
 
+/**
+ * Read-only Intelligence Panel. Shows the advisory Bayesian priors the scanner
+ * recorded from shadow telemetry, always alongside the sample size behind them.
+ *
+ * ZERO-HALLUCINATION: renders nothing at all when the signal has no priors, and
+ * labels the numbers "advisory" until the activation gates are cleared. It never
+ * substitutes a placeholder percentage, and it influences nothing.
+ */
+function IntelligencePanel({ signal }: { signal: SignalRow }) {
+  const pFill = signal.p_fill_prior;
+  const pWin = signal.p_win_prior;
+  const ev = signal.ev_prior;
+  const n = signal.prior_sample_n ?? 0;
+  if (pFill == null || pWin == null) return null;
+
+  const fillGate = n >= MIN_N_FILL;
+  const winGate = n >= MIN_N_WIN;
+  const pct = (v: number) => `${(Number(v) * 100).toFixed(1)}%`;
+
+  return (
+    <div className="border-t border-border px-3 py-4 sm:px-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <p className="label-xs">
+          <InfoLabel hint="Historical rates measured by replaying past setups from this same regime against real candles. Smoothed toward the wider average when the sample is small, so a thin bucket can never show a wild number.">
+            Intelligence (advisory)
+          </InfoLabel>
+        </p>
+        <span className="num text-xs text-muted-foreground">sample n = {n}</span>
+      </div>
+
+      <dl className="mt-3 grid grid-cols-3 gap-3">
+        <div className="min-w-0">
+          <dt className="label-xs">Fill rate</dt>
+          <dd className="num text-base font-semibold text-foreground">{pct(pFill)}</dd>
+        </div>
+        <div className="min-w-0">
+          <dt className="label-xs">Win if filled</dt>
+          <dd className="num text-base font-semibold text-foreground">{pct(pWin)}</dd>
+        </div>
+        <div className="min-w-0">
+          <dt className="label-xs">Expected value</dt>
+          <dd className="num text-base font-semibold text-foreground">
+            {ev == null ? "—" : pct(ev)}
+          </dd>
+        </div>
+      </dl>
+
+      <p className="mt-3 text-xs leading-snug text-muted-foreground">
+        {fillGate && winGate
+          ? "Sample size has cleared both statistical thresholds. These rates still do not place or block trades."
+          : `Learning — insufficient sample (${n}/${fillGate ? MIN_N_WIN : MIN_N_FILL}). Shown for observation only: grading, alerts and the daily limit ignore these numbers entirely.`}
+      </p>
+    </div>
+  );
+}
+
 export function SignalCard({
   signal,
   trade,
