@@ -11,8 +11,11 @@ import { describeError } from "@/lib/scanner/pipeline.server";
 import { replaySetup, type ReplayInput } from "./replay";
 
 const MAX_ROWS_PER_RUN = 200;
-/** 24h of M15 bars is 96; 200 covers the vertical barrier plus weekend gaps. */
-const CANDLE_DEPTH = 200;
+/**
+ * 1000 M15 bars is ~10 days of session time — deep enough to replay a backlog
+ * from the start of the dataset, not just the last day.
+ */
+const CANDLE_DEPTH = 1000;
 
 interface ShadowRow {
   id: string;
