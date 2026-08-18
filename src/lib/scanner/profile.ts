@@ -103,6 +103,11 @@ export function buildBreakdown(args: {
 export interface BuildProfileInput {
   instrument: string;
   candles: Record<"H4" | "H1" | "M15", Candle[]>;
+  /**
+   * Trading session at detection time (see `sessionOf` in the pipeline). Drives
+   * the session-aware dynamic entry offset; omitted means structural entry only.
+   */
+  session?: string;
 }
 
 /**
@@ -234,6 +239,11 @@ export function buildTradeProfile(input: BuildProfileInput): TradeProfile | null
   // A+ is a strict superset of A: the same structure plus all four pillars.
   const grade: Grade = graded.grade === "A" && pillars.passed === 4 ? "A+" : graded.grade;
 
+  // One sentence so the card explains why the limit is not sitting at Point C.
+  const dynamicEntryNote = dynamicEntry
+    ? ` Entry is dynamically offset: the ${input.session} momentum regime rarely retests the structural Point C (${round(structuralEntry, 5)}), so the limit sits ${DYNAMIC_ENTRY_ATR_FRACTION} ATR behind the detection close instead, with risk re-validated against the unchanged structural stop.`
+    : "";
+
   const confidence = scoreConfidence({ pillars, rrRatio, symmetry: abc.symmetry });
 
   const satisfied = [...graded.reasonsSatisfied];
@@ -287,7 +297,7 @@ export function buildTradeProfile(input: BuildProfileInput): TradeProfile | null
       pillars,
       capped,
       maxR,
-    }),
+    }) + dynamicEntryNote,
   };
 }
 
