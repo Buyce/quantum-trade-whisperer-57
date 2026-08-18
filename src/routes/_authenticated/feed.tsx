@@ -26,6 +26,8 @@ import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { downloadJson, signalsToExportJson, todayStamp } from "@/lib/export";
 import { useQuotes } from "@/lib/useQuotes";
+import { recordSignalEvent } from "@/lib/telemetry.functions";
+
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/feed")({
