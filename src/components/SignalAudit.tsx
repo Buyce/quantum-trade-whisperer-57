@@ -115,7 +115,7 @@ export function SignalAudit() {
       <section className="rounded-md border border-border bg-card">
         <header className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
           <h2 className="label-xs">
-            <InfoLabel tip="Every scanned setup with its grade, the decisions users logged against it, and how many times the shadow engine enrolled and replayed it.">
+            <InfoLabel hint="Every scanned setup with its grade, the decisions users logged against it, and how many times the shadow engine enrolled and replayed it.">
               Per-signal audit
             </InfoLabel>
           </h2>
