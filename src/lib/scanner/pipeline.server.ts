@@ -287,6 +287,10 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
         detected_at: now.toISOString(),
         status: "active",
         resolved_outcome: "open",
+        p_fill_prior: prior?.pFill ?? null,
+        p_win_prior: prior?.pWin ?? null,
+        ev_prior: prior?.ev ?? null,
+        prior_sample_n: prior?.sampleN ?? null,
       })
       .select("id")
       .single();
