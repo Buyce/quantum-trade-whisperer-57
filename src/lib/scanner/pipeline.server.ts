@@ -306,7 +306,7 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
 
     const { error: ctxError } = await db.from("market_context").insert({
       signal_id: signalId,
-      trading_session: sessionOf(now),
+      trading_session: session,
       volatility_index: volatilityIndex,
       time_of_day: now.getUTCHours(),
       day_of_week: now.getUTCDay(),
