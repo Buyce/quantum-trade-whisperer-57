@@ -154,5 +154,7 @@ export async function sendSignalAlerts(db: SupabaseClient, signal: AlertSignal) 
       tifMinutes: ORDER_TIF_MINUTES,
     },
     webhookTargets,
+    db,
   );
 }
+

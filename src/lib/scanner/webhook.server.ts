@@ -9,6 +9,8 @@
  * can never throw into the pipeline.
  */
 
+import type { SupabaseClient } from "@supabase/supabase-js";
+
 export const WEBHOOK_TIMEOUT_MS = 5_000;
 
 export interface WebhookSignal {
@@ -77,41 +79,93 @@ export function jsonPayload(signal: WebhookSignal, secret: string | null) {
   };
 }
 
-async function dispatchOne(signal: WebhookSignal, target: WebhookTarget) {
+export interface DispatchAttempt {
+  userId: string;
+  url: string;
+  status: number | null;
+  latencyMs: number;
+  error: string | null;
+}
+
+async function dispatchOne(signal: WebhookSignal, target: WebhookTarget): Promise<DispatchAttempt> {
   const isPine = target.format === "pineconnector";
   const body = isPine
     ? pineConnectorPayload(signal, target.secret ?? "")
     : JSON.stringify(jsonPayload(signal, target.secret));
 
-  const res = await fetch(target.url, {
-    method: "POST",
-    headers: {
-      "content-type": isPine ? "text/plain" : "application/json",
-      // Idempotency key so a worker retry cannot double-fire an order.
-      "x-ptrades-idempotency-key": `${signal.id}-${target.userId}`,
-    },
-    body,
-    signal: AbortSignal.timeout(WEBHOOK_TIMEOUT_MS),
-  });
-  if (!res.ok) throw new Error(`webhook responded ${res.status}`);
+  const startedAt = Date.now();
+  try {
+    const res = await fetch(target.url, {
+      method: "POST",
+      headers: {
+        "content-type": isPine ? "text/plain" : "application/json",
+        // Idempotency key so a worker retry cannot double-fire an order.
+        "x-ptrades-idempotency-key": `${signal.id}-${target.userId}`,
+      },
+      body,
+      signal: AbortSignal.timeout(WEBHOOK_TIMEOUT_MS),
+    });
+    return {
+      userId: target.userId,
+      url: target.url,
+      status: res.status,
+      latencyMs: Date.now() - startedAt,
+      error: res.ok ? null : `webhook responded ${res.status}`,
+    };
+  } catch (err) {
+    return {
+      userId: target.userId,
+      url: target.url,
+      status: null,
+      latencyMs: Date.now() - startedAt,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
 }
 
-/** Fire-and-report: never throws, never blocks longer than one timeout. */
-export async function dispatchWebhooks(signal: WebhookSignal, targets: WebhookTarget[]) {
+/** Only the insert path is used, so the client is accepted structurally. */
+type DispatchLogger = Pick<SupabaseClient, "from">;
+
+
+/**
+ * Fire-and-report: never throws, never blocks longer than one timeout.
+ *
+ * Telemetry is written fire-and-forget into `webhook_dispatch_log` — the log is
+ * an observability artefact for the admin terminal, so a failing insert must
+ * never surface to the trader or the scan worker.
+ */
+export async function dispatchWebhooks(
+  signal: WebhookSignal,
+  targets: WebhookTarget[],
+  db?: DispatchLogger,
+) {
   if (!targets.length) return;
-  const results = await Promise.allSettled(
-    targets.map(async (t) => {
-      try {
-        await dispatchOne(signal, t);
-      } catch (err) {
-        console.error("[webhook] dispatch failed", {
-          user: t.userId,
-          signal: signal.id,
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
-    }),
-  );
-  const failed = results.filter((r) => r.status === "rejected").length;
-  if (failed) console.error(`[webhook] ${failed} dispatch(es) rejected for signal ${signal.id}`);
+  const attempts = await Promise.all(targets.map((t) => dispatchOne(signal, t)));
+
+  const failed = attempts.filter((a) => a.error !== null);
+  for (const a of failed) {
+    console.error("[webhook] dispatch failed", { user: a.userId, signal: signal.id, error: a.error });
+  }
+  if (failed.length) {
+    console.error(`[webhook] ${failed.length} dispatch(es) rejected for signal ${signal.id}`);
+  }
+
+  if (db) {
+    void Promise.resolve(
+      db.from("webhook_dispatch_log").insert(
+        attempts.map((a) => ({
+          signal_id: signal.id,
+          user_id: a.userId,
+          endpoint_url: a.url,
+          http_status: a.status,
+          latency_ms: a.latencyMs,
+          error: a.error,
+        })),
+      ),
+    ).then(
+      () => undefined,
+      () => undefined,
+    );
+  }
 }
+
