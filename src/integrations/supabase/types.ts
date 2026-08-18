@@ -648,6 +648,7 @@ export type Database = {
           max_adverse_excursion_r: number | null
           max_favorable_excursion_r: number | null
           max_r: number | null
+          miss_distance_atr: number | null
           ml_target_label: number | null
           realized_r: number | null
           replay_cursor: string | null
@@ -687,6 +688,7 @@ export type Database = {
           max_adverse_excursion_r?: number | null
           max_favorable_excursion_r?: number | null
           max_r?: number | null
+          miss_distance_atr?: number | null
           ml_target_label?: number | null
           realized_r?: number | null
           replay_cursor?: string | null
@@ -726,6 +728,7 @@ export type Database = {
           max_adverse_excursion_r?: number | null
           max_favorable_excursion_r?: number | null
           max_r?: number | null
+          miss_distance_atr?: number | null
           ml_target_label?: number | null
           realized_r?: number | null
           replay_cursor?: string | null
