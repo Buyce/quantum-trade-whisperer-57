@@ -1,7 +1,8 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { Activity, BarChart3, History, LogOut, Settings as SettingsIcon } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { Activity, BarChart3, History, LogOut, Settings as SettingsIcon, ShieldCheck } from "lucide-react";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
+
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,16 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  // Cosmetic gate only: the terminal itself is protected server-side and in SQL.
+  const { data: isOwner } = useQuery({
+    queryKey: ["is-owner"],
+    queryFn: async () => {
+      const { data } = await supabase.auth.getUser();
+      return (data.user?.email ?? "").toLowerCase() === "boatengampomah@gmail.com";
+    },
+    staleTime: Infinity,
+  });
+
 
   async function signOut() {
     await queryClient.cancelQueries();
@@ -75,12 +86,21 @@ export function AppShell({ children }: { children: ReactNode }) {
             </nav>
 
             <div className="ml-auto flex shrink-0 items-center gap-1">
+              {isOwner ? (
+                <Button variant="ghost" size="sm" asChild aria-label="Admin intelligence">
+                  <Link to="/admin/intelligence">
+                    <ShieldCheck className="size-4" />
+                    <span className="hidden lg:inline">Admin</span>
+                  </Link>
+                </Button>
+              ) : null}
               <GuideModeToggle />
               <Button variant="ghost" size="sm" aria-label="Sign out" onClick={() => void signOut()}>
                 <LogOut className="size-4" />
                 <span className="hidden lg:inline">Sign out</span>
               </Button>
             </div>
+
           </div>
 
           <nav className="grid grid-cols-4 border-t border-border md:hidden">

@@ -834,6 +834,39 @@ export type Database = {
           },
         ]
       }
+      webhook_dispatch_log: {
+        Row: {
+          created_at: string
+          endpoint_url: string | null
+          error: string | null
+          http_status: number | null
+          id: string
+          latency_ms: number | null
+          signal_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          endpoint_url?: string | null
+          error?: string | null
+          http_status?: number | null
+          id?: string
+          latency_ms?: number | null
+          signal_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          endpoint_url?: string | null
+          error?: string | null
+          http_status?: number | null
+          id?: string
+          latency_ms?: number | null
+          signal_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -854,6 +887,8 @@ export type Database = {
           signal_id: string
         }[]
       }
+      get_admin_intelligence: { Args: never; Returns: Json }
+      is_admin: { Args: never; Returns: boolean }
       maintain_scan_queue: { Args: never; Returns: Json }
       maintain_shadow_queue: { Args: never; Returns: Json }
       purge_expired_signals: { Args: never; Returns: number }
