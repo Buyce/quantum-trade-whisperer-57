@@ -32,6 +32,7 @@ interface ShadowRow {
   tp2_r: number | null;
   tp3_r: number | null;
   risk_price: number;
+  atr: number | null;
   filled_at: string | null;
   fill_price: number | null;
   execution_slippage_pips: number | null;
