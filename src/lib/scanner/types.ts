@@ -169,3 +169,20 @@ export const STRUCTURE_COOLDOWN_MINUTES = 120;
  * price (to this many decimals) match. Re-publishing one is suppressed.
  */
 export const ENTRY_PRICE_DECIMALS = 5;
+
+/**
+ * Sessions where momentum rarely retests a deep Point C. Phase 0 measured a 13%
+ * fill rate in the London/New York overlap versus 69% in standard London, so the
+ * limit entry is shifted toward the breakout close in this regime only.
+ */
+export const RUNAWAY_SESSIONS: string[] = ["london_new_york_overlap"];
+
+/** Retracement from the detection candle's close used for the dynamic entry. */
+export const DYNAMIC_ENTRY_ATR_FRACTION = 0.3;
+
+/**
+ * A dynamic entry must keep at least this much M15 ATR between itself and the
+ * structural stop. Below it the trade is a coin flip on spread, so the entry
+ * falls back to Point C.
+ */
+export const MIN_DYNAMIC_RISK_ATR = 0.5;
