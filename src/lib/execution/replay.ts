@@ -94,6 +94,7 @@ export function replaySetup(input: ReplayInput, candles: Candle[]): ReplayState 
     outcome: null,
     label: null,
     replayCursor: input.replayCursor,
+    missDistanceAtr: null,
   };
 
   if (!Number.isFinite(risk) || risk <= 0) {
@@ -107,8 +108,27 @@ export function replaySetup(input: ReplayInput, candles: Candle[]): ReplayState 
 
   const ladder = buildLadder(input, isLong, risk);
 
+  const atr = Number(input.atr);
+  const hasAtr = Number.isFinite(atr) && atr > 0;
+  /** Best price reached toward the entry while the order was still working. */
+  let closest: number | null = null;
+  const noteApproach = (candle: Candle) => {
+    const reach = isLong ? candle.low : candle.high;
+    if (closest == null) closest = reach;
+    else closest = isLong ? Math.min(closest, reach) : Math.max(closest, reach);
+  };
+  const missAtr = () => {
+    if (!hasAtr || closest == null) return null;
+    const gap = isLong ? closest - input.entryPrice : input.entryPrice - closest;
+    return Number((gap / atr).toFixed(4));
+  };
+
+  // A limit order placed at detection is live inside the M15 bar that is
+  // already forming, so that bar must be replayed. On a resumed run the stored
+  // cursor is authoritative and only strictly-later bars are consumed.
+  const fresh = state.replayCursor == null;
   const relevant = candles
-    .filter((c) => ms(c.time) > cursor)
+    .filter((c) => (fresh ? ms(c.time) + M15_MS > detected : ms(c.time) > cursor))
     .sort((a, b) => ms(a.time) - ms(b.time));
 
   for (const candle of relevant) {
@@ -117,7 +137,10 @@ export function replaySetup(input: ReplayInput, candles: Candle[]): ReplayState 
 
     // --- Fill leg -----------------------------------------------------------
     if (!state.filledAt) {
-      const touched = candle.low <= input.entryPrice && candle.high >= input.entryPrice;
+      // A limit fills whenever price trades at or through it — including a bar
+      // that trades entirely beyond the limit (a gap-through), which a
+      // range-containment test would miss.
+      const touched = isLong ? candle.low <= input.entryPrice : candle.high >= input.entryPrice;
       if (touched) {
         // A gap-through bar fills at the open, which is the only real slippage
         // a limit order can suffer.
@@ -127,6 +150,7 @@ export function replaySetup(input: ReplayInput, candles: Candle[]): ReplayState 
         state.fillPrice = fill;
         state.slippagePips = Math.abs(fill - input.entryPrice) / pip;
       } else {
+        noteApproach(candle);
         if (t > tifDeadline) {
           return {
             ...state,
@@ -135,12 +159,14 @@ export function replaySetup(input: ReplayInput, candles: Candle[]): ReplayState 
             label: 0,
             realizedR: 0,
             barsToOutcome: state.barsReplayed,
+            missDistanceAtr: missAtr(),
           };
         }
         state.barsReplayed += 1;
         continue;
       }
     }
+
 
     state.barsReplayed += 1;
 
