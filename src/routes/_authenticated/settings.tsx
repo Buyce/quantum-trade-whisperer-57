@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { ACCOUNT_CURRENCIES, money } from "@/lib/risk";
 import { Copy, RefreshCw, Save } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { runScanNow, type ManualScanResult } from "@/lib/scanner/scan.functions";
@@ -60,6 +61,14 @@ function SettingsPage() {
   const [webhookUrl, setWebhookUrl] = useState("");
   const [webhookSecret, setWebhookSecret] = useState("");
   const [webhookFormat, setWebhookFormat] = useState<WebhookFormat>("json");
+  // Risk profile. Held as strings so a half-typed number never becomes NaN or
+  // snaps back to a default while the field has focus.
+  const [equity, setEquity] = useState("0");
+  const [currency, setCurrency] = useState("USD");
+  const [riskPercent, setRiskPercent] = useState("1");
+  const [maxLots, setMaxLots] = useState("0");
+  const [leverage, setLeverage] = useState("100");
+  const [maxStopPercent, setMaxStopPercent] = useState("0");
   const [saving, setSaving] = useState(false);
   const triggerScan = useServerFn(runScanNow);
   const [scanning, setScanning] = useState(false);
@@ -100,6 +109,12 @@ function SettingsPage() {
     setWebhookUrl(s.webhook_url ?? "");
     setWebhookSecret(s.webhook_secret ?? "");
     setWebhookFormat(s.webhook_format ?? "json");
+    setEquity(String(Number(s.account_equity ?? 0)));
+    setCurrency(s.account_currency ?? "USD");
+    setRiskPercent(String(Number(s.risk_per_trade_percent ?? 1)));
+    setMaxLots(String(Number(s.max_position_size ?? 0)));
+    setLeverage(String(Number(s.leverage ?? 100)));
+    setMaxStopPercent(String(Number(s.max_stop_loss_percent ?? 0)));
   }, [settings.data]);
 
   function toggle(list: string[], value: string, set: (v: string[]) => void) {
@@ -119,6 +134,20 @@ function SettingsPage() {
         return;
       }
     }
+
+    // Clamped to the same bounds the database enforces, so a save is never
+    // rejected by a constraint the user cannot see.
+    const num = (v: string, fallback: number) => {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : fallback;
+    };
+    const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
+    const equityValue = clamp(num(equity, 0), 0, 1e12);
+    const riskValue = clamp(num(riskPercent, 1), 0.01, 100);
+    const lotsValue = clamp(num(maxLots, 0), 0, 1000);
+    const leverageValue = Math.round(clamp(num(leverage, 100), 1, 3000));
+    const stopValue = clamp(num(maxStopPercent, 0), 0, 100);
+
     setSaving(true);
     try {
       await saveSettings({
@@ -136,6 +165,12 @@ function SettingsPage() {
         webhook_url: webhookUrl.trim() || null,
         webhook_secret: webhookSecret.trim() || null,
         webhook_format: webhookFormat,
+        account_equity: equityValue,
+        account_currency: currency,
+        risk_per_trade_percent: riskValue,
+        max_position_size: lotsValue,
+        leverage: leverageValue,
+        max_stop_loss_percent: stopValue,
       });
       await queryClient.invalidateQueries({ queryKey: ["scanner-settings"] });
       toast.success("Settings saved");
@@ -171,6 +206,7 @@ function SettingsPage() {
       <Tabs defaultValue="filters" className="space-y-4">
         <TabsList className="grid w-full grid-cols-2 sm:inline-flex sm:w-auto">
           <TabsTrigger value="filters">Filters &amp; alerts</TabsTrigger>
+          <TabsTrigger value="risk">Risk</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger>
           <TabsTrigger value="account">Account</TabsTrigger>
@@ -283,6 +319,153 @@ function SettingsPage() {
               </p>
             </div>
           </section>
+
+          <SaveBar saving={saving} onSave={() => void onSave()} />
+        </TabsContent>
+
+        <TabsContent value="risk" className="space-y-4">
+          <section className="space-y-5 rounded-md border border-border bg-card p-4">
+            <div>
+              <h2 className="label-xs">Risk profile</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Every setup in your feed is sized against these numbers. They are used for
+                calculation and display only — the scanner, the grades and the alert thresholds
+                never read them, and nothing here places an order.
+              </p>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <Label className="text-xs" htmlFor="equity">
+                  Account balance
+                </Label>
+                <Input
+                  id="equity"
+                  type="number"
+                  inputMode="decimal"
+                  min={0}
+                  step="0.01"
+                  className="num mt-2"
+                  value={equity}
+                  onChange={(e) => setEquity(e.target.value)}
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Required: without a balance there is nothing to take a percentage of, so cards
+                  show no lot size rather than a guess.
+                </p>
+              </div>
+              <div>
+                <Label className="text-xs" htmlFor="currency">
+                  Account currency
+                </Label>
+                <Select value={currency} onValueChange={setCurrency}>
+                  <SelectTrigger id="currency" className="mt-2">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ACCOUNT_CURRENCIES.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  GBP/AUD risk is earned in AUD, so it is converted at the live rate. If that rate
+                  is unavailable the card says so instead of assuming parity.
+                </p>
+              </div>
+              <div>
+                <Label className="text-xs" htmlFor="risk-percent">
+                  Max risk per trade (%)
+                </Label>
+                <Input
+                  id="risk-percent"
+                  type="number"
+                  inputMode="decimal"
+                  min={0.01}
+                  max={100}
+                  step="0.05"
+                  className="num mt-2"
+                  value={riskPercent}
+                  onChange={(e) => setRiskPercent(e.target.value)}
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  The loss if the stop is hit — this is what sets the lot size. 1–2% is the
+                  conventional ceiling.
+                </p>
+              </div>
+              <div>
+                <Label className="text-xs" htmlFor="max-lots">
+                  Max position size (lots)
+                </Label>
+                <Input
+                  id="max-lots"
+                  type="number"
+                  inputMode="decimal"
+                  min={0}
+                  max={1000}
+                  step="0.01"
+                  className="num mt-2"
+                  value={maxLots}
+                  onChange={(e) => setMaxLots(e.target.value)}
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Hard ceiling applied after the calculation. 0 means no cap. When it binds, you
+                  risk less than your percentage, and the card tells you.
+                </p>
+              </div>
+              <div>
+                <Label className="text-xs" htmlFor="leverage">
+                  Leverage (1:N)
+                </Label>
+                <Input
+                  id="leverage"
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={3000}
+                  step="1"
+                  className="num mt-2"
+                  value={leverage}
+                  onChange={(e) => setLeverage(e.target.value)}
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Used only to show the margin a size needs. Leverage does not change your risk —
+                  the stop distance does.
+                </p>
+              </div>
+              <div>
+                <Label className="text-xs" htmlFor="max-stop">
+                  Max stop-loss (% of entry)
+                </Label>
+                <Input
+                  id="max-stop"
+                  type="number"
+                  inputMode="decimal"
+                  min={0}
+                  max={100}
+                  step="0.05"
+                  className="num mt-2"
+                  value={maxStopPercent}
+                  onChange={(e) => setMaxStopPercent(e.target.value)}
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Flags setups whose stop sits further than this from entry. 0 turns the check off.
+                  It filters nothing out — wide-stop setups are still shown, just marked.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <RiskPreview
+            equity={equity}
+            currency={currency}
+            riskPercent={riskPercent}
+            maxLots={maxLots}
+            leverage={leverage}
+            maxStopPercent={maxStopPercent}
+          />
 
           <SaveBar saving={saving} onSave={() => void onSave()} />
         </TabsContent>
@@ -599,5 +782,81 @@ function Row({
       </div>
       <Switch id={id} checked={checked} onCheckedChange={onChange} />
     </div>
+  );
+}
+
+/**
+ * Shows only what can be derived from the profile itself — the cash at stake per
+ * trade and the margin headroom. Deliberately no example entry/stop prices: a
+ * worked setup would be invented data, and real sizing appears on live cards.
+ */
+function RiskPreview({
+  equity,
+  currency,
+  riskPercent,
+  maxLots,
+  leverage,
+  maxStopPercent,
+}: {
+  equity: string;
+  currency: string;
+  riskPercent: string;
+  maxLots: string;
+  leverage: string;
+  maxStopPercent: string;
+}) {
+  const eq = Number(equity);
+  const rp = Number(riskPercent);
+  const lev = Number(leverage);
+  const cap = Number(maxLots);
+  const stopCeiling = Number(maxStopPercent);
+
+  if (!Number.isFinite(eq) || eq <= 0 || !Number.isFinite(rp) || rp <= 0) {
+    return (
+      <section className="rounded-md border border-border bg-card p-4">
+        <h2 className="label-xs">What this means per trade</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Enter a balance and a risk percentage to see the cash at stake per trade.
+        </p>
+      </section>
+    );
+  }
+
+  const budget = (eq * rp) / 100;
+  const buyingPower = Number.isFinite(lev) && lev > 0 ? eq * lev : null;
+
+  return (
+    <section className="rounded-md border border-border bg-card p-4">
+      <h2 className="label-xs">What this means per trade</h2>
+      <dl className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <div className="min-w-0">
+          <dt className="label-xs">Risk per trade</dt>
+          <dd className="num text-base font-semibold text-short">{money(budget, currency)}</dd>
+        </div>
+        <div className="min-w-0">
+          <dt className="label-xs">Losses to halve account</dt>
+          <dd className="num text-base font-semibold">{Math.ceil(50 / rp)} in a row</dd>
+        </div>
+        <div className="min-w-0">
+          <dt className="label-xs">Max position value</dt>
+          <dd className="num text-base font-semibold">
+            {buyingPower === null ? "—" : money(buyingPower, currency)}
+          </dd>
+        </div>
+        <div className="min-w-0">
+          <dt className="label-xs">Lot ceiling</dt>
+          <dd className="num text-base font-semibold">
+            {Number.isFinite(cap) && cap > 0 ? cap.toFixed(2) : "None"}
+          </dd>
+        </div>
+      </dl>
+      <p className="mt-3 text-xs leading-snug text-muted-foreground">
+        A setup whose stop is more than{" "}
+        {Number.isFinite(stopCeiling) && stopCeiling > 0
+          ? `${stopCeiling}% from entry will be marked as wider than your tolerance`
+          : "your tolerance will not be marked, because the stop-loss check is off"}
+        .
+      </p>
+    </section>
   );
 }

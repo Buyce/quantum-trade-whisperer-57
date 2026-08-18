@@ -26,6 +26,7 @@ import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { downloadJson, signalsToExportJson, todayStamp } from "@/lib/export";
 import { useQuotes } from "@/lib/useQuotes";
+import { riskProfileFromSettings } from "@/lib/risk";
 import { recordSignalEvent } from "@/lib/telemetry.functions";
 
 import { cn } from "@/lib/utils";
@@ -57,7 +58,7 @@ function FeedPage() {
   const settings = useQuery(settingsQuery(user?.id));
   const health = useQuery(instrumentHealthQuery());
   // One shared cached quote poll for the whole page — cards read from this map.
-  const quotes = useQuotes();
+  const { quotes, rates } = useQuotes();
 
   const [busyId, setBusyId] = useState<string | null>(null);
   const [applyFilters, setApplyFilters] = useState(true);
@@ -359,6 +360,8 @@ function FeedPage() {
                 busy={busyId === signal.id || busyId === trade?.id}
                 quoteMid={quotes[signal.instrument]?.mid}
                 orderStrategy={settings.data?.order_strategy ?? "smart_adaptive"}
+                riskProfile={riskProfileFromSettings(settings.data)}
+                fxRates={rates}
                 onDecision={(d) => void decide(signal.id, d)}
                 onResult={(outcome, r) => {
                   if (trade) void close(trade.id, outcome, r);
