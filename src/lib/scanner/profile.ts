@@ -148,7 +148,11 @@ export function buildTradeProfile(input: BuildProfileInput): TradeProfile | null
 
   // Real reachable extension: distance from entry to the nearest H4 structural
   // barrier, expressed in R. No unit mixing, no invented multiples.
-  const barrierRoom = (h4.barrierPrice - entryPrice) * sign;
+  // The barrier that matters is the one this TRADE runs into, not the one H4's
+  // own bias happens to point at. Reading barrierPrice here made every short
+  // unpublishable whenever H4 was neutral or bullish (barrier above entry).
+  const h4Barrier = direction === "long" ? h4.rangeHigh : h4.rangeLow;
+  const barrierRoom = (h4Barrier - entryPrice) * sign;
   if (barrierRoom <= 0) return null;
   const maxR = round(barrierRoom / risk);
   if (maxR < MIN_REACHABLE_R) return null;

@@ -30,6 +30,10 @@ export interface TimeframeRead {
   atr: number;
   /** Absolute price of that nearest structural barrier. */
   barrierPrice: number;
+  /** High of the recent range on this timeframe — the barrier a long runs into. */
+  rangeHigh: number;
+  /** Low of the recent range on this timeframe — the barrier a short runs into. */
+  rangeLow: number;
   /** True when price is reacting inside the Point C liquidity zone. */
   atPointC: boolean;
 }
