@@ -31,6 +31,7 @@ interface ShadowRow {
   risk_price: number;
   filled_at: string | null;
   fill_price: number | null;
+  execution_slippage_pips: number | null;
   max_favorable_excursion_r: number | null;
   max_adverse_excursion_r: number | null;
   bars_replayed: number;
@@ -49,7 +50,7 @@ export async function resolveShadowExecutions(db: SupabaseClient): Promise<Resol
   const { data, error } = await db
     .from("shadow_executions")
     .select(
-      "id, signal_id, instrument, direction, detected_at, entry_price, stop_loss, tp1, tp2, tp3, tp1_r, tp2_r, tp3_r, risk_price, filled_at, fill_price, max_favorable_excursion_r, max_adverse_excursion_r, bars_replayed, replay_cursor",
+      "id, signal_id, instrument, direction, detected_at, entry_price, stop_loss, tp1, tp2, tp3, tp1_r, tp2_r, tp3_r, risk_price, filled_at, fill_price, execution_slippage_pips, max_favorable_excursion_r, max_adverse_excursion_r, bars_replayed, replay_cursor",
     )
     .in("status", ["pending", "open"])
     .order("detected_at", { ascending: true })
@@ -123,7 +124,7 @@ export async function resolveShadowExecutions(db: SupabaseClient): Promise<Resol
           status: state.status,
           filled_at: state.filledAt,
           fill_price: state.fillPrice,
-          execution_slippage_pips: state.slippagePips ?? row.execution_slippage_pips_placeholder,
+          execution_slippage_pips: state.slippagePips ?? row.execution_slippage_pips,
           max_favorable_excursion_r: round(state.mfeR),
           max_adverse_excursion_r: round(state.maeR),
           bars_replayed: state.barsReplayed,
