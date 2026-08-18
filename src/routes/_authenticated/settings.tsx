@@ -3,9 +3,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ACCOUNT_CURRENCIES, money } from "@/lib/risk";
-import { Copy, RefreshCw, Save } from "lucide-react";
+import { Copy, RefreshCw, Save, Send } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { runScanNow, type ManualScanResult } from "@/lib/scanner/scan.functions";
+import { sendTestWebhook } from "@/lib/webhook-test.functions";
 
 import { useAuth } from "@/hooks/useAuth";
 import { saveSettings, settingsQuery } from "@/lib/queries";
@@ -73,6 +74,27 @@ function SettingsPage() {
   const triggerScan = useServerFn(runScanNow);
   const [scanning, setScanning] = useState(false);
   const [scanReport, setScanReport] = useState<ManualScanResult | null>(null);
+  const triggerTestWebhook = useServerFn(sendTestWebhook);
+  const [testingWebhook, setTestingWebhook] = useState(false);
+  const [testPreview, setTestPreview] = useState<string | null>(null);
+
+  const savedWebhookUrl = settings.data?.webhook_url?.trim() ?? "";
+  const savedWebhookSecret = settings.data?.webhook_secret?.trim() ?? "";
+  const canTestWebhook = /^https:\/\//i.test(savedWebhookUrl) && savedWebhookSecret.length > 0;
+
+  async function onSendTestWebhook() {
+    setTestingWebhook(true);
+    try {
+      const res = await triggerTestWebhook();
+      setTestPreview(res.preview ?? null);
+      if (res.ok) toast.success(`Test webhook delivered (${res.status} OK)`);
+      else toast.error(res.error ?? "The test webhook failed");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "The test webhook could not be sent");
+    } finally {
+      setTestingWebhook(false);
+    }
+  }
 
   async function onRunScanNow() {
     setScanning(true);
@@ -574,6 +596,29 @@ function SettingsPage() {
                     structural entry with the {ORDER_TIF_MINUTES}-minute expiry attached — never a
                     stop order, which your platform would reject once price has passed the level.
                   </p>
+                  <div className="space-y-2 border-t border-border pt-3 sm:col-span-2">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void onSendTestWebhook()}
+                        disabled={!canTestWebhook || testingWebhook}
+                      >
+                        <Send className={cn("mr-2 h-4 w-4", testingWebhook && "animate-pulse")} />
+                        {testingWebhook ? "Sending…" : "Send Test Webhook"}
+                      </Button>
+                      <p className="text-xs text-muted-foreground">
+                        {canTestWebhook
+                          ? "Posts a dummy B-Grade EURUSD buy-limit to your saved URL. Nothing is written to the database."
+                          : "Save a valid https URL and your secret / licence ID to enable the test."}
+                      </p>
+                    </div>
+                    {testPreview ? (
+                      <pre className="num overflow-x-auto rounded-md border border-border bg-background p-3 text-xs text-muted-foreground">
+                        {testPreview}
+                      </pre>
+                    ) : null}
+                  </div>
                 </div>
               ) : null}
             </div>
