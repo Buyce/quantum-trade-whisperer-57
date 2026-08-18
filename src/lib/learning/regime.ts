@@ -30,6 +30,9 @@ export interface RegimeStatRow {
   wins: number;
   p_fill_shrunk: number;
   p_win_shrunk: number;
+  /** Unsmoothed rates; only selected by the explain panel, absent elsewhere. */
+  p_fill_raw?: number | null;
+  p_win_raw?: number | null;
   vol_t1: number | null;
   vol_t2: number | null;
 }
