@@ -1,0 +1,1 @@
+ALTER TABLE public.shadow_executions ADD COLUMN tp3_r numeric;

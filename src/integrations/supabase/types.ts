@@ -511,6 +511,7 @@ export type Database = {
           tp2: number
           tp2_r: number | null
           tp3: number | null
+          tp3_r: number | null
           updated_at: string
         }
         Insert: {
@@ -546,6 +547,7 @@ export type Database = {
           tp2: number
           tp2_r?: number | null
           tp3?: number | null
+          tp3_r?: number | null
           updated_at?: string
         }
         Update: {
@@ -581,6 +583,7 @@ export type Database = {
           tp2?: number
           tp2_r?: number | null
           tp3?: number | null
+          tp3_r?: number | null
           updated_at?: string
         }
         Relationships: [
