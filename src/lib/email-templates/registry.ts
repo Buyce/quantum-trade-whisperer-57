@@ -4,6 +4,7 @@ import { template as accountCancellationTemplate } from './account-cancellation'
 import { template as accountCancellationAdminTemplate } from './account-cancellation-admin'
 import { template as feedbackReceivedTemplate } from './feedback-received'
 import { template as feedbackThankYouTemplate } from './feedback-thank-you'
+import { template as learningMilestoneTemplate } from './learning-milestone'
 
 export interface TemplateEntry {
   component: ComponentType<any>
