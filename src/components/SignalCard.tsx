@@ -18,6 +18,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { InfoLabel, useGuideMode } from "@/components/GuideMode";
 import { MIN_N_FILL, MIN_N_WIN } from "@/lib/learning/regime";
+import { explainRegime, PRIOR_STRENGTH } from "@/lib/learning/explain";
+import { regimeStatsQuery } from "@/lib/queries";
+import { useQuery } from "@tanstack/react-query";
 import {
   calculateRisk,
   money,
