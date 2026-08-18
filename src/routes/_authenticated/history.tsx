@@ -2,14 +2,25 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { ArrowDownRight, ArrowUpRight, Download, Pencil } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Download, Pencil, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { takenTradeHistoryQuery, updateTradeResult } from "@/lib/queries";
+import { deleteAllTrades, deleteTrade, takenTradeHistoryQuery, updateTradeResult } from "@/lib/queries";
 import { INSTRUMENT_LABELS, type Outcome, type SignalRow, type TradeHistoryRow } from "@/lib/db-types";
 import { downloadCsv, downloadJson, historyToCsv, historyToExportJson, todayStamp } from "@/lib/export";
 import { GradeBadge } from "@/components/SignalCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
@@ -81,6 +92,39 @@ function HistoryPage() {
     }
   }
 
+  async function removeOne(tradeId: string) {
+    setBusyId(tradeId);
+    try {
+      await deleteTrade({ tradeId });
+      await refreshAfterDelete();
+      toast.success("Trade deleted");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not delete the trade");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function removeAll() {
+    if (!user?.id) return;
+    setBusyId("all");
+    try {
+      await deleteAllTrades({ userId: user.id });
+      await refreshAfterDelete();
+      toast.success("Trade history cleared");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not clear your history");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function refreshAfterDelete() {
+    await queryClient.invalidateQueries({ queryKey: ["taken-trade-history"] });
+    await queryClient.invalidateQueries({ queryKey: ["my-trades"] });
+    await queryClient.invalidateQueries({ queryKey: ["signals"] });
+  }
+
   if (history.isLoading) {
     return (
       <div className="space-y-4">
@@ -108,6 +152,31 @@ function HistoryPage() {
           <Button size="sm" variant="ghost" disabled={rows.length === 0} onClick={exportJson}>
             <Download className="size-4" /> Export History (JSON)
           </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-destructive hover:text-destructive"
+                disabled={rows.length === 0 || busyId === "all"}
+              >
+                <Trash2 className="size-4" /> Delete all history
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete your entire trade history?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This permanently removes {rows.length} logged {rows.length === 1 ? "trade" : "trades"} from your
+                  personal log. Scanner signals and learning data are not affected. This cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Keep history</AlertDialogCancel>
+                <AlertDialogAction onClick={() => void removeAll()}>Delete everything</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
 
@@ -164,8 +233,36 @@ function HistoryPage() {
                         minute: "2-digit",
                       })}
                     </span>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="size-8 text-muted-foreground hover:text-destructive"
+                          disabled={busyId === row.id}
+                          aria-label={`Delete ${signal.instrument} trade`}
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete this trade?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            {signal.instrument} {long ? "long" : "short"} from{" "}
+                            {new Date(signal.detected_at).toLocaleString()} will be permanently removed from your
+                            trade log. This cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => void removeOne(row.id)}>Delete</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </div>
+
 
                 <div className="grid grid-cols-2 gap-px bg-border sm:grid-cols-3 lg:grid-cols-6">
                   <Cell label="Entry" value={p(signal.entry_price)} />

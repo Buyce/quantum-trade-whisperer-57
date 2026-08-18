@@ -135,6 +135,24 @@ export async function updateTradeResult(input: {
   if (error) throw error;
 }
 
+/** Permanent removal of one logged trade. RLS scopes this to the owner. */
+export async function deleteTrade(input: { tradeId: string }) {
+  const { error } = await supabase
+    .from("executed_trades" as never)
+    .delete()
+    .eq("id", input.tradeId);
+  if (error) throw error;
+}
+
+/** Clears the caller's entire personal trade log. Scanner data is untouched. */
+export async function deleteAllTrades(input: { userId: string }) {
+  const { error } = await supabase
+    .from("executed_trades" as never)
+    .delete()
+    .eq("user_id", input.userId);
+  if (error) throw error;
+}
+
 export async function saveSettings(input: Partial<ScannerSettingsRow> & { user_id: string }) {
   const { error } = await supabase
     .from("scanner_settings" as never)
