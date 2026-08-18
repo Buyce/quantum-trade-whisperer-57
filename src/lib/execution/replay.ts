@@ -32,6 +32,8 @@ export interface ReplayInput {
   tp3R: number | null;
   /** abs(entry - stop): the 1R unit in price terms. */
   riskPrice: number;
+  /** M15 ATR at detection — used only to express the fill miss distance. */
+  atr?: number | null;
   /** Resume point — only candles strictly after this are consumed. */
   replayCursor: string | null;
   filledAt: string | null;
