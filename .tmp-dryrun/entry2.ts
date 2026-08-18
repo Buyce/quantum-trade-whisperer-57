@@ -1,7 +1,7 @@
 import { fetchCandles } from "../src/lib/scanner/metaapi.server";
 import { buildTradeProfile } from "../src/lib/scanner/profile";
 import { INSTRUMENTS, type Candle, type Timeframe } from "../src/lib/scanner/types";
-import { formatWebhookPayload } from "../src/lib/scanner/webhook.server";
+import { pineConnectorPayload } from "../src/lib/scanner/webhook.server";
 
 const tfs: Timeframe[] = ["H4", "H1", "M15"];
 const ms = (t: string) => new Date(t).getTime();
@@ -36,8 +36,11 @@ for (const ins of INSTRUMENTS) {
       row("overlap", dyn);
       console.log("   offset:", /dynamically offset/.test(dyn.qualitativeBreakdown) ? "APPLIED" : "fallback -> Point C",
         "| entry moved:", (dyn.entryPrice - base.entryPrice).toFixed(5));
-      console.log("   pineconnector:", formatWebhookPayload(
-        { ...dyn, id: "dry-run", detectedAt: new Date().toISOString() } as never, "pineconnector"));
+      console.log("   pineconnector:", pineConnectorPayload(
+        { id: "dry-run", instrument: dyn.instrument, grade: dyn.grade, direction: dyn.direction,
+          entryPrice: dyn.entryPrice, maxAcceptableEntry: dyn.maxAcceptableEntry, stopLoss: dyn.stopLoss,
+          tp1: dyn.tp1, tp2: dyn.tp2, tp3: dyn.tp3, rrRatio: dyn.rrRatio,
+          confidence: dyn.confidence.score, tifMinutes: 30 }, "LICENCE123"));
     } else {
       console.log("   overlap: NO TRADE (guards rejected, would fall back — investigate)");
     }
