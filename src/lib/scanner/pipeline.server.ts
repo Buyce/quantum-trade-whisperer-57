@@ -200,7 +200,12 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
     }
     await clearInstrument(db, job.instrument);
 
-    const profile = buildTradeProfile({ instrument: job.instrument, candles: candles });
+    // Session is resolved before grading so the entry math and the
+    // market_context row can never disagree about which regime this setup is in.
+    const now = new Date();
+    const session = sessionOf(now);
+
+    const profile = buildTradeProfile({ instrument: job.instrument, candles, session });
     if (!profile) return await finish("no_trade", "No structure satisfied the ABC grading rules");
 
     // Cap is evaluated after grading: C-Grade bypasses the daily quota entirely.
@@ -228,14 +233,12 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
       );
     }
 
-    const now = new Date();
     // Volatility regime = M15 ATR relative to H1 ATR. Both must be true ATRs;
     // dividing by a raw close price (the previous behaviour) is meaningless.
     const m15Atr = profile.atr;
     const h1Atr = atr(candles.H1, 14);
     const volatilityIndex =
       h1Atr > 0 && m15Atr > 0 ? Number((m15Atr / h1Atr).toFixed(4)) : null;
-    const session = sessionOf(now);
 
     // Advisory Bayesian prior from the shadow telemetry. Recorded on the row for
     // observation only: nothing below branches on it, so a stale or empty
