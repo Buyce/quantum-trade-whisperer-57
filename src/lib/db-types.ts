@@ -99,6 +99,18 @@ export interface ScannerSettingsRow {
   webhook_url: string | null;
   webhook_secret: string | null;
   webhook_format: WebhookFormat;
+  /**
+   * Personal risk profile. Advisory input to the client-side position-size
+   * calculator only — the scanner and grading engine never read these.
+   */
+  account_equity: number;
+  account_currency: string;
+  risk_per_trade_percent: number;
+  /** Hard lot ceiling; 0 means no cap. */
+  max_position_size: number;
+  leverage: number;
+  /** Max stop distance as a percent of entry; 0 means the check is off. */
+  max_stop_loss_percent: number;
 }
 
 export type OrderStrategy = "smart_adaptive" | "strict_retest";

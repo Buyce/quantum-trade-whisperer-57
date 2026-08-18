@@ -464,14 +464,20 @@ export type Database = {
       }
       scanner_settings: {
         Row: {
+          account_currency: string
+          account_equity: number
           alert_min_grade: Database["public"]["Enums"]["signal_grade"]
           created_at: string
           daily_setup_cap: number
           instruments: string[]
+          leverage: number
+          max_position_size: number
+          max_stop_loss_percent: number
           min_grade: Database["public"]["Enums"]["signal_grade"]
           notify_email: boolean
           notify_push: boolean
           order_strategy: string
+          risk_per_trade_percent: number
           sessions: string[]
           timeframes: string[]
           updated_at: string
@@ -482,14 +488,20 @@ export type Database = {
           webhook_url: string | null
         }
         Insert: {
+          account_currency?: string
+          account_equity?: number
           alert_min_grade?: Database["public"]["Enums"]["signal_grade"]
           created_at?: string
           daily_setup_cap?: number
           instruments?: string[]
+          leverage?: number
+          max_position_size?: number
+          max_stop_loss_percent?: number
           min_grade?: Database["public"]["Enums"]["signal_grade"]
           notify_email?: boolean
           notify_push?: boolean
           order_strategy?: string
+          risk_per_trade_percent?: number
           sessions?: string[]
           timeframes?: string[]
           updated_at?: string
@@ -500,14 +512,20 @@ export type Database = {
           webhook_url?: string | null
         }
         Update: {
+          account_currency?: string
+          account_equity?: number
           alert_min_grade?: Database["public"]["Enums"]["signal_grade"]
           created_at?: string
           daily_setup_cap?: number
           instruments?: string[]
+          leverage?: number
+          max_position_size?: number
+          max_stop_loss_percent?: number
           min_grade?: Database["public"]["Enums"]["signal_grade"]
           notify_email?: boolean
           notify_push?: boolean
           order_strategy?: string
+          risk_per_trade_percent?: number
           sessions?: string[]
           timeframes?: string[]
           updated_at?: string

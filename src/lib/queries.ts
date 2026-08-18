@@ -78,7 +78,7 @@ export function settingsQuery(userId: string | undefined) {
     queryFn: async (): Promise<ScannerSettingsRow | null> => {
       const { data, error } = await supabase
         .from("scanner_settings" as never)
-        .select("user_id, instruments, timeframes, sessions, min_grade, alert_min_grade, daily_setup_cap, notify_push, notify_email, order_strategy, webhook_enabled, webhook_url, webhook_secret, webhook_format")
+        .select("user_id, instruments, timeframes, sessions, min_grade, alert_min_grade, daily_setup_cap, notify_push, notify_email, order_strategy, webhook_enabled, webhook_url, webhook_secret, webhook_format, account_equity, account_currency, risk_per_trade_percent, max_position_size, leverage, max_stop_loss_percent")
         .maybeSingle();
       if (error) throw error;
       return (data ?? null) as unknown as ScannerSettingsRow | null;

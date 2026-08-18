@@ -18,6 +18,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { InfoLabel, useGuideMode } from "@/components/GuideMode";
 import { MIN_N_FILL, MIN_N_WIN } from "@/lib/learning/regime";
+import {
+  calculateRisk,
+  money,
+  RISK_UNAVAILABLE_COPY,
+  type RiskProfile,
+} from "@/lib/risk";
 
 const GRADE_STYLES: Record<string, string> = {
   "A+": "bg-grade-aplus/15 text-grade-aplus border-grade-aplus/50",
@@ -247,6 +253,151 @@ function IntelligencePanel({ signal }: { signal: SignalRow }) {
   );
 }
 
+/**
+ * Per-user position sizing. Everything here is derived from the stored setup and
+ * the trader's own risk profile — it places nothing and changes no grade.
+ *
+ * ZERO-HALLUCINATION: when equity is unset or the FX conversion rate is missing,
+ * this renders the reason instead of a lot size. It never guesses a balance,
+ * assumes currency parity, or shows an example position.
+ */
+function RiskPanel({
+  signal,
+  profile,
+  rates,
+}: {
+  signal: SignalRow;
+  profile: RiskProfile;
+  rates: Record<string, number>;
+}) {
+  const ladder = targetLadder(signal);
+  const finalR = ladder.length ? ladder[ladder.length - 1]!.r : (signal.max_r ?? null);
+  const result = calculateRisk(
+    {
+      instrument: signal.instrument,
+      entryPrice: Number(signal.entry_price),
+      stopLoss: Number(signal.stop_loss),
+      finalTargetR: finalR,
+    },
+    profile,
+    rates,
+  );
+
+  if (!result.ok) {
+    return (
+      <div className="border-t border-border px-3 py-4 sm:px-4">
+        <p className="label-xs">Your position size</p>
+        <p className="mt-2 text-sm text-muted-foreground">{RISK_UNAVAILABLE_COPY[result.reason]}</p>
+      </div>
+    );
+  }
+
+  const cur = result.currency;
+  const warnings: string[] = [];
+  if (result.belowMinimumLot)
+    warnings.push(
+      `Your ${money(result.riskBudget, cur)} risk budget is below the 0.01-lot minimum for this stop distance. Sizing down is not possible — skipping is the only way to respect your limit.`,
+    );
+  if (result.cappedByPositionSize)
+    warnings.push(
+      `Size limited by your ${result.rawLots.toFixed(2)}-lot calculation hitting the ${profile.maxPositionSize}-lot ceiling, so you are risking ${money(result.riskAmount, cur)} instead of the full ${money(result.riskBudget, cur)}.`,
+    );
+  if (result.exceedsMargin)
+    warnings.push(
+      `Margin of ${money(result.marginRequired, cur)} at 1:${profile.leverage} exceeds your account equity — this size is not fundable.`,
+    );
+  if (result.exceedsStopCeiling)
+    warnings.push(
+      `Stop is ${result.stopPercent.toFixed(2)}% from entry, wider than your ${profile.maxStopLossPercent}% ceiling.`,
+    );
+
+  return (
+    <div className="border-t border-border px-3 py-4 sm:px-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <p className="label-xs">
+          <InfoLabel hint="Calculated from your own risk profile in Settings: your balance and risk-per-trade decide the lot size, this setup's stop distance decides how much one lot can lose. Rounded down to a tradable lot step, so the money at risk is never more than your limit.">
+            Your position size
+          </InfoLabel>
+        </p>
+        <span className="num text-xs text-muted-foreground">
+          {profile.riskPerTradePercent}% of {money(profile.accountEquity, cur)} · 1:{profile.leverage}
+        </span>
+      </div>
+
+      <dl className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="min-w-0">
+          <dt className="label-xs">Lots</dt>
+          <dd
+            className={cn(
+              "num text-base font-semibold",
+              result.belowMinimumLot ? "text-short" : "text-foreground",
+            )}
+          >
+            {result.lots.toFixed(2)}
+          </dd>
+        </div>
+        <div className="min-w-0">
+          <dt className="label-xs">Risk at stop</dt>
+          <dd className="num text-base font-semibold text-short">
+            {money(result.riskAmount, cur)}
+          </dd>
+        </div>
+        <div className="min-w-0">
+          <dt className="label-xs">
+            {result.finalTargetR === null
+              ? "Reward at target"
+              : `Reward at ${result.finalTargetR.toFixed(2)}R`}
+          </dt>
+          <dd className="num text-base font-semibold text-long">
+            {result.rewardAtFinalTarget === null ? "—" : money(result.rewardAtFinalTarget, cur)}
+          </dd>
+        </div>
+        <div className="min-w-0">
+          <dt className="label-xs">Margin</dt>
+          <dd
+            className={cn(
+              "num text-base font-semibold",
+              result.exceedsMargin ? "text-short" : "text-foreground",
+            )}
+          >
+            {money(result.marginRequired, cur)}
+          </dd>
+        </div>
+      </dl>
+
+      <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground">
+        <span className="num">Stop distance: {result.stopPercent.toFixed(2)}% of entry</span>
+        <span className="num">Per lot: {money(result.riskPerLot, cur)}</span>
+        <span className="num">Position value: {money(result.notional, cur)}</span>
+        <span className="num">Margin used: {result.marginPercentOfEquity.toFixed(1)}% of equity</span>
+        {result.quoteCurrency !== cur ? (
+          <span className="num">
+            Converted from {result.quoteCurrency} at {result.conversionRate.toFixed(5)}
+          </span>
+        ) : null}
+      </div>
+
+      {warnings.length ? (
+        <ul className="mt-3 space-y-1.5">
+          {warnings.map((w) => (
+            <li
+              key={w}
+              className="rounded-sm border border-warning/40 bg-warning/10 px-2 py-1.5 text-xs leading-snug text-warning"
+            >
+              {w}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      <p className="mt-3 text-xs leading-snug text-muted-foreground">
+        Sizing guidance from your saved settings, not financial advice. Confirm the lot size and
+        margin in your own platform before placing the order.
+      </p>
+    </div>
+  );
+}
+
 export function SignalCard({
   signal,
   trade,
@@ -255,6 +406,8 @@ export function SignalCard({
   busy,
   quoteMid,
   orderStrategy = "smart_adaptive",
+  riskProfile,
+  fxRates,
 }: {
   signal: SignalRow;
   trade: TradeRow | undefined;
@@ -265,6 +418,10 @@ export function SignalCard({
   quoteMid?: number | undefined;
   /** The user's manual order-guidance preference. */
   orderStrategy?: OrderStrategy;
+  /** The user's saved risk profile, used to size the setup. */
+  riskProfile?: RiskProfile;
+  /** FX pairs for converting risk into the account currency. */
+  fxRates?: Record<string, number>;
 }) {
   const ctx = contextOf(signal);
   const long = signal.direction === "long";
@@ -527,6 +684,10 @@ export function SignalCard({
               </dl>
             </div>
           </div>
+
+          {riskProfile ? (
+            <RiskPanel signal={signal} profile={riskProfile} rates={fxRates ?? {}} />
+          ) : null}
 
           <IntelligencePanel signal={signal} />
         </div>
