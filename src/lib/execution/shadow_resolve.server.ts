@@ -54,7 +54,7 @@ export async function resolveShadowExecutions(db: SupabaseClient): Promise<Resol
   const { data, error } = await db
     .from("shadow_executions")
     .select(
-      "id, signal_id, instrument, direction, detected_at, entry_price, stop_loss, tp1, tp2, tp3, tp1_r, tp2_r, tp3_r, risk_price, filled_at, fill_price, execution_slippage_pips, max_favorable_excursion_r, max_adverse_excursion_r, bars_replayed, replay_cursor",
+      "id, signal_id, instrument, direction, detected_at, entry_price, stop_loss, tp1, tp2, tp3, tp1_r, tp2_r, tp3_r, risk_price, atr, filled_at, fill_price, execution_slippage_pips, max_favorable_excursion_r, max_adverse_excursion_r, bars_replayed, replay_cursor",
     )
     .in("status", ["pending", "open"])
     .order("detected_at", { ascending: true })
@@ -105,6 +105,7 @@ export async function resolveShadowExecutions(db: SupabaseClient): Promise<Resol
         tp2R: row.tp2_r == null ? null : Number(row.tp2_r),
         tp3R: row.tp3_r == null ? null : Number(row.tp3_r),
         riskPrice: Number(row.risk_price),
+        atr: row.atr == null ? null : Number(row.atr),
         replayCursor: row.replay_cursor,
         filledAt: row.filled_at,
         fillPrice: row.fill_price == null ? null : Number(row.fill_price),
@@ -137,6 +138,7 @@ export async function resolveShadowExecutions(db: SupabaseClient): Promise<Resol
           resolved_outcome: state.outcome,
           ml_target_label: state.label,
           replay_cursor: state.replayCursor,
+          miss_distance_atr: state.missDistanceAtr,
           last_polled_at: now,
           resolved_at: state.status === "resolved" ? now : null,
         })
