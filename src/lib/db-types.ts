@@ -48,6 +48,15 @@ export interface SignalRow {
   resolved_outcome: Outcome;
   resolved_r_multiple: number | null;
   expired_at: string | null;
+  /**
+   * Advisory Bayesian priors from the shadow telemetry engine. Null on rows
+   * published before the intelligence layer, and null whenever the statistics
+   * table was unreadable. Display only — nothing branches on these.
+   */
+  p_fill_prior: number | null;
+  p_win_prior: number | null;
+  ev_prior: number | null;
+  prior_sample_n: number | null;
   market_context?: MarketContextRow | MarketContextRow[] | null;
 }
 
