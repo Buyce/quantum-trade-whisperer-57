@@ -56,6 +56,12 @@ export interface ReplayState {
   outcome: ShadowOutcome | null;
   label: 0 | 1 | null;
   replayCursor: string | null;
+  /**
+   * Closest approach to the limit entry while still unfilled, in ATR units.
+   * Positive = the market never came that close. Null when ATR is unknown or
+   * the order filled.
+   */
+  missDistanceAtr: number | null;
 }
 
 const ms = (iso: string) => new Date(iso).getTime();
