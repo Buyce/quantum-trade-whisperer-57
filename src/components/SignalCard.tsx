@@ -470,7 +470,10 @@ export function SignalCard({
               </dl>
             </div>
           </div>
+
+          <IntelligencePanel signal={signal} />
         </div>
+
       ) : null}
 
       <div className="border-t border-border bg-surface/50 px-3 py-3 sm:px-4">
