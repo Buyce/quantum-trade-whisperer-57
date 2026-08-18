@@ -1,7 +1,8 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { Activity, BarChart3, History, LogOut, Settings as SettingsIcon } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { Activity, BarChart3, History, LogOut, Settings as SettingsIcon, ShieldCheck } from "lucide-react";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
+
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
