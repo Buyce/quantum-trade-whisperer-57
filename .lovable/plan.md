@@ -117,5 +117,5 @@ No Python, no external microservice, no external ML API, no seeded or synthetic 
 
 - Volatility terciles derive from `market_context.volatility_index` (populated for all 68 rows) plus `scanned_signals.atr`, computed per instrument to avoid cross-instrument scale error.
 - Session comes from `market_context.trading_session`; `time_of_day` / `day_of_week` are held back as candidate features, not used at this sample size.
-- Purging must not corrupt the dataset: the tiered retention job deletes `scanned_signals` rows, and `shadow_executions.signal_id` is an FK to them. Phase 1 verifies the FK's delete behaviour and, if it cascades, snapshots the needed feature columns onto `shadow_executions` so the training set survives retention.
+- Confirmed by query: the `shadow_executions.signal_id` FK is `ON DELETE CASCADE` today, so tiered retention would silently destroy the training set. Phase 1 changes it to `ON DELETE SET NULL` and snapshots the feature columns onto the row.
 - Recompute reads only rows with `status = 'resolved'`, so in-flight replays can never leak partial outcomes into the priors.
