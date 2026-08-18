@@ -450,6 +450,225 @@ export type Database = {
         }
         Relationships: []
       }
+      shadow_engine_state: {
+        Row: {
+          consecutive_failures: number
+          id: boolean
+          last_error: string | null
+          last_run_at: string | null
+          paused: boolean
+          updated_at: string
+        }
+        Insert: {
+          consecutive_failures?: number
+          id?: boolean
+          last_error?: string | null
+          last_run_at?: string | null
+          paused?: boolean
+          updated_at?: string
+        }
+        Update: {
+          consecutive_failures?: number
+          id?: boolean
+          last_error?: string | null
+          last_run_at?: string | null
+          paused?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      shadow_executions: {
+        Row: {
+          bars_replayed: number
+          bars_to_outcome: number | null
+          confidence_score: number | null
+          created_at: string
+          detected_at: string
+          direction: Database["public"]["Enums"]["trade_direction"]
+          entry_price: number
+          error: string | null
+          execution_slippage_pips: number | null
+          fill_price: number | null
+          filled_at: string | null
+          grade: Database["public"]["Enums"]["signal_grade"]
+          id: string
+          instrument: string
+          last_polled_at: string | null
+          max_adverse_excursion_r: number | null
+          max_favorable_excursion_r: number | null
+          max_r: number | null
+          ml_target_label: number | null
+          realized_r: number | null
+          replay_cursor: string | null
+          resolved_at: string | null
+          resolved_outcome: string | null
+          risk_price: number
+          signal_id: string
+          status: string
+          stop_loss: number
+          tp1: number
+          tp1_r: number | null
+          tp2: number
+          tp2_r: number | null
+          tp3: number | null
+          updated_at: string
+        }
+        Insert: {
+          bars_replayed?: number
+          bars_to_outcome?: number | null
+          confidence_score?: number | null
+          created_at?: string
+          detected_at: string
+          direction: Database["public"]["Enums"]["trade_direction"]
+          entry_price: number
+          error?: string | null
+          execution_slippage_pips?: number | null
+          fill_price?: number | null
+          filled_at?: string | null
+          grade: Database["public"]["Enums"]["signal_grade"]
+          id?: string
+          instrument: string
+          last_polled_at?: string | null
+          max_adverse_excursion_r?: number | null
+          max_favorable_excursion_r?: number | null
+          max_r?: number | null
+          ml_target_label?: number | null
+          realized_r?: number | null
+          replay_cursor?: string | null
+          resolved_at?: string | null
+          resolved_outcome?: string | null
+          risk_price: number
+          signal_id: string
+          status?: string
+          stop_loss: number
+          tp1: number
+          tp1_r?: number | null
+          tp2: number
+          tp2_r?: number | null
+          tp3?: number | null
+          updated_at?: string
+        }
+        Update: {
+          bars_replayed?: number
+          bars_to_outcome?: number | null
+          confidence_score?: number | null
+          created_at?: string
+          detected_at?: string
+          direction?: Database["public"]["Enums"]["trade_direction"]
+          entry_price?: number
+          error?: string | null
+          execution_slippage_pips?: number | null
+          fill_price?: number | null
+          filled_at?: string | null
+          grade?: Database["public"]["Enums"]["signal_grade"]
+          id?: string
+          instrument?: string
+          last_polled_at?: string | null
+          max_adverse_excursion_r?: number | null
+          max_favorable_excursion_r?: number | null
+          max_r?: number | null
+          ml_target_label?: number | null
+          realized_r?: number | null
+          replay_cursor?: string | null
+          resolved_at?: string | null
+          resolved_outcome?: string | null
+          risk_price?: number
+          signal_id?: string
+          status?: string
+          stop_loss?: number
+          tp1?: number
+          tp1_r?: number | null
+          tp2?: number
+          tp2_r?: number | null
+          tp3?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shadow_executions_signal_id_fkey"
+            columns: ["signal_id"]
+            isOneToOne: true
+            referencedRelation: "scanned_signals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shadow_queue: {
+        Row: {
+          attempts: number
+          enqueued_at: string
+          error: string | null
+          finished_at: string | null
+          id: number
+          result: string | null
+          signal_id: string
+          started_at: string | null
+          status: string
+        }
+        Insert: {
+          attempts?: number
+          enqueued_at?: string
+          error?: string | null
+          finished_at?: string | null
+          id?: number
+          result?: string | null
+          signal_id: string
+          started_at?: string | null
+          status?: string
+        }
+        Update: {
+          attempts?: number
+          enqueued_at?: string
+          error?: string | null
+          finished_at?: string | null
+          id?: number
+          result?: string | null
+          signal_id?: string
+          started_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shadow_queue_signal_id_fkey"
+            columns: ["signal_id"]
+            isOneToOne: false
+            referencedRelation: "scanned_signals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      signal_user_telemetry: {
+        Row: {
+          created_at: string
+          event: string
+          id: string
+          signal_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event: string
+          id?: string
+          signal_id: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          event?: string
+          id?: string
+          signal_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signal_user_telemetry_signal_id_fkey"
+            columns: ["signal_id"]
+            isOneToOne: false
+            referencedRelation: "scanned_signals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -462,7 +681,15 @@ export type Database = {
           instrument: string
         }[]
       }
+      claim_shadow_job: {
+        Args: never
+        Returns: {
+          id: number
+          signal_id: string
+        }[]
+      }
       maintain_scan_queue: { Args: never; Returns: Json }
+      maintain_shadow_queue: { Args: never; Returns: Json }
       purge_expired_signals: { Args: never; Returns: number }
     }
     Enums: {
