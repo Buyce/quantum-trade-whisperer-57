@@ -92,22 +92,30 @@ Activation criteria, enforced in code, per tier:
 
 Until then the function returns the parent estimate and the UI labels it "insufficient sample" rather than showing a fake percentage. This respects the zero-hallucination rule: no synthetic rows, no invented probabilities, and an explicit empty state when the data is not there.
 
-## 7. Implementation phases
+## 7. Phase 0 result (already measured)
 
-- **Phase 0 — Fill diagnostic.** A read-only analysis of the 49 never-filled rows: distance from entry at TIF expiry, distribution by instrument and session. Output is a written finding on whether the entry offset or the 30-minute TIF is the binding constraint. No schema change.
-- **Phase 1 — Schema.** `regime_stats` table (service-role writes, authenticated read for the UI), `recompute_regime_stats()` SECURITY DEFINER function, ATR-tercile boundaries stored per instrument. Grants and RLS in the same migration.
-- **Phase 2 — Recompute wiring.** Call the recompute at the end of `src/routes/api/public/cron/shadow-resolve.ts`, after resolution, inside its existing error boundary so a stats failure never fails resolution.
-- **Phase 3 — Read path (shadow mode).** `src/lib/learning/regime.server.ts` exposes the hierarchical lookup; `pipeline.server.ts` writes `p_fill_prior`, `p_win_prior`, `ev_prior`, `prior_sample_n` onto each new signal. Grading logic unchanged.
-- **Phase 4 — Surfacing.** An "Intelligence" panel showing per-regime sample counts, shrunk win/fill rates, and a clear "learning — insufficient sample" state. Read-only.
-- **Phase 5 — Activation (separate approval).** Only after Phase 4 has run long enough to satisfy the gate, and only with a measured Brier-score improvement over the heuristic.
+The fill diagnostic is done. Non-filled setups were replayed for an average of only **1.7-1.9 M15 bars** before the time barrier closed them, and both MFE and MAE were **0.000R** — price never moved toward the entry at all within the window. GBPAUD's three rows replayed 0 bars (no candle coverage at detection time).
 
-## 8. Explicitly out of scope
+Conclusion: the binding constraint is the **30-minute time-in-force**, not the entry offset. Two M15 bars is not enough time for a retracement entry to be revisited. Non-fills also cluster in Tokyo (19 of 27) and Sydney (9 of 10) — the low-liquidity sessions — while London fills best (9 of 23 filled).
 
-No Python, no external microservice, no external ML API, no seeded or synthetic training rows, no change to the 15-minute cron cadence, no change to the live feed queries or the daily cap.
+This is recorded as a finding only; changing the TIF is a separate decision and is **not** part of this build.
+
+## 8. Implementation phases
+
+- **Phase 1 — Schema + retention safeguard.** Snapshot `trading_session`, `volatility_index` and `atr` directly onto `shadow_executions`. The `signal_id` foreign key is currently `ON DELETE CASCADE` (verified), so tiered pruning would delete the training set — it is changed to `ON DELETE SET NULL` with `signal_id` made nullable, so telemetry rows outlive the signals they came from. Adds the `regime_stats` table (authenticated read, service-role write, RLS on) and the `recompute_regime_stats()` SECURITY DEFINER function with `k = 30` shrinkage and per-instrument ATR terciles, execute granted to service role only. Adds advisory `p_fill_prior`, `p_win_prior`, `ev_prior`, `prior_sample_n` to `scanned_signals`. Existing 68 rows get their snapshot columns backfilled from `market_context`, and the shadow worker is updated to write them on every future enrolment.
+- **Phase 2 — Recompute wiring.** Call `recompute_regime_stats()` at the end of `src/routes/api/public/cron/shadow-resolve.ts`, after resolution, inside its own guard so a stats failure never fails resolution.
+- **Phase 3 — Read path (shadow mode).** `src/lib/learning/regime.server.ts` performs the tier-3 → tier-2 → tier-1 hierarchical lookup; `pipeline.server.ts` loads the ~100-row table once per job and writes the three priors plus sample count onto each new signal. `ev_prior = p_fill x p_win`. Grade, `confidence_score` and the daily cap are untouched.
+- **Phase 4 — Intelligence Panel.** A read-only block inside the expanded `SignalCard.tsx` showing the fill prior, win prior, expected value and the sample size behind them, with an explicit "learning — insufficient sample" state below the gates. No fabricated percentages.
+- **Phase 5 — Activation gates (hardcoded now, dormant).** `MIN_N_FILL = 150` and `MIN_N_WIN = 200` are constants in the read path from day one; below them the value is displayed as advisory and can influence nothing. Flipping them to influence grading is a separate, later approval.
+
+## 9. Explicitly out of scope
+
+No Python, no external microservice, no external ML API, no seeded or synthetic training rows, no change to the 15-minute cron cadence, no TIF change, no change to the live feed queries or the daily cap.
+
 
 ## Technical notes
 
 - Volatility terciles derive from `market_context.volatility_index` (populated for all 68 rows) plus `scanned_signals.atr`, computed per instrument to avoid cross-instrument scale error.
 - Session comes from `market_context.trading_session`; `time_of_day` / `day_of_week` are held back as candidate features, not used at this sample size.
-- Purging must not corrupt the dataset: the tiered retention job deletes `scanned_signals` rows, and `shadow_executions.signal_id` is an FK to them. Phase 1 verifies the FK's delete behaviour and, if it cascades, snapshots the needed feature columns onto `shadow_executions` so the training set survives retention.
+- Confirmed by query: the `shadow_executions.signal_id` FK is `ON DELETE CASCADE` today, so tiered retention would silently destroy the training set. Phase 1 changes it to `ON DELETE SET NULL` and snapshots the feature columns onto the row.
 - Recompute reads only rows with `status = 'resolved'`, so in-flight replays can never leak partial outcomes into the priors.
