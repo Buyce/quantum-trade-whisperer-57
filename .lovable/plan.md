@@ -1,83 +1,55 @@
-# Shadow Telemetry Engine — Architectural Audit + Build Plan
+# Shadow Telemetry Engine — Approved Build (Replay-Only)
 
-## Verdict on the proposed architecture
+Demo-broker execution is removed entirely: no `shadow-broker.server.ts`, no `demo_ticket_id`, no `demo_error`. All labels come from deterministic Triple-Barrier M15 candle replay against real fetched candles. No mock or seeded rows anywhere.
 
-The four-phase intent is sound (meta-labeling needs a clean, unbiased, forward-tested label set). Two of the four phases need changing before they are safe to build.
-
-### Challenge 1 — Broker demo orders are the wrong primary label source
-Firing real orders into the hardcoded MetaApi demo account to learn outcomes has hard problems:
-
-- MFE/MAE cannot be recovered from a closed ticket. MetaApi returns open/close price and profit, not the excursion path. Any MAE/MFE derived from tickets would be a guess — a fatal flaw for meta-labeling, since the excursion path *is* the feature set.
-- One demo account, many signals: margin, exposure caps and correlated positions (XAUUSD + EURUSD + GBPAUD at once) mean the broker itself can reject or partially fill setups. That is selection bias baked into the training data.
-- Demo fills are simulated anyway. Their "slippage" is synthetic, so it does not transfer to live execution.
-- Weekend/holiday closures, symbol suffix mismatches and rejects each add a failure mode that must be reconciled per-ticket.
-
-**Recommended primary engine: deterministic candle-replay labeling.** For every signal, replay M15 candles from `detected_at` forward through the existing `fetchCandles` path and compute the triple-barrier outcome (Lopez de Prado's own formulation): TP barrier, SL barrier, vertical time barrier. This gives exact MFE/MAE in R, exact time-to-outcome, exact fill/no-fill on limit entries, and it is fully reproducible and backfillable over historical signals — which the broker route can never be. Cost: one batched candle fetch per instrument per hour, shared by every open shadow row on that instrument. That is 3 requests/hour total, versus one ticket poll per open position.
-
-**Keep the demo account, but demoted to a slippage-calibration side channel**: optionally mirror only A+/A setups as real demo orders to measure realised entry slippage and fill latency, stored on the same row. If it fails, rejects, or the market is closed, the row still gets its label from replay. This is exactly how QuantConnect/Numerai-style pipelines separate *label generation* (deterministic simulation) from *execution realism* (a small live/paper sample).
-
-### Challenge 2 — Postgres trigger → HTTP is the wrong decoupler here
-The project already has a proven decoupling primitive: `scan_queue` + `claim_scan_job()` + the `kick_scan_worker` trigger. Adding a second mechanism (Supabase DB webhooks or an edge function) adds a moving part with no benefit. Reuse the same pattern with its own queue table, so:
-
-- zero blocking work in `pipeline.server.ts` (it does one non-awaited-path insert of a queue row, nothing else),
-- single-flight claiming via `FOR UPDATE SKIP LOCKED`,
-- bounded work per invocation and idempotent progress marking,
-- no new server cost, no new auth surface.
-
-Enrolment itself does not even need to live in the pipeline: an `AFTER INSERT` trigger on `scanned_signals` can enqueue the shadow job in-transaction (microseconds, no network), which is strictly safer than application code for guaranteeing zero latency and zero missed signals.
-
-### Challenge 3 — Scope of enrolment
-Enrolling only B/C and user-skipped setups produces a label set that cannot train a model for the grades you actually trade. Meta-labeling requires labels for *every* primary-model signal, including A+/A. Recommendation: enrol **all** signals; carry `grade` and `was_taken_by_any_user` as features. Behavioral skip data becomes a feature, not a filter.
-
-## Finalized architecture
+## Architecture
 
 ```text
 scanned_signals INSERT
-        │  (AFTER INSERT trigger, in-transaction, no network)
+        │  AFTER INSERT trigger (in-transaction, no network, no latency)
         ▼
-shadow_queue ──── kick ────► /api/public/worker/shadow  (bounded, single-flight)
-                                    │
-                                    ├─ create shadow_executions row (pending)
-                                    └─ optional demo order (A+/A only, fire-and-forget)
+shadow_queue ── statement kick ──► /api/public/worker/shadow
+                                        └─ claim job, create shadow_executions row (status 'open')
 
 pg_cron hourly ─► /api/public/cron/shadow-resolve
-                       │ 1 batched M15 candle fetch per instrument
-                       ├─ triple-barrier replay for all open rows
-                       ├─ MFE / MAE in R, time-to-outcome, fill state
-                       └─ ml_target_label 1/0, outcome, resolved_at
+                       │ 1 batched M15 candle fetch per instrument (max 3 per run)
+                       ├─ triple-barrier replay: fill → TP/SL → time barrier
+                       ├─ MFE / MAE in R, bars_to_outcome, realized_r, slippage
+                       └─ ml_target_label 1 (TP1+) / 0 (stop, expired, never filled)
 ```
 
-Live-path guarantee: the only change inside the live scan path is a Postgres trigger insert. No `await` on MetaApi, no HTTP, no extra query in `processNextJob`. Feed and card rendering are untouched.
+The live scan path gains exactly one in-transaction insert. No awaited network call, no extra query in `processNextJob`, no change to feed rendering.
 
-## Phases
+## Phase 1 — Schema (migration)
 
-### Phase 1 — Schema (isolated data lake)
-New tables, none referenced by any user-facing query:
+- `shadow_executions` — `signal_id` (unique FK), `instrument`, `grade`, `direction`, `detected_at`, entry/stop/TP + `tp1_r`/`tp2_r`/`max_r` snapshot, `risk_price`, `confidence_score`, `status` (`pending`/`open`/`resolved`/`failed`), `filled_at`, `fill_price`, `execution_slippage_pips`, `max_favorable_excursion_r`, `max_adverse_excursion_r`, `bars_to_outcome`, `realized_r`, `resolved_outcome` (`win`/`loss`/`expired`/`never_filled`), `ml_target_label` (smallint, null until resolved), `replay_cursor`, `bars_replayed`, `last_polled_at`, `resolved_at`, `error`, timestamps. Flat and numeric — one row per signal, joinable to `scanned_signals` + `market_context` on `signal_id` for direct XGBoost export.
+- `shadow_queue` — `signal_id`, `status`, `attempts`, `result`, `error`, lease timestamps, plus `claim_shadow_job()` (SECURITY DEFINER, `FOR UPDATE SKIP LOCKED`) and `maintain_shadow_queue()` for lease reclaim/pruning.
+- `shadow_engine_state` — single row: `paused`, `consecutive_failures`, `last_error`, `last_run_at` (circuit breaker read by every entry point).
+- `signal_user_telemetry` — `user_id`, `signal_id`, `event` (`skipped`/`taken`/`viewed`), unique on the triple.
+- RLS: shadow tables enabled with **no** anon/authenticated policies and grants only to `service_role`. Telemetry: owner-scoped insert + select for `authenticated`; no update/delete.
+- Triggers: `shadow_enroll_on_signal` (row-level, enqueues), `shadow_queue_kick_worker` (statement-level → `private.kick_shadow_worker()` reusing the existing `private.scanner_config` URL + secret pattern).
 
-- `shadow_executions` — `signal_id` (FK, unique), `instrument`, `grade`, `direction`, entry/SL/TP snapshot, `filled_at`, `fill_price`, `execution_slippage_pips`, `max_favorable_excursion_r`, `max_adverse_excursion_r`, `bars_to_outcome`, `resolved_outcome` (`win`/`loss`/`expired`/`never_filled`), `realized_r`, `ml_target_label` (smallint 0/1, null until resolved), `demo_ticket_id`, `demo_error`, `status` (`pending`/`open`/`resolved`/`failed`), `last_polled_at`, timestamps.
-- `shadow_queue` — mirrors `scan_queue` semantics (`signal_id`, `status`, `attempts`, lease timestamps) with a `claim_shadow_job()` security-definer function.
-- `signal_user_telemetry` — `user_id`, `signal_id`, `event` (`skipped`/`taken`/`viewed`), `created_at`, unique on (user_id, signal_id, event).
+## Phase 2 — Worker
 
-ML-export shape: one flat row per signal, joinable to `scanned_signals` + `market_context` on `signal_id`, all numeric features already numeric, single binary target, plus `detected_at` for purged/embargoed time-series CV. No JSON blobs, no arrays.
+- `src/lib/execution/shadow_worker.ts` — `claimAndInitialize(db)`: claims a job, reads the signal, inserts the `shadow_executions` snapshot idempotently (unique `signal_id` collision = already enrolled → mark job done), marks queue row done/failed.
+- `src/routes/api/public/worker/shadow.ts` — cron-secret gated (`authorizeCronRequest`), bounded batch (max 5 jobs, 10s wall-clock budget), exits early when `shadow_engine_state.paused`.
 
-Grants + RLS: `service_role` full; `authenticated` gets SELECT on an aggregate-only view (or nothing) — raw shadow rows stay server-side. `signal_user_telemetry`: owner-scoped insert/select.
+## Phase 3 — Hourly resolution
 
-### Phase 2 — Decoupled enrolment
-- Trigger `shadow_enroll_on_signal` AFTER INSERT on `scanned_signals` → insert into `shadow_queue`, plus a statement-level kick trigger reusing the existing `private.kick_scan_worker` pattern pointed at the shadow worker.
-- `src/routes/api/public/worker/shadow.ts` — cron-secret protected, claims up to N jobs, creates the `shadow_executions` row, and (only for A+/A, and only if `SHADOW_DEMO_ORDERS` is enabled) places one demo limit order via a new `placeDemoOrder` in a `shadow-broker.server.ts` module with the same 8s abort discipline. Any broker failure records `demo_error` and leaves the row on the replay path.
-- `src/lib/execution/shadow_worker.ts` — claim/label/resolve logic, no HTTP concerns.
+- `src/lib/execution/replay.ts` — pure triple-barrier maths over `Candle[]`:
+  - unfilled limit entry: fill when a candle trades through `entry_price` within the TIF window (`ORDER_TIF_MINUTES`, measured on candle timestamps); otherwise `never_filled` / label 0.
+  - `fill_price` = entry (limit semantics); `execution_slippage_pips` = gap between candle open and entry when the bar gapped through, in instrument pips.
+  - after fill, per candle: update MFE/MAE in R; stop hit → `loss`, label 0, `realized_r = -1`; TP1 reached → `win`, label 1, `realized_r` = highest target R reached (TP2/TP3 escalate); intrabar ambiguity resolved stop-first (conservative).
+  - vertical barrier: `SIGNAL_MAX_AGE_HOURS` past `detected_at` with no barrier hit → `expired`, label 0, `realized_r` = MFE-at-close excursion recorded but label stays 0.
+- `src/lib/execution/shadow_resolve.ts` — loads open rows, groups by instrument, one `fetchCandles(instrument, "M15", 200)` per instrument, replays each row from `replay_cursor` (or `detected_at`), writes only when state advances (idempotent), bumps `last_polled_at`.
+- `src/routes/api/public/cron/shadow-resolve.ts` — cron-secret gated, calls `maintain_shadow_queue()`, bounded batch (200 rows), paused-state guard, MetaApi timeout/closure-safe: zero new candles → clean no-op exit; repeated fetch failures increment `consecutive_failures` and pause at 5.
+- pg_cron: hourly `POST` to `/api/public/cron/shadow-resolve` with the `apikey`/`x-cron-secret` header pattern already used by the scan cron.
 
-### Phase 3 — Hourly resolution loop
-- `src/routes/api/public/cron/shadow-resolve.ts` + pg_cron hourly.
-- Per run: read open rows, group by instrument, fetch M15 candles **once per instrument** (≤3 requests/run), replay each row's barriers from `detected_at`, update MFE/MAE/label idempotently.
-- Weekend/closure safety: no new candles ⇒ nothing to update, run exits cleanly. TIF expiry uses candle timestamps, not wall clock, so a market-closed gap never mislabels a setup as `never_filled`.
-- Vertical barrier: resolve as `expired` once the replay window passes the signal's retention horizon; `ml_target_label = 0`.
-- Bounded batch size, lease-based single flight, circuit breaker that parks the job after repeated broker failures.
-- Optional demo-ticket reconciliation for the A+/A sample: batched `history-orders`/`deals` pull by time range (one request), never per-ticket; partial fills recorded as `fill_price` volume-weighted, and a rejected/zero-volume ticket falls back to replay.
+## Phase 4 — Behavioural telemetry
 
-### Phase 4 — Behavioral alpha telemetry
-- `Log as Skipped` / `Log as Taken` in `SignalCard.tsx` keeps its current behaviour and additionally fires a fire-and-forget telemetry write (server fn, no await blocking the UI, failure swallowed silently).
-- Aggregated later into a `skip_rate` feature at export time — never read on the render path.
+- New `src/lib/telemetry.functions.ts` (`recordSignalEvent`, auth middleware, upsert-on-conflict-ignore).
+- `src/routes/_authenticated/feed.tsx`: the existing `decide()` handler fires the telemetry write fire-and-forget (`void`, errors swallowed, never blocks the button or the toast). `SignalCard.tsx` keeps its current props and behaviour.
 
 ## Out of scope
-No Python training code, no model inference in the app, no change to grading, `profile.ts`, or the live feed. Model training happens offline against the exported dataset.
+
+No Python training code, no model inference, no change to grading, `profile.ts`, the live feed queries, or the daily cap.
