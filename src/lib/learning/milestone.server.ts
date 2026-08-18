@@ -25,7 +25,7 @@ type Gate = "fill" | "win";
 export interface MilestoneOutcome {
   gate: Gate;
   sent: boolean;
-  reason?: string;
+  reason?: string | undefined;
 }
 
 /**
