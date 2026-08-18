@@ -235,6 +235,19 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
     const h1Atr = atr(candles.H1, 14);
     const volatilityIndex =
       h1Atr > 0 && m15Atr > 0 ? Number((m15Atr / h1Atr).toFixed(4)) : null;
+    const session = sessionOf(now);
+
+    // Advisory Bayesian prior from the shadow telemetry. Recorded on the row for
+    // observation only: nothing below branches on it, so a stale or empty
+    // regime_stats table cannot change which setups publish.
+    const { priorFor } = await import("@/lib/learning/regime.server");
+    const prior = await priorFor(db, {
+      instrument: profile.instrument,
+      direction: profile.direction,
+      session,
+      volatilityIndex,
+    });
+
 
     // Signal first — market_context.signal_id is required and references it.
     const { data: inserted, error: sigError } = await db
@@ -274,6 +287,10 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
         detected_at: now.toISOString(),
         status: "active",
         resolved_outcome: "open",
+        p_fill_prior: prior?.pFill ?? null,
+        p_win_prior: prior?.pWin ?? null,
+        ev_prior: prior?.ev ?? null,
+        prior_sample_n: prior?.sampleN ?? null,
       })
       .select("id")
       .single();
@@ -289,7 +306,7 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
 
     const { error: ctxError } = await db.from("market_context").insert({
       signal_id: signalId,
-      trading_session: sessionOf(now),
+      trading_session: session,
       volatility_index: volatilityIndex,
       time_of_day: now.getUTCHours(),
       day_of_week: now.getUTCDay(),

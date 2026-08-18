@@ -222,6 +222,63 @@ export type Database = {
         }
         Relationships: []
       }
+      regime_stats: {
+        Row: {
+          computed_at: string
+          direction: string | null
+          instrument: string | null
+          n_filled: number
+          n_total: number
+          p_fill_raw: number | null
+          p_fill_shrunk: number
+          p_win_raw: number | null
+          p_win_shrunk: number
+          regime_key: string
+          session: string | null
+          tier: number
+          vol_bucket: string | null
+          vol_t1: number | null
+          vol_t2: number | null
+          wins: number
+        }
+        Insert: {
+          computed_at?: string
+          direction?: string | null
+          instrument?: string | null
+          n_filled?: number
+          n_total?: number
+          p_fill_raw?: number | null
+          p_fill_shrunk: number
+          p_win_raw?: number | null
+          p_win_shrunk: number
+          regime_key: string
+          session?: string | null
+          tier: number
+          vol_bucket?: string | null
+          vol_t1?: number | null
+          vol_t2?: number | null
+          wins?: number
+        }
+        Update: {
+          computed_at?: string
+          direction?: string | null
+          instrument?: string | null
+          n_filled?: number
+          n_total?: number
+          p_fill_raw?: number | null
+          p_fill_shrunk?: number
+          p_win_raw?: number | null
+          p_win_shrunk?: number
+          regime_key?: string
+          session?: string | null
+          tier?: number
+          vol_bucket?: string | null
+          vol_t1?: number | null
+          vol_t2?: number | null
+          wins?: number
+        }
+        Relationships: []
+      }
       scan_queue: {
         Row: {
           attempts: number
@@ -282,6 +339,7 @@ export type Database = {
           detected_at: string
           direction: Database["public"]["Enums"]["trade_direction"]
           entry_price: number
+          ev_prior: number | null
           expired_at: string | null
           grade: Database["public"]["Enums"]["signal_grade"]
           h1_bias: string | null
@@ -291,12 +349,15 @@ export type Database = {
           m15_bias: string | null
           max_acceptable_entry: number | null
           max_r: number | null
+          p_fill_prior: number | null
           p_momentum: number | null
           p_order_block: number | null
           p_trend: number | null
           p_volatility_expansion: number | null
+          p_win_prior: number | null
           pattern_symmetry: number
           pillars_passed: number | null
+          prior_sample_n: number | null
           qualitative_breakdown: string
           resolved_outcome: Database["public"]["Enums"]["trade_outcome"]
           resolved_r_multiple: number | null
@@ -322,6 +383,7 @@ export type Database = {
           detected_at?: string
           direction: Database["public"]["Enums"]["trade_direction"]
           entry_price: number
+          ev_prior?: number | null
           expired_at?: string | null
           grade: Database["public"]["Enums"]["signal_grade"]
           h1_bias?: string | null
@@ -331,12 +393,15 @@ export type Database = {
           m15_bias?: string | null
           max_acceptable_entry?: number | null
           max_r?: number | null
+          p_fill_prior?: number | null
           p_momentum?: number | null
           p_order_block?: number | null
           p_trend?: number | null
           p_volatility_expansion?: number | null
+          p_win_prior?: number | null
           pattern_symmetry?: number
           pillars_passed?: number | null
+          prior_sample_n?: number | null
           qualitative_breakdown?: string
           resolved_outcome?: Database["public"]["Enums"]["trade_outcome"]
           resolved_r_multiple?: number | null
@@ -362,6 +427,7 @@ export type Database = {
           detected_at?: string
           direction?: Database["public"]["Enums"]["trade_direction"]
           entry_price?: number
+          ev_prior?: number | null
           expired_at?: string | null
           grade?: Database["public"]["Enums"]["signal_grade"]
           h1_bias?: string | null
@@ -371,12 +437,15 @@ export type Database = {
           m15_bias?: string | null
           max_acceptable_entry?: number | null
           max_r?: number | null
+          p_fill_prior?: number | null
           p_momentum?: number | null
           p_order_block?: number | null
           p_trend?: number | null
           p_volatility_expansion?: number | null
+          p_win_prior?: number | null
           pattern_symmetry?: number
           pillars_passed?: number | null
+          prior_sample_n?: number | null
           qualitative_breakdown?: string
           resolved_outcome?: Database["public"]["Enums"]["trade_outcome"]
           resolved_r_multiple?: number | null
@@ -479,6 +548,7 @@ export type Database = {
       }
       shadow_executions: {
         Row: {
+          atr: number | null
           bars_replayed: number
           bars_to_outcome: number | null
           confidence_score: number | null
@@ -503,7 +573,7 @@ export type Database = {
           resolved_at: string | null
           resolved_outcome: string | null
           risk_price: number
-          signal_id: string
+          signal_id: string | null
           status: string
           stop_loss: number
           tp1: number
@@ -512,9 +582,12 @@ export type Database = {
           tp2_r: number | null
           tp3: number | null
           tp3_r: number | null
+          trading_session: string | null
           updated_at: string
+          volatility_index: number | null
         }
         Insert: {
+          atr?: number | null
           bars_replayed?: number
           bars_to_outcome?: number | null
           confidence_score?: number | null
@@ -539,7 +612,7 @@ export type Database = {
           resolved_at?: string | null
           resolved_outcome?: string | null
           risk_price: number
-          signal_id: string
+          signal_id?: string | null
           status?: string
           stop_loss: number
           tp1: number
@@ -548,9 +621,12 @@ export type Database = {
           tp2_r?: number | null
           tp3?: number | null
           tp3_r?: number | null
+          trading_session?: string | null
           updated_at?: string
+          volatility_index?: number | null
         }
         Update: {
+          atr?: number | null
           bars_replayed?: number
           bars_to_outcome?: number | null
           confidence_score?: number | null
@@ -575,7 +651,7 @@ export type Database = {
           resolved_at?: string | null
           resolved_outcome?: string | null
           risk_price?: number
-          signal_id?: string
+          signal_id?: string | null
           status?: string
           stop_loss?: number
           tp1?: number
@@ -584,7 +660,9 @@ export type Database = {
           tp2_r?: number | null
           tp3?: number | null
           tp3_r?: number | null
+          trading_session?: string | null
           updated_at?: string
+          volatility_index?: number | null
         }
         Relationships: [
           {
@@ -694,6 +772,7 @@ export type Database = {
       maintain_scan_queue: { Args: never; Returns: Json }
       maintain_shadow_queue: { Args: never; Returns: Json }
       purge_expired_signals: { Args: never; Returns: number }
+      recompute_regime_stats: { Args: never; Returns: Json }
     }
     Enums: {
       decision_kind: "taken" | "skipped"
