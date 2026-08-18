@@ -74,6 +74,27 @@ function SettingsPage() {
   const triggerScan = useServerFn(runScanNow);
   const [scanning, setScanning] = useState(false);
   const [scanReport, setScanReport] = useState<ManualScanResult | null>(null);
+  const triggerTestWebhook = useServerFn(sendTestWebhook);
+  const [testingWebhook, setTestingWebhook] = useState(false);
+  const [testPreview, setTestPreview] = useState<string | null>(null);
+
+  const savedWebhookUrl = settings.data?.webhook_url?.trim() ?? "";
+  const savedWebhookSecret = settings.data?.webhook_secret?.trim() ?? "";
+  const canTestWebhook = /^https:\/\//i.test(savedWebhookUrl) && savedWebhookSecret.length > 0;
+
+  async function onSendTestWebhook() {
+    setTestingWebhook(true);
+    try {
+      const res = await triggerTestWebhook();
+      setTestPreview(res.preview ?? null);
+      if (res.ok) toast.success(`Test webhook delivered (${res.status} OK)`);
+      else toast.error(res.error ?? "The test webhook failed");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "The test webhook could not be sent");
+    } finally {
+      setTestingWebhook(false);
+    }
+  }
 
   async function onRunScanNow() {
     setScanning(true);
