@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InfoLabel } from "@/components/GuideMode";
+import { LearningHistory } from "@/components/LearningHistory";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/performance")({
@@ -201,6 +202,7 @@ function PerformancePage() {
           <TabsTrigger value="timing">Timing</TabsTrigger>
           <TabsTrigger value="instrument">By instrument</TabsTrigger>
           <TabsTrigger value="grade">By grade</TabsTrigger>
+          <TabsTrigger value="learning">Learning</TabsTrigger>
         </TabsList>
 
         <TabsContent value="distribution">
@@ -307,6 +309,10 @@ function PerformancePage() {
               stats: g.stats,
             }))}
           />
+        </TabsContent>
+
+        <TabsContent value="learning">
+          <LearningHistory />
         </TabsContent>
       </Tabs>
 
