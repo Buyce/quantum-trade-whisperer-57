@@ -27,6 +27,19 @@ export const Route = createFileRoute("/api/public/cron/shadow-resolve")({
           const { data: maintenance } = await db.rpc("maintain_shadow_queue");
           const summary = await resolveShadowExecutions(db);
 
+          // Statistics rebuild runs last and is guarded separately: a failure
+          // here must never re-label a successful resolution pass as failed.
+          let stats: unknown = null;
+          let statsError: string | null = null;
+          try {
+            const { data, error } = await db.rpc("recompute_regime_stats");
+            if (error) throw new Error(error.message);
+            stats = data;
+          } catch (statsErr) {
+            statsError = statsErr instanceof Error ? statsErr.message : String(statsErr);
+            console.error("[cron/shadow-resolve] regime stats recompute failed:", statsError);
+          }
+
           // Every instrument failing to return candles is a source-level
           // problem; that increments the breaker. A partial failure is normal.
           const allFailed =
@@ -36,7 +49,7 @@ export const Route = createFileRoute("/api/public/cron/shadow-resolve")({
             error: allFailed ? "All instrument candle fetches failed" : null,
           });
 
-          return Response.json({ ok: true, maintenance, ...summary });
+          return Response.json({ ok: true, maintenance, stats, statsError, ...summary });
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           console.error("[cron/shadow-resolve]", message);
