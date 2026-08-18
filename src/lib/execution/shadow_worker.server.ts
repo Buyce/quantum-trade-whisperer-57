@@ -58,7 +58,7 @@ export async function processNextShadowJob(db: SupabaseClient): Promise<ShadowJo
     const { data: signal, error: signalError } = await db
       .from("scanned_signals")
       .select(
-        "id, detected_at, instrument, grade, direction, entry_price, stop_loss, tp1, tp2, tp3, tp1_r, tp2_r, max_r, confidence_score",
+        "id, detected_at, instrument, grade, direction, entry_price, stop_loss, tp1, tp2, tp3, tp1_r, tp2_r, tp3_r, max_r, confidence_score",
       )
       .eq("id", signalId)
       .maybeSingle();
@@ -83,6 +83,7 @@ export async function processNextShadowJob(db: SupabaseClient): Promise<ShadowJo
       tp3: signal.tp3,
       tp1_r: signal.tp1_r,
       tp2_r: signal.tp2_r,
+      tp3_r: signal.tp3_r,
       max_r: signal.max_r,
       risk_price: risk,
       confidence_score: signal.confidence_score,
