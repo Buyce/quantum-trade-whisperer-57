@@ -65,6 +65,8 @@ export interface ReplayState {
 }
 
 const ms = (iso: string) => new Date(iso).getTime();
+/** One M15 bar in milliseconds. */
+const M15_MS = 15 * 60_000;
 
 /**
  * Replay `candles` against one setup, resuming from its stored cursor.
