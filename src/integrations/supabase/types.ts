@@ -522,27 +522,33 @@ export type Database = {
       shadow_engine_state: {
         Row: {
           consecutive_failures: number
+          fill_gate_notified_at: string | null
           id: boolean
           last_error: string | null
           last_run_at: string | null
           paused: boolean
           updated_at: string
+          win_gate_notified_at: string | null
         }
         Insert: {
           consecutive_failures?: number
+          fill_gate_notified_at?: string | null
           id?: boolean
           last_error?: string | null
           last_run_at?: string | null
           paused?: boolean
           updated_at?: string
+          win_gate_notified_at?: string | null
         }
         Update: {
           consecutive_failures?: number
+          fill_gate_notified_at?: string | null
           id?: boolean
           last_error?: string | null
           last_run_at?: string | null
           paused?: boolean
           updated_at?: string
+          win_gate_notified_at?: string | null
         }
         Relationships: []
       }
@@ -755,6 +761,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      claim_learning_milestone: { Args: { _gate: string }; Returns: boolean }
       claim_scan_job: {
         Args: never
         Returns: {
@@ -773,6 +780,10 @@ export type Database = {
       maintain_shadow_queue: { Args: never; Returns: Json }
       purge_expired_signals: { Args: never; Returns: number }
       recompute_regime_stats: { Args: never; Returns: Json }
+      release_learning_milestone: {
+        Args: { _gate: string }
+        Returns: undefined
+      }
     }
     Enums: {
       decision_kind: "taken" | "skipped"
