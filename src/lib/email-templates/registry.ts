@@ -29,4 +29,5 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'account-cancellation-admin': accountCancellationAdminTemplate,
   'feedback-received': feedbackReceivedTemplate,
   'feedback-thank-you': feedbackThankYouTemplate,
+  'learning-milestone': learningMilestoneTemplate,
 }
