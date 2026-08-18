@@ -58,7 +58,7 @@ export async function processNextShadowJob(db: SupabaseClient): Promise<ShadowJo
     const { data: signal, error: signalError } = await db
       .from("scanned_signals")
       .select(
-        "id, detected_at, instrument, grade, direction, entry_price, stop_loss, tp1, tp2, tp3, tp1_r, tp2_r, tp3_r, max_r, confidence_score",
+        "id, detected_at, instrument, grade, direction, entry_price, stop_loss, tp1, tp2, tp3, tp1_r, tp2_r, tp3_r, max_r, confidence_score, atr",
       )
       .eq("id", signalId)
       .maybeSingle();
@@ -68,6 +68,14 @@ export async function processNextShadowJob(db: SupabaseClient): Promise<ShadowJo
       await finish(db, queueId, "missing", "signal no longer exists");
       return { queueId, signalId, result: "missing" };
     }
+
+    // Feature snapshot: these are copied onto the row, not read through the FK,
+    // so tiered retention deleting the signal cannot destroy the training set.
+    const { data: ctx } = await db
+      .from("market_context")
+      .select("trading_session, volatility_index")
+      .eq("signal_id", signalId)
+      .maybeSingle();
 
     const risk = Math.abs(Number(signal.entry_price) - Number(signal.stop_loss));
     const { error: insertError } = await db.from("shadow_executions").insert({
@@ -87,9 +95,13 @@ export async function processNextShadowJob(db: SupabaseClient): Promise<ShadowJo
       max_r: signal.max_r,
       risk_price: risk,
       confidence_score: signal.confidence_score,
+      atr: signal.atr,
+      trading_session: ctx?.trading_session ?? null,
+      volatility_index: ctx?.volatility_index ?? null,
       status: "open",
       replay_cursor: signal.detected_at,
     });
+
 
     // 23505 = unique violation on signal_id: already enrolled, which is a
     // success for an idempotent worker, not an error.
