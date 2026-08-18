@@ -233,8 +233,36 @@ function HistoryPage() {
                         minute: "2-digit",
                       })}
                     </span>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="size-8 text-muted-foreground hover:text-destructive"
+                          disabled={busyId === row.id}
+                          aria-label={`Delete ${signal.instrument} trade`}
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete this trade?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            {signal.instrument} {long ? "long" : "short"} from{" "}
+                            {new Date(signal.detected_at).toLocaleString()} will be permanently removed from your
+                            trade log. This cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => void removeOne(row.id)}>Delete</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </div>
+
 
                 <div className="grid grid-cols-2 gap-px bg-border sm:grid-cols-3 lg:grid-cols-6">
                   <Cell label="Entry" value={p(signal.entry_price)} />
