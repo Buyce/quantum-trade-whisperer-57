@@ -416,3 +416,68 @@ export function IntersectionTable({ rows }: { rows: AdminFeedRow[] }) {
 }
 
 export { timeAgo, num, pctOf };
+
+/**
+ * Weekly A/A+ vs B/C shadow comparison with significance testing.
+ * Every figure is an aggregate over live shadow rows; an under-powered
+ * comparison reports "insufficient" rather than a number.
+ */
+export function WeeklyTierPanel({ report }: { report: WeeklyReport | undefined }) {
+  if (!report) return <EmptyNote>Weekly comparison unavailable.</EmptyNote>;
+  if (report.totalResolved === 0) {
+    return <EmptyNote>No shadow setups resolved in the last 7 days.</EmptyNote>;
+  }
+
+  const tiers = [report.high, report.low];
+  return (
+    <div className="space-y-3">
+      <table className="w-full text-[11px] font-mono">
+        <thead className="text-muted-foreground">
+          <tr className="border-b border-border">
+            <th className="py-1 text-left">tier</th>
+            <th className="py-1 text-right">resolved</th>
+            <th className="py-1 text-right">filled</th>
+            <th className="py-1 text-right">fill %</th>
+            <th className="py-1 text-right">win %</th>
+            <th className="py-1 text-right">mean R</th>
+            <th className="py-1 text-right">total R</th>
+          </tr>
+        </thead>
+        <tbody>
+          {tiers.map((t) => (
+            <tr key={t.tier} className="border-b border-border/50">
+              <td className="py-1">{t.label}</td>
+              <td className="py-1 text-right">{t.resolved}</td>
+              <td className="py-1 text-right">{t.filled}</td>
+              <td className="py-1 text-right">{pctOf(t.fillRate)}</td>
+              <td className="py-1 text-right">{pctOf(t.winRate)}</td>
+              <td className="py-1 text-right">{num(t.meanR)}</td>
+              <td className="py-1 text-right">{num(t.totalR)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <ul className="space-y-2 text-[11px]">
+        {report.comparisons.map((c) => (
+          <li key={c.metric} className="border-t border-border/50 pt-2">
+            <div className="flex items-center justify-between gap-2 font-mono">
+              <span>{c.label}</span>
+              <Badge
+                variant={c.verdict === "significant" ? "default" : "secondary"}
+                className="text-[10px]"
+              >
+                {c.verdict.replace(/_/g, " ")}
+              </Badge>
+            </div>
+            <p className="mt-1 font-mono text-muted-foreground">
+              A/A+ {pctOf(c.highRate)} (n={c.highN}) vs B/C {pctOf(c.lowRate)} (n={c.lowN}) · z{" "}
+              {c.z === null ? "n/a" : c.z.toFixed(2)} · p {c.pValue === null ? "n/a" : c.pValue.toFixed(4)}
+            </p>
+            <p className="mt-0.5 text-muted-foreground">{c.note}</p>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
