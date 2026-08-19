@@ -876,6 +876,7 @@ export type Database = {
       claim_scan_job: {
         Args: never
         Returns: {
+          enqueued_at: string
           id: number
           instrument: string
         }[]
