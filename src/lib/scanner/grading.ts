@@ -71,15 +71,22 @@ export interface GradeResult {
 /** Headroom below which the trade is considered jammed against H4 structure. */
 export const MIN_HEADROOM_ATR = 2.5;
 
+/** Fractal window for major H4 structure. Tighter windows pick up noise pivots. */
+const H4_PIVOT_LOOKBACK = 5;
+/** A level closer than this is inside the noise band, not a barrier. */
+const PIVOT_MIN_SEPARATION_ATR = 0.3;
+
 /**
- * Room the TRADE has before the next opposing H4 structure, in H4 ATR units.
+ * Room the TRADE has before the next *unbroken* opposing H4 structure, in H4 ATR
+ * units.
  *
  * The old measure was the distance to the extreme of the whole 60-bar H4 window,
  * which is self-cancelling for continuation: a confirmed H4 uptrend sits at its
  * own 60-bar high by definition, so headroom read ~0 and the A gate vetoed every
- * aligned setup ever published. This instead looks for the next opposing swing
- * pivot in the direction of travel; when there is none, the structure is in open
- * space and headroom is unbounded.
+ * aligned setup ever published (19 of 19 in the live table). This instead finds
+ * the nearest major swing pivot ahead of price that has never been closed
+ * through — levels the trend has already broken are no longer resistance — and
+ * reports open space as unbounded headroom.
  */
 export function directionalHeadroomAtr(
   direction: "long" | "short",
@@ -89,15 +96,23 @@ export function directionalHeadroomAtr(
   const last = h4Candles[h4Candles.length - 1];
   if (!last || h4.atr <= 0) return 0;
   const price = last.close;
-  const pivots = swings(h4Candles, 2);
+  const band = PIVOT_MIN_SEPARATION_ATR * h4.atr;
 
-  const opposing = pivots
-    .filter((p) => (direction === "long" ? p.kind === "high" && p.price > price : p.kind === "low" && p.price < price))
+  const opposing = swings(h4Candles, H4_PIVOT_LOOKBACK)
+    .filter((p) => {
+      if (direction === "long") {
+        if (p.kind !== "high" || p.price <= price + band) return false;
+        return !h4Candles.slice(p.index + 1).some((c) => c.close > p.price);
+      }
+      if (p.kind !== "low" || p.price >= price - band) return false;
+      return !h4Candles.slice(p.index + 1).some((c) => c.close < p.price);
+    })
     .map((p) => p.price);
 
   if (!opposing.length) return Number.POSITIVE_INFINITY;
   const nearest = direction === "long" ? Math.min(...opposing) : Math.max(...opposing);
   return Math.abs(nearest - price) / h4.atr;
+
 }
 
 /**
