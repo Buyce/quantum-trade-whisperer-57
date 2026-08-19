@@ -15,6 +15,13 @@
 export const MIN_N_FILL = 150;
 /** Filled shadow samples required before P(win | filled) may influence grading. */
 export const MIN_N_WIN = 200;
+/**
+ * Resolved samples a tier-3 (exact regime) bucket must hold before it is allowed
+ * to answer a lookup. Below the floor the bucket is skipped and the lookup falls
+ * back to instrument+direction, then global — a thin bucket must never be
+ * presented as a specific read.
+ */
+export const MIN_N_TIER3 = 20;
 
 export type VolBucket = "low" | "mid" | "high" | "unknown";
 
@@ -61,6 +68,12 @@ export interface RegimePrior {
   fillGatePassed: boolean;
   /** True once the tier clears MIN_N_WIN — until then pWin is advisory. */
   winGatePassed: boolean;
+  /**
+   * Set when an exact-regime bucket existed but held fewer than MIN_N_TIER3
+   * resolved samples, so the lookup fell back to a parent tier. Reported to the
+   * user verbatim; never hidden.
+   */
+  tier3SkippedN: number | null;
 }
 
 /**
@@ -89,15 +102,20 @@ export function lookupRegime(rows: RegimeStatRow[], query: RegimeQuery): RegimeP
   const tier3Key = `${query.instrument}|${query.direction}|${query.session}|${bucket}`;
   const tier2Key = `${query.instrument}|${query.direction}`;
 
+  const tier3 = rows.find((r) => r.tier === 3 && r.regime_key === tier3Key);
+  const tier3Eligible = tier3 && Number(tier3.n_total ?? 0) >= MIN_N_TIER3 ? tier3 : undefined;
+  const tier3SkippedN =
+    tier3 && !tier3Eligible ? Number(tier3.n_total ?? 0) : null;
+
   const match =
-    rows.find((r) => r.tier === 3 && r.regime_key === tier3Key) ??
+    tier3Eligible ??
     rows.find((r) => r.tier === 2 && r.regime_key === tier2Key) ??
     global;
 
-  return summarize(match);
+  return summarize(match, tier3SkippedN);
 }
 
-function summarize(row: RegimeStatRow): RegimePrior {
+function summarize(row: RegimeStatRow, tier3SkippedN: number | null): RegimePrior {
   const pFill = clamp01(Number(row.p_fill_shrunk));
   const pWin = clamp01(Number(row.p_win_shrunk));
   const sampleN = Number(row.n_total ?? 0);
@@ -111,6 +129,7 @@ function summarize(row: RegimeStatRow): RegimePrior {
     tier: row.tier,
     fillGatePassed: sampleN >= MIN_N_FILL,
     winGatePassed: filledN >= MIN_N_WIN,
+    tier3SkippedN,
   };
 }
 
