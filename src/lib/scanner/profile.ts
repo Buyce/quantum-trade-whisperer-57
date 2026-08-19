@@ -119,10 +119,18 @@ export function buildTradeProfile(input: BuildProfileInput): TradeProfile | null
   const h1 = readTimeframe("H1", input.candles.H1);
   const m15 = readTimeframe("M15", input.candles.M15);
 
-  const graded = gradeSetup(h4, h1, m15);
-  if (!graded.grade || m15.bias === "neutral") return null;
-
+  if (m15.bias === "neutral") return null;
   const direction: Direction = m15.bias === "bullish" ? "long" : "short";
+
+  // Headroom is measured in the direction this trade actually travels, not from
+  // H4's own bias, so an aligned continuation is no longer vetoed for sitting at
+  // the high of its own trend.
+  const headroomAtr = directionalHeadroomAtr(direction, input.candles.H4, h4);
+
+  const graded = gradeSetup(h4, h1, m15, headroomAtr);
+  if (!graded.grade) return null;
+
+
   const abc = detectAbc(input.candles.M15, direction);
   if (!abc) return null;
 
