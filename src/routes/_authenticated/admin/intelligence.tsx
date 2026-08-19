@@ -161,6 +161,17 @@ function AdminIntelligencePage() {
                 : "good"
           }
         />
+        <StatCard
+          label="Webhook success 24h"
+          value={pctOf(webhooks.success_rate)}
+          sub={`${webhooks.total_24h} dispatches`}
+          tone={webhooks.success_rate != null && webhooks.success_rate < 0.9 ? "bad" : "default"}
+        />
+        <StatCard
+          label="Regime buckets"
+          value={String(learning_matrix.length)}
+          sub="tiers 1–3 from regime_stats"
+        />
 
       </section>
 
