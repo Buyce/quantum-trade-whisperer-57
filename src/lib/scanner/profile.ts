@@ -331,9 +331,10 @@ export function structureKeyOf(args: {
 }
 
 
-function describe(read: TimeframeRead): string {
+function describe(read: TimeframeRead, headroomAtr?: number): string {
   if (read.bias === "neutral") return "conflicting";
-  return read.barrierDistanceAtr < 2.5 ? `${read.bias} / approaching macro resistance` : read.bias;
+  const room = headroomAtr ?? read.barrierDistanceAtr;
+  return room < 2.5 ? `${read.bias} / approaching macro resistance` : read.bias;
 }
 
 function round(v: number, dp = 2): number {
