@@ -12,7 +12,7 @@
  * recompute. When a tier has no rows, the corresponding step or feature is
  * omitted rather than filled with a placeholder.
  */
-import { volBucketOf, type RegimeQuery, type RegimeStatRow, type VolBucket } from "./regime";
+import { MIN_N_TIER3, volBucketOf, type RegimeQuery, type RegimeStatRow, type VolBucket } from "./regime";
 
 /** Prior strength k used by recompute_regime_stats(); mirrored for weight maths. */
 export const PRIOR_STRENGTH = 30;
@@ -60,6 +60,12 @@ export interface RegimeExplanation {
   features: FeatureInfluence[];
   /** Where the matched estimate's weight mostly sits. */
   leansOn: "own-bucket" | "parent-regimes";
+  /**
+   * Resolved samples the exact-regime bucket held when it was below
+   * MIN_N_TIER3 and therefore skipped in favour of a parent tier. Null when the
+   * bucket either qualified or does not exist yet.
+   */
+  tier3SkippedN: number | null;
 }
 
 interface Agg {
@@ -129,13 +135,15 @@ export function explainRegime(
   const tier3Key = `${tier2Key}|${query.session}|${bucket}`;
   const tier2 = rows.find((r) => r.tier === 2 && r.regime_key === tier2Key) ?? null;
   const tier3 = rows.find((r) => r.tier === 3 && r.regime_key === tier3Key) ?? null;
-  const matchedTier = tier3 ? 3 : tier2 ? 2 : 1;
+  const tier3Eligible = tier3 && Number(tier3.n_total ?? 0) >= MIN_N_TIER3 ? tier3 : null;
+  const tier3SkippedN = tier3 && !tier3Eligible ? Number(tier3.n_total ?? 0) : null;
+  const matchedTier = tier3Eligible ? 3 : tier2 ? 2 : 1;
 
   const ladder: ExplainStep[] = [step(global, "All instruments (baseline)", matchedTier === 1)];
   if (tier2) ladder.push(step(tier2, `${query.instrument} ${query.direction}`, matchedTier === 2));
   if (tier3) ladder.push(step(tier3, "This exact regime", matchedTier === 3));
 
-  const matched = ladder[ladder.length - 1]!;
+  const matched = ladder.find((l) => l.matched) ?? ladder[ladder.length - 1]!;
 
   // --- Measured feature associations, each holding the coarser slice fixed. ---
   const features: FeatureInfluence[] = [];
@@ -211,6 +219,7 @@ export function explainRegime(
     matchedTier,
     ladder,
     features,
+    tier3SkippedN,
     leansOn: matched.ownWeightWin >= 0.5 ? "own-bucket" : "parent-regimes",
   };
 }

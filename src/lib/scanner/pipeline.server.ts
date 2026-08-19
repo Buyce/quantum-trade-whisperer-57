@@ -323,6 +323,8 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
         p_win_prior: prior?.pWin ?? null,
         ev_prior: prior?.ev ?? null,
         prior_sample_n: prior?.sampleN ?? null,
+        prior_filled_n: prior?.filledN ?? null,
+        prior_tier: prior?.tier ?? null,
       })
       .select("id")
       .single();

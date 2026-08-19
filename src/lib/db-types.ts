@@ -57,6 +57,8 @@ export interface SignalRow {
   p_win_prior: number | null;
   ev_prior: number | null;
   prior_sample_n: number | null;
+  prior_filled_n: number | null;
+  prior_tier: number | null;
   market_context?: MarketContextRow | MarketContextRow[] | null;
 }
 
