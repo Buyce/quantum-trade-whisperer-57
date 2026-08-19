@@ -1,5 +1,5 @@
 import { clamp, detectAbc } from "./indicators";
-import { gradeSetup, readTimeframe, scoreConfluence } from "./grading";
+import { directionalHeadroomAtr, gradeSetup, readTimeframe, scoreConfluence } from "./grading";
 import {
   CONFIDENCE_WEIGHTS,
   DEFAULT_SPREAD_FLOOR,
