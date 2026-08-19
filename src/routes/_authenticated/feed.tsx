@@ -16,6 +16,7 @@ import {
 import { contextOf, isWithinRetention, type Grade, type SignalRow, type TradeRow } from "@/lib/db-types";
 import { SignalCard } from "@/components/SignalCard";
 import { ScanHeartbeat } from "@/components/ScanHeartbeat";
+import { MarketStatus } from "@/components/MarketStatus";
 import { OnboardingBanner } from "@/components/OnboardingBanner";
 import { useGuideMode } from "@/components/GuideMode";
 import { Button } from "@/components/ui/button";
@@ -199,6 +200,8 @@ function FeedPage() {
   return (
     <div className="space-y-5">
       <OnboardingBanner />
+
+      <MarketStatus health={health.data ?? []} />
 
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 sm:flex sm:flex-wrap">
         <div className="min-w-0">
