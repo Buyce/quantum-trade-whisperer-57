@@ -867,6 +867,21 @@ export type Database = {
         }
         Relationships: []
       }
+      weekly_report_log: {
+        Row: {
+          iso_week: string
+          sent_at: string
+        }
+        Insert: {
+          iso_week: string
+          sent_at?: string
+        }
+        Update: {
+          iso_week?: string
+          sent_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -888,6 +903,7 @@ export type Database = {
           signal_id: string
         }[]
       }
+      claim_weekly_report: { Args: { _week: string }; Returns: boolean }
       get_admin_intelligence: { Args: never; Returns: Json }
       is_admin: { Args: never; Returns: boolean }
       maintain_scan_queue: { Args: never; Returns: Json }
@@ -898,6 +914,7 @@ export type Database = {
         Args: { _gate: string }
         Returns: undefined
       }
+      release_weekly_report: { Args: { _week: string }; Returns: undefined }
     }
     Enums: {
       decision_kind: "taken" | "skipped"
