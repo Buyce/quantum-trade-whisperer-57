@@ -163,6 +163,7 @@ export function scoreConfluence(input: {
   const rsiVals = rsiSeries(input.m15Candles, 14);
   const recentRsi = rsiVals.slice(-6);
   const latestRsi = recentRsi[recentRsi.length - 1] ?? 50;
+  const prevRsi = recentRsi[recentRsi.length - 2] ?? latestRsi;
   const extremeRsi =
     input.direction === "long" ? Math.min(...(recentRsi.length ? recentRsi : [50])) : Math.max(...(recentRsi.length ? recentRsi : [50]));
   // Long wants an oversold flush into Point C; short wants an overbought push.
@@ -191,14 +192,33 @@ export function scoreConfluence(input: {
         Math.max(...lastRsi) < Math.max(...firstRsi);
     }
   }
-  const momentum = clamp(Math.max(extremeScore, divergence ? 75 : 0), 0, 100);
+
+  /**
+   * Continuation-aware pullback path. An absolute oversold flush (RSI <= 40 on a
+   * long) is the wrong thing to demand of a trend continuation: a healthy bullish
+   * pullback cools into the 40-55 band and turns back up, which is why this
+   * pillar read 0 on every aligned setup the engine ever published. Credit is
+   * scaled by how deep the pullback went, and full credit requires the RSI to
+   * have already turned back in the trade's direction.
+   */
+  const turningBack = input.direction === "long" ? latestRsi >= prevRsi : latestRsi <= prevRsi;
+  const pullbackDepth =
+    input.direction === "long"
+      ? clamp(((58 - extremeRsi) / 18) * 100, 0, 100)
+      : clamp(((extremeRsi - 42) / 18) * 100, 0, 100);
+  const pullbackScore = turningBack ? pullbackDepth : pullbackDepth * 0.6;
+
+  const momentum = clamp(Math.max(extremeScore, divergence ? 75 : 0, pullbackScore), 0, 100);
   notes.push(
     divergence
       ? `Momentum: ${input.direction === "long" ? "bullish" : "bearish"} RSI divergence at Point C (RSI ${latestRsi.toFixed(1)})`
       : extremeScore >= PILLAR_PASS_SCORE
         ? `Momentum: RSI reached an exhaustion extreme of ${extremeRsi.toFixed(1)} into Point C`
-        : `Momentum: no RSI exhaustion or divergence at Point C (RSI ${latestRsi.toFixed(1)})`,
+        : pullbackScore >= PILLAR_PASS_SCORE
+          ? `Momentum: pullback cooled to RSI ${extremeRsi.toFixed(1)} and has turned back ${input.direction === "long" ? "up" : "down"} (RSI ${latestRsi.toFixed(1)})`
+          : `Momentum: no RSI exhaustion, divergence or completed pullback at Point C (RSI ${latestRsi.toFixed(1)})`,
   );
+
 
   // ---- Pillar 4: volatility expansion ------------------------------------
   const atrMa = atrMovingAverage(input.m15Candles, 14, 20);
