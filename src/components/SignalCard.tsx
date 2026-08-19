@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { InfoLabel, useGuideMode } from "@/components/GuideMode";
-import { MIN_N_FILL, MIN_N_WIN, tierLabel } from "@/lib/learning/regime";
+import { MIN_N_FILL, MIN_N_TIER3, MIN_N_WIN, tierLabel } from "@/lib/learning/regime";
 import { explainRegime, PRIOR_STRENGTH } from "@/lib/learning/explain";
 import { regimeStatsQuery } from "@/lib/queries";
 import { useQuery } from "@tanstack/react-query";
@@ -340,6 +340,14 @@ function ModelExplain({ signal }: { signal: SignalRow }) {
                 bucket only as fast as that bucket earns samples (prior strength k ={" "}
                 {PRIOR_STRENGTH}).
               </p>
+              {explanation.tier3SkippedN != null ? (
+                <p className="mt-2 rounded border border-warning/40 bg-warning/10 px-2.5 py-2 text-xs leading-snug text-foreground">
+                  This exact regime has only {explanation.tier3SkippedN} resolved{" "}
+                  {explanation.tier3SkippedN === 1 ? "sample" : "samples"} — below the {MIN_N_TIER3}
+                  -sample floor — so the estimate falls back to the broader tier below rather than
+                  presenting a thin bucket as a specific read.
+                </p>
+              ) : null}
               <ul className="mt-2 space-y-2">
                 {explanation.ladder.map((s) => (
                   <li
