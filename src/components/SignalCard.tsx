@@ -715,6 +715,18 @@ export function SignalCard({
               <span className="hidden sm:inline">Conf </span>
               <span className="text-sm font-semibold text-primary sm:text-xs">{conf.toFixed(0)}%</span>
             </span>
+            {/* Expected value only appears once its sample gate is clear, so the
+                summary row never implies a measured rate that does not exist. */}
+            {signal.ev_prior != null && (signal.prior_sample_n ?? 0) >= MIN_N_FILL ? (
+              <span className="num flex min-w-0 flex-col sm:block">
+                <span className="label-xs sm:hidden">Exp. value</span>
+                <span className="hidden sm:inline">EV </span>
+                <span className="text-sm font-semibold text-foreground sm:text-xs">
+                  {(Number(signal.ev_prior) * 100).toFixed(1)}%
+                </span>
+              </span>
+            ) : null}
+
             <span className="num flex min-w-0 flex-col sm:block">
               <span className="label-xs sm:hidden">Entry (limit)</span>
               <span className="hidden sm:inline">Entry </span>
