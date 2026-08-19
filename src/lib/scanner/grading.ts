@@ -5,6 +5,7 @@ import {
   detectOrderBlocks,
   ema,
   rsiSeries,
+  swings,
   zoneDistanceAtr,
 } from "./indicators";
 import {
