@@ -290,7 +290,7 @@ export function buildTradeProfile(input: BuildProfileInput): TradeProfile | null
     patternSymmetry: round(abc.symmetry),
     confidence,
     pillars,
-    h4Bias: describe(h4),
+    h4Bias: describe(h4, headroomAtr),
     h1Bias: describe(h1),
     m15Bias: describe(m15),
     qualitativeBreakdown: buildBreakdown({
