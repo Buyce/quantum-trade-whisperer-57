@@ -414,7 +414,9 @@ export type Database = {
           p_win_prior: number | null
           pattern_symmetry: number
           pillars_passed: number | null
+          prior_filled_n: number | null
           prior_sample_n: number | null
+          prior_tier: number | null
           qualitative_breakdown: string
           resolved_outcome: Database["public"]["Enums"]["trade_outcome"]
           resolved_r_multiple: number | null
@@ -458,7 +460,9 @@ export type Database = {
           p_win_prior?: number | null
           pattern_symmetry?: number
           pillars_passed?: number | null
+          prior_filled_n?: number | null
           prior_sample_n?: number | null
+          prior_tier?: number | null
           qualitative_breakdown?: string
           resolved_outcome?: Database["public"]["Enums"]["trade_outcome"]
           resolved_r_multiple?: number | null
@@ -502,7 +506,9 @@ export type Database = {
           p_win_prior?: number | null
           pattern_symmetry?: number
           pillars_passed?: number | null
+          prior_filled_n?: number | null
           prior_sample_n?: number | null
+          prior_tier?: number | null
           qualitative_breakdown?: string
           resolved_outcome?: Database["public"]["Enums"]["trade_outcome"]
           resolved_r_multiple?: number | null
