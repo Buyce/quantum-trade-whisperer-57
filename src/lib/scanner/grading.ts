@@ -67,20 +67,61 @@ export interface GradeResult {
   alignmentScore: number;
 }
 
+/** Headroom below which the trade is considered jammed against H4 structure. */
+export const MIN_HEADROOM_ATR = 2.5;
+
+/**
+ * Room the TRADE has before the next opposing H4 structure, in H4 ATR units.
+ *
+ * The old measure was the distance to the extreme of the whole 60-bar H4 window,
+ * which is self-cancelling for continuation: a confirmed H4 uptrend sits at its
+ * own 60-bar high by definition, so headroom read ~0 and the A gate vetoed every
+ * aligned setup ever published. This instead looks for the next opposing swing
+ * pivot in the direction of travel; when there is none, the structure is in open
+ * space and headroom is unbounded.
+ */
+export function directionalHeadroomAtr(
+  direction: "long" | "short",
+  h4Candles: Candle[],
+  h4: TimeframeRead,
+): number {
+  const last = h4Candles[h4Candles.length - 1];
+  if (!last || h4.atr <= 0) return 0;
+  const price = last.close;
+  const pivots = swings(h4Candles, 2);
+
+  const opposing = pivots
+    .filter((p) => (direction === "long" ? p.kind === "high" && p.price > price : p.kind === "low" && p.price < price))
+    .map((p) => p.price);
+
+  if (!opposing.length) return Number.POSITIVE_INFINITY;
+  const nearest = direction === "long" ? Math.min(...opposing) : Math.max(...opposing);
+  return Math.abs(nearest - price) / h4.atr;
+}
+
 /**
  * Tier grading over the ABC retracement structure.
  *
  * A — perfect MA alignment across H4/H1/M15 and price testing Point C.
  * B — H1 + M15 aligned with the primary trend but H4 approaching macro resistance.
  * C — aggressive localized M15 break against conflicting higher timeframes.
+ *
+ * `headroomAtr` is the directional measure above. It is optional so callers that
+ * have no candle context keep the legacy behaviour.
  */
-export function gradeSetup(h4: TimeframeRead, h1: TimeframeRead, m15: TimeframeRead): GradeResult {
+export function gradeSetup(
+  h4: TimeframeRead,
+  h1: TimeframeRead,
+  m15: TimeframeRead,
+  headroomAtr?: number,
+): GradeResult {
   const satisfied: string[] = [];
   const violated: string[] = [];
 
   const allAligned = h4.bias !== "neutral" && h4.bias === h1.bias && h1.bias === m15.bias;
   const h1m15Aligned = h1.bias !== "neutral" && h1.bias === m15.bias;
-  const nearMacroBarrier = h4.barrierDistanceAtr < 2.5;
+  const headroom = headroomAtr ?? h4.barrierDistanceAtr;
+  const nearMacroBarrier = headroom < MIN_HEADROOM_ATR;
 
   if (allAligned) satisfied.push("Moving-average stack aligned across H4, H1 and M15");
   else violated.push("Moving-average stack is not aligned across all three timeframes");
@@ -88,8 +129,13 @@ export function gradeSetup(h4: TimeframeRead, h1: TimeframeRead, m15: TimeframeR
   if (m15.atPointC || h1.atPointC) satisfied.push("Price is testing the Point C structural liquidity zone");
   else violated.push("Price is not reacting inside a Point C liquidity zone");
 
-  if (!nearMacroBarrier) satisfied.push("H4 has clear room before the next macro barrier");
-  else violated.push("H4 is approaching major macroeconomic resistance");
+  if (!nearMacroBarrier)
+    satisfied.push(
+      Number.isFinite(headroom)
+        ? `H4 has ${headroom.toFixed(1)} ATR of room before the next opposing structure`
+        : "H4 has open space ahead — no opposing structure in range",
+    );
+  else violated.push(`H4 has only ${headroom.toFixed(1)} ATR before the next opposing structure`);
 
   let grade: Grade | null = null;
   if (allAligned && (m15.atPointC || h1.atPointC) && !nearMacroBarrier) grade = "A";
@@ -106,6 +152,7 @@ export function gradeSetup(h4: TimeframeRead, h1: TimeframeRead, m15: TimeframeR
 
   return { grade, reasonsSatisfied: satisfied, reasonsViolated: violated, alignmentScore };
 }
+
 
 /**
  * Institutional Confluence Scoring — the four pillars, each scored 0-100.
