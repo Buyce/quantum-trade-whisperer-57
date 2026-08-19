@@ -29,15 +29,24 @@ export interface AdminInstrumentHealth {
   updated_at: string;
 }
 
+export interface AdminBacklog {
+  pending: number;
+  processing: number;
+  oldest_pending_at: string | null;
+  oldest_pending_age_min: number | null;
+}
+
 export interface AdminHealth {
   last_cycle_at: string | null;
   p50_ms: number | null;
   p95_ms: number | null;
   jobs: Record<string, number>;
   results: Record<string, number>;
+  backlog: AdminBacklog;
   engine: AdminEngine | null;
   instruments: AdminInstrumentHealth[];
 }
+
 
 export interface AdminEngagement {
   active_accounts: number;
