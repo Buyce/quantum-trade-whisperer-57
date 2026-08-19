@@ -15,6 +15,7 @@ import type {
   AdminRegimeRow,
   AdminWebhooks,
 } from "@/lib/admin.functions";
+import type { WeeklyReport } from "@/lib/reports/weekly";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
