@@ -89,9 +89,8 @@ const WeeklyShadowReportEmail = ({
 }: WeeklyShadowReportProps) => (
   <Html lang="en" dir="ltr">
     <Head />
-    <Preview>
-      Weekly shadow report {isoWeek ?? ''} — A/A+ vs B/C, {totalResolved ?? 0} resolved setups
-    </Preview>
+    <Preview>{`Weekly shadow report ${isoWeek ?? ''} — A/A+ vs B/C, ${totalResolved ?? 0} resolved setups`}</Preview>
+
     <Body style={main}>
       <Container style={container}>
         <Text style={brandBar}>P-Trades Hub · Shadow telemetry</Text>
