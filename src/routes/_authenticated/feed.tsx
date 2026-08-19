@@ -14,6 +14,7 @@ import {
   updateTradeResult,
 } from "@/lib/queries";
 import { contextOf, isWithinRetention, type Grade, type SignalRow, type TradeRow } from "@/lib/db-types";
+import { MIN_N_FILL } from "@/lib/learning/regime";
 import { SignalCard } from "@/components/SignalCard";
 import { ScanHeartbeat } from "@/components/ScanHeartbeat";
 import { MarketStatus } from "@/components/MarketStatus";
@@ -64,6 +65,9 @@ function FeedPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [applyFilters, setApplyFilters] = useState(true);
   const [openOnly, setOpenOnly] = useState(false);
+  // Display-only ranking. Sorting never adds, hides or reprices a setup — it
+  // only changes the order in which the same rows are read.
+  const [sortBy, setSortBy] = useState<"recent" | "ev">("recent");
 
   // Per-user alert threshold, independent of the feed filter.
   const alertMinGrade: Grade = settings.data?.alert_min_grade ?? "B";
@@ -127,8 +131,25 @@ function FeedPage() {
       });
     }
     if (openOnly) rows = rows.filter((s) => s.status === "active");
+    if (sortBy === "ev") {
+      // Only setups whose fill sample gate has cleared can be ranked on a
+      // measured expected value; everything else keeps its recency order below
+      // them rather than being scored on an unproven prior.
+      const ev = (s: SignalRow) =>
+        s.ev_prior != null && (s.prior_sample_n ?? 0) >= MIN_N_FILL ? Number(s.ev_prior) : null;
+      rows = [...rows].sort((a, b) => {
+        const ea = ev(a);
+        const eb = ev(b);
+        if (ea == null && eb == null) {
+          return new Date(b.detected_at).getTime() - new Date(a.detected_at).getTime();
+        }
+        if (ea == null) return 1;
+        if (eb == null) return -1;
+        return eb - ea;
+      });
+    }
     return rows;
-  }, [signals.data, applyFilters, cfg, openOnly]);
+  }, [signals.data, applyFilters, cfg, openOnly, sortBy]);
 
   // Only A+/A/B consume the daily quota — C-Grade publishes outside the cap.
   // Window is UTC midnight so the number matches the scanner's own quota query.
@@ -183,13 +204,14 @@ function FeedPage() {
 
   // One summary chip instead of a wall of badges: the detail lives in the popover.
   const filterSummary = !applyFilters
-    ? "All published setups"
+    ? `All published setups${sortBy === "ev" ? " · by exp. value" : ""}`
     : cfg
       ? [
           `${cfg.instruments.length || "all"} instrument${cfg.instruments.length === 1 ? "" : "s"}`,
           `min ${cfg.min_grade}`,
           `${cfg.sessions.length || "all"} session${cfg.sessions.length === 1 ? "" : "s"}`,
           openOnly ? "active only" : null,
+          sortBy === "ev" ? "by exp. value" : null,
         ]
           .filter(Boolean)
           .join(" · ")
@@ -234,6 +256,29 @@ function FeedPage() {
                   </span>
                 </Label>
                 <Switch id="open-only" checked={openOnly} onCheckedChange={setOpenOnly} />
+              </div>
+              <div className="border-t border-border pt-3">
+                <p className="label-xs">Order</p>
+                <p className="mt-1 text-xs leading-snug text-muted-foreground">
+                  Expected value ranks by measured fill x win rate. Setups without enough samples
+                  stay in newest-first order at the bottom.
+                </p>
+                <div className="mt-2 grid grid-cols-2 gap-1.5">
+                  <Button
+                    size="sm"
+                    variant={sortBy === "recent" ? "default" : "outline"}
+                    onClick={() => setSortBy("recent")}
+                  >
+                    Newest
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={sortBy === "ev" ? "default" : "outline"}
+                    onClick={() => setSortBy("ev")}
+                  >
+                    Exp. value
+                  </Button>
+                </div>
               </div>
               {applyFilters && cfg ? (
                 <div className="flex flex-wrap gap-1.5 border-t border-border pt-3">
