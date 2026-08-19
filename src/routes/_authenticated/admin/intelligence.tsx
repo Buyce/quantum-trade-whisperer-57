@@ -12,6 +12,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { RefreshCw } from "lucide-react";
 import { getAdminIntelligence } from "@/lib/admin.functions";
+import { getWeeklyShadowReport } from "@/lib/reports/weekly.functions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -27,6 +28,7 @@ import {
   RegimeTable,
   StatCard,
   WebhookPanel,
+  WeeklyTierPanel,
   num,
   pctOf,
   timeAgo,
@@ -56,6 +58,14 @@ export const Route = createFileRoute("/_authenticated/admin/intelligence")({
 
 function AdminIntelligencePage() {
   const fetchIntel = useServerFn(getAdminIntelligence);
+  const fetchWeekly = useServerFn(getWeeklyShadowReport);
+  const weekly = useQuery({
+    queryKey: ["admin-weekly-shadow-report"],
+    queryFn: () => fetchWeekly(),
+    refetchInterval: 300_000,
+    refetchOnWindowFocus: false,
+    staleTime: 240_000,
+  });
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ["admin-intelligence"],
     queryFn: () => fetchIntel(),
@@ -238,6 +248,25 @@ function AdminIntelligencePage() {
           )}
         </PanelShell>
       </div>
+
+      <PanelShell
+        title="Weekly shadow comparison — A/A+ vs B/C"
+        right={
+          <Badge variant="secondary" className="text-[10px]">
+            {weekly.data ? `${weekly.data.isoWeek} · rolling 7d` : "loading"}
+          </Badge>
+        }
+      >
+        {weekly.isError ? (
+          <EmptyNote>
+            {weekly.error instanceof Error ? weekly.error.message : "Weekly report unavailable."}
+          </EmptyNote>
+        ) : weekly.isLoading ? (
+          <Skeleton className="h-24" />
+        ) : (
+          <WeeklyTierPanel report={weekly.data} />
+        )}
+      </PanelShell>
 
       <PanelShell title="Bayesian learning monitor">
         <RegimeTable rows={learning_matrix} />

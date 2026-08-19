@@ -5,6 +5,7 @@ import { template as accountCancellationAdminTemplate } from './account-cancella
 import { template as feedbackReceivedTemplate } from './feedback-received'
 import { template as feedbackThankYouTemplate } from './feedback-thank-you'
 import { template as learningMilestoneTemplate } from './learning-milestone'
+import { template as weeklyShadowReportTemplate } from './weekly-shadow-report'
 
 export interface TemplateEntry {
   component: ComponentType<any>
@@ -30,4 +31,5 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'feedback-received': feedbackReceivedTemplate,
   'feedback-thank-you': feedbackThankYouTemplate,
   'learning-milestone': learningMilestoneTemplate,
+  'weekly-shadow-report': weeklyShadowReportTemplate,
 }
