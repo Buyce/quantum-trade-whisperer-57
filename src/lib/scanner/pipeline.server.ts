@@ -163,16 +163,34 @@ async function clearInstrument(db: SupabaseClient, instrument: string) {
 export interface JobResult {
   jobId: string;
   instrument: string;
-  status: "published" | "no_trade" | "skipped" | "capped" | "duplicate" | "failed";
+  status: "published" | "no_trade" | "skipped" | "capped" | "duplicate" | "failed" | "stale";
   detail?: string;
 }
+
+/** Jobs still waiting. Drives the worker's self-chain decision. */
+export async function pendingScanJobs(db: SupabaseClient): Promise<number> {
+  const { count, error } = await db
+    .from("scan_queue")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "pending");
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/**
+ * A job enqueued more than one scan interval ago is worthless: its cycle has
+ * been superseded, and grading live candles against it burns the whole request
+ * budget while producing a duplicate of the current structure. Drop it fast so
+ * the newest cycle reaches the front of the queue.
+ */
+const JOB_STALE_AFTER_MS = 15 * 60_000;
 
 /** Claim and process a single pending job. Returns null when the queue is empty. */
 export async function processNextJob(db: SupabaseClient): Promise<JobResult | null> {
   const { data: claimed, error: claimError } = await db.rpc("claim_scan_job");
   if (claimError) throw claimError;
   const job = (Array.isArray(claimed) ? claimed[0] : claimed) as
-    | { id: string; instrument: string }
+    | { id: string; instrument: string; enqueued_at?: string | null }
     | undefined
     | null;
   if (!job) return null;
@@ -191,6 +209,17 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
       .eq("id", job.id);
     return { jobId: job.id, instrument: job.instrument, status, ...(detail ? { detail } : {}) };
   };
+
+  if (job.enqueued_at) {
+    const ageMs = Date.now() - new Date(job.enqueued_at).getTime();
+    if (ageMs > JOB_STALE_AFTER_MS) {
+      return await finish(
+        "stale",
+        `Backlogged ${Math.round(ageMs / 60_000)} minutes past its scan interval; closed without fetching candles`,
+      );
+    }
+  }
+
 
   try {
     // Sequential per-timeframe fetch keeps peak memory to one candle series.
