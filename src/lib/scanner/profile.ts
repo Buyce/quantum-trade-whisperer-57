@@ -1,5 +1,5 @@
 import { clamp, detectAbc } from "./indicators";
-import { gradeSetup, readTimeframe, scoreConfluence } from "./grading";
+import { directionalHeadroomAtr, gradeSetup, readTimeframe, scoreConfluence } from "./grading";
 import {
   CONFIDENCE_WEIGHTS,
   DEFAULT_SPREAD_FLOOR,
@@ -119,10 +119,18 @@ export function buildTradeProfile(input: BuildProfileInput): TradeProfile | null
   const h1 = readTimeframe("H1", input.candles.H1);
   const m15 = readTimeframe("M15", input.candles.M15);
 
-  const graded = gradeSetup(h4, h1, m15);
-  if (!graded.grade || m15.bias === "neutral") return null;
-
+  if (m15.bias === "neutral") return null;
   const direction: Direction = m15.bias === "bullish" ? "long" : "short";
+
+  // Headroom is measured in the direction this trade actually travels, not from
+  // H4's own bias, so an aligned continuation is no longer vetoed for sitting at
+  // the high of its own trend.
+  const headroomAtr = directionalHeadroomAtr(direction, input.candles.H4, h4);
+
+  const graded = gradeSetup(h4, h1, m15, headroomAtr);
+  if (!graded.grade) return null;
+
+
   const abc = detectAbc(input.candles.M15, direction);
   if (!abc) return null;
 
@@ -282,7 +290,7 @@ export function buildTradeProfile(input: BuildProfileInput): TradeProfile | null
     patternSymmetry: round(abc.symmetry),
     confidence,
     pillars,
-    h4Bias: describe(h4),
+    h4Bias: describe(h4, headroomAtr),
     h1Bias: describe(h1),
     m15Bias: describe(m15),
     qualitativeBreakdown: buildBreakdown({
@@ -323,9 +331,10 @@ export function structureKeyOf(args: {
 }
 
 
-function describe(read: TimeframeRead): string {
+function describe(read: TimeframeRead, headroomAtr?: number): string {
   if (read.bias === "neutral") return "conflicting";
-  return read.barrierDistanceAtr < 2.5 ? `${read.bias} / approaching macro resistance` : read.bias;
+  const room = headroomAtr ?? read.barrierDistanceAtr;
+  return room < 2.5 ? `${read.bias} / approaching macro resistance` : read.bias;
 }
 
 function round(v: number, dp = 2): number {

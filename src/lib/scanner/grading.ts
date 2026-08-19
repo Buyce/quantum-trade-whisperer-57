@@ -5,6 +5,7 @@ import {
   detectOrderBlocks,
   ema,
   rsiSeries,
+  swings,
   zoneDistanceAtr,
 } from "./indicators";
 import {
@@ -67,20 +68,76 @@ export interface GradeResult {
   alignmentScore: number;
 }
 
+/** Headroom below which the trade is considered jammed against H4 structure. */
+export const MIN_HEADROOM_ATR = 2.5;
+
+/** Fractal window for major H4 structure. Tighter windows pick up noise pivots. */
+const H4_PIVOT_LOOKBACK = 5;
+/** A level closer than this is inside the noise band, not a barrier. */
+const PIVOT_MIN_SEPARATION_ATR = 0.3;
+
+/**
+ * Room the TRADE has before the next *unbroken* opposing H4 structure, in H4 ATR
+ * units.
+ *
+ * The old measure was the distance to the extreme of the whole 60-bar H4 window,
+ * which is self-cancelling for continuation: a confirmed H4 uptrend sits at its
+ * own 60-bar high by definition, so headroom read ~0 and the A gate vetoed every
+ * aligned setup ever published (19 of 19 in the live table). This instead finds
+ * the nearest major swing pivot ahead of price that has never been closed
+ * through — levels the trend has already broken are no longer resistance — and
+ * reports open space as unbounded headroom.
+ */
+export function directionalHeadroomAtr(
+  direction: "long" | "short",
+  h4Candles: Candle[],
+  h4: TimeframeRead,
+): number {
+  const last = h4Candles[h4Candles.length - 1];
+  if (!last || h4.atr <= 0) return 0;
+  const price = last.close;
+  const band = PIVOT_MIN_SEPARATION_ATR * h4.atr;
+
+  const opposing = swings(h4Candles, H4_PIVOT_LOOKBACK)
+    .filter((p) => {
+      if (direction === "long") {
+        if (p.kind !== "high" || p.price <= price + band) return false;
+        return !h4Candles.slice(p.index + 1).some((c) => c.close > p.price);
+      }
+      if (p.kind !== "low" || p.price >= price - band) return false;
+      return !h4Candles.slice(p.index + 1).some((c) => c.close < p.price);
+    })
+    .map((p) => p.price);
+
+  if (!opposing.length) return Number.POSITIVE_INFINITY;
+  const nearest = direction === "long" ? Math.min(...opposing) : Math.max(...opposing);
+  return Math.abs(nearest - price) / h4.atr;
+
+}
+
 /**
  * Tier grading over the ABC retracement structure.
  *
  * A — perfect MA alignment across H4/H1/M15 and price testing Point C.
  * B — H1 + M15 aligned with the primary trend but H4 approaching macro resistance.
  * C — aggressive localized M15 break against conflicting higher timeframes.
+ *
+ * `headroomAtr` is the directional measure above. It is optional so callers that
+ * have no candle context keep the legacy behaviour.
  */
-export function gradeSetup(h4: TimeframeRead, h1: TimeframeRead, m15: TimeframeRead): GradeResult {
+export function gradeSetup(
+  h4: TimeframeRead,
+  h1: TimeframeRead,
+  m15: TimeframeRead,
+  headroomAtr?: number,
+): GradeResult {
   const satisfied: string[] = [];
   const violated: string[] = [];
 
   const allAligned = h4.bias !== "neutral" && h4.bias === h1.bias && h1.bias === m15.bias;
   const h1m15Aligned = h1.bias !== "neutral" && h1.bias === m15.bias;
-  const nearMacroBarrier = h4.barrierDistanceAtr < 2.5;
+  const headroom = headroomAtr ?? h4.barrierDistanceAtr;
+  const nearMacroBarrier = headroom < MIN_HEADROOM_ATR;
 
   if (allAligned) satisfied.push("Moving-average stack aligned across H4, H1 and M15");
   else violated.push("Moving-average stack is not aligned across all three timeframes");
@@ -88,8 +145,13 @@ export function gradeSetup(h4: TimeframeRead, h1: TimeframeRead, m15: TimeframeR
   if (m15.atPointC || h1.atPointC) satisfied.push("Price is testing the Point C structural liquidity zone");
   else violated.push("Price is not reacting inside a Point C liquidity zone");
 
-  if (!nearMacroBarrier) satisfied.push("H4 has clear room before the next macro barrier");
-  else violated.push("H4 is approaching major macroeconomic resistance");
+  if (!nearMacroBarrier)
+    satisfied.push(
+      Number.isFinite(headroom)
+        ? `H4 has ${headroom.toFixed(1)} ATR of room before the next opposing structure`
+        : "H4 has open space ahead — no opposing structure in range",
+    );
+  else violated.push(`H4 has only ${headroom.toFixed(1)} ATR before the next opposing structure`);
 
   let grade: Grade | null = null;
   if (allAligned && (m15.atPointC || h1.atPointC) && !nearMacroBarrier) grade = "A";
@@ -106,6 +168,7 @@ export function gradeSetup(h4: TimeframeRead, h1: TimeframeRead, m15: TimeframeR
 
   return { grade, reasonsSatisfied: satisfied, reasonsViolated: violated, alignmentScore };
 }
+
 
 /**
  * Institutional Confluence Scoring — the four pillars, each scored 0-100.
@@ -163,6 +226,7 @@ export function scoreConfluence(input: {
   const rsiVals = rsiSeries(input.m15Candles, 14);
   const recentRsi = rsiVals.slice(-6);
   const latestRsi = recentRsi[recentRsi.length - 1] ?? 50;
+  const prevRsi = recentRsi[recentRsi.length - 2] ?? latestRsi;
   const extremeRsi =
     input.direction === "long" ? Math.min(...(recentRsi.length ? recentRsi : [50])) : Math.max(...(recentRsi.length ? recentRsi : [50]));
   // Long wants an oversold flush into Point C; short wants an overbought push.
@@ -191,14 +255,33 @@ export function scoreConfluence(input: {
         Math.max(...lastRsi) < Math.max(...firstRsi);
     }
   }
-  const momentum = clamp(Math.max(extremeScore, divergence ? 75 : 0), 0, 100);
+
+  /**
+   * Continuation-aware pullback path. An absolute oversold flush (RSI <= 40 on a
+   * long) is the wrong thing to demand of a trend continuation: a healthy bullish
+   * pullback cools into the 40-55 band and turns back up, which is why this
+   * pillar read 0 on every aligned setup the engine ever published. Credit is
+   * scaled by how deep the pullback went, and full credit requires the RSI to
+   * have already turned back in the trade's direction.
+   */
+  const turningBack = input.direction === "long" ? latestRsi >= prevRsi : latestRsi <= prevRsi;
+  const pullbackDepth =
+    input.direction === "long"
+      ? clamp(((58 - extremeRsi) / 18) * 100, 0, 100)
+      : clamp(((extremeRsi - 42) / 18) * 100, 0, 100);
+  const pullbackScore = turningBack ? pullbackDepth : pullbackDepth * 0.6;
+
+  const momentum = clamp(Math.max(extremeScore, divergence ? 75 : 0, pullbackScore), 0, 100);
   notes.push(
     divergence
       ? `Momentum: ${input.direction === "long" ? "bullish" : "bearish"} RSI divergence at Point C (RSI ${latestRsi.toFixed(1)})`
       : extremeScore >= PILLAR_PASS_SCORE
         ? `Momentum: RSI reached an exhaustion extreme of ${extremeRsi.toFixed(1)} into Point C`
-        : `Momentum: no RSI exhaustion or divergence at Point C (RSI ${latestRsi.toFixed(1)})`,
+        : pullbackScore >= PILLAR_PASS_SCORE
+          ? `Momentum: pullback cooled to RSI ${extremeRsi.toFixed(1)} and has turned back ${input.direction === "long" ? "up" : "down"} (RSI ${latestRsi.toFixed(1)})`
+          : `Momentum: no RSI exhaustion, divergence or completed pullback at Point C (RSI ${latestRsi.toFixed(1)})`,
   );
+
 
   // ---- Pillar 4: volatility expansion ------------------------------------
   const atrMa = atrMovingAverage(input.m15Candles, 14, 20);
