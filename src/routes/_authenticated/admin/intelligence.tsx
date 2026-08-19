@@ -146,16 +146,22 @@ function AdminIntelligencePage() {
           }
         />
         <StatCard
-          label="Webhook success 24h"
-          value={pctOf(webhooks.success_rate)}
-          sub={`${webhooks.total_24h} dispatches`}
-          tone={webhooks.success_rate != null && webhooks.success_rate < 0.9 ? "bad" : "default"}
+          label="Queue backlog"
+          value={`${health.backlog?.pending ?? 0} pending`}
+          sub={
+            health.backlog?.oldest_pending_age_min != null
+              ? `oldest ${health.backlog.oldest_pending_age_min} min · ${health.backlog.processing} in flight`
+              : `queue clear · ${health.backlog?.processing ?? 0} in flight`
+          }
+          tone={
+            (health.backlog?.oldest_pending_age_min ?? 0) > 15
+              ? "bad"
+              : (health.backlog?.pending ?? 0) > 0
+                ? "warn"
+                : "good"
+          }
         />
-        <StatCard
-          label="Regime buckets"
-          value={String(learning_matrix.length)}
-          sub="tiers 1–3 from regime_stats"
-        />
+
       </section>
 
       <div className="grid gap-3 lg:grid-cols-3">
