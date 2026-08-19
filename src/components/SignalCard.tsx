@@ -201,22 +201,29 @@ function ExecutionChip({
 }
 
 /**
- * Read-only Intelligence Panel. Shows the advisory Bayesian priors the scanner
- * recorded from shadow telemetry, always alongside the sample size behind them.
+ * Read-only Intelligence Panel. Shows the Bayesian priors the scanner recorded
+ * from shadow telemetry, always alongside the sample size behind them and the
+ * regime tier that produced them.
  *
- * ZERO-HALLUCINATION: renders nothing at all when the signal has no priors, and
- * labels the numbers "advisory" until the activation gates are cleared. It never
- * substitutes a placeholder percentage, and it influences nothing.
+ * ZERO-HALLUCINATION: renders nothing at all when the signal has no priors.
+ * Each metric carries its own gate status — the fill rate can be active while
+ * the win rate is still learning — and neither ever places, blocks or reprices
+ * a trade.
  */
 function IntelligencePanel({ signal }: { signal: SignalRow }) {
   const pFill = signal.p_fill_prior;
   const pWin = signal.p_win_prior;
   const ev = signal.ev_prior;
   const n = signal.prior_sample_n ?? 0;
+  const filledN = signal.prior_filled_n;
+  const tier = signal.prior_tier;
   if (pFill == null || pWin == null) return null;
 
+  // Gates are evaluated against their own denominators: resolved samples for
+  // fill, filled samples for win. A signal published before the filled count
+  // was recorded reports the win gate as unknown rather than guessing.
   const fillGate = n >= MIN_N_FILL;
-  const winGate = n >= MIN_N_WIN;
+  const winGate = filledN != null && filledN >= MIN_N_WIN;
   const pct = (v: number) => `${(Number(v) * 100).toFixed(1)}%`;
 
   return (
@@ -224,39 +231,53 @@ function IntelligencePanel({ signal }: { signal: SignalRow }) {
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <p className="label-xs">
           <InfoLabel hint="Historical rates measured by replaying past setups from this same regime against real candles. Smoothed toward the wider average when the sample is small, so a thin bucket can never show a wild number.">
-            Intelligence (advisory)
+            Intelligence
           </InfoLabel>
         </p>
-        <span className="num text-xs text-muted-foreground">sample n = {n}</span>
+        <span className="num text-xs text-muted-foreground">
+          {tier == null ? `sample n = ${n}` : `${tierLabel(tier)} · n = ${n}`}
+        </span>
       </div>
 
       <dl className="mt-3 grid grid-cols-3 gap-3">
         <div className="min-w-0">
           <dt className="label-xs">Fill rate</dt>
           <dd className="num text-base font-semibold text-foreground">{pct(pFill)}</dd>
+          <p className={cn("mt-0.5 text-[11px]", fillGate ? "text-success" : "text-muted-foreground")}>
+            {fillGate ? "Active" : `Learning ${n}/${MIN_N_FILL}`}
+          </p>
         </div>
         <div className="min-w-0">
           <dt className="label-xs">Win if filled</dt>
           <dd className="num text-base font-semibold text-foreground">{pct(pWin)}</dd>
+          <p className={cn("mt-0.5 text-[11px]", winGate ? "text-success" : "text-muted-foreground")}>
+            {filledN == null
+              ? "Sample not recorded"
+              : winGate
+                ? "Active"
+                : `Learning ${filledN}/${MIN_N_WIN} filled`}
+          </p>
         </div>
         <div className="min-w-0">
           <dt className="label-xs">Expected value</dt>
           <dd className="num text-base font-semibold text-foreground">
             {ev == null ? "—" : pct(ev)}
           </dd>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">fill x win</p>
         </div>
       </dl>
 
       <p className="mt-3 text-xs leading-snug text-muted-foreground">
-        {fillGate && winGate
-          ? "Sample size has cleared both statistical thresholds. These rates still do not place or block trades."
-          : `Learning — insufficient sample (${n}/${fillGate ? MIN_N_WIN : MIN_N_FILL}). Shown for observation only: grading, alerts and the daily limit ignore these numbers entirely.`}
+        {fillGate
+          ? "Fill rate has cleared its sample threshold and is shown as a measured rate. It still does not place, block or reprice trades — grading, alerts and the daily limit ignore these numbers entirely."
+          : "Shown for observation only: grading, alerts and the daily limit ignore these numbers entirely."}
       </p>
 
       <ModelExplain signal={signal} />
     </div>
   );
 }
+
 
 const PCT = (v: number | null) => (v == null ? "—" : `${(v * 100).toFixed(1)}%`);
 const SIGNED = (v: number | null) => (v == null ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(1)} pp`);
