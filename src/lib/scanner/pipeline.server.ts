@@ -163,7 +163,7 @@ async function clearInstrument(db: SupabaseClient, instrument: string) {
 export interface JobResult {
   jobId: string;
   instrument: string;
-  status: "published" | "no_trade" | "skipped" | "capped" | "duplicate" | "failed" | "stale";
+  status: "published" | "no_trade" | "skipped" | "duplicate" | "failed" | "stale";
   detail?: string;
 }
 
