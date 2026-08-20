@@ -9,8 +9,6 @@ import { atr } from "./indicators";
 import { fetchCandles, MetaApiNotConfiguredError, MetaApiTimeoutError } from "./metaapi.server";
 import {
   CANDLE_LIMITS,
-  CAPPED_GRADES,
-  DEFAULT_DAILY_SETUP_CAP,
   ENTRY_PRICE_DECIMALS,
   INSTRUMENTS,
   SIGNAL_MAX_AGE_HOURS,
