@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { ArrowDownRight, ArrowUpRight, Download, Pencil, Trash2 } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Download, Pencil, ShieldAlert, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { deleteAllTrades, deleteTrade, takenTradeHistoryQuery } from "@/lib/queries";
 import { recordTradeOutcome } from "@/lib/trade-journal.functions";
@@ -58,25 +58,36 @@ const OUTCOME_STYLES: Record<Outcome, string> = {
   open: "text-warning",
 };
 
+/** A closed trade without both real fill prices cannot have an auditable R. */
+function isUnverified(row: TradeHistoryRow) {
+  return row.outcome !== "open" && (row.actual_entry_price == null || row.actual_exit_price == null);
+}
+
 function HistoryPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const history = useQuery(takenTradeHistoryQuery(user?.id));
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [onlyUnverified, setOnlyUnverified] = useState(false);
 
-  const rows = useMemo(
+  const allRows = useMemo(
     () => (history.data ?? []).filter((r) => signalOf(r) !== null),
     [history.data],
   );
+  const unverifiedCount = useMemo(() => allRows.filter(isUnverified).length, [allRows]);
+  const rows = useMemo(
+    () => (onlyUnverified ? allRows.filter(isUnverified) : allRows),
+    [allRows, onlyUnverified],
+  );
 
   function exportCsv() {
-    if (rows.length === 0) return;
-    downloadCsv(`ptrades_trade_history_${todayStamp()}.csv`, historyToCsv(rows));
+    if (allRows.length === 0) return;
+    downloadCsv(`ptrades_trade_history_${todayStamp()}.csv`, historyToCsv(allRows));
   }
 
   function exportJson() {
-    if (rows.length === 0) return;
-    downloadJson(`ptrades_trade_history_${todayStamp()}.json`, historyToExportJson(rows));
+    if (allRows.length === 0) return;
+    downloadJson(`ptrades_trade_history_${todayStamp()}.json`, historyToExportJson(allRows));
   }
 
   async function record(
@@ -158,10 +169,10 @@ function HistoryPage() {
         </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
-          <Button size="sm" variant="ghost" disabled={rows.length === 0} onClick={exportCsv}>
+          <Button size="sm" variant="ghost" disabled={allRows.length === 0} onClick={exportCsv}>
             <Download className="size-4" /> Export History (CSV)
           </Button>
-          <Button size="sm" variant="ghost" disabled={rows.length === 0} onClick={exportJson}>
+          <Button size="sm" variant="ghost" disabled={allRows.length === 0} onClick={exportJson}>
             <Download className="size-4" /> Export History (JSON)
           </Button>
           <AlertDialog>
@@ -170,7 +181,7 @@ function HistoryPage() {
                 size="sm"
                 variant="ghost"
                 className="text-destructive hover:text-destructive"
-                disabled={rows.length === 0 || busyId === "all"}
+                disabled={allRows.length === 0 || busyId === "all"}
               >
                 <Trash2 className="size-4" /> Delete all history
               </Button>
@@ -179,8 +190,9 @@ function HistoryPage() {
               <AlertDialogHeader>
                 <AlertDialogTitle>Delete your entire trade history?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  This permanently removes {rows.length} logged {rows.length === 1 ? "trade" : "trades"} from your
-                  personal log. Scanner signals and learning data are not affected. This cannot be undone.
+                  This permanently removes {allRows.length} logged{" "}
+                  {allRows.length === 1 ? "trade" : "trades"} from your personal log. Scanner signals and
+                  learning data are not affected. This cannot be undone.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -192,11 +204,37 @@ function HistoryPage() {
         </div>
       </div>
 
+      {unverifiedCount > 0 ? (
+        <div className="rounded-md border border-warning/40 bg-warning/10 px-3 py-3 sm:px-4">
+          <div className="flex flex-wrap items-start gap-x-3 gap-y-2">
+            <ShieldAlert className="mt-0.5 size-4 shrink-0 text-warning" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-foreground">
+                {unverifiedCount} closed {unverifiedCount === 1 ? "trade has" : "trades have"} no fill prices
+              </p>
+              <p className="mt-1 max-w-2xl text-xs text-muted-foreground">
+                Add the entry and exit price you actually got and the R multiple is recalculated from the
+                setup's own risk distance. Until then those results stay unverified and are excluded from
+                your verified win rate. Prices are optional — nothing is changed if you skip this.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant={onlyUnverified ? "default" : "outline"}
+              className="sm:ml-auto"
+              onClick={() => setOnlyUnverified((v) => !v)}
+            >
+              {onlyUnverified ? "Show all trades" : "Show only unverified"}
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
       {history.isError ? (
         <p className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm">
           Could not load your trade history. Try refreshing.
         </p>
-      ) : rows.length === 0 ? (
+      ) : allRows.length === 0 ? (
         <div className="rounded-md border border-border bg-card px-4 py-10 text-center sm:px-6 sm:py-16">
           <p className="num text-lg font-semibold text-foreground">NO TAKEN TRADES YET</p>
           <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">

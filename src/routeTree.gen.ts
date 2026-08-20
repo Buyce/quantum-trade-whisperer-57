@@ -28,6 +28,7 @@ import { Route as ApiPublicQuotesRouteImport } from './routes/api/public/quotes'
 import { Route as ApiPublicCronPurgeAccountsRouteImport } from './routes/api/public/cron/purge-accounts'
 import { Route as ApiPublicCronScanRouteImport } from './routes/api/public/cron/scan'
 import { Route as ApiPublicCronShadowResolveRouteImport } from './routes/api/public/cron/shadow-resolve'
+import { Route as ApiPublicCronVerifyRemindersRouteImport } from './routes/api/public/cron/verify-reminders'
 import { Route as ApiPublicCronWeeklyReportRouteImport } from './routes/api/public/cron/weekly-report'
 import { Route as ApiPublicWorkerProcessRouteImport } from './routes/api/public/worker/process'
 import { Route as ApiPublicWorkerShadowRouteImport } from './routes/api/public/worker/shadow'
@@ -136,6 +137,12 @@ const ApiPublicCronShadowResolveRoute =
     path: '/api/public/cron/shadow-resolve',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicCronVerifyRemindersRoute =
+  ApiPublicCronVerifyRemindersRouteImport.update({
+    id: '/api/public/cron/verify-reminders',
+    path: '/api/public/cron/verify-reminders',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicCronWeeklyReportRoute =
   ApiPublicCronWeeklyReportRouteImport.update({
     id: '/api/public/cron/weekly-report',
@@ -188,6 +195,7 @@ export interface FileRoutesByFullPath {
   '/api/public/cron/purge-accounts': typeof ApiPublicCronPurgeAccountsRoute
   '/api/public/cron/scan': typeof ApiPublicCronScanRoute
   '/api/public/cron/shadow-resolve': typeof ApiPublicCronShadowResolveRoute
+  '/api/public/cron/verify-reminders': typeof ApiPublicCronVerifyRemindersRoute
   '/api/public/cron/weekly-report': typeof ApiPublicCronWeeklyReportRoute
   '/api/public/worker/process': typeof ApiPublicWorkerProcessRoute
   '/api/public/worker/shadow': typeof ApiPublicWorkerShadowRoute
@@ -214,6 +222,7 @@ export interface FileRoutesByTo {
   '/api/public/cron/purge-accounts': typeof ApiPublicCronPurgeAccountsRoute
   '/api/public/cron/scan': typeof ApiPublicCronScanRoute
   '/api/public/cron/shadow-resolve': typeof ApiPublicCronShadowResolveRoute
+  '/api/public/cron/verify-reminders': typeof ApiPublicCronVerifyRemindersRoute
   '/api/public/cron/weekly-report': typeof ApiPublicCronWeeklyReportRoute
   '/api/public/worker/process': typeof ApiPublicWorkerProcessRoute
   '/api/public/worker/shadow': typeof ApiPublicWorkerShadowRoute
@@ -242,6 +251,7 @@ export interface FileRoutesById {
   '/api/public/cron/purge-accounts': typeof ApiPublicCronPurgeAccountsRoute
   '/api/public/cron/scan': typeof ApiPublicCronScanRoute
   '/api/public/cron/shadow-resolve': typeof ApiPublicCronShadowResolveRoute
+  '/api/public/cron/verify-reminders': typeof ApiPublicCronVerifyRemindersRoute
   '/api/public/cron/weekly-report': typeof ApiPublicCronWeeklyReportRoute
   '/api/public/worker/process': typeof ApiPublicWorkerProcessRoute
   '/api/public/worker/shadow': typeof ApiPublicWorkerShadowRoute
@@ -270,6 +280,7 @@ export interface FileRouteTypes {
     | '/api/public/cron/purge-accounts'
     | '/api/public/cron/scan'
     | '/api/public/cron/shadow-resolve'
+    | '/api/public/cron/verify-reminders'
     | '/api/public/cron/weekly-report'
     | '/api/public/worker/process'
     | '/api/public/worker/shadow'
@@ -296,6 +307,7 @@ export interface FileRouteTypes {
     | '/api/public/cron/purge-accounts'
     | '/api/public/cron/scan'
     | '/api/public/cron/shadow-resolve'
+    | '/api/public/cron/verify-reminders'
     | '/api/public/cron/weekly-report'
     | '/api/public/worker/process'
     | '/api/public/worker/shadow'
@@ -323,6 +335,7 @@ export interface FileRouteTypes {
     | '/api/public/cron/purge-accounts'
     | '/api/public/cron/scan'
     | '/api/public/cron/shadow-resolve'
+    | '/api/public/cron/verify-reminders'
     | '/api/public/cron/weekly-report'
     | '/api/public/worker/process'
     | '/api/public/worker/shadow'
@@ -345,6 +358,7 @@ export interface RootRouteChildren {
   ApiPublicCronPurgeAccountsRoute: typeof ApiPublicCronPurgeAccountsRoute
   ApiPublicCronScanRoute: typeof ApiPublicCronScanRoute
   ApiPublicCronShadowResolveRoute: typeof ApiPublicCronShadowResolveRoute
+  ApiPublicCronVerifyRemindersRoute: typeof ApiPublicCronVerifyRemindersRoute
   ApiPublicCronWeeklyReportRoute: typeof ApiPublicCronWeeklyReportRoute
   ApiPublicWorkerProcessRoute: typeof ApiPublicWorkerProcessRoute
   ApiPublicWorkerShadowRoute: typeof ApiPublicWorkerShadowRoute
@@ -488,6 +502,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicCronShadowResolveRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/cron/verify-reminders': {
+      id: '/api/public/cron/verify-reminders'
+      path: '/api/public/cron/verify-reminders'
+      fullPath: '/api/public/cron/verify-reminders'
+      preLoaderRoute: typeof ApiPublicCronVerifyRemindersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/cron/weekly-report': {
       id: '/api/public/cron/weekly-report'
       path: '/api/public/cron/weekly-report'
@@ -581,6 +602,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicCronPurgeAccountsRoute: ApiPublicCronPurgeAccountsRoute,
   ApiPublicCronScanRoute: ApiPublicCronScanRoute,
   ApiPublicCronShadowResolveRoute: ApiPublicCronShadowResolveRoute,
+  ApiPublicCronVerifyRemindersRoute: ApiPublicCronVerifyRemindersRoute,
   ApiPublicCronWeeklyReportRoute: ApiPublicCronWeeklyReportRoute,
   ApiPublicWorkerProcessRoute: ApiPublicWorkerProcessRoute,
   ApiPublicWorkerShadowRoute: ApiPublicWorkerShadowRoute,
