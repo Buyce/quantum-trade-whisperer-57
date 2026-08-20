@@ -178,8 +178,6 @@ function FeedPage() {
     ).length;
   }, [signals.data]);
 
-  // 0 = unlimited. The scanner has no global ceiling; this is the user's choice.
-  const cap = cfg?.daily_setup_cap ?? 0;
   const unavailable = (health.data ?? []).filter((h) => !h.available);
   const lastScanAt = (health.data ?? []).find((h) => h.instrument === "XAUUSD")?.updated_at ?? null;
 
