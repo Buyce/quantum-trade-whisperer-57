@@ -6,6 +6,7 @@ import { template as feedbackReceivedTemplate } from './feedback-received'
 import { template as feedbackThankYouTemplate } from './feedback-thank-you'
 import { template as learningMilestoneTemplate } from './learning-milestone'
 import { template as weeklyShadowReportTemplate } from './weekly-shadow-report'
+import { template as verifyTradePricesTemplate } from './verify-trade-prices'
 
 export interface TemplateEntry {
   component: ComponentType<any>
