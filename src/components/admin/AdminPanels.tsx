@@ -256,8 +256,14 @@ export function DisciplinePanel({ discipline }: { discipline: AdminDiscipline })
         <thead className="text-left text-muted-foreground">
           <tr className="border-b border-border">
             <th className="py-1 pr-2 font-medium">Decision</th>
-            <th className="py-1 pr-2 text-right font-medium">Resolved</th>
-            <th className="py-1 pr-2 text-right font-medium">Filled</th>
+            <th className="py-1 pr-2 text-right font-medium">Decisions</th>
+            <th
+              className="py-1 pr-2 text-right font-medium cursor-help decoration-dotted underline-offset-4 hover:underline"
+              title="Only filled replays count toward win rate and mean R."
+            >
+              Filled
+            </th>
+
             <th className="py-1 pr-2 text-right font-medium">Win rate</th>
             <th className="py-1 text-right font-medium">Mean R</th>
           </tr>
