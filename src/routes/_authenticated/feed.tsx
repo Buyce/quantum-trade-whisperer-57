@@ -71,6 +71,9 @@ function FeedPage() {
 
   // Per-user alert threshold, independent of the feed filter.
   const alertMinGrade: Grade = settings.data?.alert_min_grade ?? "B";
+  // Personal daily cap on graded setups (0 = unlimited), read at INSERT time.
+  const alertCapRef = useRef(0);
+  const gradedTodayRef = useRef(0);
   // Held in a ref so the realtime channel is never torn down and rebuilt just
   // because settings loaded or changed — resubscribing drops INSERTs in the gap.
   const alertMinGradeRef = useRef<Grade>(alertMinGrade);
