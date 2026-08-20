@@ -58,15 +58,26 @@ const OUTCOME_STYLES: Record<Outcome, string> = {
   open: "text-warning",
 };
 
+/** A closed trade without both real fill prices cannot have an auditable R. */
+function isUnverified(row: TradeHistoryRow) {
+  return row.outcome !== "open" && (row.actual_entry_price == null || row.actual_exit_price == null);
+}
+
 function HistoryPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const history = useQuery(takenTradeHistoryQuery(user?.id));
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [onlyUnverified, setOnlyUnverified] = useState(false);
 
-  const rows = useMemo(
+  const allRows = useMemo(
     () => (history.data ?? []).filter((r) => signalOf(r) !== null),
     [history.data],
+  );
+  const unverifiedCount = useMemo(() => allRows.filter(isUnverified).length, [allRows]);
+  const rows = useMemo(
+    () => (onlyUnverified ? allRows.filter(isUnverified) : allRows),
+    [allRows, onlyUnverified],
   );
 
   function exportCsv() {
