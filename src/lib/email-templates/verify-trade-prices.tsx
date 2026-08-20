@@ -61,10 +61,7 @@ const VerifyTradePricesEmail = ({
 }: VerifyTradePricesProps) => (
   <Html lang="en" dir="ltr">
     <Head />
-    <Preview>
-      {missingCount} logged {missingCount === 1 ? 'trade is' : 'trades are'} missing
-      fill prices
-    </Preview>
+    <Preview>{`${missingCount} logged ${missingCount === 1 ? 'trade is' : 'trades are'} missing fill prices`}</Preview>
     <Body style={main}>
       <Container style={container}>
         <Text style={brandBar}>P-Trades Hub · Trade journal</Text>
