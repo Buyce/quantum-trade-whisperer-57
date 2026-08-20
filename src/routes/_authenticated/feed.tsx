@@ -137,6 +137,7 @@ function FeedPage() {
     // even when the row survives deletion because a trade was logged on it.
     const now = Date.now();
     rows = rows.filter((s) => isWithinRetention(s, now));
+    if (cappedOutIds.size) rows = rows.filter((s) => !cappedOutIds.has(s.id));
     if (applyFilters && cfg) {
       rows = rows.filter((s) => {
         if (cfg.instruments.length && !cfg.instruments.includes(s.instrument)) return false;
