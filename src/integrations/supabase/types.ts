@@ -16,7 +16,10 @@ export type Database = {
     Tables: {
       executed_trades: {
         Row: {
+          actual_entry_price: number | null
+          actual_exit_price: number | null
           created_at: string
+          derived_r: number | null
           id: string
           notes: string | null
           outcome: Database["public"]["Enums"]["trade_outcome"]
@@ -27,7 +30,10 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          actual_entry_price?: number | null
+          actual_exit_price?: number | null
           created_at?: string
+          derived_r?: number | null
           id?: string
           notes?: string | null
           outcome?: Database["public"]["Enums"]["trade_outcome"]
@@ -38,7 +44,10 @@ export type Database = {
           user_id?: string
         }
         Update: {
+          actual_entry_price?: number | null
+          actual_exit_price?: number | null
           created_at?: string
+          derived_r?: number | null
           id?: string
           notes?: string | null
           outcome?: Database["public"]["Enums"]["trade_outcome"]

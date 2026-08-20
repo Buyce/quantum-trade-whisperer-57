@@ -13,6 +13,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { RefreshCw } from "lucide-react";
 import { getAdminIntelligence } from "@/lib/admin.functions";
 import { getWeeklyShadowReport } from "@/lib/reports/weekly.functions";
+import { getUserReportAudit } from "@/lib/user-audit.functions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -27,6 +28,7 @@ import {
   PanelShell,
   RegimeTable,
   StatCard,
+  UserIntegrityPanel,
   WebhookPanel,
   WeeklyTierPanel,
   num,
@@ -59,9 +61,17 @@ export const Route = createFileRoute("/_authenticated/admin/intelligence")({
 function AdminIntelligencePage() {
   const fetchIntel = useServerFn(getAdminIntelligence);
   const fetchWeekly = useServerFn(getWeeklyShadowReport);
+  const fetchAudit = useServerFn(getUserReportAudit);
   const weekly = useQuery({
     queryKey: ["admin-weekly-shadow-report"],
     queryFn: () => fetchWeekly(),
+    refetchInterval: 300_000,
+    refetchOnWindowFocus: false,
+    staleTime: 240_000,
+  });
+  const audit = useQuery({
+    queryKey: ["admin-user-report-audit"],
+    queryFn: () => fetchAudit(),
     refetchInterval: 300_000,
     refetchOnWindowFocus: false,
     staleTime: 240_000,
@@ -166,7 +176,12 @@ function AdminIntelligencePage() {
           }
           sub={
             engagement.user_reported && engagement.user_reported.n > 0
-              ? `n=${engagement.user_reported.n} · mean R ${num(engagement.user_reported.mean_r)}`
+              ? `n=${engagement.user_reported.n} · mean R ${num(engagement.user_reported.mean_r)}` +
+                (audit.data && audit.data.verifiedSampleN > 0
+                  ? ` · verified ${pctOf(audit.data.verifiedWinRate)} (n=${audit.data.verifiedSampleN})`
+                  : audit.data
+                    ? " · none verified against replay"
+                    : "")
               : "no user-logged outcomes yet"
           }
         />
@@ -237,6 +252,18 @@ function AdminIntelligencePage() {
           <DisciplinePanel discipline={discipline} />
         </PanelShell>
       </div>
+
+      <PanelShell title="User-reported data integrity — checked against deterministic replay">
+        {audit.isError ? (
+          <EmptyNote>
+            {audit.error instanceof Error ? audit.error.message : "Integrity audit unavailable."}
+          </EmptyNote>
+        ) : (
+          <UserIntegrityPanel report={audit.data} />
+        )}
+      </PanelShell>
+
+
 
       <div className="grid gap-3 lg:grid-cols-3">
         <PanelShell title="Grade calibration">

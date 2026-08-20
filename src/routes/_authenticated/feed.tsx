@@ -11,8 +11,8 @@ import {
   myTradesQuery,
   settingsQuery,
   signalsQuery,
-  updateTradeResult,
 } from "@/lib/queries";
+import { recordTradeOutcome } from "@/lib/trade-journal.functions";
 import { contextOf, isWithinRetention, type Grade, type SignalRow, type TradeRow } from "@/lib/db-types";
 import { MIN_N_FILL } from "@/lib/learning/regime";
 import { SignalCard } from "@/components/SignalCard";
@@ -189,12 +189,16 @@ function FeedPage() {
   }
 
 
-  async function close(tradeId: string, outcome: "win" | "loss" | "breakeven", r: number) {
+  /**
+   * Records the outcome only. R is derived from the real prices the user logs in
+   * Trade History — never from a preset button.
+   */
+  async function close(tradeId: string, outcome: "win" | "loss" | "breakeven") {
     setBusyId(tradeId);
     try {
-      await updateTradeResult({ tradeId, outcome, realizedR: r });
+      await recordTradeOutcome({ data: { tradeId, outcome } });
       await queryClient.invalidateQueries({ queryKey: ["my-trades"] });
-      toast.success(`Result recorded at ${r.toFixed(2)}R`);
+      toast.success(`Recorded as ${outcome}. Add your entry/exit price in Trade History for the R.`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not record the result");
     } finally {
@@ -411,8 +415,8 @@ function FeedPage() {
                 riskProfile={riskProfileFromSettings(settings.data)}
                 fxRates={rates}
                 onDecision={(d) => void decide(signal.id, d)}
-                onResult={(outcome, r) => {
-                  if (trade) void close(trade.id, outcome, r);
+                onResult={(outcome) => {
+                  if (trade) void close(trade.id, outcome);
                 }}
               />
             );

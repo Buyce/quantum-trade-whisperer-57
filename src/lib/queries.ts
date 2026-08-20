@@ -40,7 +40,9 @@ export function myTradesQuery(userId: string | undefined) {
     queryFn: async (): Promise<TradeRow[]> => {
       const { data, error } = await supabase
         .from("executed_trades" as never)
-        .select("id, user_id, signal_id, user_decision, outcome, realized_r_multiple, notes, created_at")
+        .select(
+          "id, user_id, signal_id, user_decision, outcome, realized_r_multiple, actual_entry_price, actual_exit_price, derived_r, notes, created_at",
+        )
         .order("created_at", { ascending: false })
         .limit(TRADE_PAGE_SIZE);
       if (error) throw error;
@@ -61,7 +63,7 @@ export function takenTradeHistoryQuery(userId: string | undefined) {
       const { data, error } = await supabase
         .from("executed_trades" as never)
         .select(
-          `id, user_id, signal_id, user_decision, outcome, realized_r_multiple, notes, created_at, scanned_signals(${SIGNAL_COLUMNS})`,
+          `id, user_id, signal_id, user_decision, outcome, realized_r_multiple, actual_entry_price, actual_exit_price, derived_r, notes, created_at, scanned_signals(${SIGNAL_COLUMNS})`,
         )
         .eq("user_decision", "taken")
         .order("created_at", { ascending: false })
@@ -123,17 +125,13 @@ export async function logDecision(input: {
   if (error) throw error;
 }
 
-export async function updateTradeResult(input: {
-  tradeId: string;
-  outcome: "win" | "loss" | "breakeven" | "open";
-  realizedR: number | null;
-}) {
-  const { error } = await supabase
-    .from("executed_trades" as never)
-    .update({ outcome: input.outcome, realized_r_multiple: input.realizedR } as never)
-    .eq("id", input.tradeId);
-  if (error) throw error;
-}
+/**
+ * Outcome writes go through `recordTradeOutcome` in
+ * `src/lib/trade-journal.functions.ts`, which derives R server-side from the
+ * user's real entry/exit prices. Client code must never write
+ * `realized_r_multiple` or `derived_r` directly — an unverifiable R is exactly
+ * what the integrity audit exists to catch.
+ */
 
 /** Permanent removal of one logged trade. RLS scopes this to the owner. */
 export async function deleteTrade(input: { tradeId: string }) {
