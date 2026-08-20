@@ -256,8 +256,14 @@ export function DisciplinePanel({ discipline }: { discipline: AdminDiscipline })
         <thead className="text-left text-muted-foreground">
           <tr className="border-b border-border">
             <th className="py-1 pr-2 font-medium">Decision</th>
-            <th className="py-1 pr-2 text-right font-medium">Resolved</th>
-            <th className="py-1 pr-2 text-right font-medium">Filled</th>
+            <th className="py-1 pr-2 text-right font-medium">Decisions</th>
+            <th
+              className="py-1 pr-2 text-right font-medium cursor-help decoration-dotted underline-offset-4 hover:underline"
+              title="Only filled replays count toward win rate and mean R."
+            >
+              Filled
+            </th>
+
             <th className="py-1 pr-2 text-right font-medium">Win rate</th>
             <th className="py-1 text-right font-medium">Mean R</th>
           </tr>
@@ -281,9 +287,13 @@ export function DisciplinePanel({ discipline }: { discipline: AdminDiscipline })
             : `Taken setups won ${(Math.abs(edge) * 100).toFixed(1)}pp more often — the filtering is adding value.`}
         </p>
       ) : null}
+      <p className="text-[11px] text-muted-foreground">
+        Replay outcomes, not user-reported. Compare with the User-reported win rate tile above.
+      </p>
     </div>
   );
 }
+
 
 export function GradeTable({ rows }: { rows: AdminGradeRow[] }) {
   if (!rows.length) return <EmptyNote>No resolved shadow executions to calibrate against yet.</EmptyNote>;

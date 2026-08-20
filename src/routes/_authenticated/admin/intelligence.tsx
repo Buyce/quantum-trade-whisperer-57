@@ -233,7 +233,7 @@ function AdminIntelligencePage() {
             <FillTable label="Rolling 7d" rows={fill_diagnostic.d7} />
           </div>
         </PanelShell>
-        <PanelShell title="Discipline index — skipped vs taken">
+        <PanelShell title="Discipline index — shadow replay outcome (skipped vs taken)">
           <DisciplinePanel discipline={discipline} />
         </PanelShell>
       </div>
