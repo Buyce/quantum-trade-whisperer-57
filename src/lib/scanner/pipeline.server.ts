@@ -79,21 +79,6 @@ export async function enqueueScanCycle(db: SupabaseClient) {
   return { runId, enqueued: rows.length, expired, expireError };
 }
 
-/**
- * Setups published today that consume the daily quota. C-Grade output is
- * excluded — it may publish freely without deducting from the cap.
- */
-async function countToday(db: SupabaseClient) {
-  const start = new Date();
-  start.setUTCHours(0, 0, 0, 0);
-  const { count, error } = await db
-    .from("scanned_signals")
-    .select("id", { count: "exact", head: true })
-    .gte("detected_at", start.toISOString())
-    .in("grade", CAPPED_GRADES);
-  if (error) throw error;
-  return count ?? 0;
-}
 
 /**
  * Duplicate suppression is enforced by the partial unique index
