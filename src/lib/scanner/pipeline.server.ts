@@ -237,10 +237,11 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
     const profile = buildTradeProfile({ instrument: job.instrument, candles, session });
     if (!profile) return await finish("no_trade", "No structure satisfied the ABC grading rules");
 
-    // Cap is evaluated after grading: C-Grade bypasses the daily quota entirely.
-    if (CAPPED_GRADES.includes(profile.grade) && (await countToday(db)) >= DEFAULT_DAILY_SETUP_CAP) {
-      return await finish("capped", `Daily cap of ${DEFAULT_DAILY_SETUP_CAP} setups already reached`);
-    }
+    // No global ceiling: every qualifying setup publishes. Each account applies
+    // its own daily cap (scanner_settings.daily_setup_cap, 0 = unlimited) to
+    // what it sees and is alerted about.
+
+
 
     // Structure cooldown: the same ABC leg may not republish inside this
     // window even after the previous instance expired or resolved. This is what
