@@ -114,6 +114,22 @@ function FeedPage() {
   }, [trades.data]);
 
   const cfg = settings.data;
+  // 0 = unlimited. The scanner has no global ceiling; this is the user's choice.
+  const cap = cfg?.daily_setup_cap ?? 0;
+
+  // With a cap set, only the newest `cap` graded (A+/A/B) setups of the current
+  // UTC day are delivered to this account. C-Grade is never capped.
+  const cappedOutIds = useMemo(() => {
+    const out = new Set<string>();
+    if (cap <= 0) return out;
+    const start = new Date();
+    start.setUTCHours(0, 0, 0, 0);
+    const gradedToday = (signals.data ?? [])
+      .filter((s) => s.grade !== "C" && new Date(s.detected_at) >= start)
+      .sort((a, b) => new Date(b.detected_at).getTime() - new Date(a.detected_at).getTime());
+    for (const s of gradedToday.slice(cap)) out.add(s.id);
+    return out;
+  }, [signals.data, cap]);
 
   const visible = useMemo(() => {
     let rows: SignalRow[] = signals.data ?? [];
