@@ -147,12 +147,27 @@ function AdminIntelligencePage() {
           sub="all-time user decisions"
         />
         <StatCard
-          label="Taken win rate"
+          label="Taken → shadow win rate"
+          hint="Deterministic replay outcome for setups users marked taken — not user-reported."
           value={pctOf(engagement.taken_performance?.win_rate ?? null)}
           sub={
-            engagement.taken_performance
+            engagement.taken_performance && engagement.taken_performance.n > 0
               ? `n=${engagement.taken_performance.n} · mean R ${num(engagement.taken_performance.mean_r)}`
               : "no resolved taken signals"
+          }
+        />
+        <StatCard
+          label="User-reported win rate"
+          hint="From users' own logged trade outcomes in Trade History."
+          value={
+            engagement.user_reported && engagement.user_reported.n > 0
+              ? pctOf(engagement.user_reported.win_rate)
+              : "—"
+          }
+          sub={
+            engagement.user_reported && engagement.user_reported.n > 0
+              ? `n=${engagement.user_reported.n} · mean R ${num(engagement.user_reported.mean_r)}`
+              : "no user-logged outcomes yet"
           }
         />
         <StatCard
