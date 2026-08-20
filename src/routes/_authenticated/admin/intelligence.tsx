@@ -253,10 +253,7 @@ function AdminIntelligencePage() {
         </PanelShell>
       </div>
 
-      <PanelShell
-        title="User-reported data integrity"
-        subtitle="Each logged outcome checked against the deterministic replay and the setup's own geometry."
-      >
+      <PanelShell title="User-reported data integrity — checked against deterministic replay">
         {audit.isError ? (
           <EmptyNote>
             {audit.error instanceof Error ? audit.error.message : "Integrity audit unavailable."}
