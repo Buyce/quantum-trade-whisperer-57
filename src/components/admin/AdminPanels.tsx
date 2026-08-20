@@ -45,11 +45,14 @@ export function StatCard({
   label,
   value,
   sub,
+  hint,
   tone = "default",
 }: {
   label: string;
   value: string;
   sub?: string;
+  /** Hover clarification for ambiguous metrics. */
+  hint?: string;
   tone?: "default" | "good" | "warn" | "bad";
 }) {
   const toneClass =
@@ -62,7 +65,15 @@ export function StatCard({
           : "text-foreground";
   return (
     <Card className="p-3">
-      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p
+        className={cn(
+          "text-[10px] uppercase tracking-wider text-muted-foreground",
+          hint && "cursor-help decoration-dotted underline-offset-4 hover:underline",
+        )}
+        title={hint}
+      >
+        {label}
+      </p>
       <p className={cn("mt-1 font-mono text-xl leading-none", toneClass)}>{value}</p>
       {sub ? <p className="mt-1 text-[11px] text-muted-foreground">{sub}</p> : null}
     </Card>
