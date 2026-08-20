@@ -33,4 +33,5 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'feedback-thank-you': feedbackThankYouTemplate,
   'learning-milestone': learningMilestoneTemplate,
   'weekly-shadow-report': weeklyShadowReportTemplate,
+  'verify-trade-prices': verifyTradePricesTemplate,
 }
