@@ -60,12 +60,27 @@ export async function sendSignalAlerts(db: SupabaseClient, signal: AlertSignal) 
   const { data: rows, error } = await db
     .from("scanner_settings")
     .select(
-      "user_id, instruments, sessions, alert_min_grade, notify_email, notify_push, webhook_enabled, webhook_url, webhook_secret, webhook_format",
+      "user_id, instruments, sessions, alert_min_grade, daily_setup_cap, notify_email, notify_push, webhook_enabled, webhook_url, webhook_secret, webhook_format",
     )
     .or("notify_email.eq.true,notify_push.eq.true,webhook_enabled.eq.true");
   if (error || !rows?.length) return;
 
   const signalRank = GRADE_RANK[signal.grade] ?? 0;
+
+  // Graded (A+/A/B) setups already published earlier today. Each recipient's own
+  // `daily_setup_cap` is measured against this count; 0 means unlimited.
+  let gradedToday = 0;
+  if (signal.grade !== "C") {
+    const start = new Date();
+    start.setUTCHours(0, 0, 0, 0);
+    const { count } = await db
+      .from("scanned_signals")
+      .select("id", { count: "exact", head: true })
+      .gte("detected_at", start.toISOString())
+      .in("grade", ["A+", "A", "B"])
+      .neq("id", signal.id);
+    gradedToday = count ?? 0;
+  }
   const webhookTargets: WebhookTarget[] = [];
   const pushUserIds: string[] = [];
 
