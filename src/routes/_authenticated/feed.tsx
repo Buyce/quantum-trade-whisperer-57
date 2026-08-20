@@ -350,18 +350,28 @@ function FeedPage() {
           </span>
           <span className="num w-full sm:ml-auto sm:w-auto">
             Daily quota (A+/A/B){" "}
-            <span className={cn("font-semibold", todayCount >= cap ? "text-destructive" : "text-foreground")}>
-              {todayCount}
-            </span>
-            /{cap}
+            {cap > 0 ? (
+              <>
+                <span
+                  className={cn("font-semibold", todayCount >= cap ? "text-destructive" : "text-foreground")}
+                >
+                  {todayCount}
+                </span>
+                /{cap}
+              </>
+            ) : (
+              <span className="font-semibold text-foreground">unlimited</span>
+            )}
           </span>
         </div>
-        <div className="h-0.5 w-full overflow-hidden rounded-full bg-border">
-          <div
-            className={cn("h-full rounded-full", todayCount >= cap ? "bg-destructive" : "bg-primary")}
-            style={{ width: `${capPct}%` }}
-          />
-        </div>
+        {cap > 0 ? (
+          <div className="h-0.5 w-full overflow-hidden rounded-full bg-border">
+            <div
+              className={cn("h-full rounded-full", todayCount >= cap ? "bg-destructive" : "bg-primary")}
+              style={{ width: `${capPct}%` }}
+            />
+          </div>
+        ) : null}
       </div>
 
 
