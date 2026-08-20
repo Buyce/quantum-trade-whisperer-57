@@ -55,6 +55,13 @@ export interface AdminEngagement {
   telemetry_events: number;
   by_instrument: { instrument: string; taken: number; skipped: number }[];
   taken_performance: { n: number; mean_r: number | null; win_rate: number | null } | null;
+  /** Users' own logged outcomes in Trade History — not shadow replay. */
+  user_reported: {
+    n: number;
+    wins: number;
+    mean_r: number | null;
+    win_rate: number | null;
+  } | null;
 }
 
 export interface AdminFillRow {
