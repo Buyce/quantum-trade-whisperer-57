@@ -1,25 +1,31 @@
-# Remove the daily quota
+# Daily quota becomes a user choice
 
-The scanner will publish every qualifying setup it finds. No per-day ceiling anywhere: no "capped" outcome, no quota bar in the feed, no cap control in Settings.
+The scanner stops enforcing a global ceiling. Instead, each account picks its own daily cap in Settings — including "Unlimited" — and that choice governs what that user sees and is alerted about.
 
-## Scanner
+## 1. Scanner: no global ceiling
 
-- `src/lib/scanner/pipeline.server.ts`: delete the cap gate that runs after grading, along with the `countToday()` helper and the `"capped"` job status. Duplicate suppression (unique index) and the 120-minute structure cooldown stay exactly as they are — those are what stop repeat publishing, not the cap.
-- `src/lib/scanner/types.ts`: remove `DEFAULT_DAILY_SETUP_CAP` and `CAPPED_GRADES` (only the cap used them).
+- `src/lib/scanner/pipeline.server.ts`: remove the post-grading cap gate, the `countToday()` helper, and the `"capped"` job result. Every qualifying setup publishes.
+- `src/lib/scanner/types.ts`: remove `DEFAULT_DAILY_SETUP_CAP` (and `CAPPED_GRADES` if nothing else uses it).
+- Duplicate suppression (unique index) and the 120-minute structure cooldown are unchanged — those, not the cap, are what stop repeat publishing.
 
-## Feed
+## 2. Settings: pick your own cap
 
-- `src/routes/_authenticated/feed.tsx`: remove the "Daily quota (A+/A/B) x/y" line, its progress bar, and the `todayCount`/`cap`/`capPct` computations. Keep the filter summary and "N shown" count.
+- `src/routes/_authenticated/settings.tsx`: keep the "Daily setup cap" field but present it as a per-account preference with an explicit "Unlimited" option (0 = unlimited), plus preset choices (10, 15, 25, 50, Unlimited) alongside a free numeric entry.
+- Helper text explains it is a personal limit on how many graded setups (A+/A/B) reach you per UTC day; C-Grade never counts against it, and the engine still defaults to No Trade rather than trying to fill the number.
 
-## Settings
+## 3. Feed: cap applies per user
 
-- `src/routes/_authenticated/settings.tsx`: remove the "Daily setup cap" field, its state, and the `daily_setup_cap` value sent on save.
+- `src/routes/_authenticated/feed.tsx`: when the user's cap is greater than 0, show at most that many A+/A/B setups for the current UTC day (newest first); C-Grade setups always show. When the cap is 0, show everything.
+- The quota strip stays, reading "Daily quota (A+/A/B) x/y" for a set cap and "Daily quota (A+/A/B) unlimited" when the cap is 0 — the progress bar is hidden in that case.
 
-## Data layer
+## 4. Alerts respect the cap
 
-- Keep the `scanner_settings.daily_setup_cap` column in place (no migration) so nothing that still selects it breaks; it simply stops being read or written by the app. `src/lib/queries.ts`, `src/lib/db-types.ts`, and the MCP scanner-status tool can keep the field exposed as inert metadata, or drop it from those selects — either way no behaviour depends on it.
+- `src/lib/scanner/alerts.server.ts`: per recipient, count today's graded (A+/A/B) signals already alerted; if the user's `daily_setup_cap` is greater than 0 and that count has reached it, skip email/webhook fan-out for that user only. Cap 0 means never skip. The `alert_min_grade` threshold check stays as it is.
+- `src/routes/_authenticated/feed.tsx` push handler: apply the same per-user cap check before firing a browser/Android notification.
 
-## Notes
+## Technical notes
 
-- The "No Trade" default is unchanged: grading rules still decide whether anything publishes, so removing the cap does not loosen quality — it only removes the count-based stop.
-- No seeds, no placeholder rows; empty states unchanged.
+- `scanner_settings.daily_setup_cap` already exists (integer, default 50). Migration only relaxes the lower bound so 0 is accepted as "unlimited" and changes the default to 0 — no new columns.
+- `src/lib/db-types.ts`, `src/lib/queries.ts`, and the MCP scanner-status tool already carry the field; no change needed there.
+- Grading, MetaApi fetching, queue mechanics, and the Bayesian learning engine are untouched.
+- Zero-Hallucination rule respected: no seeds or placeholder rows; empty states unchanged.
