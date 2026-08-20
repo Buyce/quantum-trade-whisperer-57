@@ -16,6 +16,7 @@ import type {
   AdminWebhooks,
 } from "@/lib/admin.functions";
 import type { WeeklyReport } from "@/lib/reports/weekly";
+import type { UserAuditReport } from "@/lib/user-audit.functions";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -500,6 +501,130 @@ export function WeeklyTierPanel({ report }: { report: WeeklyReport | undefined }
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+const FLAG_LABELS: Record<string, string> = {
+  never_filled_in_replay: "reported filled, replay never filled",
+  r_exceeds_max_r: "R above the setup's structural maximum",
+  preset_r_value: "R is a round preset, no prices behind it",
+  logged_within_60s: "outcome stamped within 60s of the decision",
+  no_prices_reported: "no entry/exit price logged",
+  outcome_disagrees_with_replay: "outcome opposite to the replay",
+  no_replay_yet: "no resolved replay to check against",
+};
+
+const VERDICT_TONE: Record<string, string> = {
+  verified: "text-emerald-400",
+  unverifiable: "text-amber-400",
+  contradicted: "text-destructive",
+  pending: "text-muted-foreground",
+};
+
+/**
+ * Integrity of user-reported outcomes. Every line is a comparison against the
+ * deterministic replay or the setup's own geometry — no findings means no
+ * findings, stated plainly.
+ */
+export function UserIntegrityPanel({ report }: { report: UserAuditReport | undefined }) {
+  if (!report) return <EmptyNote>Loading integrity audit…</EmptyNote>;
+  if (report.totals.trades === 0) return <EmptyNote>No user-logged taken trades to audit yet.</EmptyNote>;
+
+  const t = report.totals;
+  const flagged = report.rows.filter((r) => r.flags.length > 0);
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-2 text-[11px] font-mono md:grid-cols-4">
+        <IntegrityStat label="verified" value={String(t.verified)} tone="text-emerald-400" />
+        <IntegrityStat label="unverifiable" value={String(t.unverifiable)} tone="text-amber-400" />
+        <IntegrityStat label="contradicted" value={String(t.contradicted)} tone="text-destructive" />
+        <IntegrityStat
+          label="trust score"
+          value={t.trustScore == null ? "—" : pctOf(t.trustScore)}
+          tone={t.trustScore != null && t.trustScore < 0.7 ? "text-destructive" : "text-foreground"}
+        />
+      </div>
+
+      <p className="text-[11px] text-muted-foreground">
+        {t.resolved} resolved · {t.pending} still open · {t.withPrices} with real prices logged. Reported win
+        rate {pctOf(report.reportedWinRate)} vs verified {pctOf(report.verifiedWinRate)} (n=
+        {report.verifiedSampleN}, contradicted rows excluded).
+      </p>
+
+      {Object.keys(report.flagCounts).length > 0 ? (
+        <ul className="space-y-1 text-[11px]">
+          {Object.entries(report.flagCounts)
+            .sort((a, b) => b[1] - a[1])
+            .map(([flag, count]) => (
+              <li key={flag} className="flex items-center justify-between gap-2">
+                <span className="text-muted-foreground">{FLAG_LABELS[flag] ?? flag}</span>
+                <span className="font-mono">{count}</span>
+              </li>
+            ))}
+        </ul>
+      ) : null}
+
+      {flagged.length === 0 ? (
+        <EmptyNote>No integrity issues found in the logged trades.</EmptyNote>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[640px] text-[11px] font-mono">
+            <thead className="text-muted-foreground">
+              <tr className="border-b border-border">
+                <th className="py-1 text-left">Setup</th>
+                <th className="py-1 text-right">Reported</th>
+                <th className="py-1 text-right">Replay</th>
+                <th className="py-1 text-right">max R</th>
+                <th className="py-1 text-left">Verdict</th>
+                <th className="py-1 text-left">Flags</th>
+              </tr>
+            </thead>
+            <tbody>
+              {flagged.slice(0, 60).map((r) => (
+                <tr key={r.tradeId} className="border-b border-border/50 align-top">
+                  <td className="py-1">
+                    {r.instrument} {r.grade} {r.direction}
+                    <span className="ml-1 text-muted-foreground">{timeAgo(r.detectedAt)}</span>
+                  </td>
+                  <td className="py-1 text-right">
+                    {r.outcome}
+                    {r.reportedR != null ? ` ${num(r.reportedR)}R` : ""}
+                  </td>
+                  <td className="py-1 text-right">
+                    {r.replayOutcome ?? "—"}
+                    {r.replayOutcome === "never_filled" && r.missDistanceAtr != null
+                      ? ` ${num(r.missDistanceAtr)} ATR`
+                      : r.replayR != null
+                        ? ` ${num(r.replayR)}R`
+                        : ""}
+                  </td>
+                  <td className="py-1 text-right">{num(r.maxR)}</td>
+                  <td className={cn("py-1", VERDICT_TONE[r.verdict])}>{r.verdict}</td>
+                  <td className="py-1 text-muted-foreground">
+                    {r.flags.map((f) => FLAG_LABELS[f] ?? f).join("; ")}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <p className="text-[10px] text-muted-foreground">
+        Observational only. The Bayesian learning engine trains exclusively on deterministic shadow replay
+        labels and never reads user-reported outcomes.
+      </p>
+    </div>
+  );
+}
+
+function IntegrityStat({ label, value, tone }: { label: string; value: string; tone: string }) {
+  return (
+    <div className="rounded-sm border border-border px-2 py-1.5">
+      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className={cn("mt-0.5 text-sm", tone)}>{value}</p>
     </div>
   );
 }

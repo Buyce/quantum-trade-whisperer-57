@@ -76,6 +76,12 @@ export interface TradeRow {
   user_decision: DecisionKind;
   outcome: Outcome;
   realized_r_multiple: number | null;
+  /** Real fill price the user reported. Optional. */
+  actual_entry_price: number | null;
+  /** Real exit price the user reported. Optional. */
+  actual_exit_price: number | null;
+  /** R derived server-side from the reported prices. Never client-supplied. */
+  derived_r: number | null;
   notes: string | null;
   created_at: string;
 }

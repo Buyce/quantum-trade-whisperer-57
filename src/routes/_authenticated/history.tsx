@@ -4,7 +4,8 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ArrowDownRight, ArrowUpRight, Download, Pencil, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { deleteAllTrades, deleteTrade, takenTradeHistoryQuery, updateTradeResult } from "@/lib/queries";
+import { deleteAllTrades, deleteTrade, takenTradeHistoryQuery } from "@/lib/queries";
+import { recordTradeOutcome } from "@/lib/trade-journal.functions";
 import { INSTRUMENT_LABELS, type Outcome, type SignalRow, type TradeHistoryRow } from "@/lib/db-types";
 import { downloadCsv, downloadJson, historyToCsv, historyToExportJson, todayStamp } from "@/lib/export";
 import { GradeBadge } from "@/components/SignalCard";
@@ -78,13 +79,24 @@ function HistoryPage() {
     downloadJson(`ptrades_trade_history_${todayStamp()}.json`, historyToExportJson(rows));
   }
 
-  async function record(tradeId: string, outcome: Outcome, r: number | null) {
+  async function record(
+    tradeId: string,
+    outcome: Outcome,
+    entryPrice: number | null,
+    exitPrice: number | null,
+  ) {
     setBusyId(tradeId);
     try {
-      await updateTradeResult({ tradeId, outcome, realizedR: r });
+      const res = await recordTradeOutcome({
+        data: { tradeId, outcome, actualEntryPrice: entryPrice, actualExitPrice: exitPrice },
+      });
       await queryClient.invalidateQueries({ queryKey: ["taken-trade-history"] });
       await queryClient.invalidateQueries({ queryKey: ["my-trades"] });
-      toast.success("Outcome updated");
+      toast.success(
+        res.derivedR != null
+          ? `Outcome updated · ${res.derivedR.toFixed(2)}R from your prices`
+          : "Outcome updated. Add your entry and exit price to record the R.",
+      );
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not update the outcome");
     } finally {
@@ -288,11 +300,14 @@ function HistoryPage() {
                 </div>
 
                 <OutcomeEditor
-                  key={`${row.id}-${row.outcome}-${row.realized_r_multiple ?? "none"}`}
+                  key={`${row.id}-${row.outcome}-${row.derived_r ?? "none"}`}
                   busy={busyId === row.id}
                   outcome={row.outcome}
-                  realizedR={row.realized_r_multiple}
-                  onSubmit={(outcome, r) => void record(row.id, outcome, r)}
+                  realizedR={row.derived_r ?? row.realized_r_multiple}
+                  entryPrice={row.actual_entry_price}
+                  exitPrice={row.actual_exit_price}
+                  decimals={signal.instrument === "XAUUSD" ? 2 : 5}
+                  onSubmit={(outcome, entry, exit) => void record(row.id, outcome, entry, exit)}
                 />
               </div>
             );
@@ -313,23 +328,39 @@ function Cell({ label, value, className }: { label: string; value: string; class
   );
 }
 
+/**
+ * The R multiple is not an input any more. Users log the prices they actually
+ * got and the server derives R from the setup's own risk distance, so the
+ * number is reproducible instead of self-reported.
+ */
 function OutcomeEditor({
   outcome,
   realizedR,
+  entryPrice,
+  exitPrice,
+  decimals,
   busy,
   onSubmit,
 }: {
   outcome: Outcome;
   realizedR: number | null;
+  entryPrice: number | null;
+  exitPrice: number | null;
+  decimals: number;
   busy: boolean;
-  onSubmit: (outcome: Outcome, r: number | null) => void;
+  onSubmit: (outcome: Outcome, entry: number | null, exit: number | null) => void;
 }) {
-  const [r, setR] = useState(realizedR != null ? String(realizedR) : "");
+  const [entry, setEntry] = useState(entryPrice != null ? String(entryPrice) : "");
+  const [exit, setExit] = useState(exitPrice != null ? String(exitPrice) : "");
   // Expand-to-edit: an always-open editor on every row reads like unsaved work.
   const [editing, setEditing] = useState(false);
 
-  const parsed = r.trim() === "" ? null : Number(r);
-  const valid = parsed === null || Number.isFinite(parsed);
+  const parse = (v: string) => (v.trim() === "" ? null : Number(v));
+  const parsedEntry = parse(entry);
+  const parsedExit = parse(exit);
+  const okNumber = (v: number | null) => v === null || (Number.isFinite(v) && v > 0);
+  const valid = okNumber(parsedEntry) && okNumber(parsedExit);
+  const partial = (parsedEntry === null) !== (parsedExit === null);
 
   if (!editing) {
     return (
@@ -340,6 +371,14 @@ function OutcomeEditor({
             ? "Still open"
             : `${outcome.toUpperCase()}${realizedR != null ? ` · ${Number(realizedR).toFixed(2)}R` : ""}`}
         </span>
+        {outcome !== "open" && realizedR == null ? (
+          <span className="text-xs text-warning">no prices logged — R unknown</span>
+        ) : null}
+        {entryPrice != null && exitPrice != null ? (
+          <span className="num text-xs text-muted-foreground">
+            in {Number(entryPrice).toFixed(decimals)} → out {Number(exitPrice).toFixed(decimals)}
+          </span>
+        ) : null}
         <Button size="sm" variant="ghost" className="ml-auto" onClick={() => setEditing(true)}>
           <Pencil className="size-3.5" /> Edit outcome
         </Button>
@@ -348,37 +387,69 @@ function OutcomeEditor({
   }
 
   return (
-    <div className="space-y-2 border-t border-border px-3 py-3 sm:flex sm:flex-wrap sm:items-center sm:gap-2 sm:space-y-0 sm:px-4">
-      <span className="label-xs block sm:mr-1">Record result</span>
-      <Input
-        value={r}
-        onChange={(e) => setR(e.target.value)}
-        inputMode="decimal"
-        placeholder="R multiple"
-        aria-label="Realized R multiple"
-        className="num h-10 w-full sm:h-8 sm:w-28"
-      />
-      <div className="grid grid-cols-2 gap-2 sm:contents">
-        {(["win", "loss", "breakeven", "open"] as const).map((o) => (
-          <Button
-            key={o}
-            size="sm"
-            variant={o === outcome ? "default" : "outline"}
-            disabled={busy || !valid}
-            className="h-10 w-full sm:h-8 sm:w-auto"
-            onClick={() => {
-              onSubmit(o, o === "open" ? null : parsed);
-              setEditing(false);
-            }}
-          >
-            {o === "breakeven" ? "Break-even" : o[0]!.toUpperCase() + o.slice(1)}
-          </Button>
-        ))}
+    <div className="space-y-3 border-t border-border px-3 py-3 sm:px-4">
+      <div className="space-y-2 sm:flex sm:flex-wrap sm:items-end sm:gap-3 sm:space-y-0">
+        <label className="block">
+          <span className="label-xs block">Actual entry price</span>
+          <Input
+            value={entry}
+            onChange={(e) => setEntry(e.target.value)}
+            inputMode="decimal"
+            placeholder="your fill"
+            aria-label="Actual entry price"
+            className="num mt-1 h-10 w-full sm:h-8 sm:w-32"
+          />
+        </label>
+        <label className="block">
+          <span className="label-xs block">Actual exit price</span>
+          <Input
+            value={exit}
+            onChange={(e) => setExit(e.target.value)}
+            inputMode="decimal"
+            placeholder="your close"
+            aria-label="Actual exit price"
+            className="num mt-1 h-10 w-full sm:h-8 sm:w-32"
+          />
+        </label>
+        <p className="text-xs text-muted-foreground sm:max-w-xs">
+          Optional, but with both prices your R multiple is calculated from the setup's real risk distance
+          instead of being estimated.
+        </p>
       </div>
-      <Button size="sm" variant="ghost" className="h-10 w-full sm:h-8 sm:w-auto" onClick={() => setEditing(false)}>
-        Cancel
-      </Button>
-      {!valid ? <span className="text-xs text-destructive">Enter a number</span> : null}
+
+      <div className="space-y-2 sm:flex sm:flex-wrap sm:items-center sm:gap-2 sm:space-y-0">
+        <span className="label-xs block sm:mr-1">Record result</span>
+        <div className="grid grid-cols-2 gap-2 sm:contents">
+          {(["win", "loss", "breakeven", "open"] as const).map((o) => (
+            <Button
+              key={o}
+              size="sm"
+              variant={o === outcome ? "default" : "outline"}
+              disabled={busy || !valid}
+              className="h-10 w-full sm:h-8 sm:w-auto"
+              onClick={() => {
+                onSubmit(o, o === "open" ? null : parsedEntry, o === "open" ? null : parsedExit);
+                setEditing(false);
+              }}
+            >
+              {o === "breakeven" ? "Break-even" : o[0]!.toUpperCase() + o.slice(1)}
+            </Button>
+          ))}
+        </div>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-10 w-full sm:h-8 sm:w-auto"
+          onClick={() => setEditing(false)}
+        >
+          Cancel
+        </Button>
+      </div>
+      {!valid ? (
+        <p className="text-xs text-destructive">Prices must be positive numbers.</p>
+      ) : partial ? (
+        <p className="text-xs text-warning">Both prices are needed to calculate the R multiple.</p>
+      ) : null}
     </div>
   );
 }

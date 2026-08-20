@@ -584,7 +584,11 @@ export function SignalCard({
   signal: SignalRow;
   trade: TradeRow | undefined;
   onDecision: (decision: "taken" | "skipped") => void;
-  onResult: (outcome: "win" | "loss" | "breakeven", r: number) => void;
+  /**
+   * Outcome only. The R multiple is never taken from a button press — it is
+   * derived server-side from the real entry/exit prices logged in Trade History.
+   */
+  onResult: (outcome: "win" | "loss" | "breakeven") => void;
   busy: boolean;
   /** Shared live mid price for this instrument, when available. */
   quoteMid?: number | undefined;
@@ -929,53 +933,28 @@ export function SignalCard({
             </Button>
             {trade.user_decision === "taken" && trade.outcome === "open" ? (
               <div className="space-y-1.5 sm:flex sm:items-center sm:gap-2 sm:space-y-0">
-                <span className="label-xs block">Close at</span>
-                <div className="grid grid-cols-5 gap-1.5 sm:contents">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={busy}
-                    onClick={() => onResult("win", 1)}
-                    className="h-10 px-0 sm:h-8 sm:px-3"
-                  >
-                    +1R
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={busy}
-                    onClick={() => onResult("win", 2)}
-                    className="h-10 px-0 sm:h-8 sm:px-3"
-                  >
-                    +2R
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={busy}
-                    onClick={() => onResult("win", 3)}
-                    className="h-10 px-0 sm:h-8 sm:px-3"
-                  >
-                    +3R
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={busy}
-                    onClick={() => onResult("breakeven", 0)}
-                    className="h-10 px-0 sm:h-8 sm:px-3"
-                  >
-                    BE
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={busy}
-                    onClick={() => onResult("loss", -1)}
-                    className="h-10 px-0 text-short sm:h-8 sm:px-3"
-                  >
-                    −1R
-                  </Button>
+                <span
+                  className="label-xs block cursor-help"
+                  title="Records the outcome only. Add your real entry and exit price in Trade History and the R multiple is calculated from them."
+                >
+                  Closed as
+                </span>
+                <div className="grid grid-cols-3 gap-1.5 sm:contents">
+                  {(["win", "breakeven", "loss"] as const).map((o) => (
+                    <Button
+                      key={o}
+                      size="sm"
+                      variant="outline"
+                      disabled={busy}
+                      onClick={() => onResult(o)}
+                      className={cn(
+                        "h-10 px-0 sm:h-8 sm:px-3",
+                        o === "loss" && "text-short",
+                      )}
+                    >
+                      {o === "win" ? "Win" : o === "breakeven" ? "Break-even" : "Loss"}
+                    </Button>
+                  ))}
                 </div>
               </div>
             ) : trade.user_decision === "taken" ? (
