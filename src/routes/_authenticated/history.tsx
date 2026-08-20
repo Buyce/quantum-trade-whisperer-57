@@ -81,13 +81,13 @@ function HistoryPage() {
   );
 
   function exportCsv() {
-    if (rows.length === 0) return;
-    downloadCsv(`ptrades_trade_history_${todayStamp()}.csv`, historyToCsv(rows));
+    if (allRows.length === 0) return;
+    downloadCsv(`ptrades_trade_history_${todayStamp()}.csv`, historyToCsv(allRows));
   }
 
   function exportJson() {
-    if (rows.length === 0) return;
-    downloadJson(`ptrades_trade_history_${todayStamp()}.json`, historyToExportJson(rows));
+    if (allRows.length === 0) return;
+    downloadJson(`ptrades_trade_history_${todayStamp()}.json`, historyToExportJson(allRows));
   }
 
   async function record(
