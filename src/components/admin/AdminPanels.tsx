@@ -45,11 +45,14 @@ export function StatCard({
   label,
   value,
   sub,
+  hint,
   tone = "default",
 }: {
   label: string;
   value: string;
   sub?: string;
+  /** Hover clarification for ambiguous metrics. */
+  hint?: string;
   tone?: "default" | "good" | "warn" | "bad";
 }) {
   const toneClass =
