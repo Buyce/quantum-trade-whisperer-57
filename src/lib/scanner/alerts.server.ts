@@ -41,6 +41,7 @@ interface SettingsRow {
   instruments: string[] | null;
   sessions: string[] | null;
   alert_min_grade: string | null;
+  daily_setup_cap: number | null;
   notify_email: boolean | null;
   notify_push: boolean | null;
   webhook_enabled: boolean | null;
