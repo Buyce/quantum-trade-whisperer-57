@@ -89,6 +89,9 @@ export async function sendSignalAlerts(db: SupabaseClient, signal: AlertSignal) 
     if (row.sessions?.length && !row.sessions.includes(signal.session)) continue;
     // Per-user alert threshold — no hardcoded grade muting.
     if (signalRank < (GRADE_RANK[row.alert_min_grade ?? "B"] ?? 2)) continue;
+    // Per-user daily cap on graded setups. 0 = unlimited; C-Grade never counts.
+    const userCap = row.daily_setup_cap ?? 0;
+    if (signal.grade !== "C" && userCap > 0 && gradedToday >= userCap) continue;
 
     if (row.webhook_enabled && row.webhook_url) {
       webhookTargets.push({
