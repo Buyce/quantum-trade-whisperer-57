@@ -151,8 +151,8 @@ function FeedPage() {
     return rows;
   }, [signals.data, applyFilters, cfg, openOnly, sortBy]);
 
-  // Only A+/A/B consume the daily quota — C-Grade publishes outside the cap.
-  // Window is UTC midnight so the number matches the scanner's own quota query.
+  // Only A+/A/B consume the personal daily cap — C-Grade always shows.
+  // Window is UTC midnight so the number matches the alert fan-out query.
   const todayCount = useMemo(() => {
     const start = new Date();
     start.setUTCHours(0, 0, 0, 0);
@@ -161,7 +161,8 @@ function FeedPage() {
     ).length;
   }, [signals.data]);
 
-  const cap = cfg?.daily_setup_cap ?? 50;
+  // 0 = unlimited. The scanner has no global ceiling; this is the user's choice.
+  const cap = cfg?.daily_setup_cap ?? 0;
   const unavailable = (health.data ?? []).filter((h) => !h.available);
   const lastScanAt = (health.data ?? []).find((h) => h.instrument === "XAUUSD")?.updated_at ?? null;
 
