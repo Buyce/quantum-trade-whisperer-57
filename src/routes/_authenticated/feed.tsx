@@ -186,6 +186,13 @@ function FeedPage() {
     ).length;
   }, [signals.data]);
 
+  // Mirrored into refs so the realtime channel reads the live values without
+  // resubscribing (a rebuild drops INSERTs in the gap).
+  useEffect(() => {
+    alertCapRef.current = cap;
+    gradedTodayRef.current = todayCount;
+  }, [cap, todayCount]);
+
   const unavailable = (health.data ?? []).filter((h) => !h.available);
   const lastScanAt = (health.data ?? []).find((h) => h.instrument === "XAUUSD")?.updated_at ?? null;
 
