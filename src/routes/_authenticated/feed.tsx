@@ -91,8 +91,13 @@ function FeedPage() {
         toast.info(title);
         const rank = row.grade ? (GRADE_ORDER[row.grade] ?? 0) : 0;
         const meetsAlertThreshold = rank >= GRADE_ORDER[alertMinGradeRef.current];
+        // Personal cap: once today's graded allowance is used up, stay quiet.
+        const userCap = alertCapRef.current;
+        const withinCap =
+          row.grade === "C" || userCap <= 0 || gradedTodayRef.current < userCap;
         if (
           meetsAlertThreshold &&
+          withinCap &&
           typeof Notification !== "undefined" &&
           Notification.permission === "granted"
         ) {
