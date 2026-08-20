@@ -849,6 +849,27 @@ export type Database = {
           },
         ]
       }
+      verify_reminder_log: {
+        Row: {
+          iso_week: string
+          missing_count: number
+          sent_at: string
+          user_id: string
+        }
+        Insert: {
+          iso_week: string
+          missing_count?: number
+          sent_at?: string
+          user_id: string
+        }
+        Update: {
+          iso_week?: string
+          missing_count?: number
+          sent_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       webhook_dispatch_log: {
         Row: {
           created_at: string
@@ -918,6 +939,10 @@ export type Database = {
           signal_id: string
         }[]
       }
+      claim_verify_reminder: {
+        Args: { _missing: number; _user_id: string; _week: string }
+        Returns: boolean
+      }
       claim_weekly_report: { Args: { _week: string }; Returns: boolean }
       get_admin_intelligence: { Args: never; Returns: Json }
       is_admin: { Args: never; Returns: boolean }
@@ -927,6 +952,10 @@ export type Database = {
       recompute_regime_stats: { Args: never; Returns: Json }
       release_learning_milestone: {
         Args: { _gate: string }
+        Returns: undefined
+      }
+      release_verify_reminder: {
+        Args: { _user_id: string; _week: string }
         Returns: undefined
       }
       release_weekly_report: { Args: { _week: string }; Returns: undefined }
