@@ -166,7 +166,7 @@ function FeedPage() {
       });
     }
     return rows;
-  }, [signals.data, applyFilters, cfg, openOnly, sortBy]);
+  }, [signals.data, applyFilters, cfg, openOnly, sortBy, cappedOutIds]);
 
   // Only A+/A/B consume the personal daily cap — C-Grade always shows.
   // Window is UTC midnight so the number matches the alert fan-out query.
