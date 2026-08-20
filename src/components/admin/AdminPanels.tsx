@@ -287,9 +287,13 @@ export function DisciplinePanel({ discipline }: { discipline: AdminDiscipline })
             : `Taken setups won ${(Math.abs(edge) * 100).toFixed(1)}pp more often — the filtering is adding value.`}
         </p>
       ) : null}
+      <p className="text-[11px] text-muted-foreground">
+        Replay outcomes, not user-reported. Compare with the User-reported win rate tile above.
+      </p>
     </div>
   );
 }
+
 
 export function GradeTable({ rows }: { rows: AdminGradeRow[] }) {
   if (!rows.length) return <EmptyNote>No resolved shadow executions to calibrate against yet.</EmptyNote>;
