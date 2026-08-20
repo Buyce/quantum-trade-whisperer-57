@@ -71,6 +71,9 @@ function FeedPage() {
 
   // Per-user alert threshold, independent of the feed filter.
   const alertMinGrade: Grade = settings.data?.alert_min_grade ?? "B";
+  // Personal daily cap on graded setups (0 = unlimited), read at INSERT time.
+  const alertCapRef = useRef(0);
+  const gradedTodayRef = useRef(0);
   // Held in a ref so the realtime channel is never torn down and rebuilt just
   // because settings loaded or changed — resubscribing drops INSERTs in the gap.
   const alertMinGradeRef = useRef<Grade>(alertMinGrade);
@@ -88,8 +91,13 @@ function FeedPage() {
         toast.info(title);
         const rank = row.grade ? (GRADE_ORDER[row.grade] ?? 0) : 0;
         const meetsAlertThreshold = rank >= GRADE_ORDER[alertMinGradeRef.current];
+        // Personal cap: once today's graded allowance is used up, stay quiet.
+        const userCap = alertCapRef.current;
+        const withinCap =
+          row.grade === "C" || userCap <= 0 || gradedTodayRef.current < userCap;
         if (
           meetsAlertThreshold &&
+          withinCap &&
           typeof Notification !== "undefined" &&
           Notification.permission === "granted"
         ) {
@@ -114,6 +122,22 @@ function FeedPage() {
   }, [trades.data]);
 
   const cfg = settings.data;
+  // 0 = unlimited. The scanner has no global ceiling; this is the user's choice.
+  const cap = cfg?.daily_setup_cap ?? 0;
+
+  // With a cap set, only the newest `cap` graded (A+/A/B) setups of the current
+  // UTC day are delivered to this account. C-Grade is never capped.
+  const cappedOutIds = useMemo(() => {
+    const out = new Set<string>();
+    if (cap <= 0) return out;
+    const start = new Date();
+    start.setUTCHours(0, 0, 0, 0);
+    const gradedToday = (signals.data ?? [])
+      .filter((s) => s.grade !== "C" && new Date(s.detected_at) >= start)
+      .sort((a, b) => new Date(b.detected_at).getTime() - new Date(a.detected_at).getTime());
+    for (const s of gradedToday.slice(cap)) out.add(s.id);
+    return out;
+  }, [signals.data, cap]);
 
   const visible = useMemo(() => {
     let rows: SignalRow[] = signals.data ?? [];
@@ -121,6 +145,7 @@ function FeedPage() {
     // even when the row survives deletion because a trade was logged on it.
     const now = Date.now();
     rows = rows.filter((s) => isWithinRetention(s, now));
+    if (cappedOutIds.size) rows = rows.filter((s) => !cappedOutIds.has(s.id));
     if (applyFilters && cfg) {
       rows = rows.filter((s) => {
         if (cfg.instruments.length && !cfg.instruments.includes(s.instrument)) return false;
@@ -149,10 +174,10 @@ function FeedPage() {
       });
     }
     return rows;
-  }, [signals.data, applyFilters, cfg, openOnly, sortBy]);
+  }, [signals.data, applyFilters, cfg, openOnly, sortBy, cappedOutIds]);
 
-  // Only A+/A/B consume the daily quota — C-Grade publishes outside the cap.
-  // Window is UTC midnight so the number matches the scanner's own quota query.
+  // Only A+/A/B consume the personal daily cap — C-Grade always shows.
+  // Window is UTC midnight so the number matches the alert fan-out query.
   const todayCount = useMemo(() => {
     const start = new Date();
     start.setUTCHours(0, 0, 0, 0);
@@ -161,7 +186,13 @@ function FeedPage() {
     ).length;
   }, [signals.data]);
 
-  const cap = cfg?.daily_setup_cap ?? 50;
+  // Mirrored into refs so the realtime channel reads the live values without
+  // resubscribing (a rebuild drops INSERTs in the gap).
+  useEffect(() => {
+    alertCapRef.current = cap;
+    gradedTodayRef.current = todayCount;
+  }, [cap, todayCount]);
+
   const unavailable = (health.data ?? []).filter((h) => !h.available);
   const lastScanAt = (health.data ?? []).find((h) => h.instrument === "XAUUSD")?.updated_at ?? null;
 
@@ -334,18 +365,28 @@ function FeedPage() {
           </span>
           <span className="num w-full sm:ml-auto sm:w-auto">
             Daily quota (A+/A/B){" "}
-            <span className={cn("font-semibold", todayCount >= cap ? "text-destructive" : "text-foreground")}>
-              {todayCount}
-            </span>
-            /{cap}
+            {cap > 0 ? (
+              <>
+                <span
+                  className={cn("font-semibold", todayCount >= cap ? "text-destructive" : "text-foreground")}
+                >
+                  {todayCount}
+                </span>
+                /{cap}
+              </>
+            ) : (
+              <span className="font-semibold text-foreground">unlimited</span>
+            )}
           </span>
         </div>
-        <div className="h-0.5 w-full overflow-hidden rounded-full bg-border">
-          <div
-            className={cn("h-full rounded-full", todayCount >= cap ? "bg-destructive" : "bg-primary")}
-            style={{ width: `${capPct}%` }}
-          />
-        </div>
+        {cap > 0 ? (
+          <div className="h-0.5 w-full overflow-hidden rounded-full bg-border">
+            <div
+              className={cn("h-full rounded-full", todayCount >= cap ? "bg-destructive" : "bg-primary")}
+              style={{ width: `${capPct}%` }}
+            />
+          </div>
+        ) : null}
       </div>
 
 

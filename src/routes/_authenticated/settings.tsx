@@ -299,20 +299,36 @@ function SettingsPage() {
               </div>
               <div>
                 <Label className="text-xs" htmlFor="cap">
-                  Daily setup cap
+                  My daily setup cap
                 </Label>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {[0, 10, 15, 25, 50].map((preset) => (
+                    <Button
+                      key={preset}
+                      type="button"
+                      size="sm"
+                      variant={cap === preset ? "default" : "outline"}
+                      className="h-7 px-2 text-xs"
+                      onClick={() => setCap(preset)}
+                    >
+                      {preset === 0 ? "Unlimited" : preset}
+                    </Button>
+                  ))}
+                </div>
                 <Input
                   id="cap"
                   type="number"
-                  min={1}
-                  max={50}
+                  min={0}
+                  max={500}
                   className="num mt-2"
                   value={cap}
-                  onChange={(e) => setCap(Math.max(1, Math.min(50, Number(e.target.value) || 1)))}
+                  onChange={(e) => setCap(Math.max(0, Math.min(500, Number(e.target.value) || 0)))}
                 />
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Hard ceiling is 50/day and only A+, A and B setups deduct from it — C-Grade publishes outside
-                  the quota. The engine defaults to No Trade rather than filling the cap.
+                  Your own limit on how many graded setups (A+, A, B) reach you per UTC day —{" "}
+                  <span className="text-foreground">0 means unlimited</span>. C-Grade never counts against it.
+                  The scanner publishes every qualifying setup; this only governs your feed and alerts, and the
+                  engine still defaults to No Trade rather than filling the number.
                 </p>
               </div>
             </div>

@@ -1,0 +1,2 @@
+ALTER TABLE public.scanner_settings ALTER COLUMN daily_setup_cap SET DEFAULT 0;
+COMMENT ON COLUMN public.scanner_settings.daily_setup_cap IS 'Personal daily limit on graded (A+/A/B) setups delivered to this account. 0 = unlimited.';

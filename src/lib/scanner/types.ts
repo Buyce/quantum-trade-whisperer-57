@@ -109,12 +109,10 @@ export const CONFIDENCE_WEIGHTS = {
 } as const;
 
 /**
- * Maximum number of published setups per calendar day (No-Trade philosophy).
- * C-Grade setups do NOT consume this quota — only A+, A and B count.
+ * Grades that deduct from a user's personal daily cap
+ * (`scanner_settings.daily_setup_cap`, 0 = unlimited). C-Grade never counts.
+ * The scanner itself publishes without any global ceiling.
  */
-export const DEFAULT_DAILY_SETUP_CAP = 50;
-
-/** Grades that deduct from the daily setup quota. */
 export const CAPPED_GRADES: Grade[] = ["A+", "A", "B"];
 
 /**

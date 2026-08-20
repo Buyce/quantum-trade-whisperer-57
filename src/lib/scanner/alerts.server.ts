@@ -41,6 +41,7 @@ interface SettingsRow {
   instruments: string[] | null;
   sessions: string[] | null;
   alert_min_grade: string | null;
+  daily_setup_cap: number | null;
   notify_email: boolean | null;
   notify_push: boolean | null;
   webhook_enabled: boolean | null;
@@ -59,12 +60,27 @@ export async function sendSignalAlerts(db: SupabaseClient, signal: AlertSignal) 
   const { data: rows, error } = await db
     .from("scanner_settings")
     .select(
-      "user_id, instruments, sessions, alert_min_grade, notify_email, notify_push, webhook_enabled, webhook_url, webhook_secret, webhook_format",
+      "user_id, instruments, sessions, alert_min_grade, daily_setup_cap, notify_email, notify_push, webhook_enabled, webhook_url, webhook_secret, webhook_format",
     )
     .or("notify_email.eq.true,notify_push.eq.true,webhook_enabled.eq.true");
   if (error || !rows?.length) return;
 
   const signalRank = GRADE_RANK[signal.grade] ?? 0;
+
+  // Graded (A+/A/B) setups already published earlier today. Each recipient's own
+  // `daily_setup_cap` is measured against this count; 0 means unlimited.
+  let gradedToday = 0;
+  if (signal.grade !== "C") {
+    const start = new Date();
+    start.setUTCHours(0, 0, 0, 0);
+    const { count } = await db
+      .from("scanned_signals")
+      .select("id", { count: "exact", head: true })
+      .gte("detected_at", start.toISOString())
+      .in("grade", ["A+", "A", "B"])
+      .neq("id", signal.id);
+    gradedToday = count ?? 0;
+  }
   const webhookTargets: WebhookTarget[] = [];
   const pushUserIds: string[] = [];
 
@@ -73,6 +89,9 @@ export async function sendSignalAlerts(db: SupabaseClient, signal: AlertSignal) 
     if (row.sessions?.length && !row.sessions.includes(signal.session)) continue;
     // Per-user alert threshold — no hardcoded grade muting.
     if (signalRank < (GRADE_RANK[row.alert_min_grade ?? "B"] ?? 2)) continue;
+    // Per-user daily cap on graded setups. 0 = unlimited; C-Grade never counts.
+    const userCap = row.daily_setup_cap ?? 0;
+    if (signal.grade !== "C" && userCap > 0 && gradedToday >= userCap) continue;
 
     if (row.webhook_enabled && row.webhook_url) {
       webhookTargets.push({
