@@ -315,6 +315,12 @@ export async function resolveShadowExecutions(db: SupabaseClient): Promise<Resol
       summary.advanced += 1;
       if (state.status === "resolved") summary.resolved += 1;
     }
+
+    // Research phase — same immutable candle array, after production is done.
+    for (const row of researchByInstrument.get(instrument) ?? []) {
+      const advancedRow = await resolveResearchRow(db, row, candles);
+      if (advancedRow) summary.researchAdvanced += 1;
+    }
   }
 
   return summary;
