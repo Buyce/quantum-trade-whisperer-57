@@ -11,7 +11,7 @@
  * clusters as well as raw rows.
  */
 import { assessEvidence, holdoutConfirmed, MIN_GROUP_SAMPLES, type EvidenceVerdict } from "@/lib/stats/evidence";
-import { countClusters } from "@/lib/stats/clusters";
+import { clusterCount } from "@/lib/stats/clusters";
 
 /** Minimum resolved rows per tier before a comparison is worth reading. */
 export const MIN_TIER_SAMPLES = MIN_GROUP_SAMPLES;
@@ -156,7 +156,7 @@ const numOrNull = (v: number | string | null): number | null =>
 function clustersOf(rows: ShadowRow[]): number {
   const usable = rows.filter((r) => typeof r.detected_at === "string" && r.detected_at);
   if (usable.length === 0) return 0;
-  return countClusters(
+  return clusterCount(
     usable.map((r, i) => ({ id: r.id ?? String(i), detectedAt: r.detected_at as string })),
   );
 }
