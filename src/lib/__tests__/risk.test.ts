@@ -40,7 +40,10 @@ describe("calculateRisk — fail-closed behaviour", () => {
   });
 
   it("[INVARIANT] an unknown instrument fails closed with no_spec", () => {
-    const out = calculateRisk({ instrument: "NOTAPAIR", entryPrice: 1.1, stopLoss: 1.095 }, profile());
+    const out = calculateRisk(
+      { instrument: "NOTAPAIR", entryPrice: 1.1, stopLoss: 1.095 },
+      profile(),
+    );
     expect(out.ok).toBe(false);
     if (!out.ok) expect(out.reason).toBe("no_spec");
   });
@@ -80,7 +83,10 @@ describe("calculateRisk — fail-closed behaviour", () => {
 
   it("[UNIT] a textbook EURUSD trade sizes to the documented lot count", () => {
     // 1% of 10,000 = $100 risk; 0.0050 stop x 100k contract = $500/lot → 0.20 lots.
-    const out = calculateRisk({ instrument: "EURUSD", entryPrice: 1.1, stopLoss: 1.095 }, profile());
+    const out = calculateRisk(
+      { instrument: "EURUSD", entryPrice: 1.1, stopLoss: 1.095 },
+      profile(),
+    );
     expect(out.ok).toBe(true);
     if (!out.ok) return;
     expect(out.lots).toBeCloseTo(0.2, 10);
@@ -92,7 +98,10 @@ describe("calculateRisk — fail-closed behaviour", () => {
 
   it("[UNIT] gold uses the 100oz contract size", () => {
     // 1% of 10,000 = $100; $10 stop x 100oz = $1000/lot → 0.10 lots.
-    const out = calculateRisk({ instrument: "XAUUSD", entryPrice: 2400, stopLoss: 2390 }, profile());
+    const out = calculateRisk(
+      { instrument: "XAUUSD", entryPrice: 2400, stopLoss: 2390 },
+      profile(),
+    );
     expect(out.ok).toBe(true);
     if (!out.ok) return;
     expect(out.lots).toBeCloseTo(0.1, 10);
@@ -171,7 +180,13 @@ describe("calculateRisk — position-size invariants (property, fixed seed)", ()
           expect(out.riskBudget).toBeCloseTo(budget, 6);
           expect(out.riskAmount).toBeLessThanOrEqual(budget * (1 + 1e-9) + 1e-9);
           expect(out.lots).toBeGreaterThanOrEqual(0);
-          for (const v of [out.lots, out.riskAmount, out.notional, out.marginRequired, out.stopPercent]) {
+          for (const v of [
+            out.lots,
+            out.riskAmount,
+            out.notional,
+            out.marginRequired,
+            out.stopPercent,
+          ]) {
             expect(Number.isFinite(v)).toBe(true);
           }
           const step = CONTRACT_SPECS[instrument]!.lotStep;
@@ -184,8 +199,14 @@ describe("calculateRisk — position-size invariants (property, fixed seed)", ()
   });
 
   it("[INVARIANT] a stop on the wrong side of entry sizes identically to its mirror", () => {
-    const long = calculateRisk({ instrument: "EURUSD", entryPrice: 1.1, stopLoss: 1.095 }, profile());
-    const short = calculateRisk({ instrument: "EURUSD", entryPrice: 1.1, stopLoss: 1.105 }, profile());
+    const long = calculateRisk(
+      { instrument: "EURUSD", entryPrice: 1.1, stopLoss: 1.095 },
+      profile(),
+    );
+    const short = calculateRisk(
+      { instrument: "EURUSD", entryPrice: 1.1, stopLoss: 1.105 },
+      profile(),
+    );
     expect(long.ok && short.ok).toBe(true);
     if (!long.ok || !short.ok) return;
     expect(long.lots).toBeCloseTo(short.lots, 12);

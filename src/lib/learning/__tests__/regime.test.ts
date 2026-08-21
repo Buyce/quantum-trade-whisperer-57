@@ -12,7 +12,9 @@ import {
 
 const SEED = 20_260_821;
 
-function row(over: Partial<RegimeStatRow> & Pick<RegimeStatRow, "tier" | "regime_key">): RegimeStatRow {
+function row(
+  over: Partial<RegimeStatRow> & Pick<RegimeStatRow, "tier" | "regime_key">,
+): RegimeStatRow {
   return {
     instrument: null,
     direction: null,
@@ -29,7 +31,14 @@ function row(over: Partial<RegimeStatRow> & Pick<RegimeStatRow, "tier" | "regime
   };
 }
 
-const GLOBAL = row({ tier: 1, regime_key: "global", n_total: 300, n_filled: 250, p_fill_shrunk: 0.4, p_win_shrunk: 0.3 });
+const GLOBAL = row({
+  tier: 1,
+  regime_key: "global",
+  n_total: 300,
+  n_filled: 250,
+  p_fill_shrunk: 0.4,
+  p_win_shrunk: 0.3,
+});
 const BOUNDS = row({ tier: 0, regime_key: "EURUSD", instrument: "EURUSD", vol_t1: 1, vol_t2: 2 });
 const TIER2 = row({
   tier: 2,
@@ -101,7 +110,10 @@ describe("lookupRegime — hierarchy and gates", () => {
   });
 
   it("[UNIT] activation gates flip exactly at the documented sample thresholds", () => {
-    const belowFill = lookupRegime([{ ...GLOBAL, n_total: MIN_N_FILL - 1, n_filled: MIN_N_WIN - 1 }], QUERY)!;
+    const belowFill = lookupRegime(
+      [{ ...GLOBAL, n_total: MIN_N_FILL - 1, n_filled: MIN_N_WIN - 1 }],
+      QUERY,
+    )!;
     expect(belowFill.fillGatePassed).toBe(false);
     expect(belowFill.winGatePassed).toBe(false);
     const atGates = lookupRegime([{ ...GLOBAL, n_total: MIN_N_FILL, n_filled: MIN_N_WIN }], QUERY)!;
@@ -124,7 +136,15 @@ describe("lookupRegime — hierarchy and gates", () => {
         fc.integer({ min: -10, max: 10_000 }),
         (pFill, pWin, nTotal, nFilled) => {
           const prior = lookupRegime(
-            [{ ...GLOBAL, p_fill_shrunk: pFill, p_win_shrunk: pWin, n_total: nTotal, n_filled: nFilled }],
+            [
+              {
+                ...GLOBAL,
+                p_fill_shrunk: pFill,
+                p_win_shrunk: pWin,
+                n_total: nTotal,
+                n_filled: nFilled,
+              },
+            ],
             QUERY,
           )!;
           for (const v of [prior.pFill, prior.pWin, prior.ev]) {

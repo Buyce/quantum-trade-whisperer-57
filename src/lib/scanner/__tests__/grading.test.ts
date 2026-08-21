@@ -3,7 +3,11 @@ import { MIN_HEADROOM_ATR, directionalHeadroomAtr, gradeSetup, readTimeframe } f
 import type { Bias, Candle, TimeframeRead } from "../types";
 import { m15Series, rampSeries } from "@/test/fixtures/provenance";
 
-function read(timeframe: TimeframeRead["timeframe"], bias: Bias, overrides: Partial<TimeframeRead> = {}): TimeframeRead {
+function read(
+  timeframe: TimeframeRead["timeframe"],
+  bias: Bias,
+  overrides: Partial<TimeframeRead> = {},
+): TimeframeRead {
   return {
     timeframe,
     bias,
@@ -92,7 +96,13 @@ describe("gradeSetup — V1 grade boundary characterization", () => {
 
 describe("directionalHeadroomAtr", () => {
   it("[UNIT] returns 0 when ATR is unavailable", () => {
-    expect(directionalHeadroomAtr("long", rampSeries("2026-08-20T00:00:00.000Z", 30, 1.1, 0.001), read("H4", "bullish", { atr: 0 }))).toBe(0);
+    expect(
+      directionalHeadroomAtr(
+        "long",
+        rampSeries("2026-08-20T00:00:00.000Z", 30, 1.1, 0.001),
+        read("H4", "bullish", { atr: 0 }),
+      ),
+    ).toBe(0);
   });
 
   it("[UNIT] a trend with no unbroken opposing pivot ahead reports unbounded headroom", () => {

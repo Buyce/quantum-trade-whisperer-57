@@ -41,7 +41,10 @@ describe("marketStatus", () => {
     const s = marketStatus(at("2026-08-20T14:00:00Z"));
     expect(s.weekendClosed).toBe(false);
     expect(s.minutesToReopen).toBeNull();
-    const open = s.sessions.filter((x) => x.open).map((x) => x.key).sort();
+    const open = s.sessions
+      .filter((x) => x.open)
+      .map((x) => x.key)
+      .sort();
     expect(open).toEqual(["london", "new_york"]);
     expect(s.openCount).toBe(2);
     expect(s.scannerSession).toBe("london_new_york_overlap");

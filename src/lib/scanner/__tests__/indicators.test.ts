@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { atr, atrMovingAverage, clamp, detectAbc, ema, rsi, rsiSeries, sma, swings } from "../indicators";
+import {
+  atr,
+  atrMovingAverage,
+  clamp,
+  detectAbc,
+  ema,
+  rsi,
+  rsiSeries,
+  sma,
+  swings,
+} from "../indicators";
 import { m15Series, rampSeries } from "@/test/fixtures/provenance";
 import type { Candle } from "../types";
 

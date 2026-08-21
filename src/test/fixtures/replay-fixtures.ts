@@ -55,9 +55,7 @@ export const sameCandleAllBarriers: MarketFixture = defineFixture({
     candleRange: { from: DETECTED_AT, to: DETECTED_AT },
     knownDefects: ["intrabar-order-unknowable-stop-assumed-first"],
   },
-  candles: m15Series(DETECTED_AT, [
-    { open: 1.101, high: 1.106, low: 1.094, close: 1.1 },
-  ]),
+  candles: m15Series(DETECTED_AT, [{ open: 1.101, high: 1.106, low: 1.094, close: 1.1 }]),
 });
 
 /** Bar opens beyond the limit — a gap-through fill at the open. */

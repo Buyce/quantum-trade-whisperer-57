@@ -54,8 +54,16 @@ describe("scoreConfidence — V1 characterization", () => {
 
   it("[INVARIANT] every reported confidence component stays inside [0,100] and is finite", () => {
     const cases = [
-      { pillars: pillars({ trend: 0, orderBlock: 0, momentum: 0, volatilityExpansion: 0 }), rrRatio: 0, symmetry: -50 },
-      { pillars: pillars({ trend: 100, orderBlock: 100, momentum: 100, volatilityExpansion: 100 }), rrRatio: 99, symmetry: 500 },
+      {
+        pillars: pillars({ trend: 0, orderBlock: 0, momentum: 0, volatilityExpansion: 0 }),
+        rrRatio: 0,
+        symmetry: -50,
+      },
+      {
+        pillars: pillars({ trend: 100, orderBlock: 100, momentum: 100, volatilityExpansion: 100 }),
+        rrRatio: 99,
+        symmetry: 500,
+      },
     ];
     for (const c of cases) {
       const out = scoreConfidence(c);

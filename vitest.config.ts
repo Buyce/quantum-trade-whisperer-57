@@ -19,7 +19,12 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["src/**/__tests__/**/*.test.ts"],
-    exclude: ["**/node_modules/**", "**/dist/**", "**/.output/**", "src/**/__tests__/**/*.v2.test.ts"],
+    exclude: [
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/.output/**",
+      "src/**/__tests__/**/*.v2.test.ts",
+    ],
     projects: [
       {
         plugins: [tsconfigPaths()],

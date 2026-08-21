@@ -102,7 +102,13 @@ describe("tierStats", () => {
     const rows: ShadowRow[] = [
       shadow({ grade: "A", resolved_outcome: "win", realized_r: 2 }),
       shadow({ grade: "A+", resolved_outcome: "loss", realized_r: -1 }),
-      shadow({ grade: "A", resolved_outcome: "never_filled", realized_r: 0, filled_at: null, miss_distance_atr: 0.5 }),
+      shadow({
+        grade: "A",
+        resolved_outcome: "never_filled",
+        realized_r: 0,
+        filled_at: null,
+        miss_distance_atr: 0.5,
+      }),
       shadow({ grade: "A", status: "open", resolved_outcome: null }),
       shadow({ grade: "B", resolved_outcome: "win", realized_r: 1 }),
     ];
