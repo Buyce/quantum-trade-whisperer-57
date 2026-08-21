@@ -33,7 +33,12 @@ export const Route = createFileRoute("/api/public/cron/shadow-resolve")({
           let statsError: string | null = null;
           let milestones: unknown = null;
           try {
-            const { data, error } = await db.rpc("recompute_regime_stats");
+            // Explicitly pinned to the production model. Research cohorts
+            // (V2/V3) must never contribute to the live priors, so the version
+            // is passed rather than left to the function's default.
+            const { data, error } = await db.rpc("recompute_regime_stats", {
+              _model_version: ACTIVE_MODEL_VERSION,
+            });
             if (error) throw new Error(error.message);
             stats = data;
 
