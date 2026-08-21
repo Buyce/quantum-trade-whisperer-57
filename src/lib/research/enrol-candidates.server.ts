@@ -2,43 +2,59 @@
  * Stage 4 — research-candidate enrolment (dark by default).
  *
  * Stage 3 records every evaluation the scanner performed. This module takes the
- * subset that carries a COMPLETE, pre-specified executable profile and enrols it
- * as a forward-tested shadow execution in the `research_candidate` cohort, so a
+ * subset that carries a COMPLETE, pre-specified research plan and enrols it as a
+ * forward-tested shadow execution in the `research_candidate` cohort, so a
  * filter's lift can eventually be measured against setups V1 rejected.
  *
- * Hard rules, enforced here so no caller can get them wrong:
- *  - Gated by `shadow_engine_state.candidate_enrolment_enabled`. It is FALSE and
- *    stays false: with the switch off this module performs one cheap flag read
- *    and returns zeroes.
- *  - No invented geometry. A candidate missing any part of the plan (entry,
- *    stop, positive risk, TP1..TP3, their R values, max R, grade, direction,
- *    ATR) or carrying a `not_evaluable` gate can NEVER become a trade.
- *  - Idempotent: a candidate-specific claim namespace plus the
- *    (plan_id, replay_version, execution_policy) identity, and
- *    `enrolled_plan_id` / `enrolled_at` are written only AFTER the execution row
- *    exists, conditionally on it still being NULL.
- *  - Replay-V1 semantics with an explicit `legacy_best_target_touched` policy,
- *    `cohort='research_candidate'`, `research_candidate_id` populated, and the
- *    candidate's own model/strategy provenance preserved.
+ * Prompt 7G (red-team corrected):
+ *  - Every enrolled execution uses the COMMON frozen research ladder
+ *    (`cf_*` columns, `plan_origin='counterfactual'` on the execution), whether
+ *    the candidate was published or filter-rejected. A gate's pass arm and fail
+ *    arm are therefore replayed under one identical, filter-independent policy.
+ *  - Executability is a fail-closed whitelist: the gate list must be complete,
+ *    the counterfactual class must be `executable`, the ladder version must equal
+ *    the current constant, at most one gate may have failed and that gate must be
+ *    one of the three frozen filter gates, and every geometry/ladder value must
+ *    be genuinely derived. NULL or unknown means "never executable".
+ *  - Idempotency is enforced by the DATABASE:
+ *    unique (research_candidate_id, replay_version, execution_policy, plan_origin).
+ *    A unique violation is reconciled by adopting the existing execution's
+ *    `plan_id`, so an insert-succeeded/bookkeeping-failed retry can never create
+ *    a second execution. It never depends on the random plan_id or the claim.
+ *  - Gated by `shadow_engine_state.candidate_enrolment_enabled`, which stays
+ *    FALSE: with the switch off this is one flag read and a zeroed summary.
  *  - It never throws. A failure records durable research health and cannot
  *    affect production scanner or resolver state.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { REPLAY_V1_VERSION } from "@/lib/execution/replay-registry";
+import { RESEARCH_PLAN_VERSION } from "./counterfactual-plan";
 import { noteResearchFailure, RESEARCH_WRITE_DEADLINE_MS } from "./observations.server";
 
 /** The only execution policy a research candidate may ever be replayed under. */
 export const CANDIDATE_EXECUTION_POLICY = "legacy_best_target_touched";
 /** The only cohort a research-candidate execution may carry. */
 export const CANDIDATE_COHORT = "research_candidate";
+/** Every research execution is a research-ladder plan, never a traded plan. */
+export const CANDIDATE_PLAN_ORIGIN = "counterfactual";
 /**
  * Candidate claims live in their OWN model_version namespace. V2 uses 2 and V3
  * uses 3; 101 can never collide with a research model's claim slot, so a
- * candidate claim cannot consume a V2/V3 claim or vice versa.
+ * candidate claim cannot consume a V2/V3 claim or vice versa. It is a rate
+ * limiter only — idempotency lives in the database unique index.
  */
 export const CANDIDATE_CLAIM_NAMESPACE = 101;
 /** Cooldown for the candidate claim slot, in minutes. */
 export const CANDIDATE_CLAIM_COOLDOWN_MINUTES = 120;
+/**
+ * The only gates whose failure still leaves a fully derived entry/stop/risk/ATR.
+ * Frozen: adding a gate here is a deliberate research-policy change.
+ */
+export const COUNTERFACTUAL_FAIL_GATES: readonly string[] = [
+  "risk_ceiling",
+  "headroom",
+  "reachable_r",
+];
 
 /** Reads the enrolment kill switch. Any failure is treated as "disabled". */
 export async function isCandidateEnrolmentEnabled(db: SupabaseClient): Promise<boolean> {
@@ -83,36 +99,37 @@ export interface CandidateRow {
   detected_at: string;
   trading_session: string | null;
   volatility_index: number | null;
+  terminal_stage: string | null;
   grade: string | null;
   structure_key: string | null;
   entry_price: number | null;
   stop_loss: number | null;
-  tp1: number | null;
-  tp2: number | null;
-  tp3: number | null;
-  tp1_r: number | null;
-  tp2_r: number | null;
-  tp3_r: number | null;
-  max_r: number | null;
   risk_price: number | null;
   atr: number | null;
-  confidence_score: number | null;
   gates: unknown;
   gates_complete: boolean;
   enrolled_plan_id: string | null;
-  /**
-   * Prompt 7G: how the plan was derived. `counterfactual` rows are
-   * filter-rejected setups carrying the frozen research ladder; they enrol on
-   * exactly the same terms as a published plan. Legacy rows captured before the
-   * column existed read as null and are still judged purely on their geometry.
-   */
+  /** How the PRODUCTION side of this row was derived. Reported, never grouped on. */
   plan_origin?: string | null;
+  /** Whether a research plan can exist at all. NULL (legacy) means "no". */
+  counterfactual_class?: string | null;
+  /** The common research ladder. Every research execution uses these columns. */
+  cf_tp1?: number | null;
+  cf_tp2?: number | null;
+  cf_tp3?: number | null;
+  cf_tp1_r?: number | null;
+  cf_tp2_r?: number | null;
+  cf_tp3_r?: number | null;
+  cf_max_r?: number | null;
+  cf_grade?: string | null;
+  cf_plan_version?: number | null;
 }
 
 const CANDIDATE_COLUMNS =
   "id, observation_key, instrument, direction, strategy_version, manifest_hash, detected_at, " +
-  "trading_session, volatility_index, grade, structure_key, entry_price, stop_loss, tp1, tp2, tp3, " +
-  "tp1_r, tp2_r, tp3_r, max_r, risk_price, atr, confidence_score, gates, gates_complete, enrolled_plan_id, plan_origin";
+  "trading_session, volatility_index, terminal_stage, grade, structure_key, entry_price, stop_loss, " +
+  "risk_price, atr, gates, gates_complete, enrolled_plan_id, plan_origin, counterfactual_class, " +
+  "cf_tp1, cf_tp2, cf_tp3, cf_tp1_r, cf_tp2_r, cf_tp3_r, cf_max_r, cf_grade, cf_plan_version";
 
 function num(v: unknown): number | null {
   // NOTE: Number(null) is 0, so a missing value must be rejected BEFORE coercion
@@ -123,30 +140,44 @@ function num(v: unknown): number | null {
 }
 
 /**
- * A candidate is executable only when the ENTIRE plan was genuinely derived.
+ * A candidate is executable only when the ENTIRE research plan was genuinely
+ * derived and the rejection (if any) is one the frozen policy can test.
  * Anything short of that is left in the backlog forever rather than completed
  * with a guessed value.
  */
 export function isExecutableCandidate(c: CandidateRow): boolean {
   if (!c.gates_complete) return false;
+  if (c.counterfactual_class !== "executable") return false;
+  if (c.cf_plan_version !== RESEARCH_PLAN_VERSION) return false;
   if (c.direction !== "long" && c.direction !== "short") return false;
-  if (!c.grade) return false;
+  if (!c.cf_grade) return false;
 
-  const gates = Array.isArray(c.gates) ? (c.gates as { outcome?: string }[]) : null;
+  const gates = Array.isArray(c.gates) ? (c.gates as { gate?: string; outcome?: string }[]) : null;
   if (!gates) return false;
-  if (gates.some((g) => g?.outcome === "not_evaluable")) return false;
+  const failed = gates.filter((g) => g?.outcome === "fail");
+  if (failed.length > 1) return false;
+  if (failed.length === 1) {
+    // A rejection is only testable when the failing gate is one of the three
+    // frozen filter gates — everything else is structurally undefined.
+    const gate = failed[0]?.gate ?? "";
+    if (!COUNTERFACTUAL_FAIL_GATES.includes(gate)) return false;
+  } else {
+    // No failed gate at all: this can only be a published evaluation.
+    if (c.terminal_stage !== "published") return false;
+    if (gates.some((g) => g?.outcome === "not_evaluable")) return false;
+  }
 
   const required = [
     c.entry_price,
     c.stop_loss,
-    c.tp1,
-    c.tp2,
-    c.tp3,
-    c.tp1_r,
-    c.tp2_r,
-    c.tp3_r,
-    c.max_r,
     c.atr,
+    c.cf_tp1,
+    c.cf_tp2,
+    c.cf_tp3,
+    c.cf_tp1_r,
+    c.cf_tp2_r,
+    c.cf_tp3_r,
+    c.cf_max_r,
   ].map(num);
   if (required.some((v) => v === null)) return false;
 
@@ -174,6 +205,42 @@ async function claimCandidate(db: SupabaseClient, candidate: CandidateRow): Prom
   }
 }
 
+/** Reads the existing research execution for a candidate, if any. */
+async function existingExecutionPlanId(
+  db: SupabaseClient,
+  candidateId: string,
+): Promise<string | null> {
+  try {
+    const { data, error } = await db
+      .from("shadow_executions")
+      .select("plan_id")
+      .eq("research_candidate_id", candidateId)
+      .eq("replay_version", REPLAY_V1_VERSION)
+      .eq("execution_policy", CANDIDATE_EXECUTION_POLICY)
+      .eq("plan_origin", CANDIDATE_PLAN_ORIGIN)
+      .limit(1);
+    const rows = (data ?? []) as { plan_id?: string }[];
+    if (error) return null;
+    return rows[0]?.plan_id ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Writes bookkeeping only if nothing else claimed the candidate meanwhile. */
+async function markEnrolled(
+  db: SupabaseClient,
+  candidateId: string,
+  planId: string,
+): Promise<string | null> {
+  const { error } = await db
+    .from("research_candidates")
+    .update({ enrolled_plan_id: planId, enrolled_at: new Date().toISOString() })
+    .eq("id", candidateId)
+    .is("enrolled_plan_id", null);
+  return error ? error.message : null;
+}
+
 export interface CandidateEnrolmentSummary {
   enabled: boolean;
   budget: number;
@@ -181,6 +248,8 @@ export interface CandidateEnrolmentSummary {
   skippedNotExecutable: number;
   enrolled: number;
   enrolledCounterfactual: number;
+  /** Existing execution adopted after a duplicate insert — no new row created. */
+  reconciled: number;
   failed: number;
 }
 
@@ -191,8 +260,11 @@ const EMPTY: CandidateEnrolmentSummary = {
   skippedNotExecutable: 0,
   enrolled: 0,
   enrolledCounterfactual: 0,
+  reconciled: 0,
   failed: 0,
 };
+
+const isDuplicate = (message: string) => /duplicate key|unique|conflict/i.test(message);
 
 /**
  * Enrol up to `budget` pending candidates. Returns counts; never throws.
@@ -232,6 +304,7 @@ export async function enrolPendingCandidates(
       skippedNotExecutable: 0,
       enrolled: 0,
       enrolledCounterfactual: 0,
+      reconciled: 0,
       failed: 0,
     };
 
@@ -240,6 +313,26 @@ export async function enrolPendingCandidates(
         summary.skippedNotExecutable += 1;
         continue;
       }
+
+      // Reconcile first: an earlier attempt may have created the execution and
+      // died before bookkeeping. Adopting it is always correct and never
+      // creates a row.
+      const orphan = await existingExecutionPlanId(db, c.id);
+      if (orphan) {
+        const bookkeeping = await markEnrolled(db, c.id, orphan);
+        if (bookkeeping) {
+          summary.failed += 1;
+          await noteResearchFailure(
+            db,
+            `candidate enrolment reconciliation failed: ${bookkeeping}`,
+            deadlineMs,
+          );
+          continue;
+        }
+        summary.reconciled += 1;
+        continue;
+      }
+
       if (!(await claimCandidate(db, c))) continue;
 
       const planId = crypto.randomUUID();
@@ -249,38 +342,60 @@ export async function enrolPendingCandidates(
         signal_id: null,
         research_candidate_id: c.id,
         cohort: CANDIDATE_COHORT,
+        plan_origin: CANDIDATE_PLAN_ORIGIN,
         replay_version: REPLAY_V1_VERSION,
         execution_policy: CANDIDATE_EXECUTION_POLICY,
         instrument: c.instrument,
-        grade: c.grade,
+        grade: c.cf_grade,
         direction: c.direction,
         detected_at: c.detected_at,
         entry_price: c.entry_price,
         stop_loss: c.stop_loss,
-        tp1: c.tp1,
-        tp2: c.tp2,
-        tp3: c.tp3,
-        tp1_r: c.tp1_r,
-        tp2_r: c.tp2_r,
-        tp3_r: c.tp3_r,
-        max_r: c.max_r,
+        // The COMMON research ladder — identical semantics on both arms.
+        tp1: c.cf_tp1,
+        tp2: c.cf_tp2,
+        tp3: c.cf_tp3,
+        tp1_r: c.cf_tp1_r,
+        tp2_r: c.cf_tp2_r,
+        tp3_r: c.cf_tp3_r,
+        max_r: c.cf_max_r,
         risk_price: c.risk_price,
         atr: c.atr,
-        confidence_score: c.confidence_score,
+        // A research ladder has no production confidence score; inventing one
+        // would make a research plan look graded.
+        confidence_score: null,
         trading_session: c.trading_session,
         volatility_index: c.volatility_index,
         // Provenance: the candidate's own strategy version drives the model
         // stamp, so a candidate outcome can never be read as a V2/V3 result.
         model_version: c.strategy_version,
         observation_key: c.observation_key,
-        quality_grade: c.grade,
+        quality_grade: c.cf_grade,
         status: "pending",
         replay_cursor: c.detected_at,
         bars_replayed: 0,
       });
 
       if (insert.error) {
-        if (/duplicate key|unique/i.test(insert.error.message)) continue;
+        if (isDuplicate(insert.error.message)) {
+          // The database refused a second execution for this candidate. Adopt
+          // the one that already exists.
+          const existing = await existingExecutionPlanId(db, c.id);
+          if (existing) {
+            const bookkeeping = await markEnrolled(db, c.id, existing);
+            if (!bookkeeping) {
+              summary.reconciled += 1;
+              continue;
+            }
+            summary.failed += 1;
+            await noteResearchFailure(
+              db,
+              `candidate enrolment reconciliation failed: ${bookkeeping}`,
+              deadlineMs,
+            );
+          }
+          continue;
+        }
         summary.failed += 1;
         await noteResearchFailure(
           db,
@@ -292,22 +407,18 @@ export async function enrolPendingCandidates(
 
       // Only now does the candidate become "enrolled", and only if nothing else
       // claimed it in the meantime.
-      const update = await db
-        .from("research_candidates")
-        .update({ enrolled_plan_id: planId, enrolled_at: new Date().toISOString() })
-        .eq("id", c.id)
-        .is("enrolled_plan_id", null);
-      if (update.error) {
+      const bookkeeping = await markEnrolled(db, c.id, planId);
+      if (bookkeeping) {
         summary.failed += 1;
         await noteResearchFailure(
           db,
-          `candidate enrolment bookkeeping failed: ${update.error.message}`,
+          `candidate enrolment bookkeeping failed: ${bookkeeping}`,
           deadlineMs,
         );
         continue;
       }
       summary.enrolled += 1;
-      if (c.plan_origin === "counterfactual") summary.enrolledCounterfactual += 1;
+      summary.enrolledCounterfactual += 1;
     }
 
     return summary;
