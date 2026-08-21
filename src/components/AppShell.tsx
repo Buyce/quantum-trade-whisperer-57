@@ -1,5 +1,5 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { Activity, BarChart3, History, LogOut, Settings as SettingsIcon, ShieldCheck } from "lucide-react";
+import { Activity, BarChart3, History, LogOut, Plug, Settings as SettingsIcon, ShieldCheck } from "lucide-react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 
@@ -15,6 +15,9 @@ const NAV = [
   { to: "/history", label: "Trade History", icon: History },
   { to: "/performance", label: "Performance", icon: BarChart3 },
   { to: "/settings", label: "Settings", icon: SettingsIcon },
+  // Public route, but it belongs in the terminal nav: signed-in users never see
+  // the landing footer that used to be its only entry point.
+  { to: "/connect", label: "Connect AI", icon: Plug },
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -103,7 +106,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
           </div>
 
-          <nav className="grid grid-cols-4 border-t border-border md:hidden">
+          <nav className="grid grid-cols-5 border-t border-border md:hidden">
             {NAV.map((item) => {
               const active = pathname.startsWith(item.to);
               return (
