@@ -237,20 +237,32 @@ async function resolveResearchRow(
 
 export async function resolveShadowExecutions(db: SupabaseClient): Promise<ResolveSummary> {
   const rows = await loadOpenRows(db);
+  const researchRows = await loadResearchRows(db);
   const summary: ResolveSummary = {
     scanned: rows.length,
     advanced: 0,
     resolved: 0,
     instruments: [],
     fetchFailures: 0,
+    researchScanned: researchRows.length,
+    researchAdvanced: 0,
   };
-  if (rows.length === 0) return summary;
+  if (rows.length === 0 && researchRows.length === 0) return summary;
 
   const byInstrument = new Map<string, ShadowRow[]>();
   for (const row of rows) {
     const list = byInstrument.get(row.instrument) ?? [];
     list.push(row);
     byInstrument.set(row.instrument, list);
+  }
+  // Research rows never trigger their own provider call: they are grouped onto
+  // the instruments production is already fetching, and skipped otherwise.
+  const researchByInstrument = new Map<string, ShadowRow[]>();
+  for (const row of researchRows) {
+    if (!byInstrument.has(row.instrument)) continue;
+    const list = researchByInstrument.get(row.instrument) ?? [];
+    list.push(row);
+    researchByInstrument.set(row.instrument, list);
   }
 
   for (const [instrument, group] of byInstrument) {
