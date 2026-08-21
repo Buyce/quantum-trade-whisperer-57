@@ -180,7 +180,11 @@ describe("model_version cohort isolation", () => {
       defaults.map((r) => `${r.table_name}=1`),
     );
 
-    const research = db.rows<{ table_name: string; column_default: string | null; is_nullable: string }>(
+    const research = db.rows<{
+      table_name: string;
+      column_default: string | null;
+      is_nullable: string;
+    }>(
       `select table_name, column_default, is_nullable from information_schema.columns
         where table_schema = 'public'
           and table_name in ('model_observations', 'v2_structure_claims')
@@ -192,7 +196,6 @@ describe("model_version cohort isolation", () => {
       expect(row.column_default).toBeNull();
       expect(row.is_nullable).toBe("NO");
     }
-
 
     db.exec(`
       insert into public.regime_stats
