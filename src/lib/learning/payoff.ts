@@ -76,11 +76,15 @@ export interface PayoffCohort {
   run_id: string;
 }
 
+/**
+ * Registry provenance as shown in the terminal. The immutable `semantics`
+ * rulebook itself stays in the database: the hash is what proves identity, and
+ * shipping the whole JSON to the client would invite it being treated as config.
+ */
 export interface PayoffRegistryRow {
   version: number;
   label: string;
   code_hash: string;
-  semantics: unknown;
   registered_at: string;
   retired_at: string | null;
 }
