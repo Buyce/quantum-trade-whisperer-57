@@ -372,6 +372,46 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
       v2Disposition = "none";
     }
 
+    /**
+     * V3 geometry-correction research evaluation. Same contract as V2: same
+     * candle snapshot, its own try/catch, its own structure claim slot, and its
+     * own kill switch. It writes only research rows and cannot affect V1 or V2.
+     */
+    try {
+      const started = Date.now();
+      v3 = buildTradeProfileV3({ instrument: job.instrument, candles });
+      v3LatencyMs = Date.now() - started;
+      if (v3.decision === "candidate" && v3.profile) {
+        if (v3.observationOnly) {
+          // Mean reversion is recorded but never forward-tested.
+          v3Disposition = "observation_only";
+        } else {
+          const claimed = await claimV3Structure(
+            db,
+            v3.profile.structureKey,
+            STRUCTURE_COOLDOWN_MINUTES,
+          );
+          v3Disposition = claimed ? "observation_only" : "suppressed_cooldown";
+          if (claimed && (await isV3EnrolmentEnabled(db))) {
+            const enrolled = await enrolV3Shadow(db, {
+              profile: v3.profile,
+              detectedAt: now.toISOString(),
+              session,
+              observationKey: observationKey(job.run_id, job.instrument),
+            });
+            if (enrolled) v3Disposition = "shadow_enrolled";
+          }
+        }
+      }
+    } catch (err) {
+      // The crash itself is an observation: keep it instead of dropping V3.
+      v3 = null;
+      v3Error = err instanceof Error ? err.message : String(err);
+      v3Disposition = "none";
+    }
+
+
+
     const profile = buildTradeProfile({ instrument: job.instrument, candles, session });
     if (!profile) return await finish("no_trade", "No structure satisfied the ABC grading rules");
     v1Grade = profile.grade;
