@@ -269,10 +269,12 @@ function AdminIntelligencePage() {
 
       <PanelShell title="Expected R research — payoff distribution, not probability">
         <PayoffPanel />
-
-        <CandidatePanel />
-
       </PanelShell>
+
+      <PanelShell title="Research candidate capture — what the scanner rejected">
+        <CandidatePanel />
+      </PanelShell>
+
 
 
       <PanelShell title="Human vs AI agent — accounts, decisions and reported outcomes">
