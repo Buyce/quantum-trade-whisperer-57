@@ -275,6 +275,8 @@ function HistoryPage() {
                         ? ` · ${Number(row.realized_r_multiple).toFixed(2)}R`
                         : ""}
                     </span>
+                    <PriceProvenanceBadge row={row} />
+
                     <span className="num hidden text-xs text-muted-foreground sm:inline">
                       {new Date(signal.detected_at).toLocaleString(undefined, {
                         month: "short",
