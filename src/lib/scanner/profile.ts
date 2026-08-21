@@ -291,6 +291,7 @@ export function evaluateSetup(input: BuildProfileInput): SetupEvaluation {
     direction,
     features,
     geometry,
+    counterfactual: classifyCounterfactual(stage, geometry, direction),
     proposedProfile: null,
   });
 
@@ -590,7 +591,15 @@ export function evaluateSetup(input: BuildProfileInput): SetupEvaluation {
       }) + dynamicEntryNote,
   };
 
-  return { stage: "published", gates, direction, features, geometry, proposedProfile };
+  return {
+    stage: "published",
+    gates,
+    direction,
+    features,
+    geometry,
+    counterfactual: "executable",
+    proposedProfile,
+  };
 }
 
 /**
