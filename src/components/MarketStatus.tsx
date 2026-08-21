@@ -43,27 +43,38 @@ export function MarketStatus({ health }: { health?: MarketStatusHealth[] }) {
         )}
       </div>
 
-      <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1.5 sm:grid-cols-4">
+      <div className="mt-2 grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-4">
         {status.sessions.map((s) => (
           <div key={s.key} className="flex items-center gap-2 text-xs">
             <span
               aria-hidden
               className={cn("size-2 shrink-0 rounded-full", s.open ? "bg-success" : "bg-muted-foreground/40")}
             />
-            <span className="truncate text-foreground">{s.label}</span>
-            <span className="num ml-auto text-muted-foreground">
-              {status.weekendClosed
-                ? "closed"
-                : s.open
-                  ? `closes in ${formatDuration(s.minutesToChange)}`
-                  : `opens in ${formatDuration(s.minutesToChange)}`}
+            <span className="min-w-0 text-foreground">{s.label}</span>
+            <span className="num ml-auto whitespace-nowrap text-muted-foreground">
+              {status.weekendClosed ? (
+                "closed"
+              ) : (
+                <>
+                  <span className="sm:hidden">
+                    {s.open
+                      ? `${formatDuration(s.minutesToChange)} left`
+                      : `in ${formatDuration(s.minutesToChange)}`}
+                  </span>
+                  <span className="hidden sm:inline">
+                    {s.open
+                      ? `closes in ${formatDuration(s.minutesToChange)}`
+                      : `opens in ${formatDuration(s.minutesToChange)}`}
+                  </span>
+                </>
+              )}
             </span>
           </div>
         ))}
       </div>
 
       {rows.length > 0 ? (
-        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 border-t border-border pt-2">
+        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 border-t border-border pt-3">
           {rows.map((h) => (
             <span key={h.instrument} className="flex items-center gap-1.5 text-xs">
               <span
