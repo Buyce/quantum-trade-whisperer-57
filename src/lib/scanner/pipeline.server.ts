@@ -565,6 +565,8 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
     }
 
     const signalId = (inserted as { id: string }).id;
+    publishedSignalId = signalId;
+
 
     const { error: ctxError } = await db.from("market_context").insert({
       signal_id: signalId,
