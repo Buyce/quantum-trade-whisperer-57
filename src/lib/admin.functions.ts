@@ -152,6 +152,23 @@ export interface AdminFeedRow {
   miss_distance_atr: number | null;
 }
 
+/**
+ * Who authored the activity: a person in the web terminal (`human`) or an AI
+ * assistant over the MCP connection (`agent`). Stamped server-side at write
+ * time; never accepted as client input.
+ */
+export interface AdminAuthorSplit {
+  accounts: { source: string; n: number; clients: string[] }[];
+  decisions: { source: string; taken: number; skipped: number; clients: string[] }[];
+  user_reported: {
+    source: string;
+    n: number;
+    wins: number;
+    win_rate: number | null;
+    mean_r: number | null;
+  }[];
+}
+
 export interface AdminIntelligence {
   generated_at: string;
   health: AdminHealth;
@@ -163,6 +180,7 @@ export interface AdminIntelligence {
   grade_calibration: AdminGradeRow[];
   dedup_pressure: AdminDedup;
   intersection_feed: AdminFeedRow[];
+  author_split: AdminAuthorSplit | null;
 }
 
 export const getAdminIntelligence = createServerFn({ method: "GET" })
@@ -173,7 +191,20 @@ export const getAdminIntelligence = createServerFn({ method: "GET" })
       throw new Error("Forbidden");
     }
 
-    const { data, error } = await context.supabase.rpc("get_admin_intelligence");
-    if (error) throw new Error(error.message);
-    return data as unknown as AdminIntelligence;
+    const rpc = context.supabase.rpc.bind(context.supabase) as unknown as (
+      name: string,
+    ) => Promise<{ data: unknown; error: { message: string } | null }>;
+
+    const [main, split] = await Promise.all([
+      rpc("get_admin_intelligence"),
+      rpc("get_admin_author_split"),
+    ]);
+    if (main.error) throw new Error(main.error.message);
+    if (split.error) throw new Error(split.error.message);
+
+    return {
+      ...(main.data as AdminIntelligence),
+      author_split: (split.data as AdminAuthorSplit) ?? null,
+    };
   });
+
