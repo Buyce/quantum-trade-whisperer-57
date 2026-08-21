@@ -90,8 +90,10 @@ Every `shadow_executions` reader is enumerated and classified as **active-versio
 
 Blocking guard: a static inventory test greps every SQL function body and TS query for `shadow_executions` and fails unless the call site is on an allow-list that records its class and its version predicate.
 
-## 12. Scheduling and budgets
-Prospective resolver (hourly, 200 rows): `(model 1, replay 1)` 100 → `(model 2, replay 1)` 30 → `(model 3, replay 1)` 30 → spare only to replay 2 when all three production queues are empty. Historical rereplay worker: own route, own flag, 50 plans/run, 10s wall clock, single-flight lease, touches only `replay_version = 2`. Test: 300 open replay-2 rows plus 5 open rows in each production cohort → every production row advances in the first prospective pass.
+## 12. Scheduling and budgets (5F-3)
+Model-V1 throughput is never reduced. The prospective resolver keeps its existing 200-row budget and consumes it **hierarchically**: `(model 1, replay 1)` may take the entire 200 rows; only unused capacity flows to `(model 2, replay 1)`, then `(model 3, replay 1)`. No fixed 100/30/30 reservation. Replay-V2 work is not scheduled here at all — both historical and prospective Replay-V2 siblings are resolved by the separate bounded research/rereplay worker (own route, own flag, 50 plans/run, 10s wall clock, single-flight lease, touches only `replay_version = 2`), so research backlog can never displace production rows.
+Blocking tests: (a) 180 open `(model 1, replay 1)` rows plus a large Replay-V2 backlog → all 180 production rows are selected in the same 200-row run; (b) 5 + 5 + 5 open rows across the three model cohorts → all 15 advance in one pass.
+
 
 ## 13. Baseline first
 Persist the Replay-V1 baseline before the backfill and before consumer filters deploy: resolved/filled/win counts, fill rate, win-if-filled **and** unconditional `p_fill × p_win`, grade/instrument/session/direction cells (`unknown` separate), miss-distance distribution, priors at both learning gates, weekly and admin figures, plus `replay_version = 1`, the registry `code_hash`, and a per-row checksum over the frozen resolved fields. Idempotent via the existing `baseline_snapshots` uniqueness.
