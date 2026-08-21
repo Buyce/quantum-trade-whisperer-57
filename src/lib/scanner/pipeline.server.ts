@@ -4,7 +4,7 @@
  * and idempotent; failures flag the instrument and move on.
  */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { buildTradeProfile } from "./profile";
+import { evaluateSetup, type SetupEvaluation } from "./profile";
 import { buildTradeProfileV2, type V2Evaluation } from "./v2/profile.v2";
 import { buildTradeProfileV3, type V3Evaluation } from "./v3/profile.v3";
 import {
