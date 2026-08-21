@@ -19,6 +19,7 @@ import {
   provisionDatabase,
   type Db,
 } from "../cluster";
+import { MODEL_V2_CODE_HASH } from "@/lib/scanner/v2/manifest";
 
 const SKIP = process.env["PTRADES_DB_TESTS"] === "skip";
 

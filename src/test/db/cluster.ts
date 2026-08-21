@@ -114,6 +114,8 @@ export interface Db {
     sql: string,
     claims?: Record<string, unknown>,
   ): T[];
+  /** Runs SQL expecting it to fail as the owner; returns the error text. */
+  expectFailure(sql: string): string;
   /** Same as asRole but expects a failure; returns the error text. */
   expectFailureAsRole(role: string, sql: string, claims?: Record<string, unknown>): string;
 }
@@ -155,6 +157,15 @@ export function provisionDatabase(c: Cluster, label: string): Db {
       const out = psql(c, name, ["-t", "-A", "-c", `${prelude(role, claims)} ${jsonQuery(sql)}`]);
       const lines = out.trim().split("\n").filter(Boolean);
       return JSON.parse(lines[lines.length - 1] ?? "[]") as T[];
+    },
+    expectFailure(sql) {
+      try {
+        psql(c, name, ["-v", "ON_ERROR_STOP=1", "-c", sql]);
+      } catch (err) {
+        const e = err as { stderr?: string; message?: string };
+        return `${e.stderr ?? ""}${e.message ?? ""}`;
+      }
+      throw new Error(`expected failure but statement succeeded: ${sql}`);
     },
     expectFailureAsRole(role, sql, claims) {
       try {
