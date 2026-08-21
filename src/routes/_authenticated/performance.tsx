@@ -200,11 +200,11 @@ function PerformancePage() {
       <Tabs defaultValue="distribution" className="space-y-4">
         <TabsList className="grid h-auto w-full grid-cols-2 gap-1 sm:grid-cols-3 lg:inline-flex lg:h-9 lg:w-auto lg:gap-0">
           <TabsTrigger className="h-10 lg:h-auto" value="distribution">R distribution</TabsTrigger>
-          <TabsTrigger value="timing">Timing</TabsTrigger>
-          <TabsTrigger value="instrument">By instrument</TabsTrigger>
-          <TabsTrigger value="grade">By grade</TabsTrigger>
-          <TabsTrigger value="signals">Signal audit</TabsTrigger>
-          <TabsTrigger value="learning">Learning</TabsTrigger>
+          <TabsTrigger className="h-10 lg:h-auto" value="timing">Timing</TabsTrigger>
+          <TabsTrigger className="h-10 lg:h-auto" value="instrument">By instrument</TabsTrigger>
+          <TabsTrigger className="h-10 lg:h-auto" value="grade">By grade</TabsTrigger>
+          <TabsTrigger className="h-10 lg:h-auto" value="signals">Signal audit</TabsTrigger>
+          <TabsTrigger className="h-10 lg:h-auto" value="learning">Learning</TabsTrigger>
         </TabsList>
 
         <TabsContent value="distribution">
