@@ -5,6 +5,14 @@
  */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { buildTradeProfile } from "./profile";
+import { buildTradeProfileV2, type V2Evaluation } from "./v2/profile.v2";
+import {
+  claimV2Structure,
+  recordObservations,
+  v1ObservationRow,
+  v2ObservationRow,
+  type Disposition,
+} from "@/lib/research/observations.server";
 import { atr } from "./indicators";
 import { ACTIVE_MODEL_VERSION, observationKey } from "@/lib/versioning";
 import { fetchCandles, MetaApiNotConfiguredError, MetaApiTimeoutError } from "./metaapi.server";
@@ -179,6 +187,28 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
     | null;
   if (!job) return null;
 
+  /**
+   * Research state for this observation. Populated only once candles have been
+   * fetched successfully, so a job that never saw market data produces no
+   * observation rows at all.
+   */
+  let observed = false;
+  let v2: V2Evaluation | null = null;
+  let v2Disposition: Disposition = "none";
+  let v1Grade: string | null = null;
+  let v1Direction: "long" | "short" | null = null;
+  let v2LatencyMs: number | null = null;
+
+  /** V1 status -> (decision, disposition) for the research ledger. */
+  const v1Cell = (
+    status: JobResult["status"],
+  ): { decision: "candidate" | "no_trade" | "error"; disposition: Disposition } => {
+    if (status === "published") return { decision: "candidate", disposition: "published" };
+    if (status === "duplicate") return { decision: "candidate", disposition: "suppressed_cooldown" };
+    if (status === "failed") return { decision: "error", disposition: "none" };
+    return { decision: "no_trade", disposition: "none" };
+  };
+
   const finish = async (status: JobResult["status"], detail?: string) => {
     const stamp = new Date().toISOString();
     await db
@@ -191,6 +221,40 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
         finished_at: stamp,
       })
       .eq("id", job.id);
+
+    // Research ledger. Isolated and bounded inside recordObservations: it can
+    // neither throw into, nor slow down, the production job above.
+    if (observed) {
+      const key = observationKey(job.run_id, job.instrument);
+      const cell = v1Cell(status);
+      const rows = [
+        v1ObservationRow({
+          runId: job.run_id ?? null,
+          observationKey: key,
+          instrument: job.instrument,
+          decision: cell.decision,
+          grade: v1Grade,
+          direction: v1Direction,
+          disposition: cell.disposition,
+          reason: detail ?? status,
+          latencyMs: null,
+        }),
+      ];
+      if (v2) {
+        rows.push(
+          v2ObservationRow({
+            runId: job.run_id ?? null,
+            observationKey: key,
+            instrument: job.instrument,
+            evaluation: v2,
+            disposition: v2Disposition,
+            latencyMs: v2LatencyMs,
+          }),
+        );
+      }
+      await recordObservations(db, rows);
+    }
+
     return { jobId: job.id, instrument: job.instrument, status, ...(detail ? { detail } : {}) };
   };
 
@@ -212,14 +276,45 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
       candles[tf] = await fetchCandles(job.instrument, tf, CANDLE_LIMITS[tf]);
     }
     await clearInstrument(db, job.instrument);
+    observed = true;
 
     // Session is resolved before grading so the entry math and the
     // market_context row can never disagree about which regime this setup is in.
     const now = new Date();
     const session = sessionOf(now);
 
+    /**
+     * V2 research evaluation, hoisted ABOVE every V1 return so the research
+     * cohort is one row per fetched observation rather than one row per V1
+     * publication. Pure computation on the identical candle snapshot V1 grades;
+     * it writes nothing and cannot affect the V1 path below.
+     */
+    try {
+      const started = Date.now();
+      v2 = buildTradeProfileV2({ instrument: job.instrument, candles });
+      v2LatencyMs = Date.now() - started;
+      if (v2.decision === "candidate" && v2.profile) {
+        if (v2.observationOnly) {
+          v2Disposition = "observation_only";
+        } else {
+          const claimed = await claimV2Structure(
+            db,
+            v2.profile.structureKey,
+            STRUCTURE_COOLDOWN_MINUTES,
+          );
+          v2Disposition = claimed ? "observation_only" : "suppressed_cooldown";
+        }
+      }
+    } catch {
+      v2 = null;
+      v2Disposition = "none";
+    }
+
     const profile = buildTradeProfile({ instrument: job.instrument, candles, session });
     if (!profile) return await finish("no_trade", "No structure satisfied the ABC grading rules");
+    v1Grade = profile.grade;
+    v1Direction = profile.direction;
+
 
     // No global ceiling: every qualifying setup publishes. Each account applies
     // its own daily cap (scanner_settings.daily_setup_cap, 0 = unlimited) to

@@ -228,6 +228,71 @@ export type Database = {
           },
         ]
       }
+      model_observations: {
+        Row: {
+          code_hash: string | null
+          decision: string
+          direction: string | null
+          disposition: string
+          family: string | null
+          grade: string | null
+          id: string
+          instrument: string
+          latency_ms: number | null
+          model_version: number
+          observation_key: string | null
+          observed_at: string
+          profile: Json | null
+          reason: string | null
+          run_id: string | null
+          signal_id: string | null
+        }
+        Insert: {
+          code_hash?: string | null
+          decision: string
+          direction?: string | null
+          disposition?: string
+          family?: string | null
+          grade?: string | null
+          id?: string
+          instrument: string
+          latency_ms?: number | null
+          model_version: number
+          observation_key?: string | null
+          observed_at?: string
+          profile?: Json | null
+          reason?: string | null
+          run_id?: string | null
+          signal_id?: string | null
+        }
+        Update: {
+          code_hash?: string | null
+          decision?: string
+          direction?: string | null
+          disposition?: string
+          family?: string | null
+          grade?: string | null
+          id?: string
+          instrument?: string
+          latency_ms?: number | null
+          model_version?: number
+          observation_key?: string | null
+          observed_at?: string
+          profile?: Json | null
+          reason?: string | null
+          run_id?: string | null
+          signal_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "model_observations_signal_id_fkey"
+            columns: ["signal_id"]
+            isOneToOne: false
+            referencedRelation: "scanned_signals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       model_versions: {
         Row: {
           activated_at: string
@@ -975,6 +1040,24 @@ export type Database = {
           },
         ]
       }
+      v2_structure_claims: {
+        Row: {
+          claimed_at: string
+          model_version: number
+          structure_key: string
+        }
+        Insert: {
+          claimed_at?: string
+          model_version: number
+          structure_key: string
+        }
+        Update: {
+          claimed_at?: string
+          model_version?: number
+          structure_key?: string
+        }
+        Relationships: []
+      }
       verify_reminder_log: {
         Row: {
           iso_week: string
@@ -1066,6 +1149,14 @@ export type Database = {
           signal_id: string
         }[]
       }
+      claim_v2_structure: {
+        Args: {
+          _cooldown_minutes?: number
+          _model_version: number
+          _structure_key: string
+        }
+        Returns: boolean
+      }
       claim_verify_reminder: {
         Args: { _missing: number; _user_id: string; _week: string }
         Returns: boolean
@@ -1076,6 +1167,7 @@ export type Database = {
       is_admin: { Args: never; Returns: boolean }
       maintain_scan_queue: { Args: never; Returns: Json }
       maintain_shadow_queue: { Args: never; Returns: Json }
+      prune_v2_structure_claims: { Args: never; Returns: number }
       purge_expired_signals: { Args: never; Returns: number }
       recompute_regime_stats: {
         Args: { _model_version?: number }

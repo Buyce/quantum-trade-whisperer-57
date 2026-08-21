@@ -34,6 +34,45 @@ export function atr(candles: Candle[], period = 14): number {
   return acc;
 }
 
+/**
+ * Historical Wilder ATR at a specific bar, using ONLY the candle prefix
+ * `candles[0..i]`. This is exactly `atr()` evaluated on that prefix — same
+ * seeding (arithmetic mean of the first `period` true ranges) and the same
+ * recursion `ATR_t = ((period - 1) * ATR_{t-1} + TR_t) / period`.
+ *
+ * Fails closed with `null` rather than 0 so a caller can never mistake
+ * "not measurable" for "no volatility":
+ *  - index out of range, or fewer than `period + 1` bars in the prefix;
+ *  - any non-finite OHLC value inside the prefix.
+ *
+ * Lookahead-free by construction: no index greater than `i` is ever read, so
+ * appending future candles cannot change the returned value.
+ */
+export function atrAtIndex(candles: Candle[], i: number, period = 14): number | null {
+  if (!Number.isInteger(i) || i < 0 || i >= candles.length) return null;
+  if (!Number.isInteger(period) || period < 1) return null;
+  if (i < period) return null;
+
+  let acc = 0;
+  for (let k = 1; k <= i; k += 1) {
+    const c = candles[k] as Candle;
+    const prev = candles[k - 1] as Candle;
+    if (
+      !Number.isFinite(c.high) ||
+      !Number.isFinite(c.low) ||
+      !Number.isFinite(c.close) ||
+      !Number.isFinite(prev.close)
+    ) {
+      return null;
+    }
+    const tr = Math.max(c.high - c.low, Math.abs(c.high - prev.close), Math.abs(c.low - prev.close));
+    if (k <= period) acc += tr / period;
+    else acc = (acc * (period - 1) + tr) / period;
+  }
+  return Number.isFinite(acc) ? acc : null;
+}
+
+
 export interface SwingPoint {
   index: number;
   price: number;

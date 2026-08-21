@@ -160,17 +160,42 @@ describe("model_version cohort isolation", () => {
     }
   });
 
-  it("[V1_CHARACTERIZATION] model_version still defaults to 1, so an omitted version lands in V1 rather than failing closed", () => {
+  it("[V1_CHARACTERIZATION] model_version still defaults to 1 on production tables, so an omitted version lands in V1 rather than failing closed", () => {
     guard();
     // Pinned present state. When the expand/contract migration drops these
     // defaults this test must be inverted to a fail-closed INVARIANT.
+    //
+    // `model_observations` and `v2_structure_claims` are deliberately excluded:
+    // they are research-only tables whose writers must state the model version
+    // explicitly, so those columns have no default and an omitted version fails
+    // closed there by design.
     const defaults = db.rows<{ table_name: string; column_default: string | null }>(
       `select table_name, column_default from information_schema.columns
         where table_schema = 'public' and column_name = 'model_version'
+          and table_name not in ('model_observations', 'v2_structure_claims')
         order by table_name`,
     );
     expect(defaults.length).toBeGreaterThan(0);
-    for (const row of defaults) expect(row.column_default).toBe("1");
+    expect(defaults.map((r) => `${r.table_name}=${r.column_default}`)).toEqual(
+      defaults.map((r) => `${r.table_name}=1`),
+    );
+
+    const research = db.rows<{
+      table_name: string;
+      column_default: string | null;
+      is_nullable: string;
+    }>(
+      `select table_name, column_default, is_nullable from information_schema.columns
+        where table_schema = 'public'
+          and table_name in ('model_observations', 'v2_structure_claims')
+          and column_name = 'model_version'
+        order by table_name`,
+    );
+    expect(research.length).toBe(2);
+    for (const row of research) {
+      expect(row.column_default).toBeNull();
+      expect(row.is_nullable).toBe("NO");
+    }
 
     db.exec(`
       insert into public.regime_stats

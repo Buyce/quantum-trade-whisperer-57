@@ -37,6 +37,7 @@ import {
   timeAgo,
 } from "@/components/admin/AdminPanels";
 import { BaselinePanel } from "@/components/admin/BaselinePanel";
+import { ResearchPanel } from "@/components/admin/ResearchPanel";
 
 export const Route = createFileRoute("/_authenticated/admin/intelligence")({
   head: () => ({
@@ -258,6 +259,11 @@ function AdminIntelligencePage() {
       <PanelShell title="Quantitative integrity baseline — immutable, pinned to one learning run">
         <BaselinePanel />
       </PanelShell>
+
+      <PanelShell title="Grading research ledger — model v1 (live) vs model v2 (shadow)">
+        <ResearchPanel />
+      </PanelShell>
+
 
       <PanelShell title="Human vs AI agent — accounts, decisions and reported outcomes">
         <AuthorSplitPanel split={data.author_split} />
