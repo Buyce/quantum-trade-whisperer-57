@@ -1,7 +1,7 @@
 # Canonical CI for P-Trades Hub.
 #
 # `bun run verify` is the single command developers and CI both run:
-#   lint (test sources) -> typecheck -> blocking tests -> production build
+#   lint (blocking sources) -> typecheck -> blocking tests -> production build
 #
 # Repo-wide `bun run lint` currently reports ~2.2k pre-existing prettier
 # formatting errors that predate this suite, so it runs as a separate
@@ -33,12 +33,13 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          # Pinned: a floating Bun makes CI non-reproducible.
+          bun-version: 1.3.3
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Verify (lint test sources, typecheck, blocking tests, build)
+      - name: Verify (lint blocking sources, typecheck, blocking tests, build)
         run: bun run verify
 
       - name: Repo-wide lint (non-blocking: pre-existing formatting debt)
