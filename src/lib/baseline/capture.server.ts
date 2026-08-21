@@ -425,8 +425,14 @@ export async function captureBaseline(
   };
 
   const metrics: Record<string, unknown> = {
+    // Bumped whenever the document's shape changes, so two snapshots are only
+    // compared field-by-field when they share a schema version.
+    schema_version: 2,
+    schema_version_note:
+      "v2: statistically undefined probabilities are null (never a fabricated 0.5); signals carry p_joint_prior alongside the legacy ev_prior.",
     model_version: ACTIVE_MODEL_VERSION,
     model_label: ACTIVE_MODEL_LABEL,
+
     // The semantic instant of every number below. `captured_at` is only the
     // wall-clock time the document was written.
     data_as_of: dataAsOf,
