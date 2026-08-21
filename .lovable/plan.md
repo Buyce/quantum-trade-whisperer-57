@@ -246,15 +246,16 @@ grades reported separately; email template render test.
 3. `performance.ts` and MCP `get_performance_summary` return non-empty results for
    a canonical-basis trade.
 4. `get_admin_intelligence` returns both blocks; app, MCP and admin agree.
-5. An attempted mixed-unit aggregation returns `mixed_basis`; a row holding both
-   values aggregates cleanly under either basis.
-6. `r_vs_plan` recomputes identically after the source signal is deleted (M2/M3).
+5. An attempted mixed-unit aggregation returns the `mixed_basis` error status; a
+   row holding both canonical values aggregates cleanly under either basis.
+6. The nine snapshot fields are written once at row creation, are rejected on any
+   later mutation, and `r_vs_plan` recomputes identically from them.
 7. Two bootstrap runs are byte-identical with stored seed/method/version/run_id;
    one UTC day of multi-instrument rows forms exactly one cluster.
 8. `actionable` unreachable; no prescriptive wording at n = 3.
 9. DB tests: identical retry accepted, conflicting re-resolution rejected,
-   human-win vs agent-loss race, delete-of-resolved writes a tombstone and raises
-   the audit flag, TS enums equal SQL CHECK lists.
+   human-win vs agent-loss race, snapshot immutability, repeat decision write from
+   both writers leaves resolution untouched, TS enums equal SQL CHECK lists.
 10. Monetary-only costs leave `net_r` NULL and no cost-adjusted claim appears.
 11. Weekly email renders with `pending_resolution` and basis labels; `Verdict`
     derives from `evidence.ts`.
