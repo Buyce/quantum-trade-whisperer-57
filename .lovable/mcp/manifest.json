@@ -303,7 +303,7 @@
       {
         "name": "update_trade_outcome",
         "title": "Update trade outcome",
-        "description": "Set the outcome (win, loss, breakeven or open) on one of the signed-in user's logged trades. Supply actual_entry_price and actual_exit_price to have both canonical R multiples recomputed server-side (R vs plan and R vs actual risk) — that marks the trade self-reported/verified. Optionally supply actual_initial_stop for a true actual-risk denominator, and commission/swap as money. Without prices, R stays unknown; the R multiple can never be supplied directly. An already-resolved trade is not modified.",
+        "description": "Set the outcome (win, loss, breakeven or open) on one of the signed-in user's logged trades. Supply actual_entry_price and actual_exit_price to have both canonical R multiples recomputed server-side (R vs plan and R vs actual risk) — that records the trade as self_reported (the user's or your own reported prices, NOT broker verified). Optionally supply actual_initial_stop for a true actual-risk denominator, and commission/swap as money. Without prices, R stays unknown; the R multiple can never be supplied directly. An already-resolved trade is not modified.",
         "annotations": {
           "readOnlyHint": false,
           "destructiveHint": false,

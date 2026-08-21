@@ -145,3 +145,170 @@ export function clusterBootstrapMeanR(
     reason: null,
   };
 }
+
+/* ------------------------------------------- proportion-difference bootstrap */
+
+/**
+ * One observation in a two-group proportion comparison. The cluster (whole UTC
+ * detected day) is shared across BOTH groups: when a day is drawn, every
+ * observation from that day — group A and group B alike — enters the replicate
+ * together. That is what makes the interval dependence-aware.
+ */
+export interface ProportionObservation extends ClusterableObservation {
+  group: "A" | "B";
+  success: boolean;
+}
+
+export type DifferenceStatus = "ok" | "insufficient_clusters" | "empty" | "degenerate";
+
+export interface DifferenceResult {
+  status: DifferenceStatus;
+  /** Raw observations per group. */
+  nA: number;
+  nB: number;
+  /** Independent UTC-day clusters per group. */
+  clustersA: number;
+  clustersB: number;
+  /** Independent UTC-day clusters over the combined resampling frame. */
+  clusterN: number;
+  rateA: number | null;
+  rateB: number | null;
+  /** Point estimate rateA - rateB. */
+  difference: number | null;
+  ciLo: number | null;
+  ciHi: number | null;
+  ciLevel: number;
+  /** True only when a real interval exists AND it lies wholly one side of 0. */
+  excludesNull: boolean;
+  method: string;
+  version: number;
+  seed: number;
+  runId: string;
+  replicates: number;
+  /** Replicates discarded because a group was empty in the drawn days. */
+  degenerateReplicates: number;
+  reason: string | null;
+}
+
+/**
+ * Deterministic whole-UTC-day cluster bootstrap of a difference in proportions.
+ *
+ * Determinism is total: stable total order, seeded mulberry32, fixed
+ * accumulation order, and method/version/seed/run_id returned for storage.
+ * Two runs on the same rows with the same seed are byte-identical regardless of
+ * input row order.
+ *
+ * If either group has fewer than `minClusters` independent days, NO interval is
+ * returned — the caller must treat that as insufficient evidence.
+ */
+export function clusterBootstrapProportionDifference(
+  rows: readonly ProportionObservation[],
+  options: BootstrapOptions = {},
+): DifferenceResult {
+  const level = options.level ?? 0.95;
+  const replicates = options.replicates ?? DEFAULT_REPLICATES;
+  const seed = options.seed ?? DEFAULT_SEED;
+  const minClusters = options.minClusters ?? MIN_CLUSTERS;
+  const runId =
+    options.runId ??
+    `${BOOTSTRAP_METHOD}:diff:v${BOOTSTRAP_VERSION}:seed${seed}:B${replicates}`;
+
+  const ordered = stableOrder(rows);
+  const clusters = buildDayClusters(ordered);
+  const groupA = ordered.filter((r) => r.group === "A");
+  const groupB = ordered.filter((r) => r.group === "B");
+  const clustersA = buildDayClusters(groupA).length;
+  const clustersB = buildDayClusters(groupB).length;
+
+  const rateA = groupA.length ? groupA.filter((r) => r.success).length / groupA.length : null;
+  const rateB = groupB.length ? groupB.filter((r) => r.success).length / groupB.length : null;
+  const difference = rateA !== null && rateB !== null ? rateA - rateB : null;
+
+  const base: DifferenceResult = {
+    status: "empty",
+    nA: groupA.length,
+    nB: groupB.length,
+    clustersA,
+    clustersB,
+    clusterN: clusters.length,
+    rateA,
+    rateB,
+    difference,
+    ciLo: null,
+    ciHi: null,
+    ciLevel: level,
+    excludesNull: false,
+    method: BOOTSTRAP_METHOD,
+    version: BOOTSTRAP_VERSION,
+    seed,
+    runId,
+    replicates,
+    degenerateReplicates: 0,
+    reason: "No observations in one or both groups.",
+  };
+
+  if (groupA.length === 0 || groupB.length === 0) return base;
+
+  if (clustersA < minClusters || clustersB < minClusters) {
+    return {
+      ...base,
+      status: "insufficient_clusters",
+      reason:
+        `Only ${clustersA} vs ${clustersB} independent trading day(s); ` +
+        `${minClusters} required per group before a dependence-aware interval is reported.`,
+    };
+  }
+
+  const diffs: number[] = [];
+  let degenerate = 0;
+  const rng = createRng(seed);
+  for (let b = 0; b < replicates; b++) {
+    // Draw whole days; every observation of a drawn day enters the replicate.
+    let aTotal = 0;
+    let aWins = 0;
+    let bTotal = 0;
+    let bWins = 0;
+    for (let c = 0; c < clusters.length; c++) {
+      const idx = Math.floor(rng() * clusters.length);
+      const cluster = clusters[Math.min(idx, clusters.length - 1)]!;
+      for (const row of cluster.rows) {
+        if (row.group === "A") {
+          aTotal += 1;
+          if (row.success) aWins += 1;
+        } else {
+          bTotal += 1;
+          if (row.success) bWins += 1;
+        }
+      }
+    }
+    if (aTotal === 0 || bTotal === 0) {
+      degenerate += 1;
+      continue;
+    }
+    diffs.push(aWins / aTotal - bWins / bTotal);
+  }
+
+  if (diffs.length === 0) {
+    return {
+      ...base,
+      status: "degenerate",
+      degenerateReplicates: degenerate,
+      reason: "Every bootstrap replicate left one group empty; no interval exists.",
+    };
+  }
+
+  diffs.sort((a, b) => a - b);
+  const alpha = (1 - level) / 2;
+  const ciLo = percentile(diffs, alpha);
+  const ciHi = percentile(diffs, 1 - alpha);
+
+  return {
+    ...base,
+    status: "ok",
+    ciLo,
+    ciHi,
+    excludesNull: (ciLo > 0 && ciHi > 0) || (ciLo < 0 && ciHi < 0),
+    degenerateReplicates: degenerate,
+    reason: null,
+  };
+}

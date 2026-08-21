@@ -49,12 +49,15 @@ const pct = (v: number | null) => (v === null ? "n/a" : `${(v * 100).toFixed(1)}
 const r = (v: number | null) =>
   v === null ? "n/a" : `${v >= 0 ? "" : "-"}${Math.abs(v).toFixed(2)}R`;
 
+const pts = (v: number | null) => (v === null ? "n/a" : `${(v * 100).toFixed(1)} pts`);
+
 /** Flattens the report into the primitives the email template renders. */
 export function reportEmailData(report: WeeklyReport): Record<string, unknown> {
   const tier = (t: WeeklyReport["high"]) => ({
     label: t.label,
     enrolled: t.enrolled,
     resolved: t.resolved,
+    pendingResolution: t.pendingResolution,
     filled: t.filled,
     wins: t.wins,
     losses: t.losses,
@@ -62,6 +65,8 @@ export function reportEmailData(report: WeeklyReport): Record<string, unknown> {
     expired: t.expired,
     fillRate: pct(t.fillRate),
     winRate: pct(t.winRate),
+    // Every R figure in this block is stated against ONE explicit denominator.
+    rBasis: "replay realized R (per-plan risk)",
     meanR: r(t.meanR),
     totalR: r(t.totalR),
     expectancyR: r(t.expectancyR),
@@ -84,11 +89,22 @@ export function reportEmailData(report: WeeklyReport): Record<string, unknown> {
       lowRate: pct(c.lowRate),
       highN: c.highN,
       lowN: c.lowN,
-      difference: c.difference === null ? "n/a" : `${(c.difference * 100).toFixed(1)} pts`,
-      z: c.z === null ? "n/a" : c.z.toFixed(3),
-      pValue: c.pValue === null ? "n/a" : c.pValue.toFixed(4),
       highClusters: c.highClusters,
       lowClusters: c.lowClusters,
+      difference: pts(c.difference),
+      // Primary dependence-aware interval.
+      intervalStatus: c.interval.status,
+      interval:
+        c.interval.status === "ok"
+          ? `${pts(c.interval.ciLo)} to ${pts(c.interval.ciHi)}`
+          : "not reported",
+      intervalMethod: `${c.interval.method} v${c.interval.version}`,
+      intervalSeed: c.interval.seed,
+      intervalRunId: c.interval.runId,
+      intervalReason: c.interval.reason,
+      // Secondary independence-assuming diagnostics only.
+      z: c.z === null ? "n/a" : c.z.toFixed(3),
+      pValue: c.pValue === null ? "n/a" : c.pValue.toFixed(4),
       verdict: c.verdict,
       evidenceLevel: c.evidence.level,
       blockers: c.evidence.blockers,
@@ -96,6 +112,7 @@ export function reportEmailData(report: WeeklyReport): Record<string, unknown> {
     })),
   };
 }
+
 
 export interface WeeklyReportSendResult {
   claimed: boolean;

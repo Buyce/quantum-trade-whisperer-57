@@ -19,7 +19,7 @@ export default defineTool({
   name: "update_trade_outcome",
   title: "Update trade outcome",
   description:
-    "Set the outcome (win, loss, breakeven or open) on one of the signed-in user's logged trades. Supply actual_entry_price and actual_exit_price to have both canonical R multiples recomputed server-side (R vs plan and R vs actual risk) — that marks the trade self-reported/verified. Optionally supply actual_initial_stop for a true actual-risk denominator, and commission/swap as money. Without prices, R stays unknown; the R multiple can never be supplied directly. An already-resolved trade is not modified.",
+    "Set the outcome (win, loss, breakeven or open) on one of the signed-in user's logged trades. Supply actual_entry_price and actual_exit_price to have both canonical R multiples recomputed server-side (R vs plan and R vs actual risk) — that records the trade as self_reported (the user's or your own reported prices, NOT broker verified). Optionally supply actual_initial_stop for a true actual-risk denominator, and commission/swap as money. Without prices, R stays unknown; the R multiple can never be supplied directly. An already-resolved trade is not modified.",
   inputSchema: {
     trade_id: z.string().describe("The id of a trade returned by list_my_trades."),
     outcome: z
@@ -161,7 +161,14 @@ export default defineTool({
     const payload = {
       trade: data[0],
       already_resolved: false,
+      /**
+       * LEGACY COMPATIBILITY BOOLEAN ONLY. It means "execution prices are
+       * present", never "broker verified". Read `verification_level`.
+       */
       verified: hasPrices,
+      verified_meaning:
+        "legacy compatibility flag: prices present. Not a broker verification. Use verification_level.",
+      verification_level: hasPrices ? "self_reported" : "unverified",
       r_vs_plan: result.rVsPlan,
       r_vs_actual_risk: result.rVsActualRisk,
       r_availability: result.availability,
@@ -170,8 +177,8 @@ export default defineTool({
       net_r_note: net.note,
       price_source: hasPrices ? "agent" : null,
       note: !hasPrices
-        ? "Unverified: supply actual_entry_price and actual_exit_price on a closed trade to compute auditable R values."
-        : "Verified: both canonical R values were recomputed from the supplied prices and the trade's own plan snapshot. Never average the two bases together. These prices are permanently recorded as agent-entered, attributed to this assistant's client id — only report prices the user actually gave you.",
+        ? "verification_level = unverified: supply actual_entry_price and actual_exit_price on a closed trade to compute auditable R values."
+        : "verification_level = self_reported — these prices came from the user or from you and are NOT broker verified. Only replay/market-path consistency could ever raise this to plan_verified, which still never means broker execution verified. Both canonical R values were recomputed from the supplied prices and the trade's own plan snapshot. Never average the two bases together. These prices are permanently recorded as agent-entered, attributed to this assistant's client id — only report prices the user actually gave you.",
     };
 
     return {
