@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Check, Copy, ExternalLink } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,7 @@ export const Route = createFileRoute("/connect")({
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
-  component: ConnectPage;
+  component: ConnectPage,
 });
 
 const SERVER_SLUG = "p-trades-hub";
@@ -60,7 +60,7 @@ function CopyButton({ value, label }: { value: string; label: string }) {
   );
 }
 
-function Steps({ items }: { items: React.ReactNode[] }) {
+function Steps({ items }: { items: ReactNode[] }) {
   return (
     <ol className="mt-3 space-y-2 text-sm leading-relaxed text-muted-foreground">
       {items.map((item, i) => (
@@ -75,7 +75,7 @@ function Steps({ items }: { items: React.ReactNode[] }) {
   );
 }
 
-function Ext({ href, children }: { href: string; children: React.ReactNode }) {
+function Ext({ href, children }: { href: string; children: ReactNode }) {
   return (
     <a
       href={href}
