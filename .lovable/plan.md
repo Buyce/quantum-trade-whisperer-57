@@ -267,9 +267,9 @@ grades reported separately; email template render test.
 Self-reported prices can still be untrue; the honest output at current sample sizes
 reads "insufficient" nearly everywhere, including in the weekly email; the
 legacy/canonical dual display adds interpretation burden; the conflict trigger can
-block a legitimate late correction until the correction workflow exists; tombstones
-retain outcome metadata for deleted trades, which must be disclosed as integrity
-data rather than treated as erasure failure.
+block a legitimate late correction until the correction workflow exists; and because
+deletion stays genuine deletion, a delete-and-relog path remains open until broker
+reconciliation exists.
 
 ## G. Confidence
 
