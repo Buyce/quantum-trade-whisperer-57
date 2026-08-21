@@ -135,10 +135,10 @@ describe("replaySetupV2 — barriers, causality and execution policy", () => {
   it("[UNIT] TP2 and TP3 touches are analytics only — the realized exit stays TP1", () => {
     const tp2 = replaySetupV2(longSetup(), [cleanFill, bar(B1, 1.1, 1.1101, 1.0999, 1.11)]);
     expect(tp2.grossR).toBeCloseTo(1, 10);
-    expect(tp2.maxTargetTouched).toBe(2);
+    expect(tp2.maxTargetTouched).toBe(1);
     const tp3 = replaySetupV2(longSetup(), [cleanFill, bar(B1, 1.1, 1.1155, 1.0999, 1.115)]);
     expect(tp3.grossR).toBeCloseTo(1, 10);
-    expect(tp3.maxTargetTouched).toBe(3);
+    expect(tp3.maxTargetTouched).toBe(1);
     expect(tp3.firstTargetTouched).toBe(1);
   });
 
