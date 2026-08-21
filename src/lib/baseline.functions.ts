@@ -29,7 +29,16 @@ export interface BaselineStatus {
 export const getBaselineStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<BaselineStatus> => {
-    const { data, error } = await context.supabase
+    // Raw baseline documents are service-role/admin only: `authenticated` has
+    // no SELECT grant and no policy on the table, so this read must be gated
+    // here and executed with the privileged client.
+    const email = String(context.claims['email'] ?? "").toLowerCase();
+    if (email !== OWNER_EMAIL) throw new Error("Forbidden");
+
+    const { adminClient } = await import("@/lib/scanner/pipeline.server");
+    const admin = adminClient();
+
+    const { data, error } = await admin
       .from("baseline_snapshots")
       .select("id, kind, captured_at, pinned_run_id, metrics")
       .eq("model_version", ACTIVE_MODEL_VERSION)
@@ -37,7 +46,7 @@ export const getBaselineStatus = createServerFn({ method: "GET" })
       .limit(1);
     if (error) throw new Error(error.message);
 
-    const { count, error: countError } = await context.supabase
+    const { count, error: countError } = await admin
       .from("baseline_snapshots")
       .select("id", { count: "exact", head: true });
     if (countError) throw new Error(countError.message);
@@ -49,6 +58,7 @@ export const getBaselineStatus = createServerFn({ method: "GET" })
       total: count ?? 0,
     };
   });
+
 
 export const runBaselineCapture = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
