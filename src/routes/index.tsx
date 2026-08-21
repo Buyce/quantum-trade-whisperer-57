@@ -148,10 +148,14 @@ function Landing() {
       </section>
 
       <footer className="border-t border-border">
-        <div className="mx-auto max-w-6xl px-4 py-8 text-xs text-muted-foreground">
-          P-Trades Hub · Analytical tool only. Nothing here is financial advice.
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-8 text-xs text-muted-foreground">
+          <span>P-Trades Hub · Analytical tool only. Nothing here is financial advice.</span>
+          <Link to="/connect" className="ml-auto text-primary underline underline-offset-2">
+            Connect an AI assistant
+          </Link>
         </div>
       </footer>
+
     </div>
   );
 }
