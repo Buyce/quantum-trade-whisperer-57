@@ -26,6 +26,7 @@ export type UserAuditFlag =
   | "logged_within_60s"
   | "no_prices_reported"
   | "outcome_disagrees_with_replay"
+  | "agent_entered_price"
   | "no_replay_yet";
 
 export interface UserAuditRow {
@@ -41,6 +42,10 @@ export interface UserAuditRow {
   reportedR: number | null;
   derivedR: number | null;
   hasPrices: boolean;
+  /** Who entered the prices. null when no prices were ever logged. */
+  priceSource: "human" | "agent" | null;
+  /** OAuth client id of the assistant that wrote them, when agent-entered. */
+  priceSourceClient: string | null;
   replayOutcome: string | null;
   replayR: number | null;
   maxR: number | null;
@@ -68,6 +73,8 @@ export interface UserAuditReport {
   verifiedWinRate: number | null;
   verifiedSampleN: number;
   flagCounts: Record<string, number>;
+  /** Verified rows grouped by author: how many prices a human vs each agent wrote. */
+  priceAuthors: { source: "human" | "agent" | "unattributed"; client: string | null; n: number }[];
   rows: UserAuditRow[];
 }
 
@@ -84,7 +91,7 @@ export const getUserReportAudit = createServerFn({ method: "GET" })
     const { data: trades, error } = await supabaseAdmin
       .from("executed_trades")
       .select(
-        "id, signal_id, outcome, realized_r_multiple, derived_r, actual_entry_price, actual_exit_price, created_at, updated_at",
+        "id, signal_id, outcome, realized_r_multiple, derived_r, actual_entry_price, actual_exit_price, price_source, price_source_client, price_recorded_at, created_at, updated_at",
       )
       .eq("user_decision", "taken")
       .order("created_at", { ascending: false })
@@ -109,6 +116,7 @@ export const getUserReportAudit = createServerFn({ method: "GET" })
         verifiedWinRate: null,
         verifiedSampleN: 0,
         flagCounts: {},
+        priceAuthors: [],
         rows: [],
       };
     }
@@ -143,6 +151,8 @@ export const getUserReportAudit = createServerFn({ method: "GET" })
       const reportedR = t.realized_r_multiple == null ? null : Number(t.realized_r_multiple);
       const derivedR = t.derived_r == null ? null : Number(t.derived_r);
       const hasPrices = t.actual_entry_price != null && t.actual_exit_price != null;
+      const priceSource = (t.price_source ?? null) as "human" | "agent" | null;
+      const priceSourceClient = (t.price_source_client ?? null) as string | null;
       const open = t.outcome === "open";
       const maxR = s.max_r == null ? null : Number(s.max_r);
       const replayOutcome = sh?.status === "resolved" ? (sh.resolved_outcome ?? null) : null;
@@ -165,6 +175,9 @@ export const getUserReportAudit = createServerFn({ method: "GET" })
         ) {
           flags.push("outcome_disagrees_with_replay");
         }
+        // Not a defect on its own — it marks rows an assistant priced, so a
+        // cluster of bad numbers from one client is visible.
+        if (hasPrices && priceSource === "agent") flags.push("agent_entered_price");
         if (sh == null || sh.status !== "resolved") flags.push("no_replay_yet");
 
         const loggedMs = new Date(t.updated_at).getTime() - new Date(t.created_at).getTime();
@@ -196,6 +209,8 @@ export const getUserReportAudit = createServerFn({ method: "GET" })
         reportedR,
         derivedR,
         hasPrices,
+        priceSource,
+        priceSourceClient,
         replayOutcome,
         replayR,
         maxR,
@@ -214,6 +229,17 @@ export const getUserReportAudit = createServerFn({ method: "GET" })
     const winRate = (set: UserAuditRow[]) =>
       set.length === 0 ? null : set.filter((r) => r.outcome === "win").length / set.length;
 
+    const authorMap = new Map<string, { source: "human" | "agent" | "unattributed"; client: string | null; n: number }>();
+    for (const r of rows) {
+      if (!r.hasPrices) continue;
+      const source = r.priceSource ?? "unattributed";
+      const key = `${source}|${r.priceSourceClient ?? ""}`;
+      const existing = authorMap.get(key);
+      if (existing) existing.n += 1;
+      else authorMap.set(key, { source, client: r.priceSourceClient, n: 1 });
+    }
+    const priceAuthors = [...authorMap.values()].sort((a, b) => b.n - a.n);
+
     return {
       generatedAt: new Date().toISOString(),
       totals: {
@@ -231,6 +257,7 @@ export const getUserReportAudit = createServerFn({ method: "GET" })
       verifiedWinRate: winRate(trustworthy),
       verifiedSampleN: trustworthy.length,
       flagCounts,
+      priceAuthors,
       rows,
     };
   });
