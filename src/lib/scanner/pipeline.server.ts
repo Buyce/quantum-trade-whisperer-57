@@ -10,9 +10,12 @@ import {
   claimV2Structure,
   recordObservations,
   v1ObservationRow,
+  v2ErrorObservationRow,
   v2ObservationRow,
   type Disposition,
 } from "@/lib/research/observations.server";
+import { enrolV2Shadow, isV2EnrolmentEnabled } from "@/lib/research/enrol.server";
+
 import { atr } from "./indicators";
 import { ACTIVE_MODEL_VERSION, observationKey } from "@/lib/versioning";
 import { fetchCandles, MetaApiNotConfiguredError, MetaApiTimeoutError } from "./metaapi.server";
