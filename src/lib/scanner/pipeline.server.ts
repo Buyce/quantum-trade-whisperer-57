@@ -312,7 +312,34 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
 
 
       await recordObservations(db, rows);
+
+      // Stage 3: research candidate capture. Dark until the database switch is
+      // enabled, isolated from the job result, and written after the production
+      // work is already committed above.
+      if (v1Evaluation) {
+        try {
+          const { captureCandidate, isCandidateCaptureEnabled } = await import(
+            "@/lib/research/candidates.server"
+          );
+          if (await isCandidateCaptureEnabled(db)) {
+            await captureCandidate(db, {
+              runId: job.run_id ?? null,
+              observationKey: key,
+              instrument: job.instrument,
+              detectedAt: stamp,
+              session: v1Session,
+              volatilityIndex: v1VolatilityIndex,
+              evaluation: v1Evaluation,
+              v1Decision: status,
+              publishedSignalId,
+            });
+          }
+        } catch {
+          // Capture is never allowed to affect the scan result.
+        }
+      }
     }
+
 
     return { jobId: job.id, instrument: job.instrument, status, ...(detail ? { detail } : {}) };
   };
