@@ -161,6 +161,24 @@ export interface PartialGeometry {
   atr: number | null;
 }
 
+/**
+ * Prompt 7G — can this evaluation ever be forward-tested?
+ *
+ * `executable` means the geometry block genuinely ran: a real entry, stop,
+ * positive risk and ATR were derived from candles, and only a FILTER rejected
+ * the setup. `structurally_not_evaluable` means no plan exists at all (no
+ * candles, no direction, no grade, no ABC leg, undefined risk) — nothing can be
+ * forward-tested without inventing prices, so nothing ever is.
+ */
+export type CounterfactualClass = "executable" | "structurally_not_evaluable";
+
+/** The only rejection stages that leave a complete, genuinely derived plan. */
+export const COUNTERFACTUAL_STAGES: readonly EvaluationStage[] = [
+  "risk_too_wide",
+  "no_headroom",
+  "unreachable_r",
+];
+
 export interface SetupEvaluation {
   /** Exactly one terminal stage per evaluation. */
   stage: EvaluationStage;
@@ -171,8 +189,28 @@ export interface SetupEvaluation {
   features: Record<string, number | string | boolean | null>;
   /** Derived geometry, as far as it got. `null` fields are genuinely undefined. */
   geometry: PartialGeometry;
+  /** Whether a research plan can exist for this evaluation at all. */
+  counterfactual: CounterfactualClass;
   /** Populated ONLY when every gate passed. Never a partial or fabricated plan. */
   proposedProfile: TradeProfile | null;
+}
+
+/** Classifies an evaluation without consulting the filters under test. */
+export function classifyCounterfactual(
+  stage: EvaluationStage,
+  geometry: PartialGeometry,
+  direction: Direction | null,
+): CounterfactualClass {
+  if (stage === "published") return "executable";
+  if (!COUNTERFACTUAL_STAGES.includes(stage)) return "structurally_not_evaluable";
+  const complete =
+    direction !== null &&
+    geometry.entryPrice !== null &&
+    geometry.stopLoss !== null &&
+    geometry.riskPrice !== null &&
+    geometry.riskPrice > 0 &&
+    geometry.atr !== null;
+  return complete ? "executable" : "structurally_not_evaluable";
 }
 
 const GATE_ORDER: GateId[] = [
@@ -252,6 +290,7 @@ export function evaluateSetup(input: BuildProfileInput): SetupEvaluation {
     direction,
     features,
     geometry,
+    counterfactual: classifyCounterfactual(stage, geometry, direction),
     proposedProfile: null,
   });
 
@@ -551,7 +590,15 @@ export function evaluateSetup(input: BuildProfileInput): SetupEvaluation {
       }) + dynamicEntryNote,
   };
 
-  return { stage: "published", gates, direction, features, geometry, proposedProfile };
+  return {
+    stage: "published",
+    gates,
+    direction,
+    features,
+    geometry,
+    counterfactual: "executable",
+    proposedProfile,
+  };
 }
 
 /**

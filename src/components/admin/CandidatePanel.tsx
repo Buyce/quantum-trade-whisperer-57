@@ -13,6 +13,12 @@ import { STAGE_LABELS } from "@/lib/learning/candidates";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
+const ORIGIN_LABELS: Record<string, string> = {
+  production: "Published plan (as traded)",
+  counterfactual: "Research-only plan (filter-rejected)",
+  none: "No plan derivable",
+};
+
 function Metric({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="rounded-md border border-border/60 bg-muted/20 p-3">
@@ -98,9 +104,43 @@ export function CandidatePanel() {
           <Metric label="Incomplete gate lists" value={totals?.gates_incomplete ?? 0} />
           <Metric
             label="Last capture"
-            value={totals?.last_seen ? new Date(totals.last_seen).toISOString().slice(0, 16) + "Z" : "—"}
+            value={
+              totals?.last_seen ? new Date(totals.last_seen).toISOString().slice(0, 16) + "Z" : "—"
+            }
           />
         </div>
+
+        <section>
+          <h4 className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">
+            Plan origin
+          </h4>
+          {data && data.by_plan_origin?.length ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-left text-xs uppercase tracking-wider text-muted-foreground">
+                  <tr>
+                    <th className="py-1.5 pr-3 font-medium">Origin</th>
+                    <th className="py-1.5 pr-3 text-right font-medium">Count</th>
+                    <th className="py-1.5 text-right font-medium">Enrolled</th>
+                  </tr>
+                </thead>
+                <tbody className="font-mono tabular-nums">
+                  {data.by_plan_origin.map((row) => (
+                    <tr key={row.plan_origin} className="border-t border-border/40">
+                      <td className="py-1.5 pr-3 font-sans">
+                        {ORIGIN_LABELS[row.plan_origin] ?? row.plan_origin}
+                      </td>
+                      <td className="py-1.5 pr-3 text-right">{row.n}</td>
+                      <td className="py-1.5 text-right">{row.enrolled}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">No candidates captured yet.</p>
+          )}
+        </section>
 
         <section>
           <h4 className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">
