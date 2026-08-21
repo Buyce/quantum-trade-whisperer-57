@@ -45,7 +45,7 @@ Guarantees: the V1 predicates, their order, the payloads, the alert call site, t
 
 ## 2. Research telemetry is never a production dependency
 
-Every research call is wrapped individually — observation upsert, cooldown RPC, shadow insert, disposition update — each in its own `try/catch` that logs, increments a counter, and returns. None of them can throw into V1's path, and none of them is awaited before a V1 write. Nothing in the research path touches `scan_queue`, `instrument_health`, `scanned_signals`, `market_context`, alerts or `shadow_queue`.
+Every research call is wrapped individually — observation upsert, cooldown RPC, shadow insert, disposition update — each in its own `try/catch` **and its own bounded deadline** (§13), awaited only after the V1 operation it follows. None can throw into V1's path; none is left as an unawaited promise. Nothing in the research path touches `scan_queue`, `instrument_health`, `scanned_signals`, `market_context`, alerts or `shadow_queue`.
 
 Visibility instead of silence: `shadow_engine_state` gains `research_errors integer not null default 0` and `research_last_error text`, bumped on any research failure, and the admin panel shows research-error count plus the observation-coverage ratio (observations written ÷ jobs that fetched candles, last 24 h). A gap in the ledger is therefore visible as a number, not inferred from absence. Production correctness wins every conflict: if the research write is slow or failing, V1 proceeds unchanged and the observation is simply missing.
 
@@ -55,7 +55,7 @@ Visibility instead of silence: `shadow_engine_state` gains `research_errors inte
 |---|---|---|
 | Direction derivation | inherits | `readTimeframe("M15")` bias; neutral ⇒ no trade. |
 | A/B pivot selection | replaces | §4, deterministic, no search-until-valid. |
-| Point C | replaces | §7 of prior plan, restated below: current retracement extreme after `B`, confirmed-bar only. |
+| Point C | replaces | current retracement extreme after `B`, from the delivered snapshot; "confirmed-bar-only" wording is conditional on §12. |
 | Retracement band | adds | `[0.382, 0.886]` mandatory (V1 has no band). |
 | Structural entry | inherits | Point C price (V2's C, not V1's `abc.c`). |
 | Session dynamic entry | inherits unchanged | `RUNAWAY_SESSIONS`, `DYNAMIC_ENTRY_ATR_FRACTION = 0.3`, all four existing guards (not worse than market, never beyond structural entry, `MIN_DYNAMIC_RISK_ATR = 0.5` clearance from stop, re-validated risk/reach). |
@@ -107,13 +107,18 @@ v(r) = 100                            r > 1.6
 
 `r = m15.atr / mean(atr, 20)`. Continuous at 0, 1 and 1.6; monotone non-decreasing; pass set unchanged (`r ≥ 1` ⇒ `v ≥ 60 = PILLAR_PASS_SCORE`). Boundary tests: `v(-1)=0`, `v(0)=0`, `v(0.999)=59.94`, `v(1)=60`, `v(1.3)=80`, `v(1.6)=100`, `v(2.5)=100`, and `v(NaN)`/`v(Infinity)` ⇒ fail-closed 0.
 
-## 6. `atrAtIndex` and lookahead
+## 6. `atrAtIndex` — Wilder, prefix-only (corrected)
 
-Formula: Wilder-style true range mean over the 14 bars ending at `i` — `TR_t = max(high−low, |high−prevClose|, |low−prevClose|)`, simple mean of `TR_{i-13..i}`. Reads only indices `≤ i`, never `i+1`.
+**Correction accepted.** V1's `atr()` is Wilder ATR: arithmetic mean of the first `period` true ranges, then recursive smoothing `ATR_t = ((period − 1) × ATR_{t−1} + TR_t) / period`. A simple mean of `TR[i−13..i]` is *not* equivalent, so the earlier §6 formula was wrong and its equality test would have failed. Replaced by:
 
-Warm-up: `i < 14` ⇒ insufficient history. Insufficient history returns `null` (not 0, not NaN) and the caller fails closed — the zone pillar scores 0 and, where the value is structurally required, the observation becomes `insufficient_data`. Non-finite inputs ⇒ `null`.
+`atrAtIndex(candles, i, period = 14)` returns exactly the value the existing Wilder algorithm produces when run over the prefix `candles[0..i]` — same seeding, same recursion, same `TR_t = max(high−low, |high−prevClose|, |low−prevClose|)`.
 
-Prefix-invariance test: for every `i` in a fixture, `atrAtIndex(candles.slice(0, i+1+k), i) === atrAtIndex(candles, i)` for all `k ≥ 0` — appending future bars cannot move a historical value. A second test asserts the current V1 `atr()` value equals `atrAtIndex(candles, last)` so the two definitions cannot drift.
+Properties: reads no index `> i`; `period = 14` needs 15 candles, i.e. `i ≥ 14`; insufficient history ⇒ `null`; any non-finite OHLC in the prefix ⇒ `null`; appending future candles cannot change `atrAtIndex(..., i)`; and for the last index of a valid series `atrAtIndex(candles, candles.length − 1, 14)` equals `atr(candles, 14)` within floating-point tolerance (`1e-12` relative). `null` fails closed at the caller — zone pillar scores 0, and where the value is structurally required the observation becomes `insufficient_data`. Never 0 as a stand-in, never NaN.
+
+Tests: prefix invariance across every `i` in a fixture; the V1-equality assertion above (so the two definitions cannot drift); seeding boundary at `i = 14`; non-finite rejection.
+
+Native H1/H4 zone normalisation (§7) uses this Wilder historical ATR.
+
 
 ## 7. Native-timeframe zone normalisation
 
@@ -141,13 +146,21 @@ Not empirically validated; there is no data on open-space outcomes at all. Alter
 
 V2 **preserves the adaptive ladder**: `tp1` and `tp2` are required and finite; `tp3` is nullable exactly as in V1's `maxR < 1.5` branch. The executable-profile validator therefore requires finite `entry`, `stopLoss`, `tp1`, `tp2`, `risk > 0`, finite `maxR ≥ tp1R`, and `tp3` either null or finite — it must not reject thin-extension candidates. A test asserts a `maxR = 1.2` candidate with `tp3R = null` is accepted and enrolled.
 
-## 12. Closed-candle characterisation gates the flip, not the analysis
+## 12. Closed-candle status resolves the "confirmed C" wording (corrected)
 
-Before `v2_enabled` is set true: inspect the last-bar timestamps of H4/H1/M15 from a live fetch against the timeframe boundary and wall clock; document whether the arrays include a forming bar; assert in code and in a test that V1 and V2 receive the *same array reference* from the frozen snapshot; record the finding and its timestamp in `docs/CHARACTERISATION.md` and in the V2 manifest. V1 timing is not modified here — a closed-bar correction, if warranted, becomes model version 3.
+**Correction accepted.** Whether Point C may include a forming bar is decided by what MetaApi actually delivers, not by wording. Before `v2_enabled` is set true: inspect H4/H1/M15 last-bar timestamps from a live fetch against the timeframe boundary and wall clock, and record the finding with its timestamp in `docs/CHARACTERISATION.md` and in the V2 manifest.
 
-## 13. Latency budget
+- Arrays contain **only closed candles** ⇒ V2's C is described as confirmed-bar-only, as originally written.
+- Arrays **include the forming candle** ⇒ V2 keeps the identical delivered snapshot (V1 must not be handed a different array for the paired experiment), and both the manifest and the UI/doc wording state explicitly that the current retracement extreme may include the forming bar. Prompt 3 does **not** strip it.
 
-Instrument the job with a duration measurement written to `scan_queue` timing already present (`started_at`/`finished_at`) and compare three states: pre-refactor baseline, refactor with `v2_enabled = false`, refactor with `v2_enabled = true`. Budget: **≤150 ms added p95 with V2 disabled** (observation writes only) and **≤600 ms added p95 with V2 enabled**, against a p95 that must stay under 5 s — well inside the request ceiling. If exceeded: research writes move behind a fire-and-forget path or are dropped for that cycle (the coverage counter records the gap). V1 always has priority under time pressure; no research call is retried inside the job.
+Either way, `A` and `B` remain confirmed fractal pivots (2 bars either side), and a test asserts V1 and V2 receive the *same array reference* from the frozen snapshot. Switching to closed-bar-only inputs is a new model version, never an in-place V2 mutation.
+
+## 13. Latency budget and bounded research writes (corrected)
+
+**Correction accepted.** No fire-and-forget database promises: on a serverless runtime the request may terminate before an unawaited write lands, which would silently corrupt the coverage metric. Instead, every research write is **awaited inside a bounded best-effort wrapper** — `Promise.race` against a per-call deadline (250 ms observation upsert, 250 ms cooldown claim, 500 ms shadow insert, 250 ms disposition update; ~1.25 s worst case total), placed **after** the V1 write and alert fan-out it follows. On timeout or failure the research work is abandoned for that cycle, `research_errors` / `research_last_error` are updated on a best-effort basis, the coverage ratio records the gap, and the V1 `JobResult` is unchanged.
+
+Measurement: compare p95 job duration (existing `started_at`/`finished_at`) across pre-refactor baseline, refactor with `v2_enabled = false`, and `v2_enabled = true`. Budget: **≤150 ms added p95 disabled**, **≤600 ms added p95 enabled**, absolute p95 under 5 s. If exceeded, deadlines are tightened or the research block is skipped for that cycle — never converted to an unawaited promise. V1 keeps priority under time pressure; no research call is retried inside the job.
+
 
 ## 14. Acceptance tests (failure injections)
 
