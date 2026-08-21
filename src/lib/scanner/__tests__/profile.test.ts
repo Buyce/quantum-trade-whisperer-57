@@ -130,7 +130,13 @@ describe("buildTradeProfile — No-Trade default", () => {
 
 describe("structureKeyOf + buildBreakdown", () => {
   it("[UNIT] the dedup key is stable for the same structure and differs across direction", () => {
-    const base = { instrument: "EURUSD", direction: "long" as const, entryPrice: 1.1, stopLoss: 1.095, atr: 0.002 };
+    const base = {
+      instrument: "EURUSD",
+      direction: "long" as const,
+      aTime: "2026-08-20T00:00:00.000Z",
+      bTime: "2026-08-20T06:00:00.000Z",
+      stopLoss: 1.095,
+    };
     expect(structureKeyOf(base)).toBe(structureKeyOf({ ...base }));
     expect(structureKeyOf({ ...base, direction: "short" })).not.toBe(structureKeyOf(base));
   });
