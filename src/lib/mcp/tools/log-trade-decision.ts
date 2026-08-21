@@ -25,10 +25,14 @@ export default defineTool({
           signal_id,
           user_decision: decision,
           outcome: "open",
+          // Provenance: logged by an AI assistant over MCP, with the client id
+          // so two assistants on one account stay distinguishable.
+          decision_source: "agent",
+          decision_source_client: ctx.getClientId?.() ?? null,
         },
         { onConflict: "user_id,signal_id" },
       )
-      .select("id, signal_id, user_decision, outcome, created_at");
+      .select("id, signal_id, user_decision, outcome, decision_source, created_at");
 
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
     return {

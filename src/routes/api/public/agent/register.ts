@@ -123,7 +123,13 @@ export const Route = createFileRoute("/api/public/agent/register")({
           password,
           options: {
             emailRedirectTo: `${siteOrigin}/auth`,
-            data: { display_name: display_name || email.split("@")[0] },
+            // Provenance: this account was created by an AI assistant, not a
+            // person in the browser. Stamped here, never client-claimed.
+            data: {
+              display_name: display_name || email.split("@")[0],
+              signup_source: "agent",
+              signup_client: client ?? null,
+            },
           },
         });
 

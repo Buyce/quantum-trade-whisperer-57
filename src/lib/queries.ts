@@ -119,6 +119,10 @@ export async function logDecision(input: {
       signal_id: input.signalId,
       user_decision: input.decision,
       outcome: "open",
+      // Written from the web terminal by a person. Agent writes go through the
+      // MCP tool, which stamps 'agent'.
+      decision_source: "human",
+      decision_source_client: null,
     } as never,
     { onConflict: "user_id,signal_id" },
   );
