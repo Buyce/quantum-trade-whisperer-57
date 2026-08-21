@@ -1,81 +1,91 @@
-# Prompt 7G — end-to-end candidate experiment closure
+# Prompt 7G — red-team review of my own remediation plan, plus revised plan
 
-## 1. Goal
-Make the *rejected-filter* arm of the research engine genuinely forward-testable end to end, and make candidate enrolment atomically idempotent — without changing V1 publication behaviour, without inventing geometry, and without claiming statistical rigour that Prompt 8 owns.
+I re-read HEAD (profile.ts, counterfactual-plan.ts, candidates.server.ts, enrol-candidates.server.ts, the 20260821175102 migration, the deployed `recompute_filter_lift`, `get_admin_candidate_funnel`, `create_replay_v2_sibling`, the enrolment and DB tests, CandidatePanel). The previous plan survives on the two mechanical defects but contains one **statistically fatal** flaw and two engineering errors.
 
-## 2. Current implementation (re-read at HEAD)
-- `evaluateSetup()` (src/lib/scanner/profile.ts) now labels every evaluation `counterfactual: "executable" | "structurally_not_evaluable"`; only `risk_too_wide`, `no_headroom`, `unreachable_r` (with derived direction/entry/stop/positive risk/ATR) are executable.
-- `buildCounterfactualPlan()` (src/lib/research/counterfactual-plan.ts) emits a version-pinned unconditional 1R/2R/3R ladder, `RESEARCH_PLAN_VERSION = 1`.
-- `captureCandidate()` writes `plan_origin`, `counterfactual_stage`, `research_plan_version`, `counterfactual_class`, ladder columns; DB CHECK forbids a counterfactual plan without real geometry.
-- `recompute_filter_lift()` groups by `manifest_hash | gate | arm | plan_origin`, joined only to cohort `research_candidate`, replay 1, `legacy_best_target_touched`, and only on gate outcomes `pass`/`fail`.
-- Both dark switches (`candidate_capture_enabled`, `candidate_enrolment_enabled`) are FALSE.
+## A. Plan defects discovered
 
-## 3. Confirmed defects
-**D1 — the fail arm is still unreachable (blocking).** `isExecutableCandidate()` (src/lib/research/enrol-candidates.server.ts:137) rejects any candidate whose gate list contains `not_evaluable`. Every filter rejection terminates early, and `terminate()` pads all later gates as `not_evaluable` by construction. So *every* counterfactual candidate is skipped and `filter_lift_stats` fail arms stay `n_used = 0`. The Item-1 work is inert in production terms.
+**A1 (fatal, invalidates the experiment). Grouping filter lift by `plan_origin` makes the pass and fail arms non-comparable — permanently.**
+For gate G, the fail arm is by construction almost entirely `plan_origin='counterfactual'` (a rejected setup can only have the frozen 1R/2R/3R ladder), while the pass arm is `plan_origin='production'` (published plan: real TP ladder, real max-R, headroom-conditioned). Grouping by origin therefore puts the two arms in **different rows that must never be subtracted**. My previous plan even reinforced this by adding `research_plan_version` to the key. The result: a populated fail arm with nothing legitimate to compare it against. That is not filter lift; it is two unrelated numbers side by side.
+The confound is not incidental: the pass arm's ladder was *selected by the very filters under test* (headroom, reachable-R). Comparing it with an unconditional 3R ladder measures the ladder, not the filter. This is textbook selection bias re-entering through the execution policy.
 
-**D2 — enrolment is not atomically idempotent (blocking).** The only relevant unique index is `shadow_executions_plan_replay_policy_key` on `(plan_id, replay_version, execution_policy)`; `plan_id` is a fresh `crypto.randomUUID()` per attempt. If the execution insert succeeds and the `enrolled_plan_id` bookkeeping update fails, the candidate stays unenrolled and a retry after the 120-minute claim window inserts a *second* execution for the same candidate — double-counted in filter lift.
+**A2. Unique-index mechanics were wrong.** I wrote "`create unique index concurrently`-safe". `CONCURRENTLY` cannot run inside the transaction Supabase migrations use. Also, `(research_candidate_id, replay_version, execution_policy)` as the identity **blocks A1's fix**: if one candidate must carry both a production-plan execution and a counterfactual-ladder execution, that tuple collides.
 
-**D3 — `se_r` is presented as if it were uncertainty.** `sd_r / sqrt(cluster_n)` mixes a per-observation SD with a cluster count; it is neither an i.i.d. SE nor a cluster-robust SE, yet rows reach `stat_status = 'descriptive'` carrying it.
+**A3. Fail-closed hole in the whitelist.** Keying executability off `counterfactual_class` alone lets legacy rows (column NULL, captured before 7G) be judged by an ambiguous value, and lets a *future* stage added to `COUNTERFACTUAL_STAGES` silently become executable. Duplicated business logic: the "which stages are executable" rule then lives in profile.ts, in the DB CHECK, and implicitly in the enroller.
 
-**D4 — no true end-to-end test.** Existing tests cover classification, ladder maths, capture payload and (synthetic-row) DB isolation. Nothing runs real candles → `evaluateSetup` → `captureCandidate` → DB row → `enrolPendingCandidates` → `shadow_executions` → `recompute_filter_lift`.
+**A4. `research_plan_version` in the filter-lift PK is the wrong lever.** With A1 fixed (one common research policy per arm), version pinning belongs in a *guard* — refuse to pool two ladder versions — not in the grouping key, which would fragment arms.
 
-**D5 — counterfactual policy version is not in the filter-lift grouping key.** `plan_origin` alone would pool ladder v1 with a future ladder v2.
+**A5. My E2E design risks fixture overfitting.** Hand-shaping candles until `evaluateSetup` returns `risk_too_wide` is fixture tuning. Acceptable only if the test asserts the stage/geometry purely from the evaluator's output and the ladder is recomputed independently in the assertion, never copied from the implementation.
 
-## 4. Secondary risks found
-- `gates_complete` is `gates.length === 8`, which is true for rejections; correct, but it means "complete gate list", not "all passed" — the fix must not lean on it as an executability signal.
-- Relaxing the `not_evaluable` guard naively would let `no_grade` / `risk_undefined` rows through if their geometry were ever partially populated. The guard must be replaced by an explicit *whitelist*, not deleted.
-- `research_candidates_identity` (unique on run/observation/coalesce(direction)) protects capture retries, not enrolment.
-- Filter lift `DELETE FROM filter_lift_stats` then re-insert inside one advisory-locked transaction: acceptable, unchanged.
-- No trader-visible surface reads `research_candidates`, `filter_lift_stats`, or candidate-cohort executions (production view excludes them) — so none of this can move signals, grades, fills, alerts, expectancy or MCP output. MetaApi is untouched.
+## B. Each major decision: why, alternatives, rejection, evidence, what would change my mind
 
-## 5. Alternatives considered
+**B1. Execution policy for arm comparison → "common research ladder on BOTH arms" (changed from my previous plan).**
+Every candidate whose geometry is complete — *published or filter-rejected* — gets a research-only counterfactual execution under the identical frozen ladder. Filter lift then compares like with like, and `plan_origin` becomes a reported attribute, not a grouping key.
+- *Alt 1: origin-split grouping (my previous plan).* Rejected: A1 — the arms can never be compared, so the experiment stays unfinished while looking finished.
+- *Alt 2: give the fail arm the production-style ladder by re-deriving TPs from structure.* Rejected: re-running structure/headroom logic on a setup those filters rejected either reproduces the rejection or requires inventing structure that was never derived — lookahead-adjacent and it changes V1 geometry semantics.
+- *Evidence:* `recompute_filter_lift` already keys on `(replay_version, execution_policy)` precisely to prevent pooling different execution semantics; the same principle forbids pooling different *plan* semantics across arms. The counterfactual ladder is deliberately unconditional (counterfactual-plan.ts docblock) exactly so it is filter-independent — that property is only useful if both arms use it.
+- *Would change my mind:* if a published candidate's production execution could be shown to have identical target semantics to the ladder (it cannot: `max_r` is headroom-derived).
 
-**D1 fix**
-- *(A) Whitelist on `counterfactual_class` + `plan_origin`.* Executability = `plan_origin='production'` (existing rules, incl. no `not_evaluable`) OR (`plan_origin='counterfactual'` AND `counterfactual_class='executable'` AND exactly one `fail` gate AND full ladder/geometry non-null AND risk>0). Small, explicit, fail-closed, keeps production semantics byte-identical. **Recommended.**
-- *(B) Stop padding `not_evaluable` gates for filter rejections.* Rejected: mutates `SetupEvaluation` shape that characterization tests and `model_observations.reason` depend on, and destroys the "which gates were actually evaluated" information filter lift needs.
+**B2. Idempotency identity → partial unique index including the plan lineage.**
+`unique (research_candidate_id, replay_version, execution_policy, plan_origin) where research_candidate_id is not null`, with `plan_origin` added to `shadow_executions` (nullable, defaulted from the candidate at insert). One candidate ⇒ at most one production-plan candidate execution and at most one counterfactual-ladder execution. Plain `CREATE UNIQUE INDEX` (no CONCURRENTLY); a pre-flight `DO` block raises if duplicates already exist.
+- *Alt 1: single-tuple index without `plan_origin`.* Rejected: blocks B1.
+- *Alt 2: one `security definer` RPC doing insert + bookkeeping in a single transaction.* Genuinely stronger (no orphan window at all) but duplicates enrolment business logic in SQL where it can drift from the TS module; the index plus conflict-reconciliation makes the orphan self-healing, which is sufficient. Revisit if enrolment ever goes live at volume.
+- *Reconciliation:* insert with `ignoreDuplicates` on that conflict target; on conflict, read the existing row's `plan_id` and write it to `enrolled_plan_id` guarded by `is null`. Idempotency never depends on `plan_id` randomness or the 120-minute claim (claim demoted to a rate limiter).
 
-**D2 fix**
-- *(A) Partial unique index* `unique (research_candidate_id, replay_version, execution_policy) where research_candidate_id is not null`, plus reconciliation: on a unique violation the enroller **reads the existing execution's `plan_id`** and writes it into `enrolled_plan_id` (still `is null` guarded). Idempotency lives in the database; the claim becomes a pure rate-limiter. **Recommended.**
-- *(B) A single `security definer` RPC `enrol_research_candidate(...)` doing insert + bookkeeping in one transaction.* Stronger (one round trip, no orphan window at all) but adds a second copy of enrolment business logic in SQL that can diverge from the TS module. Take (A) now; (A) already makes the orphan self-healing.
+**B3. Executability rule → explicit, fail-closed, single-sourced.**
+Executable iff: `gates_complete`, exactly one `fail` gate and that gate is in the frozen stage whitelist, `counterfactual_class = 'executable'`, `plan_origin` is non-null, `research_plan_version` equals the current constant, and every geometry/ladder field is non-null with `risk > 0`. NULL/unknown ⇒ not executable, forever.
+- *Alt 1: drop the `not_evaluable` check.* Rejected: it would admit `no_grade` / `risk_undefined` rows the moment any geometry column is partially populated.
+- *Alt 2: DB-side `is_executable_candidate()` generated column.* Rejected for now: third copy of the rule; the TS enroller is the only writer.
 
-**D3 fix**
-- *(A) Set `se_r = NULL` for research filter-lift rows and state "uncertainty unsupported until Prompt 8".* Fail-closed, no false precision. **Recommended.**
-- *(B) Keep the number, rename the reason string.* Rejected: a numeric column named `se_r` will be read as a standard error regardless of prose.
+**B4. Uncertainty → `se_r = NULL` for research rows.** `sd_r/sqrt(cluster_n)` is neither i.i.d. nor cluster-robust. Alternatives (keep and rename; implement cluster bootstrap now) rejected: false precision, and Prompt 8 owns dependence-aware uncertainty. `stat_status` caps at `descriptive`; `reason` says uncertainty is unsupported.
 
-## 6. Maths
-Ladder unchanged and frozen: `risk = |entry − stop|`, `tpN = entry ± risk·N`, `N ∈ {1,2,3}`, `max_r = 3`, `research_plan_version = 1`. Worked cases for the tests: long entry 1.10000 / stop 1.09000 → risk 0.01 → TP 1.11/1.12/1.13. Short entry 1954.00 / stop 1960.00 → risk 6 → TP 1948/1942/1936. This is arithmetic on candle-derived numbers only; no future information, no consultation of the headroom/reachable-R filters under test.
+## C. Failure scenarios the architecture must survive
 
-## 7. Database changes (one migration)
-1. `create unique index concurrently`-safe partial index `shadow_executions_research_candidate_identity` on `(research_candidate_id, replay_version, execution_policy) where research_candidate_id is not null`. Pre-flight `select` proving zero existing duplicates; the migration aborts with a raise if any exist.
-2. `recompute_filter_lift()`: add `research_plan_version` to the grouping key and output JSON (new PK `(manifest_hash, gate, arm, plan_origin, research_plan_version)`), and emit `se_r = NULL` with `reason` stating cluster-robust uncertainty is unsupported until Prompt 8.
-3. No writes to `scanned_signals`, `market_context`, `executed_trades`. No RLS change (research tables stay service-role only).
+1. **Worker dies between insert and bookkeeping** (serverless lifecycle). Retry after the claim window: unique violation ⇒ reconcile ⇒ exactly one execution, `enrolled_plan_id` set. No orphan.
+2. **Two concurrent shadow-resolve crons pick the same candidate** (claim expired / clock skew). Both insert; one wins, the loser reconciles to the winner's `plan_id`. Filter lift counts one row.
+3. **Migration meets pre-existing duplicates** (index creation would fail mid-migration). Pre-flight raise aborts the migration cleanly; forward fix = keep the earliest execution per identity, then re-run. No data destroyed.
+4. **Capture ladder version bumped later.** The enroller refuses rows whose `research_plan_version` ≠ current; `recompute_filter_lift` raises if more than one version is present in the source set, rather than silently pooling.
+5. **Research write path fails entirely** (timeout/partial write). Existing never-throws contract holds: `research_errors` increments, production resolve pass is not re-labelled, no writes to `scanned_signals` / `market_context` / `executed_trades`.
 
-## 8. Backend changes
-- `enrol-candidates.server.ts`: whitelist executability (D1); on insert unique-violation, reconcile `enrolled_plan_id` from the existing row instead of `continue`; keep never-throws, budget, kill switch, provenance, cohort, Replay-V1, policy.
-- `filter_lift_stats` typed row + `src/lib/learning/candidates.ts` gain `research_plan_version`; `se_r` rendered as "unsupported".
+## D. Revised plan (supersedes the previous one)
 
-## 9. Frontend / MCP
-`CandidatePanel.tsx`: show `research_plan_version` next to origin and replace any SE display with "uncertainty unsupported (Prompt 8)". No MCP tool touches research tables — no change.
+**D1. Backend — `enrol-candidates.server.ts`**: implement B3's whitelist; select `counterfactual_class`, `research_plan_version`, `plan_origin`; conflict-tolerant insert + reconciliation (B2); stamp `plan_origin` on the execution; keep cohort `research_candidate`, Replay-V1, `legacy_best_target_touched`, `research_candidate_id`, candidate provenance, budget, kill switch, never-throws.
 
-## 10. Test matrix (all blocking)
-- **E2E (new, `research-e2e.test.ts`)**: a deterministic *candle* fixture whose `evaluateSetup()` terminal stage is asserted to be `risk_too_wide` (not a hand-written candidate row) → `captureCandidate` against the fake Supabase → payload asserted → same payload inserted into the DB-cluster test → `enrolPendingCandidates` → exactly one `shadow_executions` row with cohort/replay/policy/`research_candidate_id` → resolve it to a known R → `recompute_filter_lift()` returns a **fail-arm row with `n_used = 1`** and the expected `mean_r`.
-- **Structurally undefined**: a candle fixture terminating at `no_candles` / `m15_neutral` / `no_grade` stays `plan_origin=null`, ladder NULL, and `isExecutableCandidate()` false.
-- **Idempotency (DB)**: insert execution; simulate bookkeeping failure; retry outside the claim window ⇒ unique violation ⇒ total candidate executions = 1 and `enrolled_plan_id` reconciles to that execution's `plan_id`.
-- **Isolation**: counterfactual candidate changes zero regime/payoff/weekly/production-view values; zero Replay-V2 siblings.
+**D2. Capture — `candidates.server.ts` + `counterfactual-plan.ts`**: also build the counterfactual ladder for **published** candidates, stored in new dedicated columns (`cf_tp1..cf_tp3`, `cf_tp1_r..cf_tp3_r`, `cf_max_r`, `cf_plan_version`) so a published row keeps its production plan untouched *and* carries a research plan. `plan_origin` remains the description of the production side. V1 publication behaviour byte-identical (characterization suite is the gate).
+
+**D3. Migration (single, reversible)**:
+- `shadow_executions`: add `plan_origin text` + CHECK in (`production`,`counterfactual`).
+- pre-flight duplicate raise, then `CREATE UNIQUE INDEX shadow_executions_research_identity ON shadow_executions (research_candidate_id, replay_version, execution_policy, plan_origin) WHERE research_candidate_id IS NOT NULL`.
+- `research_candidates`: add the `cf_*` ladder columns; keep the existing counterfactual CHECK.
+- `recompute_filter_lift()`: **remove `plan_origin` from the grouping key**; restrict the source join to counterfactual-ladder executions only (`plan_origin='counterfactual'`); raise/refuse if more than one `research_plan_version` appears; `se_r = NULL`; report `research_plan_version` and `policy = 'common_counterfactual_ladder_v1'` in the result JSON; PK back to `(manifest_hash, gate, arm)`.
+- `get_admin_candidate_funnel()`: keep the origin split, add counterfactual-ladder coverage (how many executable candidates have a research execution).
+
+**D4. Frontend**: `CandidatePanel` labels the fail/pass arms as "common research ladder v1", shows ladder coverage, and shows uncertainty as "unsupported (Prompt 8)". No trader-facing surface changes.
+
+**D5. Tests (all blocking)**
+- **E2E, real candles**: fixture → `evaluateSetup` asserts stage `risk_too_wide` and non-null derived geometry → `captureCandidate` payload → DB row → `enrolPendingCandidates` → exactly one execution (cohort/replay/policy/`plan_origin='counterfactual'`/`research_candidate_id`) → resolve to a known R → `recompute_filter_lift` shows the gate's **fail arm `n_used = 1`** with the hand-computed `mean_r`, and a passed-gate arm populated from a published candidate's counterfactual sibling. Ladder expectations recomputed in the test (long 1.10000/1.09000 → 1.11/1.12/1.13; short 1954/1960 → 1948/1942/1936).
+- **Structurally undefined**: `no_candles`, `m15_neutral`, `no_grade`, `risk_undefined` fixtures ⇒ ladder NULL, `plan_origin` NULL, never executable.
+- **Atomic idempotency (DB)**: insert succeeds, bookkeeping fails, retry after the claim window ⇒ exactly one execution, bookkeeping reconciles to it.
+- **Concurrency**: two enrollers, same candidate ⇒ one execution.
+- **Version guard**: mixed `research_plan_version` ⇒ filter lift refuses rather than pools.
+- **Isolation (DB)**: candidate rows change zero regime/payoff/weekly/production-view/intelligence values; zero Replay-V2 siblings.
 - **Characterization**: the 111 `ab44ff6` publish/no-trade assertions unchanged.
-- **RLS**: anon and ordinary authenticated denied on `research_candidates`, `filter_lift_stats`.
-- **Failure injection**: capture timeout, duplicate capture, concurrent enrolment of the same candidate (second attempt violates the new index), stats RPC failure not re-labelling a resolve pass.
+- **RLS**: anon and ordinary authenticated denied on `research_candidates` and `filter_lift_stats`.
 
-## 11. Baseline
-Production baselines (signal count, grade/instrument/session mix, fill rate, expected R) are unaffected by design; the meaningful before/after is `filter_lift_stats` fail-arm `n_used`, currently **0 by construction**. There is no historical counterfactual data in the database yet (capture is dark), so no numeric research baseline can be computed — it will be captured post-flip, not fabricated.
+**D6. Non-effects (asserted, not assumed)**: no change to signal count, grades, entries, stops, production targets, fills, expectancy, alerts, webhooks, MCP tools or risk-calculator output; no extra MetaApi calls (resolution replays already-fetched per-instrument candle batches); both dark switches remain FALSE.
 
-## 12. Rollout / rollback
-Both dark switches remain FALSE after this release. Rollback = drop the new unique index and restore the prior `recompute_filter_lift()` body; no collected data is destroyed (stats are recomputed from source rows). Kill switches unchanged; no execution path touches live trading.
+## E. New acceptance criteria
+`bun run verify` green including the new E2E, concurrency, version-guard and DB tests; fail arm and pass arm both populated **under one common research ladder**; one structurally-undefined rejection proven non-executable; duplicate/failed-bookkeeping retry proven to leave exactly one execution; `se_r` NULL for research rows; `candidate_capture_enabled` and `candidate_enrolment_enabled` still FALSE; characterization unchanged.
 
-## 13. Acceptance criteria
-`bun run verify` green including new E2E and DB tests; one real rejected candle fixture proven to reach a fail-arm filter-lift row; one structurally undefined rejection proven non-executable; duplicate-enrolment attempt proven to leave exactly one execution; `candidate_capture_enabled` and `candidate_enrolment_enabled` still FALSE.
+## F. Remaining risks
+- The common ladder is a **trading hypothesis**, not a validated policy: it ignores spread, slippage and session liquidity, and its 3R cap can truncate winners on both arms equally (bias in level, not in comparison).
+- Arms remain confounded by *downstream* gates: a gate's pass arm contains setups that later failed other gates. Only stratified/sequential analysis fixes that — Prompt 8 territory; the reason string must say so.
+- Overlapping plans are not independent; no valid interval exists yet.
+- No historical counterfactual data exists (capture is dark), so no numeric baseline can be computed now — it will be captured after the flip, never fabricated.
 
-## 14. Limits — what cannot be guaranteed
-The counterfactual ladder is a **trading hypothesis under test**, not a validated policy: it says nothing about whether those rejected setups would have been profitable in live execution (slippage, spread, session liquidity are outside replay). Any fail-arm number remains a descriptive within-manifest comparison with no causal claim and no valid uncertainty until Prompt 8. Concurrency safety is guaranteed at the DB identity level, not against manual SQL that bypasses the enroller.
+## G. Confidence
+High (mechanical defects: the `not_evaluable` guard and the missing per-candidate unique index are directly readable in HEAD). Medium-high on the common-ladder redesign: it is the only way I can see to make the arms comparable without touching V1, but it enlarges capture to published rows, so the characterization suite and the DB isolation tests are the real gate.
 
-**Recommendation: proceed with the plan above (approach A for each defect).**
+## H. What cannot be guaranteed
+That measured filter lift transfers to live execution; that a 1R/2R/3R ladder is the *right* research policy; safety against manual SQL that bypasses the enroller; that Prompt 8's uncertainty work will validate any lift observed here.
+
+**Recommendation: adopt the revised plan (common research ladder + `plan_origin`-aware unique index + fail-closed whitelist + NULL research `se_r`). Reject my earlier origin-split grouping.**
