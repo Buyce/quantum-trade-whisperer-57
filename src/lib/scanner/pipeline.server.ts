@@ -6,15 +6,24 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { buildTradeProfile } from "./profile";
 import { buildTradeProfileV2, type V2Evaluation } from "./v2/profile.v2";
+import { buildTradeProfileV3, type V3Evaluation } from "./v3/profile.v3";
 import {
   claimV2Structure,
+  claimV3Structure,
   recordObservations,
   v1ObservationRow,
   v2ErrorObservationRow,
   v2ObservationRow,
+  v3ErrorObservationRow,
+  v3ObservationRow,
   type Disposition,
 } from "@/lib/research/observations.server";
-import { enrolV2Shadow, isV2EnrolmentEnabled } from "@/lib/research/enrol.server";
+import {
+  enrolV2Shadow,
+  enrolV3Shadow,
+  isV2EnrolmentEnabled,
+  isV3EnrolmentEnabled,
+} from "@/lib/research/enrol.server";
 
 import { atr } from "./indicators";
 import { ACTIVE_MODEL_VERSION, observationKey } from "@/lib/versioning";
