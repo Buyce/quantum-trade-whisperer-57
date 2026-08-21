@@ -56,6 +56,7 @@ export interface SignalRow {
   p_fill_prior: number | null;
   p_win_prior: number | null;
   ev_prior: number | null;
+  p_joint_prior: number | null;
   prior_sample_n: number | null;
   prior_filled_n: number | null;
   prior_tier: number | null;

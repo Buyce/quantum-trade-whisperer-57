@@ -112,7 +112,15 @@ export default defineTool({
       prior: {
         p_fill: prior.pFill,
         p_win_if_filled: prior.pWin,
-        expected_value: prior.ev,
+        // Deprecated key, unchanged semantics: a probability, not a return.
+        expected_value: prior.pJoint,
+        expected_value_deprecated: true,
+        expected_value_semantics: "p_fill_times_p_win_if_filled_probability",
+        joint_win_probability: prior.pJoint,
+        expected_r: null,
+        expected_r_status: "not_available_admin_research_only",
+        prior_status: prior.status,
+        prior_reason: prior.reason,
         sample_n: prior.sampleN,
         filled_n: prior.filledN,
         tier: prior.tier,

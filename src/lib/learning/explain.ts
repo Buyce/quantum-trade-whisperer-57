@@ -12,7 +12,14 @@
  * recompute. When a tier has no rows, the corresponding step or feature is
  * omitted rather than filled with a placeholder.
  */
-import { MIN_N_TIER3, volBucketOf, type RegimeQuery, type RegimeStatRow, type VolBucket } from "./regime";
+import {
+  finiteOrNull,
+  MIN_N_TIER3,
+  volBucketOf,
+  type RegimeQuery,
+  type RegimeStatRow,
+  type VolBucket,
+} from "./regime";
 
 /** Prior strength k used by recompute_regime_stats(); mirrored for weight maths. */
 export const PRIOR_STRENGTH = 30;
@@ -26,8 +33,8 @@ export interface ExplainStep {
   wins: number;
   pFillRaw: number | null;
   pWinRaw: number | null;
-  pFillShrunk: number;
-  pWinShrunk: number;
+  pFillShrunk: number | null;
+  pWinShrunk: number | null;
   /** Share of the fill estimate carried by this bucket's own data: n / (n + k). */
   ownWeightFill: number;
   /** Share of the win estimate carried by this bucket's own fills: f / (f + k). */
@@ -104,8 +111,8 @@ function step(row: RegimeStatRow, label: string, matched: boolean): ExplainStep 
     wins: Number(row.wins ?? 0),
     pFillRaw: row.p_fill_raw == null ? rate(f, n) : Number(row.p_fill_raw),
     pWinRaw: row.p_win_raw == null ? rate(Number(row.wins ?? 0), f) : Number(row.p_win_raw),
-    pFillShrunk: Number(row.p_fill_shrunk),
-    pWinShrunk: Number(row.p_win_shrunk),
+    pFillShrunk: finiteOrNull(row.p_fill_shrunk),
+    pWinShrunk: finiteOrNull(row.p_win_shrunk),
     ownWeightFill: n / (n + PRIOR_STRENGTH),
     ownWeightWin: f / (f + PRIOR_STRENGTH),
     matched,

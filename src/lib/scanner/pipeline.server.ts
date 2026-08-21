@@ -496,7 +496,10 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
         resolved_outcome: "open",
         p_fill_prior: prior?.pFill ?? null,
         p_win_prior: prior?.pWin ?? null,
-        ev_prior: prior?.ev ?? null,
+        // ev_prior keeps its original P(fill) x P(win|filled) meaning; p_joint_prior
+        // is the same quantity under its truthful name. Never redefined.
+        ev_prior: prior?.pJoint ?? null,
+        p_joint_prior: prior?.pJoint ?? null,
         prior_sample_n: prior?.sampleN ?? null,
         prior_filled_n: prior?.filledN ?? null,
         prior_tier: prior?.tier ?? null,

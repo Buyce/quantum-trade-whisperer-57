@@ -149,17 +149,15 @@ export function replaySetupV2(input: ReplayInput, candles: Candle[]): ReplayV2St
     .filter((c) => (fresh ? ms(c.time) + M15_MS > detected : ms(c.time) > cursor))
     .sort((a, b) => ms(a.time) - ms(b.time));
 
-  /** Ladder prices, ordered TP1 → TP3, used for touch analytics only. */
-  const ladder = [input.tp1, input.tp2, input.tp3].filter(
-    (p): p is number => p != null && Number.isFinite(p),
-  );
+  /**
+   * Execution ends at TP1 under this policy, so only a TP1 touch is a defined
+   * observation. Deeper ladder touches after the exit are not part of the traded
+   * path and are deliberately NOT recorded — an undefined analytic is worse than
+   * a missing one.
+   */
   const deepestTouched = (candle: Candle): number | null => {
-    let idx: number | null = null;
-    ladder.forEach((price, i) => {
-      const hit = isLong ? candle.high >= price : candle.low <= price;
-      if (hit) idx = i + 1;
-    });
-    return idx;
+    const hit = isLong ? candle.high >= input.tp1 : candle.low <= input.tp1;
+    return hit ? 1 : null;
   };
 
   /** True once a stop has been observed on an earlier bar than a TP touch. */
@@ -335,7 +333,8 @@ export function replaySetupV2(input: ReplayInput, candles: Candle[]): ReplayV2St
         label: 1,
         grossR: (isLong ? exit - base : base - exit) / risk,
         firstTargetTouched: 1,
-        maxTargetTouched: target,
+        // TP1 is the exit; nothing beyond it is part of this trade's path.
+        maxTargetTouched: 1,
         barsToOutcome: state.barsReplayed,
         tp1BeforeStop: true,
         stopBeforeTp1: false,

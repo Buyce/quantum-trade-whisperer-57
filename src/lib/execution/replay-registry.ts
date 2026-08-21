@@ -33,7 +33,13 @@ export const REPLAY_V1_SEMANTICS = {
     minutes: ORDER_TIF_MINUTES,
     rule: "the fill test runs BEFORE the deadline test, so a touch after detected_at + TIF still fills",
   },
-  detectionBar: "the forming detection bar is replayed on a fresh run",
+  // CHARACTERISED, not specified: every enrolment path (shadow worker, research
+  // enrolment and the SQL sibling trigger) writes replay_cursor = detected_at, so
+  // the replayCursor == null branch is unreachable for any row that exists. The
+  // first candle actually consumed is therefore the first candle whose OPEN is
+  // strictly after detection; the forming detection bar is never replayed.
+  detectionBar:
+    "cursor-based: enrolment sets replay_cursor = detected_at, and the first candle consumed is the first candle with time > replay_cursor, so the forming detection bar is not replayed",
   risk: "R is measured against the PLANNED risk (|entry - stop|), even after a gap fill",
   stop: "any stop touch resolves as exactly -1R; a bar opening beyond the stop is still priced at the stop",
   ambiguity: "within one bar the stop is assumed to precede any target (no counter recorded)",
@@ -54,7 +60,8 @@ export const REPLAY_V2_SEMANTICS = {
     rule: "a bar may fill only when its whole interval lies inside the live-order window: bar_open + 15m <= detected_at + TIF",
     spanningBar: "a bar straddling the deadline sets fill_ambiguous_tif and fails closed (no fill)",
   },
-  detectionBar: "unchanged from V1 — the forming detection bar is replayed on a fresh run",
+  detectionBar:
+    "unchanged from V1 — cursor-based: enrolment sets replay_cursor = detected_at and the first candle consumed is the first candle with time > replay_cursor; the forming detection bar is not replayed",
   risk: {
     denominator: "risk_price_actual = |fill_price - stop_loss|",
     appliesTo: ["gross_r", "mfe_r", "mae_r", "target R recompute", "vertical mark-to-market"],
@@ -80,7 +87,7 @@ export const REPLAY_V2_SEMANTICS = {
     ordinaryIntrabarFill:
       "a target touched in the fill bar is NOT credited: the bar is marked conservative, the trade stays open and target adjudication resumes on the next candle",
     ordinaryIntrabarFillAnalytics:
-      "first_target_touched / max_target_touched are not set from that bar; the raw touch is recorded in ambiguous_bar_target_touch as an unproven post-entry touch",
+      "first_target_touched / max_target_touched are not set from that bar; a TP1 touch is recorded in ambiguous_bar_target_touch as an unproven post-entry touch (value 1 only)",
     gapAtOpenFill:
       "a gap-at-open fill existed for the whole bar, so same-bar barrier evaluation and target analytics proceed normally",
     excursions:
@@ -99,7 +106,7 @@ export const REPLAY_V2_SEMANTICS = {
     policy: EXECUTION_POLICY_V2,
     realizedExit: "execution ends at the first target (TP1)",
     postExitAnalytics:
-      "max_target_touched beyond TP1 is subsequent market-path analytics only and may never feed gross_r, labels, win rate or learning",
+      "execution ends at TP1, so max_target_touched is 1 on a win and deeper ladder touches are not recorded at all; no post-exit path analytic is stored",
   },
   candleSource:
     "reuses the M15 array already fetched by the hourly production resolver for that instrument; Replay V2 issues no provider request of its own",

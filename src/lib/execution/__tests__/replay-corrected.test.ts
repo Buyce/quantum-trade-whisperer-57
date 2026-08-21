@@ -135,10 +135,10 @@ describe("replaySetupV2 — barriers, causality and execution policy", () => {
   it("[UNIT] TP2 and TP3 touches are analytics only — the realized exit stays TP1", () => {
     const tp2 = replaySetupV2(longSetup(), [cleanFill, bar(B1, 1.1, 1.1101, 1.0999, 1.11)]);
     expect(tp2.grossR).toBeCloseTo(1, 10);
-    expect(tp2.maxTargetTouched).toBe(2);
+    expect(tp2.maxTargetTouched).toBe(1);
     const tp3 = replaySetupV2(longSetup(), [cleanFill, bar(B1, 1.1, 1.1155, 1.0999, 1.115)]);
     expect(tp3.grossR).toBeCloseTo(1, 10);
-    expect(tp3.maxTargetTouched).toBe(3);
+    expect(tp3.maxTargetTouched).toBe(1);
     expect(tp3.firstTargetTouched).toBe(1);
   });
 
@@ -257,8 +257,8 @@ describe("replaySetupV2 — vertical barrier and data gaps", () => {
 
 describe("replay identity is immutable", () => {
   it("[INVARIANT] the registered replay semantics hashes never drift", () => {
-    expect(REPLAY_V1_CODE_HASH).toBe("b1bc0ac96d59dec4");
-    expect(REPLAY_V2_CODE_HASH).toBe("270450b8cc142a73");
+    expect(REPLAY_V1_CODE_HASH).toBe("e3357869b4f6dc04");
+    expect(REPLAY_V2_CODE_HASH).toBe("fd3a5fc5a6b386e7");
   });
 
   it("[V1_CHARACTERIZATION] Replay V1 gap fills are still paid on PLANNED risk", () => {

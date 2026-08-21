@@ -213,7 +213,9 @@ function ExecutionChip({
 function IntelligencePanel({ signal }: { signal: SignalRow }) {
   const pFill = signal.p_fill_prior;
   const pWin = signal.p_win_prior;
-  const ev = signal.ev_prior;
+  // Prefer the truthfully named column; fall back to the legacy one, which holds
+  // the identical quantity for rows published before the rename.
+  const pJoint = signal.p_joint_prior ?? signal.ev_prior;
   const n = signal.prior_sample_n ?? 0;
   const filledN = signal.prior_filled_n;
   const tier = signal.prior_tier;
@@ -259,11 +261,15 @@ function IntelligencePanel({ signal }: { signal: SignalRow }) {
           </p>
         </div>
         <div className="min-w-0">
-          <dt className="label-xs">Expected value</dt>
+          <dt className="label-xs">
+            <InfoLabel hint="P(fill) x P(TP1+ | filled) — a model estimate of the chance this setup both fills and reaches its first target. It is a probability, not a return and not an expected R.">
+              Est. joint win prob.
+            </InfoLabel>
+          </dt>
           <dd className="num text-base font-semibold text-foreground">
-            {ev == null ? "—" : pct(ev)}
+            {pJoint == null ? "—" : pct(pJoint)}
           </dd>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">fill x win</p>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">fill x win — probability</p>
         </div>
       </dl>
 
@@ -719,14 +725,15 @@ export function SignalCard({
               <span className="hidden sm:inline">Confl </span>
               <span className="text-sm font-semibold text-primary sm:text-xs">{conf.toFixed(0)}%</span>
             </span>
-            {/* Expected value only appears once its sample gate is clear, so the
-                summary row never implies a measured rate that does not exist. */}
-            {signal.ev_prior != null && (signal.prior_sample_n ?? 0) >= MIN_N_FILL ? (
+            {/* The joint win probability only appears once its sample gate is clear,
+                so the summary row never implies a measured rate that does not exist. */}
+            {(signal.p_joint_prior ?? signal.ev_prior) != null &&
+            (signal.prior_sample_n ?? 0) >= MIN_N_FILL ? (
               <span className="num flex min-w-0 flex-col sm:block">
-                <span className="label-xs sm:hidden">Exp. value</span>
-                <span className="hidden sm:inline">EV </span>
+                <span className="label-xs sm:hidden">Win prob.</span>
+                <span className="hidden sm:inline">WIN-P </span>
                 <span className="text-sm font-semibold text-foreground sm:text-xs">
-                  {(Number(signal.ev_prior) * 100).toFixed(1)}%
+                  {(Number(signal.p_joint_prior ?? signal.ev_prior) * 100).toFixed(1)}%
                 </span>
               </span>
             ) : null}

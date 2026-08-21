@@ -323,6 +323,237 @@ export type Database = {
         }
         Relationships: []
       }
+      payoff_snapshots: {
+        Row: {
+          ci_df: number | null
+          ci_hi: number | null
+          ci_level: number | null
+          ci_lo: number | null
+          ci_method: string | null
+          cluster_n: number | null
+          computed_as_of: string
+          coverage_threshold: number
+          direction: string | null
+          estimand: string
+          execution_policy: string
+          id: string
+          instrument: string | null
+          mean_r: number | null
+          model_version: number
+          n_executable: number
+          n_gap_no_trade: number
+          n_invalid_excluded: number
+          n_legacy_resolved_at_null: number
+          n_mature: number
+          n_never_filled: number
+          n_per_plan_eligible: number
+          n_resolved_total: number
+          n_unresolved_mature: number
+          n_used: number
+          payoff_basis: string
+          reason: string | null
+          regime_key: string
+          replay_coverage: number | null
+          replay_version: number
+          run_id: string
+          sd_r: number | null
+          se_r: number | null
+          stat_status: string
+          terminal_replay_horizon_hours: number
+          tier: number
+        }
+        Insert: {
+          ci_df?: number | null
+          ci_hi?: number | null
+          ci_level?: number | null
+          ci_lo?: number | null
+          ci_method?: string | null
+          cluster_n?: number | null
+          computed_as_of: string
+          coverage_threshold?: number
+          direction?: string | null
+          estimand: string
+          execution_policy: string
+          id?: string
+          instrument?: string | null
+          mean_r?: number | null
+          model_version: number
+          n_executable?: number
+          n_gap_no_trade?: number
+          n_invalid_excluded?: number
+          n_legacy_resolved_at_null?: number
+          n_mature?: number
+          n_never_filled?: number
+          n_per_plan_eligible?: number
+          n_resolved_total?: number
+          n_unresolved_mature?: number
+          n_used?: number
+          payoff_basis: string
+          reason?: string | null
+          regime_key: string
+          replay_coverage?: number | null
+          replay_version: number
+          run_id: string
+          sd_r?: number | null
+          se_r?: number | null
+          stat_status: string
+          terminal_replay_horizon_hours: number
+          tier: number
+        }
+        Update: {
+          ci_df?: number | null
+          ci_hi?: number | null
+          ci_level?: number | null
+          ci_lo?: number | null
+          ci_method?: string | null
+          cluster_n?: number | null
+          computed_as_of?: string
+          coverage_threshold?: number
+          direction?: string | null
+          estimand?: string
+          execution_policy?: string
+          id?: string
+          instrument?: string | null
+          mean_r?: number | null
+          model_version?: number
+          n_executable?: number
+          n_gap_no_trade?: number
+          n_invalid_excluded?: number
+          n_legacy_resolved_at_null?: number
+          n_mature?: number
+          n_never_filled?: number
+          n_per_plan_eligible?: number
+          n_resolved_total?: number
+          n_unresolved_mature?: number
+          n_used?: number
+          payoff_basis?: string
+          reason?: string | null
+          regime_key?: string
+          replay_coverage?: number | null
+          replay_version?: number
+          run_id?: string
+          sd_r?: number | null
+          se_r?: number | null
+          stat_status?: string
+          terminal_replay_horizon_hours?: number
+          tier?: number
+        }
+        Relationships: []
+      }
+      payoff_stats: {
+        Row: {
+          ci_df: number | null
+          ci_hi: number | null
+          ci_level: number | null
+          ci_lo: number | null
+          ci_method: string | null
+          cluster_n: number | null
+          computed_as_of: string
+          coverage_threshold: number
+          direction: string | null
+          estimand: string
+          execution_policy: string
+          instrument: string | null
+          mean_r: number | null
+          model_version: number
+          n_executable: number
+          n_gap_no_trade: number
+          n_invalid_excluded: number
+          n_legacy_resolved_at_null: number
+          n_mature: number
+          n_never_filled: number
+          n_per_plan_eligible: number
+          n_resolved_total: number
+          n_unresolved_mature: number
+          n_used: number
+          payoff_basis: string
+          reason: string | null
+          regime_key: string
+          replay_coverage: number | null
+          replay_version: number
+          run_id: string
+          sd_r: number | null
+          se_r: number | null
+          stat_status: string
+          terminal_replay_horizon_hours: number
+          tier: number
+        }
+        Insert: {
+          ci_df?: number | null
+          ci_hi?: number | null
+          ci_level?: number | null
+          ci_lo?: number | null
+          ci_method?: string | null
+          cluster_n?: number | null
+          computed_as_of?: string
+          coverage_threshold?: number
+          direction?: string | null
+          estimand: string
+          execution_policy: string
+          instrument?: string | null
+          mean_r?: number | null
+          model_version: number
+          n_executable?: number
+          n_gap_no_trade?: number
+          n_invalid_excluded?: number
+          n_legacy_resolved_at_null?: number
+          n_mature?: number
+          n_never_filled?: number
+          n_per_plan_eligible?: number
+          n_resolved_total?: number
+          n_unresolved_mature?: number
+          n_used?: number
+          payoff_basis: string
+          reason?: string | null
+          regime_key: string
+          replay_coverage?: number | null
+          replay_version: number
+          run_id: string
+          sd_r?: number | null
+          se_r?: number | null
+          stat_status: string
+          terminal_replay_horizon_hours: number
+          tier: number
+        }
+        Update: {
+          ci_df?: number | null
+          ci_hi?: number | null
+          ci_level?: number | null
+          ci_lo?: number | null
+          ci_method?: string | null
+          cluster_n?: number | null
+          computed_as_of?: string
+          coverage_threshold?: number
+          direction?: string | null
+          estimand?: string
+          execution_policy?: string
+          instrument?: string | null
+          mean_r?: number | null
+          model_version?: number
+          n_executable?: number
+          n_gap_no_trade?: number
+          n_invalid_excluded?: number
+          n_legacy_resolved_at_null?: number
+          n_mature?: number
+          n_never_filled?: number
+          n_per_plan_eligible?: number
+          n_resolved_total?: number
+          n_unresolved_mature?: number
+          n_used?: number
+          payoff_basis?: string
+          reason?: string | null
+          regime_key?: string
+          replay_coverage?: number | null
+          replay_version?: number
+          run_id?: string
+          sd_r?: number | null
+          se_r?: number | null
+          stat_status?: string
+          terminal_replay_horizon_hours?: number
+          tier?: number
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -408,9 +639,9 @@ export type Database = {
           n_filled: number
           n_total: number
           p_fill_raw: number | null
-          p_fill_shrunk: number
+          p_fill_shrunk: number | null
           p_win_raw: number | null
-          p_win_shrunk: number
+          p_win_shrunk: number | null
           regime_key: string
           run_id: string
           session: string | null
@@ -429,9 +660,9 @@ export type Database = {
           n_filled?: number
           n_total?: number
           p_fill_raw?: number | null
-          p_fill_shrunk: number
+          p_fill_shrunk?: number | null
           p_win_raw?: number | null
-          p_win_shrunk: number
+          p_win_shrunk?: number | null
           regime_key: string
           run_id: string
           session?: string | null
@@ -450,9 +681,9 @@ export type Database = {
           n_filled?: number
           n_total?: number
           p_fill_raw?: number | null
-          p_fill_shrunk?: number
+          p_fill_shrunk?: number | null
           p_win_raw?: number | null
-          p_win_shrunk?: number
+          p_win_shrunk?: number | null
           regime_key?: string
           run_id?: string
           session?: string | null
@@ -473,9 +704,9 @@ export type Database = {
           n_filled: number
           n_total: number
           p_fill_raw: number | null
-          p_fill_shrunk: number
+          p_fill_shrunk: number | null
           p_win_raw: number | null
-          p_win_shrunk: number
+          p_win_shrunk: number | null
           regime_key: string
           session: string | null
           tier: number
@@ -492,9 +723,9 @@ export type Database = {
           n_filled?: number
           n_total?: number
           p_fill_raw?: number | null
-          p_fill_shrunk: number
+          p_fill_shrunk?: number | null
           p_win_raw?: number | null
-          p_win_shrunk: number
+          p_win_shrunk?: number | null
           regime_key: string
           session?: string | null
           tier: number
@@ -511,9 +742,9 @@ export type Database = {
           n_filled?: number
           n_total?: number
           p_fill_raw?: number | null
-          p_fill_shrunk?: number
+          p_fill_shrunk?: number | null
           p_win_raw?: number | null
-          p_win_shrunk?: number
+          p_win_shrunk?: number | null
           regime_key?: string
           session?: string | null
           tier?: number
@@ -624,6 +855,7 @@ export type Database = {
           model_version: number
           observation_key: string | null
           p_fill_prior: number | null
+          p_joint_prior: number | null
           p_momentum: number | null
           p_order_block: number | null
           p_trend: number | null
@@ -672,6 +904,7 @@ export type Database = {
           model_version?: number
           observation_key?: string | null
           p_fill_prior?: number | null
+          p_joint_prior?: number | null
           p_momentum?: number | null
           p_order_block?: number | null
           p_trend?: number | null
@@ -720,6 +953,7 @@ export type Database = {
           model_version?: number
           observation_key?: string | null
           p_fill_prior?: number | null
+          p_joint_prior?: number | null
           p_momentum?: number | null
           p_order_block?: number | null
           p_trend?: number | null
@@ -1281,11 +1515,21 @@ export type Database = {
       claim_weekly_report: { Args: { _week: string }; Returns: boolean }
       get_admin_author_split: { Args: never; Returns: Json }
       get_admin_intelligence: { Args: never; Returns: Json }
+      get_admin_payoff_research: { Args: never; Returns: Json }
       is_admin: { Args: never; Returns: boolean }
       maintain_scan_queue: { Args: never; Returns: Json }
       maintain_shadow_queue: { Args: never; Returns: Json }
       prune_v2_structure_claims: { Args: never; Returns: number }
       purge_expired_signals: { Args: never; Returns: number }
+      recompute_payoff_stats: {
+        Args: {
+          _execution_policy?: string
+          _horizon_hours?: number
+          _model_version?: number
+          _replay_version?: number
+        }
+        Returns: Json
+      }
       recompute_regime_stats: {
         Args: { _model_version?: number }
         Returns: Json
