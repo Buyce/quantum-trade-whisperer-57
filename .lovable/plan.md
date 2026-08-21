@@ -1,121 +1,181 @@
-# Red-Team Review + Revised Plan — Automated Testing & CI for P-Trades Hub
+# Revised Plan — Test Infrastructure + V1 Characterization Layer (Prompt 2)
 
-Plan only. No code, no migrations, no database or production changes in this turn. Reviewed as an independent reviewer attempting to falsify the previous plan against current HEAD.
+Plan only. No implementation, no migrations, no database or production behaviour changes in this turn. Scope is test infrastructure and V1 characterization **only**: no change to ABC, grade rules, confidence weights, entry, stop, targets, replay resolution, fill/TIF semantics, EV/learning formulas, alert eligibility, or risk caps.
 
-## A. Plan defects discovered
+## 1. Goal
 
-**A1. The CI design was built on a remote that does not exist. (Critical)**
-`git remote -v` shows `origin` pointing at Lovable's private git host (`git.private.lovable-gcp.code.storage/...`) and a `secondary` S3 mirror. **There is no GitHub remote.** The previous plan's step 7 (`.github/workflows/ci.yml`), branch protection and "required GitHub check" are therefore unimplementable as written. Everything the plan called a "release gate" would have been an unrunnable YAML file. This invalidates the deployment/gating section outright.
+Freeze the identity of the V1 production model in executable form before any model remediation, and put one canonical verification command behind both local/Lovable checks and GitHub Actions.
 
-**A2. Two test-matrix rows assert behaviour the code does not have — a trading-model change disguised as a test. (Critical)**
-- Row 18 ("fill candle after expiry → rejected, TIF ordering invariant"): in `replaySetup` the fill leg checks `touched` *before* the `t > tifDeadline` check. A bar whose timestamp is past the TIF deadline **fills** if it touches the limit; the deadline is only evaluated on the not-touched branch. Shipping row 18 as a passing test would require editing fill logic, which changes fill labels, `p_fill`, regime membership and expectancy. That is model work, not test work.
-- Row 2 (`atr` insufficient data → "0 or documented unavailable"): `atr()` returns **0**, while `sma()`/`ema()` return **null**. Zero ATR is a fabricated volatility reading that flows into stop buffers and the `volatility_index`. Pinning it as correct enshrines a fail-open path; changing it is a model change. Either way, a vague "0 or unavailable" expectation is not an acceptable fixture.
+## 2. Verified current state (re-read at HEAD)
 
-**A3. Property tests were mis-scoped as blocking gates.** ABC/geometry invariants written from intent will very likely fail against current behaviour (A2 is one instance already found before any test was written). If layer 2 is blocking from day one, the pressure is to "fix" the algorithm to make CI green — exactly the silent model drift the algorithm-preservation requirement forbids.
+- No test framework, no test files, no `test` script. `package.json` scripts are `dev`, `build`, `build:dev`, `preview`, `lint`, `format`.
+- No `.github/` directory in the working tree. Local remotes are Lovable's private git host plus an S3 mirror — **the GitHub repo `Buyce/quantum-trade-whisperer-57` is not visible from this sandbox**, so GitHub execution cannot be proven from here. It is treated as existing per your statement, and the plan is designed for it.
+- Both `bun.lock` and `package-lock.json` exist. `bunfig.toml` carries the supply-chain policy (`saveTextLockfile`, `minimumReleaseAge = 86400`, `minimumReleaseAgeExcludes` for `@lovable.dev/*`).
+- TS is strict: `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noImplicitReturns`, `noPropertyAccessFromIndexSignature`. `tsconfig.include` covers only `src/**`, `vite.config.ts`, `eslint.config.js` — tests must live under `src/` to be typechecked.
+- Confirmed behaviours to be characterized (read this pass):
+  - `gradeSetup` (`grading.ts:137-160`): `allAligned` requires `h4.bias !== "neutral"`; `h1m15Aligned` → **B** regardless of H4 (so H4-neutral + H1/M15 aligned yields B); `m15.bias !== "neutral"` → **C** with no mean-reversion condition.
+  - `replaySetup` (`replay.ts`): the fill leg tests `touched` **before** `t > tifDeadline`, so a limit touched by a post-TIF candle still fills; stop is checked before the target ladder (conservative loss resolution); `missDistanceAtr` is populated only on the TIF-expiry path.
+  - `atr()` returns **0** on insufficient data while `sma()`/`ema()` return **null**.
+  - `calculateRisk` floors lots via `floorToStep`, so realized risk never exceeds the budget.
+  - Whether `c_symmetry` actually moves the confidence score in `profile.ts` is **unverified** and is a Phase-0 read, not an assertion.
 
-**A4. Seam refactors were understated.** Touching `metaapi.server.ts`, `webhook.server.ts` and `pipeline.server.ts` for injectable fetch/clock is production-code surgery on the alert and execution paths. Optional-parameter defaults keep behaviour identical *if* done exactly right, but under `exactOptionalPropertyTypes` and Worker bundling this is where an alert-delivery regression would come from. The previous plan treated it as trivial.
+## 3. Test classification (mandatory label on every trading test)
 
-**A5. Database-layer feasibility was asserted, not verified.** Migrations reference `auth.users`, `auth.uid()`, `auth.jwt()`, a `private` schema (`private.kick_scan_worker`, `private.kick_shadow_worker`), `pg_net`/`pg_cron`-era objects and custom enums. Whether the 20+ files in `supabase/migrations/` replay cleanly onto bare Postgres with a hand-written `auth` shim is unknown. If they do not, layer 4 stalls and blocks the whole plan.
+| Class | Meaning | CI behaviour |
+|---|---|---|
+| `V1_CHARACTERIZATION` | Pins observed current production behaviour, correct or not | **Blocking** |
+| `INVARIANT` | Model-independent safety property | **Blocking** |
+| `INTENDED_V2` | Desired future behaviour that V1 does not satisfy | `test.todo` / report-only, **never blocking** |
 
-**A6. Lockfile recommendation was under-evidenced.** `bun.lock` + `bunfig.toml` is strong evidence bun is canonical, but nothing in the repo proves Lovable's own build ignores `package-lock.json`. Correct call: declare bun canonical for *our* scripts, and leave `package-lock.json` untouched, out of scope.
+Enforcement: the label is part of every test name (e.g. `[V1_CHARACTERIZATION] replay fills post-TIF touch`), `INTENDED_V2` lives in `*.v2.test.ts` files excluded from the blocking Vitest project and run by a separate report-only script. A lint-style check asserts every trading test file carries exactly one class prefix per test. CI can never fail because an `INTENDED_V2` expectation differs from V1.
 
-**A7. Golden-file baseline could import contamination.** Fixtures captured from live tables inherit whatever the current pipeline wrote, including rows produced by the pre-fix replay logic. Committing them as "golden" without stamping the capture-time model version and the known-defect list would launder old defects into the reference set.
+## 4. V1 characterization layer (required contents)
 
-**A8. No cost check on MetaApi.** Not a defect in the plan's content, but it was never stated: this work must make **zero** broker calls. Any fixture capture must reuse candles already fetched, never trigger new instrument scans.
+Each item passes against current behaviour and is labelled `V1_CHARACTERIZATION`. None may be "fixed" in this prompt.
 
-## B. Major design decisions, re-argued
+1. `replaySetup` fills a touched limit when the first touching candle is **after** TIF expiry.
+2. `atr()` returns `0` on insufficient data (and `sma`/`ema` return `null`) — the divergent-convention pin.
+3. H4-neutral + H1/M15 aligned still grades **B**.
+4. **C** grade falls back to directional M15 with no true mean-reversion condition.
+5. Symmetry's effect on confidence, pinned exactly as Phase-0 reading finds it (no-effect or weighted) — the fixture records the measured contribution rather than an assumed one.
+6. ABC acceptance of invalid directional geometry / C placement, with the specific accepted-but-questionable configurations enumerated as fixtures.
 
-**B1. Vitest as the runner**
-- *Why:* `@/` alias plus the `entities` aliases in `vite.config.ts` are load-bearing; reusing Vite resolution is the only low-friction option. Evidence: `@/` imports appear across almost every module.
-- *Alternatives:* (1) `node:test` — zero deps, but needs a TS loader and its own alias mapping, duplicating build config. (2) Bun's built-in `bun test` — fastest, already the sandbox package manager, but its Vite-config awareness and `vi.mock`-equivalent story are weaker and it would tie the suite to one runtime.
-- *Rejected because:* both re-implement resolution the app already declares.
-- *Would change my mind:* if pinned Vitest versions are blocked by `minimumReleaseAge` with no aged alternative, `bun test` becomes the pragmatic pick.
+Replay ambiguity fixtures, all `V1_CHARACTERIZATION`, asserting current resolution without claiming economic correctness:
+- entry + stop + target inside one M15 candle (current conservative loss resolution);
+- gap through the limit (fill at candle open, slippage recorded);
+- post-TIF touch (item 1);
+- never-filled vertical expiry;
+- planned entry vs actual gap fill, including the current **planned-risk R denominator** (R measured against planned risk, not realized fill distance).
 
-**B2. fast-check, non-blocking first**
-- *Why:* the domain is invariant-shaped and the known defect class is "case nobody imagined". But A2 proves invariants will surface existing behaviour as failures.
-- *Alternatives:* (1) table tests only — fully deterministic, finds nothing new. (2) fast-check blocking immediately — maximum rigour, but creates pressure to edit trading math to go green.
-- *Decision:* adopt fast-check, run it in a **report-only** job for the first pass; promote individual properties to blocking only after each is confirmed to describe *intended* behaviour and current code satisfies it.
+A companion `CHARACTERISATION.md` lists each pinned behaviour, why it is questionable, and that resolution belongs to the model-remediation prompt.
 
-**B3. Database tests: local Postgres migration replay**
-- *Why:* RLS, the `scanned_signals_active_unique` partial index and `claim_scan_job`'s `FOR UPDATE SKIP LOCKED` are load-bearing and cannot be tested from application code. CI cannot reach the managed project (no service-role key or DB password available here), so local is the only option.
-- *Alternatives:* (1) pgTAP — nicer assertions, extra extension and vocabulary. (2) skip DB tests, assert app-level only — cheap and wrong; a broken policy is invisible.
-- *Gate:* a spike must prove migration replay works on bare Postgres before this layer is committed to (see A5).
+## 5. Blocking invariants (model-independent only)
 
-**B4. Playwright deferred**
-- *Why:* under the Zero-Hallucination rule an empty feed is a correct state, so journey assertions are inherently flaky, and real signup against production is unacceptable.
-- *Alternatives:* (1) full journeys now — highest coverage, highest flake and account-pollution risk. (2) never — loses route/auth regression cover.
-- *Decision:* phase 3, smoke-only, non-blocking.
+- No `NaN`/`Infinity` in any value eligible for publication.
+- Probabilities ∈ [0,1] or explicitly `null`/unavailable.
+- Stop distance strictly positive.
+- TP ordering monotonically profitable for the direction.
+- Position-size rounding never exceeds the requested risk budget.
+- Non-positive/invalid contract or tick parameters fail closed (`no_spec`/`invalid_stop`-style refusal, never a fabricated default).
+- Division-by-zero paths fail closed.
+- Malformed OHLC/timestamps never yield a publishable signal.
 
-**B5. CI execution venue — revised**
-- *Why:* A1 kills GitHub Actions. The only reliable gate is a **local, scripted, one-command check** (`bun run verify`) plus the platform's own build check, documented as the pre-merge ritual.
-- *Alternatives:* (1) add a GitHub mirror remote and run Actions there — real gating, but needs a repo the user owns and a push path; user decision, not mine to assume. (2) Claim CI and write the YAML anyway — dishonest; rejected.
-- *Would change my mind:* if the user confirms a GitHub mirror exists or wants one created, the workflow file becomes worth writing immediately.
+Explicitly **not** blocking: strategy-specific geometry rules and TIF ordering that V1 currently violates. Those are `INTENDED_V2`.
 
-## C. Failure scenarios the architecture must survive
+## 6. Framework choice
 
-**S1. Property test fails on day one because current ABC/TIF behaviour differs from intent.** (Already realised: A2.) Required response: the failing property is quarantined as a *documented finding* with a `.todo`/report-only marker, and a separate model plan decides whether to change behaviour under shadow comparison. Nothing in the trading path is edited to make CI green. If the architecture cannot express "known divergence, not regression", it is wrong.
+**Vitest + fast-check.** Vitest reuses the app's `@/` and `entities` aliases from `vite.config.ts`, so resolution cannot drift from production. fast-check supplies the §5 properties with seeded, bounded runs; every property run prints its seed and the seed is recorded in acceptance evidence. Rejected: `node:test` (re-implements alias/TS resolution), `bun test` (weaker Vite-config and mocking story; kept as fallback only if the 24h release guard blocks aged Vitest versions). Playwright is out of scope for this prompt.
 
-**S2. Migration replay fails on bare Postgres** (missing `auth` schema objects, `private` schema helpers, extensions). Response: layer 4 degrades to a *subset* — a hand-written schema fixture covering only the tables under test (`executed_trades`, `scanner_settings`, `push_subscriptions`, `baseline_snapshots`, `scan_queue`, `scanned_signals`) with their real policies and indexes copied verbatim. Lower fidelity, still catches RLS and unique-index regressions, and does not block layers 1–3.
+Tests are co-located under `src/**/__tests__/` so the strict compiler options already apply.
 
-**S3. A seam refactor silently breaks alert delivery.** Response: seams are added **one file per change**, each with a before/after payload equality test (`pineConnectorPayload` and `jsonPayload` byte-identical for a fixed signal), and `webhook_dispatch_log` is checked after the first live cycle. If any seam cannot be added without changing a call signature, it is dropped and that module is tested through its pure helpers only.
+## 7. No automatic seam phase
 
-**S4 (bonus). Bun's 24h release guard blocks the chosen test deps.** Response: pin to versions older than 24h; never add to `minimumReleaseAgeExcludes` without asking.
+`metaapi.server.ts`, `webhook.server.ts` and `pipeline.server.ts` are **not** modified in this prompt. Coverage is obtained, in order, from: (a) pure exported helpers (`pineConnectorPayload`, `jsonPayload`, `describeError`, `sessionOf`, replay/grading/risk math); (b) Vitest module mocks (`vi.mock` of the fetch layer, the Supabase client module, timers via `vi.setSystemTime`); (c) fixture-driven tests; (d) DB/RPC tests. A production seam may only be **proposed** — with a named high-value test that is impossible by (a)–(d), separate review, and proof of byte-identical V1 output — never introduced as general good practice.
 
-## D. Revised plan
+## 8. Database layer — evidence-driven fidelity
 
-**Phase 0 — Feasibility spikes (no committed test code)**
-1. Confirm aged, installable versions of `vitest`, `@vitest/coverage-v8`, `fast-check` under the 24h guard.
-2. Spike migration replay onto a throwaway local Postgres; record exactly which objects need a shim. Decide layer-4 fidelity (full replay vs schema subset per S2).
-3. Confirm with the user whether a GitHub mirror should exist. Until then, **no `.github/` directory is created and no CI is claimed.**
+**Phase-0 spike first:** replay `supabase/migrations/*` onto a throwaway local Postgres and record exactly which Supabase-specific dependencies fail (`auth.users` / `auth.uid()` / `auth.jwt()`, the `private` schema with `kick_scan_worker` / `kick_shadow_worker`, extensions, enums, roles). If full replay is not clean, use the **smallest faithful schema fixture**, copying policies, indexes, constraints and RPC bodies **verbatim** from the production migrations — no paraphrasing.
 
-**Phase 1 — Deterministic math (blocking)**
-4. Add devDeps, `vitest.config.ts` reusing app aliases, scripts `test`, `test:watch`, `verify` (`lint && typecheck && test && build`). Tests co-located under `src/**/__tests__` so the existing strict compiler options apply.
-5. Fixture-pinned unit tests for `indicators`, `grading`, `profile`, `replay`, `risk`, `performance`, `weekly`, `regime`, `market-hours`, `versioning`. Every expectation is a hand-calculated number, and each test states whether it pins **intended** behaviour or **observed current** behaviour.
-6. Write a `CHARACTERISATION.md` note listing observed-but-questionable behaviours found so far — `atr()` returning 0 on short series while `sma`/`ema` return null; the fill-before-TIF ordering in `replaySetup` — as findings for a future model plan, not fixes.
+Assertions, including the Prompt-00 model-version infrastructure set:
 
-**Phase 2 — Invariants (report-only, then promoted individually)**
-7. fast-check properties: seeded, bounded `numRuns`. Start with the ones that must hold under any model — probabilities in [0,1]; no NaN/Infinity in any published numeric; stop distance > 0; targets on the profitable side; position size never rounds above budget (already verified true: `calculateRisk` uses `floorToStep`). Geometry and TIF-ordering properties start report-only per S1.
+*Model versioning*
+1. V1 and V2 `regime_stats` rows coexist under the composite key.
+2. `recompute_regime_stats(1)` deletes/modifies no V2 row.
+3. `recompute_regime_stats(2)` deletes/modifies no V1 row.
+4. Regime and shadow reads return only the requested `model_version`.
+5. Historical signal↔version joins never silently substitute the currently active version.
+6. `scan_queue.run_id` survives `claim_scan_job` and remains usable for observation pairing.
+7. Tier-0 snapshots are preserved prospectively in `regime_snapshots` (post-00D behaviour), with `vol_t1`/`vol_t2` present, and no fabricated historical Tier-0 rows.
+8. Raw `baseline_snapshots` denied to `anon` and `authenticated`; reachable only through the authorized server/admin path.
+9. Once defaults are removed in the expand/contract migration, an insert omitting `model_version` fails rather than silently landing in V1.
 
-**Phase 3 — Seams (one file per change)**
-8. Injectable fetch/clock for `metaapi.server.ts`, then `webhook.server.ts`, then the clock in `pipeline.server.ts` — each with payload-equality guards from S3. Abort any seam that changes a public signature.
+*Core integrity*
+10. Per-user isolation on `executed_trades`, `scanner_settings`, `push_subscriptions`.
+11. `scanned_signals_active_unique` → 23505 on a concurrent identical active signal.
+12. Two concurrent `claim_scan_job` callers → exactly one claim (`FOR UPDATE SKIP LOCKED`).
+13. `purge_expired_signals` retention tiers (C 24h / B 36h / A+ 48h), `taken` trades preserved, `skipped` removed.
 
-**Phase 4 — Database**
-9. Per the phase-0 verdict: full migration replay or schema-subset fixture. Assertions: per-user isolation, `baseline_snapshots` unreachable by `anon`/`authenticated`, active-signal unique index → 23505, concurrent `claim_scan_job` → exactly one claim, `purge_expired_signals` retention tiers (C 24h / B 36h / A+ 48h) with `taken` trades preserved.
+## 9. GitHub CI
 
-**Phase 5 — Gate**
-10. Document `bun run verify` as the mandatory pre-merge command; `bun.lock` is canonical for our scripts. `package-lock.json` is **out of scope** — not deleted, not relied on. If a GitHub mirror is confirmed, the same script becomes the workflow body and the branch rule is added then.
+`bun run verify` is the single canonical command, identical locally and in CI, running in this order:
 
-**Phase 6 — Optional**
-11. Playwright smoke, non-blocking.
+```text
+1  bun install --frozen-lockfile     (deterministic install)
+2  lint                              (eslint)
+3  typecheck                         (tsgo -p tsconfig.json)
+4  blocking unit + V1_CHARACTERIZATION tests
+5  blocking INVARIANT tests
+6  DB tests when a Postgres service is available (skipped-with-notice otherwise, never silently passed)
+7  bun run build                     (production/Worker build)
+```
 
-Explicitly excluded: any change to ABC, grading, entry/stop/target math, replay resolution, alerts, learning formulas, schema, or RLS. Zero MetaApi calls (A8).
+Report-only property runs and `INTENDED_V2` are a separate `bun run verify:report` and must not make step 4–5 output nondeterministic (fixed seeds in the blocking path).
 
-## E. New acceptance criteria
+**Safe delivery of `.github/workflows/ci.yml`:** add it as a new file in an ordinary forward commit — no history rewrite, no force push, no changes to existing files beyond `package.json` scripts. `.github/` is untracked by Lovable's build and does not affect sync. `bun.lock` is canonical for the install step; `package-lock.json` is left in place and unused (out of scope). Workflow shape: `actions/checkout` → `oven-sh/setup-bun` → `bun run verify`, with a Postgres service container enabling step 6.
 
-1. `bun run verify` exits 0 locally: lint, `tsgo -p`, tests, `bun run build`.
-2. Every pure module named in D5 has at least one hand-calculated fixture, and every test is labelled *intended* or *observed*.
-3. `CHARACTERISATION.md` exists and lists at minimum the two A2 items.
-4. No file under `src/lib/scanner/`, `src/lib/execution/`, `src/lib/learning/` has any behavioural diff — verified by payload/output equality tests plus review of the diff.
-5. Phase-3 seams: `pineConnectorPayload` and `jsonPayload` byte-identical before and after; first post-change live cycle shows no new `webhook_dispatch_log` errors.
-6. Database layer asserts all six items in D9 against a from-scratch schema.
-7. No `.github/` directory and no CI claim unless a real GitHub check reports.
-8. No migration applied, no row written to any production table by this work.
-9. Zero MetaApi requests attributable to the test suite.
+Reporting discipline: **"workflow file created"** and **"required check active on GitHub"** are reported as separate facts. If GitHub execution cannot be observed from the implementation environment, the second is reported as unverified — but the architecture stays CI-first, never downgraded to a permanent manual-only gate. Branch protection (require `verify` green before merge to the deploy branch) is requested from you once the check reports at least once.
 
-## F. Remaining risks
+## 10. Fixture provenance (mandatory)
 
-Node/Bun passes do not prove workerd behaviour (`bun run build` stays the only Worker-shaped check). Local Postgres RLS may differ from the managed project in role/extension configuration. Property tests may keep surfacing intended-vs-actual divergence, growing the characterisation backlog faster than it can be resolved. Seam refactors remain the only production-code risk. `package-lock.json` staying in place means a future contributor could still install from the wrong tree.
+Every committed market fixture ships a sidecar/header with: instrument; timeframe; candle time range; model version at capture; fixture schema version; source type (`synthetic` | `captured-existing-data`); known defects intentionally represented; and an assertion that it contains no secrets, tokens, or account identifiers. **No fixture collection may initiate any MetaApi/broker call** — synthetic candles or already-stored data only. A check rejects fixtures missing provenance fields.
 
-## G. Confidence
+## 11. Implementation sequence
 
-**High (≈90%)** for phases 1–2: the target modules are pure, exported and dependency-free, and the two math claims I re-checked this pass held up — `calculateRisk` floors lots via `floorToStep` (so budget is never exceeded: equity 10 000 USD, 1%, EURUSD, 50-pip stop, 100k contract → riskPerLot 500, rawLots 0.20, lots 0.20, risk 100.00), and `replaySetup` resolves stop-before-target conservatively.
-**Medium (≈60%)** for phase 4: gated on the unverified migration-replay spike (A5).
-**Low** for any gating claim: with no GitHub remote, "release gates" are a human ritual, not enforcement, until the user decides on a mirror.
+1. **Phase 0 (spikes, nothing committed):** confirm aged installable versions of `vitest`, `@vitest/coverage-v8`, `fast-check` under the 24h guard; migration-replay spike + failure inventory; read `profile.ts` to measure symmetry's actual confidence contribution.
+2. Tooling: devDeps, `vitest.config.ts` (blocking project + report-only project), `verify` / `verify:report` / `test` scripts, eslint override for test globals, test-class-label check.
+3. Deterministic unit fixtures for `indicators`, `grading`, `profile`, `replay`, `risk`, `performance`, `weekly`, `regime`, `market-hours`, `versioning` — every expectation hand-calculated and class-labelled.
+4. V1 characterization layer (§4) + `CHARACTERISATION.md`.
+5. Blocking invariants (§5) with fixed seeds.
+6. Module-mock tests for MetaApi failure modes (timeout, 401, 429, malformed candles), webhook dispatch failure modes (timeout, non-200, duplicate), job staleness and structure cooldown — **no production file edited**.
+7. Database layer per §8 verdict.
+8. `.github/workflows/ci.yml` per §9; report workflow-created vs check-active separately.
+9. `INTENDED_V2` backlog written as `todo` tests for the model-remediation prompt.
 
-## H. What still cannot be guaranteed
+## 12. Representative expected values
 
-That passing tests imply correct production behaviour on Cloudflare. That local RLS equals managed RLS. That property testing finds all latent geometry bugs — no counterexample is not a proof. That the invariants I proposed describe intended behaviour; A2 shows at least two do not. That the webhook plaintext-secret and missing URL/host validation findings are safe to leave open — they need their own hardening plan. That fixture capture is free of historical contamination beyond what the model-version stamp records.
+| Target | Input | Expected | Class |
+|---|---|---|---|
+| `atr` | 15 candles, TR = 1.0 each | 1.0 | INVARIANT-adjacent unit |
+| `atr` | 10 candles, period 14 | `0` | V1_CHARACTERIZATION |
+| `ema` | constant 10, any period | 10 | unit |
+| `calculateRisk` | 10 000 USD, 1%, EURUSD, 50-pip stop, 100k contract | budget 100.00; riskPerLot 500; rawLots 0.20; lots 0.20; risk 100.00 | INVARIANT (never above budget) |
+| `calculateRisk` | equity 0 / missing rate | `{ok:false}` with the specific reason | INVARIANT (fail closed) |
+| R geometry, long | entry 1.1000, stop 1.0950, tp1 1.1050 | risk 0.0050, `tp1_r` = 1.0 | INVARIANT |
+| R geometry, short | entry 1.1000, stop 1.1050, tp2 1.0900 | risk 0.0050, `tp2_r` = 2.0 | INVARIANT |
+| `computeExpectancy` | R = [+2, −1, −1, +3] | mean R +0.75, win rate 0.5 | unit |
+| `computeExpectancy` | empty | `EMPTY_EXPECTANCY`, no NaN | INVARIANT |
+| `twoProportionZTest` | 50/100 vs 50/100 | z = 0, p = 1 | unit |
+| tier with n = 10 | below `MIN_TIER_SAMPLES` 30 | verdict `insufficient` | INVARIANT |
+| shrinkage | wins 1 / n 1, k = 30 | strictly between 1.0 and the prior mean | INVARIANT |
+| `replaySetup` | stop+target in one candle | loss, R = −1 | V1_CHARACTERIZATION |
+| `replaySetup` | post-TIF touch | fills | V1_CHARACTERIZATION |
+| `gradeSetup` | H4 neutral, H1=M15 long | `B` | V1_CHARACTERIZATION |
+| `gradeSetup` | H4/H1 neutral, M15 long | `C` | V1_CHARACTERIZATION |
 
-## I. Recommendation
+## 13. Failure-mode simulations
 
-**Modify the plan — adopt the revised phasing above.** Three changes from the first version are non-negotiable: drop the GitHub Actions gate until a mirror is confirmed; make invariant tests report-only until each is validated against intended behaviour; treat the two A2 items as characterisation findings for a separate model plan rather than test failures to "fix". One open question before phase 0 starts: **do you want a GitHub mirror created so real CI gating becomes possible, or should the gate stay a local `bun run verify` ritual plus the platform build check?**
+MetaApi (mocked): 8s timeout → instrument flagged, job `skipped`; 401/429 → flagged, no signal; malformed candles → `no_trade`. Pipeline: `market_context` insert failure → signal rolled back, job `failed`. Concurrency: duplicate worker invocations → one claim, no double publish; stale job past `JOB_STALE_AFTER_MS` → closed without fetching. Webhook (mocked): timeout, non-200, refused, duplicate → logged, pipeline unaffected. Shadow: mid-replay provider failure → retry without corrupting `bars_replayed`/`replay_cursor`.
+
+## 14. Baseline / versioning implications
+
+No historical row is rewritten and no algorithm output changes; the characterization suite *is* the V1 reference. Golden outputs are stamped with `ACTIVE_MODEL_VERSION` at capture and cross-referenced to `CHARACTERISATION.md`, so a V2 diff reads as intentional divergence rather than a silent pass.
+
+## 15. Security
+
+No secret reaches CI: no `SUPABASE_SERVICE_ROLE_KEY`, DB password, `METAAPI_TOKEN`, VAPID keys, or `CRON_SECRET`. DB tests use only the ephemeral local instance. `minimumReleaseAge` stays intact. RLS assertions become permanent regression cover. Noted as findings for a separate hardening plan (not touched here): `webhook.server.ts` calls `fetch(target.url, …)` with no scheme/host validation, and its "secret" is a plaintext body field rather than an HMAC over the payload.
+
+## 16. Acceptance criteria — exact evidence required
+
+The implementation report must contain: exact files changed; exact commands run; test counts pass/fail/todo split by class; property-test seeds; database-test results per §8 item; full lint, typecheck and build output; GitHub workflow status reported separately as *file created* vs *required check active*; proof of zero MetaApi calls (no network egress from the suite; fixtures synthetic or previously stored); and a diff review showing no unintended production algorithm change. Plus: `bun run verify` exits 0; every trading test carries exactly one class label; `CHARACTERISATION.md` covers all six §4 items plus the replay ambiguity set; every fixture has complete provenance; no migration applied and no production row written.
+
+## 17. Rollback
+
+Delete added test files, `vitest.config.ts`, the workflow file, and remove devDeps and the added scripts. No schema or data change to undo; no production module edited (unless a seam is separately approved, in which case that single file reverts alone).
+
+## 18. Remaining risks and what cannot be guaranteed
+
+Node/Bun passes do not prove workerd behaviour — `bun run build` stays the only Worker-shaped check. Local Postgres RLS may differ from the managed project in roles/extensions. GitHub execution cannot be observed from this environment, so *check-active* will be reported as unverified until it reports. Migration-replay fidelity is unknown until the Phase-0 spike. Property testing cannot prove absence of latent geometry bugs. Characterizing a defect does not make it safe — it makes it reproducible, and each pinned item still needs the model-remediation prompt.
+
+## 19. Recommendation
+
+**Proceed** with this revised scope: CI-first via `bun run verify` in GitHub Actions, a formal three-class test taxonomy, a mandatory V1 characterization layer, blocking model-independent invariants only, no automatic production seams, evidence-driven DB fidelity, and full fixture provenance. Nothing in this prompt changes trading behaviour.
