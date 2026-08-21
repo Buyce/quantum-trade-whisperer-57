@@ -47,11 +47,11 @@ export function researchFailureCount(): number {
   return failureCount;
 }
 
-async function bounded<T>(work: Promise<T>, ms: number): Promise<T | "deadline"> {
+async function bounded<T>(work: PromiseLike<T>, ms: number): Promise<T | "deadline"> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     return await Promise.race([
-      work,
+      Promise.resolve(work),
       new Promise<"deadline">((resolve) => {
         timer = setTimeout(() => resolve("deadline"), ms);
       }),
