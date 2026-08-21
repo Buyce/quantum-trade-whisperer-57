@@ -18,6 +18,7 @@ interface TierBlock {
   label?: string
   enrolled?: number
   resolved?: number
+  pendingResolution?: number
   filled?: number
   wins?: number
   losses?: number
@@ -29,6 +30,8 @@ interface TierBlock {
   totalR?: string
   expectancyR?: string
   medianMissAtr?: string
+  /** Which R denominator every R figure in this block uses. */
+  rBasis?: string
 }
 
 interface ComparisonBlock {
@@ -37,10 +40,22 @@ interface ComparisonBlock {
   lowRate?: string
   highN?: number
   lowN?: number
+  highClusters?: number
+  lowClusters?: number
   difference?: string
+  /** Primary dependence-aware interval. */
+  intervalStatus?: string
+  interval?: string
+  intervalMethod?: string
+  intervalSeed?: number
+  intervalRunId?: string
+  intervalReason?: string
+  /** Secondary, independence-assuming diagnostics only. */
   z?: string
   pValue?: string
   verdict?: string
+  evidenceLevel?: string
+  blockers?: string[]
   note?: string
 }
 
@@ -49,6 +64,8 @@ interface WeeklyShadowReportProps {
   windowStart?: string
   windowEnd?: string
   totalResolved?: number
+  immature?: number
+  maturityHours?: number
   high?: TierBlock
   low?: TierBlock
   comparisons?: ComparisonBlock[]
@@ -56,12 +73,16 @@ interface WeeklyShadowReportProps {
 
 const mono = { ...text, fontFamily: MONO, fontSize: '13px', margin: '0 0 6px' }
 const subhead = { ...text, fontWeight: 700, margin: '0 0 8px' }
+const caption = { ...text, fontSize: '12px', margin: '0 0 10px' }
 
 const Tier = ({ tier }: { tier: TierBlock }) => (
   <>
     <Text style={subhead}>{tier.label ?? 'tier'}</Text>
-    <Text style={mono}>enrolled: {tier.enrolled ?? 0}</Text>
-    <Text style={mono}>resolved: {tier.resolved ?? 0}</Text>
+    <Text style={mono}>raw n (enrolled): {tier.enrolled ?? 0}</Text>
+    <Text style={mono}>raw n (resolved): {tier.resolved ?? 0}</Text>
+    <Text style={mono}>
+      mature but unresolved (pending_resolution): {tier.pendingResolution ?? 0}
+    </Text>
     <Text style={mono}>filled: {tier.filled ?? 0}</Text>
     <Text style={mono}>
       wins / losses: {tier.wins ?? 0} / {tier.losses ?? 0}
@@ -71,9 +92,17 @@ const Tier = ({ tier }: { tier: TierBlock }) => (
     </Text>
     <Text style={mono}>fill rate: {tier.fillRate ?? 'n/a'}</Text>
     <Text style={mono}>win rate (of filled): {tier.winRate ?? 'n/a'}</Text>
-    <Text style={mono}>mean R: {tier.meanR ?? 'n/a'}</Text>
-    <Text style={mono}>total R: {tier.totalR ?? 'n/a'}</Text>
-    <Text style={mono}>expectancy: {tier.expectancyR ?? 'n/a'}</Text>
+    <Text style={mono}>R basis: {tier.rBasis ?? 'replay realized R (per-plan risk)'}</Text>
+    <Text style={mono}>
+      mean R [{tier.rBasis ?? 'replay realized R (per-plan risk)'}]: {tier.meanR ?? 'n/a'}
+    </Text>
+    <Text style={mono}>
+      total R [{tier.rBasis ?? 'replay realized R (per-plan risk)'}]: {tier.totalR ?? 'n/a'}
+    </Text>
+    <Text style={mono}>
+      expectancy [{tier.rBasis ?? 'replay realized R (per-plan risk)'}]:{' '}
+      {tier.expectancyR ?? 'n/a'}
+    </Text>
     <Text style={mono}>median miss distance (unfilled): {tier.medianMissAtr ?? 'n/a'}</Text>
   </>
 )
@@ -83,6 +112,8 @@ const WeeklyShadowReportEmail = ({
   windowStart,
   windowEnd,
   totalResolved,
+  immature,
+  maturityHours,
   high = {},
   low = {},
   comparisons = [],
@@ -101,6 +132,10 @@ const WeeklyShadowReportEmail = ({
           Every number below is an aggregate over live replayed setups — {totalResolved ?? 0}{' '}
           resolved in the window.
         </Text>
+        <Text style={caption}>
+          Maturity horizon: {maturityHours ?? 24}h. Observations detected inside that horizon are
+          right-censored and excluded from every rate: {immature ?? 0} censored this window.
+        </Text>
 
         <Hr style={hr} />
         <Tier tier={high} />
@@ -108,31 +143,57 @@ const WeeklyShadowReportEmail = ({
         <Tier tier={low} />
         <Hr style={hr} />
 
-        <Text style={subhead}>Statistical significance (two-proportion z-test)</Text>
+        <Text style={subhead}>
+          Tier comparison — dependence-aware whole-UTC-day cluster bootstrap
+        </Text>
+        <Text style={caption}>
+          The primary interval resamples whole UTC detected days, so setups that share a day stay
+          together. Below the independent-day floor no interval is reported and the evidence level
+          is "insufficient".
+        </Text>
         {comparisons.length === 0 ? (
           <Text style={mono}>no comparisons available</Text>
         ) : (
           comparisons.map((c, i) => (
             <React.Fragment key={i}>
-              <Text style={{ ...mono, marginTop: '10px' }}>{c.label ?? 'comparison'}</Text>
-              <Text style={mono}>
-                A/A+ {c.highRate ?? 'n/a'} (n={c.highN ?? 0}) vs B/C {c.lowRate ?? 'n/a'} (n=
-                {c.lowN ?? 0})
+              <Text style={{ ...mono, marginTop: '10px', fontWeight: 700 }}>
+                {c.label ?? 'comparison'}
               </Text>
               <Text style={mono}>
-                difference: {c.difference ?? 'n/a'} · z: {c.z ?? 'n/a'} · p: {c.pValue ?? 'n/a'}
+                A/A+ {c.highRate ?? 'n/a'} (raw n={c.highN ?? 0}, independent UTC days=
+                {c.highClusters ?? 0}) vs B/C {c.lowRate ?? 'n/a'} (raw n={c.lowN ?? 0}, independent
+                UTC days={c.lowClusters ?? 0})
               </Text>
+              <Text style={mono}>point difference: {c.difference ?? 'n/a'}</Text>
+              <Text style={mono}>
+                dependence-aware 95% interval: {c.interval ?? 'not reported'} (status:{' '}
+                {c.intervalStatus ?? 'n/a'})
+              </Text>
+              {c.intervalReason ? <Text style={mono}>why: {c.intervalReason}</Text> : null}
+              <Text style={mono}>
+                method: {c.intervalMethod ?? 'n/a'} · seed: {c.intervalSeed ?? 'n/a'} · run:{' '}
+                {c.intervalRunId ?? 'n/a'}
+              </Text>
+              <Text style={mono}>evidence level: {c.evidenceLevel ?? 'n/a'}</Text>
+              {(c.blockers ?? []).length > 0 ? (
+                <Text style={mono}>blockers: {(c.blockers ?? []).join(' ')}</Text>
+              ) : null}
               <Text style={mono}>verdict: {c.verdict ?? 'n/a'} — {c.note ?? ''}</Text>
+              <Text style={mono}>
+                diagnostics assuming independence (NOT a verdict input) — z: {c.z ?? 'n/a'} · p:{' '}
+                {c.pValue ?? 'n/a'}
+              </Text>
             </React.Fragment>
           ))
         )}
 
         <Hr style={hr} />
         <Text style={footer}>
-          A tier needs at least 30 resolved samples before a comparison is reported; below that
-          the verdict is "insufficient" and no conclusion is drawn. These statistics are
-          observational — grading, alerting and the daily setup limit do not read them. Sent once
-          per ISO week.
+          Verdicts come from the shared evidence gate: raw sample floor, independent UTC-day floor,
+          and a dependence-aware interval that excludes zero. z and p assume independent
+          observations, which intraday setups violate, so they are printed as diagnostics only and
+          never earn the word "significant". These statistics are observational — grading, alerting
+          and the daily setup limit do not read them. Sent once per ISO week.
         </Text>
       </Container>
     </Body>
@@ -150,10 +211,13 @@ export const template = {
     windowStart: '2026-08-12',
     windowEnd: '2026-08-19',
     totalResolved: 41,
+    immature: 3,
+    maturityHours: 24,
     high: {
       label: 'A / A+',
       enrolled: 6,
       resolved: 5,
+      pendingResolution: 1,
       filled: 3,
       wins: 2,
       losses: 1,
@@ -161,6 +225,7 @@ export const template = {
       expired: 0,
       fillRate: '60.0%',
       winRate: '66.7%',
+      rBasis: 'replay realized R (per-plan risk)',
       meanR: '0.84R',
       totalR: '2.51R',
       expectancyR: '0.84R',
@@ -170,6 +235,7 @@ export const template = {
       label: 'B / C',
       enrolled: 44,
       resolved: 36,
+      pendingResolution: 8,
       filled: 16,
       wins: 6,
       losses: 10,
@@ -177,6 +243,7 @@ export const template = {
       expired: 2,
       fillRate: '44.4%',
       winRate: '37.5%',
+      rBasis: 'replay realized R (per-plan risk)',
       meanR: '-0.09R',
       totalR: '-1.44R',
       expectancyR: '-0.09R',
@@ -189,11 +256,22 @@ export const template = {
         lowRate: '44.4%',
         highN: 5,
         lowN: 36,
+        highClusters: 3,
+        lowClusters: 12,
         difference: '15.6 pts',
+        intervalStatus: 'insufficient_clusters',
+        interval: 'not reported',
+        intervalReason:
+          'Only 3 vs 12 independent trading day(s); 10 required per group before a dependence-aware interval is reported.',
+        intervalMethod: 'whole_utc_day_cluster_bootstrap',
+        intervalSeed: 20260821,
+        intervalRunId: 'whole_utc_day_cluster_bootstrap:diff:v1:seed20260821:B2000',
         z: 'n/a',
         pValue: 'n/a',
         verdict: 'insufficient',
-        note: 'Not enough data: 5 vs 36 samples (need 30 per tier). No conclusion drawn.',
+        evidenceLevel: 'insufficient',
+        blockers: ['Fewer than 10 independent trading days in one group.'],
+        note: 'No conclusion drawn.',
       },
     ],
   },

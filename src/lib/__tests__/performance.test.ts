@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import fc from "fast-check";
-import { EMPTY_EXPECTANCY, computeExpectancy, type RSample } from "../performance";
+import {
+  EMPTY_EXPECTANCY,
+  computeExpectancy,
+  generateInsights,
+  type RSample,
+} from "../performance";
 import type { Grade } from "../db-types";
 
 const SEED = 20_260_821;
@@ -86,5 +91,32 @@ describe("computeExpectancy", () => {
       ),
       { seed: SEED, numRuns: 300 },
     );
+  });
+});
+
+describe("generateInsights is non-prescriptive at small n", () => {
+  const PRESCRIPTIVE =
+    /consider excluding|excluding it|raising your minimum grade|strongest tier|highest-yield|net drag|you should|avoid trading|prefer|focus on|stop trading/i;
+
+  it("[INVARIANT] n = 3 produces strictly descriptive/cautionary output", () => {
+    const samples = [sample("win", 2), sample("loss", -1), sample("win", 1.5)];
+    const out = generateInsights(samples, "EURUSD").join(" ");
+    expect(out).not.toMatch(PRESCRIPTIVE);
+    expect(out).toMatch(/below the .* floor|not an estimate of what to expect|no conclusion/i);
+    expect(out).toMatch(/3 closed setups/);
+  });
+
+  it("[INVARIANT] no sample size emits prescriptive optimisation language", () => {
+    const many: RSample[] = [];
+    for (let i = 0; i < 120; i++) {
+      many.push(sample(i % 3 === 0 ? "win" : "loss", i % 3 === 0 ? 2 : -1, i % 2 ? "A" : "C"));
+    }
+    const out = generateInsights(many, "All setups").join(" ");
+    expect(out).not.toMatch(PRESCRIPTIVE);
+    expect(out).toMatch(/descriptive/i);
+  });
+
+  it("[UNIT] zero closed results says so instead of inventing a number", () => {
+    expect(generateInsights([], "EURUSD").join(" ")).toMatch(/no closed results/i);
   });
 });

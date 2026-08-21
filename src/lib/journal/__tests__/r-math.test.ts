@@ -133,6 +133,7 @@ describe("canonical R mathematics", () => {
   });
 
   it("[INVARIANT] zero risk distance is refused rather than dividing by zero", () => {
+    // Zero PLANNED risk: no error, both bases simply unavailable.
     const r = computeR({
       outcome: "win",
       direction: "long",
@@ -140,11 +141,24 @@ describe("canonical R mathematics", () => {
       plannedStop: 100,
       actualEntryPrice: 100,
       actualExitPrice: 103,
-      actualInitialStop: 100,
+      actualInitialStop: null,
     });
     expect(r.rVsPlan).toBeNull();
     expect(r.rVsActualRisk).toBeNull();
     expect(r.availability).toBe("unavailable_zero_risk");
+
+    // Zero ACTUAL stop distance is impossible geometry: rejected outright.
+    expect(() =>
+      computeR({
+        outcome: "win",
+        direction: "long",
+        plannedEntry: 100,
+        plannedStop: 100,
+        actualEntryPrice: 100,
+        actualExitPrice: 103,
+        actualInitialStop: 100,
+      }),
+    ).toThrow(RMathInputError);
   });
 
   it("[UNIT] one-sided prices raise a validation error", () => {
@@ -272,5 +286,67 @@ describe("monetary costs", () => {
       documentedRValueInCostCurrency: 100,
     });
     expect(out.status).toBe("unavailable_gross");
+  });
+});
+
+describe("actual-stop geometry (shared by web and MCP)", () => {
+  const base = {
+    outcome: "win" as const,
+    plannedEntry: 100,
+    plannedStop: 98,
+    actualEntryPrice: 101,
+    actualExitPrice: 105,
+  };
+
+  it("[INVARIANT] a long stop at or above the actual entry is impossible, never a valid actual-risk R", () => {
+    for (const stop of [101, 102]) {
+      const call = () =>
+        computeR({ ...base, direction: "long", actualInitialStop: stop });
+      expect(call).toThrow(RMathInputError);
+      try {
+        call();
+      } catch (err) {
+        expect((err as RMathInputError).code).toBe("impossible_stop_geometry");
+      }
+    }
+  });
+
+  it("[INVARIANT] a short stop at or below the actual entry is impossible", () => {
+    for (const stop of [101, 100] as const) {
+      const call = () =>
+        computeR({
+          ...base,
+          direction: "short",
+          actualEntryPrice: 101,
+          actualExitPrice: 97,
+          plannedEntry: 100,
+          plannedStop: 102,
+          actualInitialStop: stop,
+        });
+      expect(call).toThrow(RMathInputError);
+    }
+  });
+
+  it("[UNIT] correct-side stops still compute both bases", () => {
+    const long = computeR({ ...base, direction: "long", actualInitialStop: 99 });
+    expect(long.rVsActualRisk).toBe(2);
+    const short = computeR({
+      outcome: "win",
+      direction: "short",
+      plannedEntry: 100,
+      plannedStop: 102,
+      actualEntryPrice: 101,
+      actualExitPrice: 97,
+      actualInitialStop: 103,
+    });
+    expect(short.grossMove).toBe(4);
+    expect(short.rVsActualRisk).toBe(2);
+    expect(short.stopProvenance).toBe("actual_stop");
+  });
+
+  it("[INVARIANT] a zero-distance actual stop is rejected rather than dividing by zero", () => {
+    expect(() =>
+      computeR({ ...base, direction: "long", actualInitialStop: 101 }),
+    ).toThrow(/below its actual entry|non-zero/);
   });
 });

@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { wilsonInterval, newcombeDifference } from "../wilson";
 import { buildDayClusters, clusterCount, stableOrder, utcDayKey } from "../clusters";
-import { clusterBootstrapMeanR, createRng, MIN_CLUSTERS } from "../bootstrap";
+import {
+  clusterBootstrapMeanR,
+  clusterBootstrapProportionDifference,
+  createRng,
+  MIN_CLUSTERS,
+} from "../bootstrap";
 import { assessEvidence, holdoutConfirmed, isSufficient } from "../evidence";
 import { benjaminiHochberg, UndeclaredFamilyError } from "../bh";
 
@@ -211,5 +216,88 @@ describe("BH is diagnostic and family-bounded", () => {
         { key: "fill_rate", pValue: 0.2 },
       ]),
     ).toThrowError(UndeclaredFamilyError);
+  });
+});
+
+describe("dependence-aware proportion-difference bootstrap", () => {
+  const pobs = (id: string, day: string, group: "A" | "B", success: boolean) => ({
+    id,
+    detectedAt: `2026-08-${day}T10:00:00.000Z`,
+    group,
+    success,
+  });
+
+  /** n rows per group spread one per UTC day so day clusters are real. */
+  const frame = (days: number, aWinEvery: number, bWinEvery: number) => {
+    const rows = [];
+    for (let d = 0; d < days; d++) {
+      const day = String(d + 1).padStart(2, "0");
+      rows.push(pobs(`a${d}`, day, "A", d % aWinEvery === 0));
+      rows.push(pobs(`b${d}`, day, "B", d % bWinEvery === 0));
+    }
+    return rows;
+  };
+
+  it("[INVARIANT] refuses an interval when either group is below the day floor", () => {
+    const rows = [
+      pobs("a1", "21", "A", true),
+      pobs("a2", "21", "A", false),
+      pobs("b1", "21", "B", false),
+    ];
+    const out = clusterBootstrapProportionDifference(rows);
+    expect(out.status).toBe("insufficient_clusters");
+    expect(out.ciLo).toBeNull();
+    expect(out.ciHi).toBeNull();
+    expect(out.excludesNull).toBe(false);
+    expect(out.difference).toBeCloseTo(0.5, 10);
+  });
+
+  it("[UNIT] produces an interval once both groups clear the day floor", () => {
+    const out = clusterBootstrapProportionDifference(frame(20, 1, 100));
+    expect(out.status).toBe("ok");
+    expect(out.clustersA).toBe(20);
+    expect(out.clustersB).toBe(20);
+    expect(out.clusterN).toBe(20);
+    expect(out.difference).toBeCloseTo(0.95, 10);
+    expect(out.ciLo!).toBeLessThanOrEqual(out.ciHi!);
+    expect(out.excludesNull).toBe(true);
+  });
+
+  it("[INVARIANT] identical groups give an interval that contains zero", () => {
+    const out = clusterBootstrapProportionDifference(frame(20, 2, 2));
+    expect(out.status).toBe("ok");
+    expect(out.difference).toBeCloseTo(0, 10);
+    expect(out.excludesNull).toBe(false);
+    expect(out.ciLo!).toBeLessThanOrEqual(0);
+    expect(out.ciHi!).toBeGreaterThanOrEqual(0);
+  });
+
+  it("[INVARIANT] whole days move together: both groups of a drawn day enter the replicate", () => {
+    const rows = frame(20, 1, 100);
+    const out = clusterBootstrapProportionDifference(rows);
+    // Every replicate draws 20 whole days, each contributing one A and one B row.
+    expect(out.degenerateReplicates).toBe(0);
+    expect(out.nA).toBe(20);
+    expect(out.nB).toBe(20);
+  });
+
+  it("[INVARIANT] deterministic and order-independent, with method/version/seed/runId", () => {
+    const rows = frame(20, 3, 2);
+    const a = clusterBootstrapProportionDifference(rows, { seed: 999, replicates: 400 });
+    const b = clusterBootstrapProportionDifference([...rows].reverse(), {
+      seed: 999,
+      replicates: 400,
+    });
+    expect(JSON.stringify(a)).toBe(JSON.stringify(b));
+    expect(a.method).toBe("whole_utc_day_cluster_bootstrap");
+    expect(a.version).toBe(1);
+    expect(a.seed).toBe(999);
+    expect(a.runId).toContain("diff");
+  });
+
+  it("[UNIT] an empty group is empty, not a zero difference", () => {
+    const out = clusterBootstrapProportionDifference([pobs("a", "21", "A", true)]);
+    expect(out.status).toBe("empty");
+    expect(out.difference).toBeNull();
   });
 });

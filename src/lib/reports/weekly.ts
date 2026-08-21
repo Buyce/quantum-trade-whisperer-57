@@ -11,7 +11,11 @@
  * clusters as well as raw rows.
  */
 import { assessEvidence, holdoutConfirmed, MIN_GROUP_SAMPLES, type EvidenceVerdict } from "@/lib/stats/evidence";
-import { clusterCount } from "@/lib/stats/clusters";
+import {
+  clusterBootstrapProportionDifference,
+  type ProportionObservation,
+} from "@/lib/stats/bootstrap";
+
 
 /** Minimum resolved rows per tier before a comparison is worth reading. */
 export const MIN_TIER_SAMPLES = MIN_GROUP_SAMPLES;
@@ -31,7 +35,10 @@ export interface TierStats {
   grades: string[];
   enrolled: number;
   resolved: number;
+  /** Mature (past the horizon) but still not resolved. Disclosed, never dropped. */
+  pendingResolution: number;
   filled: number;
+
   wins: number;
   losses: number;
   neverFilled: number;
@@ -46,6 +53,27 @@ export interface TierStats {
 
 export type Verdict = "significant" | "not_significant" | "insufficient";
 
+/**
+ * The PRIMARY dependence-aware comparison interval: a deterministic whole-UTC-day
+ * cluster bootstrap of the difference in rates. `z`/`pValue` are secondary,
+ * explicitly independence-assuming diagnostics and never drive a verdict.
+ */
+export interface DependenceAwareInterval {
+  status: string;
+  difference: number | null;
+  ciLo: number | null;
+  ciHi: number | null;
+  ciLevel: number;
+  excludesNull: boolean;
+  clusterN: number;
+  method: string;
+  version: number;
+  seed: number;
+  runId: string;
+  replicates: number;
+  reason: string | null;
+}
+
 export interface Comparison {
   metric: "fill_rate" | "win_rate";
   label: string;
@@ -54,6 +82,7 @@ export interface Comparison {
   highN: number;
   lowN: number;
   difference: number | null;
+  /** Independence-assuming diagnostic only. Never a verdict input. */
   z: number | null;
   pValue: number | null;
   verdict: Verdict;
@@ -61,9 +90,12 @@ export interface Comparison {
   /** Independent UTC trading days behind each rate. */
   highClusters: number;
   lowClusters: number;
+  /** Primary dependence-aware interval. Null when clusters are insufficient. */
+  interval: DependenceAwareInterval;
   /** The shared sufficiency verdict. Authoritative over `verdict`. */
   evidence: EvidenceVerdict;
 }
+
 
 export interface WeeklyReport {
   generatedAt: string;
@@ -152,15 +184,6 @@ export interface ShadowRow {
 const numOrNull = (v: number | string | null): number | null =>
   v === null || v === "" ? null : Number.isFinite(Number(v)) ? Number(v) : null;
 
-/** Independent UTC-day clusters behind a set of rows. */
-function clustersOf(rows: ShadowRow[]): number {
-  const usable = rows.filter((r) => typeof r.detected_at === "string" && r.detected_at);
-  if (usable.length === 0) return 0;
-  return clusterCount(
-    usable.map((r, i) => ({ id: r.id ?? String(i), detectedAt: r.detected_at as string })),
-  );
-}
-
 /**
  * Splits rows at the maturity horizon. Plans detected too close to the window
  * edge are censored, not counted as unresolved.
@@ -217,7 +240,9 @@ export function tierStats(rows: ShadowRow[], tier: TierKey): TierStats {
     grades,
     enrolled: mine.length,
     resolved: resolved.length,
+    pendingResolution: mine.length - resolved.length,
     filled: filled.length,
+
     wins: wins.length,
     losses: losses.length,
     neverFilled: neverFilled.length,
@@ -231,34 +256,79 @@ export function tierStats(rows: ShadowRow[], tier: TierKey): TierStats {
   };
 }
 
+/** Rows → bootstrap observations. Rows without a detection stamp cannot be
+ *  clustered honestly and are excluded from the dependence-aware frame only. */
+function toObservations(
+  rows: ShadowRow[],
+  group: "A" | "B",
+  success: (r: ShadowRow) => boolean,
+): ProportionObservation[] {
+  return rows
+    .filter((r) => typeof r.detected_at === "string" && r.detected_at)
+    .map((r, i) => ({
+      id: `${group}:${r.id ?? i}`,
+      detectedAt: r.detected_at as string,
+      group,
+      success: success(r),
+    }));
+}
+
 function buildComparison(
   metric: Comparison["metric"],
   label: string,
-  high: { successes: number; n: number; clusters: number },
-  low: { successes: number; n: number; clusters: number },
+  highRows: ShadowRow[],
+  lowRows: ShadowRow[],
+  success: (r: ShadowRow) => boolean,
 ): Comparison {
-  const highRate = high.n ? high.successes / high.n : null;
-  const lowRate = low.n ? low.successes / low.n : null;
+  const highSuccesses = highRows.filter(success).length;
+  const lowSuccesses = lowRows.filter(success).length;
+  const highN = highRows.length;
+  const lowN = lowRows.length;
+
+  const highRate = highN ? highSuccesses / highN : null;
+  const lowRate = lowN ? lowSuccesses / lowN : null;
   const difference = highRate !== null && lowRate !== null ? highRate - lowRate : null;
 
+  // PRIMARY interval: whole-UTC-day cluster bootstrap of the rate difference.
+  const boot = clusterBootstrapProportionDifference([
+    ...toObservations(highRows, "A", success),
+    ...toObservations(lowRows, "B", success),
+  ]);
+  const interval: DependenceAwareInterval = {
+    status: boot.status,
+    difference: boot.difference,
+    ciLo: boot.ciLo,
+    ciHi: boot.ciHi,
+    ciLevel: boot.ciLevel,
+    excludesNull: boot.excludesNull,
+    clusterN: boot.clusterN,
+    method: boot.method,
+    version: boot.version,
+    seed: boot.seed,
+    runId: boot.runId,
+    replicates: boot.replicates,
+    reason: boot.reason,
+  };
+
+  // SECONDARY diagnostic only: assumes independence, which intraday setups
+  // violate. It never enters the evidence decision.
   const { z, pValue } =
-    high.n > 0 && low.n > 0
-      ? twoProportionZTest(high.successes, high.n, low.successes, low.n)
+    highN > 0 && lowN > 0
+      ? twoProportionZTest(highSuccesses, highN, lowSuccesses, lowN)
       : { z: null, pValue: null };
 
-  // The z-test ignores within-day dependence, so it can only ever *lower* the
-  // verdict here: the shared evidence gate decides what may be claimed.
   const evidence = assessEvidence({
-    nA: high.n,
-    nB: low.n,
-    clustersA: high.clusters,
-    clustersB: low.clusters,
+    nA: highN,
+    nB: lowN,
+    clustersA: boot.clustersA,
+    clustersB: boot.clustersB,
     observedEffect: difference,
     // This weekly high-vs-low split is a standing descriptive readout, not a
     // predeclared, multiplicity-controlled hypothesis in the experiment ledger.
     predeclared: false,
     multiplicityControlled: false,
-    intervalExcludesNull: pValue !== null && pValue < 0.05,
+    // Derived from the dependence-aware bootstrap interval, never from a p-value.
+    intervalExcludesNull: boot.status === "ok" && boot.excludesNull,
     holdoutConfirmed: holdoutConfirmed(),
   });
 
@@ -267,11 +337,12 @@ function buildComparison(
     label,
     highRate,
     lowRate,
-    highN: high.n,
-    lowN: low.n,
-    highClusters: high.clusters,
-    lowClusters: low.clusters,
+    highN,
+    lowN,
+    highClusters: boot.clustersA,
+    lowClusters: boot.clustersB,
     difference,
+    interval,
     evidence,
   };
 
@@ -286,7 +357,10 @@ function buildComparison(
   }
 
   const direction = (highRate ?? 0) >= (lowRate ?? 0) ? "higher" : "lower";
-  const pText = pValue === null ? "n/a" : pValue.toFixed(4);
+  const ciText =
+    boot.status === "ok"
+      ? `${(boot.ciLo! * 100).toFixed(1)} to ${(boot.ciHi! * 100).toFixed(1)} pts`
+      : "no dependence-aware interval";
   // "significant" is never claimed on the strength of a p-value alone.
   const significant = evidence.level === "actionable" || evidence.level === "suggestive";
   return {
@@ -295,10 +369,11 @@ function buildComparison(
     pValue,
     verdict: significant ? "significant" : "not_significant",
     note: significant
-      ? `A/A+ is ${direction} than B/C (p = ${pText}, ${high.clusters} vs ${low.clusters} independent days). ${evidence.note}`
-      : `A/A+ is ${direction} than B/C (p = ${pText}), but this is descriptive only. ${evidence.blockers.join(" ")}`,
+      ? `A/A+ is ${direction} than B/C (day-cluster bootstrap 95% interval ${ciText}, ${boot.clustersA} vs ${boot.clustersB} independent days). ${evidence.note}`
+      : `A/A+ is ${direction} than B/C (day-cluster bootstrap 95% interval ${ciText}), but this is descriptive only. ${evidence.blockers.join(" ")}`,
   };
 }
+
 
 export function buildReport(input: {
   rows: ShadowRow[];
@@ -329,18 +404,17 @@ export function buildReport(input: {
     high,
     low,
     comparisons: [
-      buildComparison(
-        "fill_rate",
-        "Fill rate (filled / resolved)",
-        { successes: high.filled, n: high.resolved, clusters: clustersOf(highRows) },
-        { successes: low.filled, n: low.resolved, clusters: clustersOf(lowRows) },
+      buildComparison("fill_rate", "Fill rate (filled / resolved)", highRows, lowRows, (r) =>
+        r.filled_at !== null,
       ),
       buildComparison(
         "win_rate",
         "Win rate (wins / filled)",
-        { successes: high.wins, n: high.filled, clusters: clustersOf(highFilledRows) },
-        { successes: low.wins, n: low.filled, clusters: clustersOf(lowFilledRows) },
+        highFilledRows,
+        lowFilledRows,
+        (r) => r.resolved_outcome === "win",
       ),
     ],
+
   };
 }

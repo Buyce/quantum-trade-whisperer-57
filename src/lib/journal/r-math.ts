@@ -69,7 +69,11 @@ export interface RMathResult {
 }
 
 export class RMathInputError extends Error {
-  readonly code: "one_sided_prices" | "non_finite" | "non_positive_price";
+  readonly code:
+    | "one_sided_prices"
+    | "non_finite"
+    | "non_positive_price"
+    | "impossible_stop_geometry";
   constructor(code: RMathInputError["code"], message: string) {
     super(message);
     this.name = "RMathInputError";
@@ -114,6 +118,34 @@ export function assertRMathInput(input: RMathInput): void {
       "one_sided_prices",
       "actual entry and exit prices must be supplied together or not at all",
     );
+  }
+
+  // Actual-stop geometry. A long's protective stop sits BELOW its fill and a
+  // short's sits ABOVE it. Wrong-side or zero-distance stops are impossible, so
+  // they are rejected outright rather than turned into a plausible-looking
+  // r_vs_actual_risk by an abs().
+  const entry = input.actualEntryPrice;
+  const stop = input.actualInitialStop;
+  if (entry != null && stop != null) {
+    const distance = entry - stop;
+    if (!Number.isFinite(distance) || distance === 0) {
+      throw new RMathInputError(
+        "impossible_stop_geometry",
+        "actual initial stop must be a finite, non-zero distance from the actual entry",
+      );
+    }
+    if (input.direction === "long" && stop >= entry) {
+      throw new RMathInputError(
+        "impossible_stop_geometry",
+        "a long trade's actual initial stop must be below its actual entry",
+      );
+    }
+    if (input.direction === "short" && stop <= entry) {
+      throw new RMathInputError(
+        "impossible_stop_geometry",
+        "a short trade's actual initial stop must be above its actual entry",
+      );
+    }
   }
 }
 

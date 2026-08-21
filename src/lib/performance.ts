@@ -6,6 +6,7 @@ import {
   type TradeRow,
 } from "./db-types";
 import { selectR, type RBasis } from "./journal/r-math";
+import { MIN_GROUP_SAMPLES } from "./stats/evidence";
 
 
 export interface RSample {
@@ -237,83 +238,88 @@ export function rDistribution(samples: RSample[]): Array<{ bucket: string; count
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-/** Dynamically generated natural-language insights from the joined stats. */
+/**
+ * Descriptive read-out of the joined stats.
+ *
+ * NON-PRESCRIPTIVE BY CONSTRUCTION: these lines describe what was logged. They
+ * never recommend excluding an instrument, raising a minimum grade, naming a
+ * "strongest tier" or a "highest-yield window", or any other optimisation
+ * inferred from a small sample. Sufficiency is not decided here either — a
+ * subgroup below the shared floor is labelled as too small to read.
+ */
 export function generateInsights(samples: RSample[], scopeLabel: string): string[] {
   const overall = computeExpectancy(samples);
-  if (overall.count < 3) {
-    return [
-      `${scopeLabel} has only ${overall.count} closed ${overall.count === 1 ? "result" : "results"} so far — log a few more before reading the numbers as signal.`,
-    ];
+  if (overall.count === 0) {
+    return [`${scopeLabel} has no closed results yet, so there is nothing to describe.`];
   }
 
   const insights: string[] = [];
+  const small = overall.count < MIN_GROUP_SAMPLES;
 
   insights.push(
-    `${scopeLabel} is running an expectancy of ${fmtR(overall.expectancyR)} per trade across ${overall.count} closed setups — a ${pct(overall.winRate)} win rate with ${fmtR(overall.avgWinR)} average winners against ${fmtR(overall.avgLossR)} average losers.`,
+    `${scopeLabel}: ${overall.count} closed ${overall.count === 1 ? "setup" : "setups"} recorded, ` +
+      `${pct(overall.winRate)} of them positive, average winner ${fmtR(overall.avgWinR)}, ` +
+      `average loser ${fmtR(overall.avgLossR)}, arithmetic expectancy ${fmtR(overall.expectancyR)} per trade.`,
   );
 
-  const byInstrument = groupBy(samples, (s) => s.instrument).filter((g) => g.stats.count >= 3);
-  const bestInstrument = [...byInstrument].sort(
-    (a, b) => b.stats.expectancyR - a.stats.expectancyR,
-  )[0];
-  if (bestInstrument) {
-    const label = INSTRUMENT_LABELS[bestInstrument.key] ?? bestInstrument.key;
+  if (small) {
     insights.push(
-      `Your ${label} setups have a ${pct(bestInstrument.stats.winRate)} win rate with a ${fmtR(bestInstrument.stats.avgWinR)} average win, giving ${fmtR(bestInstrument.stats.expectancyR)} expectancy over ${bestInstrument.stats.count} trades.`,
+      `This is a sample of ${overall.count}, below the ${MIN_GROUP_SAMPLES}-result floor used across P-Trades. ` +
+        `The figures above are a record of what happened, not an estimate of what to expect, and no conclusion is drawn from them.`,
     );
-  }
-  const worstInstrument = [...byInstrument].sort(
-    (a, b) => a.stats.expectancyR - b.stats.expectancyR,
-  )[0];
-  if (
-    worstInstrument &&
-    bestInstrument &&
-    worstInstrument.key !== bestInstrument.key &&
-    worstInstrument.stats.expectancyR < 0
-  ) {
-    const label = INSTRUMENT_LABELS[worstInstrument.key] ?? worstInstrument.key;
-    insights.push(
-      `${label} is a net drag at ${fmtR(worstInstrument.stats.expectancyR)} expectancy over ${worstInstrument.stats.count} trades — consider excluding it until the structure improves.`,
-    );
+    return insights;
   }
 
-  const byGrade = groupBy(samples, (s) => s.grade).filter((g) => g.stats.count >= 3);
-  const bestGrade = [...byGrade].sort((a, b) => b.stats.expectancyR - a.stats.expectancyR)[0];
-  const worstGrade = [...byGrade].sort((a, b) => a.stats.expectancyR - b.stats.expectancyR)[0];
-  if (bestGrade) {
-    insights.push(
-      `${bestGrade.key}-Grade setups are your strongest tier at ${fmtR(bestGrade.stats.expectancyR)} expectancy and ${pct(bestGrade.stats.winRate)} win rate.`,
-    );
-  }
-  if (
-    worstGrade &&
-    bestGrade &&
-    worstGrade.key !== bestGrade.key &&
-    worstGrade.stats.expectancyR < 0.1
-  ) {
-    insights.push(
-      `${worstGrade.key}-Grade setups only return ${fmtR(worstGrade.stats.expectancyR)} per trade — raising your minimum grade above ${worstGrade.key} would have removed ${worstGrade.stats.count} low-value trades.`,
-    );
-  }
+  // Above the floor the read-out stays descriptive: counts and totals only, and
+  // every subgroup is reported with its own sample size so the reader can judge.
+  const describe = (
+    heading: string,
+    groups: Array<{ key: string | number; stats: ReturnType<typeof computeExpectancy> }>,
+    label: (key: string | number) => string,
+  ) => {
+    const usable = groups.filter((g) => g.stats.count >= MIN_GROUP_SAMPLES);
+    if (usable.length === 0) {
+      insights.push(
+        `${heading}: every breakdown is below ${MIN_GROUP_SAMPLES} results, so none is reported separately.`,
+      );
+      return;
+    }
+    for (const g of usable) {
+      insights.push(
+        `${heading} — ${label(g.key)}: ${g.stats.count} results, ${pct(g.stats.winRate)} positive, ` +
+          `${fmtR(g.stats.totalR)} total R, ${fmtR(g.stats.expectancyR)} per trade (descriptive).`,
+      );
+    }
+  };
 
-  const bySession = groupBy(samples, (s) => s.session).filter((g) => g.stats.count >= 3);
-  const bestSession = [...bySession].sort((a, b) => b.stats.expectancyR - a.stats.expectancyR)[0];
-  if (bestSession) {
-    insights.push(
-      `The ${bestSession.key.replace(/_/g, " ")} session carries ${fmtR(bestSession.stats.totalR)} of total R across ${bestSession.stats.count} trades — your highest-yield window.`,
-    );
-  }
+  describe(
+    "By instrument",
+    groupBy(samples, (s) => s.instrument),
+    (k) => INSTRUMENT_LABELS[k as string] ?? String(k),
+  );
+  describe(
+    "By grade",
+    groupBy(samples, (s) => s.grade),
+    (k) => `${k}-Grade`,
+  );
+  describe(
+    "By session",
+    groupBy(samples, (s) => s.session),
+    (k) => String(k).replace(/_/g, " "),
+  );
+  describe(
+    "By weekday",
+    groupBy(samples, (s) => s.dayOfWeek),
+    (k) => DAY_NAMES[k as number] ?? String(k),
+  );
 
-  const byDay = groupBy(samples, (s) => s.dayOfWeek).filter((g) => g.stats.count >= 3);
-  const worstDay = [...byDay].sort((a, b) => a.stats.expectancyR - b.stats.expectancyR)[0];
-  if (worstDay && worstDay.stats.expectancyR < 0) {
-    insights.push(
-      `${DAY_NAMES[worstDay.key as number]} is negative at ${fmtR(worstDay.stats.expectancyR)} expectancy over ${worstDay.stats.count} trades.`,
-    );
-  }
+  insights.push(
+    "All figures are descriptive summaries of logged results. Forward-looking claims require the shared evidence gate, which these numbers do not pass on their own.",
+  );
 
   return insights;
 }
+
 
 export function fmtR(v: number): string {
   return `${v >= 0 ? "" : "-"}${Math.abs(v).toFixed(2)}R`;
