@@ -86,7 +86,7 @@ describe("lookupRegime — hierarchy and gates", () => {
     const prior = lookupRegime([GLOBAL, BOUNDS, TIER2, thin], QUERY)!;
     expect(prior.tier).toBe(2);
     expect(prior.tier3SkippedN).toBe(MIN_N_TIER3 - 1);
-    expect(prior.pFill).toBeCloseTo(0.5, 6);
+    expect(prior.pFill).toBeCloseTo(0.4, 6);
   });
 
   it("[UNIT] an eligible tier-3 bucket answers the lookup", () => {
@@ -101,7 +101,7 @@ describe("lookupRegime — hierarchy and gates", () => {
     const prior = lookupRegime([GLOBAL, BOUNDS, TIER2, thick], QUERY)!;
     expect(prior.tier).toBe(3);
     expect(prior.tier3SkippedN).toBeNull();
-    expect(prior.ev).toBeCloseTo(Number((0.6 * 0.55).toFixed(4)), 6);
+    expect(prior.pJoint).toBeCloseTo(Number((0.6 * 0.55).toFixed(4)), 6);
   });
 
   it("[UNIT] falls back to global when the instrument has no tier-2 row", () => {
@@ -147,12 +147,19 @@ describe("lookupRegime — hierarchy and gates", () => {
             ],
             QUERY,
           )!;
-          for (const v of [prior.pFill, prior.pWin, prior.ev]) {
+          // Null is a legal answer (an undefined statistic); a number must be a
+          // finite probability. What must never happen is a fabricated midpoint.
+          for (const v of [prior.pFill, prior.pWin, prior.pJoint]) {
+            if (v === null) continue;
             expect(Number.isFinite(v)).toBe(true);
             expect(v).toBeGreaterThanOrEqual(0);
             expect(v).toBeLessThanOrEqual(1);
           }
-          expect(prior.ev).toBeLessThanOrEqual(Math.min(prior.pFill, prior.pWin) + 1e-9);
+          if (prior.pJoint != null) {
+            expect(prior.pJoint).toBeLessThanOrEqual(
+              Math.min(prior.pFill as number, prior.pWin as number) + 1e-9,
+            );
+          }
           return true;
         },
       ),
