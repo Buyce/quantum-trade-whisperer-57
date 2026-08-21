@@ -166,6 +166,72 @@ export type Database = {
         }
         Relationships: []
       }
+      filter_lift_stats: {
+        Row: {
+          arm: string
+          cluster_n: number | null
+          computed_as_of: string
+          coverage_threshold: number
+          gate: string
+          manifest_hash: string
+          mean_r: number | null
+          n_candidates: number
+          n_mature: number
+          n_resolved: number
+          n_used: number
+          reason: string | null
+          replay_coverage: number | null
+          run_id: string
+          sd_r: number | null
+          se_r: number | null
+          stat_status: string
+          strategy_version: number
+          terminal_replay_horizon_hours: number
+        }
+        Insert: {
+          arm: string
+          cluster_n?: number | null
+          computed_as_of?: string
+          coverage_threshold?: number
+          gate: string
+          manifest_hash: string
+          mean_r?: number | null
+          n_candidates: number
+          n_mature: number
+          n_resolved: number
+          n_used: number
+          reason?: string | null
+          replay_coverage?: number | null
+          run_id: string
+          sd_r?: number | null
+          se_r?: number | null
+          stat_status: string
+          strategy_version: number
+          terminal_replay_horizon_hours: number
+        }
+        Update: {
+          arm?: string
+          cluster_n?: number | null
+          computed_as_of?: string
+          coverage_threshold?: number
+          gate?: string
+          manifest_hash?: string
+          mean_r?: number | null
+          n_candidates?: number
+          n_mature?: number
+          n_resolved?: number
+          n_used?: number
+          reason?: string | null
+          replay_coverage?: number | null
+          run_id?: string
+          sd_r?: number | null
+          se_r?: number | null
+          stat_status?: string
+          strategy_version?: number
+          terminal_replay_horizon_hours?: number
+        }
+        Relationships: []
+      }
       instrument_health: {
         Row: {
           available: boolean
@@ -1906,6 +1972,7 @@ export type Database = {
       claim_weekly_report: { Args: { _week: string }; Returns: boolean }
       get_admin_author_split: { Args: never; Returns: Json }
       get_admin_candidate_funnel: { Args: never; Returns: Json }
+      get_admin_filter_lift: { Args: never; Returns: Json }
       get_admin_intelligence: { Args: never; Returns: Json }
       get_admin_payoff_research: { Args: never; Returns: Json }
       is_admin: { Args: never; Returns: boolean }
@@ -1913,6 +1980,10 @@ export type Database = {
       maintain_shadow_queue: { Args: never; Returns: Json }
       prune_v2_structure_claims: { Args: never; Returns: number }
       purge_expired_signals: { Args: never; Returns: number }
+      recompute_filter_lift: {
+        Args: { _horizon_hours?: number }
+        Returns: Json
+      }
       recompute_payoff_stats: {
         Args: {
           _execution_policy?: string

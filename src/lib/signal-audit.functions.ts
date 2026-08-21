@@ -55,7 +55,7 @@ export const getSignalAudit = createServerFn({ method: "GET" })
       supabaseAdmin.from("executed_trades").select("signal_id, user_decision").in("signal_id", ids),
       supabaseAdmin.from("shadow_queue").select("signal_id, status").in("signal_id", ids),
       supabaseAdmin
-        .from("shadow_executions")
+        .from("shadow_executions_production")
         .select("signal_id, status")
         // Production replay rows only — research siblings share the signal id.
         .eq("replay_version", 1)
@@ -82,7 +82,10 @@ export const getSignalAudit = createServerFn({ method: "GET" })
       if (!e.signal_id) continue;
       execCount.set(e.signal_id, (execCount.get(e.signal_id) ?? 0) + 1);
       if (e.status === "resolved") resolvedCount.set(e.signal_id, (resolvedCount.get(e.signal_id) ?? 0) + 1);
-      lastStatus.set(e.signal_id, e.status);
+      // The production view exposes columns as nullable; no shadow row is ever
+      // written without a status, so an absent one is reported as unknown
+      // rather than silently coerced.
+      lastStatus.set(e.signal_id, e.status ?? "unknown");
     }
 
     return rows.map((r) => ({

@@ -146,7 +146,7 @@ export const getUserReportAudit = createServerFn({ method: "GET" })
         .select("id, instrument, grade, direction, detected_at, max_r, tp2_r")
         .in("id", signalIds),
       supabaseAdmin
-        .from("shadow_executions")
+        .from("shadow_executions_production")
         .select("signal_id, status, resolved_outcome, realized_r, miss_distance_atr")
         // Production replay rows only — research siblings share the signal id.
         .eq("replay_version", 1)

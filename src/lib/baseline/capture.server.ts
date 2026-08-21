@@ -192,7 +192,7 @@ export async function captureBaseline(
   // 2. Shadow replay cohort — the only auditable performance record. A row is
   //    treated as resolved only if its resolution existed at the cutoff.
   const shadow = await db
-    .from("shadow_executions")
+    .from("shadow_executions_production")
     .select(
       "grade, instrument, direction, trading_session, status, resolved_outcome, ml_target_label, realized_r, miss_distance_atr, max_r, risk_price, atr, signal_id, detected_at, resolved_at",
     )

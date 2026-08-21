@@ -262,6 +262,9 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
           disposition: cell.disposition,
           reason: detail ?? status,
           latencyMs: null,
+          // Terminal stage, gates and features, so a no_trade observation is
+          // reconstructable rather than a prose reason string.
+          evaluation: v1Evaluation,
         }),
       ];
       if (v2) {

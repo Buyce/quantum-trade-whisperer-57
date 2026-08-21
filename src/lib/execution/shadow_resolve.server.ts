@@ -20,8 +20,20 @@ const MAX_ROWS_PER_RUN = 200;
  * research throughput is a nice-to-have, production labelling is not.
  */
 const RESEARCH_MAX_ROWS_PER_RUN = 60;
+/**
+ * Research-candidate rows (cohort = 'research_candidate') have a THIRD budget,
+ * read from `shadow_engine_state.candidate_rows_per_run`. Production is loaded
+ * first, from an explicitly production-only query, so candidate backlog can
+ * never consume a production slot no matter how large it grows.
+ */
+const CANDIDATE_ROWS_FALLBACK = 0;
+/** The only cohort any production aggregate or production replay may read. */
+const PRODUCTION_COHORT = "production";
+/** Forward-tested research candidates. Never trader-visible. */
+const CANDIDATE_COHORT = "research_candidate";
 /** Model cohorts are resolved strictly in this order. */
 const MODEL_PRIORITY = [1, 2, 3] as const;
+
 /**
  * 1000 M15 bars is ~10 days of session time — deep enough to replay a backlog
  * from the start of the dataset, not just the last day.
@@ -64,7 +76,17 @@ export interface ResolveSummary {
   /** Research (Replay-V2) rows advanced this run. Never affects production counts. */
   researchScanned: number;
   researchAdvanced: number;
+  /** Research-candidate (cohort) rows advanced this run. Separate budget. */
+  candidateScanned: number;
+  candidateAdvanced: number;
+  /**
+   * Candidate rows left in backlog because production fetched no candles for
+   * their instrument this run. Surfaced so a starved backlog is visible in
+   * coverage/health telemetry rather than looking like zero candidates.
+   */
+  candidateBacklogNoCandles: number;
 }
+
 
 const OPEN_ROW_COLUMNS =
   "id, signal_id, instrument, direction, detected_at, entry_price, stop_loss, tp1, tp2, tp3, tp1_r, tp2_r, tp3_r, risk_price, atr, filled_at, fill_price, execution_slippage_pips, max_favorable_excursion_r, max_adverse_excursion_r, bars_replayed, replay_cursor, model_version, replay_version";
@@ -74,6 +96,10 @@ const OPEN_ROW_COLUMNS =
  * model may consume the whole allowance, then V2, then V3. Without this split a
  * large research backlog would interleave by `detected_at` and delay the
  * resolution of the live model that feeds the priors and the weekly report.
+ *
+ * The `cohort` predicate is explicit and non-negotiable: this query defines
+ * production replay capacity, so a research-candidate row must be unable to
+ * appear in it even by accident.
  */
 async function loadOpenRows(db: SupabaseClient): Promise<ShadowRow[]> {
   const ordered: number[] = [
@@ -89,6 +115,7 @@ async function loadOpenRows(db: SupabaseClient): Promise<ShadowRow[]> {
       .from("shadow_executions")
       .select(OPEN_ROW_COLUMNS)
       .in("status", ["pending", "open"])
+      .eq("cohort", PRODUCTION_COHORT)
       .eq("replay_version", REPLAY_V1_VERSION)
       .eq("model_version", modelVersion)
       .order("detected_at", { ascending: true })
@@ -122,9 +149,29 @@ async function isReplayV2Enabled(db: SupabaseClient): Promise<boolean> {
 }
 
 /**
+ * Candidate resolver budget, read from the database so it can be tuned without
+ * a deploy. Any failure yields 0 — the switch fails closed.
+ */
+async function candidateBudget(db: SupabaseClient): Promise<number> {
+  try {
+    const { data, error } = await db
+      .from("shadow_engine_state")
+      .select("candidate_rows_per_run")
+      .eq("id", true)
+      .maybeSingle();
+    if (error) return CANDIDATE_ROWS_FALLBACK;
+    const n = Number((data as { candidate_rows_per_run?: number } | null)?.candidate_rows_per_run);
+    return Number.isFinite(n) && n > 0 ? Math.floor(n) : CANDIDATE_ROWS_FALLBACK;
+  } catch {
+    return CANDIDATE_ROWS_FALLBACK;
+  }
+}
+
+/**
  * Research (Replay-V2) rows. Read from a SEPARATE bounded budget so they can
  * never reduce Replay-V1 throughput, and always fail open: a research read
- * error leaves production resolution untouched.
+ * error leaves production resolution untouched. Replay-V2 siblings exist only
+ * for the production cohort, and the predicate says so explicitly.
  */
 async function loadResearchRows(db: SupabaseClient): Promise<ShadowRow[]> {
   if (!(await isReplayV2Enabled(db))) return [];
@@ -132,6 +179,7 @@ async function loadResearchRows(db: SupabaseClient): Promise<ShadowRow[]> {
     .from("shadow_executions")
     .select(OPEN_ROW_COLUMNS)
     .in("status", ["pending", "open"])
+    .eq("cohort", PRODUCTION_COHORT)
     .eq("replay_version", REPLAY_V2_VERSION)
     .order("detected_at", { ascending: true })
     .limit(RESEARCH_MAX_ROWS_PER_RUN);
@@ -141,6 +189,29 @@ async function loadResearchRows(db: SupabaseClient): Promise<ShadowRow[]> {
   }
   return (res.data ?? []) as unknown as ShadowRow[];
 }
+
+/**
+ * Research-candidate rows: Replay-V1 semantics, own bounded budget, loaded LAST
+ * and never able to shrink the production query above. Fails open.
+ */
+async function loadCandidateRows(db: SupabaseClient): Promise<ShadowRow[]> {
+  const budget = await candidateBudget(db);
+  if (budget <= 0) return [];
+  const res = await db
+    .from("shadow_executions")
+    .select(OPEN_ROW_COLUMNS)
+    .in("status", ["pending", "open"])
+    .eq("cohort", CANDIDATE_COHORT)
+    .eq("replay_version", REPLAY_V1_VERSION)
+    .order("detected_at", { ascending: true })
+    .limit(budget);
+  if (res.error) {
+    console.error("[shadow-resolve] candidate read failed:", res.error.message);
+    return [];
+  }
+  return (res.data ?? []) as unknown as ShadowRow[];
+}
+
 
 function toReplayInput(row: ShadowRow): ReplayInput {
   return {
@@ -235,9 +306,59 @@ async function resolveResearchRow(
   }
 }
 
+/**
+ * Resolve one research-candidate row with Replay-V1 semantics, against candles
+ * ALREADY fetched for production. Never throws and never fetches: a candidate
+ * failure must be invisible to production resolution.
+ */
+async function resolveCandidateRow(
+  db: SupabaseClient,
+  row: ShadowRow,
+  candles: Awaited<ReturnType<typeof fetchCandles>>,
+): Promise<boolean> {
+  try {
+    const state = replaySetup(toReplayInput(row), candles);
+    const advanced = state.replayCursor !== row.replay_cursor || state.status === "resolved";
+    const now = new Date().toISOString();
+    if (!advanced) {
+      await db.from("shadow_executions").update({ last_polled_at: now }).eq("id", row.id);
+      return false;
+    }
+    const { error } = await db
+      .from("shadow_executions")
+      .update({
+        status: state.status,
+        filled_at: state.filledAt,
+        fill_price: state.fillPrice,
+        execution_slippage_pips: state.slippagePips ?? row.execution_slippage_pips,
+        max_favorable_excursion_r: round(state.mfeR),
+        max_adverse_excursion_r: round(state.maeR),
+        bars_replayed: state.barsReplayed,
+        bars_to_outcome: state.barsToOutcome,
+        realized_r: state.realizedR == null ? null : round(state.realizedR),
+        resolved_outcome: state.outcome,
+        ml_target_label: state.label,
+        replay_cursor: state.replayCursor,
+        miss_distance_atr: state.missDistanceAtr,
+        last_polled_at: now,
+        resolved_at: state.status === "resolved" ? now : null,
+      })
+      .eq("id", row.id);
+    if (error) {
+      console.error("[shadow-resolve] candidate write failed:", error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error("[shadow-resolve] candidate threw:", err instanceof Error ? err.message : err);
+    return false;
+  }
+}
+
 export async function resolveShadowExecutions(db: SupabaseClient): Promise<ResolveSummary> {
   const rows = await loadOpenRows(db);
   const researchRows = await loadResearchRows(db);
+  const candidateRows = await loadCandidateRows(db);
   const summary: ResolveSummary = {
     scanned: rows.length,
     advanced: 0,
@@ -246,8 +367,12 @@ export async function resolveShadowExecutions(db: SupabaseClient): Promise<Resol
     fetchFailures: 0,
     researchScanned: researchRows.length,
     researchAdvanced: 0,
+    candidateScanned: candidateRows.length,
+    candidateAdvanced: 0,
+    candidateBacklogNoCandles: 0,
   };
-  if (rows.length === 0 && researchRows.length === 0) return summary;
+  if (rows.length === 0 && researchRows.length === 0 && candidateRows.length === 0) return summary;
+
 
   const byInstrument = new Map<string, ShadowRow[]>();
   for (const row of rows) {
@@ -264,6 +389,19 @@ export async function resolveShadowExecutions(db: SupabaseClient): Promise<Resol
     list.push(row);
     researchByInstrument.set(row.instrument, list);
   }
+  // Same rule for candidates, and a starved backlog is counted rather than
+  // silently dropped: zero incremental MetaApi calls is a hard requirement.
+  const candidateByInstrument = new Map<string, ShadowRow[]>();
+  for (const row of candidateRows) {
+    if (!byInstrument.has(row.instrument)) {
+      summary.candidateBacklogNoCandles += 1;
+      continue;
+    }
+    const list = candidateByInstrument.get(row.instrument) ?? [];
+    list.push(row);
+    candidateByInstrument.set(row.instrument, list);
+  }
+
 
   for (const [instrument, group] of byInstrument) {
     let candles;
@@ -273,9 +411,11 @@ export async function resolveShadowExecutions(db: SupabaseClient): Promise<Resol
       // Timeouts, 504s and closed-market responses are expected. Skip the
       // instrument; the next hourly pass replays from the same cursor.
       summary.fetchFailures += 1;
+      summary.candidateBacklogNoCandles += (candidateByInstrument.get(instrument) ?? []).length;
       summary.instruments.push({ instrument, candles: 0, error: describeError(err) });
       continue;
     }
+
     summary.instruments.push({ instrument, candles: candles.length });
 
     for (const row of group) {
@@ -321,7 +461,14 @@ export async function resolveShadowExecutions(db: SupabaseClient): Promise<Resol
       const advancedRow = await resolveResearchRow(db, row, candles);
       if (advancedRow) summary.researchAdvanced += 1;
     }
+
+    // Candidate phase — last, same immutable candle array, zero extra fetches.
+    for (const row of candidateByInstrument.get(instrument) ?? []) {
+      const advancedRow = await resolveCandidateRow(db, row, candles);
+      if (advancedRow) summary.candidateAdvanced += 1;
+    }
   }
+
 
   return summary;
 }
