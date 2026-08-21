@@ -38,7 +38,7 @@ An `AFTER INSERT` trigger runs inside the parent transaction, so a research fail
 Immutability binds only **already-resolved** Replay-V1 rows. Open/pending Replay-V1 rows keep advancing and keep writing `filled_at`, `fill_price`, `execution_slippage_pips`, `realized_r`, `ml_target_label`, `resolved_outcome`, `replay_cursor`, MFE/MAE, `bars_replayed`, `bars_to_outcome`, `resolved_at`. A `BEFORE UPDATE` trigger rejects changes to those fields when `replay_version = 1 AND status = 'resolved'` (`last_polled_at` stays writable).
 
 ## 5. `replay_versions` registry
-`replay_versions (replay_version smallint pk, label text, semantics jsonb not null, code_hash text not null, activated_at, retired_at)`; authenticated SELECT, service_role write. Version 1 = `legacy_m15_optimistic`. Version 2 = `m15_fail_closed_actual_risk`, whose `semantics` records: TIF interval rule, detection-bar rule (strictly after `detected_at`, unchanged), actual-risk normalisation rule, favorable-gap-only limit semantics, stop-gap rule (§8), M15 horizontal-ambiguity policy (§7), supported execution policy, gross/net cost convention, and `code_hash` over the v2 replay code plus `ORDER_TIF_MINUTES` / `SIGNAL_MAX_AGE_HOURS`. Once any Replay-V2 row exists, changing any of these requires Replay V3 — enforced by a blocking hash test.
+`replay_versions (replay_version smallint pk, label text, semantics jsonb not null, code_hash text not null, activated_at, retired_at)`; authenticated SELECT, service_role write. Version 1 = `legacy_m15_optimistic`. Version 2 = `m15_fail_closed_actual_risk`, whose `semantics` records: TIF interval rule, detection-bar rule (strictly after `detected_at`, unchanged), actual-risk normalisation rule, favorable-gap-only limit semantics, stop-gap rule (§8), M15 horizontal-ambiguity policy (§7), **same-fill-bar target causality rule (§7a)**, **fill-bar MFE/MAE exclusion rule (§10)**, supported execution policy, gross/net cost convention, and `code_hash` over the v2 replay code plus `ORDER_TIF_MINUTES` / `SIGNAL_MAX_AGE_HOURS`. Once any Replay-V2 row exists, changing any of these — including the two 5F rules — requires Replay V3, enforced by a blocking hash test.
 
 ## 6. Uniqueness
 Primary `UNIQUE (plan_id, replay_version, execution_policy)`; published-signal idempotency partial unique `(signal_id, replay_version, execution_policy) WHERE signal_id IS NOT NULL`. Replay version and execution policy stay independent.
@@ -47,6 +47,14 @@ Primary `UNIQUE (plan_id, replay_version, execution_policy)`; published-signal i
 No M1 adjudication in this release. After fill, if one M15 candle contains **both** the protective stop and TP1, the sequence is unknowable: **stop wins**, `ambiguous_bars += 1`, `adjudication = 'm15_conservative_fallback'`. This holds equally when the entry filled in that same bar and when the position was already open. A post-fill bar containing only one relevant barrier is `m15_unambiguous`. `first_target_touched` / `max_target_touched` are analytics only and may never override the conservative outcome.
 Fixtures, bullish and bearish: stop only · TP1 only · stop + TP1 · entry + stop · entry + TP1 · entry + stop + TP1.
 Pre-fill bars reason only about entry sequencing and the TIF window; stop/target levels are irrelevant while no position exists.
+
+## 7a. Same-fill-bar target causality (5F-1)
+An ordinary (non-gap) limit fill happens at an unknown instant inside its M15 bar, so that bar's favorable extreme cannot be attributed to the post-entry interval.
+- **Ordinary intrabar fill + TP touched, no stop in that bar** → the target is **not** credited from the fill bar. `ambiguous_bars += 1`, `adjudication = 'm15_conservative_fallback'`, `fill_bar_excursion_ambiguous = true`; the trade stays open and target adjudication resumes on the **next** candle.
+- **Ordinary intrabar fill + stop in that bar** (with or without a target) → the already-approved conservative stop-first result stands: loss, and `ambiguous_bars += 1` when a target was also present.
+- **Favorable gap-through fill at the bar open** → the position exists for the whole bar, so same-bar stop and target evaluation proceeds normally (stop still beats target within one bar) and `fill_bar_excursion_ambiguous = false`.
+Exact bearish mirror in every case. Fixtures: intrabar entry + TP1 · gap-at-open entry + TP1 · intrabar entry + stop · intrabar entry + stop + TP1 · all four bearish mirrors.
+
 
 ## 8. Stop-gap execution (5E-3)
 - Ordinary stop touch (bar does not open beyond the stop) → exit at the stop, `gross_r = −1R` exactly.
