@@ -175,7 +175,9 @@ describe("model_version cohort isolation", () => {
         order by table_name`,
     );
     expect(defaults.length).toBeGreaterThan(0);
-    for (const row of defaults) expect(row.column_default).toBe("1");
+    expect(defaults.map((r) => `${r.table_name}=${r.column_default}`)).toEqual(
+      defaults.map((r) => `${r.table_name}=1`),
+    );
 
     const research = db.rows<{ column_default: string | null; is_nullable: string }>(
       `select column_default, is_nullable from information_schema.columns
