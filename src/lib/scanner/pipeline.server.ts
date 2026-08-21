@@ -254,7 +254,18 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
             latencyMs: v2LatencyMs,
           }),
         );
+      } else if (v2Error) {
+        rows.push(
+          v2ErrorObservationRow({
+            runId: job.run_id ?? null,
+            observationKey: key,
+            instrument: job.instrument,
+            reason: v2Error,
+            latencyMs: v2LatencyMs,
+          }),
+        );
       }
+
       await recordObservations(db, rows);
     }
 
