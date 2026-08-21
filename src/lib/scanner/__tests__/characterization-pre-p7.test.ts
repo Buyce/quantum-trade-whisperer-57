@@ -113,7 +113,7 @@ describe("pre-Prompt-7 characterization — frozen baseline vs current V1", () =
       if (frozen === null) {
         // No fabricated geometry: a rejection carries no plan at all.
         expect(evaluation.proposedProfile).toBeNull();
-        const g = evaluation.geometry as Record<string, unknown>;
+        const g = evaluation.geometry as unknown as Record<string, unknown>;
         for (const key of ["entryPrice", "stopLoss", "riskPrice"]) {
           const v = g[key];
           expect(v === null || v === undefined || typeof v === "number").toBe(true);
