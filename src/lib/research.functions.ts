@@ -28,9 +28,12 @@ export interface ResearchLedger {
   windowHours: number;
   generatedAt: string;
   cohorts: ModelCohort[];
-  /** Observations where the two models disagreed on whether to trade at all. */
+  /** Observations where V1 and V2 disagreed on whether to trade at all. */
   disagreements: number;
   agreements: number;
+  /** Same pairing, V1 against the V3 geometry cohort. */
+  disagreementsV3: number;
+  agreementsV3: number;
 }
 
 const WINDOW_HOURS = 168;
