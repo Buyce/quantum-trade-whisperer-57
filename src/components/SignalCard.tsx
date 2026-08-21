@@ -623,7 +623,7 @@ export function SignalCard({
       `Stop-loss:  ${p(signal.stop_loss)}`,
       ...ladder.map((t) => `${t.label.replace(" · ", " (")}):  ${p(t.price)}`),
       `R:R:        ${Number(signal.rr_ratio).toFixed(2)}${capped ? " (capped by H4 barrier)" : ""}`,
-      `Confidence: ${conf.toFixed(1)}%  ·  Grade ${signal.grade}`,
+      `Confluence score: ${conf.toFixed(1)}%  ·  Grade ${signal.grade}`,
       `If price is beyond ${p(ceiling)}, do NOT enter at market — leave the limit at ${p(signal.entry_price)} for the retest.`,
       `Cancel this order if unfilled within ${ORDER_TIF_MINUTES} minutes (2 candles).`,
       `Not financial advice — size the position yourself.`,
@@ -715,8 +715,8 @@ export function SignalCard({
               </span>
             </span>
             <span className="num flex min-w-0 flex-col sm:block">
-              <span className="label-xs sm:hidden">Confidence</span>
-              <span className="hidden sm:inline">Conf </span>
+              <span className="label-xs sm:hidden">Confluence</span>
+              <span className="hidden sm:inline">Confl </span>
               <span className="text-sm font-semibold text-primary sm:text-xs">{conf.toFixed(0)}%</span>
             </span>
             {/* Expected value only appears once its sample gate is clear, so the
@@ -844,8 +844,8 @@ export function SignalCard({
             <div className="min-w-0">
               <div className="flex items-baseline justify-between">
                 <p className="label-xs">
-                  <InfoLabel hint="How strongly this setup matched the model's rules. It is a quality score, not a probability of profit.">
-                    Confidence
+                  <InfoLabel hint="Weighted confluence of the four pillars, discounted by the planned payoff. It is a rule-match quality score, not a probability of profit or a win rate.">
+                    Confluence score
                   </InfoLabel>
                 </p>
                 <span className="num text-xl font-bold text-primary">{conf.toFixed(1)}%</span>
@@ -866,7 +866,7 @@ export function SignalCard({
                     them and render as "—" — substituting a confluence score here
                     displayed an unrelated metric under a pillar label. */}
                 <Component label="Trend alignment" weight="35%" value={signal.p_trend} />
-                <Component label="Order block retest" weight="25%" value={signal.p_order_block} />
+                <Component label="Displacement-origin zone" weight="25%" value={signal.p_order_block} />
                 <Component label="Momentum exhaustion" weight="20%" value={signal.p_momentum} />
                 <Component label="Volatility expansion" weight="20%" value={signal.p_volatility_expansion} />
               </dl>

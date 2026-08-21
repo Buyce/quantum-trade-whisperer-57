@@ -71,8 +71,8 @@ export function buildBreakdown(args: {
       : args.grade === "A"
         ? `A-Grade: full ${dirw} continuation structure. Every tier rule is satisfied.`
         : args.grade === "B"
-          ? `B-Grade: primary ${dirw} trend alignment on H1 and M15, but H4 context caps the extension.`
-          : `C-Grade: aggressive localized M15 ${dirw} structural break with conflicting higher timeframes — mean-reversion only.`;
+          ? `B-Grade: H1 and M15 are aligned ${dirw}, but this tier does not require H4 agreement or clear H4 headroom — either may be absent.`
+          : `C-Grade: M15 shows a localized ${dirw} break with no H1 confirmation. This tier is a directional M15 read, not a validated mean-reversion setup.`;
 
   const sat = args.satisfied.length
     ? `Rules satisfied: ${args.satisfied.join("; ")}.`
@@ -81,7 +81,8 @@ export function buildBreakdown(args: {
 
   const pillars = `Confluence pillars ${args.pillars.passed}/4 — ${args.pillars.notes.join("; ")}.`;
 
-  const metrics = `Pattern symmetry ${args.symmetry.toFixed(1)}%, timeframe alignment ${args.alignment.toFixed(1)}%, planned R:R ${args.rrRatio.toFixed(2)} with a stop placed beyond the structural extreme plus a ${args.atr.toFixed(5)} ATR buffer.`;
+  const metrics = `Pattern symmetry ${args.symmetry.toFixed(1)}% (diagnostic only — it does not contribute to the confluence score), timeframe alignment ${args.alignment.toFixed(1)}%, planned R:R ${args.rrRatio.toFixed(2)} with a stop placed beyond the structural extreme plus a ${args.atr.toFixed(5)} ATR buffer.`;
+
 
   const advice =
     args.grade === "A+"
