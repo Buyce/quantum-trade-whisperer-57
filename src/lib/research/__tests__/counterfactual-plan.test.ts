@@ -104,9 +104,16 @@ describe("Prompt 7G — the frozen research ladder", () => {
     expect(plan.tp3).toBeCloseTo(1.07, 10);
   });
 
-  it("[INVARIANT] no plan is ever produced for a published evaluation", () => {
-    expect(buildCounterfactualPlan(evaluation({ stage: "published" }))).toBeNull();
+  it("[INVARIANT] a published evaluation gets the SAME ladder as a rejected one", () => {
+    // Filter lift compares a gate's pass arm with its fail arm. Both arms must
+    // therefore be replayed under one identical, filter-independent ladder;
+    // otherwise the comparison measures the ladder rather than the gate.
+    const rejected = buildCounterfactualPlan(evaluation({ stage: "no_headroom" }));
+    const publishedPlan = buildCounterfactualPlan(evaluation({ stage: "published" }));
+    expect(publishedPlan).not.toBeNull();
+    expect(publishedPlan).toEqual(rejected);
   });
+
 
   it.each(STRUCTURAL_STAGES)("[INVARIANT] no plan is invented for %s", (stage) => {
     expect(
