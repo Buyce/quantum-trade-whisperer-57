@@ -5,12 +5,13 @@ import {
   CANDIDATE_CLAIM_NAMESPACE,
   CANDIDATE_COHORT,
   CANDIDATE_EXECUTION_POLICY,
+  CANDIDATE_PLAN_ORIGIN,
   enrolPendingCandidates,
   isExecutableCandidate,
   type CandidateRow,
 } from "../enrol-candidates.server";
 
-/** A candidate with a COMPLETE, genuinely derived executable plan. */
+/** A candidate carrying a COMPLETE, genuinely derived common research ladder. */
 function executable(overrides: Partial<CandidateRow> = {}): CandidateRow {
   return {
     id: "cand-1",
@@ -22,26 +23,44 @@ function executable(overrides: Partial<CandidateRow> = {}): CandidateRow {
     detected_at: "2026-08-20T10:00:00.000Z",
     trading_session: "london",
     volatility_index: 1.1,
-    grade: "B",
+    terminal_stage: "no_headroom",
+    grade: null,
     structure_key: "EURUSD|long|abc-1",
     entry_price: 1.1,
     stop_loss: 1.09,
-    tp1: 1.11,
-    tp2: 1.12,
-    tp3: 1.13,
-    tp1_r: 1,
-    tp2_r: 2,
-    tp3_r: 3,
-    max_r: 3.4,
     risk_price: 0.01,
     atr: 0.004,
-    confidence_score: 61,
-    gates: [{ gate: "grade", outcome: "pass" }],
+    gates: [
+      { gate: "grade", outcome: "pass" },
+      { gate: "headroom", outcome: "fail" },
+    ],
     gates_complete: true,
     enrolled_plan_id: null,
+    plan_origin: "counterfactual",
+    counterfactual_class: "executable",
+    cf_tp1: 1.11,
+    cf_tp2: 1.12,
+    cf_tp3: 1.13,
+    cf_tp1_r: 1,
+    cf_tp2_r: 2,
+    cf_tp3_r: 3,
+    cf_max_r: 3,
+    cf_grade: "B",
+    cf_plan_version: 1,
     ...overrides,
   };
 }
+
+/** A published candidate replayed under the SAME frozen research ladder. */
+const published = (o: Partial<CandidateRow> = {}) =>
+  executable({
+    id: "cand-pub",
+    terminal_stage: "published",
+    plan_origin: "production",
+    counterfactual_stage: null,
+    gates: [{ gate: "headroom", outcome: "pass" }],
+    ...o,
+  });
 
 interface Scenario {
   db: SupabaseClient;
@@ -57,6 +76,7 @@ function scenario(opts: {
   insertError?: string;
   updateError?: string;
   readError?: string;
+  existingPlanId?: string | null;
 }): Scenario {
   const {
     enabled = true,
@@ -66,6 +86,7 @@ function scenario(opts: {
     insertError,
     updateError,
     readError,
+    existingPlanId = null,
   } = opts;
 
   const fake = createFakeSupabase(
@@ -87,6 +108,12 @@ function scenario(opts: {
         return readError
           ? { data: null, error: { message: readError } }
           : { data: candidates, error: null };
+      }
+      if (call.table === "shadow_executions" && call.op === "select") {
+        return {
+          data: existingPlanId ? [{ plan_id: existingPlanId }] : [],
+          error: null,
+        };
       }
       if (call.table === "shadow_executions" && call.op === "insert") {
         return insertError
@@ -117,16 +144,43 @@ describe("Stage 4 candidate enrolment — executability", () => {
   const incomplete: [string, Partial<CandidateRow>][] = [
     ["no entry", { entry_price: null }],
     ["no stop", { stop_loss: null }],
-    ["no TP1", { tp1: null }],
-    ["no TP3", { tp3: null }],
-    ["no TP R values", { tp2_r: null }],
-    ["no max R", { max_r: null }],
+    ["no research TP1", { cf_tp1: null }],
+    ["no research TP3", { cf_tp3: null }],
+    ["no research R values", { cf_tp2_r: null }],
+    ["no research max R", { cf_max_r: null }],
     ["no ATR", { atr: null }],
     ["zero risk", { risk_price: 0 }],
     ["no direction", { direction: null }],
-    ["no grade", { grade: null }],
+    ["no research grade", { cf_grade: null }],
+    ["an unpinned ladder version", { cf_plan_version: null }],
+    ["a future ladder version", { cf_plan_version: 2 }],
     ["incomplete gate list", { gates_complete: false }],
-    ["a not_evaluable gate", { gates: [{ gate: "grade", outcome: "not_evaluable" }] }],
+    ["a structurally undefined class", { counterfactual_class: "structurally_not_evaluable" }],
+    ["a legacy NULL class", { counterfactual_class: null }],
+    [
+      "a rejection outside the frozen whitelist",
+      { gates: [{ gate: "abc_structure", outcome: "fail" }] },
+    ],
+    [
+      "two failed gates",
+      {
+        gates: [
+          { gate: "headroom", outcome: "fail" },
+          { gate: "reachable_r", outcome: "fail" },
+        ],
+      },
+    ],
+    [
+      "no failed gate but no publication either",
+      { terminal_stage: "no_headroom", gates: [{ gate: "headroom", outcome: "pass" }] },
+    ],
+    [
+      "a not_evaluable gate on the published arm",
+      {
+        terminal_stage: "published",
+        gates: [{ gate: "headroom", outcome: "not_evaluable" }],
+      },
+    ],
   ];
 
   it.each(incomplete)(
@@ -137,7 +191,7 @@ describe("Stage 4 candidate enrolment — executability", () => {
   );
 
   it("[INVARIANT] a non-executable candidate is skipped and never inserted", async () => {
-    const s = scenario({ candidates: [executable({ id: "c2", tp3: null })] });
+    const s = scenario({ candidates: [executable({ id: "c2", cf_tp3: null })] });
     const summary = await enrolPendingCandidates(s.db);
     expect(summary.skippedNotExecutable).toBe(1);
     expect(summary.enrolled).toBe(0);
@@ -158,6 +212,7 @@ describe("Stage 4 candidate enrolment — provenance and identity", () => {
     expect(payload["signal_id"]).toBeNull();
     expect(payload["model_version"]).toBe(1);
     expect(payload["observation_key"]).toBe("run-1|EURUSD");
+    expect(payload["plan_origin"]).toBe(CANDIDATE_PLAN_ORIGIN);
   });
 
   it("[INVARIANT] no geometry is invented: every plan value comes from the candidate", async () => {
@@ -165,21 +220,43 @@ describe("Stage 4 candidate enrolment — provenance and identity", () => {
     const s = scenario({ candidates: [c] });
     await enrolPendingCandidates(s.db);
     const p = insertOf(s.calls)!;
-    for (const key of [
-      "entry_price",
-      "stop_loss",
-      "tp1",
-      "tp2",
-      "tp3",
-      "tp1_r",
-      "tp2_r",
-      "tp3_r",
-      "max_r",
-      "risk_price",
-      "atr",
-    ] as const) {
-      expect(p[key]).toBe(c[key]);
+    expect(p["entry_price"]).toBe(c.entry_price);
+    expect(p["stop_loss"]).toBe(c.stop_loss);
+    expect(p["risk_price"]).toBe(c.risk_price);
+    expect(p["atr"]).toBe(c.atr);
+    // The execution replays the COMMON research ladder, never a production one.
+    expect(p["tp1"]).toBe(c.cf_tp1);
+    expect(p["tp2"]).toBe(c.cf_tp2);
+    expect(p["tp3"]).toBe(c.cf_tp3);
+    expect(p["tp1_r"]).toBe(c.cf_tp1_r);
+    expect(p["tp2_r"]).toBe(c.cf_tp2_r);
+    expect(p["tp3_r"]).toBe(c.cf_tp3_r);
+    expect(p["max_r"]).toBe(c.cf_max_r);
+    expect(p["grade"]).toBe(c.cf_grade);
+    // A research ladder is not a graded production plan.
+    expect(p["confidence_score"]).toBeNull();
+  });
+
+  it("[INVARIANT] both filter arms are replayed under one identical ladder policy", async () => {
+    const fail = scenario({ candidates: [executable()] });
+    await enrolPendingCandidates(fail.db);
+    const pass = scenario({ candidates: [published()] });
+    const summary = await enrolPendingCandidates(pass.db);
+    expect(summary.enrolled).toBe(1);
+
+    const a = insertOf(fail.calls)!;
+    const b = insertOf(pass.calls)!;
+    for (const key of ["plan_origin", "execution_policy", "replay_version", "cohort"] as const) {
+      expect(b[key]).toBe(a[key]);
     }
+    // Identical ladder multiples on both arms: the comparison measures the gate,
+    // not two different target ladders.
+    expect([b["tp1_r"], b["tp2_r"], b["tp3_r"], b["max_r"]]).toEqual([
+      a["tp1_r"],
+      a["tp2_r"],
+      a["tp3_r"],
+      a["max_r"],
+    ]);
   });
 
   it("[INVARIANT] claims use the candidate namespace, never a V2/V3 claim slot", async () => {
@@ -224,6 +301,30 @@ describe("Stage 4 candidate enrolment — provenance and identity", () => {
     expect(summary.enrolled).toBe(0);
     expect(summary.failed).toBe(0);
     expect(s.calls.some((c) => c.table === "research_candidates" && c.op === "update")).toBe(false);
+  });
+
+  it("[INVARIANT] a crashed retry adopts the existing execution instead of creating a second one", async () => {
+    // The database already holds this candidate's execution: an earlier attempt
+    // inserted it and died before bookkeeping.
+    const s = scenario({ existingPlanId: "plan-existing" });
+    const summary = await enrolPendingCandidates(s.db);
+    expect(summary.reconciled).toBe(1);
+    expect(summary.enrolled).toBe(0);
+    expect(summary.failed).toBe(0);
+    expect(insertOf(s.calls)).toBeNull();
+    const update = s.calls.find((c) => c.table === "research_candidates" && c.op === "update")!;
+    expect(update.payload!["enrolled_plan_id"]).toBe("plan-existing");
+    expect(update.is["enrolled_plan_id"]).toBeNull();
+  });
+
+  it("[INVARIANT] reconciliation is scoped to the exact research execution identity", async () => {
+    const s = scenario({ existingPlanId: "plan-existing" });
+    await enrolPendingCandidates(s.db);
+    const read = s.calls.find((c) => c.table === "shadow_executions" && c.op === "select")!;
+    expect(read.eq["research_candidate_id"]).toBe("cand-1");
+    expect(read.eq["replay_version"]).toBe(1);
+    expect(read.eq["execution_policy"]).toBe(CANDIDATE_EXECUTION_POLICY);
+    expect(read.eq["plan_origin"]).toBe(CANDIDATE_PLAN_ORIGIN);
   });
 
   it("[INVARIANT] a lost claim enrols nothing at all", async () => {
