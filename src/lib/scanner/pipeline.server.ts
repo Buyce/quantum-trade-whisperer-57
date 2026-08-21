@@ -278,6 +278,30 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
           }),
         );
       }
+      if (v3) {
+        rows.push(
+          v3ObservationRow({
+            runId: job.run_id ?? null,
+            observationKey: key,
+            instrument: job.instrument,
+            evaluation: v3,
+            disposition: v3Disposition,
+            latencyMs: v3LatencyMs,
+          }),
+        );
+      } else if (v3Error) {
+        rows.push(
+          v3ErrorObservationRow({
+            runId: job.run_id ?? null,
+            observationKey: key,
+            instrument: job.instrument,
+            reason: v3Error,
+            latencyMs: v3LatencyMs,
+          }),
+        );
+      }
+
+
 
       await recordObservations(db, rows);
     }
