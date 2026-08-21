@@ -136,9 +136,14 @@ const HISTORY_HEADERS = [
   "Pillar_Momentum",
   "Pillar_Volatility",
   "Outcome",
-  "R_Yield",
+  "R_Yield_Legacy_Mixed_Basis",
+  "R_vs_Plan",
+  "R_vs_Actual_Risk",
+  "R_Availability",
+  "Stop_Provenance",
   "Notes",
 ];
+
 
 export function historyToCsv(rows: TradeHistoryRow[]): string {
   const data: Array<Array<unknown>> = [];
