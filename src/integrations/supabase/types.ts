@@ -179,6 +179,7 @@ export type Database = {
           n_mature: number
           n_resolved: number
           n_used: number
+          plan_origin: string
           reason: string | null
           replay_coverage: number | null
           run_id: string
@@ -200,6 +201,7 @@ export type Database = {
           n_mature: number
           n_resolved: number
           n_used: number
+          plan_origin?: string
           reason?: string | null
           replay_coverage?: number | null
           run_id: string
@@ -221,6 +223,7 @@ export type Database = {
           n_mature?: number
           n_resolved?: number
           n_used?: number
+          plan_origin?: string
           reason?: string | null
           replay_coverage?: number | null
           run_id?: string
@@ -859,6 +862,8 @@ export type Database = {
           atr: number | null
           code_hash: string | null
           confidence_score: number | null
+          counterfactual_class: string | null
+          counterfactual_stage: string | null
           created_at: string
           detected_at: string
           direction: string | null
@@ -874,7 +879,9 @@ export type Database = {
           manifest_hash: string
           max_r: number | null
           observation_key: string | null
+          plan_origin: string | null
           published_signal_id: string | null
+          research_plan_version: number | null
           risk_price: number | null
           run_id: string | null
           stop_loss: number | null
@@ -895,6 +902,8 @@ export type Database = {
           atr?: number | null
           code_hash?: string | null
           confidence_score?: number | null
+          counterfactual_class?: string | null
+          counterfactual_stage?: string | null
           created_at?: string
           detected_at?: string
           direction?: string | null
@@ -910,7 +919,9 @@ export type Database = {
           manifest_hash: string
           max_r?: number | null
           observation_key?: string | null
+          plan_origin?: string | null
           published_signal_id?: string | null
+          research_plan_version?: number | null
           risk_price?: number | null
           run_id?: string | null
           stop_loss?: number | null
@@ -931,6 +942,8 @@ export type Database = {
           atr?: number | null
           code_hash?: string | null
           confidence_score?: number | null
+          counterfactual_class?: string | null
+          counterfactual_stage?: string | null
           created_at?: string
           detected_at?: string
           direction?: string | null
@@ -946,7 +959,9 @@ export type Database = {
           manifest_hash?: string
           max_r?: number | null
           observation_key?: string | null
+          plan_origin?: string | null
           published_signal_id?: string | null
+          research_plan_version?: number | null
           risk_price?: number | null
           run_id?: string | null
           stop_loss?: number | null
