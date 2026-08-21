@@ -142,12 +142,14 @@ Operational rollback is non-destructive and needs no deployment: `replay_v2_shad
 4. No Replay-V2 fill whose bar interval ends after the deadline.
 5. R invariants (5E-4): ordinary stop touch ⇒ exactly −1R; stop-gap-through ⇒ `gross_r <= −1R` computed from the observed bar open; **no** ordinary loss better than −1R; every post-fill R uses `risk_price_actual`.
 6. Post-fill bar containing stop + TP1 resolves as a loss with `ambiguous_bars >= 1` and `adjudication = 'm15_conservative_fallback'`, in both directions.
-6a. Ordinary intrabar fill + same-bar TP1 (no stop) never credits the target from that bar: trade stays open, `fill_bar_excursion_ambiguous = true`, adjudication resumes next candle; gap-at-open fills do evaluate same-bar barriers (5F-1). Fill-bar extremes cannot inflate MFE/MAE on ordinary intrabar fills (5F-2). Bearish mirrors included.
+6a. Ordinary intrabar fill + same-bar TP1 (no stop) never credits the target from that bar: trade stays open, `fill_bar_excursion_ambiguous = true`, post-entry target fields NULL with the raw touch in `ambiguous_bar_target_touch`, adjudication resumes next candle; gap-at-open fills do evaluate same-bar barriers and use normal analytics (5F-1, 5G-3). Fill-bar extremes cannot inflate MFE/MAE on ordinary intrabar fills (5F-2). Bearish mirrors included.
 6b. Replay-V2 sibling cloned from a resolved Replay-V1 row starts clean: cursor at detection, no fill/outcome/label/R, zero excursions and counters (5F-4).
 6c. Hierarchical scheduling: 180 open model-1/replay-1 rows all selected in one 200-row run despite Replay-V2 backlog; 5+5+5 across cohorts all advance (5F-3).
+6d. Exactly one M15 provider fetch per instrument per run while both Replay V1 and Replay V2 advance (5G-1); a fetch failure skips both phases and leaves the breaker behaviour unchanged.
+6e. Ambiguous same-bar stop/TP leaves `tp1_before_stop` and `stop_before_tp1` NULL; cross-bar sequences populate exactly one (5G-2). `gross_r` under `single_exit_first_target` is TP1-based even when TP2/TP3 are touched later (5G-4).
 7. `invalid_plan` / `gap_beyond_stop` rows carry NULL labels and appear in no learning denominator.
 8. Reader inventory test green: no unversioned production aggregation over `shadow_executions`.
-9. Admin, weekly, export and MCP figures unchanged after the backfill.
+9. Admin, weekly, export and MCP **production metrics and numerical results** unchanged after the backfill (5G-6). Adding explicit replay-version/provenance fields or truthful gross/net labels does not violate this invariant.
 10. Saturated-backlog test passes; registry hash matches shipped semantics; zero new MetaApi calls; operational rollback rehearsed non-destructively.
 
 ## 19. Limits
