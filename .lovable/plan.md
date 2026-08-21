@@ -65,8 +65,13 @@ Exact bearish mirror in every case. Fixtures: intrabar entry + TP1 · gap-at-ope
 ## 9. Data-quality outcomes
 `resolved_outcome` gains `invalid_plan` (non-finite/zero risk, inverted stop, targets on the wrong side, missing entry) and `gap_beyond_stop`. Both: never `never_filled`, `ml_target_label = NULL`, `gross_r = NULL`, excluded from every fill/win denominator (learning reads require `ml_target_label IS NOT NULL`), and reported as research-QA counters alongside `stop_gap_through` and `ambiguous_bars`.
 
-## 10. Actual-risk normalisation
+## 10. Actual-risk normalisation and post-fill excursions (5F-2)
 `risk_price_actual = |fill_price − stop_loss|` drives **every** post-fill metric: `gross_r`, MFE R, MAE R, target R recomputed from actual target prices, and vertical-barrier mark-to-market R. Planned `risk_price`, `tp1_r/tp2_r/tp3_r`, `max_r` remain immutable plan metadata.
+Excursions must be strictly post-fill:
+- **Favorable gap-at-open fill** → the fill candle contributes to MFE and MAE (the position existed for the whole bar).
+- **Ordinary intrabar fill** → the fill candle contributes **neither** MFE nor MAE, because its extremes may predate entry. Measurement begins with the next M15 candle, and the bar is stamped `fill_bar_excursion_ambiguous = true`.
+Blocking test: a fill bar with an extreme high/low set before entry cannot inflate Replay-V2 MFE/MAE (bullish and bearish).
+
 
 ## 11. Reader audit before Replay V2 is enabled (5E-5)
 Every `shadow_executions` reader is enumerated and classified as **active-version production read** (must filter `active_replay_version` from the database), **explicit paired research read** (must name both versions), or **intentional raw audit read** (admin-only, explicitly labelled).
