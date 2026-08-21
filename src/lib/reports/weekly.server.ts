@@ -26,7 +26,7 @@ export async function loadWeeklyReport(
     // The production view IS the isolation boundary: research-candidate rows
     // are not reachable from here at all, not merely filtered out.
     .from("shadow_executions_production")
-    .select("grade, status, resolved_outcome, realized_r, filled_at, miss_distance_atr")
+    .select("id, detected_at, grade, status, resolved_outcome, realized_r, filled_at, miss_distance_atr")
     // Production model only: a research model's replays must never be reported
     // as the engine's weekly performance.
     .eq("model_version", ACTIVE_MODEL_VERSION)

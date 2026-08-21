@@ -4,10 +4,24 @@
  * ZERO-HALLUCINATION: every figure is computed from live shadow_executions
  * rows. Zero stays zero, and a comparison with too few samples returns an
  * explicit "insufficient" verdict rather than a fabricated number.
+ *
+ * SUFFICIENCY: this module does NOT define "enough data". Every verdict is
+ * delegated to src/lib/stats/evidence.ts, the single gate shared with the admin
+ * panels and the MCP tools, and every group is measured in independent UTC-day
+ * clusters as well as raw rows.
  */
+import { assessEvidence, holdoutConfirmed, MIN_GROUP_SAMPLES, type EvidenceVerdict } from "@/lib/stats/evidence";
+import { countClusters } from "@/lib/stats/clusters";
 
 /** Minimum resolved rows per tier before a comparison is worth reading. */
-export const MIN_TIER_SAMPLES = 30;
+export const MIN_TIER_SAMPLES = MIN_GROUP_SAMPLES;
+
+/**
+ * Right-censoring guard. A plan detected less than this many hours before the
+ * window edge has not had time to resolve, so counting it would bias the week's
+ * fill and win rates. Such rows are excluded and reported as `immature`.
+ */
+export const MATURITY_HOURS = 24;
 
 export type TierKey = "high" | "low";
 
@@ -44,6 +58,11 @@ export interface Comparison {
   pValue: number | null;
   verdict: Verdict;
   note: string;
+  /** Independent UTC trading days behind each rate. */
+  highClusters: number;
+  lowClusters: number;
+  /** The shared sufficiency verdict. Authoritative over `verdict`. */
+  evidence: EvidenceVerdict;
 }
 
 export interface WeeklyReport {
@@ -52,6 +71,9 @@ export interface WeeklyReport {
   windowStart: string;
   windowEnd: string;
   totalResolved: number;
+  /** Rows dropped at the window edge for not having had time to resolve. */
+  immature: number;
+  maturityHours: number;
   high: TierStats;
   low: TierStats;
   comparisons: Comparison[];
@@ -117,6 +139,8 @@ export function isoWeekKey(date: Date): string {
 }
 
 export interface ShadowRow {
+  id?: string;
+  detected_at?: string | null;
   grade: string;
   status: string;
   resolved_outcome: string | null;
@@ -127,6 +151,37 @@ export interface ShadowRow {
 
 const numOrNull = (v: number | string | null): number | null =>
   v === null || v === "" ? null : Number.isFinite(Number(v)) ? Number(v) : null;
+
+/** Independent UTC-day clusters behind a set of rows. */
+function clustersOf(rows: ShadowRow[]): number {
+  const usable = rows.filter((r) => typeof r.detected_at === "string" && r.detected_at);
+  if (usable.length === 0) return 0;
+  return countClusters(
+    usable.map((r, i) => ({ id: r.id ?? String(i), detectedAt: r.detected_at as string })),
+  );
+}
+
+/**
+ * Splits rows at the maturity horizon. Plans detected too close to the window
+ * edge are censored, not counted as unresolved.
+ */
+export function partitionByMaturity(
+  rows: ShadowRow[],
+  windowEnd: string,
+  maturityHours: number = MATURITY_HOURS,
+): { mature: ShadowRow[]; immature: ShadowRow[] } {
+  const cutoff = new Date(windowEnd).getTime() - maturityHours * 3_600_000;
+  const mature: ShadowRow[] = [];
+  const immature: ShadowRow[] = [];
+  for (const row of rows) {
+    const detected = row.detected_at ? new Date(row.detected_at).getTime() : NaN;
+    // Rows with no detection stamp cannot be censored honestly, so they are kept
+    // and remain visible in the resolved/unresolved split.
+    if (Number.isFinite(detected) && detected > cutoff) immature.push(row);
+    else mature.push(row);
+  }
+  return { mature, immature };
+}
 
 export function tierStats(rows: ShadowRow[], tier: TierKey): TierStats {
   const grades = tier === "high" ? HIGH_GRADES : LOW_GRADES;
@@ -179,46 +234,69 @@ export function tierStats(rows: ShadowRow[], tier: TierKey): TierStats {
 function buildComparison(
   metric: Comparison["metric"],
   label: string,
-  high: { successes: number; n: number },
-  low: { successes: number; n: number },
-  sufficient: boolean,
+  high: { successes: number; n: number; clusters: number },
+  low: { successes: number; n: number; clusters: number },
 ): Comparison {
   const highRate = high.n ? high.successes / high.n : null;
   const lowRate = low.n ? low.successes / low.n : null;
+  const difference = highRate !== null && lowRate !== null ? highRate - lowRate : null;
 
-  if (!sufficient || high.n === 0 || low.n === 0) {
-    return {
-      metric,
-      label,
-      highRate,
-      lowRate,
-      highN: high.n,
-      lowN: low.n,
-      difference: highRate !== null && lowRate !== null ? highRate - lowRate : null,
-      z: null,
-      pValue: null,
-      verdict: "insufficient",
-      note: `Not enough data: ${high.n} vs ${low.n} samples (need ${MIN_TIER_SAMPLES} per tier). No conclusion drawn.`,
-    };
-  }
+  const { z, pValue } =
+    high.n > 0 && low.n > 0
+      ? twoProportionZTest(high.successes, high.n, low.successes, low.n)
+      : { z: null, pValue: null };
 
-  const { z, pValue } = twoProportionZTest(high.successes, high.n, low.successes, low.n);
-  const significant = pValue !== null && pValue < 0.05;
-  const direction = (highRate ?? 0) >= (lowRate ?? 0) ? "higher" : "lower";
-  return {
+  // The z-test ignores within-day dependence, so it can only ever *lower* the
+  // verdict here: the shared evidence gate decides what may be claimed.
+  const evidence = assessEvidence({
+    nA: high.n,
+    nB: low.n,
+    clustersA: high.clusters,
+    clustersB: low.clusters,
+    observedEffect: difference,
+    // This weekly high-vs-low split is a standing descriptive readout, not a
+    // predeclared, multiplicity-controlled hypothesis in the experiment ledger.
+    predeclared: false,
+    multiplicityControlled: false,
+    intervalExcludesNull: pValue !== null && pValue < 0.05,
+    holdoutConfirmed: holdoutConfirmed(),
+  });
+
+  const base = {
     metric,
     label,
     highRate,
     lowRate,
     highN: high.n,
     lowN: low.n,
-    difference: highRate !== null && lowRate !== null ? highRate - lowRate : null,
+    highClusters: high.clusters,
+    lowClusters: low.clusters,
+    difference,
+    evidence,
+  };
+
+  if (evidence.level === "insufficient") {
+    return {
+      ...base,
+      z: null,
+      pValue: null,
+      verdict: "insufficient",
+      note: `${evidence.note} ${evidence.blockers.join(" ")}`.trim(),
+    };
+  }
+
+  const direction = (highRate ?? 0) >= (lowRate ?? 0) ? "higher" : "lower";
+  const pText = pValue === null ? "n/a" : pValue.toFixed(4);
+  // "significant" is never claimed on the strength of a p-value alone.
+  const significant = evidence.level === "actionable" || evidence.level === "suggestive";
+  return {
+    ...base,
     z,
     pValue,
     verdict: significant ? "significant" : "not_significant",
     note: significant
-      ? `A/A+ is ${direction} than B/C and the difference is statistically significant (p = ${pValue!.toFixed(4)}).`
-      : `A/A+ is ${direction} than B/C, but the difference is not statistically significant (p = ${pValue === null ? "n/a" : pValue.toFixed(4)}).`,
+      ? `A/A+ is ${direction} than B/C (p = ${pText}, ${high.clusters} vs ${low.clusters} independent days). ${evidence.note}`
+      : `A/A+ is ${direction} than B/C (p = ${pText}), but this is descriptive only. ${evidence.blockers.join(" ")}`,
   };
 }
 
@@ -227,11 +305,18 @@ export function buildReport(input: {
   windowStart: string;
   windowEnd: string;
   generatedAt?: string;
+  maturityHours?: number;
 }): WeeklyReport {
-  const high = tierStats(input.rows, "high");
-  const low = tierStats(input.rows, "low");
-  const sufficientFill = high.resolved >= MIN_TIER_SAMPLES && low.resolved >= MIN_TIER_SAMPLES;
-  const sufficientWin = high.filled >= MIN_TIER_SAMPLES && low.filled >= MIN_TIER_SAMPLES;
+  const maturityHours = input.maturityHours ?? MATURITY_HOURS;
+  const { mature, immature } = partitionByMaturity(input.rows, input.windowEnd, maturityHours);
+
+  const high = tierStats(mature, "high");
+  const low = tierStats(mature, "low");
+
+  const highRows = mature.filter((r) => HIGH_GRADES.includes(r.grade) && r.status === "resolved");
+  const lowRows = mature.filter((r) => LOW_GRADES.includes(r.grade) && r.status === "resolved");
+  const highFilledRows = highRows.filter((r) => r.filled_at !== null);
+  const lowFilledRows = lowRows.filter((r) => r.filled_at !== null);
 
   return {
     generatedAt: input.generatedAt ?? new Date().toISOString(),
@@ -239,22 +324,22 @@ export function buildReport(input: {
     windowStart: input.windowStart,
     windowEnd: input.windowEnd,
     totalResolved: high.resolved + low.resolved,
+    immature: immature.length,
+    maturityHours,
     high,
     low,
     comparisons: [
       buildComparison(
         "fill_rate",
         "Fill rate (filled / resolved)",
-        { successes: high.filled, n: high.resolved },
-        { successes: low.filled, n: low.resolved },
-        sufficientFill,
+        { successes: high.filled, n: high.resolved, clusters: clustersOf(highRows) },
+        { successes: low.filled, n: low.resolved, clusters: clustersOf(lowRows) },
       ),
       buildComparison(
         "win_rate",
         "Win rate (wins / filled)",
-        { successes: high.wins, n: high.filled },
-        { successes: low.wins, n: low.filled },
-        sufficientWin,
+        { successes: high.wins, n: high.filled, clusters: clustersOf(highFilledRows) },
+        { successes: low.wins, n: low.filled, clusters: clustersOf(lowFilledRows) },
       ),
     ],
   };
