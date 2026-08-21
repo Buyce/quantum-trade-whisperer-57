@@ -9,7 +9,12 @@
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --project blocking",
+    "test:watch": "vitest --project blocking",
+    "test:report": "vitest run --project report",
+    "verify": "bun run lint && bun run typecheck && bun run test && bun run build"
   },
   "dependencies": {
     "@block65/webcrypto-web-push": "^1.0.2",
