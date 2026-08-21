@@ -148,6 +148,8 @@ export const getUserReportAudit = createServerFn({ method: "GET" })
       supabaseAdmin
         .from("shadow_executions")
         .select("signal_id, status, resolved_outcome, realized_r, miss_distance_atr")
+        // Production replay rows only — research siblings share the signal id.
+        .eq("replay_version", 1)
         .in("signal_id", signalIds),
     ]);
     if (signalsRes.error) throw new Error(signalsRes.error.message);
