@@ -40,8 +40,12 @@ const TOOL_ROWS: [string, string][] = [
   ["get_intelligence", "Bayesian fill/win priors, sample sizes, learning-gate status and regime feature influence."],
   ["get_shadow_comparison", "Weekly shadow-replay comparison of A+/A against B/C, with sample sizes and significance."],
   ["log_trade_decision", "Record that you took or skipped a signal."],
-  ["update_trade_outcome", "Set the outcome and, with real entry/exit prices, get a verified R computed server-side."],
-  ["list_my_trades", "Your journal entries, verified and unverified."],
+  [
+    "update_trade_outcome",
+    "Set the outcome and, with real entry/exit prices, get a verified R computed server-side. Agent-written prices are permanently stamped as agent-entered and attributed to the assistant.",
+  ],
+  ["list_my_trades", "Your journal entries, verified and unverified, including who entered each price."],
+
   ["get_performance_summary", "Your expectancy and R-multiple performance."],
 ];
 
