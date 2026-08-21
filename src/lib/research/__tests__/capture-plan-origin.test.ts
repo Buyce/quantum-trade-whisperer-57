@@ -105,6 +105,7 @@ describe("Prompt 7G — captured plan provenance", () => {
     const p = await capture(evaluation("no_abc", EMPTY));
     expect(p["plan_origin"]).toBeNull();
     expect(p["counterfactual_stage"]).toBeNull();
+    expect(p["tp1"]).toBeCloseTo(1.115, 10);
     expect(p["research_plan_version"]).toBeNull();
     expect(p["counterfactual_class"]).toBe("structurally_not_evaluable");
     for (const k of [
@@ -128,10 +129,26 @@ describe("Prompt 7G — captured plan provenance", () => {
 
   it("[INVARIANT] a published setup carries the same research ladder as a rejection", async () => {
     const rejected = await capture(evaluation("no_headroom", GEOMETRY));
-    const p = await capture(evaluation("published", GEOMETRY));
+    // A published evaluation always carries the profile V1 actually traded.
+    const pub = evaluation("published", GEOMETRY);
+    const p = await capture({
+      ...pub,
+      proposedProfile: {
+        grade: "A",
+        tp1: 1.115,
+        tp2: 1.125,
+        tp3: 1.135,
+        tp1R: 1.5,
+        tp2R: 2.5,
+        tp3R: 3.5,
+        maxR: 3.5,
+        confidence: { score: 72 },
+      } as unknown as SetupEvaluation["proposedProfile"],
+    });
     // Production provenance is untouched...
     expect(p["plan_origin"]).toBe("production");
     expect(p["counterfactual_stage"]).toBeNull();
+    expect(p["tp1"]).toBeCloseTo(1.115, 10);
     // ...but the common research ladder exists on BOTH arms, identically.
     expect(p["cf_plan_version"]).toBe(RESEARCH_PLAN_VERSION);
     for (const k of ["cf_tp1", "cf_tp2", "cf_tp3", "cf_tp1_r", "cf_tp2_r", "cf_tp3_r", "cf_max_r"]) {
