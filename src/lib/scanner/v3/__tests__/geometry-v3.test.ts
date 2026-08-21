@@ -7,8 +7,7 @@ import { maxAcceptableEntryV3, minRatioForMaxR, slippageAllowance } from "../sli
 import { MODEL_V3_CODE_HASH, MODEL_V3_PARAMS } from "../manifest";
 
 const r = 10; // risk in price terms; the rule is scale-free in R
-const d = (maxR: number) =>
-  slippageAllowance({ risk: r, maxR, minRatio: minRatioForMaxR(maxR) });
+const d = (maxR: number) => slippageAllowance({ risk: r, maxR, minRatio: minRatioForMaxR(maxR) });
 
 describe("V3 target-preserving slippage allowance", () => {
   it("[UNIT] gives zero allowance (limit-only entry) when maxR = 1.6", () => {

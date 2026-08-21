@@ -50,7 +50,8 @@ export function usePush() {
 
   const read = useCallback(async () => {
     if (typeof window === "undefined") return;
-    const hasApis = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+    const hasApis =
+      "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
     if (!hasApis) {
       setStatus(isIos() && !isStandalone() ? "needs-install" : "unsupported");
       return;

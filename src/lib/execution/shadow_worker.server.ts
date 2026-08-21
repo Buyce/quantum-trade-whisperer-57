@@ -17,7 +17,11 @@ export interface ShadowJobResult {
 }
 
 export async function isShadowPaused(db: SupabaseClient): Promise<boolean> {
-  const { data } = await db.from("shadow_engine_state").select("paused").eq("id", true).maybeSingle();
+  const { data } = await db
+    .from("shadow_engine_state")
+    .select("paused")
+    .eq("id", true)
+    .maybeSingle();
   return Boolean(data?.paused);
 }
 
@@ -107,8 +111,6 @@ export async function processNextShadowJob(db: SupabaseClient): Promise<ShadowJo
         (signal as { model_version?: number | null }).model_version ?? ACTIVE_MODEL_VERSION,
       observation_key: (signal as { observation_key?: string | null }).observation_key ?? null,
     });
-
-
 
     // 23505 = unique violation on signal_id: already enrolled, which is a
     // success for an idempotent worker, not an error.

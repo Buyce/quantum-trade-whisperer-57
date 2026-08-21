@@ -43,7 +43,11 @@ const inputs: Record<string, BuildProfileInput> = {
   flat: { instrument: "EURUSD", candles: { H4: flat(60), H1: flat(60), M15: flat(60) } },
   trending: {
     instrument: "EURUSD",
-    candles: { H4: series(60, () => ({})), H1: series(60, () => ({})), M15: series(80, () => ({})) },
+    candles: {
+      H4: series(60, () => ({})),
+      H1: series(60, () => ({})),
+      M15: series(80, () => ({})),
+    },
     session: "london",
   },
   spiky: {

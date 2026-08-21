@@ -103,8 +103,7 @@ export function detectAbcV2(candles: Candle[], direction: Direction): AbcV2 | nu
   if (!Number.isFinite(c)) return null;
 
   // 4. Strict bounds, then the band. Order matters: bounds guarantee (0, 1).
-  const inBounds =
-    direction === "long" ? a.price < c && c < b.price : b.price < c && c < a.price;
+  const inBounds = direction === "long" ? a.price < c && c < b.price : b.price < c && c < a.price;
   if (!inBounds) return null;
 
   const bc = direction === "long" ? b.price - c : c - b.price;

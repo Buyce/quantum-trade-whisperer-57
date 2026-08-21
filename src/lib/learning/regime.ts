@@ -99,7 +99,11 @@ export interface RegimePrior {
  * Classify a live setup into the same tercile the statistics were built from.
  * Boundaries come from the tier-0 rows so the scanner never invents its own.
  */
-export function volBucketOf(volatilityIndex: number | null, t1: number | null, t2: number | null): VolBucket {
+export function volBucketOf(
+  volatilityIndex: number | null,
+  t1: number | null,
+  t2: number | null,
+): VolBucket {
   if (volatilityIndex == null || t1 == null || t2 == null) return "unknown";
   if (volatilityIndex <= t1) return "low";
   if (volatilityIndex <= t2) return "mid";
@@ -123,13 +127,10 @@ export function lookupRegime(rows: RegimeStatRow[], query: RegimeQuery): RegimeP
 
   const tier3 = rows.find((r) => r.tier === 3 && r.regime_key === tier3Key);
   const tier3Eligible = tier3 && Number(tier3.n_total ?? 0) >= MIN_N_TIER3 ? tier3 : undefined;
-  const tier3SkippedN =
-    tier3 && !tier3Eligible ? Number(tier3.n_total ?? 0) : null;
+  const tier3SkippedN = tier3 && !tier3Eligible ? Number(tier3.n_total ?? 0) : null;
 
   const match =
-    tier3Eligible ??
-    rows.find((r) => r.tier === 2 && r.regime_key === tier2Key) ??
-    global;
+    tier3Eligible ?? rows.find((r) => r.tier === 2 && r.regime_key === tier2Key) ?? global;
 
   return summarize(match, tier3SkippedN);
 }
@@ -185,7 +186,6 @@ function round(v: number | null) {
   if (v == null) return null;
   return Number(v.toFixed(4));
 }
-
 
 /** Human label for the tier that answered, used by the read-only UI panel. */
 export function tierLabel(tier: number): string {

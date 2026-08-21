@@ -32,7 +32,7 @@ export const getBaselineStatus = createServerFn({ method: "GET" })
     // Raw baseline documents are service-role/admin only: `authenticated` has
     // no SELECT grant and no policy on the table, so this read must be gated
     // here and executed with the privileged client.
-    const email = String(context.claims['email'] ?? "").toLowerCase();
+    const email = String(context.claims["email"] ?? "").toLowerCase();
     if (email !== OWNER_EMAIL) throw new Error("Forbidden");
 
     const { adminClient } = await import("@/lib/scanner/pipeline.server");
@@ -59,11 +59,10 @@ export const getBaselineStatus = createServerFn({ method: "GET" })
     };
   });
 
-
 export const runBaselineCapture = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const email = String(context.claims['email'] ?? "").toLowerCase();
+    const email = String(context.claims["email"] ?? "").toLowerCase();
     if (email !== OWNER_EMAIL) throw new Error("Forbidden");
 
     const { adminClient } = await import("@/lib/scanner/pipeline.server");

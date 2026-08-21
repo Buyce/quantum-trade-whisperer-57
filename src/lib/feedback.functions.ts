@@ -27,16 +27,28 @@ export interface FeedbackRow {
 
 const feedbackSchema = z.object({
   category: z.enum(FEEDBACK_CATEGORIES),
-  message: z.string().trim().min(10, "Please add at least 10 characters").max(2000, "Keep it under 2000 characters"),
-  contactEmail: z.string().trim().email("Enter a valid email address").max(255).optional().or(z.literal("")),
+  message: z
+    .string()
+    .trim()
+    .min(10, "Please add at least 10 characters")
+    .max(2000, "Keep it under 2000 characters"),
+  contactEmail: z
+    .string()
+    .trim()
+    .email("Enter a valid email address")
+    .max(255)
+    .optional()
+    .or(z.literal("")),
 });
 
 export const submitFeedback = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => feedbackSchema.parse(input))
   .handler(async ({ data, context }): Promise<{ id: string }> => {
-    const claimEmail = typeof context.claims["email"] === "string" ? (context.claims["email"] as string) : null;
-    const contactEmail = data.contactEmail && data.contactEmail.length > 0 ? data.contactEmail : claimEmail;
+    const claimEmail =
+      typeof context.claims["email"] === "string" ? (context.claims["email"] as string) : null;
+    const contactEmail =
+      data.contactEmail && data.contactEmail.length > 0 ? data.contactEmail : claimEmail;
 
     const { data: inserted, error } = await context.supabase
       .from("feedback" as never)

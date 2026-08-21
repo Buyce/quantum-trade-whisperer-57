@@ -148,7 +148,12 @@ export const ORDER_TIF_MINUTES = 30;
  * grade was based on. Stored per signal by the scanner; older rows predate the
  * column and are derived from the same formula so the card never shows "—".
  */
-export function maxAcceptableEntry(signal: Pick<SignalRow, "max_acceptable_entry" | "entry_price" | "stop_loss" | "direction" | "max_r">): number {
+export function maxAcceptableEntry(
+  signal: Pick<
+    SignalRow,
+    "max_acceptable_entry" | "entry_price" | "stop_loss" | "direction" | "max_r"
+  >,
+): number {
   if (signal.max_acceptable_entry !== null && signal.max_acceptable_entry !== undefined) {
     return Number(signal.max_acceptable_entry);
   }
@@ -168,11 +173,13 @@ export const GRADE_RANK: Record<Grade, number> = { "A+": 4, A: 3, B: 2, C: 1 };
 export const RETENTION_HOURS: Record<Grade, number> = { "A+": 48, A: 48, B: 36, C: 24 };
 
 /** True while a signal is still inside its grade's retention window. */
-export function isWithinRetention(signal: Pick<SignalRow, "grade" | "detected_at">, now = Date.now()) {
+export function isWithinRetention(
+  signal: Pick<SignalRow, "grade" | "detected_at">,
+  now = Date.now(),
+) {
   const hours = RETENTION_HOURS[signal.grade] ?? 24;
   return now - new Date(signal.detected_at).getTime() < hours * 3_600_000;
 }
-
 
 export const SESSION_LABELS: Record<string, string> = {
   sydney: "Sydney",
@@ -198,12 +205,13 @@ export const ALL_SESSIONS: string[] = [
   "new_york",
 ];
 
-
 /**
  * The R multiple of each target. Legacy rows predate the columns and were built
  * on the fixed 1/2/3 ladder, so they fall back to it rather than showing "—".
  */
-export function targetLadder(signal: SignalRow): Array<{ label: string; r: number; price: number }> {
+export function targetLadder(
+  signal: SignalRow,
+): Array<{ label: string; r: number; price: number }> {
   const rows: Array<{ label: string; r: number; price: number }> = [];
   const add = (n: number, r: number | null, price: number | null, fallback: number) => {
     if (price === null || price === undefined) return;

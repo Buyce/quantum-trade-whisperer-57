@@ -81,7 +81,8 @@ export const getSignalAudit = createServerFn({ method: "GET" })
     for (const e of executions.data ?? []) {
       if (!e.signal_id) continue;
       execCount.set(e.signal_id, (execCount.get(e.signal_id) ?? 0) + 1);
-      if (e.status === "resolved") resolvedCount.set(e.signal_id, (resolvedCount.get(e.signal_id) ?? 0) + 1);
+      if (e.status === "resolved")
+        resolvedCount.set(e.signal_id, (resolvedCount.get(e.signal_id) ?? 0) + 1);
       // The production view exposes columns as nullable; no shadow row is ever
       // written without a status, so an absent one is reported as unknown
       // rather than silently coerced.

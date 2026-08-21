@@ -99,7 +99,8 @@ describe("candidate resolution capacity and provider budget", () => {
     });
     await resolveShadowExecutions(s.db);
     const productionReads = s.calls.filter(
-      (c) => c.table === "shadow_executions" && c.op === "select" && c.eq["cohort"] === "production",
+      (c) =>
+        c.table === "shadow_executions" && c.op === "select" && c.eq["cohort"] === "production",
     );
     expect(productionReads.length).toBeGreaterThan(0);
     // The FIRST production read still asks for the full 200 slots, and every
@@ -154,10 +155,8 @@ describe("candidate resolution capacity and provider budget", () => {
     const s = setup({ production: [row("p1")], candidates: [row("c1")], budget: 0 });
     const summary = await resolveShadowExecutions(s.db);
     expect(summary.candidateScanned).toBe(0);
-    expect(
-      s.calls.some(
-        (c) => c.op === "select" && c.eq["cohort"] === "research_candidate",
-      ),
-    ).toBe(false);
+    expect(s.calls.some((c) => c.op === "select" && c.eq["cohort"] === "research_candidate")).toBe(
+      false,
+    );
   });
 });

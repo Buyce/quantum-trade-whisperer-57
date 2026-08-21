@@ -207,7 +207,11 @@ export async function enrolPendingCandidates(
       .order("detected_at", { ascending: true })
       .limit(budget);
     if (error) {
-      await noteResearchFailure(db, `candidate enrolment read failed: ${error.message}`, deadlineMs);
+      await noteResearchFailure(
+        db,
+        `candidate enrolment read failed: ${error.message}`,
+        deadlineMs,
+      );
       return { ...EMPTY, enabled: true, budget, failed: 1 };
     }
 

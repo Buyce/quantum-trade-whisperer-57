@@ -16,11 +16,18 @@ export default defineTool({
     "Set the outcome (win, loss, breakeven or open) on one of the signed-in user's logged trades. Supply actual_entry_price and actual_exit_price to have the R multiple recomputed server-side from the signal's own risk distance — that marks the trade VERIFIED. Without prices the trade stays unverified and R is left unknown; the R multiple can never be supplied directly.",
   inputSchema: {
     trade_id: z.string().describe("The id of a trade returned by list_my_trades."),
-    outcome: z.enum(["win", "loss", "breakeven", "open"]).describe("Resolved outcome of the trade."),
+    outcome: z
+      .enum(["win", "loss", "breakeven", "open"])
+      .describe("Resolved outcome of the trade."),
     actual_entry_price: z.number().optional().describe("The real fill price the user got."),
     actual_exit_price: z.number().optional().describe("The real exit price the user got."),
   },
-  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  annotations: {
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: false,
+  },
   handler: async ({ trade_id, outcome, actual_entry_price, actual_exit_price }, ctx) => {
     if (!ctx.isAuthenticated()) {
       return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
@@ -34,14 +41,15 @@ export default defineTool({
       .maybeSingle();
     if (readError) return { content: [{ type: "text", text: readError.message }], isError: true };
     if (!trade) {
-      return { content: [{ type: "text", text: `No trade ${trade_id} found for this user.` }], isError: true };
+      return {
+        content: [{ type: "text", text: `No trade ${trade_id} found for this user.` }],
+        isError: true,
+      };
     }
 
     const rawSignal = (trade as { scanned_signals: unknown }).scanned_signals;
     const signal = (Array.isArray(rawSignal) ? rawSignal[0] : rawSignal) as
-      | { entry_price: number; stop_loss: number; direction: "long" | "short" }
-      | null
-      | undefined;
+      { entry_price: number; stop_loss: number; direction: "long" | "short" } | null | undefined;
 
     const priceValid = (v: number | undefined) => v != null && Number.isFinite(v) && v > 0;
     const closed = outcome !== "open";
@@ -82,7 +90,10 @@ export default defineTool({
 
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
     if (!data || data.length === 0) {
-      return { content: [{ type: "text", text: `No trade ${trade_id} found for this user.` }], isError: true };
+      return {
+        content: [{ type: "text", text: `No trade ${trade_id} found for this user.` }],
+        isError: true,
+      };
     }
 
     const payload = {

@@ -77,12 +77,13 @@ export function buildBreakdown(args: {
   const sat = args.satisfied.length
     ? `Rules satisfied: ${args.satisfied.join("; ")}.`
     : "Rules satisfied: none of the tier-A structural rules were met.";
-  const vio = args.violated.length ? `Rules violated: ${args.violated.join("; ")}.` : "Rules violated: none.";
+  const vio = args.violated.length
+    ? `Rules violated: ${args.violated.join("; ")}.`
+    : "Rules violated: none.";
 
   const pillars = `Confluence pillars ${args.pillars.passed}/4 — ${args.pillars.notes.join("; ")}.`;
 
   const metrics = `Pattern symmetry ${args.symmetry.toFixed(1)}% (diagnostic only — it does not contribute to the confluence score), timeframe alignment ${args.alignment.toFixed(1)}%, planned R:R ${args.rrRatio.toFixed(2)} with a stop placed beyond the structural extreme plus a ${args.atr.toFixed(5)} ATR buffer.`;
-
 
   const advice =
     args.grade === "A+"
@@ -288,7 +289,6 @@ export function evaluateSetup(input: BuildProfileInput): SetupEvaluation {
   features["patternSymmetry"] = round(abc.symmetry, 2);
   features["pointC"] = round(abc.c, 5);
 
-
   const m15Candles = input.candles.M15;
   const last = m15Candles[m15Candles.length - 1] as Candle | undefined;
   if (!last) {
@@ -298,10 +298,16 @@ export function evaluateSetup(input: BuildProfileInput): SetupEvaluation {
   // 1.2x M15 ATR beyond the structural extreme, floored by 0.5x H1 ATR and by
   // a realistic per-instrument spread allowance.
   const spreadFloor = SPREAD_FLOOR[input.instrument] ?? DEFAULT_SPREAD_FLOOR;
-  const buffer = Math.max(m15.atr * STOP_M15_ATR_MULTIPLIER, h1.atr * STOP_H1_ATR_FLOOR, spreadFloor);
+  const buffer = Math.max(
+    m15.atr * STOP_M15_ATR_MULTIPLIER,
+    h1.atr * STOP_H1_ATR_FLOOR,
+    spreadFloor,
+  );
   const recent = m15Candles.slice(-10);
   const structuralExtreme =
-    direction === "long" ? Math.min(...recent.map((c) => c.low)) : Math.max(...recent.map((c) => c.high));
+    direction === "long"
+      ? Math.min(...recent.map((c) => c.low))
+      : Math.max(...recent.map((c) => c.high));
   const stopLoss = direction === "long" ? structuralExtreme - buffer : structuralExtreme + buffer;
 
   const sign = direction === "long" ? 1 : -1;
@@ -321,11 +327,19 @@ export function evaluateSetup(input: BuildProfileInput): SetupEvaluation {
    * unchanged V1 guards; only the failure REASON is new, so the research engine
    * can distinguish over-wide risk from an unreachable extension.
    */
-  type EvalFail = { ok: false; reason: Extract<EvaluationStage, "risk_undefined" | "risk_too_wide" | "no_headroom" | "unreachable_r">; detail: string };
+  type EvalFail = {
+    ok: false;
+    reason: Extract<
+      EvaluationStage,
+      "risk_undefined" | "risk_too_wide" | "no_headroom" | "unreachable_r"
+    >;
+    detail: string;
+  };
   type EvalOk = { ok: true; risk: number; maxR: number };
   const evaluate = (candidate: number): EvalOk | EvalFail => {
     const r = Math.abs(candidate - stopLoss);
-    if (r <= 0) return { ok: false, reason: "risk_undefined", detail: "entry equals the stop: risk is zero" };
+    if (r <= 0)
+      return { ok: false, reason: "risk_undefined", detail: "entry equals the stop: risk is zero" };
     if (m15.atr > 0 && r > m15.atr * MAX_RISK_ATR)
       return {
         ok: false,
@@ -333,10 +347,19 @@ export function evaluateSetup(input: BuildProfileInput): SetupEvaluation {
         detail: `risk ${round(r / m15.atr, 2)} ATR exceeds the ${MAX_RISK_ATR} ATR ceiling`,
       };
     const room = (h4Barrier - candidate) * sign;
-    if (room <= 0) return { ok: false, reason: "no_headroom", detail: "entry is already at or beyond the H4 barrier" };
+    if (room <= 0)
+      return {
+        ok: false,
+        reason: "no_headroom",
+        detail: "entry is already at or beyond the H4 barrier",
+      };
     const mr = round(room / r);
     if (mr < MIN_REACHABLE_R)
-      return { ok: false, reason: "unreachable_r", detail: `reachable ${mr}R is below the ${MIN_REACHABLE_R}R floor` };
+      return {
+        ok: false,
+        reason: "unreachable_r",
+        detail: `reachable ${mr}R is below the ${MIN_REACHABLE_R}R floor`,
+      };
     return { ok: true, risk: r, maxR: mr };
   };
 
@@ -364,10 +387,14 @@ export function evaluateSetup(input: BuildProfileInput): SetupEvaluation {
 
     // 1. Never a price worse than the current market — a limit must sit behind it.
     const marketLimit = last.close - sign * spreadFloor;
-    const notWorseThanMarket = direction === "long" ? candidate <= marketLimit : candidate >= marketLimit;
+    const notWorseThanMarket =
+      direction === "long" ? candidate <= marketLimit : candidate >= marketLimit;
 
     // 2. Never further from the market than the structural entry.
-    candidate = direction === "long" ? Math.max(candidate, structuralEntry) : Math.min(candidate, structuralEntry);
+    candidate =
+      direction === "long"
+        ? Math.max(candidate, structuralEntry)
+        : Math.min(candidate, structuralEntry);
 
     // 3. Never crosses — or hugs — the stop.
     const onCorrectSideOfStop = direction === "long" ? candidate > stopLoss : candidate < stopLoss;
@@ -400,14 +427,19 @@ export function evaluateSetup(input: BuildProfileInput): SetupEvaluation {
 
   const validated = evaluate(entryPrice);
   if (!validated.ok) {
-    return fail(gateOfReason[validated.reason], validated.reason, validated.detail, direction, geometry);
+    return fail(
+      gateOfReason[validated.reason],
+      validated.reason,
+      validated.detail,
+      direction,
+      geometry,
+    );
   }
   gates.push({ gate: "risk_defined", outcome: "pass" });
   gates.push({ gate: "risk_ceiling", outcome: "pass" });
   gates.push({ gate: "headroom", outcome: "pass" });
   gates.push({ gate: "reachable_r", outcome: "pass" });
   const { risk, maxR } = validated;
-
 
   const capped = maxR < 3;
   const multiples: [number, number, number | null] =
@@ -434,8 +466,6 @@ export function evaluateSetup(input: BuildProfileInput): SetupEvaluation {
   const tolerance = maxR < 1.5 ? TIGHT_SLIPPAGE_TOLERANCE_R : SLIPPAGE_TOLERANCE_R;
   const maxAcceptableEntry = round(entryPrice + sign * risk * tolerance, 5);
 
-
-
   const pillars = scoreConfluence({
     direction,
     pointC: abc.c,
@@ -459,11 +489,14 @@ export function evaluateSetup(input: BuildProfileInput): SetupEvaluation {
 
   const satisfied = [...graded.reasonsSatisfied];
   const violated = [...graded.reasonsViolated];
-  if (pillars.orderBlock >= PILLAR_PASS_SCORE) satisfied.push("Point C is retesting an institutional order block");
+  if (pillars.orderBlock >= PILLAR_PASS_SCORE)
+    satisfied.push("Point C is retesting an institutional order block");
   else violated.push("Point C is not inside an unmitigated H1/H4 order block");
-  if (pillars.momentum >= PILLAR_PASS_SCORE) satisfied.push("M15 momentum shows exhaustion at Point C");
+  if (pillars.momentum >= PILLAR_PASS_SCORE)
+    satisfied.push("M15 momentum shows exhaustion at Point C");
   else violated.push("M15 momentum shows no exhaustion or divergence at Point C");
-  if (pillars.volatilityExpansion >= PILLAR_PASS_SCORE) satisfied.push("M15 volatility is expanding above its 20-period ATR average");
+  if (pillars.volatilityExpansion >= PILLAR_PASS_SCORE)
+    satisfied.push("M15 volatility is expanding above its 20-period ATR average");
   else violated.push("M15 volatility is below its 20-period ATR average");
 
   features["grade"] = grade;
@@ -502,24 +535,24 @@ export function evaluateSetup(input: BuildProfileInput): SetupEvaluation {
     h4Bias: describe(h4, headroomAtr),
     h1Bias: describe(h1),
     m15Bias: describe(m15),
-    qualitativeBreakdown: buildBreakdown({
-      grade,
-      direction,
-      satisfied,
-      violated,
-      symmetry: abc.symmetry,
-      alignment: graded.alignmentScore,
-      rrRatio,
-      atr: m15.atr,
-      pillars,
-      capped,
-      maxR,
-    }) + dynamicEntryNote,
+    qualitativeBreakdown:
+      buildBreakdown({
+        grade,
+        direction,
+        satisfied,
+        violated,
+        symmetry: abc.symmetry,
+        alignment: graded.alignmentScore,
+        rrRatio,
+        atr: m15.atr,
+        pillars,
+        capped,
+        maxR,
+      }) + dynamicEntryNote,
   };
 
   return { stage: "published", gates, direction, features, geometry, proposedProfile };
 }
-
 
 /**
  * Stable identity of one ABC leg: instrument, direction, the swing A/B candle
@@ -533,15 +566,10 @@ export function structureKeyOf(args: {
   bTime: string;
   stopLoss: number;
 }): string {
-  return [
-    args.instrument,
-    args.direction,
-    args.aTime,
-    args.bTime,
-    args.stopLoss.toFixed(5),
-  ].join("|");
+  return [args.instrument, args.direction, args.aTime, args.bTime, args.stopLoss.toFixed(5)].join(
+    "|",
+  );
 }
-
 
 function describe(read: TimeframeRead, headroomAtr?: number): string {
   if (read.bias === "neutral") return "conflicting";

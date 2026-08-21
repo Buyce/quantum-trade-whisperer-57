@@ -169,7 +169,6 @@ export function replaySetup(input: ReplayInput, candles: Candle[]): ReplayState 
       }
     }
 
-
     state.barsReplayed += 1;
 
     // --- Excursions ---------------------------------------------------------
@@ -216,7 +215,7 @@ export function replaySetup(input: ReplayInput, candles: Candle[]): ReplayState 
         outcome: "expired",
         label: 0,
         // Exit at the close of the barrier candle — the honest mark-to-market.
-        realizedR: ((isLong ? candle.close - base : base - candle.close) / risk),
+        realizedR: (isLong ? candle.close - base : base - candle.close) / risk,
         barsToOutcome: state.barsReplayed,
       };
     }

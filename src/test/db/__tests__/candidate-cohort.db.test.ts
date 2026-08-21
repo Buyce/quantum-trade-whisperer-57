@@ -14,12 +14,7 @@
  *  - filter lift is pinned to Replay-V1 + `legacy_best_target_touched`.
  */
 import { beforeAll, describe, expect, it } from "vitest";
-import {
-  clusterUnavailableReason,
-  ensureCluster,
-  provisionDatabase,
-  type Db,
-} from "../cluster";
+import { clusterUnavailableReason, ensureCluster, provisionDatabase, type Db } from "../cluster";
 
 const SKIP = process.env["PTRADES_DB_TESTS"] === "skip";
 
@@ -228,8 +223,12 @@ describe("filter lift provenance and access control", () => {
       `select stat_status from public.filter_lift_stats`,
     );
     for (const row of rows) {
-      expect(["unavailable", "insufficient_coverage", "insufficient_sample", "insufficient_clusters"])
-        .toContain(row.stat_status);
+      expect([
+        "unavailable",
+        "insufficient_coverage",
+        "insufficient_sample",
+        "insufficient_clusters",
+      ]).toContain(row.stat_status);
     }
   });
 
@@ -244,11 +243,10 @@ describe("filter lift provenance and access control", () => {
   it("[INVARIANT] an ordinary authenticated user cannot read research candidates or filter lift", () => {
     guard();
     for (const table of ["research_candidates", "filter_lift_stats"]) {
-      const err = db.expectFailureAsRole(
-        "authenticated",
-        `select * from public.${table} limit 1`,
-        { sub: "00000000-0000-0000-0000-000000000001", role: "authenticated" },
-      );
+      const err = db.expectFailureAsRole("authenticated", `select * from public.${table} limit 1`, {
+        sub: "00000000-0000-0000-0000-000000000001",
+        role: "authenticated",
+      });
       expect(err).toMatch(/permission denied/i);
     }
   });

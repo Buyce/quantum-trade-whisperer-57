@@ -176,4 +176,3 @@ export async function sendSignalAlerts(db: SupabaseClient, signal: AlertSignal) 
     db,
   );
 }
-

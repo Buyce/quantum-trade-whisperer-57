@@ -16,7 +16,13 @@
  * V1 is not modified; this module only recomputes two components and rebuilds
  * `passed` and `notes`.
  */
-import { atrAtIndex, atrMovingAverage, clamp, detectOrderBlocks, type OrderBlock } from "../indicators";
+import {
+  atrAtIndex,
+  atrMovingAverage,
+  clamp,
+  detectOrderBlocks,
+  type OrderBlock,
+} from "../indicators";
 import { scoreConfluence } from "../grading";
 import { PILLAR_PASS_SCORE, type Candle, type Direction, type PillarScores } from "../types";
 import { volatilityScoreV2 } from "./volatility";

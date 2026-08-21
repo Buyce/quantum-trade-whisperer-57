@@ -18,7 +18,6 @@ import {
   type TimeframeRead,
 } from "./types";
 
-
 /**
  * Moving-average structure read for one timeframe. Bias requires the fast,
  * mid and slow EMA stack to agree, otherwise the timeframe is neutral.
@@ -47,7 +46,11 @@ export function readTimeframe(timeframe: Timeframe, candles: Candle[]): Timefram
   // Point C: price is pulling back into the discount half of the recent leg.
   const legMid = (rangeHigh + rangeLow) / 2;
   const atPointC =
-    bias === "bullish" ? price <= legMid + a * 0.75 : bias === "bearish" ? price >= legMid - a * 0.75 : false;
+    bias === "bullish"
+      ? price <= legMid + a * 0.75
+      : bias === "bearish"
+        ? price >= legMid - a * 0.75
+        : false;
 
   return {
     timeframe,
@@ -112,7 +115,6 @@ export function directionalHeadroomAtr(
   if (!opposing.length) return Number.POSITIVE_INFINITY;
   const nearest = direction === "long" ? Math.min(...opposing) : Math.max(...opposing);
   return Math.abs(nearest - price) / h4.atr;
-
 }
 
 /**
@@ -142,7 +144,8 @@ export function gradeSetup(
   if (allAligned) satisfied.push("Moving-average stack aligned across H4, H1 and M15");
   else violated.push("Moving-average stack is not aligned across all three timeframes");
 
-  if (m15.atPointC || h1.atPointC) satisfied.push("Price is testing the Point C structural liquidity zone");
+  if (m15.atPointC || h1.atPointC)
+    satisfied.push("Price is testing the Point C structural liquidity zone");
   else violated.push("Price is not reacting inside a Point C liquidity zone");
 
   if (!nearMacroBarrier)
@@ -159,7 +162,9 @@ export function gradeSetup(
   else if (h1m15Aligned) grade = "B";
   else if (m15.bias !== "neutral") grade = "C";
 
-  const agreeing = [h4.bias, h1.bias, m15.bias].filter((b) => b === m15.bias && b !== "neutral").length;
+  const agreeing = [h4.bias, h1.bias, m15.bias].filter(
+    (b) => b === m15.bias && b !== "neutral",
+  ).length;
   const alignmentScore = clamp(
     agreeing === 3 ? 92 + (h4.atPointC ? 6 : 0) : agreeing === 2 ? 74 : 45,
     0,
@@ -168,7 +173,6 @@ export function gradeSetup(
 
   return { grade, reasonsSatisfied: satisfied, reasonsViolated: violated, alignmentScore };
 }
-
 
 /**
  * Institutional Confluence Scoring — the four pillars, each scored 0-100.
@@ -191,7 +195,9 @@ export function scoreConfluence(input: {
   const notes: string[] = [];
 
   // ---- Pillar 1: trend alignment -----------------------------------------
-  const trend = input.allAligned ? clamp(input.alignmentScore, 0, 100) : clamp(input.alignmentScore * 0.6, 0, 100);
+  const trend = input.allAligned
+    ? clamp(input.alignmentScore, 0, 100)
+    : clamp(input.alignmentScore * 0.6, 0, 100);
   notes.push(
     input.allAligned
       ? `Trend alignment: H4, H1 and M15 stacks all point ${input.direction === "long" ? "up" : "down"} (${trend.toFixed(0)}%)`
@@ -228,7 +234,9 @@ export function scoreConfluence(input: {
   const latestRsi = recentRsi[recentRsi.length - 1] ?? 50;
   const prevRsi = recentRsi[recentRsi.length - 2] ?? latestRsi;
   const extremeRsi =
-    input.direction === "long" ? Math.min(...(recentRsi.length ? recentRsi : [50])) : Math.max(...(recentRsi.length ? recentRsi : [50]));
+    input.direction === "long"
+      ? Math.min(...(recentRsi.length ? recentRsi : [50]))
+      : Math.max(...(recentRsi.length ? recentRsi : [50]));
   // Long wants an oversold flush into Point C; short wants an overbought push.
   const extremeScore =
     input.direction === "long"
@@ -282,11 +290,11 @@ export function scoreConfluence(input: {
           : `Momentum: no RSI exhaustion, divergence or completed pullback at Point C (RSI ${latestRsi.toFixed(1)})`,
   );
 
-
   // ---- Pillar 4: volatility expansion ------------------------------------
   const atrMa = atrMovingAverage(input.m15Candles, 14, 20);
   const ratio = atrMa && atrMa > 0 ? input.m15Atr / atrMa : 0;
-  const volatilityExpansion = ratio <= 0 ? 0 : ratio >= 1 ? clamp(80 + (ratio - 1) * 100, 0, 100) : clamp(ratio * 60, 0, 100);
+  const volatilityExpansion =
+    ratio <= 0 ? 0 : ratio >= 1 ? clamp(80 + (ratio - 1) * 100, 0, 100) : clamp(ratio * 60, 0, 100);
   notes.push(
     ratio >= 1
       ? `Volatility: M15 ATR is ${ratio.toFixed(2)}x its 20-period average — range is expanding`

@@ -87,7 +87,6 @@ export interface ResolveSummary {
   candidateBacklogNoCandles: number;
 }
 
-
 const OPEN_ROW_COLUMNS =
   "id, signal_id, instrument, direction, detected_at, entry_price, stop_loss, tp1, tp2, tp3, tp1_r, tp2_r, tp3_r, risk_price, atr, filled_at, fill_price, execution_slippage_pips, max_favorable_excursion_r, max_adverse_excursion_r, bars_replayed, replay_cursor, model_version, replay_version";
 
@@ -142,7 +141,9 @@ async function isReplayV2Enabled(db: SupabaseClient): Promise<boolean> {
       .eq("id", true)
       .maybeSingle();
     if (error) return false;
-    return Boolean((data as { replay_v2_shadow_enabled?: boolean } | null)?.replay_v2_shadow_enabled);
+    return Boolean(
+      (data as { replay_v2_shadow_enabled?: boolean } | null)?.replay_v2_shadow_enabled,
+    );
   } catch {
     return false;
   }
@@ -211,7 +212,6 @@ async function loadCandidateRows(db: SupabaseClient): Promise<ShadowRow[]> {
   }
   return (res.data ?? []) as unknown as ShadowRow[];
 }
-
 
 function toReplayInput(row: ShadowRow): ReplayInput {
   return {
@@ -373,7 +373,6 @@ export async function resolveShadowExecutions(db: SupabaseClient): Promise<Resol
   };
   if (rows.length === 0 && researchRows.length === 0 && candidateRows.length === 0) return summary;
 
-
   const byInstrument = new Map<string, ShadowRow[]>();
   for (const row of rows) {
     const list = byInstrument.get(row.instrument) ?? [];
@@ -401,7 +400,6 @@ export async function resolveShadowExecutions(db: SupabaseClient): Promise<Resol
     list.push(row);
     candidateByInstrument.set(row.instrument, list);
   }
-
 
   for (const [instrument, group] of byInstrument) {
     let candles;
@@ -468,7 +466,6 @@ export async function resolveShadowExecutions(db: SupabaseClient): Promise<Resol
       if (advancedRow) summary.candidateAdvanced += 1;
     }
   }
-
 
   return summary;
 }

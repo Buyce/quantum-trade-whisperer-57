@@ -124,10 +124,7 @@ function step(row: RegimeStatRow, label: string, matched: boolean): ExplainStep 
  * effect of each regime feature. Returns null when the statistics table has no
  * global row (i.e. nothing has been learned yet).
  */
-export function explainRegime(
-  rows: RegimeStatRow[],
-  query: RegimeQuery,
-): RegimeExplanation | null {
+export function explainRegime(rows: RegimeStatRow[], query: RegimeQuery): RegimeExplanation | null {
   const global = rows.find((r) => r.tier === 1);
   if (!global) return null;
 

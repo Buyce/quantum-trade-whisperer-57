@@ -43,7 +43,9 @@ describe("V1 research reason semantics", () => {
   });
 
   it("[INVARIANT] the failing gate detail is carried when there is one", () => {
-    const withDetail = evaluations.find((e) => e.gates.some((g) => g.outcome === "fail" && g.detail));
+    const withDetail = evaluations.find((e) =>
+      e.gates.some((g) => g.outcome === "fail" && g.detail),
+    );
     if (!withDetail) return; // no gate in this fixture set produced a detail string
     const detail = [...withDetail.gates].reverse().find((g) => g.outcome === "fail")!.detail!;
     expect(researchReason(withDetail)).toBe(`${withDetail.stage}: ${detail}`);

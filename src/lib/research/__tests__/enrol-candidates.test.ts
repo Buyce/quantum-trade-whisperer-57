@@ -73,20 +73,30 @@ function scenario(opts: {
       if (call.table === "shadow_engine_state" && call.op === "select") {
         return {
           data: [
-            { candidate_enrolment_enabled: enabled, candidate_rows_per_run: budget, research_errors: 0 },
+            {
+              candidate_enrolment_enabled: enabled,
+              candidate_rows_per_run: budget,
+              research_errors: 0,
+            },
           ],
           error: null,
         };
       }
       if (call.table === "shadow_engine_state") return { data: null, error: null };
       if (call.table === "research_candidates" && call.op === "select") {
-        return readError ? { data: null, error: { message: readError } } : { data: candidates, error: null };
+        return readError
+          ? { data: null, error: { message: readError } }
+          : { data: candidates, error: null };
       }
       if (call.table === "shadow_executions" && call.op === "insert") {
-        return insertError ? { data: null, error: { message: insertError } } : { data: null, error: null };
+        return insertError
+          ? { data: null, error: { message: insertError } }
+          : { data: null, error: null };
       }
       if (call.table === "research_candidates" && call.op === "update") {
-        return updateError ? { data: null, error: { message: updateError } } : { data: null, error: null };
+        return updateError
+          ? { data: null, error: { message: updateError } }
+          : { data: null, error: null };
       }
       return { data: [], error: null };
     },
@@ -187,7 +197,9 @@ describe("Stage 4 candidate enrolment — provenance and identity", () => {
   it("[INVARIANT] enrolled_plan_id is written only after the execution row exists, and only while still NULL", async () => {
     const s = scenario({});
     await enrolPendingCandidates(s.db);
-    const insertIdx = s.calls.findIndex((c) => c.table === "shadow_executions" && c.op === "insert");
+    const insertIdx = s.calls.findIndex(
+      (c) => c.table === "shadow_executions" && c.op === "insert",
+    );
     const updateIdx = s.calls.findIndex(
       (c) => c.table === "research_candidates" && c.op === "update",
     );

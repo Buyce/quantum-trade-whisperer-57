@@ -108,10 +108,16 @@ export function buildTradeProfileV2(input: {
 
   // Stop: V1 mechanics, unchanged.
   const spreadFloor = SPREAD_FLOOR[input.instrument] ?? DEFAULT_SPREAD_FLOOR;
-  const buffer = Math.max(m15.atr * STOP_M15_ATR_MULTIPLIER, h1.atr * STOP_H1_ATR_FLOOR, spreadFloor);
+  const buffer = Math.max(
+    m15.atr * STOP_M15_ATR_MULTIPLIER,
+    h1.atr * STOP_H1_ATR_FLOOR,
+    spreadFloor,
+  );
   const recent = m15Candles.slice(-10);
   const structuralExtreme =
-    direction === "long" ? Math.min(...recent.map((c) => c.low)) : Math.max(...recent.map((c) => c.high));
+    direction === "long"
+      ? Math.min(...recent.map((c) => c.low))
+      : Math.max(...recent.map((c) => c.high));
   const stopLoss = direction === "long" ? structuralExtreme - buffer : structuralExtreme + buffer;
 
   // Entry is the canonical Point C. No session offset in V2 research.

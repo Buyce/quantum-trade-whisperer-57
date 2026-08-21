@@ -35,7 +35,9 @@ export default defineTool({
     const wins = rows.filter((r) => r.outcome === "win");
     const losses = rows.filter((r) => r.outcome === "loss");
     const avg = (list: TradeRow[]) =>
-      list.length === 0 ? 0 : list.reduce((s, r) => s + (r.realized_r_multiple ?? 0), 0) / list.length;
+      list.length === 0
+        ? 0
+        : list.reduce((s, r) => s + (r.realized_r_multiple ?? 0), 0) / list.length;
 
     const winRate = wins.length / rows.length;
     const avgWin = avg(wins);

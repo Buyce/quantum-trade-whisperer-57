@@ -14,9 +14,8 @@ export const Route = createFileRoute("/api/public/cron/shadow-resolve")({
         if (!authorizeCronRequest(request)) return unauthorizedResponse();
 
         const { adminClient } = await import("@/lib/scanner/pipeline.server");
-        const { isShadowPaused, noteShadowRun } = await import(
-          "@/lib/execution/shadow_worker.server"
-        );
+        const { isShadowPaused, noteShadowRun } =
+          await import("@/lib/execution/shadow_worker.server");
         const { resolveShadowExecutions } = await import("@/lib/execution/shadow_resolve.server");
 
         const db = adminClient();
@@ -37,9 +36,8 @@ export const Route = createFileRoute("/api/public/cron/shadow-resolve")({
            */
           let candidateEnrolment: unknown = null;
           try {
-            const { enrolPendingCandidates } = await import(
-              "@/lib/research/enrol-candidates.server"
-            );
+            const { enrolPendingCandidates } =
+              await import("@/lib/research/enrol-candidates.server");
             candidateEnrolment = await enrolPendingCandidates(db);
           } catch (enrolErr) {
             console.error(
@@ -47,7 +45,6 @@ export const Route = createFileRoute("/api/public/cron/shadow-resolve")({
               enrolErr instanceof Error ? enrolErr.message : String(enrolErr),
             );
           }
-
 
           // Statistics rebuild runs last and is guarded separately: a failure
           // here must never re-label a successful resolution pass as failed.

@@ -28,7 +28,7 @@ export interface PayoffRunSummary {
 const OWNER_EMAIL = "boatengampomah@gmail.com";
 
 function assertOwner(claims: Record<string, unknown>): void {
-  const email = String(claims['email'] ?? "").toLowerCase();
+  const email = String(claims["email"] ?? "").toLowerCase();
   if (email !== OWNER_EMAIL) throw new Error("Forbidden");
 }
 
@@ -43,7 +43,13 @@ export const getPayoffResearch = createServerFn({ method: "GET" })
 
     const { data, error } = await rpc("get_admin_payoff_research");
     if (error) throw new Error(error.message);
-    return (data as PayoffResearch) ?? { generated_at: new Date().toISOString(), cohorts: [], registry: [] };
+    return (
+      (data as PayoffResearch) ?? {
+        generated_at: new Date().toISOString(),
+        cohorts: [],
+        registry: [],
+      }
+    );
   });
 
 /**

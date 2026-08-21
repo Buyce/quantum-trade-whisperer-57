@@ -14,12 +14,7 @@
  * `candidate`.
  */
 import { readTimeframe } from "../grading";
-import {
-  MAX_RISK_ATR,
-  MIN_REACHABLE_R,
-  type Candle,
-  type Direction,
-} from "../types";
+import { MAX_RISK_ATR, MIN_REACHABLE_R, type Candle, type Direction } from "../types";
 import { structureKeyOf } from "../profile";
 import { canonicalBarrier } from "../v2/barrier";
 import { gradeSetupV2, type GradeFamilyV2 } from "../v2/grading.v2";

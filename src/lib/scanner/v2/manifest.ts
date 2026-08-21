@@ -11,11 +11,7 @@
  * both the Worker runtime and the test suite with no crypto dependency.
  */
 import { RETRACEMENT_MAX, RETRACEMENT_MIN, PIVOT_LOOKBACK } from "./pointc";
-import {
-  H4_PIVOT_LOOKBACK,
-  OPEN_SPACE_EXTENSION_ATR,
-  PIVOT_MIN_SEPARATION_ATR,
-} from "./barrier";
+import { H4_PIVOT_LOOKBACK, OPEN_SPACE_EXTENSION_ATR, PIVOT_MIN_SEPARATION_ATR } from "./barrier";
 import { ZONE_MAX_DISTANCE_ATR } from "./pillars";
 import { VOLATILITY_V2_PARAMS } from "./volatility";
 

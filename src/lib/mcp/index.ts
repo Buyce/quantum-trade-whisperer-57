@@ -12,7 +12,6 @@ import calculatePositionSize from "./tools/calculate-position-size";
 import getIntelligence from "./tools/get-intelligence";
 import getShadowComparison from "./tools/get-shadow-comparison";
 
-
 // The OAuth issuer must be the direct Supabase host; the project ref is the only
 // Supabase value that survives publish unchanged.
 const projectRef = import.meta.env["VITE_SUPABASE_PROJECT_ID"] ?? "project-ref-unset";
@@ -27,7 +26,7 @@ export default defineMcp({
     issuer: `https://${projectRef}.supabase.co/auth/v1`,
     acceptedAudiences: "authenticated",
   }),
-  tools: ([
+  tools: [
     listSignals,
     getScannerStatus,
     getMarketStatus,
@@ -40,6 +39,5 @@ export default defineMcp({
     updateTradeOutcome,
     listMyTrades,
     getPerformanceSummary,
-  ] as unknown as Parameters<typeof defineMcp>[0]["tools"]),
+  ] as unknown as Parameters<typeof defineMcp>[0]["tools"],
 });
-

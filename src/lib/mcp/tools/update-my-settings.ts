@@ -17,12 +17,18 @@ export default defineTool({
       .describe("Subset of sydney, tokyo, london, london_new_york_overlap, new_york."),
     min_grade: z.string().optional().describe("Lowest grade shown in the feed: A+, A, B or C."),
     alert_min_grade: z.string().optional().describe("Lowest grade that triggers alerts."),
-    daily_setup_cap: z.number().optional().describe("Max graded setups alerted per day; 0 = unlimited."),
+    daily_setup_cap: z
+      .number()
+      .optional()
+      .describe("Max graded setups alerted per day; 0 = unlimited."),
     notify_push: z.boolean().optional(),
     notify_email: z.boolean().optional(),
     account_equity: z.number().optional().describe("Account balance in the account currency."),
     account_currency: z.string().optional().describe("USD, EUR, GBP or AUD."),
-    risk_per_trade_percent: z.number().optional().describe("Percent of equity risked per trade (0.1-10)."),
+    risk_per_trade_percent: z
+      .number()
+      .optional()
+      .describe("Percent of equity risked per trade (0.1-10)."),
     max_position_size: z.number().optional().describe("Hard lot ceiling; 0 disables the cap."),
     leverage: z.number().optional().describe("Account leverage (1-500)."),
     max_stop_loss_percent: z
@@ -30,7 +36,12 @@ export default defineTool({
       .optional()
       .describe("Maximum stop distance as a percent of entry; 0 disables the check."),
   },
-  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  annotations: {
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: false,
+  },
   handler: async (input, ctx) => {
     if (!ctx.isAuthenticated()) {
       return { content: [{ type: "text", text: "Not authenticated" }], isError: true };

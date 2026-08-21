@@ -50,11 +50,7 @@ export const DEFAULT_RISK_PROFILE: RiskProfile = {
   maxStopLossPercent: 0,
 };
 
-export type RiskUnavailableReason =
-  | "no_equity"
-  | "no_spec"
-  | "no_conversion_rate"
-  | "invalid_stop";
+export type RiskUnavailableReason = "no_equity" | "no_spec" | "no_conversion_rate" | "invalid_stop";
 
 export interface RiskUnavailable {
   ok: false;
