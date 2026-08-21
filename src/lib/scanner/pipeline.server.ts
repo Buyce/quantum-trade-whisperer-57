@@ -412,10 +412,15 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
 
 
 
-    const profile = buildTradeProfile({ instrument: job.instrument, candles, session });
+    // Gate-labelled evaluation. `profile` is exactly what buildTradeProfile()
+    // returned before: only a fully-passed evaluation can publish.
+    const evaluation = evaluateSetup({ instrument: job.instrument, candles, session });
+    v1Evaluation = evaluation;
+    const profile = evaluation.stage === "published" ? evaluation.proposedProfile : null;
     if (!profile) return await finish("no_trade", "No structure satisfied the ABC grading rules");
     v1Grade = profile.grade;
     v1Direction = profile.direction;
+
 
     // No global ceiling: every qualifying setup publishes. Each account applies
     // its own daily cap (scanner_settings.daily_setup_cap, 0 = unlimited) to
