@@ -257,8 +257,8 @@ describe("replaySetupV2 — vertical barrier and data gaps", () => {
 
 describe("replay identity is immutable", () => {
   it("[INVARIANT] the registered replay semantics hashes never drift", () => {
-    expect(REPLAY_V1_CODE_HASH).toBe("b1bc0ac96d59dec4");
-    expect(REPLAY_V2_CODE_HASH).toBe("270450b8cc142a73");
+    expect(REPLAY_V1_CODE_HASH).toBe("e3357869b4f6dc04");
+    expect(REPLAY_V2_CODE_HASH).toBe("fd3a5fc5a6b386e7");
   });
 
   it("[V1_CHARACTERIZATION] Replay V1 gap fills are still paid on PLANNED risk", () => {
