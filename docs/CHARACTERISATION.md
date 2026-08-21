@@ -56,6 +56,16 @@ unlabelled test title fails the build, and an `[INTENDED_V2]` label outside a
 7. **`miss_distance_atr` is only recorded on the `never_filled` path** and is
    `null` whenever ATR is unknown. Pinned in `replay.test.ts`.
 
+8. **A negative planned risk is silently absolute-valued.** `replaySetup`
+   normalises with `Math.abs`, so a sign error upstream produces a fully resolved
+   row instead of a fail-closed one. Pinned in `replay.test.ts`.
+
+9. **An infinite stop distance is accepted by `calculateRisk` and leaks `NaN`.**
+   `Math.abs(entry - Infinity)` passes the `> 0` guard, lots floor to `0`, and
+   `0 x Infinity` makes `riskAmount` `NaN`. No production caller supplies a
+   non-finite stop today; the behaviour is pinned so a future guard is a
+   deliberate change. Pinned in `src/lib/__tests__/risk.test.ts`.
+
 ## Changing a pinned behaviour
 
 A `[V1_CHARACTERIZATION]` failure is never "just fix the test". Either:
@@ -79,7 +89,20 @@ produced by calling MetaApi or any broker endpoint — `sourceType` is limited t
 ```
 bun run test          # blocking project: UNIT + V1_CHARACTERIZATION + INVARIANT
 bun run test:report   # non-blocking INTENDED_V2 project
-bun run verify        # lint -> typecheck -> blocking tests -> build (canonical CI command)
+bun run lint:tests    # eslint/prettier over the test sources only
+bun run verify        # lint:tests -> typecheck -> blocking tests -> build (canonical CI command)
 ```
 
 Property tests use fixed seeds (`20260821`) so any failure is reproducible.
+
+## Known repository debt (not introduced by this suite)
+
+Repo-wide `bun run lint` reports ~2,231 pre-existing prettier formatting errors
+across application sources. `verify` therefore lints the test sources
+(`lint:tests`, clean) and CI runs the repo-wide lint as a separate non-blocking
+step until that debt is cleared.
+
+The git remote in this environment is not GitHub, so no GitHub status check can
+be observed from here: `.github/workflows/ci.yml` is committed and will run once
+the repository is mirrored to GitHub, but nothing about a passing GitHub check is
+claimed.
