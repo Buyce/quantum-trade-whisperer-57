@@ -62,7 +62,53 @@ async function bounded<T>(work: PromiseLike<T>, ms: number): Promise<T | "deadli
 }
 
 /**
+ * Durable research health. The in-process counter dies with the worker, so the
+ * failure is also recorded on `shadow_engine_state` where an operator can see
+ * it. Bounded and swallowing: research bookkeeping never affects a scan job.
+ */
+export async function noteResearchFailure(
+  db: SupabaseClient,
+  message: string,
+  deadlineMs = RESEARCH_WRITE_DEADLINE_MS,
+): Promise<void> {
+  failureCount += 1;
+  try {
+    const current = await bounded(
+      db
+        .from("shadow_engine_state")
+        .select("research_errors")
+        .eq("id", true)
+        .maybeSingle()
+        .then((r) => r),
+      deadlineMs,
+    );
+    const errors =
+      current === "deadline"
+        ? 1
+        : Number((current.data as { research_errors?: number } | null)?.research_errors ?? 0) + 1;
+    await bounded(
+      db
+        .from("shadow_engine_state")
+        .update({
+          research_errors: errors,
+          research_last_error: message.slice(0, 500),
+          research_last_error_at: new Date().toISOString(),
+        })
+        .eq("id", true)
+        .then((r) => r),
+      deadlineMs,
+    );
+  } catch {
+    // Intentionally silent: telemetry about telemetry must not escalate.
+  }
+}
+
+/**
  * Persist observation rows. Never throws — returns how many rows were written.
+ *
+ * Upsert on the (run_id, instrument, model_version) identity so a retried scan
+ * job updates its own observation pair instead of double-counting the
+ * experiment. Rows without a run_id fall back to plain inserts.
  */
 export async function recordObservations(
   db: SupabaseClient,
@@ -71,24 +117,35 @@ export async function recordObservations(
 ): Promise<number> {
   if (!rows.length) return 0;
   try {
+    const identified = rows.every((r) => r.run_id);
+    const query = identified
+      ? db
+          .from("model_observations")
+          .upsert(rows, { onConflict: "run_id,instrument,model_version" })
+      : db.from("model_observations").insert(rows);
     const result = await bounded(
-      db.from("model_observations").insert(rows).then((r) => r),
+      query.then((r) => r),
       deadlineMs,
     );
     if (result === "deadline") {
-      failureCount += 1;
+      await noteResearchFailure(db, "observation write exceeded deadline", deadlineMs);
       return 0;
     }
     if (result.error) {
-      failureCount += 1;
+      await noteResearchFailure(db, `observation write failed: ${result.error.message}`, deadlineMs);
       return 0;
     }
     return rows.length;
-  } catch {
-    failureCount += 1;
+  } catch (err) {
+    await noteResearchFailure(
+      db,
+      `observation write threw: ${err instanceof Error ? err.message : String(err)}`,
+      deadlineMs,
+    );
     return 0;
   }
 }
+
 
 /**
  * Race-safe research cooldown: true only for the caller that claims the
