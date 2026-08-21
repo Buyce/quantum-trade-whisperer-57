@@ -28,7 +28,7 @@ export default defineTool({
           // Provenance: logged by an AI assistant over MCP, with the client id
           // so two assistants on one account stay distinguishable.
           decision_source: "agent",
-          decision_source_client: ctx.getClientId?.() ?? null,
+          decision_source_client: ctx.getClientId() ?? "unknown",
         },
         { onConflict: "user_id,signal_id" },
       )
