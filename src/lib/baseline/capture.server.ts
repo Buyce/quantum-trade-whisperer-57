@@ -85,6 +85,40 @@ interface ShadowRow {
   atr: number | null;
   signal_id: string | null;
   detected_at: string;
+  resolved_at: string | null;
+}
+
+export interface SourceCoverage {
+  rows: number;
+  timestamp_column: string;
+  earliest: string | null;
+  latest: string | null;
+  retention: string;
+}
+
+/** Earliest/latest bound of a source at or before the cutoff. */
+async function coverage(
+  db: SupabaseClient,
+  table: string,
+  column: string,
+  cutoff: string,
+  retention: string,
+): Promise<SourceCoverage> {
+  const base = () => db.from(table).select(column).lte(column, cutoff);
+  const [count, first, last] = await Promise.all([
+    db.from(table).select("*", { count: "exact", head: true }).lte(column, cutoff),
+    base().order(column, { ascending: true }).limit(1).maybeSingle(),
+    base().order(column, { ascending: false }).limit(1).maybeSingle(),
+  ]);
+  const pick = (r: { data: unknown }) =>
+    ((r.data as Record<string, string> | null)?.[column] as string | undefined) ?? null;
+  return {
+    rows: count.count ?? 0,
+    timestamp_column: column,
+    earliest: pick(first),
+    latest: pick(last),
+    retention,
+  };
 }
 
 export interface BaselineResult {
@@ -93,6 +127,7 @@ export interface BaselineResult {
   pinnedRunId: string | null;
   metrics: Record<string, unknown>;
 }
+
 
 export async function captureBaseline(
   db: SupabaseClient,
