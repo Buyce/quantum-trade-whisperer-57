@@ -20,10 +20,17 @@ import type { SetupEvaluation } from "@/lib/scanner/profile";
  */
 export const RESEARCH_PLAN_VERSION = 1;
 
+/**
+ * Identity of the common research execution policy. Reported by
+ * `recompute_filter_lift()` so a stored arm can never be read as anything else.
+ */
+export const RESEARCH_LADDER_POLICY = "common_counterfactual_ladder_v1";
+
 /** Fixed research multiples. Deliberately independent of headroom and maxR. */
 export const RESEARCH_TP_R: readonly [number, number, number] = [1, 2, 3];
 
 export type PlanOrigin = "production" | "counterfactual";
+
 
 export interface CounterfactualPlan {
   grade: string;
@@ -42,12 +49,19 @@ function round5(v: number): number {
 }
 
 /**
- * Builds the research-only plan for a filter-rejected evaluation, or null when
- * the evaluation cannot support one. `null` is the safe answer everywhere.
+ * Builds the COMMON research plan for an evaluation, or null when the
+ * evaluation cannot support one. `null` is the safe answer everywhere.
+ *
+ * Prompt 7G red-team correction: the ladder is built for EVERY executable
+ * evaluation — published as well as filter-rejected. Filter lift compares a
+ * gate's pass arm with its fail arm, so both arms must be replayed under one
+ * identical, filter-independent execution plan. Grouping a published production
+ * ladder (headroom- and reachable-R-conditioned) against an unconditional 3R
+ * ladder would measure the ladder, not the filter.
  */
 export function buildCounterfactualPlan(e: SetupEvaluation): CounterfactualPlan | null {
-  if (e.stage === "published") return null;
   if (e.counterfactual !== "executable") return null;
+
 
   const entry = e.geometry.entryPrice;
   const stop = e.geometry.stopLoss;
