@@ -451,6 +451,8 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
     // returned before: only a fully-passed evaluation can publish.
     const evaluation = evaluateSetup({ instrument: job.instrument, candles, session });
     v1Evaluation = evaluation;
+    v1Session = session ?? null;
+
     const profile = evaluation.stage === "published" ? evaluation.proposedProfile : null;
     if (!profile) return await finish("no_trade", "No structure satisfied the ABC grading rules");
     v1Grade = profile.grade;
