@@ -197,6 +197,7 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
   let v2Disposition: Disposition = "none";
   let v1Grade: string | null = null;
   let v1Direction: "long" | "short" | null = null;
+  let v2LatencyMs: number | null = null;
 
   /** V1 status -> (decision, disposition) for the research ledger. */
   const v1Cell = (
@@ -256,8 +257,6 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
 
     return { jobId: job.id, instrument: job.instrument, status, ...(detail ? { detail } : {}) };
   };
-
-  let v2LatencyMs: number | null = null;
 
   if (job.enqueued_at) {
     const ageMs = Date.now() - new Date(job.enqueued_at).getTime();
