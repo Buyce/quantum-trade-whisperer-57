@@ -14,7 +14,7 @@ import {
 } from "@/lib/queries";
 import { recordTradeOutcome } from "@/lib/trade-journal.functions";
 import { contextOf, isWithinRetention, type Grade, type SignalRow, type TradeRow } from "@/lib/db-types";
-import { MIN_N_FILL } from "@/lib/learning/regime";
+import { MIN_N_FILL, MIN_N_WIN } from "@/lib/learning/regime";
 import { SignalCard } from "@/components/SignalCard";
 import { ScanHeartbeat } from "@/components/ScanHeartbeat";
 import { MarketStatus } from "@/components/MarketStatus";
