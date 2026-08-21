@@ -123,9 +123,14 @@ export const SIGNAL_MAX_AGE_HOURS = 24;
 
 /**
  * Slippage tolerance above (long) / below (short) the entry price before the
- * planned payoff is materially broken. 0.15R turns a 1:3 into ~1:2.55 — a real
- * but survivable haircut. Thin extensions (maxR < 1.5) use the tighter figure
- * so a marginal setup cannot be slipped into negative expectancy.
+ * planned payoff is materially broken.
+ *
+ * The stop and targets do not move when the entry slips, so both sides of the
+ * ratio change: risk grows to (1 + 0.15)R and reward falls to (3 - 0.15)R. A
+ * 1:3 setup filled at the tolerance limit therefore realises 2.85 / 1.15 =
+ * ~1:2.478, not 1:2.55. A real but survivable haircut. Thin extensions
+ * (maxR < 1.5) use the tighter figure so a marginal setup cannot be slipped
+ * into negative expectancy.
  */
 export const SLIPPAGE_TOLERANCE_R = 0.15;
 export const TIGHT_SLIPPAGE_TOLERANCE_R = 0.1;
