@@ -273,3 +273,33 @@ export function v1ObservationRow(args: {
     profile: null,
   };
 }
+
+/**
+ * A V2 evaluator crash is itself an observation: losing it would silently
+ * shrink the experiment's denominator. Persisted as decision='error' with a
+ * truncated reason and no profile.
+ */
+export function v2ErrorObservationRow(args: {
+  runId: string | null;
+  observationKey: string | null;
+  instrument: string;
+  reason: string;
+  latencyMs: number | null;
+}): ObservationRow {
+  return {
+    run_id: args.runId,
+    observation_key: args.observationKey,
+    model_version: MODEL_V2_VERSION,
+    instrument: args.instrument,
+    decision: "error",
+    family: null,
+    grade: null,
+    direction: null,
+    disposition: "none",
+    reason: args.reason.slice(0, 500),
+    code_hash: MODEL_V2_CODE_HASH,
+    latency_ms: args.latencyMs,
+    signal_id: null,
+    profile: null,
+  };
+}
