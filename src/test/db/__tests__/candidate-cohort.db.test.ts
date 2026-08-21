@@ -81,7 +81,6 @@ function insertCandidate(): void {
   `);
 }
 
-
 const regimeRows = () =>
   db.rows(
     `select tier, regime_key, n_total, n_filled, wins, p_fill_raw, p_win_raw,
@@ -239,8 +238,6 @@ describe("research-candidate cohort contamination", () => {
       `),
     ).toThrow();
   });
-
-
 
   it("[INVARIANT] no candidate row is reachable from the live signal surface", () => {
     guard();

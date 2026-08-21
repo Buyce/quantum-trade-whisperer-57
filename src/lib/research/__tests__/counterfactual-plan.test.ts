@@ -114,7 +114,6 @@ describe("Prompt 7G — the frozen research ladder", () => {
     expect(publishedPlan).toEqual(rejected);
   });
 
-
   it.each(STRUCTURAL_STAGES)("[INVARIANT] no plan is invented for %s", (stage) => {
     expect(
       buildCounterfactualPlan(evaluation({ stage, geometry: EMPTY, direction: null })),

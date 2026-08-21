@@ -31,7 +31,6 @@ export const RESEARCH_TP_R: readonly [number, number, number] = [1, 2, 3];
 
 export type PlanOrigin = "production" | "counterfactual";
 
-
 export interface CounterfactualPlan {
   grade: string;
   tp1: number;
@@ -61,7 +60,6 @@ function round5(v: number): number {
  */
 export function buildCounterfactualPlan(e: SetupEvaluation): CounterfactualPlan | null {
   if (e.counterfactual !== "executable") return null;
-
 
   const entry = e.geometry.entryPrice;
   const stop = e.geometry.stopLoss;

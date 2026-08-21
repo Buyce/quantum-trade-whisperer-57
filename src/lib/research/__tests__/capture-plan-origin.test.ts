@@ -150,7 +150,15 @@ describe("Prompt 7G — captured plan provenance", () => {
     expect(p["tp1"]).toBeCloseTo(1.115, 10);
     // ...but the common research ladder exists on BOTH arms, identically.
     expect(p["cf_plan_version"]).toBe(RESEARCH_PLAN_VERSION);
-    for (const k of ["cf_tp1", "cf_tp2", "cf_tp3", "cf_tp1_r", "cf_tp2_r", "cf_tp3_r", "cf_max_r"]) {
+    for (const k of [
+      "cf_tp1",
+      "cf_tp2",
+      "cf_tp3",
+      "cf_tp1_r",
+      "cf_tp2_r",
+      "cf_tp3_r",
+      "cf_max_r",
+    ]) {
       expect(p[k]).toBe(rejected[k]);
     }
   });
