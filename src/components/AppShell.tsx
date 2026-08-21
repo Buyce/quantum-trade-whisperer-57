@@ -1,5 +1,5 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { Activity, BarChart3, History, LogOut, Settings as SettingsIcon, ShieldCheck } from "lucide-react";
+import { Activity, BarChart3, History, LogOut, Plug, Settings as SettingsIcon, ShieldCheck } from "lucide-react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 
@@ -11,10 +11,13 @@ import ptradesMark from "@/assets/ptrades-mark.png.asset.json";
 
 
 const NAV = [
-  { to: "/feed", label: "Signal Feed", icon: Activity },
-  { to: "/history", label: "Trade History", icon: History },
-  { to: "/performance", label: "Performance", icon: BarChart3 },
-  { to: "/settings", label: "Settings", icon: SettingsIcon },
+  { to: "/feed", label: "Signal Feed", short: "Feed", icon: Activity },
+  { to: "/history", label: "Trade History", short: "History", icon: History },
+  { to: "/performance", label: "Performance", short: "Performance", icon: BarChart3 },
+  { to: "/settings", label: "Settings", short: "Settings", icon: SettingsIcon },
+  // Public route, but it belongs in the terminal nav: signed-in users never see
+  // the landing footer that used to be its only entry point.
+  { to: "/connect", label: "Connect AI", short: "Connect", icon: Plug },
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -79,7 +82,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   >
                     <item.icon className="size-4 shrink-0" />
                     <span className="hidden lg:inline">{item.label}</span>
-                    <span className="lg:hidden">{item.label.split(" ")[1] ?? item.label}</span>
+                    <span className="lg:hidden">{item.short}</span>
                   </Link>
                 );
               })}
@@ -103,7 +106,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
           </div>
 
-          <nav className="grid grid-cols-4 border-t border-border md:hidden">
+          <nav className="grid grid-cols-5 border-t border-border md:hidden">
             {NAV.map((item) => {
               const active = pathname.startsWith(item.to);
               return (
@@ -119,7 +122,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   )}
                 >
                   <item.icon className="size-4" />
-                  <span className="truncate px-1">{item.label.split(" ")[1] ?? item.label}</span>
+                  <span className="truncate px-1">{item.short}</span>
                 </Link>
               );
             })}

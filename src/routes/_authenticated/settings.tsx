@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { FeedbackSection } from "@/components/FeedbackSection";
 import { DangerZoneSection } from "@/components/DangerZoneSection";
 import { PushSection } from "@/components/PushSection";
+import { AgentConnectCard } from "@/components/AgentConnectCard";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
@@ -230,6 +231,7 @@ function SettingsPage() {
           <TabsTrigger className="h-10 lg:h-auto" value="filters">Filters &amp; alerts</TabsTrigger>
           <TabsTrigger className="h-10 lg:h-auto" value="risk">Risk</TabsTrigger>
           <TabsTrigger className="h-10 lg:h-auto" value="notifications">Notifications</TabsTrigger>
+          <TabsTrigger className="h-10 lg:h-auto" value="agents">Agents</TabsTrigger>
           <TabsTrigger className="h-10 lg:h-auto" value="diagnostics">Diagnostics</TabsTrigger>
           <TabsTrigger className="h-10 lg:h-auto" value="account">Account</TabsTrigger>
         </TabsList>
@@ -641,6 +643,10 @@ function SettingsPage() {
           </section>
 
           <SaveBar saving={saving} onSave={() => void onSave()} />
+        </TabsContent>
+
+        <TabsContent value="agents" className="space-y-4">
+          <AgentConnectCard />
         </TabsContent>
 
         <TabsContent value="diagnostics" className="space-y-4">
