@@ -101,7 +101,6 @@ function makeResolvedTrade(): string {
   return id;
 }
 
-
 /** Full identical UPDATE of every protected column. */
 function retryIdentical(id: string): void {
   const set = Object.entries(RESOLVED)
