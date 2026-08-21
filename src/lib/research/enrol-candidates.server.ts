@@ -100,12 +100,19 @@ export interface CandidateRow {
   gates: unknown;
   gates_complete: boolean;
   enrolled_plan_id: string | null;
+  /**
+   * Prompt 7G: how the plan was derived. `counterfactual` rows are
+   * filter-rejected setups carrying the frozen research ladder; they enrol on
+   * exactly the same terms as a published plan. Legacy rows captured before the
+   * column existed read as null and are still judged purely on their geometry.
+   */
+  plan_origin?: string | null;
 }
 
 const CANDIDATE_COLUMNS =
   "id, observation_key, instrument, direction, strategy_version, manifest_hash, detected_at, " +
   "trading_session, volatility_index, grade, structure_key, entry_price, stop_loss, tp1, tp2, tp3, " +
-  "tp1_r, tp2_r, tp3_r, max_r, risk_price, atr, confidence_score, gates, gates_complete, enrolled_plan_id";
+  "tp1_r, tp2_r, tp3_r, max_r, risk_price, atr, confidence_score, gates, gates_complete, enrolled_plan_id, plan_origin";
 
 function num(v: unknown): number | null {
   // NOTE: Number(null) is 0, so a missing value must be rejected BEFORE coercion
@@ -173,6 +180,7 @@ export interface CandidateEnrolmentSummary {
   considered: number;
   skippedNotExecutable: number;
   enrolled: number;
+  enrolledCounterfactual: number;
   failed: number;
 }
 
@@ -182,6 +190,7 @@ const EMPTY: CandidateEnrolmentSummary = {
   considered: 0,
   skippedNotExecutable: 0,
   enrolled: 0,
+  enrolledCounterfactual: 0,
   failed: 0,
 };
 
@@ -222,6 +231,7 @@ export async function enrolPendingCandidates(
       considered: rows.length,
       skippedNotExecutable: 0,
       enrolled: 0,
+      enrolledCounterfactual: 0,
       failed: 0,
     };
 
@@ -297,6 +307,7 @@ export async function enrolPendingCandidates(
         continue;
       }
       summary.enrolled += 1;
+      if (c.plan_origin === "counterfactual") summary.enrolledCounterfactual += 1;
     }
 
     return summary;
