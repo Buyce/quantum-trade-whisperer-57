@@ -4,7 +4,7 @@
  * and idempotent; failures flag the instrument and move on.
  */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { buildTradeProfile } from "./profile";
+import { evaluateSetup, type SetupEvaluation } from "./profile";
 import { buildTradeProfileV2, type V2Evaluation } from "./v2/profile.v2";
 import { buildTradeProfileV3, type V3Evaluation } from "./v3/profile.v3";
 import {
@@ -214,6 +214,14 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
   let v2LatencyMs: number | null = null;
   let v3LatencyMs: number | null = null;
 
+  // Stage 3 research capture state. Populated only once V1 has actually
+  // evaluated real candles; never used by any production decision below.
+  let v1Evaluation: SetupEvaluation | null = null;
+  let v1Session: string | null = null;
+  let v1VolatilityIndex: number | null = null;
+  let publishedSignalId: string | null = null;
+
+
   /** V1 status -> (decision, disposition) for the research ledger. */
   const v1Cell = (
     status: JobResult["status"],
@@ -304,7 +312,34 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
 
 
       await recordObservations(db, rows);
+
+      // Stage 3: research candidate capture. Dark until the database switch is
+      // enabled, isolated from the job result, and written after the production
+      // work is already committed above.
+      if (v1Evaluation) {
+        try {
+          const { captureCandidate, isCandidateCaptureEnabled } = await import(
+            "@/lib/research/candidates.server"
+          );
+          if (await isCandidateCaptureEnabled(db)) {
+            await captureCandidate(db, {
+              runId: job.run_id ?? null,
+              observationKey: key,
+              instrument: job.instrument,
+              detectedAt: stamp,
+              session: v1Session,
+              volatilityIndex: v1VolatilityIndex,
+              evaluation: v1Evaluation,
+              v1Decision: status,
+              publishedSignalId,
+            });
+          }
+        } catch {
+          // Capture is never allowed to affect the scan result.
+        }
+      }
     }
+
 
     return { jobId: job.id, instrument: job.instrument, status, ...(detail ? { detail } : {}) };
   };
@@ -412,10 +447,17 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
 
 
 
-    const profile = buildTradeProfile({ instrument: job.instrument, candles, session });
+    // Gate-labelled evaluation. `profile` is exactly what buildTradeProfile()
+    // returned before: only a fully-passed evaluation can publish.
+    const evaluation = evaluateSetup({ instrument: job.instrument, candles, session });
+    v1Evaluation = evaluation;
+    v1Session = session ?? null;
+
+    const profile = evaluation.stage === "published" ? evaluation.proposedProfile : null;
     if (!profile) return await finish("no_trade", "No structure satisfied the ABC grading rules");
     v1Grade = profile.grade;
     v1Direction = profile.direction;
+
 
     // No global ceiling: every qualifying setup publishes. Each account applies
     // its own daily cap (scanner_settings.daily_setup_cap, 0 = unlimited) to
@@ -444,6 +486,8 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
     const m15Atr = profile.atr;
     const h1Atr = atr(candles.H1, 14);
     const volatilityIndex = h1Atr > 0 && m15Atr > 0 ? Number((m15Atr / h1Atr).toFixed(4)) : null;
+    v1VolatilityIndex = volatilityIndex;
+
 
     // Advisory Bayesian prior from the shadow telemetry. Recorded on the row for
     // observation only: nothing below branches on it, so a stale or empty
@@ -521,6 +565,8 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
     }
 
     const signalId = (inserted as { id: string }).id;
+    publishedSignalId = signalId;
+
 
     const { error: ctxError } = await db.from("market_context").insert({
       signal_id: signalId,

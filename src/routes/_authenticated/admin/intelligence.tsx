@@ -39,6 +39,8 @@ import {
 import { BaselinePanel } from "@/components/admin/BaselinePanel";
 import { ResearchPanel } from "@/components/admin/ResearchPanel";
 import { PayoffPanel } from "@/components/admin/PayoffPanel";
+import { CandidatePanel } from "@/components/admin/CandidatePanel";
+
 
 export const Route = createFileRoute("/_authenticated/admin/intelligence")({
   head: () => ({
@@ -268,6 +270,11 @@ function AdminIntelligencePage() {
       <PanelShell title="Expected R research — payoff distribution, not probability">
         <PayoffPanel />
       </PanelShell>
+
+      <PanelShell title="Research candidate capture — what the scanner rejected">
+        <CandidatePanel />
+      </PanelShell>
+
 
 
       <PanelShell title="Human vs AI agent — accounts, decisions and reported outcomes">

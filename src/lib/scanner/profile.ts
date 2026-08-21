@@ -112,32 +112,188 @@ export interface BuildProfileInput {
 }
 
 /**
+ * Prompt 7 Stage 2 — gate labelling.
+ *
+ * V1 used to collapse six structurally different rejections into one `null`, so
+ * the research engine could not tell "no ABC leg" from "risk too wide". The
+ * evaluation is now explicit: every gate is recorded in evaluation order with a
+ * pass / fail / not_evaluable outcome, and exactly one terminal stage is
+ * reported. The geometry maths below is UNCHANGED — `buildTradeProfile()` is a
+ * thin adapter over this function, so publication behaviour is identical.
+ */
+export type GateId =
+  | "candles_present"
+  | "m15_direction"
+  | "grade"
+  | "abc_structure"
+  | "risk_defined"
+  | "risk_ceiling"
+  | "headroom"
+  | "reachable_r";
+
+export type GateOutcome = "pass" | "fail" | "not_evaluable";
+
+export type EvaluationStage =
+  | "published"
+  | "no_candles"
+  | "m15_neutral"
+  | "no_grade"
+  | "no_abc"
+  | "risk_undefined"
+  | "risk_too_wide"
+  | "no_headroom"
+  | "unreachable_r";
+
+export interface GateResult {
+  gate: GateId;
+  outcome: GateOutcome;
+  detail?: string;
+}
+
+/** Geometry that was actually derived. Never invented to fill a column. */
+export interface PartialGeometry {
+  entryPrice: number | null;
+  stopLoss: number | null;
+  riskPrice: number | null;
+  structuralEntry: number | null;
+  structureKey: string | null;
+  atr: number | null;
+}
+
+export interface SetupEvaluation {
+  /** Exactly one terminal stage per evaluation. */
+  stage: EvaluationStage;
+  /** Gates in evaluation order; everything after the terminal gate is `not_evaluable`. */
+  gates: GateResult[];
+  direction: Direction | null;
+  /** Deterministic measurements behind the decision — reproducible from candles alone. */
+  features: Record<string, number | string | boolean | null>;
+  /** Derived geometry, as far as it got. `null` fields are genuinely undefined. */
+  geometry: PartialGeometry;
+  /** Populated ONLY when every gate passed. Never a partial or fabricated plan. */
+  proposedProfile: TradeProfile | null;
+}
+
+const GATE_ORDER: GateId[] = [
+  "candles_present",
+  "m15_direction",
+  "grade",
+  "abc_structure",
+  "risk_defined",
+  "risk_ceiling",
+  "headroom",
+  "reachable_r",
+];
+
+const EMPTY_GEOMETRY: PartialGeometry = {
+  entryPrice: null,
+  stopLoss: null,
+  riskPrice: null,
+  structuralEntry: null,
+  structureKey: null,
+  atr: null,
+};
+
+/** Records the failing gate and marks every later gate not_evaluable. */
+function terminate(
+  gates: GateResult[],
+  failing: GateId,
+  stage: EvaluationStage,
+  detail: string,
+): Pick<SetupEvaluation, "stage" | "gates"> {
+  const done = [...gates, { gate: failing, outcome: "fail" as GateOutcome, detail }];
+  const seen = new Set(done.map((g) => g.gate));
+  for (const gate of GATE_ORDER) {
+    if (!seen.has(gate)) done.push({ gate, outcome: "not_evaluable" });
+  }
+  return { stage, gates: done };
+}
+
+/**
  * Turns raw OHLCV candles into a Phase-2 Trade Profile, or null when the
  * market offers no qualifying setup (the No-Trade default).
+ *
+ * Adapter over `evaluateSetup()`: identical inputs produce identical outputs.
  */
 export function buildTradeProfile(input: BuildProfileInput): TradeProfile | null {
+  const evaluation = evaluateSetup(input);
+  return evaluation.stage === "published" ? evaluation.proposedProfile : null;
+}
+
+export function evaluateSetup(input: BuildProfileInput): SetupEvaluation {
+  const gates: GateResult[] = [];
   const h4 = readTimeframe("H4", input.candles.H4);
   const h1 = readTimeframe("H1", input.candles.H1);
   const m15 = readTimeframe("M15", input.candles.M15);
 
-  if (m15.bias === "neutral") return null;
+  const features: Record<string, number | string | boolean | null> = {
+    instrument: input.instrument,
+    session: input.session ?? null,
+    h4Bias: h4.bias,
+    h1Bias: h1.bias,
+    m15Bias: m15.bias,
+    h4Atr: round(h4.atr, 5),
+    h1Atr: round(h1.atr, 5),
+    m15Atr: round(m15.atr, 5),
+    h4Candles: input.candles.H4.length,
+    h1Candles: input.candles.H1.length,
+    m15Candles: input.candles.M15.length,
+  };
+
+  const fail = (
+    failing: GateId,
+    stage: EvaluationStage,
+    detail: string,
+    direction: Direction | null = null,
+    geometry: PartialGeometry = EMPTY_GEOMETRY,
+  ): SetupEvaluation => ({
+    ...terminate(gates, failing, stage, detail),
+    direction,
+    features,
+    geometry,
+    proposedProfile: null,
+  });
+
+  if (!input.candles.M15.length) {
+    return fail("candles_present", "no_candles", "M15 candle series is empty");
+  }
+  gates.push({ gate: "candles_present", outcome: "pass" });
+
+  if (m15.bias === "neutral") {
+    return fail("m15_direction", "m15_neutral", "M15 bias is neutral — no directional read");
+  }
+  gates.push({ gate: "m15_direction", outcome: "pass" });
   const direction: Direction = m15.bias === "bullish" ? "long" : "short";
+  features["direction"] = direction;
 
   // Headroom is measured in the direction this trade actually travels, not from
   // H4's own bias, so an aligned continuation is no longer vetoed for sitting at
   // the high of its own trend.
   const headroomAtr = directionalHeadroomAtr(direction, input.candles.H4, h4);
+  features["headroomAtr"] = round(headroomAtr, 3);
 
   const graded = gradeSetup(h4, h1, m15, headroomAtr);
-  if (!graded.grade) return null;
-
+  features["alignmentScore"] = round(graded.alignmentScore, 2);
+  features["gradedTier"] = graded.grade ?? null;
+  if (!graded.grade) {
+    return fail("grade", "no_grade", "No grading tier was satisfied", direction);
+  }
+  gates.push({ gate: "grade", outcome: "pass" });
 
   const abc = detectAbc(input.candles.M15, direction);
-  if (!abc) return null;
+  if (!abc) {
+    return fail("abc_structure", "no_abc", "No ABC retracement structure detected", direction);
+  }
+  gates.push({ gate: "abc_structure", outcome: "pass" });
+  features["patternSymmetry"] = round(abc.symmetry, 2);
+  features["pointC"] = round(abc.c, 5);
+
 
   const m15Candles = input.candles.M15;
   const last = m15Candles[m15Candles.length - 1] as Candle | undefined;
-  if (!last) return null;
+  if (!last) {
+    return fail("candles_present", "no_candles", "M15 series has no last candle", direction);
+  }
 
   // 1.2x M15 ATR beyond the structural extreme, floored by 0.5x H1 ATR and by
   // a realistic per-instrument spread allowance.
@@ -154,20 +310,41 @@ export function buildTradeProfile(input: BuildProfileInput): TradeProfile | null
   // unpublishable whenever H4 was neutral or bullish (barrier above entry).
   const h4Barrier = direction === "long" ? h4.rangeHigh : h4.rangeLow;
 
+  features["stopBuffer"] = round(buffer, 5);
+  features["structuralExtreme"] = round(structuralExtreme, 5);
+  features["stopLoss"] = round(stopLoss, 5);
+  features["h4Barrier"] = round(h4Barrier, 5);
+  features["lastClose"] = round(last.close, 5);
+
   /**
-   * Risk / reachability validation for a candidate entry. Returns null when the
-   * candidate cannot be published under the unchanged global guards:
-   * over-wide risk is No-Trade, and so is an unreachable extension.
+   * Risk / reachability validation for a candidate entry. The guards are the
+   * unchanged V1 guards; only the failure REASON is new, so the research engine
+   * can distinguish over-wide risk from an unreachable extension.
    */
-  const evaluate = (candidate: number): { risk: number; maxR: number } | null => {
+  type EvalFail = { ok: false; reason: Extract<EvaluationStage, "risk_undefined" | "risk_too_wide" | "no_headroom" | "unreachable_r">; detail: string };
+  type EvalOk = { ok: true; risk: number; maxR: number };
+  const evaluate = (candidate: number): EvalOk | EvalFail => {
     const r = Math.abs(candidate - stopLoss);
-    if (r <= 0) return null;
-    if (m15.atr > 0 && r > m15.atr * MAX_RISK_ATR) return null;
+    if (r <= 0) return { ok: false, reason: "risk_undefined", detail: "entry equals the stop: risk is zero" };
+    if (m15.atr > 0 && r > m15.atr * MAX_RISK_ATR)
+      return {
+        ok: false,
+        reason: "risk_too_wide",
+        detail: `risk ${round(r / m15.atr, 2)} ATR exceeds the ${MAX_RISK_ATR} ATR ceiling`,
+      };
     const room = (h4Barrier - candidate) * sign;
-    if (room <= 0) return null;
+    if (room <= 0) return { ok: false, reason: "no_headroom", detail: "entry is already at or beyond the H4 barrier" };
     const mr = round(room / r);
-    if (mr < MIN_REACHABLE_R) return null;
-    return { risk: r, maxR: mr };
+    if (mr < MIN_REACHABLE_R)
+      return { ok: false, reason: "unreachable_r", detail: `reachable ${mr}R is below the ${MIN_REACHABLE_R}R floor` };
+    return { ok: true, risk: r, maxR: mr };
+  };
+
+  const gateOfReason: Record<EvalFail["reason"], GateId> = {
+    risk_undefined: "risk_defined",
+    risk_too_wide: "risk_ceiling",
+    no_headroom: "headroom",
+    unreachable_r: "reachable_r",
   };
 
   // Entry defaults to the Point C structural level, not "wherever the last
@@ -197,15 +374,40 @@ export function buildTradeProfile(input: BuildProfileInput): TradeProfile | null
     const clearsStopFloor = Math.abs(candidate - stopLoss) >= MIN_DYNAMIC_RISK_ATR * m15.atr;
 
     // 4. Risk ceiling and reachable-R floor, re-derived on the candidate.
-    if (notWorseThanMarket && onCorrectSideOfStop && clearsStopFloor && evaluate(candidate)) {
+    if (notWorseThanMarket && onCorrectSideOfStop && clearsStopFloor && evaluate(candidate).ok) {
       entryPrice = candidate;
       dynamicEntry = candidate !== structuralEntry;
     }
   }
 
+  const geometry: PartialGeometry = {
+    entryPrice: round(entryPrice, 5),
+    stopLoss: round(stopLoss, 5),
+    riskPrice: round(Math.abs(entryPrice - stopLoss), 5),
+    structuralEntry: round(structuralEntry, 5),
+    structureKey: structureKeyOf({
+      instrument: input.instrument,
+      direction,
+      aTime: abc.aTime,
+      bTime: abc.bTime,
+      stopLoss,
+    }),
+    atr: round(m15.atr, 5),
+  };
+  features["dynamicEntry"] = dynamicEntry;
+  features["entryPrice"] = geometry.entryPrice;
+  features["riskPrice"] = geometry.riskPrice;
+
   const validated = evaluate(entryPrice);
-  if (!validated) return null;
+  if (!validated.ok) {
+    return fail(gateOfReason[validated.reason], validated.reason, validated.detail, direction, geometry);
+  }
+  gates.push({ gate: "risk_defined", outcome: "pass" });
+  gates.push({ gate: "risk_ceiling", outcome: "pass" });
+  gates.push({ gate: "headroom", outcome: "pass" });
+  gates.push({ gate: "reachable_r", outcome: "pass" });
   const { risk, maxR } = validated;
+
 
   const capped = maxR < 3;
   const multiples: [number, number, number | null] =
@@ -264,7 +466,13 @@ export function buildTradeProfile(input: BuildProfileInput): TradeProfile | null
   if (pillars.volatilityExpansion >= PILLAR_PASS_SCORE) satisfied.push("M15 volatility is expanding above its 20-period ATR average");
   else violated.push("M15 volatility is below its 20-period ATR average");
 
-  return {
+  features["grade"] = grade;
+  features["maxR"] = maxR;
+  features["rrRatio"] = rrRatio;
+  features["confidenceScore"] = confidence.score;
+  features["pillarsPassed"] = pillars.passed;
+
+  const proposedProfile: TradeProfile = {
     instrument: input.instrument,
     grade,
     direction,
@@ -308,7 +516,10 @@ export function buildTradeProfile(input: BuildProfileInput): TradeProfile | null
       maxR,
     }) + dynamicEntryNote,
   };
+
+  return { stage: "published", gates, direction, features, geometry, proposedProfile };
 }
+
 
 /**
  * Stable identity of one ABC leg: instrument, direction, the swing A/B candle

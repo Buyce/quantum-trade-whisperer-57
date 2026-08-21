@@ -169,13 +169,19 @@ describe("model_version cohort isolation", () => {
     // `model_observations` and `v2_structure_claims` are deliberately excluded:
     // they are research-only tables whose writers must state the model version
     // explicitly, so those columns have no default and an omitted version fails
-    // closed there by design.
+    // closed there by design. The payoff estimand tables, the frozen volatility
+    // definitions and the cohort-scoped production view are excluded for the same
+    // reason: every writer is a recompute RPC that names the model version, and
+    // the view simply inherits the base column with no default of its own.
     const defaults = db.rows<{ table_name: string; column_default: string | null }>(
       `select table_name, column_default from information_schema.columns
         where table_schema = 'public' and column_name = 'model_version'
-          and table_name not in ('model_observations', 'v2_structure_claims')
+          and table_name not in ('model_observations', 'v2_structure_claims',
+                                 'payoff_stats', 'payoff_snapshots', 'vol_definitions',
+                                 'shadow_executions_production')
         order by table_name`,
     );
+
     expect(defaults.length).toBeGreaterThan(0);
     expect(defaults.map((r) => `${r.table_name}=${r.column_default}`)).toEqual(
       defaults.map((r) => `${r.table_name}=1`),
