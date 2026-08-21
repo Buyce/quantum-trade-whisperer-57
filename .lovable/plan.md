@@ -1,108 +1,81 @@
-# Quantitative Integrity Baseline — audit and plan (no remediation)
+# Red-team review of the baseline plan — revised plan (still no implementation)
 
-## 1. Restatement of the actual goal
+Reviewed as if written by someone else, against HEAD re-read this turn plus fresh read-only queries. Four decisions in the first plan do not survive review; the versioning *concept* does, its *mechanics* do not.
 
-Freeze a truthful, immutable picture of how the current engine behaves *before* any fix lands, and put a versioning architecture in place so a corrected engine can be dual-run and compared against that frozen picture on identical market observations — without changing a single live signal, alert, grade or fill label in this release.
+## A. Plan defects discovered
 
-## 2. Current implementation discovered (HEAD, re-read this turn)
+**A1 — `regime_stats` primary key collision (blocking).** The PK is `(tier, regime_key)` and `recompute_regime_stats()` starts with `DELETE FROM regime_stats WHERE tier >= 0`. Adding a plain `model_version` column would (a) let a V2 row collide with its V1 twin on the PK, and (b) have the unqualified DELETE wipe V2 on every hourly pass. The column must be part of the PK and part of the DELETE predicate, or it must not go on this table at all. My plan said "additive column, no other change" — false.
 
-- Scan cadence: `cron.job 1` (*/15) → `/api/public/cron/scan` → `enqueueScanCycle` (expire stale + one row per instrument) → `scan_queue` insert trigger `private.kick_scan_worker()` → `/api/public/worker/process` (3 jobs or 20s budget, self-chains to 8 hops) → `claim_scan_job()` → `processNextJob`.
-- `processNextJob`: drops jobs older than 15 min as `stale`; fetches H4/H1/M15 sequentially (8s timeout each); `buildTradeProfile` (readTimeframe → directionalHeadroomAtr → gradeSetup → detectAbc → stop from 10-bar extreme + max(1.2×M15 ATR, 0.5×H1 ATR, spread floor) → structural entry at Point C, dynamic 0.3×ATR offset in RUNAWAY_SESSIONS behind 4 guards → `evaluate()` risk/reachability → target ladder scaled by `maxR` → `maxAcceptableEntry`); structure cooldown query; volatility index = M15 ATR / H1 ATR; advisory `priorFor` (never branches); insert into `scanned_signals` (partial unique index enforces dedup), then `market_context`, then alert fan-out.
-- Shadow: trigger `shadow_enroll_on_signal` → `shadow_queue` → `/api/public/worker/shadow` snapshot into `shadow_executions`; hourly `cron.job 6` → `shadow-resolve` → `replaySetup` (limit fill incl. gap-through, stop-before-target, 24h vertical barrier) → `recompute_regime_stats()` (k=30 hierarchical shrinkage, per-instrument ATR terciles, tiers 0–3) → `regime_snapshots` append (180d) → milestone email.
-- Journal/risk/MCP/admin/frontend surfaces map as previously documented and were re-read; no version identifier exists anywhere in any of them.
+**A2 — the dual-run design invented a second, duplicated engine path (blocking).** `candidate_signals` would have no enrolment trigger, no replay, no resolver and no recompute participation. `shadow_queue` is populated by a trigger on `scanned_signals` only, and `resolveShadowExecutions` reads `shadow_executions` only. So V2 candidates would have produced *zero* labels — an unlabelled table is not a comparison. Worse, building the resolver twice is exactly the duplicated-business-logic failure the protocol asks me to hunt. **`shadow_executions.signal_id` is already nullable and 134 of 293 rows already carry NULL**, so V2 belongs in `shadow_executions` with `model_version = 2`, reusing `replaySetup`, the resolver and the recompute verbatim.
 
-## 3. Files / tables / RPCs affected by *this* release
+**A3 — resolver starvation (high).** `MAX_ROWS_PER_RUN = 200` in `shadow_resolve.server.ts` is a single global cap ordered by `detected_at ASC`. Only 8 rows are currently open, so this is invisible today, but a V2 cohort doubles enrolment and V1 and V2 would compete for one 200-row budget on an hourly cron. V1 — the production model, which feeds the live priors and the weekly report — must never queue behind a research cohort. Needs explicit per-version budgets with V1 first.
 
-New only: one migration (`model_versions`, `baseline_snapshots`, plus a `model_version` column default 1 on `scanned_signals`, `shadow_executions`, `regime_stats`, `regime_snapshots`), `src/lib/versioning.ts`, `src/lib/baseline/capture.server.ts`, one admin-guarded read RPC. Touched for read-only display: `AdminPanels.tsx`. No change to `profile.ts`, `grading.ts`, `replay.ts`, alerts, MCP tools or the queue.
+**A4 — in-sample leakage in the way I proposed to evaluate priors (high).** `regime_stats` is rebuilt from *all* resolved rows, so scoring the 151 stamped `p_fill_prior` values against their own outcomes measures fit, not prediction: each signal's outcome is inside the statistic that judges it. Any prior-vs-outcome number must instead join to `regime_snapshots` with `computed_at <= detected_at` (69 runs exist, first at 2026-08-18 11:07 UTC), which means **prior calibration is only assessable for signals detected after 2026-08-18** — a much smaller, honest window. The first plan quietly implied the whole 151.
 
-## 4. Confirmed defects and gaps (each verified by query or file read this turn)
+**A5 — a statistical claim of mine was under-qualified (medium).** "Win-if-filled 39/82 = 47.6%" is conditional on fill and therefore selection-biased by construction: 201 of 283 resolved rows never filled. Unconditional expectancy is `p_fill × p_win`, i.e. ~0.29 × 0.476 ≈ 0.138 win-per-signal, and the baseline document must carry both numbers side by side or the next reader will quote 47.6% as the engine's win rate. Also 84 of 283 resolved rows have `trading_session IS NULL`, so any session-sliced baseline cell is contaminated and must be reported as `unknown`, never folded into a named session.
 
-1. **No version identity.** Zero version columns exist. Post-fix rows would be indistinguishable from pre-fix rows in the same tables — this alone blocks any remediation release.
-2. **Retention already destroyed part of the record.** `scan_queue` holds 227 `published` results but `scanned_signals` holds 159 rows; `purge_expired_signals()` runs hourly. Historical grade/direction/session distribution for deleted signals is unrecoverable. Baseline capture is therefore urgent, and signal-level baseline must be reconstructed from `shadow_executions` (293 rows, which survive via nullable `signal_id`) not from `scanned_signals`.
-3. **Session labels are missing on 84 of 283 resolved shadow rows** (`trading_session IS NULL`), so those rows land in the `unknown` volatility/session buckets inside `regime_stats` tier 3. Any tier-3 read is diluted by them.
-4. **User-reported performance is entirely unverified**: 25 `executed_trades`, **0** with `actual_entry_price`. The 47.4% "user-reported win rate" has no auditable R behind it and must be excluded from the baseline as a performance metric (kept only as a behavioural/discipline metric).
-5. **`max_R` has no ceiling.** Average `max_r` on resolved XAUUSD rows is 20.74, and one C-grade short signal carries `max_r = 27.78`. That comes from headroom to an H4 pivot divided by a small risk, with no plausibility cap. Recorded as a defect for the *next* release; not touched here.
-6. **`resolved_outcome = 'expired'` count is 0 across all 283 resolved rows.** The 24h vertical barrier has never fired, meaning every filled setup resolved on a horizontal barrier. Plausible, but it means the barrier branch of `replaySetup` is untested against production data.
-7. **Observation survivorship gap**: 153 `failed` + 85 `stale` jobs (~11.6% of 2058). Cycles where an instrument was never graded are invisible in any signal-count metric.
-8. **Grade distribution is degenerate**: 148 B, 3 A, 5+3 C, **0 A+ ever**. Any "A/A+ vs B/C" comparison (including the weekly report) is statistically empty on the A+ side.
-9. `is_admin()` hardcodes an email literal instead of a roles table — noted as a security finding, out of scope for this release.
+**A6 — worker CPU/lifecycle risk I did not price (medium).** A second `buildTradeProfile` call inside `processNextJob` sits inside a 20s wall-clock budget already consumed mostly by three 8s candle fetches. Grading is pure CPU over ≤1000 candles (single-digit ms), so the risk is small — but it is non-zero, and a V2 exception must not be able to fail a V1 publish. It has to be wrapped so that any V2 throw is swallowed after V1 has committed. Zero extra MetaApi calls either way (same in-memory candle arrays), which is the one thing the original design got right.
 
-## 5. Hidden / secondary risks
+**A7 — pairing key missing (medium).** Comparing V1 and V2 "on the same market observation" needs a join key. `scan_queue.run_id` exists but is not propagated to `scanned_signals` or `shadow_executions`, so nothing links a V1 signal to its V2 twin, and "no V1 signal but a V2 signal" (the most interesting cell) is unrepresentable.
 
-- `regime_stats` is fully deleted and rebuilt hourly (`DELETE ... WHERE tier >= 0`); only `regime_snapshots` preserves history. A baseline that reads `regime_stats` live is a moving target — it must be pinned to a specific `run_id`.
-- Adding a `model_version` column with a `NOT NULL DEFAULT` is a metadata-only operation on PG11+, so no table rewrite and no lock risk on `scanned_signals`.
-- `recompute_regime_stats()` aggregates *all* resolved rows. The moment V2 shadow rows exist, they would silently merge into the same priors unless the recompute filters on `model_version` — the filter must ship in the same migration as the column, before any V2 row can exist.
-- Worker self-chain plus the 2-minute drain cron can run concurrently; a V2 shadow computation added later must be inside the same job transaction path, never a second independent fetch.
+**A8 — smaller findings.** `is_admin()` is an email literal, so an admin-only baseline table becomes unreadable if that address changes — baseline snapshots should be authenticated-read, admin-write, since they contain no PII. `claim_learning_milestone` counts gates from `regime_stats` and would need the same version filter or V2 rows would trip production milestone emails. No RLS, SSRF, alert-delivery or MCP-input change is introduced by this release; the only MCP exposure is *semantic* (see D3).
 
-## 6. Alternative approaches (versioning)
+## B. Decision-by-decision defence
 
-**A. Six independent columns** (`strategy_version`, `pattern_version`, `grading_version`, `profile_version`, `replay_version`, `execution_version`). Benefit: component-level comparability. Drawbacks: six mutable fields to keep coherent, combinatorial explosion in every GROUP BY, and no single key to filter on; a developer forgetting one column yields silently mixed cohorts. **Rejected.**
+**B1. Single `model_version` + registry, not six version columns.**
+Alternatives: (i) six columns per component; (ii) content hash of the effective parameter set as the key. Rejected (i) because every analytical query would need six predicates and one forgotten predicate silently mixes cohorts; rejected (ii) as a key because a harmless refactor changes the hash and fragments cohorts, though the hash is worth keeping *inside* the registry row. Evidence: the only cohort question anyone actually asks is "V1 or V2", and the registry can answer component-level questions by join. I change my mind if we ever need to A/B a single component independently of the rest — then the registry gains component rows and the row-level key becomes a composite of registry ids, not six loose columns.
 
-**B. Single `model_version` integer + a `model_versions` registry** whose row carries a `components jsonb` (per-component semantic version and content hash) plus `notes`, `activated_at`, `retired_at`. One filterable key everywhere; component detail preserved in the registry rather than duplicated on millions of rows; joins give component-level slicing when needed. **Recommended.**
+**B2. V2 lives in `shadow_executions` with `model_version`, not in a new table.**
+Alternatives: (i) `candidate_signals` + its own resolver (my original — see A2); (ii) V2 rows in `scanned_signals` behind a flag. Rejected (i) for duplicated replay logic and zero labels; rejected (ii) outright — `scanned_signals` inserts hit the active-unique index, the `shadow_enroll_on_signal` trigger, the feed queries and the alert fan-out, so a research row could email a user. Evidence: `signal_id` is already nullable with 134 NULLs in production, and `resolveShadowExecutions` selects purely on `status`, so V2 needs no resolver change at all. I change my mind if V2 ever needs fields the shadow table cannot hold — then a child table keyed to `shadow_executions.id`, still resolved by the same loop.
 
-**C. Content hash only** (hash of the effective parameter set per row). Benefit: automatic, impossible to forget. Drawbacks: opaque keys, no ordering, no human-readable promotion story, and any harmless refactor changes the hash and fragments cohorts. Rejected as the primary key, **adopted as a field inside B's registry**.
+**B3. `regime_stats` keeps model_version *in its primary key* and in the DELETE predicate; `recompute_regime_stats()` takes an explicit version argument.**
+Alternatives: (i) a second table `regime_stats_v2` (rejected: forks the read path in `regime.server.ts`, `explain.ts`, `queries.ts` and the MCP tool); (ii) leave `regime_stats` V1-only and compute V2 priors on the fly (rejected: the live scanner would then do unbounded aggregation per job). Evidence: A1. I change my mind only if the recompute cost stops being a single-digit-ms scan.
 
-**Dual-run alternatives:** (i) V2 writes to `scanned_signals` with a flag — rejected: it enters the dedup index, the shadow trigger and the alert fan-out. (ii) V2 runs on its own cron — rejected: different candle snapshots make the comparison non-identical. (iii) **V2 computed inside the same job from the same in-memory candles and written to a separate `candidate_signals` table with no triggers and no alert path — recommended.**
+**B4. Baseline is one immutable JSONB document pinned to a `regime_snapshots.run_id`, not a set of live views.**
+Alternatives: (i) SQL views recomputed on demand (rejected: `purge_expired_signals()` runs hourly and has already destroyed ~68 published signals — 227 `published` queue results vs 159 surviving rows — so a "live baseline" silently changes under you); (ii) CSV export only (rejected: not queryable, no idempotency key). Evidence: the purge gap is measured, not hypothetical. Nothing would change my mind here.
 
-## 7. Recommended architecture
+**B5. Capture before any remediation, no logic change in this release.** The alternative — fix `max_R` first, since one C-grade short carries `max_r = 27.78` and resolved XAUUSD averages 20.74 — is tempting and wrong: it would rewrite the reference frame before the reference exists.
 
-`model_versions` registry (V1 = today's engine, seeded and marked active) + `model_version smallint NOT NULL DEFAULT 1` on `scanned_signals`, `shadow_executions`, `regime_stats`, `regime_snapshots`; `recompute_regime_stats()` gains an explicit `WHERE model_version = <active>` filter; an immutable `baseline_snapshots` table holding one JSONB document per capture (metrics + the `regime_snapshots.run_id` it was pinned to + the git-describable code hash). Nothing in the live path branches on version in this release — V1 is the only version that exists.
+## C. Failure scenarios the architecture must survive
 
-## 8. Mathematical / statistical notes
+1. **Recompute fires mid-capture.** `recompute_regime_stats()` deletes and rebuilds `regime_stats` hourly. Capture must resolve `regime_snapshots.run_id` first and read *only* the append-only snapshot rows for that run; it must never read `regime_stats`. Verified by design: 69 immutable runs exist.
+2. **V2 floods the resolver.** 200-row global cap, V1 and V2 interleaved by `detected_at`. Mitigation: two explicit reads — V1 budget first (up to 200), V2 with whatever remains — so a V2 backlog can only delay V2. Assertion for the test matrix: with 300 open V2 rows and 5 open V1 rows, all 5 V1 rows advance in the first pass.
+3. **V2 grading throws inside a live job.** Mitigation: V2 computation runs after `finish("published")`-equivalent commits, inside its own try/catch that logs and returns; a V2 failure yields "no V2 row for this observation", which the comparison reports as missing rather than treating as a no-trade.
+4. **Migration rollback with V2 rows present.** Dropping `model_version` from the `regime_stats` PK while V2 rows exist would collide. Rollback order must be: delete `WHERE model_version <> 1`, then revert the function body, then drop the column. Documented as the only safe direction.
+5. **Duplicate capture.** Same pinned `run_id` inserted twice — a unique constraint on `(run_id, kind)` makes the second call a no-op rather than a second "official" baseline.
 
-- Baseline fill rate = filled / resolved on `shadow_executions` where `status='resolved'`: **82/283 = 29.0%**; win-if-filled = **39/82 = 47.6%**. Wilson 95% interval on win-if-filled is roughly 37%–58% — wide, and that width is the honest headline.
-- Per-cell tier-3 counts are single digits in most instrument×session cells (largest cell: GBPAUD/unknown, n=33), so no per-cell fill or win rate is reportable; the baseline records counts and intervals, never point estimates below the existing 20-sample floor.
-- Grade comparison A/A+ vs B/C is not computable: zero A+ signals exist and only 3 A.
+## D. Revised plan
 
-## 9–11. Database / backend / frontend changes
+**D1 — Migration (additive, one file).**
+- `model_versions(version smallint pk, label text, components jsonb, code_hash text, activated_at, retired_at, notes)`; seed V1 = today's engine with per-component hashes. Authenticated SELECT, service_role ALL.
+- `model_version smallint NOT NULL DEFAULT 1` on `scanned_signals`, `shadow_executions`, `regime_snapshots`.
+- `regime_stats`: add `model_version smallint NOT NULL DEFAULT 1` **and rebuild the PK as `(model_version, tier, regime_key)`**.
+- `recompute_regime_stats(_model_version smallint DEFAULT 1)`: `DELETE ... WHERE model_version = _model_version AND tier >= 0`, all inserts stamped, all reads filtered by `model_version`. Same for `claim_learning_milestone`.
+- `observation_key text` (nullable) on `scanned_signals` and `shadow_executions` for V1↔V2 pairing; `scan_queue.run_id || ':' || instrument`. No backfill — historical rows stay NULL and are excluded from paired analysis.
+- `baseline_snapshots(id, kind text, captured_at, pinned_run_id uuid, model_version, metrics jsonb, unique(pinned_run_id, kind))`. Authenticated SELECT, service_role write.
 
-DB: the migration described in §7 (additive only, GRANTs and RLS mirroring the sibling learning tables — authenticated SELECT on the registry, admin-only read of snapshots). Backend: `capture.server.ts` runs the read-only aggregation and inserts one `baseline_snapshots` row; invoked once via an admin-guarded server function. Frontend: a read-only "Model version / Baseline" block in the admin terminal showing the active version and the last capture timestamp. No user-facing copy changes.
+**D2 — Baseline capture.** `src/lib/baseline/capture.server.ts` + one admin-guarded server fn. Pins the newest `regime_snapshots.run_id`, then records: resolved/filled/win counts with Wilson intervals; **both** `p_win|filled` and unconditional `p_fill × p_win`; never-filled rate and miss-distance distribution; grade × direction × instrument × session cells with `unknown` kept separate; `max_R` and stop-distance distributions; queue health (2058 jobs: 1093 no_trade, 227 published, 251 duplicate, 226 skipped, 153 failed, 85 stale, 23 legacy capped); alert and webhook dispatch counts; the reconstruction caveat that ~68 published signals are already purged. Prior calibration is a separate, clearly-labelled section restricted to signals detected after the first snapshot run (2026-08-18 11:07 UTC) and joined to the snapshot in force at detection — never to current `regime_stats`.
 
-## 12. MCP / API implications
+**D3 — Version surfacing (read-only).** `regime.server.ts`, `explain.ts`, `queries.ts` and `get_intelligence` / `get_shadow_comparison` filter on the active version and *state* it, so no agent or panel can ever be handed a mixed cohort. Admin terminal shows active version + last capture. No user-facing copy claim changes; the Intelligence panel's "insufficient sample" wording stays true.
 
-No tool inputs or outputs change in this release. `get_intelligence` and `get_shadow_comparison` will gain a `model_version` field only when V2 exists; documented now so agents are never handed mixed-cohort numbers.
+**D4 — Only then** the V2 shadow cohort: `buildTradeProfileV2` computed from the same candles, written to `shadow_executions` with `model_version = 2`, `signal_id = NULL`, matching `observation_key`, behind an env/registry kill switch, with the resolver's per-version budget in place. Not part of this release's acceptance.
 
-## 13. Historical-data implications
+## E. New acceptance criteria
 
-All existing rows become V1 by default; nothing is rewritten. Statistics that become non-comparable after remediation, and are therefore captured now and permanently frozen: fill rate, never-filled rate, miss-distance distribution, `max_R` and target reachability, grade distribution, confidence distribution, EV priors, regime shrinkage outputs, and the weekly A/A+ vs B/C comparison. Unverified user-reported R is captured as behaviour only, flagged invalid as performance.
+1. Every pre-existing row in the four tables reads `model_version = 1`; `model_versions` has exactly one active row.
+2. `recompute_regime_stats(1)` output is byte-identical to the last pre-migration run for the same input rows (compare against the pinned snapshot).
+3. Inserting a synthetic `model_version = 2` regime row does **not** collide, and the next `recompute_regime_stats(1)` leaves it untouched — proves A1 is closed.
+4. Capture run twice on unchanged data → second call is a no-op; stored metrics reproduce the ad-hoc numbers (283 resolved / 82 filled / 39 wins / 29.0% / 47.6% / 13.8% unconditional).
+5. Prior-calibration section contains zero signals detected before the first snapshot run.
+6. Zero change across the deployment window in published signal count, grade mix, alert count, webhook dispatches, feed contents and MCP tool outputs.
+7. Rollback rehearsed in order (delete non-V1 rows → revert function → drop columns) with no error.
 
-## 14–15. Security / performance
+## F. Remaining risks, confidence, and what I cannot guarantee
 
-Baseline reads run under service role inside a server function; the snapshot read RPC is `is_admin()`-gated. The aggregation scans <3k rows and runs in low tens of milliseconds. The added column costs nothing on read paths; no index changes.
+Risks: the PK rebuild on `regime_stats` is the only non-trivial DDL (55 rows — brief, safe, but it is a real rewrite); 84 session-less rows permanently limit session-level baselines; ~68 purged signals are unrecoverable; the whole dataset spans ten days and one regime, so the baseline is a *reference point*, not a distribution; `is_admin()` remains an email literal.
 
-## 16. Implementation sequence
+Confidence: **high** in the migration and capture being safe and reversible (additive, one PK rebuild on a tiny table, no live-path branch, no extra broker calls); **medium** in the eventual V1-vs-V2 comparison being statistically decisive at these sample sizes; **low** in any single-cell (instrument × session × vol) estimate ever being meaningful before several hundred more resolved rows.
 
-1. Migration: registry + `model_version` columns + `recompute_regime_stats()` version filter + GRANTs/RLS.
-2. `src/lib/versioning.ts` exporting `ACTIVE_MODEL_VERSION` and the component descriptor used to seed the registry.
-3. `capture.server.ts` + admin-guarded server function; run one capture; verify the stored document against the ad-hoc queries in §8.
-4. Admin read-only display.
-5. Second capture 24h later to confirm the pipeline is stable and the capture is repeatable.
-6. Only then open the remediation release (V2 shadow in `candidate_signals`).
+Cannot guarantee: that the baseline predicts future behaviour; that a corrected engine improves expectancy; that purged signals or missing session labels can be recovered; that user-reported performance means anything until real prices exist (0 of 25 trades carry `actual_entry_price`); or that the 24h vertical-barrier branch of `replaySetup` is correct in production — it has fired zero times in 283 resolutions and is only covered by unit fixtures.
 
-## 17. Test matrix (concrete)
-
-- `replaySetup` unit fixtures with hand-computed expectations: long fill at limit (R = +tp1R), gap-through fill at open with slippage in pips, stop-and-target in one bar → loss/-1R, no touch past TIF → `never_filled` with `missDistanceAtr = (low − entry)/atr`, vertical-barrier close-out → mark-to-market R (currently untested in production, see §4.6).
-- Invariant tests: `0 <= p_* <= 1`; tier-3 shrunk value always between its raw value and its tier-2 parent; `maxR >= MIN_REACHABLE_R` for every published row; `abs(entry − stop) > 0`; `tp1R < tp2R < tp3R`.
-- DB/RLS: non-admin `select from baseline_snapshots` → denied; authenticated read of registry → allowed; anon → denied.
-- Regression: capture twice against unchanged data → byte-identical metric document apart from timestamps.
-- Failure injection: recompute failure must leave the prior `regime_stats` snapshot intact and the capture must refuse to write rather than write partial metrics.
-
-## 18. Failure modes simulated
-
-MetaApi timeout mid-cycle (already produces `failed` jobs — quantified in the baseline), duplicate capture invocation (idempotency key = pinned `run_id`), concurrent recompute during capture (capture pins `run_id` first, so it reads a consistent cohort), stale worker lease (`maintain_scan_queue` reclaims), partial insert of the snapshot document (single-row insert, atomic).
-
-## 19–21. Comparison, deployment, rollback
-
-Comparison plan: V2 in `candidate_signals` from the identical candle array, joined to V1 on `(run_id, instrument)` so every difference is attributable to logic, not to data. Deployment is additive and needs no flag because nothing branches on version yet. Rollback: drop the two new tables and the column; `recompute_regime_stats()` reverts to its current body. No collected data is destroyed by either direction.
-
-## 22. Acceptance criteria
-
-Registry seeded with V1; every existing row in the four tables reads `model_version = 1`; one `baseline_snapshots` row exists whose numbers reproduce §8 exactly; recompute output unchanged versus the pre-migration run; zero change in published signals, alerts, grades or fill labels across the deployment window.
-
-## 23–24. Uncertainties and what I cannot guarantee
-
-I cannot reconstruct the ~68 purged signals, nor recover session labels for the 84 shadow rows that lack them. I cannot certify the current fill rate as stationary — 283 rows over ten days spans one regime, not many. I cannot guarantee that a corrected engine will improve expectancy; the baseline only makes the question answerable. And I cannot validate user-reported performance at all until real prices exist.
-
-## 25. Final recommendation
-
-**Proceed with the baseline + single `model_version` registry (Approach B) and the same-candle `candidate_signals` dual-run (iii).** Reject the six-column scheme. Do not begin any grading, entry, `max_R` or replay remediation until the baseline document exists and reproduces.
+**Recommendation: proceed with the revised plan (D1–D3 now, D4 as a separate approval).** The original plan's `candidate_signals` design and plain-column `regime_stats` change should be discarded.
