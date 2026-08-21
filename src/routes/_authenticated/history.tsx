@@ -2,7 +2,16 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { ArrowDownRight, ArrowUpRight, Download, Pencil, ShieldAlert, Trash2 } from "lucide-react";
+import {
+  ArrowDownRight,
+  ArrowUpRight,
+  Bot,
+  Download,
+  Pencil,
+  ShieldAlert,
+  Trash2,
+  UserRound,
+} from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { deleteAllTrades, deleteTrade, takenTradeHistoryQuery } from "@/lib/queries";
 import { recordTradeOutcome } from "@/lib/trade-journal.functions";
