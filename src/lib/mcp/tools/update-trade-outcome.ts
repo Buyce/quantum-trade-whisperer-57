@@ -67,10 +67,17 @@ export default defineTool({
         actual_exit_price: hasPrices ? (actual_exit_price as number) : null,
         derived_r: derivedR,
         realized_r_multiple: derivedR,
+        // Provenance is stamped from the request path, not from tool input: this
+        // handler is only reachable over MCP, so the author is an agent. The
+        // OAuth client id names WHICH assistant, so a hallucinating client is
+        // traceable. Cleared with the prices it describes.
+        price_source: hasPrices ? "agent" : null,
+        price_source_client: hasPrices ? (ctx.getClientId() ?? "unknown") : null,
+        price_recorded_at: hasPrices ? new Date().toISOString() : null,
       })
       .eq("id", trade_id)
       .select(
-        "id, signal_id, user_decision, outcome, actual_entry_price, actual_exit_price, derived_r, realized_r_multiple",
+        "id, signal_id, user_decision, outcome, actual_entry_price, actual_exit_price, derived_r, realized_r_multiple, price_source, price_source_client, price_recorded_at",
       );
 
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
@@ -82,11 +89,13 @@ export default defineTool({
       trade: data[0],
       verified: derivedR !== null,
       derived_r: derivedR,
+      price_source: hasPrices ? "agent" : null,
       note:
         derivedR === null
           ? "Unverified: supply actual_entry_price and actual_exit_price on a closed trade to compute an auditable R."
-          : "Verified: R was recomputed from the supplied prices and the signal's risk distance.",
+          : "Verified: R was recomputed from the supplied prices and the signal's risk distance. These prices are permanently recorded as agent-entered, attributed to this assistant's client id — only report prices the user actually gave you.",
     };
+
     return {
       content: [{ type: "text", text: JSON.stringify(payload) }],
       structuredContent: payload,

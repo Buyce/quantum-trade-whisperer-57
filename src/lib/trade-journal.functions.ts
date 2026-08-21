@@ -64,6 +64,9 @@ export const recordTradeOutcome = createServerFn({ method: "POST" })
       }
     }
 
+    const keepPrices =
+      data.outcome !== "open" && data.actualEntryPrice != null && data.actualExitPrice != null;
+
     const { error } = await context.supabase
       .from("executed_trades")
       .update({
@@ -74,9 +77,16 @@ export const recordTradeOutcome = createServerFn({ method: "POST" })
         // Kept in sync so every downstream aggregate reads one number, and that
         // number is now price-derived rather than a button press.
         realized_r_multiple: derivedR,
+        // Provenance is stamped from the request path, never from input: this
+        // handler is only reachable from the signed-in web terminal, so the
+        // author is a person. Cleared with the prices it describes.
+        price_source: keepPrices ? "human" : null,
+        price_source_client: null,
+        price_recorded_at: keepPrices ? new Date().toISOString() : null,
       })
       .eq("id", data.tradeId);
     if (error) throw new Error(error.message);
+
 
     return { ok: true, derivedR };
   });

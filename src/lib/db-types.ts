@@ -82,6 +82,14 @@ export interface TradeRow {
   actual_exit_price: number | null;
   /** R derived server-side from the reported prices. Never client-supplied. */
   derived_r: number | null;
+  /**
+   * Who entered the prices: the person in the web terminal, or an AI assistant
+   * over MCP. Stamped server-side from the request path, null when unverified.
+   */
+  price_source: "human" | "agent" | null;
+  /** OAuth client id of the assistant that wrote the prices, when agent-entered. */
+  price_source_client: string | null;
+  price_recorded_at: string | null;
   notes: string | null;
   created_at: string;
 }

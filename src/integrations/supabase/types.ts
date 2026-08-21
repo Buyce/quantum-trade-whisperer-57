@@ -47,6 +47,9 @@ export type Database = {
           id: string
           notes: string | null
           outcome: Database["public"]["Enums"]["trade_outcome"]
+          price_recorded_at: string | null
+          price_source: string | null
+          price_source_client: string | null
           realized_r_multiple: number | null
           signal_id: string
           updated_at: string
@@ -61,6 +64,9 @@ export type Database = {
           id?: string
           notes?: string | null
           outcome?: Database["public"]["Enums"]["trade_outcome"]
+          price_recorded_at?: string | null
+          price_source?: string | null
+          price_source_client?: string | null
           realized_r_multiple?: number | null
           signal_id: string
           updated_at?: string
@@ -75,6 +81,9 @@ export type Database = {
           id?: string
           notes?: string | null
           outcome?: Database["public"]["Enums"]["trade_outcome"]
+          price_recorded_at?: string | null
+          price_source?: string | null
+          price_source_client?: string | null
           realized_r_multiple?: number | null
           signal_id?: string
           updated_at?: string
