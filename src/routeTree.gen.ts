@@ -26,6 +26,7 @@ import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
 import { Route as AuthenticatedAdminIntelligenceRouteImport } from './routes/_authenticated/admin/intelligence'
 import { Route as ApiPublicQuotesRouteImport } from './routes/api/public/quotes'
+import { Route as ApiPublicAgentRegisterRouteImport } from './routes/api/public/agent/register'
 import { Route as ApiPublicCronPurgeAccountsRouteImport } from './routes/api/public/cron/purge-accounts'
 import { Route as ApiPublicCronScanRouteImport } from './routes/api/public/cron/scan'
 import { Route as ApiPublicCronShadowResolveRouteImport } from './routes/api/public/cron/shadow-resolve'
@@ -126,6 +127,11 @@ const ApiPublicQuotesRoute = ApiPublicQuotesRouteImport.update({
   path: '/api/public/quotes',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicAgentRegisterRoute = ApiPublicAgentRegisterRouteImport.update({
+  id: '/api/public/agent/register',
+  path: '/api/public/agent/register',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicCronPurgeAccountsRoute =
   ApiPublicCronPurgeAccountsRouteImport.update({
     id: '/api/public/cron/purge-accounts',
@@ -199,6 +205,7 @@ export interface FileRoutesByFullPath {
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/admin/intelligence': typeof AuthenticatedAdminIntelligenceRoute
   '/api/public/quotes': typeof ApiPublicQuotesRoute
+  '/api/public/agent/register': typeof ApiPublicAgentRegisterRoute
   '/api/public/cron/purge-accounts': typeof ApiPublicCronPurgeAccountsRoute
   '/api/public/cron/scan': typeof ApiPublicCronScanRoute
   '/api/public/cron/shadow-resolve': typeof ApiPublicCronShadowResolveRoute
@@ -227,6 +234,7 @@ export interface FileRoutesByTo {
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/admin/intelligence': typeof AuthenticatedAdminIntelligenceRoute
   '/api/public/quotes': typeof ApiPublicQuotesRoute
+  '/api/public/agent/register': typeof ApiPublicAgentRegisterRoute
   '/api/public/cron/purge-accounts': typeof ApiPublicCronPurgeAccountsRoute
   '/api/public/cron/scan': typeof ApiPublicCronScanRoute
   '/api/public/cron/shadow-resolve': typeof ApiPublicCronShadowResolveRoute
@@ -257,6 +265,7 @@ export interface FileRoutesById {
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/_authenticated/admin/intelligence': typeof AuthenticatedAdminIntelligenceRoute
   '/api/public/quotes': typeof ApiPublicQuotesRoute
+  '/api/public/agent/register': typeof ApiPublicAgentRegisterRoute
   '/api/public/cron/purge-accounts': typeof ApiPublicCronPurgeAccountsRoute
   '/api/public/cron/scan': typeof ApiPublicCronScanRoute
   '/api/public/cron/shadow-resolve': typeof ApiPublicCronShadowResolveRoute
@@ -287,6 +296,7 @@ export interface FileRouteTypes {
     | '/.mcp/invoke-tool/$tool'
     | '/admin/intelligence'
     | '/api/public/quotes'
+    | '/api/public/agent/register'
     | '/api/public/cron/purge-accounts'
     | '/api/public/cron/scan'
     | '/api/public/cron/shadow-resolve'
@@ -315,6 +325,7 @@ export interface FileRouteTypes {
     | '/.mcp/invoke-tool/$tool'
     | '/admin/intelligence'
     | '/api/public/quotes'
+    | '/api/public/agent/register'
     | '/api/public/cron/purge-accounts'
     | '/api/public/cron/scan'
     | '/api/public/cron/shadow-resolve'
@@ -344,6 +355,7 @@ export interface FileRouteTypes {
     | '/.mcp/invoke-tool/$tool'
     | '/_authenticated/admin/intelligence'
     | '/api/public/quotes'
+    | '/api/public/agent/register'
     | '/api/public/cron/purge-accounts'
     | '/api/public/cron/scan'
     | '/api/public/cron/shadow-resolve'
@@ -368,6 +380,7 @@ export interface RootRouteChildren {
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
   ApiPublicQuotesRoute: typeof ApiPublicQuotesRoute
+  ApiPublicAgentRegisterRoute: typeof ApiPublicAgentRegisterRoute
   ApiPublicCronPurgeAccountsRoute: typeof ApiPublicCronPurgeAccountsRoute
   ApiPublicCronScanRoute: typeof ApiPublicCronScanRoute
   ApiPublicCronShadowResolveRoute: typeof ApiPublicCronShadowResolveRoute
@@ -501,6 +514,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicQuotesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/agent/register': {
+      id: '/api/public/agent/register'
+      path: '/api/public/agent/register'
+      fullPath: '/api/public/agent/register'
+      preLoaderRoute: typeof ApiPublicAgentRegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/cron/purge-accounts': {
       id: '/api/public/cron/purge-accounts'
       path: '/api/public/cron/purge-accounts'
@@ -620,6 +640,7 @@ const rootRouteChildren: RootRouteChildren = {
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
   ApiPublicQuotesRoute: ApiPublicQuotesRoute,
+  ApiPublicAgentRegisterRoute: ApiPublicAgentRegisterRoute,
   ApiPublicCronPurgeAccountsRoute: ApiPublicCronPurgeAccountsRoute,
   ApiPublicCronScanRoute: ApiPublicCronScanRoute,
   ApiPublicCronShadowResolveRoute: ApiPublicCronShadowResolveRoute,
