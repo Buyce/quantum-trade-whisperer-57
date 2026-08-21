@@ -45,7 +45,7 @@ Guarantees: the V1 predicates, their order, the payloads, the alert call site, t
 
 ## 2. Research telemetry is never a production dependency
 
-Every research call is wrapped individually — observation upsert, cooldown RPC, shadow insert, disposition update — each in its own `try/catch` that logs, increments a counter, and returns. None of them can throw into V1's path, and none of them is awaited before a V1 write. Nothing in the research path touches `scan_queue`, `instrument_health`, `scanned_signals`, `market_context`, alerts or `shadow_queue`.
+Every research call is wrapped individually — observation upsert, cooldown RPC, shadow insert, disposition update — each in its own `try/catch` **and its own bounded deadline** (§13), awaited only after the V1 operation it follows. None can throw into V1's path; none is left as an unawaited promise. Nothing in the research path touches `scan_queue`, `instrument_health`, `scanned_signals`, `market_context`, alerts or `shadow_queue`.
 
 Visibility instead of silence: `shadow_engine_state` gains `research_errors integer not null default 0` and `research_last_error text`, bumped on any research failure, and the admin panel shows research-error count plus the observation-coverage ratio (observations written ÷ jobs that fetched candles, last 24 h). A gap in the ledger is therefore visible as a number, not inferred from absence. Production correctness wins every conflict: if the research write is slow or failing, V1 proceeds unchanged and the observation is simply missing.
 
