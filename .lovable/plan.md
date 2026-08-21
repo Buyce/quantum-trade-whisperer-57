@@ -121,6 +121,9 @@ Operational rollback is non-destructive and needs no deployment: `replay_v2_shad
 4. No Replay-V2 fill whose bar interval ends after the deadline.
 5. R invariants (5E-4): ordinary stop touch ⇒ exactly −1R; stop-gap-through ⇒ `gross_r <= −1R` computed from the observed bar open; **no** ordinary loss better than −1R; every post-fill R uses `risk_price_actual`.
 6. Post-fill bar containing stop + TP1 resolves as a loss with `ambiguous_bars >= 1` and `adjudication = 'm15_conservative_fallback'`, in both directions.
+6a. Ordinary intrabar fill + same-bar TP1 (no stop) never credits the target from that bar: trade stays open, `fill_bar_excursion_ambiguous = true`, adjudication resumes next candle; gap-at-open fills do evaluate same-bar barriers (5F-1). Fill-bar extremes cannot inflate MFE/MAE on ordinary intrabar fills (5F-2). Bearish mirrors included.
+6b. Replay-V2 sibling cloned from a resolved Replay-V1 row starts clean: cursor at detection, no fill/outcome/label/R, zero excursions and counters (5F-4).
+6c. Hierarchical scheduling: 180 open model-1/replay-1 rows all selected in one 200-row run despite Replay-V2 backlog; 5+5+5 across cohorts all advance (5F-3).
 7. `invalid_plan` / `gap_beyond_stop` rows carry NULL labels and appear in no learning denominator.
 8. Reader inventory test green: no unversioned production aggregation over `shadow_executions`.
 9. Admin, weekly, export and MCP figures unchanged after the backfill.
