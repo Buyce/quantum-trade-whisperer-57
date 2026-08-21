@@ -1,117 +1,62 @@
-# Audit: Entry / Stop / Target / Max-R / Dynamic Entry
+# Red-Team Review of the Entry/Stop/Target/Max-R/Offset Audit Plan
 
-Plan only. No code, migrations, or DB writes were made. All numbers below come from queries run against the live database this turn.
+Independent second-pass review of the proposed plan. No code, migrations, or DB writes made; all figures below are live queries from this turn.
 
-## 1. Actual goal
+## A. Plan defects discovered
 
-Publish only limit setups whose geometry is defensible: an entry a real broker can fill, a stop anchored to the structure that would invalidate the idea, targets that the H4 structure can actually reach, and an honest ceiling on chasing. When any input is missing or degenerate, prefer No Trade.
+1. **The plan contradicted itself on versioning.** It both said "V1 behaviour unchanged" and recommended "make the 0.3 ATR offset inert in V1." Inerting the offset changes V1 entry geometry for overlap setups. Since the user's standing rule is *current production model + corrected model in shadow → promote on evidence*, the correct move is to leave V1's live offset exactly as-is and do any offset work only as V2 research. Keeping V1 frozen is what makes `scanned_signals`/feed/MCP/alert baselines comparable.
 
-## 2. Current implementation (re-read at HEAD)
+2. **Selection bias in the miss-distance evidence.** The "7.2% of misses ≤0.3 ATR" figure is estimated only from `never_filled` rows (n=223). Filled rows never miss by definition, so this quantile is an upper-bound, ex-post distribution and **cannot** support a fill-rate improvement claim. A 0.3 ATR offset is a volume-side lever: it trades larger risk for more fills. Its merit must be judged on net expectancy, measured by a shadow A/B, never from the miss distribution of non-fills alone. Same applies to the "13% vs 69%" note in `types.ts` — current resolved data shows overlap 1/10 (10%) and London 23/59 (39%), and 89 rows carry a NULL session, so neither cited rate is reproducible from the stored set.
 
-- `src/lib/scanner/profile.ts` builds every published profile: `detectAbc` (V1) → stop from last-10-M15 extreme ± buffer → optional session offset → `evaluate()` risk/reachability → TP ladder → `maxAcceptableEntry`.
-- Stop buffer = `max(1.2 × M15 ATR, 0.5 × H1 ATR, static SPREAD_FLOOR[instrument])` (`types.ts`).
-- Grade headroom uses `directionalHeadroomAtr` (nearest unbroken H4 pivot, `Infinity` in open space, `grading.ts`); the R cascade uses a **different** barrier, `h4.rangeHigh/rangeLow` (60-bar H4 extreme).
-- Ladder: `maxR ≥ 3 → [1,2,3]`; `≥1.5 → [0.5,0.75,1.0]×maxR`; else `[0.6,1.0]×maxR`, TP3 null.
-- Slippage: `entry + sign × risk × (maxR < 1.5 ? 0.10 : 0.15)`, mirrored in `db-types.ts` for legacy rows.
-- Dynamic entry: only in `london_new_york_overlap`, `0.3 × M15 ATR` behind the detection close, with four guards.
-- V2 research (`src/lib/scanner/v2/*`) already fixes Point C (canonical band) and unifies the barrier, publishes nothing.
+3. **Lookahead/overfitting trap in the options section.** Option 3/4 estimated offsets *from* historical `miss_distance_atr` (post-detection outcomes) and then proposed using them live. Fitting a parameter on the data that labels it is overfitting. Any offset candidate must be treated as a hypothesis, A/B-tested in the shadow engine, and only then considered.
 
-## 3. Affected surface
+4. **"Slippage ceiling re-derivation" is a behaviour change, not a doc fix.** Replacing the static 0.15R tolerance with a target-preserving formula changes stored `max_acceptable_entry`, which drives the execution chip in `SignalCard` and the "do not enter at market" copy in `signal-alert.tsx`. It is not copy-only. It must be a versioned V2 change, or shipped as a documented recalculation with a fresh `model_versions` hash.
 
-`profile.ts`, `grading.ts`, `indicators.ts` (`detectAbc`), `types.ts` constants, `v2/profile.v2.ts`, `v2/barrier.ts`, `pipeline.server.ts`, `alerts.server.ts`, `push.server.ts`, `webhook.server.ts`, `execution/replay.ts`, `db-types.ts`, `SignalCard.tsx`, `signal-alert.tsx`, MCP `list-signals` / `calculate-position-size`, tables `scanned_signals`, `shadow_executions`, `market_context`, `model_observations`, `regime_stats`, `model_versions`.
+5. **Order-lifetime "contradiction" was misread.** `ORDER_TIF_MINUTES=30` governs the pending-order window and the replay fill test (`replay.ts:107`). `SIGNAL_MAX_AGE_HOURS=24` and grade `RETENTION_HOURS` govern how long the feed keeps a signal row visible/expires it (`expireStaleSignals`). These are different concerns — order TIF vs. feed retention — not a bug. "Unifying" them would change feed retention and dedup behaviour. Retracted.
 
-## 4. Confirmed defects (each verified)
+6. **Broker `stopsLevel` is marked unverified, yet the plan leaned on it as an anchor.** The exact MetaApi REST field names/availability per instrument are unconfirmed. Fail-closed is correct, but the plan must not present the broker floor as a solved input.
 
-1. **Two different H4 barriers.** Grade can pass on open space (`Infinity` headroom) while targets are capped by the unrelated 60-bar extreme. Live evidence: `max_r` ranges 1.02 → **42.39** (mean 3.89) across 169 signals — a 42R "reachable" extension is not a tradeable claim.
-2. **Stop anchor is not the structure.** `slice(-10)` on M15 is a fixed bar count unrelated to the ABC leg; when C is older than 10 bars the anchor is a later, unrelated extreme, so risk and Point C can drift apart across scans of the same leg.
-3. **Slippage arithmetic in the comment is wrong.** `types.ts` claims 0.15R turns 1:3 into ~1:2.55. Correct: fill worse by 0.15R gives risk 1.15R and reward 2.85R → **2.478**, not 2.55. The tolerance is also expressed against the *original* risk and never re-derived at the worse fill.
-4. **Dynamic entry has never fired.** `scanned_signals` contains **0** rows whose breakdown carries the offset note, and only **1** overlap signal has ever been produced. The feature is untested in production.
-5. **Its stated provenance is unsupported.** `types.ts` cites "13% fill in overlap vs 69% in London". Today's resolved shadow set: overlap **n=10, 1 filled**; london n=59, 23 filled (39%); and **89 resolved rows carry a NULL session**. No stored artefact records a sample size, date range, model version, or a comparison of several offsets.
-6. **0.3 ATR would barely help.** Of 223 never-filled rows, miss distance p25/p50/p75 = **0.707 / 1.500 / 2.281 ATR**; only **16 (7.2%)** missed by ≤0.3 ATR. A 0.3 ATR offset addresses at most 7% of misses while paying the cost on every fill.
-7. **Stale-signal contradiction.** Feed keeps a setup `active` for 24h (`SIGNAL_MAX_AGE_HOURS`) while the card and email tell the user to cancel after 30 minutes (`ORDER_TIF_MINUTES`), and the shadow engine labels fills on the 30-minute rule. Three inconsistent lifetimes for one order.
-8. **No broker contract check.** Stop distance is validated only against static `SPREAD_FLOOR`; `stopsLevel`/`minVolume`/tick size from the MetaApi symbol specification are never consulted. FACT to verify: MetaApi exposes symbol specifications via REST; ENGINEERING ASSUMPTION until fetched and logged.
+7. **The plan's rollback claim ("additive, so reversible") is only true if V1 stays frozen.** Any live geometry change (offset, ceiling, stop anchor) is only reversible via feature flags + a fresh model version, not by an additive migration alone. This is now explicit.
 
-## 5. Hidden / secondary risks
+## B. Revised plan
 
-- `maxAcceptableEntry` is duplicated in `db-types.ts`; changing the formula in one place silently diverges the UI from stored rows.
-- `evaluate()` re-derives risk per candidate but the stop is computed once — a future stop change must re-enter `evaluate`, else `MAX_RISK_ATR` is bypassed.
-- Replay labels fills against `entry_price`; changing entry geometry retroactively changes nothing already stored, but mixing old and new rows in one `regime_stats` cohort would pool two different models. Model versioning is mandatory, not optional.
-- `market_context.trading_session` is present for recent rows only; any session-conditioned parameter estimated on the full set inherits 89 unlabelled rows.
-- Session is computed twice (pipeline `sessionOf` for context, again for enrolment) — a boundary-straddling cycle can label them differently.
+Principle: **V1 is frozen. Every geometry correction becomes a versioned V2 research change, measured against the frozen V1 baseline in the shadow engine. Only copy that is mathematically wrong is fixed in place.**
 
-## 6. Alternatives for the dynamic entry
+1. **Baseline first (unchanged).** Capture and pin in `baseline_snapshots` the frozen-V1 metrics: signal count/grade/direction/instrument/session mix, fill rate (currently 88/311 resolved, 28.3%), never-filled rate, win-if-filled, mean R, `max_r` mean 3.89 / max 42.39, miss-distance quartiles, p95 scan latency, alert/webhook counts, duplicate-suppression rate. State explicitly which numbers are unavailable (any session-conditioned estimate; all V2 outcomes — `model_version=2` has **0** resolved rows).
+2. **Correct the wrong copy only.** `types.ts` and `SignalCard`/email text that state 0.15R turns 1:3 into ~1:2.55 are wrong; the correct realised ratio is `(k−t)/(1+t) = 2.478`. Fix the text and the comment. Store values are untouched, so no behaviour or MCP contract changes.
+3. **Document the V1 offset as a hypothesis.** No code change. Record in the V2 manifest that the live 0.3 ATR offset is unvalidated (never fired — 0 overlapping signals carry the offset note; 1 overlap signal total; cited fill stats unreproducible).
+4. **V2 research changes** (all gated behind `shadow_engine_state.v2_enabled`, `model_version=2`, never written to feed/MCP/alerts):
+   - **Leg-scoped stop anchor**: extreme between B's bar and C (or B→current) instead of `slice(-10)`.
+   - **Single canonical barrier**: reuse `v2/barrier.ts` (already at HEAD) so grade headroom and the R cascade share one definition; bounded open-space extension removes the 42R artefact in V2 only.
+   - **Slippage ceiling re-derivation** as a target-preserving formula with a stated minimum acceptable payoff, only in V2.
+   - **Offset experiment**: fixed structural entry vs. fixed 0.3 ATR vs. quantile fill-distance candidate, A/B-tested in shadow on **net expected R**, not fill rate. A candidate is promoted only if its net R is non-inferior to V1 in the same sessions at equal or better risk control.
+   - **Broker-spec floor**: fetch symbol specification per instrument per cycle (cached), fail-closed to No-Trade when unavailable. Verify REST field names before relying on them.
+5. **Tests** (all blocking) before any research enablement: slippage arithmetic (`E=1.1000,S=1.0980,R=0.0020,k=3,t=0.15` → ceiling `1.10030`, ratio `2.478`; short mirror → `1.09970`); ladder (`maxR=1.02→[0.61,1.02,null]`, `1.6→[0.8,1.2,1.6]`, `3.4→[1,2,3]`); barrier invariant grade==R source and finite bounded `maxR`; leg-scoped stop differs from last-10 when C is old and equals it when C is the recent extreme; malformed/NaN/single-candle/zero-risk/barrier-behind-entry → No Trade; broker-spec unavailable → No Trade (fail-closed); V2 rows unreachable from feed/MCP/alerts; V1/V2 cohorts isolated in `regime_stats`; MetaApi timeout, duplicate job, concurrent claim, partial insert, stale run id.
 
-1. **Fixed structural Point C only (drop the offset).** Benefits: deterministic, zero parameters, matches the 7.2% finding. Drawback: leaves overlap fill rate low. Complexity: trivial (delete a branch). Statistical: no overfitting risk.
-2. **Keep fixed 0.3 ATR (status quo).** Benefit: already written. Drawbacks: unfalsifiable provenance, pays cost on every fill for ≤7% of misses, and has never once executed — so it is untested code in the publish path.
-3. **Regime-conditioned empirical offset** (per instrument × session, estimated from `miss_distance_atr` with a shrinkage prior). Benefit: uses evidence we own. Drawbacks: overlap n=10 cannot support any estimate today; needs the same gates as the learning engine.
-4. **Quantile fill-distance model** (offset = q-th percentile of miss distance, e.g. q=0.5 → 1.5 ATR). Benefit: directly targets the miss distribution and is explainable. Drawbacks: 1.5 ATR offsets materially shrink R and change the trade's identity; must be shadow-measured for net expectancy, not fill rate.
+## C. New acceptance criteria
 
-**Recommendation:** V1 keeps behaviour but the offset is made inert-by-flag (option 1 semantics in production), and options 3/4 are implemented **only** in V2 research with the cost side (realized R, not fill rate) as the decision metric. Your original framing — treat 0.3 ATR as a hypothesis — is correct, and I reject keeping it live.
+- V1 signal/entry/stop/target/grade/ceiling/feed-retention/dedup/alerts produce byte-identical outputs before vs. after the deploy (frozen-model regression on a pinned candle set).
+- Wrong 0.15R→2.55 copy is corrected everywhere to 2.478.
+- V2 research writes provenance-stamped (`entry_source`, `stop_anchor`, `offset_atr`) shadow rows only; 0 resolved V2 rows as of baseline are acknowledged and not backfilled or fabricated.
+- Offset candidates are reported on net R with sample sizes and significance; no promotion without ≥150 resolved research rows and non-inferior net R in matched sessions.
+- Full test matrix green; no live alert, push, email, webhook or MCP payload changes.
 
-## 7. Alternatives for stop and barrier
+## D. Remaining risks
 
-- **Stop anchor:** (a) status quo last-10 bars; (b) **leg-scoped extreme between B's bar and the C bar** (recommended — that is the structure the idea depends on); (c) swing-pivot-only anchor (rejected: ignores wick excursions the market already made).
-- **Barrier:** (a) status quo dual definition; (b) **V2 canonical single barrier with a bounded open-space extension** (recommended — kills the 42R artefact and makes grade and R agree).
-- **Spread/stops floor:** (a) static table (status quo); (b) **broker-derived floor with fail-closed No Trade when the specification is unavailable** (recommended, subject to verifying the REST field names before implementing).
+- Broker-spec field availability unverified; V2 stop/ceiling may change publish volume in research (expected, not a regression — V1 is frozen).
+- Overlap data is structurally scarce (n=10) and may not yield a statistically usable comparison for months; the offset question may stay undecided, which is an acceptable honest outcome.
+- Two different R-measurement paths (shadow replay vs. user-reported) can disagree; this is a pre-existing condition, not introduced here.
+- Fixing copy without touching values risks a future reader re-introducing the wrong formula.
 
-All three land in V2 research first; none silently change V1.
+## E. Confidence level — High (approx. 0.85)
 
-## 8. Mathematical corrections to adopt
+Reasons: the plan now aligns with the established frozen-V1/versioned-shadow rule; the versioning contradiction, selection bias, lookahead and misread-TIF defects were found and removed; every behavioural change is gated, additive and reversible by flag-flip; concrete numeric fixtures exist for the mathematics. Remaining uncertainty is concentrated in broker-spec availability and in sample scarcity, both acknowledged rather than assumed away.
 
-For entry `E`, stop `S`, risk `R = |E − S|`, worse fill `E' = E + s·tR`:
-- actual risk `R' = R(1 + t)`; reward to a target at `kR` becomes `R(k − t)`; realised ratio `= (k − t)/(1 + t)`.
-- t = 0.15, k = 3 → **2.478** (not 2.55). t = 0.10, k = 1.02 → 0.836.
-- Ceiling definition to adopt: the largest `t` such that `(k_final − t)/(1 + t) ≥ RR_min`, solved as `t ≤ (k_final − RR_min)/(1 + RR_min)`, so the ceiling is derived from a stated minimum acceptable payoff instead of a bare constant. Both the scanner and `db-types.ts` read one shared function.
+## F. What still cannot be guaranteed
 
-## 9-11. Schema / backend / frontend changes
+- That any corrected geometry (stop anchor, offset, ceiling) improves fill rate or net expectancy — the data does not exist to promise this, and V1 stays unchanged precisely so this can be measured rather than assumed.
+- That the overlap regime produces enough shadow samples in any useful timeframe.
+- That historical V1 labels remain comparable if the broker feed history is revised.
+- That broker `stopsLevel` is surfaced identically across all three instruments (unverified until probed).
 
-- **Schema:** no change to V1 columns. Add nullable research columns on `shadow_executions` for V2 entry/stop provenance (`entry_source`, `stop_anchor`, `offset_atr`) plus grants unchanged; register a new `model_versions` row (v3 research) when the corrected geometry differs from v2's parameter hash. No backfill, no rewrite of historical rows.
-- **Backend:** one shared slippage module used by scanner, UI and MCP; V2 profile gains leg-scoped stop, broker-spec floor (fail-closed), and the offset experiment behind `shadow_engine_state.v2_enabled`; align the order lifetime so feed status, card copy, email and replay all read `ORDER_TIF_MINUTES` from one source.
-- **Frontend:** correct the slippage explanation in `SignalCard`/emails to the re-derived ratio, and stop telling users to cancel in 30 minutes while the feed still shows the setup as live for 24 hours.
-
-## 12-15. MCP / history / security / performance
-
-MCP `list_signals` and `calculate_position_size` inherit whatever the shared slippage function returns — no tool contract change. Historical observations are never rewritten; comparison happens across model versions. No RLS or grant change is needed (research tables stay service-role only). Added work is one extra symbol-specification fetch per instrument per cycle, cached per run, inside the existing 8s timeout budget; p95 scan latency stays the acceptance metric.
-
-## 16. Implementation sequence
-
-1. Capture the baseline (section 19) and pin it in `baseline_snapshots`.
-2. Extract the shared slippage module + correct the arithmetic and the copy (no geometry change).
-3. Unify the order lifetime.
-4. Flag the dynamic offset inert in V1; record it as a hypothesis in the model manifest.
-5. V2 research: leg-scoped stop, single barrier already present, broker-spec floor with fail-closed.
-6. V2 offset experiment (options 3/4) measured on realised R.
-7. Tests (section 17) before enabling anything.
-8. Compare, then promote only on explicit approval.
-
-## 17. Test matrix (concrete)
-
-- Slippage unit: `E=1.1000, S=1.0980, R=0.0020, k=3, t=0.15` → ceiling `1.10030`, realised ratio `2.478`. Short mirror: `E=1.1000, S=1.1020` → `1.09970`.
-- Ladder: `maxR=1.02` → `[0.61, 1.02, null]`; `maxR=1.6` → `[0.8, 1.2, 1.6]`; `maxR=3.4` → `[1,2,3]`.
-- Barrier invariant (property): grade headroom and R-cascade barrier are the same price for every generated candle set; `maxR` finite always; `maxR ≤ OPEN_SPACE_EXTENSION_ATR × H4ATR / risk`.
-- Stop: leg-scoped anchor equals last-10 anchor when C is the recent extreme, and differs (test asserts the leg anchor) when C is 14 bars back.
-- Malformed: NaN/zero-range candles, single candle, stop == entry, barrier behind entry → No Trade, never a published row.
-- Broker spec: specification unavailable → No Trade (fail-closed), asserted, not defaulted.
-- DB/RLS: V2 rows never appear in feed queries; V1/V2 cohorts isolated in `regime_stats`.
-- Failure injection: MetaApi timeout, duplicate scan job, concurrent claim of the same structure, partial insert after signal row, stale run id.
-
-## 18. Baseline to capture (data availability stated honestly)
-
-Available now: 169 signals (2026-08-11 → 08-21); grade mix A 3 / B 235 / C 73 on resolved shadow rows; direction 154 long vs 15 short; fill rate 88/311 resolved (28.3%); never-filled 223; miss-distance quartiles above; `max_r` mean 3.89 / max 42.39; 30 signals with maxR < 1.5.
-**Not calculable today:** any session-conditioned offset estimate (overlap n=10, 89 rows unlabelled), and any V2 fill/win comparison (`shadow_executions` has **0** resolved rows at model_version 2). I will not fabricate those numbers; the plan gates promotion on them.
-
-## 19-21. Comparison, deployment, rollback
-
-V1 continues publishing untouched. Corrected geometry runs as a new research model version alongside v2, enrolled in the shadow engine only. Promotion requires: ≥150 resolved research rows, fill rate and mean R both non-inferior to V1 in the same sessions, and no increase in never-filled at equal R. Kill switches: `shadow_engine_state.v2_enabled` for research enrolment, and the offset flag for entry geometry. Rollback is flag-flip plus a forward-fix migration; research columns are additive and nullable, so no collected data is destroyed.
-
-## 22. Acceptance criteria
-
-Shared slippage function with re-derived arithmetic and matching copy; one order lifetime everywhere; no V1 signal, grade, entry, stop, target or alert changes in the same deploy; V2 research emits provenance-stamped rows; full test matrix green; baseline snapshot pinned before any behaviour change.
-
-## 23-24. Uncertainties and what I cannot guarantee
-
-Open: exact MetaApi symbol-specification field names and availability per instrument (must be probed before step 5); whether a leg-scoped stop widens risk enough to reduce publish volume; whether any offset improves expectancy at all. I cannot guarantee that corrected geometry increases fill rate or expectancy, that overlap will produce enough samples in a useful timeframe, or that historical labels remain comparable if broker feed history is revised.
-
-## 25. Recommendation
-
-Proceed with this plan, with two explicit modifications to your framing: the dynamic 0.3 ATR offset should be made inert in V1 rather than preserved as live behaviour (it has never fired and the miss distribution does not support it), and the stop/barrier corrections belong in a versioned research model rather than a live edit.
+Verdict: **proceed with the revised plan** — the corrected geometry in V2 research, frozen V1, honest baseline, and wrong-copy fix in place. No implementation begins until you approve this revised plan.
