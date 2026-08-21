@@ -30,6 +30,21 @@ export const Route = createFileRoute("/connect")({
 
 const SERVER_SLUG = "p-trades-hub";
 
+const TOOL_ROWS: [string, string][] = [
+  ["list_signals", "Live scanner setups with entry, stop, targets, R:R and confidence. An empty list means no valid setup."],
+  ["get_scanner_status", "Scan engine health, last run, and your active filters."],
+  ["get_market_status", "Which FX sessions are open right now and per-instrument broker feed health."],
+  ["get_my_settings", "Your instruments, timeframes, alert grade, daily cap and risk profile."],
+  ["update_my_settings", "Change those preferences. Values are clamped to safe bounds server-side."],
+  ["calculate_position_size", "Lot size, cash risk and margin for a setup, using your saved equity and risk percent."],
+  ["get_intelligence", "Bayesian fill/win priors, sample sizes, learning-gate status and regime feature influence."],
+  ["get_shadow_comparison", "Weekly shadow-replay comparison of A+/A against B/C, with sample sizes and significance."],
+  ["log_trade_decision", "Record that you took or skipped a signal."],
+  ["update_trade_outcome", "Set the outcome and, with real entry/exit prices, get a verified R computed server-side."],
+  ["list_my_trades", "Your journal entries, verified and unverified."],
+  ["get_performance_summary", "Your expectancy and R-multiple performance."],
+];
+
 function useMcpUrl() {
   const [url, setUrl] = useState("");
   useEffect(() => {
@@ -37,6 +52,15 @@ function useMcpUrl() {
   }, []);
   return url;
 }
+
+function useRegisterUrl() {
+  const [url, setUrl] = useState("");
+  useEffect(() => {
+    setUrl(new URL("/api/public/agent/register", window.location.origin).toString());
+  }, []);
+  return url;
+}
+
 
 function CopyButton({ value, label }: { value: string; label: string }) {
   const [copied, setCopied] = useState(false);
@@ -91,6 +115,10 @@ function Ext({ href, children }: { href: string; children: ReactNode }) {
 
 function ConnectPage() {
   const mcpUrl = useMcpUrl();
+  const registerUrl = useRegisterUrl();
+  const registerExample = `curl -X POST ${registerUrl || "/api/public/agent/register"} \\
+  -H 'Content-Type: application/json' \\
+  -d '{"email":"you@example.com","password":"a-strong-password"}'`;
   const claudeAdd = `https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=${encodeURIComponent(
     "P-Trades Hub",
   )}&connectorUrl=${encodeURIComponent(mcpUrl)}`;
@@ -118,8 +146,9 @@ function ConnectPage() {
           Connect an AI assistant to P-Trades Hub
         </h1>
         <p className="mt-4 text-sm leading-relaxed text-muted-foreground sm:text-base">
-          Once connected, your assistant can read live scanner setups, check scanner health, log the trades you
-          take or skip, and summarise your R-multiple performance — all as you, using your own sign-in.
+          Once connected, your assistant can read live scanner setups, check scanner and session status, size a
+          setup against your risk profile, read the learning engine's regime statistics, adjust your own settings,
+          and maintain your trade journal — all as you, using your own sign-in.
         </p>
 
         <section className="mt-8 rounded-md border border-border bg-card p-4 sm:p-5">
@@ -134,6 +163,52 @@ function ConnectPage() {
             You'll be asked to sign in and approve the connection the first time an assistant uses it.
           </p>
         </section>
+
+        <section className="mt-10">
+          <h2 className="text-lg font-semibold text-foreground">What your assistant can do</h2>
+          <div className="mt-3 overflow-hidden rounded-md border border-border">
+            <table className="w-full text-sm">
+              <tbody className="divide-y divide-border">
+                {TOOL_ROWS.map(([tool, what]) => (
+                  <tr key={tool} className="bg-card align-top">
+                    <td className="num w-[42%] px-3 py-2 text-xs text-foreground sm:w-[34%] sm:text-sm">{tool}</td>
+                    <td className="px-3 py-2 text-xs text-muted-foreground sm:text-sm">{what}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-3 text-xs text-muted-foreground">
+            Off-limits to assistants by design: webhook credentials, other users' data, admin intelligence, and
+            deleting your account or journal.
+          </p>
+        </section>
+
+        <section className="mt-10 rounded-md border border-border bg-card p-4 sm:p-5">
+          <h2 className="text-lg font-semibold text-foreground">No account yet? Create one from your assistant</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            An assistant has no sign-in before an account exists, so registration runs over a plain HTTP endpoint
+            instead of the connector. It starts an ordinary email sign-up: the confirmation email still has to be
+            clicked by whoever owns the inbox before the account works.
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <code className="num min-w-0 flex-1 truncate rounded-sm bg-secondary px-3 py-2 text-xs text-foreground sm:text-sm">
+              POST {registerUrl}
+            </code>
+            <CopyButton value={registerUrl} label="Copy registration endpoint" />
+          </div>
+          <pre className="num mt-3 overflow-x-auto rounded-sm bg-secondary p-3 text-xs text-foreground">
+            {registerExample}
+          </pre>
+          <Steps
+            items={[
+              <>The assistant posts an email and a password of at least 8 characters.</>,
+              <>The account owner clicks the confirmation link we email them.</>,
+              <>The assistant then connects the server URL above and approves the consent screen.</>,
+            ]}
+          />
+        </section>
+
 
         <section className="mt-10">
           <h2 className="text-lg font-semibold text-foreground">Connect your assistant</h2>
