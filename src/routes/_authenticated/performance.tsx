@@ -198,8 +198,8 @@ function PerformancePage() {
       </section>
 
       <Tabs defaultValue="distribution" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2 sm:inline-flex sm:w-auto">
-          <TabsTrigger value="distribution">R distribution</TabsTrigger>
+        <TabsList className="grid h-auto w-full grid-cols-2 gap-1 sm:grid-cols-3 lg:inline-flex lg:h-9 lg:w-auto lg:gap-0">
+          <TabsTrigger className="h-10 lg:h-auto" value="distribution">R distribution</TabsTrigger>
           <TabsTrigger value="timing">Timing</TabsTrigger>
           <TabsTrigger value="instrument">By instrument</TabsTrigger>
           <TabsTrigger value="grade">By grade</TabsTrigger>
