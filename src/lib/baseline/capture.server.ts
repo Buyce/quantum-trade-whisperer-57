@@ -158,6 +158,14 @@ export async function captureBaseline(
     };
   }
 
+  // 1b. The semantic instant of the document. Every time-varying source is cut
+  //     off here, so the capture is a point-in-time snapshot rather than a smear
+  //     across the read window. `captured_at` is wall-clock bookkeeping only.
+  const dataAsOf = pinnedRunAt ?? new Date().toISOString();
+  caveats.push(
+    `Every counter in this document is as of data_as_of=${dataAsOf} (the pinned learning run). Rows written or resolved after that instant are excluded by construction, so these numbers will not match a live dashboard read.`,
+  );
+
   const firstRun = await db
     .from("regime_snapshots")
     .select("computed_at")
@@ -171,18 +179,38 @@ export async function captureBaseline(
     .select("tier, regime_key, n_total, n_filled, wins, p_fill_shrunk, p_win_shrunk")
     .eq("run_id", pinnedRunId);
   if (pinnedRows.error) throw new Error(pinnedRows.error.message);
+  const pinnedTier0 = (
+    (pinnedRows.data ?? []) as Array<{ tier: number }>
+  ).filter((r) => Number(r.tier) === 0).length;
+  if (pinnedTier0 === 0) {
+    caveats.push(
+      "The pinned learning run carries no Tier-0 rows, so the volatility tercile boundaries in force at that instant are unrecoverable. Tier-0 rows are preserved prospectively from the migration that introduced them onward; no historical boundary has been reconstructed.",
+    );
+  }
 
-  // 2. Shadow replay cohort — the only auditable performance record.
+  // 2. Shadow replay cohort — the only auditable performance record. A row is
+  //    treated as resolved only if its resolution existed at the cutoff.
   const shadow = await db
     .from("shadow_executions")
     .select(
-      "grade, instrument, direction, trading_session, status, resolved_outcome, ml_target_label, realized_r, miss_distance_atr, max_r, risk_price, atr, signal_id, detected_at",
+      "grade, instrument, direction, trading_session, status, resolved_outcome, ml_target_label, realized_r, miss_distance_atr, max_r, risk_price, atr, signal_id, detected_at, resolved_at",
     )
     .eq("model_version", ACTIVE_MODEL_VERSION)
+    .lte("detected_at", dataAsOf)
     .limit(READ_CAP);
   if (shadow.error) throw new Error(`shadow_executions read failed: ${shadow.error.message}`);
   const shadowRows = (shadow.data ?? []) as unknown as ShadowRow[];
-  const resolved = shadowRows.filter((r) => r.status === "resolved");
+  const resolvedAtCutoff = (r: ShadowRow) =>
+    r.status === "resolved" && r.resolved_at != null && r.resolved_at <= dataAsOf;
+  const resolved = shadowRows.filter(resolvedAtCutoff);
+  const resolvedAfterCutoff = shadowRows.filter(
+    (r) => r.status === "resolved" && !resolvedAtCutoff(r),
+  ).length;
+  if (resolvedAfterCutoff > 0) {
+    caveats.push(
+      `${resolvedAfterCutoff} enrolled shadow rows were resolved after data_as_of and are counted as unresolved here; including them would leak outcomes that did not exist at the pinned instant.`,
+    );
+  }
   const filled = resolved.filter((r) => r.resolved_outcome !== "never_filled");
   const wins = resolved.filter((r) => r.ml_target_label === 1);
   const neverFilled = resolved.filter((r) => r.resolved_outcome === "never_filled");
@@ -216,11 +244,16 @@ export async function captureBaseline(
       "id, grade, direction, instrument, status, confidence_score, max_r, atr, entry_price, stop_loss, detected_at, p_fill_prior, p_win_prior, ev_prior, prior_sample_n, prior_tier",
     )
     .eq("model_version", ACTIVE_MODEL_VERSION)
+    .lte("detected_at", dataAsOf)
     .limit(READ_CAP);
   if (signals.error) throw new Error(`scanned_signals read failed: ${signals.error.message}`);
   const signalRows = (signals.data ?? []) as Array<Record<string, unknown>>;
 
-  const queue = await db.from("scan_queue").select("result, status").limit(READ_CAP);
+  const queue = await db
+    .from("scan_queue")
+    .select("result, status")
+    .lte("enqueued_at", dataAsOf)
+    .limit(READ_CAP);
   if (queue.error) throw new Error(`scan_queue read failed: ${queue.error.message}`);
   const queueRows = (queue.data ?? []) as Array<{ result: string | null; status: string }>;
   const queueResults = tally(queueRows.map((r) => r.result ?? "unknown"));
@@ -231,6 +264,7 @@ export async function captureBaseline(
       `${retentionGap} published signals have already been hard-deleted by tiered retention; their grade, direction and session distribution is unrecoverable, so signal-level distributions are reconstructed from the shadow cohort, not from scanned_signals.`,
     );
   }
+
 
   // 4. Prior calibration. The priors on each signal were stamped AT DETECTION
   //    from the statistics that existed then, so they are point-in-time by
