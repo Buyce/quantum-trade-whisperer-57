@@ -55,7 +55,7 @@ export const getSignalAudit = createServerFn({ method: "GET" })
       supabaseAdmin.from("executed_trades").select("signal_id, user_decision").in("signal_id", ids),
       supabaseAdmin.from("shadow_queue").select("signal_id, status").in("signal_id", ids),
       supabaseAdmin
-        .from("shadow_executions")
+        .from("shadow_executions_production")
         .select("signal_id, status")
         // Production replay rows only — research siblings share the signal id.
         .eq("replay_version", 1)

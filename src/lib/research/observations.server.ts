@@ -12,6 +12,7 @@
  *    users.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { SetupEvaluation } from "@/lib/scanner/profile";
 import { MODEL_V2_CODE_HASH, MODEL_V2_VERSION } from "@/lib/scanner/v2/manifest";
 import type { V2Evaluation } from "@/lib/scanner/v2/profile.v2";
 import { MODEL_V3_CODE_HASH, MODEL_V3_VERSION } from "@/lib/scanner/v3/manifest";
@@ -272,7 +273,16 @@ export function v2ObservationRow(args: {
   };
 }
 
-/** Maps the V1 outcome of the same observation onto a row. */
+/**
+ * Maps the V1 outcome of the same observation onto a row.
+ *
+ * When the gate-labelled evaluation is available it is persisted verbatim:
+ * terminal stage, gates in evaluation order, deterministic features and the
+ * geometry that was actually derived. Nothing is invented — a stage that never
+ * produced geometry stores nulls, and a rejected setup stores no plan. Without
+ * this, a no_trade row records only prose and the reason a filter fired can
+ * never be recovered from the ledger.
+ */
 export function v1ObservationRow(args: {
   runId: string | null;
   observationKey: string | null;
@@ -284,7 +294,9 @@ export function v1ObservationRow(args: {
   reason: string;
   latencyMs: number | null;
   signalId?: string | null;
+  evaluation?: SetupEvaluation | null;
 }): ObservationRow {
+  const ev = args.evaluation ?? null;
   return {
     run_id: args.runId,
     observation_key: args.observationKey,
@@ -299,7 +311,15 @@ export function v1ObservationRow(args: {
     code_hash: null,
     latency_ms: args.latencyMs,
     signal_id: args.signalId ?? null,
-    profile: null,
+    profile: ev
+      ? {
+          stage: ev.stage,
+          gates: ev.gates,
+          features: ev.features,
+          geometry: ev.geometry,
+          hasProposedProfile: ev.proposedProfile !== null,
+        }
+      : null,
   };
 }
 

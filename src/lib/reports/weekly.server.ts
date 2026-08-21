@@ -23,14 +23,13 @@ export async function loadWeeklyReport(
   const windowStart = new Date(now.getTime() - REPORT_WINDOW_DAYS * 86_400_000);
 
   const { data, error } = await db
-    .from("shadow_executions")
+    // The production view IS the isolation boundary: research-candidate rows
+    // are not reachable from here at all, not merely filtered out.
+    .from("shadow_executions_production")
     .select("grade, status, resolved_outcome, realized_r, filled_at, miss_distance_atr")
-    // Production cohort only: a research model's replays must never be reported
+    // Production model only: a research model's replays must never be reported
     // as the engine's weekly performance.
     .eq("model_version", ACTIVE_MODEL_VERSION)
-    // Production replay labeller only: Replay-V2 research siblings share the
-    // same plan and would double-count the week.
-    .eq("replay_version", REPLAY_V1_VERSION)
     // Production replay labeller only: Replay-V2 research siblings share the
     // same plan and would double-count the week.
     .eq("replay_version", REPLAY_V1_VERSION)
