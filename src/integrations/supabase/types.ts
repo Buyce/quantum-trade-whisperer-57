@@ -860,6 +860,15 @@ export type Database = {
       research_candidates: {
         Row: {
           atr: number | null
+          cf_grade: string | null
+          cf_max_r: number | null
+          cf_plan_version: number | null
+          cf_tp1: number | null
+          cf_tp1_r: number | null
+          cf_tp2: number | null
+          cf_tp2_r: number | null
+          cf_tp3: number | null
+          cf_tp3_r: number | null
           code_hash: string | null
           confidence_score: number | null
           counterfactual_class: string | null
@@ -900,6 +909,15 @@ export type Database = {
         }
         Insert: {
           atr?: number | null
+          cf_grade?: string | null
+          cf_max_r?: number | null
+          cf_plan_version?: number | null
+          cf_tp1?: number | null
+          cf_tp1_r?: number | null
+          cf_tp2?: number | null
+          cf_tp2_r?: number | null
+          cf_tp3?: number | null
+          cf_tp3_r?: number | null
           code_hash?: string | null
           confidence_score?: number | null
           counterfactual_class?: string | null
@@ -940,6 +958,15 @@ export type Database = {
         }
         Update: {
           atr?: number | null
+          cf_grade?: string | null
+          cf_max_r?: number | null
+          cf_plan_version?: number | null
+          cf_tp1?: number | null
+          cf_tp1_r?: number | null
+          cf_tp2?: number | null
+          cf_tp2_r?: number | null
+          cf_tp3?: number | null
+          cf_tp3_r?: number | null
           code_hash?: string | null
           confidence_score?: number | null
           counterfactual_class?: string | null
@@ -1365,6 +1392,7 @@ export type Database = {
           net_r: number | null
           observation_key: string | null
           plan_id: string
+          plan_origin: string
           quality_grade: string | null
           realized_r: number | null
           replay_cursor: string | null
@@ -1432,6 +1460,7 @@ export type Database = {
           net_r?: number | null
           observation_key?: string | null
           plan_id?: string
+          plan_origin?: string
           quality_grade?: string | null
           realized_r?: number | null
           replay_cursor?: string | null
@@ -1499,6 +1528,7 @@ export type Database = {
           net_r?: number | null
           observation_key?: string | null
           plan_id?: string
+          plan_origin?: string
           quality_grade?: string | null
           realized_r?: number | null
           replay_cursor?: string | null

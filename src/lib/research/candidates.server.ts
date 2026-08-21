@@ -127,7 +127,6 @@ export async function captureCandidate(
       cf_grade: ladder?.grade ?? null,
       cf_plan_version: ladder?.researchPlanVersion ?? null,
       published_signal_id: args.publishedSignalId,
-
     });
 
     const { error } = (await Promise.race([

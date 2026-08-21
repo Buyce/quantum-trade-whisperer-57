@@ -84,9 +84,16 @@ describe("Prompt 7G — captured plan provenance", () => {
     expect(p["research_plan_version"]).toBe(RESEARCH_PLAN_VERSION);
     expect(p["counterfactual_class"]).toBe("executable");
     expect(p["grade"]).toBe("B");
-    expect(p["tp1"]).toBeCloseTo(1.11, 10);
-    expect(p["tp3"]).toBeCloseTo(1.13, 10);
-    expect([p["tp1_r"], p["tp2_r"], p["tp3_r"], p["max_r"]]).toEqual([1, 2, 3, 3]);
+    // The research ladder lives in its own columns: it can never be read as a
+    // production plan, and V1's own (absent) targets are not back-filled.
+    expect(p["cf_tp1"]).toBeCloseTo(1.11, 10);
+    expect(p["cf_tp3"]).toBeCloseTo(1.13, 10);
+    expect([p["cf_tp1_r"], p["cf_tp2_r"], p["cf_tp3_r"], p["cf_max_r"]]).toEqual([1, 2, 3, 3]);
+    expect(p["cf_grade"]).toBe("B");
+    expect(p["cf_plan_version"]).toBe(RESEARCH_PLAN_VERSION);
+    for (const k of ["tp1", "tp2", "tp3", "tp1_r", "tp2_r", "tp3_r", "max_r"]) {
+      expect(p[k]).toBeNull();
+    }
     // The counterfactual is a research plan, not a graded production one.
     expect(p["confidence_score"]).toBeNull();
     // Geometry is passed through untouched — nothing is re-derived.
@@ -100,8 +107,59 @@ describe("Prompt 7G — captured plan provenance", () => {
     expect(p["counterfactual_stage"]).toBeNull();
     expect(p["research_plan_version"]).toBeNull();
     expect(p["counterfactual_class"]).toBe("structurally_not_evaluable");
-    for (const k of ["grade", "tp1", "tp2", "tp3", "tp1_r", "tp2_r", "tp3_r", "max_r"]) {
+    for (const k of [
+      "grade",
+      "tp1",
+      "tp2",
+      "tp3",
+      "tp1_r",
+      "tp2_r",
+      "tp3_r",
+      "max_r",
+      "cf_tp1",
+      "cf_tp3",
+      "cf_max_r",
+      "cf_grade",
+      "cf_plan_version",
+    ]) {
       expect(p[k]).toBeNull();
+    }
+  });
+
+  it("[INVARIANT] a published setup carries the same research ladder as a rejection", async () => {
+    const rejected = await capture(evaluation("no_headroom", GEOMETRY));
+    // A published evaluation always carries the profile V1 actually traded.
+    const pub = evaluation("published", GEOMETRY);
+    const p = await capture({
+      ...pub,
+      proposedProfile: {
+        grade: "A",
+        tp1: 1.115,
+        tp2: 1.125,
+        tp3: 1.135,
+        tp1R: 1.5,
+        tp2R: 2.5,
+        tp3R: 3.5,
+        maxR: 3.5,
+        confidence: { score: 72 },
+      } as unknown as SetupEvaluation["proposedProfile"],
+    });
+    // Production provenance is untouched...
+    expect(p["plan_origin"]).toBe("production");
+    expect(p["counterfactual_stage"]).toBeNull();
+    expect(p["tp1"]).toBeCloseTo(1.115, 10);
+    // ...but the common research ladder exists on BOTH arms, identically.
+    expect(p["cf_plan_version"]).toBe(RESEARCH_PLAN_VERSION);
+    for (const k of [
+      "cf_tp1",
+      "cf_tp2",
+      "cf_tp3",
+      "cf_tp1_r",
+      "cf_tp2_r",
+      "cf_tp3_r",
+      "cf_max_r",
+    ]) {
+      expect(p[k]).toBe(rejected[k]);
     }
   });
 });

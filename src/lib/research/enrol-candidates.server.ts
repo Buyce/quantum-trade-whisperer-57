@@ -111,6 +111,8 @@ export interface CandidateRow {
   enrolled_plan_id: string | null;
   /** How the PRODUCTION side of this row was derived. Reported, never grouped on. */
   plan_origin?: string | null;
+  /** Which filter gate rejected the candidate, when one did. Reported only. */
+  counterfactual_stage?: string | null;
   /** Whether a research plan can exist at all. NULL (legacy) means "no". */
   counterfactual_class?: string | null;
   /** The common research ladder. Every research execution uses these columns. */
@@ -128,7 +130,8 @@ export interface CandidateRow {
 const CANDIDATE_COLUMNS =
   "id, observation_key, instrument, direction, strategy_version, manifest_hash, detected_at, " +
   "trading_session, volatility_index, terminal_stage, grade, structure_key, entry_price, stop_loss, " +
-  "risk_price, atr, gates, gates_complete, enrolled_plan_id, plan_origin, counterfactual_class, " +
+  "risk_price, atr, gates, gates_complete, enrolled_plan_id, plan_origin, counterfactual_stage, " +
+  "counterfactual_class, " +
   "cf_tp1, cf_tp2, cf_tp3, cf_tp1_r, cf_tp2_r, cf_tp3_r, cf_max_r, cf_grade, cf_plan_version";
 
 function num(v: unknown): number | null {

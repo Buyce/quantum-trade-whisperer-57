@@ -62,18 +62,21 @@ function insertCandidate(): void {
     insert into public.research_candidates
       (instrument, direction, strategy_version, manifest_hash, detected_at, terminal_stage,
        v1_decision, gates, gates_complete, trading_session, volatility_index,
-       entry_price, stop_loss, tp1, tp2, tp3, tp1_r, tp2_r, tp3_r, max_r, risk_price, atr, grade)
+       entry_price, stop_loss, risk_price, atr, grade,
+       cf_tp1, cf_tp2, cf_tp3, cf_tp1_r, cf_tp2_r, cf_tp3_r, cf_max_r, cf_grade, cf_plan_version)
     values ('EURUSD', 'long', 1, 'hash-a', now() - interval '3 days', 'no_grade',
             'no_trade', '[{"gate":"grade","outcome":"fail"}]'::jsonb, true, 'london', 1.2,
-            1.1, 1.09, 1.12, 1.13, 1.14, 1, 2, 3, 3.5, 0.01, 0.004, 'B');
+            1.1, 1.09, 0.01, 0.004, 'B',
+            1.11, 1.12, 1.13, 1, 2, 3, 3, 'B', 1);
     insert into public.shadow_executions
       (instrument, grade, direction, detected_at, entry_price, stop_loss, tp1, tp2,
        risk_price, status, resolved_outcome, ml_target_label, realized_r, resolved_at,
        trading_session, volatility_index, model_version, cohort, replay_version,
-       execution_policy, research_candidate_id)
+       execution_policy, plan_origin, research_candidate_id)
     values ('EURUSD', 'A', 'long', now() - interval '3 days', 1.1, 1.09, 1.12, 1.13,
             0.01, 'resolved', 'tp3', 1, 99, now() - interval '2 days',
             'london', 1.2, 1, 'research_candidate', 1, 'legacy_best_target_touched',
+            'counterfactual',
             (select id from public.research_candidates order by created_at desc limit 1));
   `);
 }
@@ -149,22 +152,24 @@ describe("research-candidate cohort contamination", () => {
       insert into public.research_candidates
         (instrument, direction, strategy_version, manifest_hash, detected_at, terminal_stage,
          v1_decision, gates, gates_complete, trading_session, volatility_index,
-         entry_price, stop_loss, tp1, tp2, tp3, tp1_r, tp2_r, tp3_r, max_r, risk_price, atr,
-         grade, plan_origin, counterfactual_stage, research_plan_version, counterfactual_class)
+         entry_price, stop_loss, risk_price, atr, grade, plan_origin, counterfactual_stage,
+         research_plan_version, counterfactual_class,
+         cf_tp1, cf_tp2, cf_tp3, cf_tp1_r, cf_tp2_r, cf_tp3_r, cf_max_r, cf_grade, cf_plan_version)
       values ('EURUSD', 'long', 1, 'hash-cf', now() - interval '3 days', 'no_headroom',
               'no_trade', '[{"gate":"headroom","outcome":"fail"}]'::jsonb, true, 'london', 1.2,
-              1.1, 1.09, 1.11, 1.12, 1.13, 1, 2, 3, 3, 0.01, 0.004,
-              'B', 'counterfactual', 'no_headroom', 1, 'executable');
+              1.1, 1.09, 0.01, 0.004, 'B', 'counterfactual', 'no_headroom', 1, 'executable',
+              1.11, 1.12, 1.13, 1, 2, 3, 3, 'B', 1);
       insert into public.shadow_executions
         (instrument, grade, direction, detected_at, entry_price, stop_loss, tp1, tp2,
          risk_price, status, resolved_outcome, ml_target_label, realized_r, resolved_at,
          trading_session, volatility_index, model_version, cohort, replay_version,
-         execution_policy, research_candidate_id)
+         execution_policy, plan_origin, research_candidate_id)
       values ('EURUSD', 'B', 'long', now() - interval '3 days', 1.1, 1.09, 1.11, 1.12,
               0.01, 'resolved', 'tp3', 1, 77, now() - interval '2 days',
               'london', 1.2, 1, 'research_candidate', 1, 'legacy_best_target_touched',
+              'counterfactual',
               (select id from public.research_candidates
-                where plan_origin = 'counterfactual' order by created_at desc limit 1));
+                where manifest_hash = 'hash-cf' order by created_at desc limit 1));
     `);
 
     db.exec(`select public.recompute_regime_stats(1::smallint)`);
@@ -172,25 +177,64 @@ describe("research-candidate cohort contamination", () => {
     expect(regimeRows()).toEqual(regimeBefore);
     expect(payoffRows()).toEqual(payoffBefore);
 
-    // But filter lift DOES see it, under its own plan origin.
+    // But filter lift DOES see it, under the one common research ladder.
     db.exec(`select public.recompute_filter_lift(24)`);
-    const [lift] = db.rows<{ n: number }>(
-      `select count(*)::int as n from public.filter_lift_stats
-        where plan_origin = 'counterfactual' and gate = 'headroom' and arm = 'fail'`,
+    const [lift] = db.rows<{ n: number; se_r: number | null; origin: string }>(
+      `select count(*)::int as n, max(se_r) as se_r, max(plan_origin) as origin
+         from public.filter_lift_stats where gate = 'headroom' and arm = 'fail'`,
     );
     expect(lift!.n).toBe(1);
+    expect(lift!.origin).toBe("common_counterfactual_ladder_v1");
+    // Prompt 7G item 3: no standard error is published for research numbers.
+    expect(lift!.se_r).toBeNull();
   });
 
-  it("[INVARIANT] a counterfactual plan cannot exist without genuinely derived geometry", () => {
+  it("[INVARIANT] a research plan cannot exist without genuinely derived geometry", () => {
     guard();
     expect(() =>
       db.exec(`
         insert into public.research_candidates
           (instrument, direction, strategy_version, manifest_hash, detected_at, terminal_stage,
            v1_decision, gates, gates_complete, plan_origin, counterfactual_stage,
-           research_plan_version, counterfactual_class)
+           research_plan_version, counterfactual_class, cf_plan_version)
         values ('EURUSD', 'long', 1, 'hash-bad', now(), 'no_abc',
-                'no_trade', '[]'::jsonb, true, 'counterfactual', 'no_abc', 1, 'executable');
+                'no_trade', '[]'::jsonb, true, 'counterfactual', 'no_abc', 1, 'executable', 1);
+      `),
+    ).toThrow();
+  });
+
+  it("[INVARIANT] the database itself allows only one research execution per candidate", () => {
+    guard();
+    insertCandidate();
+    const [c] = db.rows<{ id: string }>(
+      `select research_candidate_id as id from public.shadow_executions
+        where cohort = 'research_candidate' order by created_at desc limit 1`,
+    );
+    // A retry that generates a brand new plan_id must still be refused: the
+    // uniqueness lives in the index, not in the application.
+    expect(() =>
+      db.exec(`
+        insert into public.shadow_executions
+          (instrument, grade, direction, detected_at, entry_price, stop_loss, tp1, tp2,
+           risk_price, status, trading_session, volatility_index, model_version, cohort,
+           replay_version, execution_policy, plan_origin, research_candidate_id)
+        values ('EURUSD', 'A', 'long', now(), 1.1, 1.09, 1.12, 1.13,
+                0.01, 'pending', 'london', 1.2, 1, 'research_candidate', 1,
+                'legacy_best_target_touched', 'counterfactual', '${c!.id}');
+      `),
+    ).toThrow();
+  });
+
+  it("[INVARIANT] a research-cohort row can never claim to replay a traded plan", () => {
+    guard();
+    expect(() =>
+      db.exec(`
+        insert into public.shadow_executions
+          (instrument, grade, direction, detected_at, entry_price, stop_loss, tp1, tp2,
+           risk_price, status, model_version, cohort, replay_version, execution_policy, plan_origin)
+        values ('EURUSD', 'A', 'long', now(), 1.1, 1.09, 1.12, 1.13,
+                0.01, 'pending', 1, 'research_candidate', 1,
+                'legacy_best_target_touched', 'production');
       `),
     ).toThrow();
   });
