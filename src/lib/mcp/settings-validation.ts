@@ -18,20 +18,20 @@ export const GRADE_CHOICES = ["A+", "A", "B", "C"] as const;
 export const CURRENCY_CHOICES = ["USD", "EUR", "GBP", "AUD"] as const;
 
 export interface SettingsInput {
-  instruments?: string[];
-  timeframes?: string[];
-  sessions?: string[];
-  min_grade?: string;
-  alert_min_grade?: string;
-  daily_setup_cap?: number;
-  notify_push?: boolean;
-  notify_email?: boolean;
-  account_equity?: number;
-  account_currency?: string;
-  risk_per_trade_percent?: number;
-  max_position_size?: number;
-  leverage?: number;
-  max_stop_loss_percent?: number;
+  instruments?: string[] | undefined;
+  timeframes?: string[] | undefined;
+  sessions?: string[] | undefined;
+  min_grade?: string | undefined;
+  alert_min_grade?: string | undefined;
+  daily_setup_cap?: number | undefined;
+  notify_push?: boolean | undefined;
+  notify_email?: boolean | undefined;
+  account_equity?: number | undefined;
+  account_currency?: string | undefined;
+  risk_per_trade_percent?: number | undefined;
+  max_position_size?: number | undefined;
+  leverage?: number | undefined;
+  max_stop_loss_percent?: number | undefined;
 }
 
 export interface ValidatedSettings {
