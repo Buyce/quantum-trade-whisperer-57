@@ -1,0 +1,1 @@
+REVOKE ALL ON FUNCTION public.create_replay_v2_sibling() FROM PUBLIC, anon, authenticated;

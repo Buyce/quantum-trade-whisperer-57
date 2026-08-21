@@ -16,6 +16,7 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { ACTIVE_MODEL_LABEL, ACTIVE_MODEL_VERSION } from "@/lib/versioning";
+import { REPLAY_V1_VERSION } from "@/lib/execution/replay-registry";
 
 const READ_CAP = 5000;
 
@@ -196,6 +197,8 @@ export async function captureBaseline(
       "grade, instrument, direction, trading_session, status, resolved_outcome, ml_target_label, realized_r, miss_distance_atr, max_r, risk_price, atr, signal_id, detected_at, resolved_at",
     )
     .eq("model_version", ACTIVE_MODEL_VERSION)
+    // Production replay labeller only.
+    .eq("replay_version", REPLAY_V1_VERSION)
     .lte("detected_at", dataAsOf)
     .limit(READ_CAP);
   if (shadow.error) throw new Error(`shadow_executions read failed: ${shadow.error.message}`);

@@ -54,7 +54,12 @@ export const getSignalAudit = createServerFn({ method: "GET" })
     const [decisions, queue, executions] = await Promise.all([
       supabaseAdmin.from("executed_trades").select("signal_id, user_decision").in("signal_id", ids),
       supabaseAdmin.from("shadow_queue").select("signal_id, status").in("signal_id", ids),
-      supabaseAdmin.from("shadow_executions").select("signal_id, status").in("signal_id", ids),
+      supabaseAdmin
+        .from("shadow_executions")
+        .select("signal_id, status")
+        // Production replay rows only — research siblings share the signal id.
+        .eq("replay_version", 1)
+        .in("signal_id", ids),
     ]);
 
     const taken = new Map<string, number>();

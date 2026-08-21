@@ -6,6 +6,7 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { ACTIVE_MODEL_VERSION } from "@/lib/versioning";
+import { REPLAY_V1_VERSION } from "@/lib/execution/replay-registry";
 import { buildReport, isoWeekKey, type ShadowRow, type WeeklyReport } from "./weekly";
 
 export const REPORT_WINDOW_DAYS = 7;
@@ -27,6 +28,12 @@ export async function loadWeeklyReport(
     // Production cohort only: a research model's replays must never be reported
     // as the engine's weekly performance.
     .eq("model_version", ACTIVE_MODEL_VERSION)
+    // Production replay labeller only: Replay-V2 research siblings share the
+    // same plan and would double-count the week.
+    .eq("replay_version", REPLAY_V1_VERSION)
+    // Production replay labeller only: Replay-V2 research siblings share the
+    // same plan and would double-count the week.
+    .eq("replay_version", REPLAY_V1_VERSION)
     .gte("detected_at", windowStart.toISOString())
     .lte("detected_at", windowEnd.toISOString());
   if (error) throw new Error(error.message);
