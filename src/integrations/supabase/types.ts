@@ -351,6 +351,8 @@ export type Database = {
           session: string | null
           tier: number
           vol_bucket: string | null
+          vol_t1: number | null
+          vol_t2: number | null
           wins: number
         }
         Insert: {
@@ -370,6 +372,8 @@ export type Database = {
           session?: string | null
           tier: number
           vol_bucket?: string | null
+          vol_t1?: number | null
+          vol_t2?: number | null
           wins?: number
         }
         Update: {
@@ -389,6 +393,8 @@ export type Database = {
           session?: string | null
           tier?: number
           vol_bucket?: string | null
+          vol_t1?: number | null
+          vol_t2?: number | null
           wins?: number
         }
         Relationships: []
