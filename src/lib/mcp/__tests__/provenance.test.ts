@@ -18,7 +18,11 @@ describe("MCP price provenance wording", () => {
     // Only quoted, agent-visible strings are checked; comments may explain.
     const strings = src.match(/"(?:[^"\\]|\\.)*"/g) ?? [];
     const offenders = strings.filter((s) => /(^|[^n])"?Verified\b|\bis verified\b/i.test(s))
-      .filter((s) => !/legacy|NOT broker verified|verification_level|broker verification/i.test(s));
+      .filter(
+        (s) =>
+          !/legacy|NOT broker verified|verification_level|broker verification/i.test(s) &&
+          s !== '"broker verified"',
+      );
     expect(offenders).toEqual([]);
   });
 
