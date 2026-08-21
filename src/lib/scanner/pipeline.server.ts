@@ -89,7 +89,6 @@ export async function enqueueScanCycle(db: SupabaseClient) {
   return { runId, enqueued: rows.length, expired, expireError };
 }
 
-
 /**
  * Duplicate suppression is enforced by the partial unique index
  * `scanned_signals_active_unique` on (instrument, direction, round(entry_price, 5))
@@ -101,7 +100,6 @@ export async function enqueueScanCycle(db: SupabaseClient) {
 
 /** Serialize thrown values — Supabase/PostgREST errors are plain objects, not Errors. */
 export function describeError(err: unknown): string {
-
   if (err instanceof Error) return err.message;
   if (err && typeof err === "object") {
     const e = err as { message?: string; code?: string; details?: string; hint?: string };
@@ -153,7 +151,6 @@ async function clearInstrument(db: SupabaseClient, instrument: string) {
     unavailable_until: null,
   });
 }
-
 
 export interface JobResult {
   jobId: string;
@@ -209,7 +206,8 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
     status: JobResult["status"],
   ): { decision: "candidate" | "no_trade" | "error"; disposition: Disposition } => {
     if (status === "published") return { decision: "candidate", disposition: "published" };
-    if (status === "duplicate") return { decision: "candidate", disposition: "suppressed_cooldown" };
+    if (status === "duplicate")
+      return { decision: "candidate", disposition: "suppressed_cooldown" };
     if (status === "failed") return { decision: "error", disposition: "none" };
     return { decision: "no_trade", disposition: "none" };
   };
@@ -284,7 +282,6 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
     }
   }
 
-
   try {
     // Sequential per-timeframe fetch keeps peak memory to one candle series.
     const candles = {} as Record<Timeframe, Candle[]>;
@@ -338,25 +335,19 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
       v2Disposition = "none";
     }
 
-
     const profile = buildTradeProfile({ instrument: job.instrument, candles, session });
     if (!profile) return await finish("no_trade", "No structure satisfied the ABC grading rules");
     v1Grade = profile.grade;
     v1Direction = profile.direction;
 
-
     // No global ceiling: every qualifying setup publishes. Each account applies
     // its own daily cap (scanner_settings.daily_setup_cap, 0 = unlimited) to
     // what it sees and is alerted about.
 
-
-
     // Structure cooldown: the same ABC leg may not republish inside this
     // window even after the previous instance expired or resolved. This is what
     // stops one lingering structure firing every 15 minutes.
-    const cooldownFrom = new Date(
-      Date.now() - STRUCTURE_COOLDOWN_MINUTES * 60_000,
-    ).toISOString();
+    const cooldownFrom = new Date(Date.now() - STRUCTURE_COOLDOWN_MINUTES * 60_000).toISOString();
     const { data: recentSame, error: cooldownError } = await db
       .from("scanned_signals")
       .select("id")
@@ -375,8 +366,7 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
     // dividing by a raw close price (the previous behaviour) is meaningless.
     const m15Atr = profile.atr;
     const h1Atr = atr(candles.H1, 14);
-    const volatilityIndex =
-      h1Atr > 0 && m15Atr > 0 ? Number((m15Atr / h1Atr).toFixed(4)) : null;
+    const volatilityIndex = h1Atr > 0 && m15Atr > 0 ? Number((m15Atr / h1Atr).toFixed(4)) : null;
 
     // Advisory Bayesian prior from the shadow telemetry. Recorded on the row for
     // observation only: nothing below branches on it, so a stale or empty
@@ -388,7 +378,6 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
       session,
       volatilityIndex,
     });
-
 
     // Signal first — market_context.signal_id is required and references it.
     const { data: inserted, error: sigError } = await db

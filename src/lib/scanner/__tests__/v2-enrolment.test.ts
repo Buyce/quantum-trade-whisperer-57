@@ -147,10 +147,8 @@ function fakeDb(opts: FakeOptions) {
         return chain;
       };
     }
-    chain["then"] = (
-      resolve: (v: unknown) => unknown,
-      reject?: (e: unknown) => unknown,
-    ): unknown => Promise.resolve(settle()).then(resolve, reject);
+    chain["then"] = (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown): unknown =>
+      Promise.resolve(settle()).then(resolve, reject);
     return chain;
   };
 
@@ -263,9 +261,7 @@ describe("V2 shadow enrolment gating", () => {
     expect(job?.status).toBe("no_trade");
     expect(shadowInserts(recorded)).toHaveLength(1);
     // Health is recorded durably rather than thrown.
-    expect(
-      recorded.some((r) => r.table === "shadow_engine_state" && r.op === "update"),
-    ).toBe(true);
+    expect(recorded.some((r) => r.table === "shadow_engine_state" && r.op === "update")).toBe(true);
   });
 
   it("[INVARIANT] a V2 evaluator crash is preserved as a durable error observation", async () => {

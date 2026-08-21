@@ -18,11 +18,7 @@ import type { V2Evaluation } from "@/lib/scanner/v2/profile.v2";
 export const RESEARCH_WRITE_DEADLINE_MS = 500;
 
 export type Disposition =
-  | "published"
-  | "shadow_enrolled"
-  | "observation_only"
-  | "suppressed_cooldown"
-  | "none";
+  "published" | "shadow_enrolled" | "observation_only" | "suppressed_cooldown" | "none";
 
 export interface ObservationRow {
   run_id: string | null;
@@ -132,7 +128,11 @@ export async function recordObservations(
       return 0;
     }
     if (result.error) {
-      await noteResearchFailure(db, `observation write failed: ${result.error.message}`, deadlineMs);
+      await noteResearchFailure(
+        db,
+        `observation write failed: ${result.error.message}`,
+        deadlineMs,
+      );
       return 0;
     }
     return rows.length;
@@ -145,7 +145,6 @@ export async function recordObservations(
     return 0;
   }
 }
-
 
 /**
  * Race-safe research cooldown: true only for the caller that claims the
@@ -186,7 +185,6 @@ export async function claimV2Structure(
     );
     return false;
   }
-
 }
 
 /** Maps a V2 evaluation plus its disposition onto an observation row. */
