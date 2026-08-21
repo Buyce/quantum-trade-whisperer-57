@@ -11,13 +11,13 @@ import ptradesMark from "@/assets/ptrades-mark.png.asset.json";
 
 
 const NAV = [
-  { to: "/feed", label: "Signal Feed", icon: Activity },
-  { to: "/history", label: "Trade History", icon: History },
-  { to: "/performance", label: "Performance", icon: BarChart3 },
-  { to: "/settings", label: "Settings", icon: SettingsIcon },
+  { to: "/feed", label: "Signal Feed", short: "Feed", icon: Activity },
+  { to: "/history", label: "Trade History", short: "History", icon: History },
+  { to: "/performance", label: "Performance", short: "Performance", icon: BarChart3 },
+  { to: "/settings", label: "Settings", short: "Settings", icon: SettingsIcon },
   // Public route, but it belongs in the terminal nav: signed-in users never see
   // the landing footer that used to be its only entry point.
-  { to: "/connect", label: "Connect AI", icon: Plug },
+  { to: "/connect", label: "Connect AI", short: "Connect", icon: Plug },
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -82,7 +82,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   >
                     <item.icon className="size-4 shrink-0" />
                     <span className="hidden lg:inline">{item.label}</span>
-                    <span className="lg:hidden">{item.label.split(" ")[1] ?? item.label}</span>
+                    <span className="lg:hidden">{item.short}</span>
                   </Link>
                 );
               })}
@@ -122,7 +122,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   )}
                 >
                   <item.icon className="size-4" />
-                  <span className="truncate px-1">{item.label.split(" ")[1] ?? item.label}</span>
+                  <span className="truncate px-1">{item.short}</span>
                 </Link>
               );
             })}
