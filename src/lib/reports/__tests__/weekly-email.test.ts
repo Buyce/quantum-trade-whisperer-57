@@ -38,7 +38,6 @@ const Component = template.component as unknown as React.ComponentType<TemplateP
 const renderTemplate = async (data: TemplateProps) =>
   render(React.createElement(Component, data), { plainText: true });
 
-
 describe("weekly shadow report email", () => {
   it("[INVARIANT] preview data renders and never headlines a z-test", async () => {
     const html = await renderTemplate(template.previewData as Record<string, unknown>);
