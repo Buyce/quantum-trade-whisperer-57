@@ -226,12 +226,12 @@ function SettingsPage() {
       {/* Tabs replace the long scroll: each concern is one screen, and the save
           bar stays pinned under the tabs it applies to. */}
       <Tabs defaultValue="filters" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2 sm:inline-flex sm:w-auto">
-          <TabsTrigger value="filters">Filters &amp; alerts</TabsTrigger>
-          <TabsTrigger value="risk">Risk</TabsTrigger>
-          <TabsTrigger value="notifications">Notifications</TabsTrigger>
-          <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger>
-          <TabsTrigger value="account">Account</TabsTrigger>
+        <TabsList className="grid h-auto w-full grid-cols-2 gap-1 sm:grid-cols-3 lg:inline-flex lg:h-9 lg:w-auto lg:gap-0">
+          <TabsTrigger className="h-10 lg:h-auto" value="filters">Filters &amp; alerts</TabsTrigger>
+          <TabsTrigger className="h-10 lg:h-auto" value="risk">Risk</TabsTrigger>
+          <TabsTrigger className="h-10 lg:h-auto" value="notifications">Notifications</TabsTrigger>
+          <TabsTrigger className="h-10 lg:h-auto" value="diagnostics">Diagnostics</TabsTrigger>
+          <TabsTrigger className="h-10 lg:h-auto" value="account">Account</TabsTrigger>
         </TabsList>
 
         <TabsContent value="filters" className="space-y-4">
