@@ -269,6 +269,9 @@ function AdminIntelligencePage() {
 
       <PanelShell title="Expected R research — payoff distribution, not probability">
         <PayoffPanel />
+
+        <CandidatePanel />
+
       </PanelShell>
 
 
