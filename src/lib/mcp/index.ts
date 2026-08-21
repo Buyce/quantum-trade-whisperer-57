@@ -5,6 +5,13 @@ import updateTradeOutcome from "./tools/update-trade-outcome";
 import listMyTrades from "./tools/list-my-trades";
 import getPerformanceSummary from "./tools/get-performance-summary";
 import getScannerStatus from "./tools/get-scanner-status";
+import getMySettings from "./tools/get-my-settings";
+import updateMySettings from "./tools/update-my-settings";
+import getMarketStatus from "./tools/get-market-status";
+import calculatePositionSize from "./tools/calculate-position-size";
+import getIntelligence from "./tools/get-intelligence";
+import getShadowComparison from "./tools/get-shadow-comparison";
+
 
 // The OAuth issuer must be the direct Supabase host; the project ref is the only
 // Supabase value that survives publish unchanged.
