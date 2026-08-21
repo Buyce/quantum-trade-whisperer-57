@@ -18,11 +18,7 @@ import type { V2Evaluation } from "@/lib/scanner/v2/profile.v2";
 export const RESEARCH_WRITE_DEADLINE_MS = 500;
 
 export type Disposition =
-  | "published"
-  | "shadow_enrolled"
-  | "observation_only"
-  | "suppressed_cooldown"
-  | "none";
+  "published" | "shadow_enrolled" | "observation_only" | "suppressed_cooldown" | "none";
 
 export interface ObservationRow {
   run_id: string | null;
@@ -62,7 +58,53 @@ async function bounded<T>(work: PromiseLike<T>, ms: number): Promise<T | "deadli
 }
 
 /**
+ * Durable research health. The in-process counter dies with the worker, so the
+ * failure is also recorded on `shadow_engine_state` where an operator can see
+ * it. Bounded and swallowing: research bookkeeping never affects a scan job.
+ */
+export async function noteResearchFailure(
+  db: SupabaseClient,
+  message: string,
+  deadlineMs = RESEARCH_WRITE_DEADLINE_MS,
+): Promise<void> {
+  failureCount += 1;
+  try {
+    const current = await bounded(
+      db
+        .from("shadow_engine_state")
+        .select("research_errors")
+        .eq("id", true)
+        .maybeSingle()
+        .then((r) => r),
+      deadlineMs,
+    );
+    const errors =
+      current === "deadline"
+        ? 1
+        : Number((current.data as { research_errors?: number } | null)?.research_errors ?? 0) + 1;
+    await bounded(
+      db
+        .from("shadow_engine_state")
+        .update({
+          research_errors: errors,
+          research_last_error: message.slice(0, 500),
+          research_last_error_at: new Date().toISOString(),
+        })
+        .eq("id", true)
+        .then((r) => r),
+      deadlineMs,
+    );
+  } catch {
+    // Intentionally silent: telemetry about telemetry must not escalate.
+  }
+}
+
+/**
  * Persist observation rows. Never throws — returns how many rows were written.
+ *
+ * Upsert on the (run_id, instrument, model_version) identity so a retried scan
+ * job updates its own observation pair instead of double-counting the
+ * experiment. Rows without a run_id fall back to plain inserts.
  */
 export async function recordObservations(
   db: SupabaseClient,
@@ -71,21 +113,35 @@ export async function recordObservations(
 ): Promise<number> {
   if (!rows.length) return 0;
   try {
+    const identified = rows.every((r) => r.run_id);
+    const query = identified
+      ? db
+          .from("model_observations")
+          .upsert(rows, { onConflict: "run_id,instrument,model_version" })
+      : db.from("model_observations").insert(rows);
     const result = await bounded(
-      db.from("model_observations").insert(rows).then((r) => r),
+      query.then((r) => r),
       deadlineMs,
     );
     if (result === "deadline") {
-      failureCount += 1;
+      await noteResearchFailure(db, "observation write exceeded deadline", deadlineMs);
       return 0;
     }
     if (result.error) {
-      failureCount += 1;
+      await noteResearchFailure(
+        db,
+        `observation write failed: ${result.error.message}`,
+        deadlineMs,
+      );
       return 0;
     }
     return rows.length;
-  } catch {
-    failureCount += 1;
+  } catch (err) {
+    await noteResearchFailure(
+      db,
+      `observation write threw: ${err instanceof Error ? err.message : String(err)}`,
+      deadlineMs,
+    );
     return 0;
   }
 }
@@ -113,12 +169,20 @@ export async function claimV2Structure(
       deadlineMs,
     );
     if (result === "deadline" || result.error) {
-      failureCount += 1;
+      await noteResearchFailure(
+        db,
+        `claim_v2_structure failed: ${result === "deadline" ? "deadline" : result.error.message}`,
+        deadlineMs,
+      );
       return false;
     }
     return result.data === true;
-  } catch {
-    failureCount += 1;
+  } catch (err) {
+    await noteResearchFailure(
+      db,
+      `claim_v2_structure threw: ${err instanceof Error ? err.message : String(err)}`,
+      deadlineMs,
+    );
     return false;
   }
 }
@@ -204,6 +268,36 @@ export function v1ObservationRow(args: {
     code_hash: null,
     latency_ms: args.latencyMs,
     signal_id: args.signalId ?? null,
+    profile: null,
+  };
+}
+
+/**
+ * A V2 evaluator crash is itself an observation: losing it would silently
+ * shrink the experiment's denominator. Persisted as decision='error' with a
+ * truncated reason and no profile.
+ */
+export function v2ErrorObservationRow(args: {
+  runId: string | null;
+  observationKey: string | null;
+  instrument: string;
+  reason: string;
+  latencyMs: number | null;
+}): ObservationRow {
+  return {
+    run_id: args.runId,
+    observation_key: args.observationKey,
+    model_version: MODEL_V2_VERSION,
+    instrument: args.instrument,
+    decision: "error",
+    family: null,
+    grade: null,
+    direction: null,
+    disposition: "none",
+    reason: args.reason.slice(0, 500),
+    code_hash: MODEL_V2_CODE_HASH,
+    latency_ms: args.latencyMs,
+    signal_id: null,
     profile: null,
   };
 }

@@ -10,9 +10,12 @@ import {
   claimV2Structure,
   recordObservations,
   v1ObservationRow,
+  v2ErrorObservationRow,
   v2ObservationRow,
   type Disposition,
 } from "@/lib/research/observations.server";
+import { enrolV2Shadow, isV2EnrolmentEnabled } from "@/lib/research/enrol.server";
+
 import { atr } from "./indicators";
 import { ACTIVE_MODEL_VERSION, observationKey } from "@/lib/versioning";
 import { fetchCandles, MetaApiNotConfiguredError, MetaApiTimeoutError } from "./metaapi.server";
@@ -86,7 +89,6 @@ export async function enqueueScanCycle(db: SupabaseClient) {
   return { runId, enqueued: rows.length, expired, expireError };
 }
 
-
 /**
  * Duplicate suppression is enforced by the partial unique index
  * `scanned_signals_active_unique` on (instrument, direction, round(entry_price, 5))
@@ -98,7 +100,6 @@ export async function enqueueScanCycle(db: SupabaseClient) {
 
 /** Serialize thrown values — Supabase/PostgREST errors are plain objects, not Errors. */
 export function describeError(err: unknown): string {
-
   if (err instanceof Error) return err.message;
   if (err && typeof err === "object") {
     const e = err as { message?: string; code?: string; details?: string; hint?: string };
@@ -151,7 +152,6 @@ async function clearInstrument(db: SupabaseClient, instrument: string) {
   });
 }
 
-
 export interface JobResult {
   jobId: string;
   instrument: string;
@@ -194,6 +194,8 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
    */
   let observed = false;
   let v2: V2Evaluation | null = null;
+  let v2Error: string | null = null;
+
   let v2Disposition: Disposition = "none";
   let v1Grade: string | null = null;
   let v1Direction: "long" | "short" | null = null;
@@ -204,7 +206,8 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
     status: JobResult["status"],
   ): { decision: "candidate" | "no_trade" | "error"; disposition: Disposition } => {
     if (status === "published") return { decision: "candidate", disposition: "published" };
-    if (status === "duplicate") return { decision: "candidate", disposition: "suppressed_cooldown" };
+    if (status === "duplicate")
+      return { decision: "candidate", disposition: "suppressed_cooldown" };
     if (status === "failed") return { decision: "error", disposition: "none" };
     return { decision: "no_trade", disposition: "none" };
   };
@@ -251,7 +254,18 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
             latencyMs: v2LatencyMs,
           }),
         );
+      } else if (v2Error) {
+        rows.push(
+          v2ErrorObservationRow({
+            runId: job.run_id ?? null,
+            observationKey: key,
+            instrument: job.instrument,
+            reason: v2Error,
+            latencyMs: v2LatencyMs,
+          }),
+        );
       }
+
       await recordObservations(db, rows);
     }
 
@@ -267,7 +281,6 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
       );
     }
   }
-
 
   try {
     // Sequential per-timeframe fetch keeps peak memory to one candle series.
@@ -295,6 +308,7 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
       v2LatencyMs = Date.now() - started;
       if (v2.decision === "candidate" && v2.profile) {
         if (v2.observationOnly) {
+          // Mean reversion is recorded but never forward-tested.
           v2Disposition = "observation_only";
         } else {
           const claimed = await claimV2Structure(
@@ -303,10 +317,21 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
             STRUCTURE_COOLDOWN_MINUTES,
           );
           v2Disposition = claimed ? "observation_only" : "suppressed_cooldown";
+          if (claimed && (await isV2EnrolmentEnabled(db))) {
+            const enrolled = await enrolV2Shadow(db, {
+              profile: v2.profile,
+              detectedAt: now.toISOString(),
+              session,
+              observationKey: observationKey(job.run_id, job.instrument),
+            });
+            if (enrolled) v2Disposition = "shadow_enrolled";
+          }
         }
       }
-    } catch {
+    } catch (err) {
+      // The crash itself is an observation: keep it instead of dropping V2.
       v2 = null;
+      v2Error = err instanceof Error ? err.message : String(err);
       v2Disposition = "none";
     }
 
@@ -315,19 +340,14 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
     v1Grade = profile.grade;
     v1Direction = profile.direction;
 
-
     // No global ceiling: every qualifying setup publishes. Each account applies
     // its own daily cap (scanner_settings.daily_setup_cap, 0 = unlimited) to
     // what it sees and is alerted about.
 
-
-
     // Structure cooldown: the same ABC leg may not republish inside this
     // window even after the previous instance expired or resolved. This is what
     // stops one lingering structure firing every 15 minutes.
-    const cooldownFrom = new Date(
-      Date.now() - STRUCTURE_COOLDOWN_MINUTES * 60_000,
-    ).toISOString();
+    const cooldownFrom = new Date(Date.now() - STRUCTURE_COOLDOWN_MINUTES * 60_000).toISOString();
     const { data: recentSame, error: cooldownError } = await db
       .from("scanned_signals")
       .select("id")
@@ -346,8 +366,7 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
     // dividing by a raw close price (the previous behaviour) is meaningless.
     const m15Atr = profile.atr;
     const h1Atr = atr(candles.H1, 14);
-    const volatilityIndex =
-      h1Atr > 0 && m15Atr > 0 ? Number((m15Atr / h1Atr).toFixed(4)) : null;
+    const volatilityIndex = h1Atr > 0 && m15Atr > 0 ? Number((m15Atr / h1Atr).toFixed(4)) : null;
 
     // Advisory Bayesian prior from the shadow telemetry. Recorded on the row for
     // observation only: nothing below branches on it, so a stale or empty
@@ -359,7 +378,6 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
       session,
       volatilityIndex,
     });
-
 
     // Signal first — market_context.signal_id is required and references it.
     const { data: inserted, error: sigError } = await db

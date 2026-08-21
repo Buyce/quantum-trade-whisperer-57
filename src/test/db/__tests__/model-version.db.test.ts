@@ -19,6 +19,7 @@ import {
   provisionDatabase,
   type Db,
 } from "../cluster";
+import { MODEL_V2_CODE_HASH } from "@/lib/scanner/v2/manifest";
 
 const SKIP = process.env["PTRADES_DB_TESTS"] === "skip";
 
@@ -285,5 +286,92 @@ describe("baseline_snapshots access control", () => {
     );
     expect(rows.length).toBeGreaterThan(0);
     expect(rows[0]?.kind).toBe("official");
+  });
+});
+
+describe("V2 shadow enrolment (Prompt 3F)", () => {
+  it("[INVARIANT] the V2 kill switch defaults to off", () => {
+    guard();
+    const [state] = db.rows<{ v2_enabled: boolean; research_errors: number }>(
+      `select v2_enabled, research_errors from public.shadow_engine_state`,
+    );
+    expect(state?.v2_enabled).toBe(false);
+    expect(state?.research_errors).toBe(0);
+  });
+
+  it("[INVARIANT] the research taxonomy is nullable for V1 rows and constrained for V2 rows", () => {
+    guard();
+    // A V1 row may carry no labels at all.
+    insertShadow(1);
+    const unlabelled = db.rows<{ n: number }>(
+      `select count(*)::int as n from public.shadow_executions
+        where model_version = 1 and strategy_family is null and quality_grade is null`,
+    );
+    expect(unlabelled[0]?.n).toBeGreaterThan(0);
+
+    const err = db.expectFailure(`
+      insert into public.shadow_executions
+        (instrument, grade, direction, detected_at, entry_price, stop_loss, tp1, tp2,
+         risk_price, status, model_version, strategy_family)
+      values ('EURUSD','A','long', now(), 1.1, 1.09, 1.12, 1.13, 0.01, 'pending', 2, 'scalp');
+    `);
+    expect(err).toMatch(/strategy_family/i);
+
+    const gradeErr = db.expectFailure(`
+      insert into public.shadow_executions
+        (instrument, grade, direction, detected_at, entry_price, stop_loss, tp1, tp2,
+         risk_price, status, model_version, quality_grade)
+      values ('EURUSD','A','long', now(), 1.1, 1.09, 1.12, 1.13, 0.01, 'pending', 2, 'AA');
+    `);
+    expect(gradeErr).toMatch(/quality_grade/i);
+  });
+
+  it("[INVARIANT] simultaneous V2 structure claims award the structure exactly once", () => {
+    guard();
+    const first = db.rows<{ claimed: boolean }>(
+      `select public.claim_v2_structure(2::smallint, 'EURUSD|long|race', 120) as claimed`,
+    );
+    const second = db.rows<{ claimed: boolean }>(
+      `select public.claim_v2_structure(2::smallint, 'EURUSD|long|race', 120) as claimed`,
+    );
+    expect([first[0]?.claimed, second[0]?.claimed]).toEqual([true, false]);
+  });
+
+  it("[INVARIANT] a retried observation pair cannot double-count the experiment", () => {
+    guard();
+    const run = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+    const write = (version: number, decision: string) => `
+      insert into public.model_observations
+        (run_id, instrument, model_version, decision, disposition, observed_at)
+      values ('${run}'::uuid, 'EURUSD', ${version}, '${decision}', 'none', now())
+      on conflict (run_id, instrument, model_version) do update
+        set decision = excluded.decision, observed_at = excluded.observed_at;
+    `;
+    db.exec(write(1, "no_trade"));
+    db.exec(write(2, "candidate"));
+    // Retry of the same scan job.
+    db.exec(write(1, "no_trade"));
+    db.exec(write(2, "candidate"));
+
+    const [count] = db.rows<{ n: number }>(
+      `select count(*)::int as n from public.model_observations where run_id = '${run}'::uuid`,
+    );
+    expect(count?.n).toBe(2);
+  });
+
+  it("[INVARIANT] the version-2 registry hash equals the running V2 code manifest", () => {
+    guard();
+    const [row] = db.rows<{ code_hash: string | null }>(
+      `select code_hash from public.model_versions where version = 2`,
+    );
+    expect(row?.code_hash).toBe(MODEL_V2_CODE_HASH);
+  });
+
+  it("[INVARIANT] no research-cohort row is reachable from the live signal surface", () => {
+    guard();
+    const [signals] = db.rows<{ n: number }>(
+      `select count(*)::int as n from public.scanned_signals where model_version <> 1`,
+    );
+    expect(signals?.n).toBe(0);
   });
 });
