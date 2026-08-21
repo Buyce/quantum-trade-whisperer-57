@@ -256,7 +256,7 @@ describe("replaySetupV2 — vertical barrier and data gaps", () => {
 });
 
 describe("replay identity is immutable", () => {
-  it("[LOCKED] the registered semantics hashes never drift", () => {
+  it("[INVARIANT] the registered replay semantics hashes never drift", () => {
     expect(REPLAY_V1_CODE_HASH).toBe("b1bc0ac96d59dec4");
     expect(REPLAY_V2_CODE_HASH).toBe("270450b8cc142a73");
   });
