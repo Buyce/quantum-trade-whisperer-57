@@ -156,12 +156,12 @@ it server-side. *Alt A:* TypeScript-only — rejected, admin and app disagree.
 *Alt B:* swap the RPC outright — rejected, the tile drops to n = 0 and reads as
 data loss.
 
-**D4 — trigger for UPDATE conflict + trigger-written tombstone for DELETE (M1).**
-*Why:* only the database sees both writers and both statements.
-*Alt A:* UPDATE trigger only — rejected, delete-and-relog bypasses it.
-*Alt B:* forbid deletion of resolved trades — rejected, users must be able to erase
-their own data. *Changes my mind:* if the owner prefers hard immutability over
-erasure, Alt B is simpler.
+**D4 — UPDATE conflict trigger only; deletion stays genuine deletion.**
+*Why:* the build lock keeps user erasure real, and only the database can arbitrate
+concurrent updates. *Alt A:* delete tombstones — rejected by the build lock.
+*Alt B:* forbid deleting resolved trades — rejected, users must be able to erase
+their own data. *Changes my mind:* broker reconciliation later makes tamper
+resistance meaningful.
 
 **D5 — `evidence.ts` as the only sufficiency gate (M5).**
 *Why:* two gates cannot be kept consistent. *Alt A:* keep both — rejected.
@@ -174,19 +174,18 @@ multiplicity denominator.
 
 ## C. Failure scenarios the architecture must survive
 
-1. **Delete-and-relog laundering.** Trader resolves at −1R, is refused a conflicting
-   re-resolution, deletes the trade, re-logs the signal and resolves at +2R.
-   Expected: tombstone exists, audit flags `resolved_then_deleted`, integrity
-   metric counts it against the account, statistics use only live rows.
-2. **Purged signal after resolution.** A B-grade signal is purged 36 h after
-   detection; its taken trade remains. Expected: `r_vs_plan` recomputes to the
-   identical stored value from the snapshot, the cluster key still resolves, and
-   two bootstrap runs stay byte-identical.
-3. **Concurrent human + agent resolution.** Web writes prices while an assistant
+1. **Snapshot immutability.** A trade is created, then the signal's row is later
+   edited or the trade is re-resolved. Expected: the nine snapshot fields never
+   change, and `r_vs_plan` recomputes to the identical stored value from them.
+2. **Concurrent human + agent resolution.** Web writes prices while an assistant
    writes a conflicting outcome. Expected: one write wins, the conflicting one is
    rejected at DB level, identical retries are accepted as no-ops, and no row ends
    with prices from one author and R from another.
+3. **Repeat decision write on a resolved trade** from either the web terminal or
+   MCP. Expected: friendly already-resolved result, no `outcome` reset, no raw
+   trigger error.
 4. **Single trading day of data.** 12 filled rows, one UTC day. Expected:
+
    `cluster_n = 1`, no interval, `insufficient`, no prescriptive wording, weekly
    email states why.
 5. **Repeat decision tap on a resolved trade.** Expected: friendly "already
