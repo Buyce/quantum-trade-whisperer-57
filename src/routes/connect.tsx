@@ -30,6 +30,21 @@ export const Route = createFileRoute("/connect")({
 
 const SERVER_SLUG = "p-trades-hub";
 
+const TOOL_ROWS: [string, string][] = [
+  ["list_signals", "Live scanner setups with entry, stop, targets, R:R and confidence. An empty list means no valid setup."],
+  ["get_scanner_status", "Scan engine health, last run, and your active filters."],
+  ["get_market_status", "Which FX sessions are open right now and per-instrument broker feed health."],
+  ["get_my_settings", "Your instruments, timeframes, alert grade, daily cap and risk profile."],
+  ["update_my_settings", "Change those preferences. Values are clamped to safe bounds server-side."],
+  ["calculate_position_size", "Lot size, cash risk and margin for a setup, using your saved equity and risk percent."],
+  ["get_intelligence", "Bayesian fill/win priors, sample sizes, learning-gate status and regime feature influence."],
+  ["get_shadow_comparison", "Weekly shadow-replay comparison of A+/A against B/C, with sample sizes and significance."],
+  ["log_trade_decision", "Record that you took or skipped a signal."],
+  ["update_trade_outcome", "Set the outcome and, with real entry/exit prices, get a verified R computed server-side."],
+  ["list_my_trades", "Your journal entries, verified and unverified."],
+  ["get_performance_summary", "Your expectancy and R-multiple performance."],
+];
+
 function useMcpUrl() {
   const [url, setUrl] = useState("");
   useEffect(() => {
@@ -37,6 +52,15 @@ function useMcpUrl() {
   }, []);
   return url;
 }
+
+function useRegisterUrl() {
+  const [url, setUrl] = useState("");
+  useEffect(() => {
+    setUrl(new URL("/api/public/agent/register", window.location.origin).toString());
+  }, []);
+  return url;
+}
+
 
 function CopyButton({ value, label }: { value: string; label: string }) {
   const [copied, setCopied] = useState(false);
