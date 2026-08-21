@@ -90,6 +90,10 @@ export interface TradeRow {
   /** OAuth client id of the assistant that wrote the prices, when agent-entered. */
   price_source_client: string | null;
   price_recorded_at: string | null;
+  /** Who logged the taken/skipped decision: the web terminal or an AI assistant. */
+  decision_source: "human" | "agent" | null;
+  /** OAuth client id of the assistant that logged the decision, when agent-logged. */
+  decision_source_client: string | null;
   notes: string | null;
   created_at: string;
 }

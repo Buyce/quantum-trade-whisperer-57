@@ -41,7 +41,7 @@ export function myTradesQuery(userId: string | undefined) {
       const { data, error } = await supabase
         .from("executed_trades" as never)
         .select(
-          "id, user_id, signal_id, user_decision, outcome, realized_r_multiple, actual_entry_price, actual_exit_price, derived_r, price_source, price_source_client, price_recorded_at, notes, created_at",
+          "id, user_id, signal_id, user_decision, outcome, realized_r_multiple, actual_entry_price, actual_exit_price, derived_r, price_source, price_source_client, price_recorded_at, decision_source, decision_source_client, notes, created_at",
         )
         .order("created_at", { ascending: false })
         .limit(TRADE_PAGE_SIZE);
@@ -63,7 +63,7 @@ export function takenTradeHistoryQuery(userId: string | undefined) {
       const { data, error } = await supabase
         .from("executed_trades" as never)
         .select(
-          `id, user_id, signal_id, user_decision, outcome, realized_r_multiple, actual_entry_price, actual_exit_price, derived_r, price_source, price_source_client, price_recorded_at, notes, created_at, scanned_signals(${SIGNAL_COLUMNS})`,
+          `id, user_id, signal_id, user_decision, outcome, realized_r_multiple, actual_entry_price, actual_exit_price, derived_r, price_source, price_source_client, price_recorded_at, decision_source, decision_source_client, notes, created_at, scanned_signals(${SIGNAL_COLUMNS})`,
         )
         .eq("user_decision", "taken")
         .order("created_at", { ascending: false })
@@ -119,6 +119,10 @@ export async function logDecision(input: {
       signal_id: input.signalId,
       user_decision: input.decision,
       outcome: "open",
+      // Written from the web terminal by a person. Agent writes go through the
+      // MCP tool, which stamps 'agent'.
+      decision_source: "human",
+      decision_source_client: null,
     } as never,
     { onConflict: "user_id,signal_id" },
   );

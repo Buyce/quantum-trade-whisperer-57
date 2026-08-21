@@ -43,6 +43,8 @@ export type Database = {
           actual_entry_price: number | null
           actual_exit_price: number | null
           created_at: string
+          decision_source: string
+          decision_source_client: string | null
           derived_r: number | null
           id: string
           notes: string | null
@@ -60,6 +62,8 @@ export type Database = {
           actual_entry_price?: number | null
           actual_exit_price?: number | null
           created_at?: string
+          decision_source?: string
+          decision_source_client?: string | null
           derived_r?: number | null
           id?: string
           notes?: string | null
@@ -77,6 +81,8 @@ export type Database = {
           actual_entry_price?: number | null
           actual_exit_price?: number | null
           created_at?: string
+          decision_source?: string
+          decision_source_client?: string | null
           derived_r?: number | null
           id?: string
           notes?: string | null
@@ -203,6 +209,8 @@ export type Database = {
           deletion_scheduled_for: string | null
           display_name: string | null
           id: string
+          signup_client: string | null
+          signup_source: string
           updated_at: string
         }
         Insert: {
@@ -212,6 +220,8 @@ export type Database = {
           deletion_scheduled_for?: string | null
           display_name?: string | null
           id: string
+          signup_client?: string | null
+          signup_source?: string
           updated_at?: string
         }
         Update: {
@@ -221,6 +231,8 @@ export type Database = {
           deletion_scheduled_for?: string | null
           display_name?: string | null
           id?: string
+          signup_client?: string | null
+          signup_source?: string
           updated_at?: string
         }
         Relationships: []
@@ -977,6 +989,7 @@ export type Database = {
         Returns: boolean
       }
       claim_weekly_report: { Args: { _week: string }; Returns: boolean }
+      get_admin_author_split: { Args: never; Returns: Json }
       get_admin_intelligence: { Args: never; Returns: Json }
       is_admin: { Args: never; Returns: boolean }
       maintain_scan_queue: { Args: never; Returns: Json }

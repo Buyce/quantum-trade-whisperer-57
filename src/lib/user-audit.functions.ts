@@ -46,6 +46,9 @@ export interface UserAuditRow {
   priceSource: "human" | "agent" | null;
   /** OAuth client id of the assistant that wrote them, when agent-entered. */
   priceSourceClient: string | null;
+  /** Who logged the taken decision itself: web terminal or AI assistant. */
+  decisionSource: "human" | "agent";
+  decisionSourceClient: string | null;
   replayOutcome: string | null;
   replayR: number | null;
   maxR: number | null;
@@ -75,6 +78,19 @@ export interface UserAuditReport {
   flagCounts: Record<string, number>;
   /** Verified rows grouped by author: how many prices a human vs each agent wrote. */
   priceAuthors: { source: "human" | "agent" | "unattributed"; client: string | null; n: number }[];
+  /** Every logged trade grouped by who logged it, with verdict counts. */
+  decisionAuthors: {
+    source: "human" | "agent";
+    client: string | null;
+    trades: number;
+    resolved: number;
+    verified: number;
+    unverifiable: number;
+    contradicted: number;
+    pending: number;
+    wins: number;
+    winRate: number | null;
+  }[];
   rows: UserAuditRow[];
 }
 
@@ -91,7 +107,7 @@ export const getUserReportAudit = createServerFn({ method: "GET" })
     const { data: trades, error } = await supabaseAdmin
       .from("executed_trades")
       .select(
-        "id, signal_id, outcome, realized_r_multiple, derived_r, actual_entry_price, actual_exit_price, price_source, price_source_client, price_recorded_at, created_at, updated_at",
+        "id, signal_id, outcome, realized_r_multiple, derived_r, actual_entry_price, actual_exit_price, price_source, price_source_client, price_recorded_at, decision_source, decision_source_client, created_at, updated_at",
       )
       .eq("user_decision", "taken")
       .order("created_at", { ascending: false })
@@ -117,6 +133,7 @@ export const getUserReportAudit = createServerFn({ method: "GET" })
         verifiedSampleN: 0,
         flagCounts: {},
         priceAuthors: [],
+        decisionAuthors: [],
         rows: [],
       };
     }
@@ -153,6 +170,10 @@ export const getUserReportAudit = createServerFn({ method: "GET" })
       const hasPrices = t.actual_entry_price != null && t.actual_exit_price != null;
       const priceSource = (t.price_source ?? null) as "human" | "agent" | null;
       const priceSourceClient = (t.price_source_client ?? null) as string | null;
+      const decisionSource = (t.decision_source === "agent" ? "agent" : "human") as
+        | "human"
+        | "agent";
+      const decisionSourceClient = (t.decision_source_client ?? null) as string | null;
       const open = t.outcome === "open";
       const maxR = s.max_r == null ? null : Number(s.max_r);
       const replayOutcome = sh?.status === "resolved" ? (sh.resolved_outcome ?? null) : null;
@@ -211,6 +232,8 @@ export const getUserReportAudit = createServerFn({ method: "GET" })
         hasPrices,
         priceSource,
         priceSourceClient,
+        decisionSource,
+        decisionSourceClient,
         replayOutcome,
         replayR,
         maxR,
@@ -240,6 +263,39 @@ export const getUserReportAudit = createServerFn({ method: "GET" })
     }
     const priceAuthors = [...authorMap.values()].sort((a, b) => b.n - a.n);
 
+    const decisionMap = new Map<string, UserAuditReport["decisionAuthors"][number]>();
+    for (const r of rows) {
+      const key = `${r.decisionSource}|${r.decisionSourceClient ?? ""}`;
+      let e = decisionMap.get(key);
+      if (!e) {
+        e = {
+          source: r.decisionSource,
+          client: r.decisionSourceClient,
+          trades: 0,
+          resolved: 0,
+          verified: 0,
+          unverifiable: 0,
+          contradicted: 0,
+          pending: 0,
+          wins: 0,
+          winRate: null,
+        };
+        decisionMap.set(key, e);
+      }
+      e.trades += 1;
+      if (r.verdict === "pending") e.pending += 1;
+      else {
+        e.resolved += 1;
+        if (r.verdict === "verified") e.verified += 1;
+        else if (r.verdict === "unverifiable") e.unverifiable += 1;
+        else e.contradicted += 1;
+        if (r.outcome === "win") e.wins += 1;
+      }
+    }
+    const decisionAuthors = [...decisionMap.values()]
+      .map((e) => ({ ...e, winRate: e.resolved === 0 ? null : e.wins / e.resolved }))
+      .sort((a, b) => b.trades - a.trades);
+
     return {
       generatedAt: new Date().toISOString(),
       totals: {
@@ -258,6 +314,7 @@ export const getUserReportAudit = createServerFn({ method: "GET" })
       verifiedSampleN: trustworthy.length,
       flagCounts,
       priceAuthors,
+      decisionAuthors,
       rows,
     };
   });
