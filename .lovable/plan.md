@@ -1,7 +1,53 @@
-# Red-Team Review + Revised Plan — Prompt 8 (Statistical Standard) & Prompt 9 (Journal Mathematics)
+# Approved Plan — Prompt 8 (Statistical Standard) & Prompt 9 (Journal Mathematics)
 
-Independent second pass. I re-read HEAD and traced every consumer of the R
-fields. The first plan survives in outline but has real defects, listed first.
+Approved by the user, with the binding corrections below folded in. No further
+planning or red-team round. Approve this card to switch to build mode so the
+implementation can be written.
+
+## Binding corrections (approved, authoritative)
+
+- **R fields:** separate canonical `r_vs_plan` and `r_vs_actual_risk`.
+  `realized_r_multiple` and `derived_r` are frozen as legacy-only provenance and
+  never written again. Never average mixed bases. `stop_provenance` records
+  `actual_initial_stop` versus `planned_stop_fallback` explicitly.
+- **Costs:** commission and swap are money, not price distance. Store unit and
+  currency; compute net / cost-adjusted R only when a documented conversion to R
+  exists (price-distance unit). Otherwise net R is NULL / unavailable, and no
+  cost-adjusted expected R is claimed for journal or shadow samples without cost
+  provenance.
+- **Concurrency:** once a trade is resolved, every conflicting later mutation of
+  outcome, actual prices, actual initial stop, canonical R or provenance is
+  rejected at the database level. Only semantically identical idempotent retries
+  pass, unless an explicit separate correction workflow is used. A human-win
+  versus agent-loss race regression test is required.
+- **Statistics:** the primary dependence-aware method resamples **whole UTC
+  `detected_at` days**, preserving every observation inside a selected day.
+  Wilson and Newcombe remain descriptive, independence-assuming diagnostics.
+  `actionable` requires a predeclared comparison, adequate independent clusters,
+  a practical effect threshold, the required multiplicity control **and** genuine
+  forward/OOS/holdout confirmation — so with today's insufficient holdout,
+  `actionable` must be unreachable.
+- **Determinism:** stable total row order, explicit seeded RNG, stored method,
+  method version, seed and run id. BH/q-values are diagnostic only and operate
+  only on explicitly declared hypothesis families.
+- **Everything else from the reviewed plan is preserved:** additive migration with
+  no backfill, shared `r-math.ts`, synchronised app/MCP/admin basis, verification
+  ladder, resolved-state database enforcement, experiment ledger, weekly-window
+  right-censoring fix, n=3 anti-prescriptive regression, research-table RLS, no
+  scanner/grading/replay/MetaApi changes, full blocking test evidence.
+- **Completion evidence must separately report:** `r_vs_plan` and
+  `r_vs_actual_risk` fixtures; invalid and mixed-basis cases; unresolved cost
+  provenance; conflicting-resolution concurrency; whole-day cluster fixtures;
+  deterministic bootstrap equality; `actionable` impossible under the current
+  insufficient holdout; admin/app/MCP basis agreement; migration and DB tests;
+  full `bun run verify`; and zero change to scanner output or MetaApi request
+  count.
+
+## Red-team findings that shaped this plan
+
+I re-read HEAD and traced every consumer of the R fields. The findings below are
+retained as the rationale for the design.
+
 
 ## A. Plan defects discovered
 
