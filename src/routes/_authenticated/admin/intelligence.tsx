@@ -37,6 +37,7 @@ import {
   timeAgo,
 } from "@/components/admin/AdminPanels";
 import { BaselinePanel } from "@/components/admin/BaselinePanel";
+import { ResearchPanel } from "@/components/admin/ResearchPanel";
 
 export const Route = createFileRoute("/_authenticated/admin/intelligence")({
   head: () => ({
