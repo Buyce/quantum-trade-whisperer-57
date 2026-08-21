@@ -21,6 +21,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { SetupEvaluation } from "@/lib/scanner/profile";
 import { STRATEGY_V1_MANIFEST_HASH, STRATEGY_V1_VERSION } from "@/lib/scanner/strategy-manifest";
 import { noteResearchFailure, RESEARCH_WRITE_DEADLINE_MS } from "./observations.server";
+import { buildCounterfactualPlan, RESEARCH_PLAN_VERSION } from "./counterfactual-plan";
 
 /** Reads the capture kill switch. Any failure is treated as "disabled". */
 export async function isCandidateCaptureEnabled(db: SupabaseClient): Promise<boolean> {
@@ -70,6 +71,13 @@ export async function captureCandidate(
   // list must be visibly partial rather than silently read as "all passed".
   const gatesComplete = e.gates.length === 8;
 
+  // Prompt 7G: a filter-rejected setup with fully derived geometry gets a
+  // research-only ladder so the "fail" arm of filter lift can ever be populated.
+  // It is stored under `plan_origin='counterfactual'` and can never be confused
+  // with a production plan, which keeps its published values untouched.
+  const counterfactual = p ? null : buildCounterfactualPlan(e);
+  const planOrigin = p ? "production" : counterfactual ? "counterfactual" : null;
+
   try {
     const insert = db.from("research_candidates").insert({
       run_id: args.runId,
@@ -88,19 +96,23 @@ export async function captureCandidate(
       gates_complete: gatesComplete,
       features: e.features,
       // Geometry: only what was derived. Targets exist solely for a full plan.
-      grade: p?.grade ?? null,
+      grade: p?.grade ?? counterfactual?.grade ?? null,
+      plan_origin: planOrigin,
+      counterfactual_stage: counterfactual ? e.stage : null,
+      research_plan_version: counterfactual ? RESEARCH_PLAN_VERSION : null,
+      counterfactual_class: e.counterfactual,
       structure_key: g.structureKey,
       entry_price: g.entryPrice,
       stop_loss: g.stopLoss,
       risk_price: g.riskPrice,
       atr: g.atr,
-      tp1: p?.tp1 ?? null,
-      tp2: p?.tp2 ?? null,
-      tp3: p?.tp3 ?? null,
-      tp1_r: p?.tp1R ?? null,
-      tp2_r: p?.tp2R ?? null,
-      tp3_r: p?.tp3R ?? null,
-      max_r: p?.maxR ?? null,
+      tp1: p?.tp1 ?? counterfactual?.tp1 ?? null,
+      tp2: p?.tp2 ?? counterfactual?.tp2 ?? null,
+      tp3: p?.tp3 ?? counterfactual?.tp3 ?? null,
+      tp1_r: p?.tp1R ?? counterfactual?.tp1R ?? null,
+      tp2_r: p?.tp2R ?? counterfactual?.tp2R ?? null,
+      tp3_r: p?.tp3R ?? counterfactual?.tp3R ?? null,
+      max_r: p?.maxR ?? counterfactual?.maxR ?? null,
       confidence_score: p?.confidence.score ?? null,
       published_signal_id: args.publishedSignalId,
     });
