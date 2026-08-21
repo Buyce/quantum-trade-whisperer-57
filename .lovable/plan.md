@@ -55,7 +55,7 @@ Visibility instead of silence: `shadow_engine_state` gains `research_errors inte
 |---|---|---|
 | Direction derivation | inherits | `readTimeframe("M15")` bias; neutral ⇒ no trade. |
 | A/B pivot selection | replaces | §4, deterministic, no search-until-valid. |
-| Point C | replaces | §7 of prior plan, restated below: current retracement extreme after `B`, confirmed-bar only. |
+| Point C | replaces | current retracement extreme after `B`, from the delivered snapshot; "confirmed-bar-only" wording is conditional on §12. |
 | Retracement band | adds | `[0.382, 0.886]` mandatory (V1 has no band). |
 | Structural entry | inherits | Point C price (V2's C, not V1's `abc.c`). |
 | Session dynamic entry | inherits unchanged | `RUNAWAY_SESSIONS`, `DYNAMIC_ENTRY_ATR_FRACTION = 0.3`, all four existing guards (not worse than market, never beyond structural entry, `MIN_DYNAMIC_RISK_ATR = 0.5` clearance from stop, re-validated risk/reach). |
