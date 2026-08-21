@@ -198,34 +198,38 @@ evidence,bh}.ts`: whole-UTC-day clustering, stable total order
 method/version/seed/`run_id`, `actionable` gated behind holdout confirmation, BH on
 predeclared bounded families only.
 
-**Stage 2 — additive migration, no backfill.** `executed_trades` gains
-`planned_entry`, `planned_stop`, `planned_direction`, `signal_detected_at` (M2),
+**Stage 2 — additive migration, no backfill.** `executed_trades` gains the nine
+immutable creation-time snapshot columns (`planned_entry`, `planned_stop`,
+`planned_direction`, `signal_detected_at`, `signal_instrument`, `signal_grade`,
+`signal_trading_session`, `signal_time_of_day`, `signal_day_of_week`) plus
 `actual_initial_stop`, `stop_provenance`, `actual_entry_at`, `actual_exit_at`,
 `broker_ticket`, `commission`, `swap`, `cost_currency`, `cost_unit`,
-`partial_exits`, `r_vs_plan`, `r_vs_actual_risk`, `r_basis`, `r_availability`,
-`net_r`, `verification_level`, `trade_state`. CHECKs: both prices or neither,
-`actual_exit_at >= actual_entry_at`, enumerated text. New `trade_resolution_audit`
-(append-only tombstones), `experiments`, `experiment_arms`: RLS on, `service_role`
+`partial_exits`, `r_vs_plan`, `r_vs_actual_risk`, `r_availability`,
+`r_math_version`, `net_r`, `verification_level`, `trade_state`. No row-level
+`r_basis`. CHECKs: both prices or neither, `actual_exit_at >= actual_entry_at`,
+enumerated text. New `experiments` and `experiment_arms`: RLS on, `service_role`
 only, GRANTs in the same migration, plus `get_admin_experiments()` guarded by
-`is_admin()`.
+`is_admin()`. No tombstone table.
 
 **Stage 3 — DB enforcement.** `BEFORE UPDATE` conflict trigger with rounded,
-NULL-safe comparison (identical retry → no-op; conflict → reject) and
-`BEFORE DELETE` tombstone trigger (M1). TS enums mirrored against SQL CHECK lists
-by a DB test.
+NULL-safe comparison (identical retry → no-op; conflict → reject), plus immutability
+enforcement on the nine snapshot columns. TS enums mirrored against SQL CHECK lists
+by a DB test. Deletion is left untouched.
 
 **Stage 4 — synchronised basis migration.** `r-math.ts` used by
 `trade-journal.functions.ts` and MCP `update_trade_outcome`, writing only the new
-columns. `performance.ts` reads canonical R, selects one basis, returns
-`mixed_basis` on an attempted mixed aggregation. MCP `get_performance_summary` /
-`list_my_trades` emit `r_basis`, `r_availability`; tool names and schemas unchanged,
-descriptions drop the word "verified" for the ladder. `get_admin_intelligence`
-returns `user_reported_legacy` **and** `user_reported_canonical`. `logDecision`
-stops resetting `outcome` and the UI gains an "already resolved" state (M4).
-`export.ts`, `history.tsx`, `SignalCard.tsx` label legacy values as legacy.
-`user-audit.functions.ts`: `preset_r_value` scoped to unpriced rows,
-`r_exceeds_max_r` compared only against `r_vs_plan`, plus the new
-`resolved_then_deleted` flag.
+columns. `performance.ts` and every aggregation API take an explicit `plan` or
+`actual_risk` basis argument and return the `mixed_basis` error status when a
+caller attempts a mixed-unit aggregation. MCP `get_performance_summary` /
+`list_my_trades` emit both canonical values, `r_availability` and `r_math_version`;
+tool names and schemas unchanged, descriptions drop the word "verified" for the
+ladder. `get_admin_intelligence` returns `user_reported_legacy` **and**
+`user_reported_canonical`. Both decision writers — `queries.ts::logDecision` and
+MCP `log_trade_decision` — initialise state on insert, update only decision and
+provenance, never reset `outcome`, and return a friendly already-resolved result on
+a resolved row. `export.ts`, `history.tsx`, `SignalCard.tsx` label legacy values as
+legacy. `user-audit.functions.ts`: `preset_r_value` scoped to unpriced rows,
+`r_exceeds_max_r` compared only against `r_vs_plan`.
 
 **Stage 5 — statistics reporting.** `evidence.ts` becomes the single sufficiency
 gate and `Verdict` derives from it (M5); `z`/`pValue` demoted to diagnostics;
