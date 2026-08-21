@@ -259,6 +259,11 @@ function AdminIntelligencePage() {
         <BaselinePanel />
       </PanelShell>
 
+      <PanelShell title="Grading research ledger — model v1 (live) vs model v2 (shadow)">
+        <ResearchPanel />
+      </PanelShell>
+
+
       <PanelShell title="Human vs AI agent — accounts, decisions and reported outcomes">
         <AuthorSplitPanel split={data.author_split} />
       </PanelShell>
