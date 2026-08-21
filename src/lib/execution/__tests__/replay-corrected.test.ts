@@ -8,11 +8,7 @@
 import { describe, expect, it } from "vitest";
 import { replaySetupV2 } from "../replay-v2";
 import { replaySetup } from "../replay";
-import {
-  REPLAY_V1_CODE_HASH,
-  REPLAY_V2_CODE_HASH,
-  EXECUTION_POLICY_V2,
-} from "../replay-registry";
+import { REPLAY_V1_CODE_HASH, REPLAY_V2_CODE_HASH, EXECUTION_POLICY_V2 } from "../replay-registry";
 import { longSetup, DETECTED_AT } from "@/test/fixtures/replay-fixtures";
 import type { Candle } from "@/lib/scanner/types";
 
@@ -23,13 +19,13 @@ const B2 = "2026-08-20T09:30:00.000Z"; // starts at the deadline — dead
 const B3 = "2026-08-20T09:45:00.000Z";
 const DAY_LATER = "2026-08-21T09:15:00.000Z"; // past the 24h vertical barrier
 
-const bar = (
-  time: string,
-  open: number,
-  high: number,
-  low: number,
-  close: number,
-): Candle => ({ time, open, high, low, close });
+const bar = (time: string, open: number, high: number, low: number, close: number): Candle => ({
+  time,
+  open,
+  high,
+  low,
+  close,
+});
 
 /** Never approaches the limit: lows stay 15 pips above entry. */
 const AWAY = (time: string) => bar(time, 1.1025, 1.1035, 1.1015, 1.103);
@@ -69,10 +65,7 @@ describe("replaySetupV2 — fill leg and time in force", () => {
   });
 
   it("[UNIT] gap-through fill prices at the open and measures R against ACTUAL risk", () => {
-    const s = replaySetupV2(longSetup(), [
-      AWAY(B0),
-      bar(B1, 1.0985, 1.1055, 1.098, 1.105),
-    ]);
+    const s = replaySetupV2(longSetup(), [AWAY(B0), bar(B1, 1.0985, 1.1055, 1.098, 1.105)]);
     expect(s.fillPrice).toBeCloseTo(1.0985, 10);
     expect(s.fillGapThrough).toBe(true);
     expect(s.riskPriceActual).toBeCloseTo(0.0035, 10);
@@ -228,10 +221,10 @@ describe("replaySetupV2 — vertical barrier and data gaps", () => {
     expect(s.status).toBe("open");
     expect(s.replayCursor).toBe(B0);
     // A resumed run consumes only bars strictly after the cursor.
-    const resumed = replaySetupV2(
-      longSetup({ replayCursor: B0, filledAt: B0, fillPrice: 1.1 }),
-      [cleanFill, bar(B3, 1.1, 1.1005, 1.0949, 1.095)],
-    );
+    const resumed = replaySetupV2(longSetup({ replayCursor: B0, filledAt: B0, fillPrice: 1.1 }), [
+      cleanFill,
+      bar(B3, 1.1, 1.1005, 1.0949, 1.095),
+    ]);
     expect(resumed.outcome).toBe("loss");
     expect(resumed.replayCursor).toBe(B3);
   });

@@ -43,9 +43,7 @@ export const recordTradeOutcome = createServerFn({ method: "POST" })
 
     const rawSignal = (trade as { scanned_signals: unknown }).scanned_signals;
     const signal = (Array.isArray(rawSignal) ? rawSignal[0] : rawSignal) as
-      | { entry_price: number; stop_loss: number; direction: "long" | "short" }
-      | null
-      | undefined;
+      { entry_price: number; stop_loss: number; direction: "long" | "short" } | null | undefined;
 
     let derivedR: number | null = null;
     if (
@@ -86,7 +84,6 @@ export const recordTradeOutcome = createServerFn({ method: "POST" })
       })
       .eq("id", data.tradeId);
     if (error) throw new Error(error.message);
-
 
     return { ok: true, derivedR };
   });

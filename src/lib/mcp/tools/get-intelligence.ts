@@ -24,7 +24,10 @@ export default defineTool({
       .string()
       .optional()
       .describe("sydney, tokyo, london, london_new_york_overlap or new_york."),
-    volatility_index: z.number().optional().describe("ATR-derived volatility index for the bucket."),
+    volatility_index: z
+      .number()
+      .optional()
+      .describe("ATR-derived volatility index for the bucket."),
   },
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
   handler: async (input, ctx) => {
@@ -53,13 +56,12 @@ export default defineTool({
       }
       const rawContext = (signal as { market_context: unknown }).market_context;
       const context = (Array.isArray(rawContext) ? rawContext[0] : rawContext) as
-        | { trading_session: string; volatility_index: number | null }
-        | null
-        | undefined;
+        { trading_session: string; volatility_index: number | null } | null | undefined;
       instrument = signal.instrument;
       direction = signal.direction;
       session = context?.trading_session ?? session;
-      volatilityIndex = context?.volatility_index == null ? volatilityIndex : Number(context.volatility_index);
+      volatilityIndex =
+        context?.volatility_index == null ? volatilityIndex : Number(context.volatility_index);
     }
 
     if (!instrument || !direction || !session) {

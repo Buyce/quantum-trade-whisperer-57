@@ -28,7 +28,9 @@ export const FETCH_TIMEOUT_MS = 8_000;
 
 export class MetaApiTimeoutError extends Error {
   constructor(symbol: string, timeframe: string) {
-    super(`MetaApi request for ${symbol} ${timeframe} exceeded ${FETCH_TIMEOUT_MS}ms and was aborted`);
+    super(
+      `MetaApi request for ${symbol} ${timeframe} exceeded ${FETCH_TIMEOUT_MS}ms and was aborted`,
+    );
     this.name = "MetaApiTimeoutError";
   }
 }

@@ -38,9 +38,8 @@ export const Route = createFileRoute("/api/public/worker/process")({
           hop = 0;
         }
 
-        const { adminClient, processNextJob, pendingScanJobs } = await import(
-          "@/lib/scanner/pipeline.server"
-        );
+        const { adminClient, processNextJob, pendingScanJobs } =
+          await import("@/lib/scanner/pipeline.server");
         try {
           const db = adminClient();
           const startedAt = Date.now();

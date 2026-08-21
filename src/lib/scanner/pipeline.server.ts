@@ -221,7 +221,6 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
   let v1VolatilityIndex: number | null = null;
   let publishedSignalId: string | null = null;
 
-
   /** V1 status -> (decision, disposition) for the research ledger. */
   const v1Cell = (
     status: JobResult["status"],
@@ -312,8 +311,6 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
         );
       }
 
-
-
       await recordObservations(db, rows);
 
       // Stage 3: research candidate capture. Dark until the database switch is
@@ -321,9 +318,8 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
       // work is already committed above.
       if (v1Evaluation) {
         try {
-          const { captureCandidate, isCandidateCaptureEnabled } = await import(
-            "@/lib/research/candidates.server"
-          );
+          const { captureCandidate, isCandidateCaptureEnabled } =
+            await import("@/lib/research/candidates.server");
           if (await isCandidateCaptureEnabled(db)) {
             await captureCandidate(db, {
               runId: job.run_id ?? null,
@@ -342,7 +338,6 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
         }
       }
     }
-
 
     return { jobId: job.id, instrument: job.instrument, status, ...(detail ? { detail } : {}) };
   };
@@ -448,8 +443,6 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
       v3Disposition = "none";
     }
 
-
-
     // Gate-labelled evaluation. `profile` is exactly what buildTradeProfile()
     // returned before: only a fully-passed evaluation can publish.
     const evaluation = evaluateSetup({ instrument: job.instrument, candles, session });
@@ -460,7 +453,6 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
     if (!profile) return await finish("no_trade", "No structure satisfied the ABC grading rules");
     v1Grade = profile.grade;
     v1Direction = profile.direction;
-
 
     // No global ceiling: every qualifying setup publishes. Each account applies
     // its own daily cap (scanner_settings.daily_setup_cap, 0 = unlimited) to
@@ -490,7 +482,6 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
     const h1Atr = atr(candles.H1, 14);
     const volatilityIndex = h1Atr > 0 && m15Atr > 0 ? Number((m15Atr / h1Atr).toFixed(4)) : null;
     v1VolatilityIndex = volatilityIndex;
-
 
     // Advisory Bayesian prior from the shadow telemetry. Recorded on the row for
     // observation only: nothing below branches on it, so a stale or empty
@@ -569,7 +560,6 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
 
     const signalId = (inserted as { id: string }).id;
     publishedSignalId = signalId;
-
 
     const { error: ctxError } = await db.from("market_context").insert({
       signal_id: signalId,

@@ -132,10 +132,7 @@ describe("lookupRegime — hierarchy and gates", () => {
     const learning = lookupRegime([{ ...GLOBAL, n_total: MIN_N_FILL - 1 }], QUERY)!;
     expect(learning.status).toBe("learning");
     expect(learning.reason).toBe("fill_gate_open");
-    const active = lookupRegime(
-      [{ ...GLOBAL, n_total: MIN_N_FILL, n_filled: MIN_N_WIN }],
-      QUERY,
-    )!;
+    const active = lookupRegime([{ ...GLOBAL, n_total: MIN_N_FILL, n_filled: MIN_N_WIN }], QUERY)!;
     expect(active.status).toBe("active");
     expect(active.reason).toBe("both_gates_passed");
   });

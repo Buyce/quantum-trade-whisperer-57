@@ -1,4 +1,10 @@
-import { contextOf, INSTRUMENT_LABELS, type Grade, type SignalRow, type TradeRow } from "./db-types";
+import {
+  contextOf,
+  INSTRUMENT_LABELS,
+  type Grade,
+  type SignalRow,
+  type TradeRow,
+} from "./db-types";
 
 export interface RSample {
   key: string;
@@ -49,7 +55,9 @@ export function computeExpectancy(samples: RSample[]): Expectancy {
   const winRate = wins.length / samples.length;
   const lossRate = losses.length / samples.length;
   const avgWinR = wins.length ? wins.reduce((a, s) => a + s.r, 0) / wins.length : 0;
-  const avgLossR = losses.length ? Math.abs(losses.reduce((a, s) => a + s.r, 0) / losses.length) : 0;
+  const avgLossR = losses.length
+    ? Math.abs(losses.reduce((a, s) => a + s.r, 0) / losses.length)
+    : 0;
 
   return {
     count: samples.length,
@@ -152,7 +160,13 @@ export function heatMap(samples: RSample[]): HeatCell[] {
     for (let hour = 0; hour < 24; hour += 3) {
       const list = cells.get(`${day}:${hour}`) ?? [];
       const stats = computeExpectancy(list);
-      out.push({ hour, dayOfWeek: day, count: list.length, expectancyR: stats.expectancyR, totalR: stats.totalR });
+      out.push({
+        hour,
+        dayOfWeek: day,
+        count: list.length,
+        expectancyR: stats.expectancyR,
+        totalR: stats.totalR,
+      });
     }
   }
   return out;
@@ -167,7 +181,10 @@ export function rDistribution(samples: RSample[]): Array<{ bucket: string; count
     { bucket: "2R to 3R", test: (r: number) => r >= 2 && r < 3 },
     { bucket: "3R+", test: (r: number) => r >= 3 },
   ];
-  return buckets.map((b) => ({ bucket: b.bucket, count: samples.filter((s) => b.test(s.r)).length }));
+  return buckets.map((b) => ({
+    bucket: b.bucket,
+    count: samples.filter((s) => b.test(s.r)).length,
+  }));
 }
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -188,15 +205,24 @@ export function generateInsights(samples: RSample[], scopeLabel: string): string
   );
 
   const byInstrument = groupBy(samples, (s) => s.instrument).filter((g) => g.stats.count >= 3);
-  const bestInstrument = [...byInstrument].sort((a, b) => b.stats.expectancyR - a.stats.expectancyR)[0];
+  const bestInstrument = [...byInstrument].sort(
+    (a, b) => b.stats.expectancyR - a.stats.expectancyR,
+  )[0];
   if (bestInstrument) {
     const label = INSTRUMENT_LABELS[bestInstrument.key] ?? bestInstrument.key;
     insights.push(
       `Your ${label} setups have a ${pct(bestInstrument.stats.winRate)} win rate with a ${fmtR(bestInstrument.stats.avgWinR)} average win, giving ${fmtR(bestInstrument.stats.expectancyR)} expectancy over ${bestInstrument.stats.count} trades.`,
     );
   }
-  const worstInstrument = [...byInstrument].sort((a, b) => a.stats.expectancyR - b.stats.expectancyR)[0];
-  if (worstInstrument && bestInstrument && worstInstrument.key !== bestInstrument.key && worstInstrument.stats.expectancyR < 0) {
+  const worstInstrument = [...byInstrument].sort(
+    (a, b) => a.stats.expectancyR - b.stats.expectancyR,
+  )[0];
+  if (
+    worstInstrument &&
+    bestInstrument &&
+    worstInstrument.key !== bestInstrument.key &&
+    worstInstrument.stats.expectancyR < 0
+  ) {
     const label = INSTRUMENT_LABELS[worstInstrument.key] ?? worstInstrument.key;
     insights.push(
       `${label} is a net drag at ${fmtR(worstInstrument.stats.expectancyR)} expectancy over ${worstInstrument.stats.count} trades — consider excluding it until the structure improves.`,
@@ -211,7 +237,12 @@ export function generateInsights(samples: RSample[], scopeLabel: string): string
       `${bestGrade.key}-Grade setups are your strongest tier at ${fmtR(bestGrade.stats.expectancyR)} expectancy and ${pct(bestGrade.stats.winRate)} win rate.`,
     );
   }
-  if (worstGrade && bestGrade && worstGrade.key !== bestGrade.key && worstGrade.stats.expectancyR < 0.1) {
+  if (
+    worstGrade &&
+    bestGrade &&
+    worstGrade.key !== bestGrade.key &&
+    worstGrade.stats.expectancyR < 0.1
+  ) {
     insights.push(
       `${worstGrade.key}-Grade setups only return ${fmtR(worstGrade.stats.expectancyR)} per trade — raising your minimum grade above ${worstGrade.key} would have removed ${worstGrade.stats.count} low-value trades.`,
     );

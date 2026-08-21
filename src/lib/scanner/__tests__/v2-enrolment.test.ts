@@ -48,7 +48,6 @@ vi.mock("../profile", () => ({
   structureKeyOf: vi.fn(() => "mock-structure-key"),
 }));
 
-
 vi.mock("../v2/profile.v2", () => ({
   buildTradeProfileV2: vi.fn(() => {
     if (v2Result.throws) throw new Error(v2Result.throws);

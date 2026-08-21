@@ -22,7 +22,8 @@ export default defineTool({
     // Confirms the token really resolves to a user under row security before
     // any admin-client read runs.
     const probe = await supabaseForUser(ctx).from("regime_stats").select("tier").limit(1);
-    if (probe.error) return { content: [{ type: "text", text: probe.error.message }], isError: true };
+    if (probe.error)
+      return { content: [{ type: "text", text: probe.error.message }], isError: true };
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { loadWeeklyReport } = await import("@/lib/reports/weekly.server");

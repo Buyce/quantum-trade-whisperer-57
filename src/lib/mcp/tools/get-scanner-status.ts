@@ -26,11 +26,15 @@ export default defineTool({
         .maybeSingle(),
     ]);
 
-    if (health.error) return { content: [{ type: "text", text: health.error.message }], isError: true };
+    if (health.error)
+      return { content: [{ type: "text", text: health.error.message }], isError: true };
     if (settings.error)
       return { content: [{ type: "text", text: settings.error.message }], isError: true };
 
-    const payload = { instrument_health: health.data ?? [], scanner_settings: settings.data ?? null };
+    const payload = {
+      instrument_health: health.data ?? [],
+      scanner_settings: settings.data ?? null,
+    };
     return {
       content: [{ type: "text", text: JSON.stringify(payload) }],
       structuredContent: payload,

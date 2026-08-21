@@ -129,7 +129,6 @@ export interface BaselineResult {
   metrics: Record<string, unknown>;
 }
 
-
 export async function captureBaseline(
   db: SupabaseClient,
   opts: { kind?: string } = {},
@@ -180,9 +179,9 @@ export async function captureBaseline(
     .select("tier, regime_key, n_total, n_filled, wins, p_fill_shrunk, p_win_shrunk")
     .eq("run_id", pinnedRunId);
   if (pinnedRows.error) throw new Error(pinnedRows.error.message);
-  const pinnedTier0 = (
-    (pinnedRows.data ?? []) as Array<{ tier: number }>
-  ).filter((r) => Number(r.tier) === 0).length;
+  const pinnedTier0 = ((pinnedRows.data ?? []) as Array<{ tier: number }>).filter(
+    (r) => Number(r.tier) === 0,
+  ).length;
   if (pinnedTier0 === 0) {
     caveats.push(
       "The pinned learning run carries no Tier-0 rows, so the volatility tercile boundaries in force at that instant are unrecoverable. Tier-0 rows are preserved prospectively from the migration that introduced them onward; no historical boundary has been reconstructed.",
@@ -268,21 +267,20 @@ export async function captureBaseline(
     );
   }
 
-
   // 4. Prior calibration. The priors on each signal were stamped AT DETECTION
   //    from the statistics that existed then, so they are point-in-time by
   //    construction and contain no lookahead. Scoring them against the CURRENT
   //    regime_stats would be in-sample leakage and is deliberately not done.
   const outcomeBySignal = new Map<string, ShadowRow>();
   for (const row of resolved) if (row.signal_id) outcomeBySignal.set(row.signal_id, row);
-  const stamped = signalRows.filter((s) => s['p_fill_prior'] != null);
+  const stamped = signalRows.filter((s) => s["p_fill_prior"] != null);
   const calibrationPairs = stamped
     .map((s) => {
-      const outcome = outcomeBySignal.get(String(s['id']));
+      const outcome = outcomeBySignal.get(String(s["id"]));
       if (!outcome) return null;
       return {
-        pFill: Number(s['p_fill_prior']),
-        pWin: s['p_win_prior'] == null ? null : Number(s['p_win_prior']),
+        pFill: Number(s["p_fill_prior"]),
+        pWin: s["p_win_prior"] == null ? null : Number(s["p_win_prior"]),
         filled: outcome.resolved_outcome !== "never_filled" ? 1 : 0,
         won: outcome.ml_target_label === 1 ? 1 : 0,
       };
@@ -400,7 +398,6 @@ export async function captureBaseline(
       ),
     ]);
 
-
   const cell = (rows: ShadowRow[], key: (r: ShadowRow) => string) => {
     const groups = new Map<string, ShadowRow[]>();
     for (const r of rows) {
@@ -465,20 +462,34 @@ export async function captureBaseline(
       fill_rate: fillRate,
       win_if_filled: winIfFilled,
       unconditional_win_per_signal: unconditional,
-      note:
-        "win_if_filled is conditional on the limit being reached and is selection-biased by construction. The engine-level number is unconditional_win_per_signal = fill_rate x win_if_filled.",
+      note: "win_if_filled is conditional on the limit being reached and is selection-biased by construction. The engine-level number is unconditional_win_per_signal = fill_rate x win_if_filled.",
       mean_r_all_resolved: mean(resolved.map((r) => Number(r.realized_r))),
       mean_r_filled: mean(filled.map((r) => Number(r.realized_r))),
       miss_distance_atr: {
-        p50: quantile(neverFilled.map((r) => Number(r.miss_distance_atr)), 0.5),
-        p90: quantile(neverFilled.map((r) => Number(r.miss_distance_atr)), 0.9),
+        p50: quantile(
+          neverFilled.map((r) => Number(r.miss_distance_atr)),
+          0.5,
+        ),
+        p90: quantile(
+          neverFilled.map((r) => Number(r.miss_distance_atr)),
+          0.9,
+        ),
       },
     },
     geometry: {
       max_r: {
-        p50: quantile(resolved.map((r) => Number(r.max_r)), 0.5),
-        p90: quantile(resolved.map((r) => Number(r.max_r)), 0.9),
-        max: quantile(resolved.map((r) => Number(r.max_r)), 1),
+        p50: quantile(
+          resolved.map((r) => Number(r.max_r)),
+          0.5,
+        ),
+        p90: quantile(
+          resolved.map((r) => Number(r.max_r)),
+          0.9,
+        ),
+        max: quantile(
+          resolved.map((r) => Number(r.max_r)),
+          1,
+        ),
       },
       stop_distance_in_atr: {
         p50: quantile(
@@ -504,11 +515,11 @@ export async function captureBaseline(
     },
     signals_surviving_retention: {
       total: signalRows.length,
-      active: signalRows.filter((s) => s['status'] === "active").length,
-      by_grade: tally(signalRows.map((s) => String(s['grade']))),
-      by_direction: tally(signalRows.map((s) => String(s['direction']))),
-      by_instrument: tally(signalRows.map((s) => String(s['instrument']))),
-      mean_confidence: mean(signalRows.map((s) => Number(s['confidence_score']))),
+      active: signalRows.filter((s) => s["status"] === "active").length,
+      by_grade: tally(signalRows.map((s) => String(s["grade"]))),
+      by_direction: tally(signalRows.map((s) => String(s["direction"]))),
+      by_instrument: tally(signalRows.map((s) => String(s["instrument"]))),
+      mean_confidence: mean(signalRows.map((s) => Number(s["confidence_score"]))),
       published_jobs_all_time: publishedJobs,
       hard_deleted_by_retention: Math.max(0, retentionGap),
     },

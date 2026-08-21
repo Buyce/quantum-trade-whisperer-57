@@ -35,7 +35,9 @@ export function scannerSessionOf(date: Date): string {
 }
 
 function inWindow(hour: number, openHour: number, closeHour: number): boolean {
-  return openHour < closeHour ? hour >= openHour && hour < closeHour : hour >= openHour || hour < closeHour;
+  return openHour < closeHour
+    ? hour >= openHour && hour < closeHour
+    : hour >= openHour || hour < closeHour;
 }
 
 /**

@@ -184,9 +184,17 @@ describe("V2 canonical barrier", () => {
 
   it("[INVARIANT] a zero or non-finite ATR is not measurable and returns null", () => {
     const ref = (h4[h4.length - 1] as Candle).close;
-    expect(canonicalBarrier({ direction: "long", h4Candles: h4, h4Atr: 0, reference: ref, anchor: ref })).toBeNull();
     expect(
-      canonicalBarrier({ direction: "long", h4Candles: h4, h4Atr: Number.NaN, reference: ref, anchor: ref }),
+      canonicalBarrier({ direction: "long", h4Candles: h4, h4Atr: 0, reference: ref, anchor: ref }),
+    ).toBeNull();
+    expect(
+      canonicalBarrier({
+        direction: "long",
+        h4Candles: h4,
+        h4Atr: Number.NaN,
+        reference: ref,
+        anchor: ref,
+      }),
     ).toBeNull();
   });
 });

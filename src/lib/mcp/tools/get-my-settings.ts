@@ -31,7 +31,8 @@ export default defineTool({
     const payload = {
       settings: data,
       notes: {
-        daily_setup_cap: data.daily_setup_cap === 0 ? "unlimited" : `${data.daily_setup_cap} per day`,
+        daily_setup_cap:
+          data.daily_setup_cap === 0 ? "unlimited" : `${data.daily_setup_cap} per day`,
         webhook_config: "Webhook URL and secret are intentionally not exposed to agents.",
       },
     };

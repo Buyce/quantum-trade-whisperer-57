@@ -16,9 +16,8 @@ export const Route = createFileRoute("/api/public/worker/shadow")({
         if (!authorizeCronRequest(request)) return unauthorizedResponse();
 
         const { adminClient } = await import("@/lib/scanner/pipeline.server");
-        const { processNextShadowJob, isShadowPaused } = await import(
-          "@/lib/execution/shadow_worker.server"
-        );
+        const { processNextShadowJob, isShadowPaused } =
+          await import("@/lib/execution/shadow_worker.server");
 
         try {
           const db = adminClient();

@@ -37,7 +37,6 @@ export async function loadWeeklyReport(
     .lte("detected_at", windowEnd.toISOString());
   if (error) throw new Error(error.message);
 
-
   return buildReport({
     rows: (data ?? []) as unknown as ShadowRow[],
     windowStart: windowStart.toISOString(),
@@ -47,7 +46,8 @@ export async function loadWeeklyReport(
 }
 
 const pct = (v: number | null) => (v === null ? "n/a" : `${(v * 100).toFixed(1)}%`);
-const r = (v: number | null) => (v === null ? "n/a" : `${v >= 0 ? "" : "-"}${Math.abs(v).toFixed(2)}R`);
+const r = (v: number | null) =>
+  v === null ? "n/a" : `${v >= 0 ? "" : "-"}${Math.abs(v).toFixed(2)}R`;
 
 /** Flattens the report into the primitives the email template renders. */
 export function reportEmailData(report: WeeklyReport): Record<string, unknown> {

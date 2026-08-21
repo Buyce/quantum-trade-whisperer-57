@@ -19,7 +19,9 @@ export default defineTool({
     const cap = Math.min(Math.max(limit ?? 20, 1), 100);
     const { data, error } = await supabase
       .from("executed_trades")
-      .select("id, signal_id, user_decision, outcome, realized_r_multiple, derived_r, actual_entry_price, actual_exit_price, price_source, price_source_client, price_recorded_at, notes, created_at")
+      .select(
+        "id, signal_id, user_decision, outcome, realized_r_multiple, derived_r, actual_entry_price, actual_exit_price, price_source, price_source_client, price_recorded_at, notes, created_at",
+      )
       .order("created_at", { ascending: false })
       .limit(cap);
 

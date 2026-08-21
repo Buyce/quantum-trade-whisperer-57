@@ -57,8 +57,10 @@ export interface PillarScores {
 /** A pillar counts as satisfied at or above this score. */
 export const PILLAR_PASS_SCORE = 60;
 
-export interface ConfidenceBreakdown
-  extends Record<"alignment" | "rr" | "symmetry" | "volatility", number> {
+export interface ConfidenceBreakdown extends Record<
+  "alignment" | "rr" | "symmetry" | "volatility",
+  number
+> {
   score: number;
 }
 

@@ -17,9 +17,8 @@ export interface ManualScanResult {
 export const runScanNow = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async (): Promise<ManualScanResult> => {
-    const { adminClient, enqueueScanCycle, processNextJob, describeError } = await import(
-      "@/lib/scanner/pipeline.server"
-    );
+    const { adminClient, enqueueScanCycle, processNextJob, describeError } =
+      await import("@/lib/scanner/pipeline.server");
     const db = adminClient();
     const { runId, enqueued } = await enqueueScanCycle(db);
 

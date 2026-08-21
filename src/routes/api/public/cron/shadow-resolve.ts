@@ -14,9 +14,8 @@ export const Route = createFileRoute("/api/public/cron/shadow-resolve")({
         if (!authorizeCronRequest(request)) return unauthorizedResponse();
 
         const { adminClient } = await import("@/lib/scanner/pipeline.server");
-        const { isShadowPaused, noteShadowRun } = await import(
-          "@/lib/execution/shadow_worker.server"
-        );
+        const { isShadowPaused, noteShadowRun } =
+          await import("@/lib/execution/shadow_worker.server");
         const { resolveShadowExecutions } = await import("@/lib/execution/shadow_resolve.server");
 
         const db = adminClient();
@@ -27,6 +26,25 @@ export const Route = createFileRoute("/api/public/cron/shadow-resolve")({
 
           const { data: maintenance } = await db.rpc("maintain_shadow_queue");
           const summary = await resolveShadowExecutions(db);
+
+          /**
+           * Stage 4 — research-candidate enrolment. Runs AFTER production
+           * resolution, is bounded by `candidate_rows_per_run`, and is gated by
+           * `candidate_enrolment_enabled` (false in production: this is one flag
+           * read and a zeroed summary). Its own try/catch: a research failure can
+           * never re-label a successful production resolve pass as failed.
+           */
+          let candidateEnrolment: unknown = null;
+          try {
+            const { enrolPendingCandidates } =
+              await import("@/lib/research/enrol-candidates.server");
+            candidateEnrolment = await enrolPendingCandidates(db);
+          } catch (enrolErr) {
+            console.error(
+              "[cron/shadow-resolve] candidate enrolment failed:",
+              enrolErr instanceof Error ? enrolErr.message : String(enrolErr),
+            );
+          }
 
           // Statistics rebuild runs last and is guarded separately: a failure
           // here must never re-label a successful resolution pass as failed.
@@ -67,6 +85,7 @@ export const Route = createFileRoute("/api/public/cron/shadow-resolve")({
             stats,
             statsError,
             milestones,
+            candidateEnrolment,
             ...summary,
           });
         } catch (err) {

@@ -6,7 +6,9 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", ".output", ".vinxi"] },
+  // `src/test/fixtures/pre-p7` is vendored verbatim from commit ab44ff6 as the
+  // frozen characterization baseline; it must never be reformatted or "fixed".
+  { ignores: ["dist", ".output", ".vinxi", "src/test/fixtures/pre-p7"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],

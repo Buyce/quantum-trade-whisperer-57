@@ -22,7 +22,10 @@ export const getDeletionStatus = createServerFn({ method: "GET" })
       .eq("id", context.userId)
       .maybeSingle();
     if (error) throw new Error(error.message);
-    const row = (data ?? null) as { deletion_requested_at: string | null; deletion_scheduled_for: string | null } | null;
+    const row = (data ?? null) as {
+      deletion_requested_at: string | null;
+      deletion_scheduled_for: string | null;
+    } | null;
     return {
       requestedAt: row?.deletion_requested_at ?? null,
       scheduledFor: row?.deletion_scheduled_for ?? null,
@@ -45,7 +48,8 @@ export const requestAccountDeletion = createServerFn({ method: "POST" })
       .eq("id", context.userId);
     if (error) throw new Error(error.message);
 
-    const email = typeof context.claims["email"] === "string" ? (context.claims["email"] as string) : null;
+    const email =
+      typeof context.claims["email"] === "string" ? (context.claims["email"] as string) : null;
     const deadline = formatDeadline(scheduledFor.toISOString());
 
     try {
@@ -82,7 +86,8 @@ export const cancelAccountDeletion = createServerFn({ method: "POST" })
       .eq("id", context.userId)
       .maybeSingle();
     if (readError) throw new Error(readError.message);
-    const pending = (data as { deletion_scheduled_for: string | null } | null)?.deletion_scheduled_for ?? null;
+    const pending =
+      (data as { deletion_scheduled_for: string | null } | null)?.deletion_scheduled_for ?? null;
     if (!pending) return { restored: false };
 
     const { error } = await context.supabase

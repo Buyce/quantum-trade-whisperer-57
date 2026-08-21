@@ -84,7 +84,9 @@ export const getResearchLedger = createServerFn({ method: "GET" })
         byGrade,
         byFamily,
         p95LatencyMs: latencies.length
-          ? (latencies[Math.min(latencies.length - 1, Math.floor(latencies.length * 0.95))] as number)
+          ? (latencies[
+              Math.min(latencies.length - 1, Math.floor(latencies.length * 0.95))
+            ] as number)
           : null,
       };
     });

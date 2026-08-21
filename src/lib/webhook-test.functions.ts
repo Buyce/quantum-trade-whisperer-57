@@ -103,9 +103,10 @@ export const sendTestWebhook = createServerFn({ method: "POST" })
       return {
         ok: false as const,
         preview,
-        error: message.includes("timeout") || message.includes("abort")
-          ? "Your bridge did not respond within 8 seconds."
-          : message,
+        error:
+          message.includes("timeout") || message.includes("abort")
+            ? "Your bridge did not respond within 8 seconds."
+            : message,
       };
     }
   });

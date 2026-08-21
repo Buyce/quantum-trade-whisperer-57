@@ -23,9 +23,7 @@ export function atr(candles: Candle[], period = 14): number {
   for (let i = 1; i < candles.length; i += 1) {
     const c = candles[i] as Candle;
     const prev = candles[i - 1] as Candle;
-    trs.push(
-      Math.max(c.high - c.low, Math.abs(c.high - prev.close), Math.abs(c.low - prev.close)),
-    );
+    trs.push(Math.max(c.high - c.low, Math.abs(c.high - prev.close), Math.abs(c.low - prev.close)));
   }
   let acc = trs.slice(0, period).reduce((a, b) => a + b, 0) / period;
   for (let i = period; i < trs.length; i += 1) {
@@ -65,13 +63,16 @@ export function atrAtIndex(candles: Candle[], i: number, period = 14): number | 
     ) {
       return null;
     }
-    const tr = Math.max(c.high - c.low, Math.abs(c.high - prev.close), Math.abs(c.low - prev.close));
+    const tr = Math.max(
+      c.high - c.low,
+      Math.abs(c.high - prev.close),
+      Math.abs(c.low - prev.close),
+    );
     if (k <= period) acc += tr / period;
     else acc = (acc * (period - 1) + tr) / period;
   }
   return Number.isFinite(acc) ? acc : null;
 }
-
 
 export interface SwingPoint {
   index: number;
@@ -143,7 +144,10 @@ export function detectAbc(candles: Candle[], direction: "long" | "short"): AbcPa
   const a = (pts[aIdx] as SwingPoint).price;
   const b = (pts[bIdx] as SwingPoint).price;
   const last = candles[candles.length - 1] as Candle;
-  const c = direction === "long" ? Math.min(...candles.slice(-6).map((x) => x.low)) : Math.max(...candles.slice(-6).map((x) => x.high));
+  const c =
+    direction === "long"
+      ? Math.min(...candles.slice(-6).map((x) => x.low))
+      : Math.max(...candles.slice(-6).map((x) => x.high));
 
   const ab = Math.abs(b - a);
   if (ab === 0) return null;

@@ -11,7 +11,12 @@ export default defineTool({
     signal_id: z.string().describe("The id of a signal returned by list_signals."),
     decision: z.enum(["taken", "skipped"]).describe("Whether the user took or skipped the setup."),
   },
-  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  annotations: {
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: false,
+  },
   handler: async ({ signal_id, decision }, ctx) => {
     if (!ctx.isAuthenticated()) {
       return { content: [{ type: "text", text: "Not authenticated" }], isError: true };

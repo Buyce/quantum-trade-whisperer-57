@@ -22,7 +22,8 @@ export interface UnverifiedTradeRow {
   user_id: string;
   outcome: string;
   created_at: string;
-  scanned_signals: { instrument: string; direction: string } | { instrument: string; direction: string }[] | null;
+  scanned_signals:
+    { instrument: string; direction: string } | { instrument: string; direction: string }[] | null;
 }
 
 export interface UserReminder {
@@ -75,8 +76,7 @@ export async function loadUnverifiedByUser(db: SupabaseClient): Promise<UserRemi
   for (const raw of (data ?? []) as unknown as UnverifiedTradeRow[]) {
     const signal = signalOf(raw);
     if (!signal) continue;
-    const entry =
-      byUser.get(raw.user_id) ?? { userId: raw.user_id, missingCount: 0, trades: [] };
+    const entry = byUser.get(raw.user_id) ?? { userId: raw.user_id, missingCount: 0, trades: [] };
     entry.missingCount += 1;
     if (entry.trades.length < EMAIL_TRADE_SAMPLE) {
       entry.trades.push({
@@ -167,9 +167,10 @@ export async function sendVerifyReminders(
       console.error("[verify-reminders] failed for user:", message);
       outcome.reason = message;
       if (outcome.claimed) {
-        await db
-          .rpc("release_verify_reminder", { _user_id: candidate.userId, _week: week })
-          .then(() => undefined, () => undefined);
+        await db.rpc("release_verify_reminder", { _user_id: candidate.userId, _week: week }).then(
+          () => undefined,
+          () => undefined,
+        );
       }
     }
 

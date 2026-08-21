@@ -19,10 +19,7 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { SetupEvaluation } from "@/lib/scanner/profile";
-import {
-  STRATEGY_V1_MANIFEST_HASH,
-  STRATEGY_V1_VERSION,
-} from "@/lib/scanner/strategy-manifest";
+import { STRATEGY_V1_MANIFEST_HASH, STRATEGY_V1_VERSION } from "@/lib/scanner/strategy-manifest";
 import { noteResearchFailure, RESEARCH_WRITE_DEADLINE_MS } from "./observations.server";
 
 /** Reads the capture kill switch. Any failure is treated as "disabled". */
@@ -34,7 +31,9 @@ export async function isCandidateCaptureEnabled(db: SupabaseClient): Promise<boo
       .eq("id", true)
       .maybeSingle();
     if (error) return false;
-    return Boolean((data as { candidate_capture_enabled?: boolean } | null)?.candidate_capture_enabled);
+    return Boolean(
+      (data as { candidate_capture_enabled?: boolean } | null)?.candidate_capture_enabled,
+    );
   } catch {
     return false;
   }
@@ -109,7 +108,10 @@ export async function captureCandidate(
     const { error } = (await Promise.race([
       insert,
       new Promise<{ error: { message: string } }>((resolve) =>
-        setTimeout(() => resolve({ error: { message: "candidate capture deadline exceeded" } }), deadlineMs),
+        setTimeout(
+          () => resolve({ error: { message: "candidate capture deadline exceeded" } }),
+          deadlineMs,
+        ),
       ),
     ])) as { error: { message: string } | null };
 

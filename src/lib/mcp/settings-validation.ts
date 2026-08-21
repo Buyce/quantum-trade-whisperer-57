@@ -99,7 +99,9 @@ export function validateSettings(input: SettingsInput): ValidatedSettings {
   if (input.account_currency !== undefined) {
     const cur = input.account_currency.toUpperCase();
     if (!CURRENCY_CHOICES.includes(cur as (typeof CURRENCY_CHOICES)[number])) {
-      warnings.push(`account_currency left unchanged: must be one of ${CURRENCY_CHOICES.join(", ")}.`);
+      warnings.push(
+        `account_currency left unchanged: must be one of ${CURRENCY_CHOICES.join(", ")}.`,
+      );
     } else {
       patch["account_currency"] = cur;
     }
@@ -119,7 +121,8 @@ export function validateSettings(input: SettingsInput): ValidatedSettings {
       warnings.push(`${column} left unchanged: not a finite number.`);
       continue;
     }
-    const clamped = column === "leverage" ? Math.round(clamp(value, min, max)) : clamp(value, min, max);
+    const clamped =
+      column === "leverage" ? Math.round(clamp(value, min, max)) : clamp(value, min, max);
     if (clamped !== value) warnings.push(`${column} clamped to ${clamped}.`);
     patch[column] = clamped;
   }

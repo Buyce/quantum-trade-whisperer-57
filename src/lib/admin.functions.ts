@@ -47,7 +47,6 @@ export interface AdminHealth {
   instruments: AdminInstrumentHealth[];
 }
 
-
 export interface AdminEngagement {
   active_accounts: number;
   total_taken: number;
@@ -186,7 +185,7 @@ export interface AdminIntelligence {
 export const getAdminIntelligence = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<AdminIntelligence> => {
-    const email = String(context.claims['email'] ?? "").toLowerCase();
+    const email = String(context.claims["email"] ?? "").toLowerCase();
     if (email !== OWNER_EMAIL) {
       throw new Error("Forbidden");
     }
@@ -207,4 +206,3 @@ export const getAdminIntelligence = createServerFn({ method: "GET" })
       author_split: (split.data as AdminAuthorSplit) ?? null,
     };
   });
-

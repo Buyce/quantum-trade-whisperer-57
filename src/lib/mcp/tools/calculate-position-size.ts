@@ -1,11 +1,7 @@
 import { defineTool } from "@lovable.dev/mcp-js";
 import { z } from "zod";
 import { supabaseForUser } from "../supabase";
-import {
-  RISK_UNAVAILABLE_COPY,
-  calculateRisk,
-  riskProfileFromSettings,
-} from "@/lib/risk";
+import { RISK_UNAVAILABLE_COPY, calculateRisk, riskProfileFromSettings } from "@/lib/risk";
 
 /**
  * FX rates needed to convert quote-currency risk into the account currency.
@@ -33,7 +29,10 @@ export default defineTool({
     "Size a setup using the signed-in user's saved risk profile. Pass a signal_id from list_signals, or an explicit instrument plus entry_price and stop_loss. Returns lot size, cash at risk, margin required and any guardrail warnings. Returns an explicit unavailable reason instead of a guess when equity or an FX rate is missing.",
   inputSchema: {
     signal_id: z.string().optional().describe("Signal id from list_signals."),
-    instrument: z.string().optional().describe("XAUUSD, GBPAUD or EURUSD (with entry_price and stop_loss)."),
+    instrument: z
+      .string()
+      .optional()
+      .describe("XAUUSD, GBPAUD or EURUSD (with entry_price and stop_loss)."),
     entry_price: z.number().optional(),
     stop_loss: z.number().optional(),
   },
@@ -68,7 +67,10 @@ export default defineTool({
         .maybeSingle();
       if (error) return { content: [{ type: "text", text: error.message }], isError: true };
       if (!signal) {
-        return { content: [{ type: "text", text: `No signal ${signal_id} found.` }], isError: true };
+        return {
+          content: [{ type: "text", text: `No signal ${signal_id} found.` }],
+          isError: true,
+        };
       }
       symbol = signal.instrument;
       entry = Number(signal.entry_price);
@@ -110,9 +112,12 @@ export default defineTool({
 
     const warnings: string[] = [];
     if (result.belowMinimumLot) warnings.push("Risk budget is too small to open the minimum lot.");
-    if (result.cappedByPositionSize) warnings.push("Size limited by the user's max position size, not by risk.");
-    if (result.exceedsMargin) warnings.push("Margin required exceeds account equity at this leverage.");
-    if (result.exceedsStopCeiling) warnings.push("Stop distance is wider than the user's max stop-loss percent.");
+    if (result.cappedByPositionSize)
+      warnings.push("Size limited by the user's max position size, not by risk.");
+    if (result.exceedsMargin)
+      warnings.push("Margin required exceeds account equity at this leverage.");
+    if (result.exceedsStopCeiling)
+      warnings.push("Stop distance is wider than the user's max stop-loss percent.");
 
     const payload = {
       available: true,

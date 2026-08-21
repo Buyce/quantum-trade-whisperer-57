@@ -23,10 +23,7 @@ export type PayoffEstimand = "mean_r_per_plan" | "mean_r_given_executable";
 
 /** Why a cohort's number may not be used. Only `descriptive` is reportable. */
 export type PayoffStatStatus =
-  | "descriptive"
-  | "insufficient_sample"
-  | "insufficient_coverage"
-  | "unavailable";
+  "descriptive" | "insufficient_sample" | "insufficient_coverage" | "unavailable";
 
 /** Which R column the estimand was built from — provenance, never inferred. */
 export type PayoffBasis = "realized_r@planned_risk" | "gross_r@actual_risk";

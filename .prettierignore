@@ -6,3 +6,8 @@ pnpm-lock.yaml
 package-lock.json
 bun.lock
 routeTree.gen.ts
+
+# Frozen pre-Prompt-7 scanner sources, vendored verbatim from commit
+# ab44ff687df4892745a47ffa1f3b737f04b478e0. Reformatting them would break the
+# characterization baseline they exist to preserve.
+src/test/fixtures/pre-p7

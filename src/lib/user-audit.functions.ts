@@ -173,8 +173,7 @@ export const getUserReportAudit = createServerFn({ method: "GET" })
       const priceSource = (t.price_source ?? null) as "human" | "agent" | null;
       const priceSourceClient = (t.price_source_client ?? null) as string | null;
       const decisionSource = (t.decision_source === "agent" ? "agent" : "human") as
-        | "human"
-        | "agent";
+        "human" | "agent";
       const decisionSourceClient = (t.decision_source_client ?? null) as string | null;
       const open = t.outcome === "open";
       const maxR = s.max_r == null ? null : Number(s.max_r);
@@ -254,7 +253,10 @@ export const getUserReportAudit = createServerFn({ method: "GET" })
     const winRate = (set: UserAuditRow[]) =>
       set.length === 0 ? null : set.filter((r) => r.outcome === "win").length / set.length;
 
-    const authorMap = new Map<string, { source: "human" | "agent" | "unattributed"; client: string | null; n: number }>();
+    const authorMap = new Map<
+      string,
+      { source: "human" | "agent" | "unattributed"; client: string | null; n: number }
+    >();
     for (const r of rows) {
       if (!r.hasPrices) continue;
       const source = r.priceSource ?? "unattributed";
@@ -308,8 +310,7 @@ export const getUserReportAudit = createServerFn({ method: "GET" })
         contradicted: contradicted.length,
         pending: rows.length - resolvedRows.length,
         withPrices: rows.filter((r) => r.hasPrices).length,
-        trustScore:
-          resolvedRows.length === 0 ? null : trustworthy.length / resolvedRows.length,
+        trustScore: resolvedRows.length === 0 ? null : trustworthy.length / resolvedRows.length,
       },
       reportedWinRate: winRate(resolvedRows),
       verifiedWinRate: winRate(trustworthy),

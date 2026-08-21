@@ -126,7 +126,6 @@ async function dispatchOne(signal: WebhookSignal, target: WebhookTarget): Promis
 /** Only the insert path is used, so the client is accepted structurally. */
 type DispatchLogger = Pick<SupabaseClient, "from">;
 
-
 /**
  * Fire-and-report: never throws, never blocks longer than one timeout.
  *
@@ -144,7 +143,11 @@ export async function dispatchWebhooks(
 
   const failed = attempts.filter((a) => a.error !== null);
   for (const a of failed) {
-    console.error("[webhook] dispatch failed", { user: a.userId, signal: signal.id, error: a.error });
+    console.error("[webhook] dispatch failed", {
+      user: a.userId,
+      signal: signal.id,
+      error: a.error,
+    });
   }
   if (failed.length) {
     console.error(`[webhook] ${failed.length} dispatch(es) rejected for signal ${signal.id}`);
@@ -168,4 +171,3 @@ export async function dispatchWebhooks(
     );
   }
 }
-

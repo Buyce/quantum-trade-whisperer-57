@@ -283,6 +283,18 @@ export function v2ObservationRow(args: {
  * this, a no_trade row records only prose and the reason a filter fired can
  * never be recovered from the ledger.
  */
+/**
+ * The truthful research reason for a V1 evaluation: the exact terminal stage
+ * enum value, plus the detail of the gate that terminated it when there is one.
+ * No new stage names are invented and no prose is substituted.
+ */
+export function researchReason(ev: SetupEvaluation): string {
+  const failing = [...ev.gates].reverse().find((g) => g.outcome === "fail");
+  const detail = failing?.detail?.trim();
+  const base = detail ? `${ev.stage}: ${detail}` : ev.stage;
+  return base.slice(0, 500);
+}
+
 export function v1ObservationRow(args: {
   runId: string | null;
   observationKey: string | null;
@@ -307,7 +319,9 @@ export function v1ObservationRow(args: {
     grade: args.grade,
     direction: args.direction,
     disposition: args.disposition,
-    reason: args.reason,
+    // Research reason is the TERMINAL EVALUATION STAGE, not the trader-facing
+    // prose. The job result keeps its own wording; the ledger records why.
+    reason: ev ? researchReason(ev) : args.reason,
     code_hash: null,
     latency_ms: args.latencyMs,
     signal_id: args.signalId ?? null,

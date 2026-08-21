@@ -30,7 +30,9 @@ function csvCell(v: unknown): string {
 
 /** Builds a CSV string with a header row. */
 export function toCsv(headers: string[], rows: Array<Array<unknown>>): string {
-  return [headers.map(csvCell).join(","), ...rows.map((r) => r.map(csvCell).join(","))].join("\r\n");
+  return [headers.map(csvCell).join(","), ...rows.map((r) => r.map(csvCell).join(","))].join(
+    "\r\n",
+  );
 }
 
 export function downloadJson(filename: string, data: unknown) {

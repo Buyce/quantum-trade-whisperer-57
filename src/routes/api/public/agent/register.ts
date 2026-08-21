@@ -54,8 +54,7 @@ export const Route = createFileRoute("/api/public/agent/register")({
           return json(
             {
               ok: false,
-              error:
-                "email must be a valid address and password must be at least 8 characters.",
+              error: "email must be a valid address and password must be at least 8 characters.",
             },
             400,
           );
