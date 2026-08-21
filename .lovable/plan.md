@@ -227,18 +227,25 @@ again; a code-level lint test asserts no writer references them.
 ### B3. Statistics layer
 
 `src/lib/stats/`: `wilson.ts`, `newcombe.ts`, `bootstrap.ts` (deterministic
-ordering + explicit seeded RNG + returned `run_id`, per P6), `clusters.ts`
-(cluster key = **detection** date × instrument, overlapping plans share a
-cluster, per P9), `evidence.ts` (`insufficient → descriptive → suggestive →
-actionable`, driven by cluster count and interval width), `bh.ts`.
-**P7 fix:** the multiplicity family is declared explicitly as the *insight
-generator's* comparison set (instrument × grade × session × weekday) and, for the
-weekly report, the running set of weekly tests — not two tests in isolation.
-**P9 fix:** `weekly.ts` reports fill rate over plans that had a full resolution
-horizon inside the window; late-detected plans are counted separately as
-`pending_resolution` instead of silently depressing the rate.
+ordering + explicit seeded RNG + stored method/version/seed/`run_id`),
+`clusters.ts`, `evidence.ts`, `bh.ts`.
+**Authoritative:** the primary dependence-aware unit is the **whole UTC
+`detected_at` day** — never day × instrument. Every observation detected on a
+selected day is resampled together. Wilson and Newcombe stay descriptive,
+independence-assuming diagnostics; dependence-aware conclusions come only from
+the whole-day bootstrap. `evidence.ts` exposes
+`insufficient → descriptive → suggestive → actionable`, and `actionable`
+additionally requires genuine forward/OOS/holdout confirmation, so it is
+unreachable on current data regardless of cluster count or interval width.
+BH/q-values are diagnostic only and apply solely to explicitly declared
+hypothesis families (the insight generator's comparison set, and the running set
+of weekly tests).
+**Weekly censoring fix:** a plan enters a fill-rate denominator only after a full
+eligible outcome horizon has elapsed inside the window; not-yet-eligible plans
+are reported separately as `pending_resolution`.
 Grades A+, A, B, C are reported separately; any pooling is opt-in and labelled.
-Primary metric everywhere: cost-adjusted expected R with interval; win rate is a
+Primary metric everywhere: gross expected R with interval; cost-adjusted R is
+shown only where documented cost provenance permits it, and win rate is a
 labelled secondary.
 
 ### B4. Backend / frontend / MCP
