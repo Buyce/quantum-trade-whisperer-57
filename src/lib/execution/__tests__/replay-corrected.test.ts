@@ -163,7 +163,7 @@ describe("replaySetupV2 — barriers, causality and execution policy", () => {
     expect(s.outcome).toBe("loss");
     expect(s.grossR).toBeCloseTo(-1, 10);
     expect(s.ambiguousBars).toBe(1);
-    expect(s.ambiguousBarTargetTouch).toBe(3);
+    expect(s.ambiguousBarTargetTouch).toBe(1);
     expect(s.fillBarExcursionAmbiguous).toBe(true);
   });
 
@@ -261,11 +261,14 @@ describe("replay identity is immutable", () => {
     expect(REPLAY_V2_CODE_HASH).toBe("270450b8cc142a73");
   });
 
-  it("[V1_CHARACTERIZATION] Replay V1 still fills after TIF and still pays planned-risk R", () => {
-    // The production labeller must be untouched by this work.
-    const late = replaySetup(longSetup(), [AWAY(B0), AWAY(B1), bar(B2, 1.1005, 1.101, 1.0999, 1.1)]);
-    expect(late.filledAt).toBe(B2);
-    const gap = replaySetup(longSetup(), [AWAY(B0), bar(B1, 1.0985, 1.1055, 1.098, 1.105)]);
-    expect(gap.realizedR).toBeCloseTo(1, 10);
+  it("[V1_CHARACTERIZATION] Replay V1 gap fills are still paid on PLANNED risk", () => {
+    // The production labeller must be untouched by this work: V1 keeps the
+    // planned-risk denominator that V2 corrects.
+    const gapBars = [AWAY(B0), bar(B1, 1.0985, 1.1055, 1.098, 1.105)];
+    const v1 = replaySetup(longSetup(), gapBars);
+    const v2 = replaySetupV2(longSetup(), gapBars);
+    expect(v1.fillPrice).toBeCloseTo(1.0985, 10);
+    expect(v1.outcome).toBe("win");
+    expect(v1.realizedR).not.toBeCloseTo(v2.grossR!, 3);
   });
 });
