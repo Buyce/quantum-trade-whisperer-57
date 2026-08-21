@@ -5,6 +5,7 @@
  */
 import { createFileRoute } from "@tanstack/react-router";
 import { authorizeCronRequest, unauthorizedResponse } from "@/lib/cron-auth";
+import { ACTIVE_MODEL_VERSION } from "@/lib/versioning";
 
 export const Route = createFileRoute("/api/public/cron/shadow-resolve")({
   server: {
