@@ -62,21 +62,25 @@ function insertCandidate(): void {
     insert into public.research_candidates
       (instrument, direction, strategy_version, manifest_hash, detected_at, terminal_stage,
        v1_decision, gates, gates_complete, trading_session, volatility_index,
-       entry_price, stop_loss, tp1, tp2, tp3, tp1_r, tp2_r, tp3_r, max_r, risk_price, atr, grade)
+       entry_price, stop_loss, risk_price, atr, grade,
+       cf_tp1, cf_tp2, cf_tp3, cf_tp1_r, cf_tp2_r, cf_tp3_r, cf_max_r, cf_grade, cf_plan_version)
     values ('EURUSD', 'long', 1, 'hash-a', now() - interval '3 days', 'no_grade',
             'no_trade', '[{"gate":"grade","outcome":"fail"}]'::jsonb, true, 'london', 1.2,
-            1.1, 1.09, 1.12, 1.13, 1.14, 1, 2, 3, 3.5, 0.01, 0.004, 'B');
+            1.1, 1.09, 0.01, 0.004, 'B',
+            1.11, 1.12, 1.13, 1, 2, 3, 3, 'B', 1);
     insert into public.shadow_executions
       (instrument, grade, direction, detected_at, entry_price, stop_loss, tp1, tp2,
        risk_price, status, resolved_outcome, ml_target_label, realized_r, resolved_at,
        trading_session, volatility_index, model_version, cohort, replay_version,
-       execution_policy, research_candidate_id)
+       execution_policy, plan_origin, research_candidate_id)
     values ('EURUSD', 'A', 'long', now() - interval '3 days', 1.1, 1.09, 1.12, 1.13,
             0.01, 'resolved', 'tp3', 1, 99, now() - interval '2 days',
             'london', 1.2, 1, 'research_candidate', 1, 'legacy_best_target_touched',
+            'counterfactual',
             (select id from public.research_candidates order by created_at desc limit 1));
   `);
 }
+
 
 const regimeRows = () =>
   db.rows(
