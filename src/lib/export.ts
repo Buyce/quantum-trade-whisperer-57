@@ -166,6 +166,10 @@ export function historyToCsv(rows: TradeHistoryRow[]): string {
       s.p_volatility_expansion,
       row.outcome,
       row.realized_r_multiple ?? "",
+      row.r_vs_plan ?? "",
+      row.r_vs_actual_risk ?? "",
+      row.r_availability ?? "",
+      row.stop_provenance ?? "",
       row.notes ?? "",
     ]);
   }
@@ -204,7 +208,23 @@ export function historyToExportJson(rows: TradeHistoryRow[]) {
       },
       bias: { h4: s.h4_bias, h1: s.h1_bias, m15: s.m15_bias },
       outcome: row.outcome,
+      // Kept for backward compatibility with existing exports. Frozen legacy
+      // value: mixed basis, never averaged with the canonical fields below.
       r_yield: row.realized_r_multiple,
+      r_vs_plan: row.r_vs_plan ?? null,
+      r_vs_actual_risk: row.r_vs_actual_risk ?? null,
+      r_availability: row.r_availability ?? null,
+      stop_provenance: row.stop_provenance ?? null,
+      r_math_version: row.r_math_version ?? null,
+      net_r: row.net_r ?? null,
+      verification_level: row.verification_level ?? null,
+      costs: {
+        commission: row.commission ?? null,
+        swap: row.swap ?? null,
+        currency: row.cost_currency ?? null,
+        unit: row.cost_unit ?? null,
+        note: "Costs are money, not price distance. Net R exists only with documented conversion provenance.",
+      },
       notes: row.notes,
       qualitative_breakdown: s.qualitative_breakdown,
     });
