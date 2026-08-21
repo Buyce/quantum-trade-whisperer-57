@@ -170,14 +170,23 @@ export async function claimV2Structure(
       deadlineMs,
     );
     if (result === "deadline" || result.error) {
-      failureCount += 1;
+      await noteResearchFailure(
+        db,
+        `claim_v2_structure failed: ${result === "deadline" ? "deadline" : result.error.message}`,
+        deadlineMs,
+      );
       return false;
     }
     return result.data === true;
-  } catch {
-    failureCount += 1;
+  } catch (err) {
+    await noteResearchFailure(
+      db,
+      `claim_v2_structure threw: ${err instanceof Error ? err.message : String(err)}`,
+      deadlineMs,
+    );
     return false;
   }
+
 }
 
 /** Maps a V2 evaluation plus its disposition onto an observation row. */
