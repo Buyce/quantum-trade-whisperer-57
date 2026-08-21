@@ -1,34 +1,16 @@
-# Third-Pass Red-Team Review — Prompt 8 (Statistics) & Prompt 9 (Journal R)
+# Fourth-Pass Red-Team Review — Prompt 8 (Statistics) & Prompt 9 (Journal R)
 
-Independent review of the already-approved plan against current HEAD. Nine new
-defects found, all of them in the *migration path* rather than in the mathematics.
-The core design (additive dual-basis R, shared pure module, whole-UTC-day
-bootstrap, DB-enforced resolved state) survives review unchanged. Nothing has been
-implemented.
+Independent re-review against current HEAD, the original defect, and every file,
+table and API the plan touches. Eight new defects found. The core design survives;
+one of the new findings (M1) is a genuine correctness hole in the approved
+concurrency rule, and one (M2) would make R non-reproducible. Nothing implemented.
 
-## Authoritative rules (unchanged, supersede everything below)
+## Authoritative rules (binding, supersede everything below)
 
-- Canonical R = `r_vs_plan` **and** `r_vs_actual_risk`. `realized_r_multiple` and
-  `derived_r` are frozen legacy provenance and are never written again.
-- Monetary commission/swap are never subtracted from price movement. Store amount,
-  currency and unit provenance. Net/cost-adjusted R stays NULL unless a documented
-  price-distance conversion exists. **Gross R is the primary metric otherwise.**
-- Resolved-state protection covers conflicting **re-resolution**, not just
-  reopening. Semantically identical retries are accepted idempotently; any later
-  conflicting outcome, price, stop, canonical R or provenance is rejected at DB
-  level unless an authorised correction workflow is used.
-- Primary clustering unit = **whole UTC `detected_at` day**. Never day ×
-  instrument. All observations on a selected day resample together.
-- `actionable` requires genuine forward/OOS/holdout confirmation and is therefore
-  unreachable on current data, whatever the cluster count or interval width.
-- Wilson/Newcombe are descriptive, independence-assuming diagnostics only.
-  Dependence-aware conclusions come only from the whole-day bootstrap.
-- BH/q-values are diagnostic only, and families must be **predeclared and bounded
-  in the experiment ledger** — never an indefinite rolling family.
-- Weekly censoring: a plan enters a fill-rate denominator only after a **full
-  eligible outcome horizon** has elapsed.
-
-## Binding R definition (authoritative, supersedes the table below)
+- Canonical R = `r_vs_plan` **and** `r_vs_actual_risk`; both may coexist on one
+  trade. `realized_r_multiple` and `derived_r` are frozen legacy provenance, never
+  written again, never backfilled.
+- Binding mathematics:
 
 ```text
 gross_move        = long ? actual_exit - actual_entry : actual_entry - actual_exit
@@ -37,228 +19,247 @@ stop_ref          = actual_initial_stop ?? planned_stop
 r_vs_actual_risk  = gross_move / abs(actual_entry - stop_ref)
 ```
 
-The **actual fill is always the numerator anchor for both measures**; realized
-movement is never computed from planned entry. Both values may coexist on one
-trade — that is normal, not a defect. Aggregations explicitly select the plan or
-the actual-risk basis and never combine them; `mixed_basis` denotes an *attempted
-mixed-unit aggregation*, not a row that holds both values. The current
-planned-risk value is therefore conceptually recoverable as `r_vs_plan` for future
-price-backed rows, but legacy columns are neither backfilled nor rewritten.
-Monetary costs stay out of gross R unless documented conversion provenance exists.
+  The actual fill is always the numerator anchor for both measures; realized
+  movement is never computed from planned entry.
+- Aggregations explicitly select the plan or the actual-risk basis and never
+  combine them. `mixed_basis` = an attempted mixed-unit aggregation, not a row
+  holding both values.
+- Monetary commission/swap never enter gross R. Store amount, currency and unit
+  provenance; net R stays NULL without a documented price-distance conversion.
+  Gross R is primary.
+- Resolved-state protection covers conflicting **re-resolution**, not just
+  reopening. Identical retries accepted idempotently; conflicting outcome, prices,
+  stop, canonical R or provenance rejected at DB level unless an authorised
+  correction workflow is used.
+- Primary clustering unit = **whole UTC `detected_at` day**; never day ×
+  instrument.
+- `actionable` requires genuine forward/OOS/holdout confirmation, so it is
+  unreachable on current data.
+- Wilson/Newcombe are descriptive independence-assuming diagnostics only.
+- BH families are predeclared and bounded in the experiment ledger — never a
+  rolling indefinite family.
+- Weekly censoring: a plan enters a fill-rate denominator only after a full
+  eligible outcome horizon.
 
 ## A. Plan defects discovered in this pass
 
-**N1 — freezing the legacy column silently empties the personal performance page.**
-`performance.ts:103` skips any trade where `realized_r_multiple === null`. Stop
-writing that column and every future trade is dropped from expectancy, insights
-and the heat map — the page reads "no data" forever while trades exist. This is
-the hidden backwards incompatibility the previous pass missed. `samplesFromTrades`
-must move to the canonical columns in the *same* commit that stops the write.
+**M1 — DELETE is an unguarded laundering path around the conflict rule.**
+`queries.ts` exposes `deleteTrade` and `deleteAllTrades`, both plain client-side
+deletes scoped by RLS. A `BEFORE UPDATE` trigger cannot see them: a trader who
+dislikes a rejected re-resolution can delete the resolved row and re-log the
+signal from scratch, producing a clean "first" resolution with new prices. The
+approved concurrency rule is therefore incomplete as specified. Fix: keep deletion
+(users must be able to erase their own data) but make it auditable and
+non-silent — a `BEFORE DELETE` trigger writes an append-only
+`trade_resolution_audit` tombstone (trade id, user, outcome, canonical R, basis,
+provenance, deleted_at) that the integrity audit reads, and the audit panel flags
+`resolved_then_deleted`. Statistics never resurrect deleted rows; they only count
+the tombstone for integrity flags.
 
-**N2 — identical MCP regression.** `get_performance_summary` filters
-`realized_r_multiple !== null`, so it would answer "No resolved trades yet —
-performance metrics are all zero" indefinitely. That is a semantic regression an
-assistant cannot detect. It must migrate in the same release, and `list_my_trades`
-must expose `r_basis` / `r_availability` so an agent can tell "unavailable" from
-"zero".
+**M2 — `r_vs_plan` is not reproducible without a planned-price snapshot.**
+Both canonical values are defined against `planned_entry` / `planned_stop`, which
+live only on `scanned_signals`, and `purge_expired_signals()` hard-deletes signal
+rows on a grade-tiered retention schedule. Any journal row whose signal is later
+purged loses its denominator, so a recomputation returns a different answer than
+the stored one. Fix: snapshot `planned_entry`, `planned_stop`, `planned_direction`
+and `signal_detected_at` onto `executed_trades` at resolution time. This also
+gives the statistics layer its cluster key without a join.
 
-**N3 — the promised lint test as written is wrong.** "No writer *or reference* to
-the legacy columns" would force deleting the readers that display the 19 historic
-rows and the audit panel's contradiction detection. Correct criterion: forbid
-**writes** (allow-listed reads only) — `export.ts:168,207`,
-`history.tsx:312,384`, `SignalCard.tsx:971-978`, `queries.ts:44,66` keep reading,
-clearly labelled `legacy`.
+**M3 — the cluster key currently depends on a joinable signal.** `performance.ts`
+derives `detectedAt` from the joined signal (`samplesFromTrades`), so a purged
+signal drops the sample entirely and silently changes cluster counts between runs
+— a reproducibility break in the bootstrap, not just missing data. The M2 snapshot
+resolves this; without it, "byte-identical across two runs" is unachievable.
 
-**N4 — the admin tile drops to n = 0 on release.** `get_admin_intelligence`
-averages `realized_r_multiple`; switching it to the canonical basis removes all
-legacy rows, since 0 rows have both prices. The owner would see a populated tile
-become empty and read it as a bug. The RPC must return **both** blocks —
-`user_reported_legacy` (frozen, labelled) and `user_reported_canonical`
-(n = 0 today) — never a silent swap.
+**M4 — re-clicking a decision on a resolved trade becomes a raw DB error.**
+`logDecision` upserts `outcome: "open"` on conflict `(user_id, signal_id)`. Once
+the trigger exists, tapping Taken/Skipped again on an already-resolved trade
+raises a trigger exception that surfaces as an unhandled error toast. The write
+path must send only the decision fields (no `outcome` reset) and the UI must show
+an explicit "this trade is already resolved" state rather than a failure.
 
-**N5 — float noise makes idempotent retries look like conflicts.** Two identical
-`update_trade_outcome` calls recompute R through floating point; a
-bit-for-bit equality trigger can reject the second call. Comparison must be on
-canonically rounded values (4 dp, the existing convention) with NULL-safe
-equality, and the trigger must distinguish `identical_retry` (accept, no-op) from
-`conflict` (reject).
+**M5 — two disagreeing sufficiency gates.** `weekly.ts` has `MIN_TIER_SAMPLES = 30`
+and its own `Verdict` union (`significant | not_significant | insufficient`), while
+the plan adds `evidence.ts` with four levels. Left as-is, one module can say
+`significant` while the other says `descriptive` — duplicated business logic in the
+exact place the prompt targets. `evidence.ts` must become the single source of
+truth and `Verdict` derived from it.
 
-**N6 — byte-identical bootstrap needs summation order pinned, not just the RNG.**
-A seeded PRNG alone does not give reproducibility: the mean depends on addition
-order. Requires a stable total order (`detected_at`, then `id`) applied *before*
-resampling, accumulation in that fixed order, and rounding at the boundary. Store
-`method`, `method_version`, `seed`, `run_id`.
+**M6 — basis juxtaposition in the weekly email is a false comparison.**
+`weekly.server.ts` reads shadow `realized_r` (engine planned-risk basis) while the
+journal moves to canonical dual R. The email renders both sets of numbers under
+one heading. Every figure must be basis-labelled, or the report states a comparison
+that is not valid. `reportEmailData` maps nulls to `"n/a"`, so adding
+`pending_resolution` needs a template render test to avoid a delivery regression.
 
-**N7 — `experiments` tables as service-role-only would be unreadable by the admin
-terminal.** RLS with no `authenticated` grant is right, but the panel then needs a
-`SECURITY DEFINER` `get_admin_experiments()` with the standard
-`is_admin()`-or-`forbidden` guard, matching the existing admin RPCs. Without it
-the ledger ships write-only.
+**M7 — the censoring fix will empty the weekly report, and that must be stated.**
+Excluding plans without a full outcome horizon lowers every denominator; combined
+with `MIN_TIER_SAMPLES = 30` almost every weekly email becomes "insufficient". This
+is correct behaviour but it is a visible product change that should ship with
+wording explaining why, not as an apparent regression.
 
-**N8 — `PRESET_R_VALUES` scoping is already partly correct, and over-scoping would
-lose signal.** `user-audit.functions.ts:185` already requires `!hasPrices`. The
-change is narrower than the plan implied: re-point it at
-`r_availability = 'unavailable_no_prices'` and leave the heuristic otherwise
-alone. `r_exceeds_max_r` (line 188) must move to `r_vs_plan` only — comparing an
-actual-risk R against the plan's `max_r` is a basis mismatch that would fire
-false accusations against honest traders.
+**M8 — the experiment ledger must snapshot family size at run time.** With BH
+families predeclared but the underlying rows deletable (M1) and maturing over time,
+a stored q-value can stop matching a recomputation. The ledger stores the declared
+family, its member count, seed, method, method version and `run_id` at execution,
+and results are immutable thereafter.
 
-**N9 — "full eligible outcome horizon" must be defined in one place or it will
-diverge.** `weekly.ts` has no horizon concept today; the payoff layer already uses
-24 h maturity. Reuse that single constant rather than inventing a weekly-only
-horizon, otherwise two censoring rules coexist.
-
-**Re-checked and clean:** no trading-model change (`grading.ts`, `profile.ts`,
-`indicators.ts`, `pipeline.server.ts`, replay labellers, MetaApi untouched — signal
-count, grades, alerts, webhook dispatches and MetaApi request volume unchanged);
-no SSRF or new auth surface; no RLS weakening; no lookahead (clusters keyed on
-detection, never resolution); no backfill, so no historical contamination; additive
-nullable migration stays reversible.
+**Re-checked and still clean:** no trading-model change — `grading.ts`,
+`profile.ts`, `indicators.ts`, `pipeline.server.ts`, replay labellers and the
+MetaApi client are untouched, so signal count, grade mix, alerts, webhook
+dispatches and MetaApi request volume are unchanged. No SSRF, no new auth surface,
+no RLS weakening (new tables service-role only plus an `is_admin()` RPC). No
+lookahead: clusters key on detection, never resolution. No backfill, so no
+historical contamination. Additive nullable columns stay reversible.
 
 ## B. Design decisions, interrogated
 
-**D1 — additive canonical columns; legacy frozen.**
-*Why:* preserves the only 19 real rows, makes basis explicit, reversible.
-*Alt A:* correct in place — rejected, destroys the audit trail.
-*Alt B:* derive R at read time — rejected, actual stop and costs do not exist as
-inputs, so there is nothing to derive from.
+**D1 — additive canonical columns plus planned-price snapshot (M2).**
+*Why:* preserves the 19 legacy rows, makes basis explicit, survives signal purge.
+*Alt A:* correct in place — rejected, destroys the audit trail. *Alt B:* join to
+`scanned_signals` at read time — rejected, purge makes it non-reproducible.
 *Evidence:* legacy column is overwritten on every update today; 0 rows carry both
-prices.
-*Changes my mind:* if the owner accepts losing the legacy series, in-place is
-simpler.
+prices; the purge function hard-deletes signals.
+*Changes my mind:* if signal retention became permanent, the snapshot would be
+redundant.
 
 **D2 — one pure `src/lib/journal/r-math.ts`.**
-*Why:* the formula exists twice (server fn + MCP) with identical defects.
-*Alt A:* Postgres generated column — rejected, needs cost and partial-exit logic
-and is hard to version. *Alt B:* keep duplication + tests — rejected, tests detect
-drift late instead of preventing it.
-*Changes my mind:* if R must be aggregated in SQL, a generated column plus a
-mirror test wins.
+*Why:* the same defective formula exists twice (server fn + MCP).
+*Alt A:* Postgres generated column — rejected, needs cost/partial-exit logic and is
+hard to version. *Alt B:* keep duplication + tests — rejected, tests detect drift
+late. *Changes my mind:* if R must be aggregated in SQL.
 
-**D3 — synchronised app + MCP + admin-RPC migration, with legacy shown separately
-(N1/N2/N4).**
-*Why:* any partial migration produces two contradictory numbers, or a silently
-empty surface. *Alt A:* TS-only — rejected (N4). *Alt B:* swap the RPC outright —
-rejected, looks like data loss.
+**D3 — synchronised app + MCP + admin-RPC migration, legacy shown separately.**
+*Why:* `performance.ts:104` and MCP `get_performance_summary` both filter on the
+legacy column, so freezing it alone empties both surfaces; the admin RPC averages
+it server-side. *Alt A:* TypeScript-only — rejected, admin and app disagree.
+*Alt B:* swap the RPC outright — rejected, the tile drops to n = 0 and reads as
+data loss.
 
-**D4 — whole-UTC-day cluster bootstrap as the only dependence-aware method.**
-*Why:* same-day plans share regime and overlap in time. *Alt A:* day × instrument
-— rejected by the binding rule and because cross-instrument same-day correlation
-is real. *Alt B:* plan-level i.i.d. bootstrap — rejected, assumes the independence
-that is known to be false.
-*Changes my mind:* nothing at this sample size; a block bootstrap becomes worth
-revisiting past a few hundred clusters.
+**D4 — trigger for UPDATE conflict + trigger-written tombstone for DELETE (M1).**
+*Why:* only the database sees both writers and both statements.
+*Alt A:* UPDATE trigger only — rejected, delete-and-relog bypasses it.
+*Alt B:* forbid deletion of resolved trades — rejected, users must be able to erase
+their own data. *Changes my mind:* if the owner prefers hard immutability over
+erasure, Alt B is simpler.
 
-**D5 — DB trigger for resolved-state protection, retry-tolerant (N5).**
-*Why:* two writers (web + MCP) upsert the same `(user_id, signal_id)`; only the
-database can arbitrate. *Alt A:* server-side state machine — rejected, not
-enforceable across writers. *Alt B:* conditional `WHERE` predicates — rejected,
-every call site must remember them.
+**D5 — `evidence.ts` as the only sufficiency gate (M5).**
+*Why:* two gates cannot be kept consistent. *Alt A:* keep both — rejected.
+*Alt B:* delete `MIN_TIER_SAMPLES` outright — rejected, it is referenced by tests
+and email wording; derive it instead.
 
-**D6 — holdout as machinery, never as a claim.**
-*Why:* 95 filled rows and a handful of day clusters cannot validate anything.
-*Alt A:* split now — rejected, overfitting by construction. *Alt B:* skip the
-ledger — rejected, loses the record of how many alternatives were tried, which is
-the multiplicity denominator.
+**D6 — holdout as machinery, never a claim.** Alternatives (split 95 filled rows
+now / skip the ledger) rejected as overfitting-by-construction and as losing the
+multiplicity denominator.
 
-## C. Corrected mathematics (re-verified)
+## C. Failure scenarios the architecture must survive
 
-`stop_ref = actual_initial_stop ?? signal.stop_loss` with explicit
-`stop_provenance`; `risk = |actual_entry − stop_ref|`; R unavailable when
-`risk <= 0`, either price missing, or `partial_exits = true`.
-Gross long `R = (exit − entry)/risk`; short `R = (entry − exit)/risk`.
-`r_vs_plan` uses planned entry and planned stop; `r_vs_actual_risk` uses actual
-entry and `stop_ref`. Monetary costs never enter the numerator.
-
-| case | planned | stop | actual entry | exit | risk | `r_vs_actual_risk` | today |
-|---|---|---|---|---|---|---|---|
-| long, worse fill | 100 | 95 | 102 | 112 | 7 | **1.4286** | 2.0000 |
-| long, better fill | 100 | 95 | 99 | 112 | 4 | **3.2500** | 2.6000 |
-| long, stopped | 100 | 95 | 102 | 95 | 7 | **−1.0000** | −1.4000 |
-| short | 100 | 105 | 98 | 90 | 7 | **1.1429** | 1.6000 |
-| stop moved to 97 | 100 | 95 | 102 | 112 | 5 | **2.0000** | 2.0000 |
-| risk 0 | 100 | 100 | 100 | 110 | 0 | **unavailable** | null |
-| entry only, no exit | 100 | 95 | 102 | — | 7 | **validation error** | silent null |
+1. **Delete-and-relog laundering.** Trader resolves at −1R, is refused a conflicting
+   re-resolution, deletes the trade, re-logs the signal and resolves at +2R.
+   Expected: tombstone exists, audit flags `resolved_then_deleted`, integrity
+   metric counts it against the account, statistics use only live rows.
+2. **Purged signal after resolution.** A B-grade signal is purged 36 h after
+   detection; its taken trade remains. Expected: `r_vs_plan` recomputes to the
+   identical stored value from the snapshot, the cluster key still resolves, and
+   two bootstrap runs stay byte-identical.
+3. **Concurrent human + agent resolution.** Web writes prices while an assistant
+   writes a conflicting outcome. Expected: one write wins, the conflicting one is
+   rejected at DB level, identical retries are accepted as no-ops, and no row ends
+   with prices from one author and R from another.
+4. **Single trading day of data.** 12 filled rows, one UTC day. Expected:
+   `cluster_n = 1`, no interval, `insufficient`, no prescriptive wording, weekly
+   email states why.
+5. **Repeat decision tap on a resolved trade.** Expected: friendly "already
+   resolved" state, no raw trigger error.
 
 ## D. Revised plan
 
-**Stage 1 — pure modules, no wiring.** `src/lib/journal/r-math.ts` (dual basis,
-availability reasons, stop provenance, cost provenance without conversion);
-`src/lib/stats/{wilson,newcombe,clusters,bootstrap,evidence,bh}.ts` with the
-whole-UTC-day unit, stable total order, seeded PRNG, stored
-method/version/seed/run_id, and `actionable` gated behind holdout confirmation.
-Fixtures for all seven R cases plus mixed-basis refusal.
+**Stage 1 — pure modules.** `src/lib/journal/r-math.ts` implementing the binding
+formulas, availability reasons, stop and cost provenance, and explicit validation
+errors for one-sided prices. `src/lib/stats/{wilson,newcombe,clusters,bootstrap,
+evidence,bh}.ts`: whole-UTC-day clustering, stable total order
+(`signal_detected_at`, `id`), seeded PRNG, fixed accumulation order, stored
+method/version/seed/`run_id`, `actionable` gated behind holdout confirmation, BH on
+predeclared bounded families only.
 
 **Stage 2 — additive migration, no backfill.** `executed_trades` gains
+`planned_entry`, `planned_stop`, `planned_direction`, `signal_detected_at` (M2),
 `actual_initial_stop`, `stop_provenance`, `actual_entry_at`, `actual_exit_at`,
 `broker_ticket`, `commission`, `swap`, `cost_currency`, `cost_unit`,
 `partial_exits`, `r_vs_plan`, `r_vs_actual_risk`, `r_basis`, `r_availability`,
-`net_r` (NULL without conversion), `verification_level`, `trade_state`. CHECKs:
-both prices or neither, `actual_exit_at >= actual_entry_at`, enumerated text.
-`experiments` / `experiment_arms`: RLS on, `service_role` only, plus admin RPC
-(N7). Grants written in the same migration.
+`net_r`, `verification_level`, `trade_state`. CHECKs: both prices or neither,
+`actual_exit_at >= actual_entry_at`, enumerated text. New `trade_resolution_audit`
+(append-only tombstones), `experiments`, `experiment_arms`: RLS on, `service_role`
+only, GRANTs in the same migration, plus `get_admin_experiments()` guarded by
+`is_admin()`.
 
-**Stage 3 — resolved-state trigger (N5).** `BEFORE UPDATE` on `executed_trades`:
-rounded, NULL-safe comparison of outcome, prices, actual stop, canonical R and
-provenance. Identical retry → accepted no-op; any conflict → rejected. Correction
-workflow is a separate explicit path.
+**Stage 3 — DB enforcement.** `BEFORE UPDATE` conflict trigger with rounded,
+NULL-safe comparison (identical retry → no-op; conflict → reject) and
+`BEFORE DELETE` tombstone trigger (M1). TS enums mirrored against SQL CHECK lists
+by a DB test.
 
-**Stage 4 — synchronised basis migration (N1–N4, N8).** `r-math.ts` used by
-`trade-journal.functions.ts` and MCP `update_trade_outcome`; both write only the
-new columns. `performance.ts` reads canonical R, filters by `r_basis`, returns
-`mixed_basis` instead of averaging. MCP `get_performance_summary` /
-`list_my_trades` emit `r_basis` and `r_availability`; tool names and schemas stay
-stable, only descriptions change, and the word "verified" is replaced by the
-ladder. `get_admin_intelligence` returns legacy **and** canonical blocks.
-`export.ts`, `history.tsx`, `SignalCard.tsx` label legacy rows as legacy.
+**Stage 4 — synchronised basis migration.** `r-math.ts` used by
+`trade-journal.functions.ts` and MCP `update_trade_outcome`, writing only the new
+columns. `performance.ts` reads canonical R, selects one basis, returns
+`mixed_basis` on an attempted mixed aggregation. MCP `get_performance_summary` /
+`list_my_trades` emit `r_basis`, `r_availability`; tool names and schemas unchanged,
+descriptions drop the word "verified" for the ladder. `get_admin_intelligence`
+returns `user_reported_legacy` **and** `user_reported_canonical`. `logDecision`
+stops resetting `outcome` and the UI gains an "already resolved" state (M4).
+`export.ts`, `history.tsx`, `SignalCard.tsx` label legacy values as legacy.
 `user-audit.functions.ts`: `preset_r_value` scoped to unpriced rows,
-`r_exceeds_max_r` compared only against `r_vs_plan`.
+`r_exceeds_max_r` compared only against `r_vs_plan`, plus the new
+`resolved_then_deleted` flag.
 
-**Stage 5 — statistics reporting.** Weekly report keeps `z`/`pValue` as
-diagnostics, adds day-clustered intervals and evidence-gated wording; fill-rate
-denominators use the shared maturity horizon (N9) with `pending_resolution`
-reported separately; grades reported separately.
+**Stage 5 — statistics reporting.** `evidence.ts` becomes the single sufficiency
+gate and `Verdict` derives from it (M5); `z`/`pValue` demoted to diagnostics;
+day-clustered intervals; fill-rate denominators use the shared maturity horizon
+with `pending_resolution` reported separately; every figure basis-labelled (M6);
+grades reported separately; email template render test.
 
 ## E. New acceptance criteria
 
-1. Seven R fixtures pass, including the one-sided-price validation error, with
-   `r_vs_plan` and `r_vs_actual_risk` asserted separately.
-2. No **writer** references the legacy columns; allow-listed readers still render
-   the 19 legacy rows (N3).
+1. All seven R fixtures pass with `r_vs_plan` and `r_vs_actual_risk` asserted
+   separately, plus the one-sided-price validation error.
+2. No writer references the legacy columns; allow-listed readers still render the
+   19 legacy rows.
 3. `performance.ts` and MCP `get_performance_summary` return non-empty results for
-   a canonical-basis trade — the N1/N2 regression test.
-4. `get_admin_intelligence` returns both legacy and canonical blocks; app, MCP and
-   admin agree on the canonical basis.
-5. Mixed sample returns `mixed_basis`, never an average.
-6. Two bootstrap runs on the same rows are byte-identical, with stored
-   seed/method/version/run_id (N6).
-7. Whole-UTC-day cluster fixture: multiple instruments detected on one UTC day
-   form exactly one cluster.
-8. `actionable` unreachable on current data; a test asserts no prescriptive wording
-   at n = 3.
-9. DB tests: identical retry accepted, conflicting re-resolution rejected, human-win
-   vs agent-loss race regression, TS enums equal SQL CHECK lists.
-10. Cost provenance: monetary-only costs leave `net_r` NULL and no cost-adjusted
-    claim appears anywhere.
-11. Zero change to signal count, grade distribution, alerts, webhook dispatches or
-    MetaApi request volume; full `bun run verify` green (421 baseline).
+   a canonical-basis trade.
+4. `get_admin_intelligence` returns both blocks; app, MCP and admin agree.
+5. An attempted mixed-unit aggregation returns `mixed_basis`; a row holding both
+   values aggregates cleanly under either basis.
+6. `r_vs_plan` recomputes identically after the source signal is deleted (M2/M3).
+7. Two bootstrap runs are byte-identical with stored seed/method/version/run_id;
+   one UTC day of multi-instrument rows forms exactly one cluster.
+8. `actionable` unreachable; no prescriptive wording at n = 3.
+9. DB tests: identical retry accepted, conflicting re-resolution rejected,
+   human-win vs agent-loss race, delete-of-resolved writes a tombstone and raises
+   the audit flag, TS enums equal SQL CHECK lists.
+10. Monetary-only costs leave `net_r` NULL and no cost-adjusted claim appears.
+11. Weekly email renders with `pending_resolution` and basis labels; `Verdict`
+    derives from `evidence.ts`.
+12. Zero change to signal count, grade distribution, alerts, webhook dispatches or
+    MetaApi request volume; `bun run verify` green (421 baseline).
 
 ## F. Remaining risks
 
-Self-reported prices can still be untrue; the honest output at current sample
-sizes reads "insufficient" nearly everywhere; the legacy/canonical dual display
-adds UI surface the owner must interpret; the trigger's conflict rule could reject
-a legitimate late correction until the correction workflow exists.
+Self-reported prices can still be untrue; the honest output at current sample sizes
+reads "insufficient" nearly everywhere, including in the weekly email; the
+legacy/canonical dual display adds interpretation burden; the conflict trigger can
+block a legitimate late correction until the correction workflow exists; tombstones
+retain outcome metadata for deleted trades, which must be disclosed as integrity
+data rather than treated as erasure failure.
 
 ## G. Confidence
 
-**High** on the R mathematics and on N1/N2/N4 being real blockers — all are proven
-by specific lines at HEAD. **High** that no trading-model change is smuggled in.
-**Medium** on the statistics layer's product reception, since almost every panel
-will read "insufficient". **Low** on holdout value today: it ships as machinery.
+**High** on the R mathematics and on M1–M4 being real blockers — each is proven by
+specific lines at HEAD (`queries.ts` deletes, `purge_expired_signals`,
+`performance.ts:104`, `logDecision`). **High** that no trading-model change is
+smuggled in. **Medium** on product reception of the statistics layer. **Low** on
+holdout value today: it ships as machinery, not conclusions.
 
 ## H. What still cannot be guaranteed
 
-Corrected R will not reconcile against broker P&L (no source exists); no method
-rescues small samples; and with 0 priced rows today the production effect of the R
-correction can only be proven by fixtures, not measured.
+Corrected R will not reconcile against broker P&L (no reconciliation source
+exists); no method rescues small samples; with 0 priced rows today the production
+effect of the R correction can only be proven by fixtures, not measured.
