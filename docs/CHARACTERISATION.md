@@ -89,8 +89,8 @@ produced by calling MetaApi or any broker endpoint — `sourceType` is limited t
 ```
 bun run test          # blocking project: UNIT + V1_CHARACTERIZATION + INVARIANT
 bun run test:report   # non-blocking INTENDED_V2 project
-bun run lint:tests    # eslint/prettier over the test sources only
-bun run verify        # lint:tests -> typecheck -> blocking tests -> build (canonical CI command)
+bun run lint:blocking # eslint/prettier over the test sources only
+bun run verify        # lint:blocking -> typecheck -> blocking tests -> build (canonical CI command)
 ```
 
 Property tests use fixed seeds (`20260821`) so any failure is reproducible.
@@ -99,10 +99,20 @@ Property tests use fixed seeds (`20260821`) so any failure is reproducible.
 
 Repo-wide `bun run lint` reports ~2,231 pre-existing prettier formatting errors
 across application sources. `verify` therefore lints the test sources
-(`lint:tests`, clean) and CI runs the repo-wide lint as a separate non-blocking
+(`lint:blocking`, clean) and CI runs the repo-wide lint as a separate non-blocking
 step until that debt is cleared.
 
 The git remote in this environment is not GitHub, so no GitHub status check can
 be observed from here: `.github/workflows/ci.yml` is committed and will run once
 the repository is mirrored to GitHub, but nothing about a passing GitHub check is
 claimed.
+
+## Pinned: `model_version` defaults to 1
+
+Every versioned table (`scanned_signals`, `shadow_executions`, `regime_stats`,
+`regime_snapshots`, `baseline_snapshots`) still declares `model_version`
+`DEFAULT 1`. An insert that omits the version therefore lands silently in the V1
+cohort instead of failing closed. This is pinned, not fixed: removing the
+defaults is an expand/contract migration for the model-remediation prompt, at
+which point the pin in `src/test/db/__tests__/model-version.db.test.ts` inverts
+into a fail-closed INVARIANT. See `docs/DB-TESTS.md`.
