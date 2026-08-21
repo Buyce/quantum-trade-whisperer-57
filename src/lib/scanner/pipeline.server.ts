@@ -214,6 +214,14 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
   let v2LatencyMs: number | null = null;
   let v3LatencyMs: number | null = null;
 
+  // Stage 3 research capture state. Populated only once V1 has actually
+  // evaluated real candles; never used by any production decision below.
+  let v1Evaluation: SetupEvaluation | null = null;
+  let v1Session: string | null = null;
+  let v1VolatilityIndex: number | null = null;
+  let publishedSignalId: string | null = null;
+
+
   /** V1 status -> (decision, disposition) for the research ledger. */
   const v1Cell = (
     status: JobResult["status"],
