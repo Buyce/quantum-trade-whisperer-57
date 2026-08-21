@@ -59,10 +59,11 @@ export const runBaselineCapture = createServerFn({ method: "POST" })
     const { adminClient } = await import("@/lib/scanner/pipeline.server");
     const { captureBaseline } = await import("@/lib/baseline/capture.server");
     const result = await captureBaseline(adminClient());
+    // The document itself is already persisted; the caller only needs the
+    // outcome, so it is not echoed back through the serializer.
     return {
       captured: result.captured,
       reason: result.reason ?? null,
       pinnedRunId: result.pinnedRunId,
-      metrics: result.metrics,
     };
   });
