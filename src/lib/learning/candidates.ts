@@ -42,6 +42,12 @@ export interface CandidateGateRow {
   not_evaluable: number;
 }
 
+export interface CandidateOriginRow {
+  plan_origin: string;
+  n: number;
+  enrolled: number;
+}
+
 export interface CandidateFunnel {
   generated_at: string;
   flags: CandidateFunnelFlags | null;
@@ -49,6 +55,7 @@ export interface CandidateFunnel {
   by_stage: CandidateStageRow[];
   by_instrument: CandidateInstrumentRow[];
   gate_outcomes: CandidateGateRow[];
+  by_plan_origin: CandidateOriginRow[];
   cohort_counts: Record<string, number>;
 }
 
@@ -59,6 +66,7 @@ export const EMPTY_CANDIDATE_FUNNEL: CandidateFunnel = {
   by_stage: [],
   by_instrument: [],
   gate_outcomes: [],
+  by_plan_origin: [],
   cohort_counts: {},
 };
 
