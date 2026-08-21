@@ -22,23 +22,32 @@ import type { Candle, PillarScores } from "../../types";
 
 const START = "2026-08-01T00:00:00.000Z";
 
-/** Deterministic zig-zag builder: an A-B impulse followed by a B-C retracement. */
+/**
+ * Deterministic zig-zag builder with provenance: synthetic, no randomness, no
+ * network. Warm-up ramp -> dip (pivot A) -> impulse (pivot B) -> retracement (C).
+ */
 function abcSeries(direction: "long" | "short", retrace: number): Candle[] {
-  const base = 100;
   const legs: Array<{ open: number; high: number; low: number; close: number }> = [];
-  const push = (close: number) =>
-    legs.push({ open: close, high: close + 0.4, low: close - 0.4, close });
-
-  // Warm-up so ATR/EMA have data.
-  for (let i = 0; i < 220; i += 1) push(base + i * (direction === "long" ? 0.05 : -0.05));
-  const impulseFrom = base + 220 * (direction === "long" ? 0.05 : -0.05);
-  const amplitude = 6;
-  const b = direction === "long" ? impulseFrom + amplitude : impulseFrom - amplitude;
-  for (let i = 1; i <= 10; i += 1) {
-    push(impulseFrom + ((b - impulseFrom) * i) / 10);
+  const push = (c: number, w = 0.05) => legs.push({ open: c, high: c + w, low: c - w, close: c });
+  const s = direction === "long" ? 1 : -1;
+  let px = 100;
+  for (let i = 0; i < 200; i += 1) {
+    px += s * 0.05;
+    push(px);
   }
-  const c = direction === "long" ? b - amplitude * retrace : b + amplitude * retrace;
-  for (let i = 1; i <= 6; i += 1) push(b + ((c - b) * i) / 6);
+  for (let i = 0; i < 6; i += 1) {
+    px -= s * 0.5;
+    push(px);
+  }
+  const a = px - s * 0.05;
+  for (let i = 0; i < 12; i += 1) {
+    px += s * 1.0;
+    push(px);
+  }
+  const b = px + s * 0.05;
+  const amplitude = Math.abs(b - a);
+  const cTarget = b - s * amplitude * retrace;
+  for (let i = 1; i <= 6; i += 1) push(b + ((cTarget - b) * i) / 6);
   return m15Series(START, legs);
 }
 
@@ -97,7 +106,8 @@ describe("V2 volatility transform", () => {
     for (const bad of [Number.NaN, Number.POSITIVE_INFINITY * 0, -1, 0]) {
       expect(volatilityScoreV2(bad)).toBe(0);
     }
-    expect(volatilityScoreV2(Number.POSITIVE_INFINITY)).toBe(100);
+    // Infinity is not a measurement either: it fails closed rather than saturating.
+    expect(volatilityScoreV2(Number.POSITIVE_INFINITY)).toBe(0);
   });
 });
 
