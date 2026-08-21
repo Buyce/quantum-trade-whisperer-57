@@ -802,7 +802,11 @@ export type Database = {
           last_error: string | null
           last_run_at: string | null
           paused: boolean
+          research_errors: number
+          research_last_error: string | null
+          research_last_error_at: string | null
           updated_at: string
+          v2_enabled: boolean
           win_gate_notified_at: string | null
         }
         Insert: {
@@ -812,7 +816,11 @@ export type Database = {
           last_error?: string | null
           last_run_at?: string | null
           paused?: boolean
+          research_errors?: number
+          research_last_error?: string | null
+          research_last_error_at?: string | null
           updated_at?: string
+          v2_enabled?: boolean
           win_gate_notified_at?: string | null
         }
         Update: {
@@ -822,7 +830,11 @@ export type Database = {
           last_error?: string | null
           last_run_at?: string | null
           paused?: boolean
+          research_errors?: number
+          research_last_error?: string | null
+          research_last_error_at?: string | null
           updated_at?: string
+          v2_enabled?: boolean
           win_gate_notified_at?: string | null
         }
         Relationships: []
@@ -852,6 +864,7 @@ export type Database = {
           ml_target_label: number | null
           model_version: number
           observation_key: string | null
+          quality_grade: string | null
           realized_r: number | null
           replay_cursor: string | null
           resolved_at: string | null
@@ -860,6 +873,7 @@ export type Database = {
           signal_id: string | null
           status: string
           stop_loss: number
+          strategy_family: string | null
           tp1: number
           tp1_r: number | null
           tp2: number
@@ -894,6 +908,7 @@ export type Database = {
           ml_target_label?: number | null
           model_version?: number
           observation_key?: string | null
+          quality_grade?: string | null
           realized_r?: number | null
           replay_cursor?: string | null
           resolved_at?: string | null
@@ -902,6 +917,7 @@ export type Database = {
           signal_id?: string | null
           status?: string
           stop_loss: number
+          strategy_family?: string | null
           tp1: number
           tp1_r?: number | null
           tp2: number
@@ -936,6 +952,7 @@ export type Database = {
           ml_target_label?: number | null
           model_version?: number
           observation_key?: string | null
+          quality_grade?: string | null
           realized_r?: number | null
           replay_cursor?: string | null
           resolved_at?: string | null
@@ -944,6 +961,7 @@ export type Database = {
           signal_id?: string | null
           status?: string
           stop_loss?: number
+          strategy_family?: string | null
           tp1?: number
           tp1_r?: number | null
           tp2?: number
