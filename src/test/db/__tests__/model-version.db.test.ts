@@ -160,17 +160,31 @@ describe("model_version cohort isolation", () => {
     }
   });
 
-  it("[V1_CHARACTERIZATION] model_version still defaults to 1, so an omitted version lands in V1 rather than failing closed", () => {
+  it("[V1_CHARACTERIZATION] model_version still defaults to 1 on production tables, so an omitted version lands in V1 rather than failing closed", () => {
     guard();
     // Pinned present state. When the expand/contract migration drops these
     // defaults this test must be inverted to a fail-closed INVARIANT.
+    //
+    // `model_observations` is deliberately excluded: it is a research ledger
+    // whose writers must state the model version explicitly, so that column has
+    // no default and an omitted version fails closed there by design.
     const defaults = db.rows<{ table_name: string; column_default: string | null }>(
       `select table_name, column_default from information_schema.columns
         where table_schema = 'public' and column_name = 'model_version'
+          and table_name <> 'model_observations'
         order by table_name`,
     );
     expect(defaults.length).toBeGreaterThan(0);
     for (const row of defaults) expect(row.column_default).toBe("1");
+
+    const research = db.rows<{ column_default: string | null; is_nullable: string }>(
+      `select column_default, is_nullable from information_schema.columns
+        where table_schema = 'public' and table_name = 'model_observations'
+          and column_name = 'model_version'`,
+    );
+    expect(research[0]?.column_default).toBeNull();
+    expect(research[0]?.is_nullable).toBe("NO");
+
 
     db.exec(`
       insert into public.regime_stats
