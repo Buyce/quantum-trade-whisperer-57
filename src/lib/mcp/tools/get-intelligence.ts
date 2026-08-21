@@ -9,6 +9,7 @@ import {
   type RegimeStatRow,
 } from "@/lib/learning/regime";
 import { explainRegime } from "@/lib/learning/explain";
+import { ACTIVE_MODEL_LABEL, ACTIVE_MODEL_VERSION } from "@/lib/versioning";
 
 export default defineTool({
   name: "get_intelligence",
@@ -77,7 +78,10 @@ export default defineTool({
       .from("regime_stats")
       .select(
         "tier, regime_key, instrument, direction, session, vol_bucket, n_total, n_filled, wins, p_fill_raw, p_win_raw, p_fill_shrunk, p_win_shrunk, vol_t1, vol_t2, computed_at",
-      );
+      )
+      // Production cohort only: an agent must never be handed statistics that
+      // mix the live model with a research model.
+      .eq("model_version", ACTIVE_MODEL_VERSION);
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
 
     const rows = (data ?? []) as unknown as RegimeStatRow[];
@@ -86,6 +90,8 @@ export default defineTool({
 
     if (!prior) {
       const payload = {
+        model_version: ACTIVE_MODEL_VERSION,
+        model_label: ACTIVE_MODEL_LABEL,
         learned: false,
         message:
           "The learning engine has no global statistics yet: not enough resolved shadow samples. No estimate is available.",
@@ -99,6 +105,8 @@ export default defineTool({
     const explanation = explainRegime(rows, query);
 
     const payload = {
+      model_version: ACTIVE_MODEL_VERSION,
+      model_label: ACTIVE_MODEL_LABEL,
       learned: true,
       query,
       prior: {

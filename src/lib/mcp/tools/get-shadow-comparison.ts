@@ -1,5 +1,6 @@
 import { defineTool } from "@lovable.dev/mcp-js";
 import { supabaseForUser } from "../supabase";
+import { ACTIVE_MODEL_LABEL, ACTIVE_MODEL_VERSION } from "@/lib/versioning";
 
 /**
  * The shadow tables are service-role gated, so the aggregation runs with the
@@ -28,6 +29,8 @@ export default defineTool({
     const report = await loadWeeklyReport(supabaseAdmin);
 
     const payload = {
+      model_version: ACTIVE_MODEL_VERSION,
+      model_label: ACTIVE_MODEL_LABEL,
       iso_week: report.isoWeek,
       window_start: report.windowStart,
       window_end: report.windowEnd,

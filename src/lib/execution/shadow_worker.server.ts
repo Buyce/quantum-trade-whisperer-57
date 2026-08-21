@@ -7,6 +7,7 @@
  * pipeline only performs one extra in-transaction insert and never awaits this.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { ACTIVE_MODEL_VERSION } from "@/lib/versioning";
 
 export interface ShadowJobResult {
   queueId: number;
@@ -58,7 +59,7 @@ export async function processNextShadowJob(db: SupabaseClient): Promise<ShadowJo
     const { data: signal, error: signalError } = await db
       .from("scanned_signals")
       .select(
-        "id, detected_at, instrument, grade, direction, entry_price, stop_loss, tp1, tp2, tp3, tp1_r, tp2_r, tp3_r, max_r, confidence_score, atr",
+        "id, detected_at, instrument, grade, direction, entry_price, stop_loss, tp1, tp2, tp3, tp1_r, tp2_r, tp3_r, max_r, confidence_score, atr, model_version, observation_key",
       )
       .eq("id", signalId)
       .maybeSingle();
@@ -100,7 +101,13 @@ export async function processNextShadowJob(db: SupabaseClient): Promise<ShadowJo
       volatility_index: ctx?.volatility_index ?? null,
       status: "open",
       replay_cursor: signal.detected_at,
+      // Inherited from the signal, never defaulted here: a shadow row must
+      // always report the model version that actually produced the setup.
+      model_version:
+        (signal as { model_version?: number | null }).model_version ?? ACTIVE_MODEL_VERSION,
+      observation_key: (signal as { observation_key?: string | null }).observation_key ?? null,
     });
+
 
 
     // 23505 = unique violation on signal_id: already enrolled, which is a

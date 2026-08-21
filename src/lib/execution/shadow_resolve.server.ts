@@ -8,6 +8,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchCandles } from "@/lib/scanner/metaapi.server";
 import { describeError } from "@/lib/scanner/pipeline.server";
+import { ACTIVE_MODEL_VERSION } from "@/lib/versioning";
 import { replaySetup, type ReplayInput } from "./replay";
 
 const MAX_ROWS_PER_RUN = 200;
@@ -40,6 +41,7 @@ interface ShadowRow {
   max_adverse_excursion_r: number | null;
   bars_replayed: number;
   replay_cursor: string | null;
+  model_version: number;
 }
 
 export interface ResolveSummary {
@@ -50,18 +52,46 @@ export interface ResolveSummary {
   fetchFailures: number;
 }
 
-export async function resolveShadowExecutions(db: SupabaseClient): Promise<ResolveSummary> {
-  const { data, error } = await db
+const OPEN_ROW_COLUMNS =
+  "id, signal_id, instrument, direction, detected_at, entry_price, stop_loss, tp1, tp2, tp3, tp1_r, tp2_r, tp3_r, risk_price, atr, filled_at, fill_price, execution_slippage_pips, max_favorable_excursion_r, max_adverse_excursion_r, bars_replayed, replay_cursor, model_version";
+
+/**
+ * Per-version budget. The production cohort is read FIRST and may consume the
+ * whole allowance; research cohorts get only what is left over. Without this
+ * split a large V2 backlog would interleave by `detected_at` and delay the
+ * resolution of the live model that feeds the priors and the weekly report.
+ */
+async function loadOpenRows(db: SupabaseClient): Promise<ShadowRow[]> {
+  const primary = await db
     .from("shadow_executions")
-    .select(
-      "id, signal_id, instrument, direction, detected_at, entry_price, stop_loss, tp1, tp2, tp3, tp1_r, tp2_r, tp3_r, risk_price, atr, filled_at, fill_price, execution_slippage_pips, max_favorable_excursion_r, max_adverse_excursion_r, bars_replayed, replay_cursor",
-    )
+    .select(OPEN_ROW_COLUMNS)
     .in("status", ["pending", "open"])
+    .eq("model_version", ACTIVE_MODEL_VERSION)
     .order("detected_at", { ascending: true })
     .limit(MAX_ROWS_PER_RUN);
-  if (error) throw new Error(`shadow_executions read failed: ${error.message}`);
+  if (primary.error) throw new Error(`shadow_executions read failed: ${primary.error.message}`);
 
-  const rows = (data ?? []) as ShadowRow[];
+  const rows = (primary.data ?? []) as unknown as ShadowRow[];
+  const spare = MAX_ROWS_PER_RUN - rows.length;
+  if (spare <= 0) return rows;
+
+  const research = await db
+    .from("shadow_executions")
+    .select(OPEN_ROW_COLUMNS)
+    .in("status", ["pending", "open"])
+    .neq("model_version", ACTIVE_MODEL_VERSION)
+    .order("detected_at", { ascending: true })
+    .limit(spare);
+  // A research-cohort read failure must never abort production resolution.
+  if (research.error) {
+    console.error("[shadow-resolve] research cohort read failed:", research.error.message);
+    return rows;
+  }
+  return rows.concat((research.data ?? []) as unknown as ShadowRow[]);
+}
+
+export async function resolveShadowExecutions(db: SupabaseClient): Promise<ResolveSummary> {
+  const rows = await loadOpenRows(db);
   const summary: ResolveSummary = {
     scanned: rows.length,
     advanced: 0,

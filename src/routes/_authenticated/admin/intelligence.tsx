@@ -36,6 +36,7 @@ import {
   pctOf,
   timeAgo,
 } from "@/components/admin/AdminPanels";
+import { BaselinePanel } from "@/components/admin/BaselinePanel";
 
 export const Route = createFileRoute("/_authenticated/admin/intelligence")({
   head: () => ({
@@ -253,6 +254,10 @@ function AdminIntelligencePage() {
           <DisciplinePanel discipline={discipline} />
         </PanelShell>
       </div>
+
+      <PanelShell title="Quantitative integrity baseline — immutable, pinned to one learning run">
+        <BaselinePanel />
+      </PanelShell>
 
       <PanelShell title="Human vs AI agent — accounts, decisions and reported outcomes">
         <AuthorSplitPanel split={data.author_split} />
