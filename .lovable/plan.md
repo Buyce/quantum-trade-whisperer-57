@@ -185,11 +185,8 @@ multiplicity denominator.
    MCP. Expected: friendly already-resolved result, no `outcome` reset, no raw
    trigger error.
 4. **Single trading day of data.** 12 filled rows, one UTC day. Expected:
-
    `cluster_n = 1`, no interval, `insufficient`, no prescriptive wording, weekly
    email states why.
-5. **Repeat decision tap on a resolved trade.** Expected: friendly "already
-   resolved" state, no raw trigger error.
 
 ## D. Revised plan
 
