@@ -35,7 +35,7 @@ const bar = (
 const AWAY = (time: string) => bar(time, 1.1025, 1.1035, 1.1015, 1.103);
 
 describe("replaySetupV2 — fill leg and time in force", () => {
-  it("never filled: the limit is never reached inside TIF", () => {
+  it("[UNIT] never filled: the limit is never reached inside TIF", () => {
     const s = replaySetupV2(longSetup(), [AWAY(B0), AWAY(B1), AWAY(B2)]);
     expect(s.status).toBe("resolved");
     expect(s.outcome).toBe("never_filled");
@@ -46,7 +46,7 @@ describe("replaySetupV2 — fill leg and time in force", () => {
     expect(s.fillAmbiguousTif).toBe(false);
   });
 
-  it("filled immediately: the forming detection bar can fill", () => {
+  it("[UNIT] filled immediately: the forming detection bar can fill", () => {
     const s = replaySetupV2(longSetup(), [bar(B0, 1.1005, 1.1015, 1.0999, 1.101)]);
     expect(s.fillBarTime).toBe(B0);
     expect(s.fillPrice).toBeCloseTo(1.1, 10);
@@ -54,13 +54,13 @@ describe("replaySetupV2 — fill leg and time in force", () => {
     expect(s.status).toBe("open");
   });
 
-  it("filled exactly before expiry: a bar ending ON the deadline still fills", () => {
+  it("[UNIT] filled exactly before expiry: a bar ending ON the deadline still fills", () => {
     const s = replaySetupV2(longSetup(), [AWAY(B0), bar(B1, 1.1005, 1.1015, 1.0999, 1.101)]);
     expect(s.fillBarTime).toBe(B1);
     expect(s.fillAmbiguousTif).toBe(false);
   });
 
-  it("touch AFTER expiry never fills — the order was already dead", () => {
+  it("[UNIT] touch AFTER expiry never fills — the order was already dead", () => {
     const s = replaySetupV2(longSetup(), [AWAY(B0), AWAY(B1), bar(B2, 1.1005, 1.101, 1.0999, 1.1)]);
     expect(s.outcome).toBe("never_filled");
     expect(s.fillBarTime).toBeNull();
@@ -68,7 +68,7 @@ describe("replaySetupV2 — fill leg and time in force", () => {
     expect(s.label).toBe(0);
   });
 
-  it("gap-through fill prices at the open and measures R against ACTUAL risk", () => {
+  it("[UNIT] gap-through fill prices at the open and measures R against ACTUAL risk", () => {
     const s = replaySetupV2(longSetup(), [
       AWAY(B0),
       bar(B1, 1.0985, 1.1055, 1.098, 1.105),
@@ -82,7 +82,7 @@ describe("replaySetupV2 — fill leg and time in force", () => {
     expect(s.grossR).not.toBeCloseTo(1, 3);
   });
 
-  it("gap-through that opens beyond the stop is a data-quality outcome, not a loss", () => {
+  it("[UNIT] gap-through that opens beyond the stop is a data-quality outcome, not a loss", () => {
     const s = replaySetupV2(longSetup(), [AWAY(B0), bar(B1, 1.094, 1.0945, 1.093, 1.0935)]);
     expect(s.outcome).toBe("gap_beyond_stop");
     expect(s.label).toBeNull();
@@ -90,7 +90,7 @@ describe("replaySetupV2 — fill leg and time in force", () => {
     expect(s.fillGapThrough).toBe(true);
   });
 
-  it("an invalid plan fails closed with a NULL label", () => {
+  it("[UNIT] an invalid plan fails closed with a NULL label", () => {
     for (const patch of [{ riskPrice: 0 }, { stopLoss: 1.101 }, { tp1: 1.099 }]) {
       const s = replaySetupV2(longSetup(patch), [bar(B0, 1.1, 1.106, 1.094, 1.1)]);
       expect(s.outcome).toBe("invalid_plan");
@@ -104,7 +104,7 @@ describe("replaySetupV2 — barriers, causality and execution policy", () => {
   /** Ordinary intrabar fill on B0 that touches nothing else. */
   const cleanFill = bar(B0, 1.1005, 1.1015, 1.0999, 1.101);
 
-  it("stop only resolves at exactly -1R with a determinable chronology", () => {
+  it("[UNIT] stop only resolves at exactly -1R with a determinable chronology", () => {
     const s = replaySetupV2(longSetup(), [cleanFill, bar(B1, 1.1, 1.1005, 1.0949, 1.095)]);
     expect(s.outcome).toBe("loss");
     expect(s.grossR).toBeCloseTo(-1, 10);
@@ -113,7 +113,7 @@ describe("replaySetupV2 — barriers, causality and execution policy", () => {
     expect(s.stopGapThrough).toBe(false);
   });
 
-  it("a bar opening beyond the stop exits at the OPEN and can lose more than 1R", () => {
+  it("[UNIT] a bar opening beyond the stop exits at the OPEN and can lose more than 1R", () => {
     const s = replaySetupV2(longSetup(), [cleanFill, bar(B1, 1.093, 1.0935, 1.0925, 1.093)]);
     expect(s.outcome).toBe("loss");
     expect(s.stopGapThrough).toBe(true);
@@ -121,7 +121,7 @@ describe("replaySetupV2 — barriers, causality and execution policy", () => {
     expect(s.grossR!).toBeLessThan(-1);
   });
 
-  it("TP1 pays exactly 1R under single_exit_first_target", () => {
+  it("[UNIT] TP1 pays exactly 1R under single_exit_first_target", () => {
     const s = replaySetupV2(longSetup(), [cleanFill, bar(B1, 1.1, 1.1051, 1.0999, 1.105)]);
     expect(s.executionPolicy).toBe(EXECUTION_POLICY_V2);
     expect(s.outcome).toBe("win");
@@ -132,7 +132,7 @@ describe("replaySetupV2 — barriers, causality and execution policy", () => {
     expect(s.tp1BeforeStop).toBe(true);
   });
 
-  it("TP2 and TP3 touches are analytics only — the realized exit stays TP1", () => {
+  it("[UNIT] TP2 and TP3 touches are analytics only — the realized exit stays TP1", () => {
     const tp2 = replaySetupV2(longSetup(), [cleanFill, bar(B1, 1.1, 1.1101, 1.0999, 1.11)]);
     expect(tp2.grossR).toBeCloseTo(1, 10);
     expect(tp2.maxTargetTouched).toBe(2);
@@ -142,13 +142,13 @@ describe("replaySetupV2 — barriers, causality and execution policy", () => {
     expect(tp3.firstTargetTouched).toBe(1);
   });
 
-  it("a gap through TP1 is credited at the TARGET, never the better open", () => {
+  it("[UNIT] a gap through TP1 is credited at the TARGET, never the better open", () => {
     const s = replaySetupV2(longSetup(), [cleanFill, bar(B1, 1.108, 1.109, 1.1075, 1.108)]);
     expect(s.outcome).toBe("win");
     expect(s.grossR).toBeCloseTo(1, 10);
   });
 
-  it("stop and TP in the same post-fill bar resolves as a loss with NULL chronology", () => {
+  it("[UNIT] stop and TP in the same post-fill bar resolves as a loss with NULL chronology", () => {
     const s = replaySetupV2(longSetup(), [cleanFill, bar(B1, 1.1, 1.1051, 1.0949, 1.1)]);
     expect(s.outcome).toBe("loss");
     expect(s.grossR).toBeCloseTo(-1, 10);
@@ -158,7 +158,7 @@ describe("replaySetupV2 — barriers, causality and execution policy", () => {
     expect(s.stopBeforeTp1).toBeNull();
   });
 
-  it("entry, stop and TP in ONE bar resolves as a loss and records the unproven touch", () => {
+  it("[UNIT] entry, stop and TP in ONE bar resolves as a loss and records the unproven touch", () => {
     const s = replaySetupV2(longSetup(), [bar(B0, 1.101, 1.106, 1.094, 1.1)]);
     expect(s.outcome).toBe("loss");
     expect(s.grossR).toBeCloseTo(-1, 10);
@@ -167,7 +167,7 @@ describe("replaySetupV2 — barriers, causality and execution policy", () => {
     expect(s.fillBarExcursionAmbiguous).toBe(true);
   });
 
-  it("an ordinary fill bar that also touches TP1 credits NOTHING and stays open", () => {
+  it("[UNIT] an ordinary fill bar that also touches TP1 credits NOTHING and stays open", () => {
     const s = replaySetupV2(longSetup(), [bar(B0, 1.1005, 1.1051, 1.0999, 1.105)]);
     expect(s.status).toBe("open");
     expect(s.outcome).toBeNull();
@@ -185,7 +185,7 @@ describe("replaySetupV2 — barriers, causality and execution policy", () => {
     expect(next.stopBeforeTp1).toBeNull();
   });
 
-  it("MFE/MAE exclude an ordinary fill bar and include a gap-at-open fill bar", () => {
+  it("[UNIT] MFE/MAE exclude an ordinary fill bar and include a gap-at-open fill bar", () => {
     const ordinary = replaySetupV2(longSetup(), [bar(B0, 1.1005, 1.1045, 1.0999, 1.104)]);
     expect(ordinary.mfeR).toBe(0);
     expect(ordinary.maeR).toBe(0);
@@ -201,28 +201,28 @@ describe("replaySetupV2 — barriers, causality and execution policy", () => {
 describe("replaySetupV2 — vertical barrier and data gaps", () => {
   const cleanFill = bar(B0, 1.1005, 1.1015, 1.0999, 1.101);
 
-  it("vertical expiry positive marks to the close over ACTUAL risk", () => {
+  it("[UNIT] vertical expiry positive marks to the close over ACTUAL risk", () => {
     const s = replaySetupV2(longSetup(), [cleanFill, bar(DAY_LATER, 1.101, 1.1025, 1.0999, 1.102)]);
     expect(s.outcome).toBe("expired");
     expect(s.grossR).toBeCloseTo(0.4, 10);
     expect(s.label).toBe(0);
   });
 
-  it("vertical expiry negative is reported as a negative R, not a loss label", () => {
+  it("[UNIT] vertical expiry negative is reported as a negative R, not a loss label", () => {
     const s = replaySetupV2(longSetup(), [cleanFill, bar(DAY_LATER, 1.0995, 1.1, 1.0985, 1.099)]);
     expect(s.outcome).toBe("expired");
     expect(s.grossR).toBeCloseTo(-0.2, 10);
     expect(s.label).toBe(0);
   });
 
-  it("missing candles never invent an outcome", () => {
+  it("[UNIT] missing candles never invent an outcome", () => {
     const s = replaySetupV2(longSetup(), []);
     expect(s.status).toBe("open");
     expect(s.outcome).toBeNull();
     expect(s.replayCursor).toBeNull();
   });
 
-  it("a weekend closure leaves an unresolved row open at its cursor", () => {
+  it("[UNIT] a weekend closure leaves an unresolved row open at its cursor", () => {
     // Filled on Friday, then no candles at all until Monday: nothing to judge.
     const s = replaySetupV2(longSetup(), [cleanFill]);
     expect(s.status).toBe("open");
@@ -236,7 +236,7 @@ describe("replaySetupV2 — vertical barrier and data gaps", () => {
     expect(resumed.replayCursor).toBe(B3);
   });
 
-  it("short setups mirror long adjudication exactly", () => {
+  it("[UNIT] short setups mirror long adjudication exactly", () => {
     const short = longSetup({
       direction: "short",
       entryPrice: 1.1,
