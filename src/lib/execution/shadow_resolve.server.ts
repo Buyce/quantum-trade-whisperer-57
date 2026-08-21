@@ -10,8 +10,18 @@ import { fetchCandles } from "@/lib/scanner/metaapi.server";
 import { describeError } from "@/lib/scanner/pipeline.server";
 import { ACTIVE_MODEL_VERSION } from "@/lib/versioning";
 import { replaySetup, type ReplayInput } from "./replay";
+import { replaySetupV2 } from "./replay-v2";
+import { REPLAY_V1_VERSION, REPLAY_V2_VERSION } from "./replay-registry";
 
 const MAX_ROWS_PER_RUN = 200;
+/**
+ * Replay-V2 gets its OWN budget on top of the production one, so a research
+ * backlog can never displace a single Replay-V1 row. It is deliberately small:
+ * research throughput is a nice-to-have, production labelling is not.
+ */
+const RESEARCH_MAX_ROWS_PER_RUN = 60;
+/** Model cohorts are resolved strictly in this order. */
+const MODEL_PRIORITY = [1, 2, 3] as const;
 /**
  * 1000 M15 bars is ~10 days of session time — deep enough to replay a backlog
  * from the start of the dataset, not just the last day.
