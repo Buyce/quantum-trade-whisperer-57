@@ -63,6 +63,35 @@ function isUnverified(row: TradeHistoryRow) {
   return row.outcome !== "open" && (row.actual_entry_price == null || row.actual_exit_price == null);
 }
 
+/**
+ * Who entered the fill prices. Provenance is stamped server-side, so this label
+ * is a fact about the write, not a guess: an assistant cannot present its own
+ * numbers as yours.
+ */
+function PriceProvenanceBadge({ row }: { row: TradeHistoryRow }) {
+  if (isUnverified(row) || row.outcome === "open") return null;
+  const agent = row.price_source === "agent";
+  const when = row.price_recorded_at ? new Date(row.price_recorded_at).toLocaleString() : null;
+  const title = agent
+    ? `Prices entered by an AI assistant${row.price_source_client ? ` (client ${row.price_source_client})` : ""}${when ? ` on ${when}` : ""}`
+    : `Prices entered by you in the terminal${when ? ` on ${when}` : ""}`;
+  return (
+    <span
+      title={title}
+      className={cn(
+        "num inline-flex shrink-0 items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[11px]",
+        agent
+          ? "border-warning/40 bg-warning/10 text-warning"
+          : "border-success/40 bg-success/10 text-success",
+      )}
+    >
+      {agent ? <Bot className="size-3" /> : <UserRound className="size-3" />}
+      Verified · {agent ? "agent" : "you"}
+    </span>
+  );
+}
+
+
 function HistoryPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
