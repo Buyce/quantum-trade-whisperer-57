@@ -16,6 +16,7 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { ACTIVE_MODEL_LABEL, ACTIVE_MODEL_VERSION } from "@/lib/versioning";
+import { REPLAY_V1_VERSION } from "@/lib/execution/replay-registry";
 
 const READ_CAP = 5000;
 
