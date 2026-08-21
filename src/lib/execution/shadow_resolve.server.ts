@@ -279,27 +279,7 @@ export async function resolveShadowExecutions(db: SupabaseClient): Promise<Resol
     summary.instruments.push({ instrument, candles: candles.length });
 
     for (const row of group) {
-      const input: ReplayInput = {
-        direction: row.direction,
-        instrument: row.instrument,
-        detectedAt: row.detected_at,
-        entryPrice: Number(row.entry_price),
-        stopLoss: Number(row.stop_loss),
-        tp1: Number(row.tp1),
-        tp2: Number(row.tp2),
-        tp3: row.tp3 == null ? null : Number(row.tp3),
-        tp1R: row.tp1_r == null ? null : Number(row.tp1_r),
-        tp2R: row.tp2_r == null ? null : Number(row.tp2_r),
-        tp3R: row.tp3_r == null ? null : Number(row.tp3_r),
-        riskPrice: Number(row.risk_price),
-        atr: row.atr == null ? null : Number(row.atr),
-        replayCursor: row.replay_cursor,
-        filledAt: row.filled_at,
-        fillPrice: row.fill_price == null ? null : Number(row.fill_price),
-        mfeR: row.max_favorable_excursion_r == null ? null : Number(row.max_favorable_excursion_r),
-        maeR: row.max_adverse_excursion_r == null ? null : Number(row.max_adverse_excursion_r),
-        barsReplayed: row.bars_replayed ?? 0,
-      };
+      const input = toReplayInput(row);
 
       const state = replaySetup(input, candles);
       const advanced = state.replayCursor !== row.replay_cursor || state.status === "resolved";
