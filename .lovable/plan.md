@@ -1,6 +1,6 @@
-# Replay Lifecycle — Final Plan (Replay V2 research-only, prospective + historical)
+# Replay Lifecycle — Final Plan with Execution-Safety Lock (Replay V2 research-only)
 
-Prompt 5C architecture preserved: plan identity, TIF correction, actual-risk normalisation, frozen legacy labels, gross/net separation, research-only V2, DB-controlled active replay version, manual promotion. Corrections 1–12 below are folded in.
+Prompt 5D architecture preserved in full: plan identity, prospective + historical dual enrolment, frozen resolved Replay-V1 rows with an operational Replay-V1 resolver, immutable replay-version registry, independent replay/policy dimensions, data-quality outcomes, actual-risk normalisation, separate rereplay worker, baseline first, M15 fill-time epistemics. Prompt 5E items 1–6 folded in.
 
 ## 1. Lifecycle
 
@@ -19,60 +19,93 @@ MODEL  V1 (published)   V2 (research)   V3 (research)
         replay result (own id; fill → adjudication → barrier → gross_r → [cost scenario] → net_r)
 ```
 
-Two creation paths, deliberately separate:
-- **Ongoing (prospective).** Every new trade plan gets a Replay-V1 row (production, unchanged) **and** a Replay-V2 sibling row, created by an `AFTER INSERT` trigger on `shadow_executions` (`replay_v2_shadow_enabled` flag, `WHEN NEW.replay_version = 1`) that inserts one sibling with the same `plan_id`, `status = 'pending'`, `execution_policy = 'single_exit_first_target'`, `ON CONFLICT DO NOTHING`. In-transaction, pure insert, no network, no latency — mirroring the existing `enroll_shadow_signal` pattern. It is idempotent (unique triple), bounded (exactly one sibling per plan) and cannot fail the V1 path: the trigger only ever inserts, and a conflict is a no-op. Covers all three model cohorts because it fires on the shadow row, not on `scanned_signals`.
-- **Historical (backlog).** A separate flag-gated bounded worker enrols Replay-V2 siblings for plans that already existed at deployment.
+- **Ongoing (prospective).** `AFTER INSERT` trigger on `shadow_executions`, `WHEN NEW.replay_version = 1`, gated by `replay_v2_shadow_enabled`, inserts one Replay-V2 sibling with the same `plan_id`, `status = 'pending'`, `execution_policy = 'single_exit_first_target'`. Fires for all three model cohorts because it hangs off the shadow row, not off `scanned_signals`.
+- **Historical (backlog).** Separate flag-gated bounded worker enrols siblings for plans that predate deployment.
 
-## 2. `plan_id` lifecycle
-- Column `plan_id uuid NOT NULL DEFAULT gen_random_uuid()`. The default is what keeps the three existing insert paths (`processNextShadowJob`, `enrolV2Shadow`, `enrolV3Shadow`) working unchanged after `NOT NULL` — none of them needs to know the column exists.
-- Historical rows: `plan_id = id` (one-time backfill, every row, no `signal_id` filter — 149 of 326 production rows already have `signal_id IS NULL`).
-- New plans: the plan id is minted exactly once, by the first (Replay-V1) insert. Every later replay version and execution policy for that plan inherits it via the trigger or the backfill worker. The replay-result `id` stays independent.
-- Blocking tests: one per enrolment path (V1 worker, V2 enrol, V3 enrol) asserting a plan_id is minted, is unique per plan, and that the V2 sibling carries the identical value.
+## 2. Sibling creation is fail-open (5E-1)
+An `AFTER INSERT` trigger runs inside the parent transaction, so a research failure could roll back a production enrolment. The trigger function therefore wraps **all** sibling work in an inner `BEGIN ... EXCEPTION WHEN OTHERS THEN ... END` block that:
+- swallows the research exception;
+- leaves the Replay-V1 parent row committed and untouched;
+- best-effort increments durable research health (`shadow_engine_state.research_errors`, `research_last_error`, `research_last_error_at`) inside its own nested exception block so even that write cannot propagate;
+- never re-raises into the production transaction.
 
-## 3. Replay V1 stays operational
-Immutability applies **only to already-resolved** Replay-V1 rows. The production resolver is not frozen: open/pending Replay-V1 rows keep advancing and keep writing `filled_at`, `fill_price`, `execution_slippage_pips`, `realized_r`, `ml_target_label`, `resolved_outcome`, `replay_cursor`, `max_favorable_excursion_r`, `max_adverse_excursion_r`, `bars_replayed`, `bars_to_outcome`, `resolved_at`. A `BEFORE UPDATE` trigger rejects changes to those fields when the row is `replay_version = 1 AND status = 'resolved'` (`last_polled_at` remains writable), so immutability is enforced by the database rather than by discipline.
+`ON CONFLICT DO NOTHING` is kept for idempotency but is explicitly **not** the isolation mechanism. Blocking DB test: force the sibling insert to fail (e.g. a temporarily violated CHECK or a NOT NULL breach injected in the sibling path) and assert the Replay-V1 row is present and complete after commit, with `research_errors` incremented.
 
-## 4. `replay_versions` registry (immutable provenance)
-`public.replay_versions (replay_version smallint pk, label text, semantics jsonb not null, code_hash text not null, activated_at timestamptz not null default now(), retired_at timestamptz)`; authenticated SELECT, service_role write. Seeded with:
-- **1** — `legacy_m15_optimistic`: fill on any bar whose open precedes the deadline; planned-risk R; best-target-touched analytics; favorable gap fills; no ambiguity accounting.
-- **2** — `m15_fail_closed_actual_risk`, `semantics` recording: TIF interval rule (whole bar interval inside the live-order window); detection-bar rule (strictly after `detected_at`, unchanged from V1); actual-risk normalisation rule; favorable-gap-only limit semantics; ambiguity / fail-closed policy; supported execution policy (`single_exit_first_target`); gross/net cost convention; and `code_hash` over `replay.ts` v2 code plus `ORDER_TIF_MINUTES` / `SIGNAL_MAX_AGE_HOURS`. Once any Replay-V2 row exists, changing any of these requires Replay V3 — enforced by a blocking test comparing the computed hash against the registry row.
+## 3. `plan_id` lifecycle
+`plan_id uuid NOT NULL DEFAULT gen_random_uuid()` — the default keeps `processNextShadowJob`, `enrolV2Shadow` and `enrolV3Shadow` working unchanged. Historical rows backfill `plan_id = id` (all rows; 149 of 326 already have `signal_id IS NULL`). A new plan mints its id exactly once on the first (Replay-V1) insert; every later replay version and execution policy inherits it. Replay-result `id` stays separate. Blocking tests cover all three enrolment paths: id minted, unique per plan, sibling inherits it.
 
-## 5. Uniqueness
-- Primary: `UNIQUE (plan_id, replay_version, execution_policy)`.
-- Published-signal idempotency: partial unique `(signal_id, replay_version, execution_policy) WHERE signal_id IS NOT NULL` — keeps the worker's `23505` "already enrolled" path alive at any active version and leaves room for parallel execution policies.
-- Replay version and execution policy stay independent dimensions; neither is derivable from the other.
+## 4. Replay V1 stays operational
+Immutability binds only **already-resolved** Replay-V1 rows. Open/pending Replay-V1 rows keep advancing and keep writing `filled_at`, `fill_price`, `execution_slippage_pips`, `realized_r`, `ml_target_label`, `resolved_outcome`, `replay_cursor`, MFE/MAE, `bars_replayed`, `bars_to_outcome`, `resolved_at`. A `BEFORE UPDATE` trigger rejects changes to those fields when `replay_version = 1 AND status = 'resolved'` (`last_polled_at` stays writable).
 
-## 6. Data-quality outcomes (not market results)
-`resolved_outcome` gains `invalid_plan` and `gap_beyond_stop`:
-- `invalid_plan` — non-finite or zero risk, inverted stop, targets on the wrong side, missing entry. Never `never_filled`; `ml_target_label = NULL`; `gross_r = NULL`.
-- `gap_beyond_stop` (see §8).
-Both are excluded from every fill and win denominator (learning reads require `ml_target_label IS NOT NULL`), and both are surfaced as research-QA counters in the admin paired panel. A blocking test asserts each learning/report query excludes them.
+## 5. `replay_versions` registry
+`replay_versions (replay_version smallint pk, label text, semantics jsonb not null, code_hash text not null, activated_at, retired_at)`; authenticated SELECT, service_role write. Version 1 = `legacy_m15_optimistic`. Version 2 = `m15_fail_closed_actual_risk`, whose `semantics` records: TIF interval rule, detection-bar rule (strictly after `detected_at`, unchanged), actual-risk normalisation rule, favorable-gap-only limit semantics, stop-gap rule (§8), M15 horizontal-ambiguity policy (§7), supported execution policy, gross/net cost convention, and `code_hash` over the v2 replay code plus `ORDER_TIF_MINUTES` / `SIGNAL_MAX_AGE_HOURS`. Once any Replay-V2 row exists, changing any of these requires Replay V3 — enforced by a blocking hash test.
 
-## 7. Actual-risk normalisation, everywhere post-fill
-Replay V2 computes `risk_price_actual = |fill_price − stop_loss|` and uses it for **every** post-fill metric: `gross_r`, MFE R, MAE R, target R recomputed from the actual target prices, and the vertical-barrier mark-to-market R. Planned `risk_price`, `tp1_r/tp2_r/tp3_r`, `max_r` stay immutable plan metadata and are never overwritten. A stop reached from valid geometry is exactly −1R by construction (invariant test).
+## 6. Uniqueness
+Primary `UNIQUE (plan_id, replay_version, execution_policy)`; published-signal idempotency partial unique `(signal_id, replay_version, execution_policy) WHERE signal_id IS NOT NULL`. Replay version and execution policy stay independent.
 
-## 8. Extreme gap behaviour
-A favorable gap-through fill is accepted only while the fill price stays on the valid side of the protective stop. If a long limit's bar opens at or below its stop (or a short's at or above), the "fill then stop" sequence is unknowable from OHLC and no ordinary actual-risk geometry may be manufactured: resolve as `gap_beyond_stop`, `ml_target_label = NULL`, `gross_r = NULL`, `risk_price_actual = NULL`, excluded from learning, counted in QA. Broker stop execution is never inferred from OHLC. Fixtures: long gap open between entry and stop (valid, R rises); long gap open exactly at stop (`gap_beyond_stop`); long gap open below stop (`gap_beyond_stop`); bearish mirrors. Worse-than-limit fills remain unrepresentable.
+## 7. M15 horizontal-barrier ambiguity, locked (5E-2)
+No M1 adjudication in this release. After fill, if one M15 candle contains **both** the protective stop and TP1, the sequence is unknowable: **stop wins**, `ambiguous_bars += 1`, `adjudication = 'm15_conservative_fallback'`. This holds equally when the entry filled in that same bar and when the position was already open. A post-fill bar containing only one relevant barrier is `m15_unambiguous`. `first_target_touched` / `max_target_touched` are analytics only and may never override the conservative outcome.
+Fixtures, bullish and bearish: stop only · TP1 only · stop + TP1 · entry + stop · entry + TP1 · entry + stop + TP1.
+Pre-fill bars reason only about entry sequencing and the TIF window; stop/target levels are irrelevant while no position exists.
 
-## 9. Scheduling and budgets
-- **Prospective resolver** (`shadow-resolve` cron, hourly) — claims in this fixed order, each with its own budget out of 200 rows/run: `(model 1, replay 1)` 100 → `(model 2, replay 1)` 30 → `(model 3, replay 1)` 30 → spare capacity to `(*, replay 2)` only if all three production queues are empty.
-- **Historical rereplay worker** — its own route, its own flag (`replay_v2_backfill_enabled`), its own bounded batch (50 plans/run, 10s wall clock), its own schedule, and a single-flight lease so two runs cannot overlap. It only ever enrols/advances `replay_version = 2` rows.
-- Test: with a saturated historical backlog (300 open replay-2 rows) plus 5 open rows in each of the three production cohorts, every production row advances in the first prospective pass and no production cohort is delayed.
+## 8. Stop-gap execution (5E-3)
+- Ordinary stop touch (bar does not open beyond the stop) → exit at the stop, `gross_r = −1R` exactly.
+- Already-filled position, later bar opens beyond the stop (long `open <= stop_loss`, short `open >= stop_loss`) → exit at the **candle open**, `stop_gap_through = true`, `gross_r = directional(exit − fill_price) / risk_price_actual`, which may be worse than −1R. Stop execution is never fabricated at the stop price when the bar opened beyond it.
+- A bar opening favorably beyond TP1 conservatively credits **TP1**, not the open — no price improvement is assumed without verified broker semantics.
+- Entry-side extremes keep the 5D rule: a favorable gap-through limit fill is accepted only while the fill stays on the valid side of the stop; a bar whose open is at/through the stop while the order is still working resolves as `gap_beyond_stop` (data quality, NULL label, NULL `gross_r`), never as manufactured geometry.
 
-## 10. Baseline before anything else
-Capture and persist the Replay-V1 baseline **before** the backfill and before consumer filters deploy: resolved/filled/win counts, fill rate, win-if-filled *and* unconditional `p_fill × p_win`, grade/instrument/session/direction cells (`unknown` kept separate), miss-distance distribution, priors at both learning gates, weekly-report and admin figures, plus `replay_version = 1`, the registry `code_hash`, and a per-row checksum over the frozen resolved fields. Stored in `baseline_snapshots` with its existing uniqueness so a re-run is a no-op.
+## 9. Data-quality outcomes
+`resolved_outcome` gains `invalid_plan` (non-finite/zero risk, inverted stop, targets on the wrong side, missing entry) and `gap_beyond_stop`. Both: never `never_filled`, `ml_target_label = NULL`, `gross_r = NULL`, excluded from every fill/win denominator (learning reads require `ml_target_label IS NOT NULL`), and reported as research-QA counters alongside `stop_gap_through` and `ambiguous_bars`.
 
-## 11. Fill-time epistemics
-Under M15-only Replay V2, `fill_bar_time` is a **bar-open** timestamp and `filled_at_resolution = 'm15'` records that. UI, API and MCP present it as "fill bar (15m resolution)", never as broker execution time. TIF acceptance requires the whole bar interval to lie inside the live-order window (`bar_open + 15m ≤ detected_at + 30m`); a bar spanning the deadline sets `fill_ambiguous_tif` and fails closed (`adjudication = 'm15_conservative_fallback'`). M1 adjudication is a later prompt; `adjudication` already admits `m1_resolved | m1_still_ambiguous | m1_unavailable` without migration.
+## 10. Actual-risk normalisation
+`risk_price_actual = |fill_price − stop_loss|` drives **every** post-fill metric: `gross_r`, MFE R, MAE R, target R recomputed from actual target prices, and vertical-barrier mark-to-market R. Planned `risk_price`, `tp1_r/tp2_r/tp3_r`, `max_r` remain immutable plan metadata.
 
-## 12. Schema delta (one additive migration)
-`shadow_executions`: `plan_id uuid not null default gen_random_uuid()`; `replay_version smallint not null default 1`; `execution_policy text not null default 'legacy_best_target_touched'`; `fill_bar_time timestamptz`; `filled_at_resolution text`; `fill_gap_through boolean not null default false`; `fill_ambiguous_tif boolean not null default false`; `risk_price_actual numeric`; `gross_r numeric`; `cost_scenario text`; `net_r numeric`; `first_target_touched smallint`; `max_target_touched smallint`; `tp1_before_stop boolean`; `stop_before_tp1 boolean`; `adjudication text`; `ambiguous_bars integer not null default 0`. Drop `shadow_executions_signal_id_key`; add the two uniqueness rules from §5; add `(model_version, replay_version, status)` partial index; CHECKs on the enumerated text columns and on the widened `resolved_outcome` domain. New `replay_versions` table (§4). `shadow_engine_state`: `active_replay_version smallint not null default 1`, `replay_v2_shadow_enabled boolean not null default false`, `replay_v2_backfill_enabled boolean not null default false`. New trigger `shadow_replay_v2_sibling` (§1) and `shadow_v1_resolved_immutable` (§3). `get_admin_intelligence()` rewritten to filter `model_version` and `replay_version = active_replay_version` in every `shadow_executions` CTE (closes the existing unfiltered V2/V3 hole). **No change to `regime_stats`, `recompute_regime_stats`, `claim_learning_milestone` or the milestone latches** — Replay V2 never feeds production learning in this release.
+## 11. Reader audit before Replay V2 is enabled (5E-5)
+Every `shadow_executions` reader is enumerated and classified as **active-version production read** (must filter `active_replay_version` from the database), **explicit paired research read** (must name both versions), or **intentional raw audit read** (admin-only, explicitly labelled).
 
-## 13. Sequence
-1. Baseline capture (§10). 2. Additive migration + `plan_id` backfill + registry seed + consumer filters, deployed together. 3. `replaySetupV2` with the full fixture matrix. 4. Prospective resolver budgets + sibling trigger enabled. 5. Historical rereplay worker enabled. 6. Admin paired panel (McNemar on paired labels, QA counters, coverage, gross-only R). 7. Promotion is a separate prompt: `regime_stats` replay dimension, version-specific milestone state, gate report, then one row update to `active_replay_version`.
+| Reader | Class | Action |
+| --- | --- | --- |
+| `get_admin_intelligence()` (health, fill diagnostic, discipline, grade calibration, taken performance, feed) | production | add `model_version` + active `replay_version` filters to every CTE (closes today's unfiltered V2/V3 hole) |
+| `weekly.server.ts` / weekly-report cron | production | add active replay filter, stamp version in the email |
+| `signal-audit.functions.ts` | production | add filter |
+| `baseline/capture.server.ts` | production | pin and stamp `replay_version` |
+| `export.ts` | production | filter + stamp; raw mode only if explicitly labelled |
+| `get_shadow_comparison`, `get_performance_summary` (MCP) | production | filter + stamp version, policy, cost scenario |
+| learning / SignalCard intelligence (`regime.server.ts`, `explain.ts`, `queries.ts`) | production | reads `regime_stats`, which stays replay-1 only this release — assert no direct unversioned `shadow_executions` read |
+| `shadow_resolve.server.ts`, rereplay worker | writers | cohort-scoped by `(model_version, replay_version)` |
+| new admin paired panel | paired research | names both versions explicitly |
 
-## 14. Acceptance
-Legacy resolved rows byte-identical (checksum + immutability trigger); every plan has exactly one row per `(replay_version, execution_policy)`; all three enrolment paths mint a plan id and receive a V2 sibling; no replay-2 fill whose bar interval ends after the deadline; every valid-geometry loss exactly −1R on actual risk; `invalid_plan` / `gap_beyond_stop` rows carry NULL labels and appear in no learning denominator; saturated-backlog test passes; admin/weekly/MCP figures unchanged after the backfill; registry hash matches the shipped v2 semantics; zero new MetaApi calls; rollback rehearsed (flag → delete `replay_version <> 1` → drop constraints/columns).
+Blocking guard: a static inventory test greps every SQL function body and TS query for `shadow_executions` and fails unless the call site is on an allow-list that records its class and its version predicate.
 
-## 15. Limits
-Corrected labels may fall below the 150/200 gates. Fail-closed TIF is mildly pessimistic and the residual is unmeasurable until M1 adjudication exists. `net_r` stays NULL with no documented broker cost schedule. The 24h vertical barrier is still fixture-only in production. Ten days of one regime means the paired comparison may be directional rather than decisive.
+## 12. Scheduling and budgets
+Prospective resolver (hourly, 200 rows): `(model 1, replay 1)` 100 → `(model 2, replay 1)` 30 → `(model 3, replay 1)` 30 → spare only to replay 2 when all three production queues are empty. Historical rereplay worker: own route, own flag, 50 plans/run, 10s wall clock, single-flight lease, touches only `replay_version = 2`. Test: 300 open replay-2 rows plus 5 open rows in each production cohort → every production row advances in the first prospective pass.
+
+## 13. Baseline first
+Persist the Replay-V1 baseline before the backfill and before consumer filters deploy: resolved/filled/win counts, fill rate, win-if-filled **and** unconditional `p_fill × p_win`, grade/instrument/session/direction cells (`unknown` separate), miss-distance distribution, priors at both learning gates, weekly and admin figures, plus `replay_version = 1`, the registry `code_hash`, and a per-row checksum over the frozen resolved fields. Idempotent via the existing `baseline_snapshots` uniqueness.
+
+## 14. Fill-time epistemics
+`fill_bar_time` is a bar-open timestamp; `filled_at_resolution = 'm15'` records the resolution. UI/API/MCP present "fill bar (15m resolution)", never broker execution time. TIF acceptance requires the whole bar interval inside the live-order window (`bar_open + 15m <= detected_at + 30m`); a bar spanning the deadline sets `fill_ambiguous_tif` and fails closed (`m15_conservative_fallback`). `adjudication` already admits `m1_resolved | m1_still_ambiguous | m1_unavailable` for the later adjudication prompt.
+
+## 15. Schema delta (one additive migration)
+`shadow_executions`: `plan_id uuid not null default gen_random_uuid()`; `replay_version smallint not null default 1`; `execution_policy text not null default 'legacy_best_target_touched'`; `fill_bar_time timestamptz`; `filled_at_resolution text`; `fill_gap_through boolean not null default false`; `stop_gap_through boolean not null default false`; `fill_ambiguous_tif boolean not null default false`; `risk_price_actual numeric`; `gross_r numeric`; `cost_scenario text`; `net_r numeric`; `first_target_touched smallint`; `max_target_touched smallint`; `tp1_before_stop boolean`; `stop_before_tp1 boolean`; `adjudication text`; `ambiguous_bars integer not null default 0`. Drop `shadow_executions_signal_id_key`; add both uniqueness rules (§6); add `(model_version, replay_version, status)` partial index; CHECKs on enumerated text columns and the widened `resolved_outcome` domain. New `replay_versions` table. `shadow_engine_state`: `active_replay_version smallint not null default 1`, `replay_v2_shadow_enabled boolean not null default false`, `replay_v2_backfill_enabled boolean not null default false`. Triggers: `shadow_replay_v2_sibling` (fail-open, §2) and `shadow_v1_resolved_immutable` (§4). `get_admin_intelligence()` rewritten per §11. **No change to `regime_stats`, `recompute_regime_stats`, `claim_learning_milestone` or the milestone latches.**
+
+## 16. Rollback (5E-6)
+Operational rollback is non-destructive and needs no deployment: `replay_v2_shadow_enabled = false`, `replay_v2_backfill_enabled = false`, `active_replay_version` stays 1. Replay-V2 research rows are **kept** — they are evidence. Deleting `replay_version <> 1` belongs only to a deliberate schema-uninstall procedure (flags off → delete research rows → drop constraints/columns), documented separately and never invoked as a routine rollback.
+
+## 17. Sequence
+1. Baseline capture. 2. Additive migration + `plan_id` backfill + registry seed + **all** consumer filters (§11) deployed together. 3. `replaySetupV2` with the full fixture matrix. 4. Prospective budgets, then `replay_v2_shadow_enabled = true`. 5. `replay_v2_backfill_enabled = true` for the historical worker. 6. Admin paired panel (McNemar on paired labels, QA counters, coverage, gross-only R). 7. Promotion is a separate prompt: `regime_stats` replay dimension, version-specific milestone state, gate report, then one row update to `active_replay_version`.
+
+## 18. Acceptance
+1. Legacy resolved Replay-V1 rows byte-identical (checksum + immutability trigger); open Replay-V1 rows still advance normally.
+2. Forced sibling failure → Replay-V1 row commits, `research_errors` incremented (5E-1).
+3. Exactly one row per `(plan_id, replay_version, execution_policy)`; zero NULL `plan_id`; all three enrolment paths mint an id and receive a sibling.
+4. No Replay-V2 fill whose bar interval ends after the deadline.
+5. R invariants (5E-4): ordinary stop touch ⇒ exactly −1R; stop-gap-through ⇒ `gross_r <= −1R` computed from the observed bar open; **no** ordinary loss better than −1R; every post-fill R uses `risk_price_actual`.
+6. Post-fill bar containing stop + TP1 resolves as a loss with `ambiguous_bars >= 1` and `adjudication = 'm15_conservative_fallback'`, in both directions.
+7. `invalid_plan` / `gap_beyond_stop` rows carry NULL labels and appear in no learning denominator.
+8. Reader inventory test green: no unversioned production aggregation over `shadow_executions`.
+9. Admin, weekly, export and MCP figures unchanged after the backfill.
+10. Saturated-backlog test passes; registry hash matches shipped semantics; zero new MetaApi calls; operational rollback rehearsed non-destructively.
+
+## 19. Limits
+Corrected labels may fall below the 150/200 gates. Fail-closed TIF and stop-first ambiguity are deliberately pessimistic and their residual bias is unmeasurable until M1 adjudication exists. `net_r` stays NULL without a documented broker cost schedule. The 24h vertical barrier is still fixture-only in production. Ten days of one regime means the paired comparison may be directional rather than decisive.
