@@ -1,31 +1,66 @@
 /**
  * Trade journal writes.
  *
- * The R multiple is NEVER accepted from the client. When the user supplies the
- * actual entry and exit price they got, the server recomputes R from the
- * originating signal's own risk distance (|entry - stop|) so the number is
- * reproducible and auditable. Without prices, R stays null — an honest unknown
- * rather than a preset guess.
+ * R is NEVER accepted from the client. When the trader supplies the actual fills
+ * they got, the server recomputes both canonical R values through the single
+ * shared module `src/lib/journal/r-math.ts`:
+ *
+ *   r_vs_plan        = gross move / |planned_entry - planned_stop|
+ *   r_vs_actual_risk = gross move / |actual_entry - actual_or_planned_stop|
+ *
+ * The gross move always anchors on the ACTUAL fill. The two bases are stored
+ * separately and never averaged together. Plan context comes from the row's own
+ * immutable creation-time snapshot, so R survives signal retention.
+ *
+ * The frozen legacy columns `realized_r_multiple` and `derived_r` are never
+ * written again — the database trigger rejects any attempt.
  *
  * ZERO-HALLUCINATION: nothing is inferred or filled in. Missing prices mean a
- * missing R.
+ * missing R, reported as such.
  */
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import {
+  computeR,
+  computeNetR,
+  R_MATH_VERSION,
+  RMathInputError,
+  type CostUnit,
+  type RAvailability,
+  type StopProvenance,
+} from "@/lib/journal/r-math";
 
 const schema = z.object({
   tradeId: z.string().uuid(),
   outcome: z.enum(["win", "loss", "breakeven", "open"]),
-  /** Real fill price the user got. Optional. */
+  /** Real fill price the user got. Optional, but paired with the exit. */
   actualEntryPrice: z.number().finite().positive().nullable().default(null),
-  /** Real exit price the user got. Optional. */
+  /** Real exit price the user got. Optional, but paired with the entry. */
   actualExitPrice: z.number().finite().positive().nullable().default(null),
+  /** Stop actually placed at the broker, when the trader recorded it. */
+  actualInitialStop: z.number().finite().positive().nullable().default(null),
+  /** Monetary costs. Money, never a price distance. */
+  commission: z.number().finite().nullable().default(null),
+  swap: z.number().finite().nullable().default(null),
+  costCurrency: z.string().max(16).nullable().default(null),
+  costUnit: z
+    .enum(["account_currency", "instrument_quote", "points", "unknown"])
+    .nullable()
+    .default(null),
 });
 
 export interface RecordOutcomeResult {
   ok: true;
-  derivedR: number | null;
+  /** Canonical dual-basis result. Consumers must pick a basis explicitly. */
+  rVsPlan: number | null;
+  rVsActualRisk: number | null;
+  rAvailability: RAvailability;
+  stopProvenance: StopProvenance;
+  netR: number | null;
+  netRNote: string;
+  alreadyResolved: boolean;
+  message: string;
 }
 
 export const recordTradeOutcome = createServerFn({ method: "POST" })
@@ -35,55 +70,103 @@ export const recordTradeOutcome = createServerFn({ method: "POST" })
     // RLS scopes this read to the caller's own trade.
     const { data: trade, error: readError } = await context.supabase
       .from("executed_trades")
-      .select("id, signal_id, scanned_signals(entry_price, stop_loss, direction)")
+      .select(
+        "id, signal_id, outcome, planned_entry, planned_stop, planned_direction, actual_entry_price, actual_exit_price, actual_initial_stop, r_vs_plan, r_vs_actual_risk, r_availability, stop_provenance",
+      )
       .eq("id", data.tradeId)
       .maybeSingle();
     if (readError) throw new Error(readError.message);
     if (!trade) throw new Error("Trade not found");
 
-    const rawSignal = (trade as { scanned_signals: unknown }).scanned_signals;
-    const signal = (Array.isArray(rawSignal) ? rawSignal[0] : rawSignal) as
-      { entry_price: number; stop_loss: number; direction: "long" | "short" } | null | undefined;
+    const priced =
+      data.outcome !== "open" && data.actualEntryPrice != null && data.actualExitPrice != null;
 
-    let derivedR: number | null = null;
-    if (
-      data.outcome !== "open" &&
-      data.actualEntryPrice != null &&
-      data.actualExitPrice != null &&
-      signal
-    ) {
-      const risk = Math.abs(Number(signal.entry_price) - Number(signal.stop_loss));
-      if (risk > 0) {
-        const move =
-          signal.direction === "long"
-            ? data.actualExitPrice - data.actualEntryPrice
-            : data.actualEntryPrice - data.actualExitPrice;
-        derivedR = Math.round((move / risk) * 10000) / 10000;
-      }
+    let result;
+    try {
+      result = computeR({
+        outcome: data.outcome,
+        direction: (trade.planned_direction as "long" | "short" | null) ?? "long",
+        plannedEntry: trade.planned_entry == null ? null : Number(trade.planned_entry),
+        plannedStop: trade.planned_stop == null ? null : Number(trade.planned_stop),
+        actualEntryPrice: data.outcome === "open" ? null : data.actualEntryPrice,
+        actualExitPrice: data.outcome === "open" ? null : data.actualExitPrice,
+        actualInitialStop: data.outcome === "open" ? null : data.actualInitialStop,
+      });
+    } catch (err) {
+      if (err instanceof RMathInputError) throw new Error(`Invalid execution prices: ${err.message}`);
+      throw err;
     }
 
-    const keepPrices =
-      data.outcome !== "open" && data.actualEntryPrice != null && data.actualExitPrice != null;
+    // Net R only exists with documented cost→R conversion provenance, which the
+    // journal does not yet capture. Until then costs are stored as money and net
+    // R stays explicitly unavailable rather than silently equal to gross R.
+    const net = computeNetR(result.rVsActualRisk ?? result.rVsPlan, {
+      commission: data.commission,
+      swap: data.swap,
+      costCurrency: data.costCurrency,
+      costUnit: (data.costUnit as CostUnit | null) ?? null,
+      documentedRValueInCostCurrency: null,
+    });
+
+    // Resolved-state protection is enforced in the database; this read-then-
+    // branch turns a conflicting retry into a friendly message instead of a raw
+    // constraint error. Identical retries fall through and no-op safely.
+    const wasResolved = trade.outcome !== "open";
 
     const { error } = await context.supabase
       .from("executed_trades")
       .update({
         outcome: data.outcome,
+        trade_state: data.outcome === "open" ? "open" : "resolved",
         actual_entry_price: data.outcome === "open" ? null : data.actualEntryPrice,
         actual_exit_price: data.outcome === "open" ? null : data.actualExitPrice,
-        derived_r: derivedR,
-        // Kept in sync so every downstream aggregate reads one number, and that
-        // number is now price-derived rather than a button press.
-        realized_r_multiple: derivedR,
+        actual_initial_stop: data.outcome === "open" ? null : data.actualInitialStop,
+        r_vs_plan: result.rVsPlan,
+        r_vs_actual_risk: result.rVsActualRisk,
+        r_availability: result.availability,
+        stop_provenance: result.stopProvenance,
+        r_math_version: R_MATH_VERSION,
+        net_r: net.netR,
+        commission: data.commission,
+        swap: data.swap,
+        cost_currency: data.costCurrency,
+        cost_unit: data.costUnit,
+        verification_level: priced ? "self_reported" : "unverified",
         // Provenance is stamped from the request path, never from input: this
         // handler is only reachable from the signed-in web terminal, so the
         // author is a person. Cleared with the prices it describes.
-        price_source: keepPrices ? "human" : null,
+        price_source: priced ? "human" : null,
         price_source_client: null,
-        price_recorded_at: keepPrices ? new Date().toISOString() : null,
+        price_recorded_at: priced ? new Date().toISOString() : null,
       })
       .eq("id", data.tradeId);
-    if (error) throw new Error(error.message);
 
-    return { ok: true, derivedR };
+    if (error) {
+      if (error.message.includes("trade_already_resolved")) {
+        return {
+          ok: true,
+          rVsPlan: trade.r_vs_plan == null ? null : Number(trade.r_vs_plan),
+          rVsActualRisk: trade.r_vs_actual_risk == null ? null : Number(trade.r_vs_actual_risk),
+          rAvailability: (trade.r_availability as RAvailability) ?? "unavailable_no_prices",
+          stopProvenance: (trade.stop_provenance as StopProvenance) ?? "unavailable",
+          netR: null,
+          netRNote: net.note,
+          alreadyResolved: true,
+          message: `This trade is already resolved as ${trade.outcome}. Nothing was changed.`,
+        };
+      }
+      throw new Error(error.message);
+    }
+
+    return {
+      ok: true,
+      rVsPlan: result.rVsPlan,
+      rVsActualRisk: result.rVsActualRisk,
+      rAvailability: result.availability,
+      stopProvenance: result.stopProvenance,
+      netR: net.netR,
+      netRNote: net.note,
+      alreadyResolved: false,
+      message: wasResolved ? "Identical retry accepted." : "Outcome recorded.",
+    };
   });

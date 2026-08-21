@@ -3,6 +3,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { ACTIVE_MODEL_VERSION } from "./versioning";
 import type { RegimeStatRow } from "./learning/regime";
 import type { ScannerSettingsRow, SignalRow, TradeHistoryRow, TradeRow } from "./db-types";
+import { R_MATH_VERSION } from "./journal/r-math";
+import {
+  buildJournalSnapshot,
+  planDecisionWrite,
+  type DecisionResult,
+  type SignalSnapshotSource,
+} from "./journal/decision";
+
 
 const SIGNAL_COLUMNS =
   "id, detected_at, instrument, grade, direction, entry_price, stop_loss, tp1, tp2, tp3, tp1_r, tp2_r, tp3_r, max_r, max_acceptable_entry, structure_key, atr, rr_ratio, confidence_score, c_alignment, c_rr, c_symmetry, c_volatility, pattern_symmetry, p_trend, p_order_block, p_momentum, p_volatility_expansion, pillars_passed, h4_bias, h1_bias, m15_bias, qualitative_breakdown, status, resolved_outcome, resolved_r_multiple, expired_at, p_fill_prior, p_win_prior, ev_prior, p_joint_prior, prior_sample_n, prior_filled_n, prior_tier, market_context(trading_session, volatility_index, time_of_day, day_of_week)";
@@ -41,7 +49,7 @@ export function myTradesQuery(userId: string | undefined) {
       const { data, error } = await supabase
         .from("executed_trades" as never)
         .select(
-          "id, user_id, signal_id, user_decision, outcome, realized_r_multiple, actual_entry_price, actual_exit_price, derived_r, price_source, price_source_client, price_recorded_at, decision_source, decision_source_client, notes, created_at",
+          "id, user_id, signal_id, user_decision, outcome, realized_r_multiple, actual_entry_price, actual_exit_price, derived_r, price_source, price_source_client, price_recorded_at, decision_source, decision_source_client, notes, created_at, planned_entry, planned_stop, planned_direction, signal_detected_at, signal_instrument, signal_grade, signal_trading_session, signal_time_of_day, signal_day_of_week, actual_initial_stop, stop_provenance, r_vs_plan, r_vs_actual_risk, r_availability, r_math_version, net_r, commission, swap, cost_currency, cost_unit, verification_level, trade_state",
         )
         .order("created_at", { ascending: false })
         .limit(TRADE_PAGE_SIZE);
@@ -63,7 +71,7 @@ export function takenTradeHistoryQuery(userId: string | undefined) {
       const { data, error } = await supabase
         .from("executed_trades" as never)
         .select(
-          `id, user_id, signal_id, user_decision, outcome, realized_r_multiple, actual_entry_price, actual_exit_price, derived_r, price_source, price_source_client, price_recorded_at, decision_source, decision_source_client, notes, created_at, scanned_signals(${SIGNAL_COLUMNS})`,
+          `id, user_id, signal_id, user_decision, outcome, realized_r_multiple, actual_entry_price, actual_exit_price, derived_r, price_source, price_source_client, price_recorded_at, decision_source, decision_source_client, notes, created_at, planned_entry, planned_stop, planned_direction, signal_detected_at, signal_instrument, signal_grade, signal_trading_session, signal_time_of_day, signal_day_of_week, actual_initial_stop, stop_provenance, r_vs_plan, r_vs_actual_risk, r_availability, r_math_version, net_r, commission, swap, cost_currency, cost_unit, verification_level, trade_state, scanned_signals(${SIGNAL_COLUMNS})`,
         )
         .eq("user_decision", "taken")
         .order("created_at", { ascending: false })
@@ -110,26 +118,81 @@ export function instrumentHealthQuery() {
   });
 }
 
+/**
+ * Read-then-branch decision write. Insert initialises state and captures the
+ * immutable journal snapshot; update touches decision + provenance only, so a
+ * second tap can never reset a resolved trade's outcome to 'open'. A resolved
+ * row is reported back rather than mutated (the database trigger would reject
+ * the write anyway — this keeps the UI friendly instead of raw).
+ */
 export async function logDecision(input: {
   signalId: string;
   userId: string;
   decision: "taken" | "skipped";
-}) {
-  const { error } = await supabase.from("executed_trades" as never).upsert(
-    {
-      user_id: input.userId,
-      signal_id: input.signalId,
-      user_decision: input.decision,
-      outcome: "open",
-      // Written from the web terminal by a person. Agent writes go through the
-      // MCP tool, which stamps 'agent'.
-      decision_source: "human",
-      decision_source_client: null,
-    } as never,
-    { onConflict: "user_id,signal_id" },
-  );
+}): Promise<DecisionResult> {
+  const { data: existingRow, error: readError } = await supabase
+    .from("executed_trades" as never)
+    .select("id, outcome, user_decision")
+    .eq("user_id", input.userId)
+    .eq("signal_id", input.signalId)
+    .maybeSingle();
+  if (readError) throw readError;
+
+  const existing = existingRow as {
+    id: string;
+    outcome: string;
+    user_decision: string;
+  } | null;
+  const plan = planDecisionWrite(existing, input.decision);
+
+  if (plan.action === "already_resolved") {
+    return { ok: true, action: plan.action, alreadyResolved: true, message: plan.message };
+  }
+
+  if (plan.action === "update") {
+    const { error } = await supabase
+      .from("executed_trades" as never)
+      .update({
+        user_decision: input.decision,
+        decision_source: "human",
+        decision_source_client: null,
+      } as never)
+      .eq("id", existing!.id);
+    if (error) throw error;
+    return { ok: true, action: plan.action, alreadyResolved: false, message: plan.message };
+  }
+
+  // Insert path: snapshot the plan/context so journal maths never depends on
+  // the signal row surviving retention.
+  const { data: signalRow, error: signalError } = await supabase
+    .from("scanned_signals" as never)
+    .select(
+      "id, detected_at, instrument, grade, direction, entry_price, stop_loss, market_context(trading_session, time_of_day, day_of_week)",
+    )
+    .eq("id", input.signalId)
+    .maybeSingle();
+  if (signalError) throw signalError;
+  if (!signalRow) throw new Error("Signal not found");
+
+  const snapshot = buildJournalSnapshot(signalRow as unknown as SignalSnapshotSource);
+
+  const { error } = await supabase.from("executed_trades" as never).insert({
+    user_id: input.userId,
+    signal_id: input.signalId,
+    user_decision: input.decision,
+    outcome: "open",
+    trade_state: "logged",
+    r_math_version: R_MATH_VERSION,
+    // Written from the web terminal by a person. Agent writes go through the
+    // MCP tool, which stamps 'agent'.
+    decision_source: "human",
+    decision_source_client: null,
+    ...snapshot,
+  } as never);
   if (error) throw error;
+  return { ok: true, action: plan.action, alreadyResolved: false, message: plan.message };
 }
+
 
 /**
  * Outcome writes go through `recordTradeOutcome` in

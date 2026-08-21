@@ -97,7 +97,48 @@ export interface TradeRow {
   decision_source_client: string | null;
   notes: string | null;
   created_at: string;
+
+  /**
+   * Immutable creation-time snapshot of the plan and its market context. These
+   * are the canonical journal-maths inputs: they keep working after the
+   * originating signal row leaves retention.
+   */
+  planned_entry?: number | null;
+  planned_stop?: number | null;
+  planned_direction?: "long" | "short" | null;
+  signal_detected_at?: string | null;
+  signal_instrument?: string | null;
+  signal_grade?: Grade | null;
+  signal_trading_session?: string | null;
+  signal_time_of_day?: number | null;
+  signal_day_of_week?: number | null;
+
+  /** Stop actually placed at the broker, when the trader recorded it. */
+  actual_initial_stop?: number | null;
+  actual_entry_at?: string | null;
+  actual_exit_at?: string | null;
+  broker_ticket?: string | null;
+
+  /** Monetary costs. Money, never a price distance. */
+  commission?: number | null;
+  swap?: number | null;
+  cost_currency?: string | null;
+  cost_unit?: "account_currency" | "instrument_quote" | "points" | "unknown" | null;
+
+  /**
+   * Canonical dual-basis R. Never averaged together; a consumer names its basis.
+   * `realized_r_multiple` / `derived_r` above are FROZEN legacy provenance.
+   */
+  r_vs_plan?: number | null;
+  r_vs_actual_risk?: number | null;
+  r_availability?: string | null;
+  stop_provenance?: "actual_stop" | "planned_stop_fallback" | "unavailable" | null;
+  r_math_version?: number | null;
+  net_r?: number | null;
+  verification_level?: "unverified" | "self_reported" | "plan_verified" | null;
+  trade_state?: "logged" | "open" | "resolved" | null;
 }
+
 
 export interface TradeHistoryRow extends TradeRow {
   scanned_signals: SignalRow | SignalRow[] | null;

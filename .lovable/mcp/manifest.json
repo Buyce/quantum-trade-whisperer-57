@@ -269,7 +269,7 @@
       {
         "name": "log_trade_decision",
         "title": "Log trade decision",
-        "description": "Record the signed-in user's decision on a scanned signal: taken or skipped. Creates or updates that user's trade journal entry for the signal.",
+        "description": "Record the signed-in user's decision on a scanned signal: taken or skipped. Creates or updates that user's trade journal entry for the signal. A trade that is already resolved is never altered.",
         "annotations": {
           "readOnlyHint": false,
           "destructiveHint": false,
@@ -303,7 +303,7 @@
       {
         "name": "update_trade_outcome",
         "title": "Update trade outcome",
-        "description": "Set the outcome (win, loss, breakeven or open) on one of the signed-in user's logged trades. Supply actual_entry_price and actual_exit_price to have the R multiple recomputed server-side from the signal's own risk distance — that marks the trade VERIFIED. Without prices the trade stays unverified and R is left unknown; the R multiple can never be supplied directly.",
+        "description": "Set the outcome (win, loss, breakeven or open) on one of the signed-in user's logged trades. Supply actual_entry_price and actual_exit_price to have both canonical R multiples recomputed server-side (R vs plan and R vs actual risk) — that marks the trade self-reported/verified. Optionally supply actual_initial_stop for a true actual-risk denominator, and commission/swap as money. Without prices, R stays unknown; the R multiple can never be supplied directly. An already-resolved trade is not modified.",
         "annotations": {
           "readOnlyHint": false,
           "destructiveHint": false,
@@ -335,6 +335,23 @@
             "actual_exit_price": {
               "description": "The real exit price the user got.",
               "type": "number"
+            },
+            "actual_initial_stop": {
+              "description": "The stop the user actually placed at the broker, if they reported it.",
+              "type": "number"
+            },
+            "commission": {
+              "description": "Commission in money, not price distance.",
+              "type": "number"
+            },
+            "swap": {
+              "description": "Swap/financing in money, not price distance.",
+              "type": "number"
+            },
+            "cost_currency": {
+              "description": "Currency of commission/swap.",
+              "type": "string",
+              "maxLength": 16
             }
           },
           "required": [
@@ -370,7 +387,7 @@
       {
         "name": "get_performance_summary",
         "title": "Get performance summary",
-        "description": "Compute the signed-in user's trading performance from their logged trades: sample size, win rate, average win and loss in R, and expectancy in R.",
+        "description": "Compute the signed-in user's trading performance from their logged trades: sample size, win rate, average win and loss in R, and expectancy in R. Choose the R basis explicitly: 'actual_risk' (return against the risk actually taken) or 'plan' (return against the published plan risk). The two bases are never averaged together. Frozen legacy trades are reported separately.",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": true,
@@ -379,7 +396,17 @@
         "inputSchema": {
           "$schema": "http://json-schema.org/draft-07/schema#",
           "type": "object",
-          "properties": {}
+          "properties": {
+            "r_basis": {
+              "default": "actual_risk",
+              "description": "Which canonical R basis to aggregate. Never mixed.",
+              "type": "string",
+              "enum": [
+                "actual_risk",
+                "plan"
+              ]
+            }
+          }
         },
         "outputSchema": null
       }

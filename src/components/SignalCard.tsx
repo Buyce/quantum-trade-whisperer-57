@@ -14,6 +14,7 @@ import {
   type TradeRow,
 } from "@/lib/db-types";
 import { cn } from "@/lib/utils";
+import { formatJournalR, journalRView } from "@/lib/journal/display";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { InfoLabel, useGuideMode } from "@/components/GuideMode";
@@ -965,18 +966,26 @@ export function SignalCard({
                 </div>
               </div>
             ) : trade.user_decision === "taken" ? (
-              <span
-                className={cn(
-                  "num block text-sm font-semibold",
-                  (trade.realized_r_multiple ?? 0) > 0
-                    ? "text-long"
-                    : (trade.realized_r_multiple ?? 0) < 0
-                      ? "text-short"
-                      : "text-muted-foreground",
-                )}
-              >
-                {trade.outcome.toUpperCase()} · {Number(trade.realized_r_multiple ?? 0).toFixed(2)}R
-              </span>
+              (() => {
+                // Explicit basis, explicit unavailability: never a false 0.00R.
+                const view = journalRView(trade, "actual_risk");
+                return (
+                  <span
+                    title={view.reason ?? view.label}
+                    className={cn(
+                      "num block text-sm font-semibold",
+                      (view.value ?? 0) > 0
+                        ? "text-long"
+                        : (view.value ?? 0) < 0
+                          ? "text-short"
+                          : "text-muted-foreground",
+                    )}
+                  >
+                    {trade.outcome.toUpperCase()} · {formatJournalR(view)}
+                    {view.provenance === "legacy" ? " (legacy)" : ""}
+                  </span>
+                );
+              })()
             ) : null}
             <span className="num block text-xs text-muted-foreground sm:ml-auto">
               Scanner outcome:{" "}
