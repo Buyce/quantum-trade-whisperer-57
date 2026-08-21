@@ -219,8 +219,12 @@ export function regimeSnapshotsQuery(limit = 4000) {
           "run_id, computed_at, tier, regime_key, instrument, direction, session, vol_bucket, n_total, n_filled, wins, p_fill_raw, p_win_raw, p_fill_shrunk, p_win_shrunk",
         )
         .eq("model_version", ACTIVE_MODEL_VERSION)
+        // Tier 0 rows carry volatility boundaries, not regime statistics; they
+        // are preserved for audit but never rendered as learning history.
+        .gte("tier", 1)
         .order("computed_at", { ascending: false })
         .limit(limit);
+
       if (error) throw error;
       return (data ?? []) as unknown as RegimeSnapshotRow[];
     },
