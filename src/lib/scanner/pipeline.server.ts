@@ -197,6 +197,8 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
    */
   let observed = false;
   let v2: V2Evaluation | null = null;
+  let v2Error: string | null = null;
+
   let v2Disposition: Disposition = "none";
   let v1Grade: string | null = null;
   let v1Direction: "long" | "short" | null = null;
