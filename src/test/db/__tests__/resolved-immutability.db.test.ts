@@ -72,6 +72,17 @@ let tradeSeq = 0;
 function makeResolvedTrade(): string {
   tradeSeq += 1;
   const id = crypto.randomUUID();
+  const signalId = crypto.randomUUID();
+  // Journal rows reference a real signal; the plan snapshot is what survives purge.
+  db.exec(`
+    insert into public.scanned_signals
+      (id, detected_at, instrument, grade, direction, entry_price, stop_loss, tp1, tp2,
+       atr, rr_ratio, confidence_score, c_alignment, c_rr, c_symmetry, c_volatility,
+       pattern_symmetry, qualitative_breakdown)
+    values ('${signalId}', now() - interval '2 days', 'EURUSD', 'A', 'long',
+            1.1000, 1.0980, 1.1040, 1.1060, 0.0040, 2, 80, 40, 30, 20, 10, 0.9,
+            'db test');
+  `);
   const cols = Object.keys(RESOLVED).join(", ");
   const vals = Object.values(RESOLVED).join(", ");
   db.exec(`
@@ -81,7 +92,7 @@ function makeResolvedTrade(): string {
        signal_detected_at, signal_instrument, signal_grade,
        signal_trading_session, signal_time_of_day, signal_day_of_week,
        ${cols})
-    values ('${id}', gen_random_uuid(), null, 'taken', 'human',
+    values ('${id}', gen_random_uuid(), '${signalId}', 'taken', 'human',
             1.1000, 1.0980, 'long',
             now() - interval '2 days', 'EURUSD', 'A',
             'london', 10, 4,
