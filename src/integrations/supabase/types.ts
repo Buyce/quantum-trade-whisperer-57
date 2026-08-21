@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_registrations: {
+        Row: {
+          client_label: string | null
+          created_at: string
+          email_hash: string
+          id: string
+          ip_hash: string
+        }
+        Insert: {
+          client_label?: string | null
+          created_at?: string
+          email_hash: string
+          id?: string
+          ip_hash: string
+        }
+        Update: {
+          client_label?: string | null
+          created_at?: string
+          email_hash?: string
+          id?: string
+          ip_hash?: string
+        }
+        Relationships: []
+      }
       executed_trades: {
         Row: {
           actual_entry_price: number | null
