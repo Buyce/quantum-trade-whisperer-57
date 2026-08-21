@@ -1,62 +1,107 @@
-# Red-Team Review of the Entry/Stop/Target/Max-R/Offset Audit Plan
+# Prompt 4C — V3 Geometry Research Model (plan only)
 
-Independent second-pass review of the proposed plan. No code, migrations, or DB writes made; all figures below are live queries from this turn.
+Corrections accepted in full. V2 is immutable and is not touched. Prompt 4's corrected geometry becomes **model version 3**. V1 stays frozen production. No implementation in this turn.
 
-## A. Plan defects discovered
+## 1. Cohort architecture
 
-1. **The plan contradicted itself on versioning.** It both said "V1 behaviour unchanged" and recommended "make the 0.3 ATR offset inert in V1." Inerting the offset changes V1 entry geometry for overlap setups. Since the user's standing rule is *current production model + corrected model in shadow → promote on evidence*, the correct move is to leave V1's live offset exactly as-is and do any offset work only as V2 research. Keeping V1 frozen is what makes `scanned_signals`/feed/MCP/alert baselines comparable.
+```text
+V1  production      frozen        publishes signals, alerts, MCP, feed
+V2  canonical ABC   frozen        research only (registered manifest + hash, Prompt 3)
+V3  geometry        new research   canonical ABC (inherits V2) + corrected entry/stop/target
+```
 
-2. **Selection bias in the miss-distance evidence.** The "7.2% of misses ≤0.3 ATR" figure is estimated only from `never_filled` rows (n=223). Filled rows never miss by definition, so this quantile is an upper-bound, ex-post distribution and **cannot** support a fill-rate improvement claim. A 0.3 ATR offset is a volume-side lever: it trades larger risk for more fills. Its merit must be judged on net expectancy, measured by a shadow A/B, never from the miss distribution of non-fills alone. Same applies to the "13% vs 69%" note in `types.ts` — current resolved data shows overlap 1/10 (10%) and London 23/59 (39%), and 89 rows carry a NULL session, so neither cited rate is reproducible from the stored set.
+- V3 rows are `shadow_executions.model_version = 3`, `signal_id = NULL`, plus `model_observations` at `model_version = 3`. Observation identity stays `(run_id, instrument, model_version)`, so V1/V2/V3 each get one row per instrument per cycle and never collide.
+- No historical V2 row is mutated, relabelled or recomputed. No unversioned "variant" field is added anywhere.
+- The multi-arm offset experiment is **out of scope for Prompt 4**. V3 has exactly one entry rule (below). Any offset arm gets its own immutable model version in a later prompt.
 
-3. **Lookahead/overfitting trap in the options section.** Option 3/4 estimated offsets *from* historical `miss_distance_atr` (post-detection outcomes) and then proposed using them live. Fitting a parameter on the data that labels it is overfitting. Any offset candidate must be treated as a hypothesis, A/B-tested in the shadow engine, and only then considered.
+## 2. What V3 inherits vs. changes
 
-4. **"Slippage ceiling re-derivation" is a behaviour change, not a doc fix.** Replacing the static 0.15R tolerance with a target-preserving formula changes stored `max_acceptable_entry`, which drives the execution chip in `SignalCard` and the "do not enter at market" copy in `signal-alert.tsx`. It is not copy-only. It must be a versioned V2 change, or shipped as a documented recalculation with a fresh `model_versions` hash.
+**Inherits V2 unchanged** (explicitly not presented as new work): canonical ABC / Point C selection (`v2/pointc.ts`, band 0.382–0.886, single deterministic pass), the canonical bounded H4 barrier (`v2/barrier.ts`, one definition for grade headroom and the R cascade, `OPEN_SPACE_EXTENSION_ATR = 6`), V2 pillars and grading, the shared candle snapshot semantics, and the adaptive TP-ladder shape.
 
-5. **Order-lifetime "contradiction" was misread.** `ORDER_TIF_MINUTES=30` governs the pending-order window and the replay fill test (`replay.ts:107`). `SIGNAL_MAX_AGE_HOURS=24` and grade `RETENTION_HOURS` govern how long the feed keeps a signal row visible/expires it (`expireStaleSignals`). These are different concerns — order TIF vs. feed retention — not a bug. "Unifying" them would change feed retention and dedup behaviour. Retracted.
+**V3 changes, three of them, all deterministic and parameter-locked in this plan:**
+1. Leg-scoped stop anchor (replaces `slice(-10)`).
+2. Slippage-ceiling mathematics (replaces the constant 0.15R / 0.10R tolerance).
+3. Entry rule: **structural Point C only. No session offset in V3.** V1 keeps its live 0.3 ATR overlap offset untouched; the offset question moves to its own versioned experiment.
 
-6. **Broker `stopsLevel` is marked unverified, yet the plan leaned on it as an anchor.** The exact MetaApi REST field names/availability per instrument are unconfirmed. Fail-closed is correct, but the plan must not present the broker floor as a solved input.
+**Not in V3:** broker specification. See section 6.
 
-7. **The plan's rollback claim ("additive, so reversible") is only true if V1 stays frozen.** Any live geometry change (offset, ceiling, stop anchor) is only reversible via feature flags + a fresh model version, not by an additive migration alone. This is now explicit.
+## 3. V3 stop anchor — exact definition
 
-## B. Revised plan
+Uses the indices `detectAbcV2` already returns (`bIndex`, `cIndex`).
 
-Principle: **V1 is frozen. Every geometry correction becomes a versioned V2 research change, measured against the frozen V1 baseline in the shadow engine. Only copy that is mathematically wrong is fixed in place.**
+- Window: `candles[bIndex + 1 .. cIndex]` — start exclusive of B's bar, end **inclusive** of C's bar.
+- Long: `anchor = min(low)` over the window. Short: `anchor = max(high)` over the window.
+- Buffer is unchanged from V1/V2: `buffer = max(1.2 × M15 ATR, 0.5 × H1 ATR, SPREAD_FLOOR[instrument] ?? DEFAULT_SPREAD_FLOOR)`.
+- Long: `stop = anchor − buffer`. Short: `stop = anchor + buffer`.
+- Forming bar: C is selected from bars strictly after B in the delivered snapshot, and that snapshot includes the forming bar (documented in `docs/CHARACTERISATION.md`). So the forming bar **can** be C and can participate in the anchor window. No new snapshot semantics are introduced.
+- Insufficient data: `cIndex <= bIndex`, empty window, or fewer candles than `detectAbcV2` requires → `no_trade` ("leg window not measurable"). No fallback to a bar-count window.
+- Malformed: any non-finite open/high/low/close in the window, non-finite ATR, or `buffer` not `> 0` → `no_trade`. Never a substituted default.
+- Risk guards unchanged: `risk = |entry − stop|` must be `> 0` and `<= MAX_RISK_ATR × M15 ATR`, else `no_trade`.
 
-1. **Baseline first (unchanged).** Capture and pin in `baseline_snapshots` the frozen-V1 metrics: signal count/grade/direction/instrument/session mix, fill rate (currently 88/311 resolved, 28.3%), never-filled rate, win-if-filled, mean R, `max_r` mean 3.89 / max 42.39, miss-distance quartiles, p95 scan latency, alert/webhook counts, duplicate-suppression rate. State explicitly which numbers are unavailable (any session-conditioned estimate; all V2 outcomes — `model_version=2` has **0** resolved rows).
-2. **Correct the wrong copy only.** `types.ts` and `SignalCard`/email text that state 0.15R turns 1:3 into ~1:2.55 are wrong; the correct realised ratio is `(k−t)/(1+t) = 2.478`. Fix the text and the comment. Store values are untouched, so no behaviour or MCP contract changes.
-3. **Document the V1 offset as a hypothesis.** No code change. Record in the V2 manifest that the live 0.3 ATR offset is unvalidated (never fired — 0 overlapping signals carry the offset note; 1 overlap signal total; cited fill stats unreproducible).
-4. **V2 research changes** (all gated behind `shadow_engine_state.v2_enabled`, `model_version=2`, never written to feed/MCP/alerts):
-   - **Leg-scoped stop anchor**: extreme between B's bar and C (or B→current) instead of `slice(-10)`.
-   - **Single canonical barrier**: reuse `v2/barrier.ts` (already at HEAD) so grade headroom and the R cascade share one definition; bounded open-space extension removes the 42R artefact in V2 only.
-   - **Slippage ceiling re-derivation** as a target-preserving formula with a stated minimum acceptable payoff, only in V2.
-   - **Offset experiment**: fixed structural entry vs. fixed 0.3 ATR vs. quantile fill-distance candidate, A/B-tested in shadow on **net expected R**, not fill rate. A candidate is promoted only if its net R is non-inferior to V1 in the same sessions at equal or better risk control.
-   - **Broker-spec floor**: fetch symbol specification per instrument per cycle (cached), fail-closed to No-Trade when unavailable. Verify REST field names before relying on them.
-5. **Tests** (all blocking) before any research enablement: slippage arithmetic (`E=1.1000,S=1.0980,R=0.0020,k=3,t=0.15` → ceiling `1.10030`, ratio `2.478`; short mirror → `1.09970`); ladder (`maxR=1.02→[0.61,1.02,null]`, `1.6→[0.8,1.2,1.6]`, `3.4→[1,2,3]`); barrier invariant grade==R source and finite bounded `maxR`; leg-scoped stop differs from last-10 when C is old and equals it when C is the recent extreme; malformed/NaN/single-candle/zero-risk/barrier-behind-entry → No Trade; broker-spec unavailable → No Trade (fail-closed); V2 rows unreachable from feed/MCP/alerts; V1/V2 cohorts isolated in `regime_stats`; MetaApi timeout, duplicate job, concurrent claim, partial insert, stale run id.
+Property tests: for every generated bullish/bearish case that returns a profile — `long ⇒ stop < entry`, `short ⇒ stop > entry`; `risk` finite and `> 0`; `stop` is beyond the leg extreme by at least `buffer`; anchor is within the declared index window; a case where C is 14 bars back yields a different (leg-scoped) anchor than the last-10 rule, and a case where C is the recent extreme yields the same one.
 
-## C. New acceptance criteria
+## 4. V3 slippage ceiling — locked mathematics
 
-- V1 signal/entry/stop/target/grade/ceiling/feed-retention/dedup/alerts produce byte-identical outputs before vs. after the deploy (frozen-model regression on a pinned candle set).
-- Wrong 0.15R→2.55 copy is corrected everywhere to 2.478.
-- V2 research writes provenance-stamped (`entry_source`, `stop_anchor`, `offset_atr`) shadow rows only; 0 resolved V2 rows as of baseline are acknowledged and not backfilled or fabricated.
-- Offset candidates are reported on net R with sample sizes and significance; no promotion without ≥150 resolved research rows and non-inferior net R in matched sessions.
-- Full test matrix green; no live alert, push, email, webhook or MCP payload changes.
+Definitions: planned terminal target `k` (in R), adverse entry displacement `d` (in R of the planned risk).
 
-## D. Remaining risks
+- `actualRR = (k − d) / (1 + d)`
+- `dMax = (k − m) / (1 + m)` where `m` is the minimum permissible terminal payoff.
 
-- Broker-spec field availability unverified; V2 stop/ceiling may change publish volume in research (expected, not a regression — V1 is frozen).
-- Overlap data is structurally scarce (n=10) and may not yield a statistically usable comparison for months; the offset question may stay undecided, which is an acceptable honest outcome.
-- Two different R-measurement paths (shadow replay vs. user-reported) can disagree; this is a pre-existing condition, not introduced here.
-- Fixing copy without touching values risks a future reader re-introducing the wrong formula.
+Locked V3 rules (no parameter chosen at implementation time):
+- **`m = 2.0`** when the ladder has a TP3 (`k = tp3R`); **`m = 1.0`** when TP3 is null / thin ladder (`k = tp2R`).
+- Absolute cap: `d = min(dMax, 0.15)`. The V1 constant becomes the hard ceiling so V3 can never be more permissive than production.
+- `k <= m` → `d = 0`: the ceiling equals the entry price exactly; the setup is "limit only, no market entry". Not a no-trade, and never a negative `d`.
+- Price conversion: long `ceiling = entry + d × risk`; short `ceiling = entry − d × risk`.
+- Non-finite `k`, `m`, `risk` or resulting price → fail closed: no ceiling is written and the row is `no_trade` rather than carrying an invented number.
 
-## E. Confidence level — High (approx. 0.85)
+Worked fixtures: `k=3, m=2 → dMax = 1/3 → d = 0.15`, `actualRR = 2.478`. `k=2.4, m=2 → dMax = 0.1333 → d = 0.1333`, `actualRR = 2.0`. `k=1.02, m=1 → dMax = 0.01 → d = 0.01`, `actualRR = 1.0`. `k=0.9, m=1 → d = 0`. Long `E=1.1000, S=1.0980, risk=0.0020, d=0.15 → 1.10030`; short mirror `→ 1.09970`.
 
-Reasons: the plan now aligns with the established frozen-V1/versioned-shadow rule; the versioning contradiction, selection bias, lookahead and misread-TIF defects were found and removed; every behavioural change is gated, additive and reversible by flag-flip; concrete numeric fixtures exist for the mathematics. Remaining uncertainty is concentrated in broker-spec availability and in sample scarcity, both acknowledged rather than assumed away.
+## 5. Historical miss-distance data — hypothesis only
 
-## F. What still cannot be guaranteed
+The `never_filled` miss distribution (n=223; p25/p50/p75 = 0.707 / 1.500 / 2.281 ATR; 16 rows ≤0.3 ATR) is conditioned on non-fills and is therefore an ex-post, selection-biased sample. It may generate a hypothesis and nothing else. If a quantile offset is ever tested it will be a separate model version with: a fixed historical training cutoff, computed once, dataset window / sample size / exact formula recorded, the resulting offset frozen in that version's manifest, judged only on prospective observations after the cutoff, and never recomputed from accumulating test outcomes.
 
-- That any corrected geometry (stop anchor, offset, ceiling) improves fill rate or net expectancy — the data does not exist to promise this, and V1 stays unchanged precisely so this can be measured rather than assumed.
-- That the overlap regime produces enough shadow samples in any useful timeframe.
-- That historical V1 labels remain comparable if the broker feed history is revised.
-- That broker `stopsLevel` is surfaced identically across all three instruments (unverified until probed).
+## 6. Broker specification — research spike, not a V3 dependency
 
-Verdict: **proceed with the revised plan** — the corrected geometry in V2 research, frozen V1, honest baseline, and wrong-copy fix in place. No implementation begins until you approve this revised plan.
+V3 ships with the existing static `SPREAD_FLOOR` table only. Before any broker floor participates in grading or stop validation, a separate spike reports: exact MetaApi endpoint; exact returned fields for XAUUSD, GBPAUD, EURUSD; whether `stopsLevel`, tick size, contract size and volume constraints are actually present; units of every field; whether values are account/broker specific; request latency; caching validity/staleness; incremental API-call volume. Until that report exists there is **no** "spec unavailable ⇒ no trade" rule. If the spike succeeds and a later model version uses it, the detected-time specification (or a stable spec-version hash) is stored with the shadow observation so a broker configuration change cannot silently alter what that model version means.
+
+## 7. Database and code changes
+
+- Additive migration only: register a `model_versions` row for version 3 with its own manifest hash (`v3-corrected-geometry-research`), extend the existing `shadow_executions` / `model_observations` model-version CHECKs to admit 3, and add nullable provenance columns `entry_source` and `stop_anchor` (no defaults, V1/V2 rows stay NULL). Grants unchanged; research tables remain service-role only.
+- New code under `src/lib/scanner/v3/` (manifest, profile) importing V2's pointc/barrier/pillars/grading unchanged. New shared, tested slippage module used by V3 only; V1's `profile.ts` and `db-types.ts` values are untouched.
+- Enrolment reuses the existing `enrol.server.ts` shape with `model_version = 3`, gated by its own kill switch column on `shadow_engine_state` (`v3_enabled`, default false) and by `claim_v2_structure(model_version, structure_key)` — which is already model-version-keyed, so V2 and V3 claim independently.
+- Admin comparison panel exposes per-version sample counts and outcomes for V1/V2/V3 separately. "Shadow" is never a collapsed bucket.
+
+## 8. Copy correction (explicitly permitted)
+
+The statement "0.15R turns a 1:3 into ~1:2.55" is wrong; correct value 2.478. This prose is corrected in `types.ts`, `SignalCard.tsx` and `signal-alert.tsx`. V1 numeric fields, eligibility and payload field values are unchanged; email prose intentionally changes, so no byte-identical claim is made about emails.
+
+## 9. Acceptance criteria
+
+- No change to V1 numerical trading fields, V1 eligibility, or V1 entry / stop / TP / `max_acceptable_entry` values.
+- No new live alerts, push, email or webhook sends; no change to MCP field values or contracts.
+- Copy-only correction from the incorrect arithmetic is explicitly permitted and is the sole user-visible V1 change.
+- **Deterministic semantic equality** on a pinned candle set for V1: trade/no-trade, grade, direction, entry, stop, every TP, `maxR`, max acceptable entry, structure key, pillars/confluence — exact equality, ignoring timestamps, ids and the approved copy correction.
+- V3 emits provenance-stamped research rows only, unreachable from feed, alerts and MCP; V1/V2/V3 cohorts isolated in every read path and in `regime_stats`.
+- Full test matrix green: unit (slippage fixtures above, ladder `1.02→[0.61,1.02,null]`, `1.6→[0.8,1.2,1.6]`, `3.4→[1,2,3]`), property (stop side/finiteness, barrier single-definition, bounded `maxR`), integration, DB/RLS, regression, failure injection (MetaApi timeout, duplicate job, concurrent claim of one structure, partial insert, stale run id), and end-to-end no-leak checks.
+
+## 10. Promotion gates (n=150 is a floor, not a threshold)
+
+Promotion of V3 over V1 requires all of: ≥150 resolved prospective V3 rows as a minimum evidence floor; an effect size stated in mean R with its uncertainty interval; matched-cohort comparison (same instrument × session × volatility bucket); clustering/autocorrelation treatment (overlapping structures on one instrument are not independent — cluster by instrument-day); drawdown and tail-risk checks (worst run of losses, max adverse excursion); and prospective-only outcomes after the V3 registration timestamp. Failing any one gate means no promotion, regardless of headline win rate.
+
+## 11. Baseline (measured, with gaps stated)
+
+Frozen-V1 baseline to pin in `baseline_snapshots`: 169 signals (2026-08-11 → 08-21); direction 154 long / 15 short; resolved shadow rows 311 with 88 filled (28.3%) and 223 never filled; grade mix on resolved rows A 3 / B 235 / C 73; `max_r` mean 3.89, min 1.02, max 42.39; 30 signals with `maxR < 1.5`; miss-distance quartiles as above; per-session fill counts (london 23/59, tokyo 22/72, new_york 10/44, sydney 14/37, overlap 1/10, unlabelled 18/89); plus p95 scan latency, queue failure rate, alert and webhook counts, duplicate-suppression counts.
+
+**Not calculable and not fabricated:** any session-conditioned offset estimate (overlap n=10; 89 resolved rows carry a NULL session); all V2 outcomes (`model_version = 2` currently has **0** resolved rows); all V3 outcomes.
+
+## 12. Rollback
+
+`v3_enabled = false` stops enrolment instantly; the V3 model row and nullable columns are additive so no collected data is destroyed; the copy correction reverts by text edit. V1 has no flag because V1 does not change. No migration rewrites or deletes historical observations.
+
+## 13. Remaining risks and what cannot be guaranteed
+
+Open risks: V3 may publish fewer or more research candidates than V2 (expected, measured, not a regression); overlap-session scarcity may leave the offset question undecided indefinitely; broker-spec availability is unverified until the spike; replay-derived R and user-reported R can disagree (pre-existing).
+
+Cannot be guaranteed: that corrected geometry improves fill rate or net expectancy; that enough prospective samples accumulate in a useful timeframe; that broker `stopsLevel` is surfaced identically across all three instruments; that historical labels stay comparable if the broker revises feed history.
+
+Recommendation: proceed as specified — V1 frozen, V2 immutable, V3 as the single-geometry research model, offset experiment deferred to its own versioned prompt.
