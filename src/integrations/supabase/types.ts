@@ -38,6 +38,33 @@ export type Database = {
         }
         Relationships: []
       }
+      baseline_snapshots: {
+        Row: {
+          captured_at: string
+          id: string
+          kind: string
+          metrics: Json
+          model_version: number
+          pinned_run_id: string | null
+        }
+        Insert: {
+          captured_at?: string
+          id?: string
+          kind?: string
+          metrics: Json
+          model_version?: number
+          pinned_run_id?: string | null
+        }
+        Update: {
+          captured_at?: string
+          id?: string
+          kind?: string
+          metrics?: Json
+          model_version?: number
+          pinned_run_id?: string | null
+        }
+        Relationships: []
+      }
       executed_trades: {
         Row: {
           actual_entry_price: number | null
@@ -201,6 +228,36 @@ export type Database = {
           },
         ]
       }
+      model_versions: {
+        Row: {
+          activated_at: string
+          code_hash: string | null
+          components: Json
+          label: string
+          notes: string | null
+          retired_at: string | null
+          version: number
+        }
+        Insert: {
+          activated_at?: string
+          code_hash?: string | null
+          components?: Json
+          label: string
+          notes?: string | null
+          retired_at?: string | null
+          version: number
+        }
+        Update: {
+          activated_at?: string
+          code_hash?: string | null
+          components?: Json
+          label?: string
+          notes?: string | null
+          retired_at?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -282,6 +339,7 @@ export type Database = {
           direction: string | null
           id: string
           instrument: string | null
+          model_version: number
           n_filled: number
           n_total: number
           p_fill_raw: number | null
@@ -300,6 +358,7 @@ export type Database = {
           direction?: string | null
           id?: string
           instrument?: string | null
+          model_version?: number
           n_filled?: number
           n_total?: number
           p_fill_raw?: number | null
@@ -318,6 +377,7 @@ export type Database = {
           direction?: string | null
           id?: string
           instrument?: string | null
+          model_version?: number
           n_filled?: number
           n_total?: number
           p_fill_raw?: number | null
@@ -338,6 +398,7 @@ export type Database = {
           computed_at: string
           direction: string | null
           instrument: string | null
+          model_version: number
           n_filled: number
           n_total: number
           p_fill_raw: number | null
@@ -356,6 +417,7 @@ export type Database = {
           computed_at?: string
           direction?: string | null
           instrument?: string | null
+          model_version?: number
           n_filled?: number
           n_total?: number
           p_fill_raw?: number | null
@@ -374,6 +436,7 @@ export type Database = {
           computed_at?: string
           direction?: string | null
           instrument?: string | null
+          model_version?: number
           n_filled?: number
           n_total?: number
           p_fill_raw?: number | null
@@ -460,6 +523,8 @@ export type Database = {
           m15_bias: string | null
           max_acceptable_entry: number | null
           max_r: number | null
+          model_version: number
+          observation_key: string | null
           p_fill_prior: number | null
           p_momentum: number | null
           p_order_block: number | null
@@ -506,6 +571,8 @@ export type Database = {
           m15_bias?: string | null
           max_acceptable_entry?: number | null
           max_r?: number | null
+          model_version?: number
+          observation_key?: string | null
           p_fill_prior?: number | null
           p_momentum?: number | null
           p_order_block?: number | null
@@ -552,6 +619,8 @@ export type Database = {
           m15_bias?: string | null
           max_acceptable_entry?: number | null
           max_r?: number | null
+          model_version?: number
+          observation_key?: string | null
           p_fill_prior?: number | null
           p_momentum?: number | null
           p_order_block?: number | null
@@ -710,6 +779,8 @@ export type Database = {
           max_r: number | null
           miss_distance_atr: number | null
           ml_target_label: number | null
+          model_version: number
+          observation_key: string | null
           realized_r: number | null
           replay_cursor: string | null
           resolved_at: string | null
@@ -750,6 +821,8 @@ export type Database = {
           max_r?: number | null
           miss_distance_atr?: number | null
           ml_target_label?: number | null
+          model_version?: number
+          observation_key?: string | null
           realized_r?: number | null
           replay_cursor?: string | null
           resolved_at?: string | null
@@ -790,6 +863,8 @@ export type Database = {
           max_r?: number | null
           miss_distance_atr?: number | null
           ml_target_label?: number | null
+          model_version?: number
+          observation_key?: string | null
           realized_r?: number | null
           replay_cursor?: string | null
           resolved_at?: string | null
@@ -975,6 +1050,7 @@ export type Database = {
           enqueued_at: string
           id: number
           instrument: string
+          run_id: string
         }[]
       }
       claim_shadow_job: {
@@ -995,7 +1071,10 @@ export type Database = {
       maintain_scan_queue: { Args: never; Returns: Json }
       maintain_shadow_queue: { Args: never; Returns: Json }
       purge_expired_signals: { Args: never; Returns: number }
-      recompute_regime_stats: { Args: never; Returns: Json }
+      recompute_regime_stats: {
+        Args: { _model_version?: number }
+        Returns: Json
+      }
       release_learning_milestone: {
         Args: { _gate: string }
         Returns: undefined

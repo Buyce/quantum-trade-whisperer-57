@@ -6,6 +6,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { buildTradeProfile } from "./profile";
 import { atr } from "./indicators";
+import { ACTIVE_MODEL_VERSION, observationKey } from "@/lib/versioning";
 import { fetchCandles, MetaApiNotConfiguredError, MetaApiTimeoutError } from "./metaapi.server";
 import {
   CANDLE_LIMITS,
@@ -173,7 +174,7 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
   const { data: claimed, error: claimError } = await db.rpc("claim_scan_job");
   if (claimError) throw claimError;
   const job = (Array.isArray(claimed) ? claimed[0] : claimed) as
-    | { id: string; instrument: string; enqueued_at?: string | null }
+    | { id: string; instrument: string; enqueued_at?: string | null; run_id?: string | null }
     | undefined
     | null;
   if (!job) return null;
@@ -309,6 +310,12 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
         prior_sample_n: prior?.sampleN ?? null,
         prior_filled_n: prior?.filledN ?? null,
         prior_tier: prior?.tier ?? null,
+        // Cohort identity + pairing key. The key ties this row to the exact
+        // scan-cycle read of this instrument, so a future corrected model
+        // evaluated on the same candles can be compared observation by
+        // observation instead of in aggregate.
+        model_version: ACTIVE_MODEL_VERSION,
+        observation_key: observationKey(job.run_id, job.instrument),
       })
       .select("id")
       .single();

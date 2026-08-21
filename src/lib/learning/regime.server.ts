@@ -6,14 +6,23 @@
  * per-key round trip, and the live feed never touches this path at all.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { ACTIVE_MODEL_VERSION } from "@/lib/versioning";
 import { lookupRegime, type RegimePrior, type RegimeQuery, type RegimeStatRow } from "./regime";
 
-export async function loadRegimeStats(db: SupabaseClient): Promise<RegimeStatRow[]> {
+/**
+ * Always version-filtered: a research cohort's statistics must never reach the
+ * live scanner, even as an advisory number.
+ */
+export async function loadRegimeStats(
+  db: SupabaseClient,
+  modelVersion: number = ACTIVE_MODEL_VERSION,
+): Promise<RegimeStatRow[]> {
   const { data, error } = await db
     .from("regime_stats")
     .select(
       "tier, regime_key, instrument, direction, session, vol_bucket, n_total, n_filled, wins, p_fill_shrunk, p_win_shrunk, vol_t1, vol_t2",
-    );
+    )
+    .eq("model_version", modelVersion);
   if (error) throw new Error(`regime_stats read failed: ${error.message}`);
   return (data ?? []) as RegimeStatRow[];
 }

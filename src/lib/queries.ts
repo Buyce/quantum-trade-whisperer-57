@@ -1,5 +1,6 @@
 import { queryOptions } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { ACTIVE_MODEL_VERSION } from "./versioning";
 import type { RegimeStatRow } from "./learning/regime";
 import type { ScannerSettingsRow, SignalRow, TradeHistoryRow, TradeRow } from "./db-types";
 
@@ -169,14 +170,15 @@ export async function saveSettings(input: Partial<ScannerSettingsRow> & { user_i
  */
 export function regimeStatsQuery() {
   return queryOptions({
-    queryKey: ["regime-stats"],
+    queryKey: ["regime-stats", ACTIVE_MODEL_VERSION],
     staleTime: 5 * 60_000,
     queryFn: async (): Promise<RegimeStatRow[]> => {
       const { data, error } = await supabase
         .from("regime_stats" as never)
         .select(
           "tier, regime_key, instrument, direction, session, vol_bucket, n_total, n_filled, wins, p_fill_raw, p_win_raw, p_fill_shrunk, p_win_shrunk, vol_t1, vol_t2",
-        );
+        )
+        .eq("model_version", ACTIVE_MODEL_VERSION);
       if (error) throw error;
       return (data ?? []) as unknown as RegimeStatRow[];
     },
@@ -208,7 +210,7 @@ export interface RegimeSnapshotRow {
  */
 export function regimeSnapshotsQuery(limit = 4000) {
   return queryOptions({
-    queryKey: ["regime-snapshots", limit],
+    queryKey: ["regime-snapshots", limit, ACTIVE_MODEL_VERSION],
     staleTime: 5 * 60_000,
     queryFn: async (): Promise<RegimeSnapshotRow[]> => {
       const { data, error } = await supabase
@@ -216,6 +218,7 @@ export function regimeSnapshotsQuery(limit = 4000) {
         .select(
           "run_id, computed_at, tier, regime_key, instrument, direction, session, vol_bucket, n_total, n_filled, wins, p_fill_raw, p_win_raw, p_fill_shrunk, p_win_shrunk",
         )
+        .eq("model_version", ACTIVE_MODEL_VERSION)
         .order("computed_at", { ascending: false })
         .limit(limit);
       if (error) throw error;

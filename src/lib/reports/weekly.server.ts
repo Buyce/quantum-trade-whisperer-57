@@ -5,6 +5,7 @@
  * ZERO-HALLUCINATION: reads live rows only. An empty week returns zeroes.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { ACTIVE_MODEL_VERSION } from "@/lib/versioning";
 import { buildReport, isoWeekKey, type ShadowRow, type WeeklyReport } from "./weekly";
 
 export const REPORT_WINDOW_DAYS = 7;
@@ -23,9 +24,13 @@ export async function loadWeeklyReport(
   const { data, error } = await db
     .from("shadow_executions")
     .select("grade, status, resolved_outcome, realized_r, filled_at, miss_distance_atr")
+    // Production cohort only: a research model's replays must never be reported
+    // as the engine's weekly performance.
+    .eq("model_version", ACTIVE_MODEL_VERSION)
     .gte("detected_at", windowStart.toISOString())
     .lte("detected_at", windowEnd.toISOString());
   if (error) throw new Error(error.message);
+
 
   return buildReport({
     rows: (data ?? []) as unknown as ShadowRow[],
