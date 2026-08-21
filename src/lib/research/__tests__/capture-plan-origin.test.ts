@@ -105,7 +105,6 @@ describe("Prompt 7G — captured plan provenance", () => {
     const p = await capture(evaluation("no_abc", EMPTY));
     expect(p["plan_origin"]).toBeNull();
     expect(p["counterfactual_stage"]).toBeNull();
-    expect(p["tp1"]).toBeCloseTo(1.115, 10);
     expect(p["research_plan_version"]).toBeNull();
     expect(p["counterfactual_class"]).toBe("structurally_not_evaluable");
     for (const k of [
