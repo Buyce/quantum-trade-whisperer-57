@@ -67,7 +67,7 @@ function FeedPage() {
   const [openOnly, setOpenOnly] = useState(false);
   // Display-only ranking. Sorting never adds, hides or reprices a setup — it
   // only changes the order in which the same rows are read.
-  const [sortBy, setSortBy] = useState<"recent" | "ev">("recent");
+  const [sortBy, setSortBy] = useState<"recent" | "winProb">("recent");
 
   // Per-user alert threshold, independent of the feed filter.
   const alertMinGrade: Grade = settings.data?.alert_min_grade ?? "B";
@@ -156,12 +156,17 @@ function FeedPage() {
       });
     }
     if (openOnly) rows = rows.filter((s) => s.status === "active");
-    if (sortBy === "ev") {
-      // Only setups whose fill sample gate has cleared can be ranked on a
-      // measured expected value; everything else keeps its recency order below
+    if (sortBy === "winProb") {
+      // Only setups whose BOTH sample gates have cleared can be ranked on the
+      // joint win probability; everything else keeps its recency order below
       // them rather than being scored on an unproven prior.
-      const ev = (s: SignalRow) =>
-        s.ev_prior != null && (s.prior_sample_n ?? 0) >= MIN_N_FILL ? Number(s.ev_prior) : null;
+      const ev = (s: SignalRow) => {
+        const v = s.p_joint_prior ?? s.ev_prior;
+        if (v == null) return null;
+        if ((s.prior_sample_n ?? 0) < MIN_N_FILL) return null;
+        if ((s.prior_filled_n ?? 0) < MIN_N_WIN) return null;
+        return Number(v);
+      };
       rows = [...rows].sort((a, b) => {
         const ea = ev(a);
         const eb = ev(b);
@@ -239,14 +244,14 @@ function FeedPage() {
 
   // One summary chip instead of a wall of badges: the detail lives in the popover.
   const filterSummary = !applyFilters
-    ? `All published setups${sortBy === "ev" ? " · by exp. value" : ""}`
+    ? `All published setups${sortBy === "winProb" ? " · by win probability" : ""}`
     : cfg
       ? [
           `${cfg.instruments.length || "all"} instrument${cfg.instruments.length === 1 ? "" : "s"}`,
           `min ${cfg.min_grade}`,
           `${cfg.sessions.length || "all"} session${cfg.sessions.length === 1 ? "" : "s"}`,
           openOnly ? "active only" : null,
-          sortBy === "ev" ? "by exp. value" : null,
+          sortBy === "winProb" ? "by win probability" : null,
         ]
           .filter(Boolean)
           .join(" · ")
@@ -295,8 +300,9 @@ function FeedPage() {
               <div className="border-t border-border pt-3">
                 <p className="label-xs">Order</p>
                 <p className="mt-1 text-xs leading-snug text-muted-foreground">
-                  Expected value ranks by measured fill x win rate. Setups without enough samples
-                  stay in newest-first order at the bottom.
+                  Win probability ranks by the estimated joint win probability (fill x win). It is
+                  a probability, not a return. Setups without enough samples on both gates stay in
+                  newest-first order at the bottom.
                 </p>
                 <div className="mt-2 grid grid-cols-2 gap-1.5">
                   <Button
@@ -308,10 +314,10 @@ function FeedPage() {
                   </Button>
                   <Button
                     size="sm"
-                    variant={sortBy === "ev" ? "default" : "outline"}
-                    onClick={() => setSortBy("ev")}
+                    variant={sortBy === "winProb" ? "default" : "outline"}
+                    onClick={() => setSortBy("winProb")}
                   >
-                    Exp. value
+                    Win prob.
                   </Button>
                 </div>
               </div>
