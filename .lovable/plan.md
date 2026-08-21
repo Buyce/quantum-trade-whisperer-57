@@ -98,13 +98,30 @@ Every `shadow_executions` reader is enumerated and classified as **active-versio
 
 Blocking guard: a static inventory test greps every SQL function body and TS query for `shadow_executions` and fails unless the call site is on an allow-list that records its class and its version predicate.
 
-## 12. Scheduling and budgets (5F-3)
-Model-V1 throughput is never reduced. The prospective resolver keeps its existing 200-row budget and consumes it **hierarchically**: `(model 1, replay 1)` may take the entire 200 rows; only unused capacity flows to `(model 2, replay 1)`, then `(model 3, replay 1)`. No fixed 100/30/30 reservation. Replay-V2 work is not scheduled here at all — both historical and prospective Replay-V2 siblings are resolved by the separate bounded research/rereplay worker (own route, own flag, 50 plans/run, 10s wall clock, single-flight lease, touches only `replay_version = 2`), so research backlog can never displace production rows.
-Blocking tests: (a) 180 open `(model 1, replay 1)` rows plus a large Replay-V2 backlog → all 180 production rows are selected in the same 200-row run; (b) 5 + 5 + 5 open rows across the three model cohorts → all 15 advance in one pass.
+## 12. Scheduling, candle source and budgets (5F-3, 5G-1)
+**One architecture, chosen: candle reuse inside the existing hourly resolver.** There is no separate network-fetching research worker. Per run, per instrument, exactly one M15 `fetchCandles` call is made and the returned array is treated as immutable, then used twice:
 
+```text
+for each instrument (max 3/run):
+  candles = fetchCandles(instrument, "M15", 1000)      # the ONLY provider call
+  1. resolve Replay-V1 production rows, hierarchically:
+       (model 1, replay 1) may consume the whole existing 200-row budget
+       → leftover to (model 2, replay 1) → then (model 3, replay 1)
+  2. after production writes complete, resolve a bounded Replay-V2 research
+     slice (own row/time budget, prospective siblings first, then historical
+     backlog opportunistically) from the SAME candle array
+```
 
-## 13. Baseline first
-Persist the Replay-V1 baseline before the backfill and before consumer filters deploy: resolved/filled/win counts, fill rate, win-if-filled **and** unconditional `p_fill × p_win`, grade/instrument/session/direction cells (`unknown` separate), miss-distance distribution, priors at both learning gates, weekly and admin figures, plus `replay_version = 1`, the registry `code_hash`, and a per-row checksum over the frozen resolved fields. Idempotent via the existing `baseline_snapshots` uniqueness.
+Model-V1 throughput is therefore never reduced: the 200-row Replay-V1 selection happens first and is unaffected by any research backlog; Replay-V2 has its own separate caps (rows/run and wall-clock) and is skipped entirely when the production phase exhausts the time budget. Because Replay V2 consumes only already-fetched candles, **no incremental MetaApi request exists** — the "zero new provider calls" claim is now mechanically true, and instrument fetch failures, timeouts, 429/5xx handling and the existing breaker are unchanged (a failed fetch skips both phases for that instrument). The historical backfill flag (`replay_v2_backfill_enabled`) only widens the research slice inside this same loop; it does not add a fetching route.
+Blocking tests: (a) mocked provider asserts **exactly one** M15 fetch per instrument per run while both Replay V1 and Replay V2 rows advance; (b) 180 open `(model 1, replay 1)` rows plus a large Replay-V2 backlog → all 180 production rows selected in the same 200-row run; (c) 5 + 5 + 5 open rows across the three model cohorts → all 15 advance in one pass; (d) research phase skipped when production consumes the wall-clock budget, with production writes intact.
+
+## 12a. Execution policy vs market-path analytics (5G-4)
+Under `single_exit_first_target`, realized execution ends at TP1. `max_target_touched` is retained only as **subsequent market-path analytics** — explicitly documented as not achievable P&L under the policy — and may never feed `gross_r`, `net_r`, `ml_target_label`, win rate, priors or any learning input. A blocking test asserts `gross_r` for a filled winner equals the TP1-based R even when TP2/TP3 were later touched.
+
+## 13. Two baseline checkpoints (5G-5)
+**Checkpoint A — pre-migration.** Capture legacy Replay-V1 metrics (resolved/filled/win counts, fill rate, win-if-filled and unconditional `p_fill × p_win`, grade/instrument/session/direction cells with `unknown` separate, miss-distance distribution, priors at both learning gates, weekly and admin figures), per-row resolved-field checksums, and the frozen Replay-V1 code/semantics hash. Idempotent via existing `baseline_snapshots` uniqueness.
+**Deploy** the additive migration, `plan_id` backfill, registry seed and all consumer filters (§11) with `replay_v2_shadow_enabled = false` and `replay_v2_backfill_enabled = false`.
+**Checkpoint B — pre-research verification.** Re-derive and assert: every legacy metric identical to Checkpoint A; every frozen-row checksum identical; `replay_versions` version 1 `code_hash` equals the pre-migration hash; zero rows with `replay_version <> 1`. Only after Checkpoint B passes may prospective Replay-V2 creation be enabled.
 
 ## 14. Fill-time epistemics
 `fill_bar_time` is a bar-open timestamp; `filled_at_resolution = 'm15'` records the resolution. UI/API/MCP present "fill bar (15m resolution)", never broker execution time. TIF acceptance requires the whole bar interval inside the live-order window (`bar_open + 15m <= detected_at + 30m`); a bar spanning the deadline sets `fill_ambiguous_tif` and fails closed (`m15_conservative_fallback`). `adjudication` already admits `m1_resolved | m1_still_ambiguous | m1_unavailable` for the later adjudication prompt.
