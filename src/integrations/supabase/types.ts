@@ -524,6 +524,33 @@ export type Database = {
         }
         Relationships: []
       }
+      replay_versions: {
+        Row: {
+          code_hash: string
+          label: string
+          registered_at: string
+          retired_at: string | null
+          semantics: Json
+          version: number
+        }
+        Insert: {
+          code_hash: string
+          label: string
+          registered_at?: string
+          retired_at?: string | null
+          semantics: Json
+          version: number
+        }
+        Update: {
+          code_hash?: string
+          label?: string
+          registered_at?: string
+          retired_at?: string | null
+          semantics?: Json
+          version?: number
+        }
+        Relationships: []
+      }
       scan_queue: {
         Row: {
           attempts: number
@@ -796,12 +823,14 @@ export type Database = {
       }
       shadow_engine_state: {
         Row: {
+          active_replay_version: number
           consecutive_failures: number
           fill_gate_notified_at: string | null
           id: boolean
           last_error: string | null
           last_run_at: string | null
           paused: boolean
+          replay_v2_shadow_enabled: boolean
           research_errors: number
           research_last_error: string | null
           research_last_error_at: string | null
@@ -811,12 +840,14 @@ export type Database = {
           win_gate_notified_at: string | null
         }
         Insert: {
+          active_replay_version?: number
           consecutive_failures?: number
           fill_gate_notified_at?: string | null
           id?: boolean
           last_error?: string | null
           last_run_at?: string | null
           paused?: boolean
+          replay_v2_shadow_enabled?: boolean
           research_errors?: number
           research_last_error?: string | null
           research_last_error_at?: string | null
@@ -826,12 +857,14 @@ export type Database = {
           win_gate_notified_at?: string | null
         }
         Update: {
+          active_replay_version?: number
           consecutive_failures?: number
           fill_gate_notified_at?: string | null
           id?: boolean
           last_error?: string | null
           last_run_at?: string | null
           paused?: boolean
+          replay_v2_shadow_enabled?: boolean
           research_errors?: number
           research_last_error?: string | null
           research_last_error_at?: string | null
@@ -844,42 +877,61 @@ export type Database = {
       }
       shadow_executions: {
         Row: {
+          adjudication: string | null
+          ambiguous_bar_target_touch: number | null
+          ambiguous_bars: number
           atr: number | null
           bars_replayed: number
           bars_to_outcome: number | null
           confidence_score: number | null
           created_at: string
+          data_quality_outcome: string | null
           detected_at: string
           direction: Database["public"]["Enums"]["trade_direction"]
           entry_price: number
           entry_source: string | null
           error: string | null
+          execution_policy: string
           execution_slippage_pips: number | null
+          fill_ambiguous_tif: boolean
+          fill_bar_excursion_ambiguous: boolean
+          fill_bar_time: string | null
+          fill_gap_through: boolean
           fill_price: number | null
           filled_at: string | null
+          first_target_touched: number | null
           grade: Database["public"]["Enums"]["signal_grade"]
+          gross_r: number | null
           id: string
           instrument: string
           last_polled_at: string | null
           max_adverse_excursion_r: number | null
           max_favorable_excursion_r: number | null
           max_r: number | null
+          max_target_touched: number | null
           miss_distance_atr: number | null
           ml_target_label: number | null
           model_version: number
+          net_r: number | null
           observation_key: string | null
+          plan_id: string
           quality_grade: string | null
           realized_r: number | null
           replay_cursor: string | null
+          replay_version: number
           resolved_at: string | null
           resolved_outcome: string | null
           risk_price: number
+          risk_price_actual: number | null
           signal_id: string | null
           status: string
           stop_anchor: string | null
+          stop_before_tp1: boolean | null
+          stop_gap_through: boolean
           stop_loss: number
           strategy_family: string | null
           tp1: number
+          tp1_before_stop: boolean | null
           tp1_r: number | null
           tp2: number
           tp2_r: number | null
@@ -890,42 +942,61 @@ export type Database = {
           volatility_index: number | null
         }
         Insert: {
+          adjudication?: string | null
+          ambiguous_bar_target_touch?: number | null
+          ambiguous_bars?: number
           atr?: number | null
           bars_replayed?: number
           bars_to_outcome?: number | null
           confidence_score?: number | null
           created_at?: string
+          data_quality_outcome?: string | null
           detected_at: string
           direction: Database["public"]["Enums"]["trade_direction"]
           entry_price: number
           entry_source?: string | null
           error?: string | null
+          execution_policy?: string
           execution_slippage_pips?: number | null
+          fill_ambiguous_tif?: boolean
+          fill_bar_excursion_ambiguous?: boolean
+          fill_bar_time?: string | null
+          fill_gap_through?: boolean
           fill_price?: number | null
           filled_at?: string | null
+          first_target_touched?: number | null
           grade: Database["public"]["Enums"]["signal_grade"]
+          gross_r?: number | null
           id?: string
           instrument: string
           last_polled_at?: string | null
           max_adverse_excursion_r?: number | null
           max_favorable_excursion_r?: number | null
           max_r?: number | null
+          max_target_touched?: number | null
           miss_distance_atr?: number | null
           ml_target_label?: number | null
           model_version?: number
+          net_r?: number | null
           observation_key?: string | null
+          plan_id?: string
           quality_grade?: string | null
           realized_r?: number | null
           replay_cursor?: string | null
+          replay_version?: number
           resolved_at?: string | null
           resolved_outcome?: string | null
           risk_price: number
+          risk_price_actual?: number | null
           signal_id?: string | null
           status?: string
           stop_anchor?: string | null
+          stop_before_tp1?: boolean | null
+          stop_gap_through?: boolean
           stop_loss: number
           strategy_family?: string | null
           tp1: number
+          tp1_before_stop?: boolean | null
           tp1_r?: number | null
           tp2: number
           tp2_r?: number | null
@@ -936,42 +1007,61 @@ export type Database = {
           volatility_index?: number | null
         }
         Update: {
+          adjudication?: string | null
+          ambiguous_bar_target_touch?: number | null
+          ambiguous_bars?: number
           atr?: number | null
           bars_replayed?: number
           bars_to_outcome?: number | null
           confidence_score?: number | null
           created_at?: string
+          data_quality_outcome?: string | null
           detected_at?: string
           direction?: Database["public"]["Enums"]["trade_direction"]
           entry_price?: number
           entry_source?: string | null
           error?: string | null
+          execution_policy?: string
           execution_slippage_pips?: number | null
+          fill_ambiguous_tif?: boolean
+          fill_bar_excursion_ambiguous?: boolean
+          fill_bar_time?: string | null
+          fill_gap_through?: boolean
           fill_price?: number | null
           filled_at?: string | null
+          first_target_touched?: number | null
           grade?: Database["public"]["Enums"]["signal_grade"]
+          gross_r?: number | null
           id?: string
           instrument?: string
           last_polled_at?: string | null
           max_adverse_excursion_r?: number | null
           max_favorable_excursion_r?: number | null
           max_r?: number | null
+          max_target_touched?: number | null
           miss_distance_atr?: number | null
           ml_target_label?: number | null
           model_version?: number
+          net_r?: number | null
           observation_key?: string | null
+          plan_id?: string
           quality_grade?: string | null
           realized_r?: number | null
           replay_cursor?: string | null
+          replay_version?: number
           resolved_at?: string | null
           resolved_outcome?: string | null
           risk_price?: number
+          risk_price_actual?: number | null
           signal_id?: string | null
           status?: string
           stop_anchor?: string | null
+          stop_before_tp1?: boolean | null
+          stop_gap_through?: boolean
           stop_loss?: number
           strategy_family?: string | null
           tp1?: number
+          tp1_before_stop?: boolean | null
           tp1_r?: number | null
           tp2?: number
           tp2_r?: number | null
