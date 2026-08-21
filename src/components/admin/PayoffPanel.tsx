@@ -109,7 +109,7 @@ export function PayoffPanel() {
   });
 
   const recompute = useMutation({
-    mutationFn: () => runRecompute({ data: {} }),
+    mutationFn: () => runRecompute(),
     onSuccess: () => {
       toast.success("Payoff cohorts rebuilt at a fresh snapshot instant");
       void qc.invalidateQueries({ queryKey: ["admin", "payoff-research"] });
