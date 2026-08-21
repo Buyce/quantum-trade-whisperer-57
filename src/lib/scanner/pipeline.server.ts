@@ -295,6 +295,7 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
       v2LatencyMs = Date.now() - started;
       if (v2.decision === "candidate" && v2.profile) {
         if (v2.observationOnly) {
+          // Mean reversion is recorded but never forward-tested.
           v2Disposition = "observation_only";
         } else {
           const claimed = await claimV2Structure(
@@ -303,12 +304,24 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
             STRUCTURE_COOLDOWN_MINUTES,
           );
           v2Disposition = claimed ? "observation_only" : "suppressed_cooldown";
+          if (claimed && (await isV2EnrolmentEnabled(db))) {
+            const enrolled = await enrolV2Shadow(db, {
+              profile: v2.profile,
+              detectedAt: now.toISOString(),
+              session,
+              observationKey: observationKey(job.run_id, job.instrument),
+            });
+            if (enrolled) v2Disposition = "shadow_enrolled";
+          }
         }
       }
-    } catch {
+    } catch (err) {
+      // The crash itself is an observation: keep it instead of dropping V2.
       v2 = null;
+      v2Error = err instanceof Error ? err.message : String(err);
       v2Disposition = "none";
     }
+
 
     const profile = buildTradeProfile({ instrument: job.instrument, candles, session });
     if (!profile) return await finish("no_trade", "No structure satisfied the ABC grading rules");
