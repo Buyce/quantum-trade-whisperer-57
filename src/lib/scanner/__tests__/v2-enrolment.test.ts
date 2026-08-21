@@ -26,21 +26,25 @@ vi.mock("../profile", () => ({
   buildTradeProfile: vi.fn(() => v1Result.value),
   // The pipeline now consumes the gate-labelled evaluation. A null profile is
   // still a no-trade; the stage label is what the research capture reads.
-  evaluateSetup: vi.fn(() => ({
-    stage: v1Result.value ? "published" : "no_grade",
-    gates: [],
-    direction: v1Result.value?.direction ?? null,
-    features: {},
-    geometry: {
-      entryPrice: null,
-      stopLoss: null,
-      riskPrice: null,
-      structuralEntry: null,
-      structureKey: v1Result.value?.structureKey ?? null,
-      atr: null,
-    },
-    proposedProfile: v1Result.value,
-  })),
+  evaluateSetup: vi.fn(() => {
+    const p = v1Result.value as { direction?: string; structureKey?: string } | null;
+    return {
+      stage: p ? "published" : "no_grade",
+      gates: [],
+      direction: p?.direction ?? null,
+      features: {},
+      geometry: {
+        entryPrice: null,
+        stopLoss: null,
+        riskPrice: null,
+        structuralEntry: null,
+        structureKey: p?.structureKey ?? null,
+        atr: null,
+      },
+      proposedProfile: v1Result.value,
+    };
+  }),
+
   structureKeyOf: vi.fn(() => "mock-structure-key"),
 }));
 
