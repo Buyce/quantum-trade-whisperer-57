@@ -115,6 +115,10 @@ function Ext({ href, children }: { href: string; children: ReactNode }) {
 
 function ConnectPage() {
   const mcpUrl = useMcpUrl();
+  const registerUrl = useRegisterUrl();
+  const registerExample = `curl -X POST ${registerUrl || "/api/public/agent/register"} \\
+  -H 'Content-Type: application/json' \\
+  -d '{"email":"you@example.com","password":"a-strong-password"}'`;
   const claudeAdd = `https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=${encodeURIComponent(
     "P-Trades Hub",
   )}&connectorUrl=${encodeURIComponent(mcpUrl)}`;
