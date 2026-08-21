@@ -14,7 +14,8 @@
     "test": "vitest run --project blocking",
     "test:watch": "vitest --project blocking",
     "test:report": "vitest run --project report",
-    "verify": "bun run lint && bun run typecheck && bun run test && bun run build"
+    "lint:tests": "eslint vitest.config.ts src/test src/lib/__tests__ src/lib/scanner/__tests__ src/lib/execution/__tests__ src/lib/learning/__tests__ src/lib/reports/__tests__",
+    "verify": "bun run lint:tests && bun run typecheck && bun run test && bun run build"
   },
   "dependencies": {
     "@block65/webcrypto-web-push": "^1.0.2",
