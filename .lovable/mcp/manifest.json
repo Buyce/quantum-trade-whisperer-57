@@ -12,7 +12,7 @@
   "mcp": {
     "server": {
       "name": "p-trades-hub",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "title": "P-Trades Hub"
     },
     "tools": [
@@ -60,6 +60,203 @@
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_market_status",
+        "title": "Get market status",
+        "description": "Report which FX sessions are open right now (Sydney, Tokyo, London, New York), how long until each opens or closes, the weekend closure state, the scanner's current session bucket, and per-instrument broker feed health.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_my_settings",
+        "title": "Get my settings",
+        "description": "Read the signed-in user's feed filters (instruments, timeframes, sessions, minimum grade), alert preferences, daily cap (0 = unlimited) and risk profile (account equity, currency, risk per trade, leverage, max stop-loss percent, max position size). Webhook credentials are never returned.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "update_my_settings",
+        "title": "Update my settings",
+        "description": "Change the signed-in user's own feed filters, alert grade, daily cap (0 = unlimited), notification preferences and risk profile. Only the fields you pass are changed; values outside safe bounds are clamped and reported back. Webhook URL and secret cannot be changed by an agent.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "instruments": {
+              "description": "Subset of XAUUSD, GBPAUD, EURUSD.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "timeframes": {
+              "description": "Subset of H4, H1, M15.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "sessions": {
+              "description": "Subset of sydney, tokyo, london, london_new_york_overlap, new_york.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "min_grade": {
+              "description": "Lowest grade shown in the feed: A+, A, B or C.",
+              "type": "string"
+            },
+            "alert_min_grade": {
+              "description": "Lowest grade that triggers alerts.",
+              "type": "string"
+            },
+            "daily_setup_cap": {
+              "description": "Max graded setups alerted per day; 0 = unlimited.",
+              "type": "number"
+            },
+            "notify_push": {
+              "type": "boolean"
+            },
+            "notify_email": {
+              "type": "boolean"
+            },
+            "account_equity": {
+              "description": "Account balance in the account currency.",
+              "type": "number"
+            },
+            "account_currency": {
+              "description": "USD, EUR, GBP or AUD.",
+              "type": "string"
+            },
+            "risk_per_trade_percent": {
+              "description": "Percent of equity risked per trade (0.1-10).",
+              "type": "number"
+            },
+            "max_position_size": {
+              "description": "Hard lot ceiling; 0 disables the cap.",
+              "type": "number"
+            },
+            "leverage": {
+              "description": "Account leverage (1-500).",
+              "type": "number"
+            },
+            "max_stop_loss_percent": {
+              "description": "Maximum stop distance as a percent of entry; 0 disables the check.",
+              "type": "number"
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "calculate_position_size",
+        "title": "Calculate position size",
+        "description": "Size a setup using the signed-in user's saved risk profile. Pass a signal_id from list_signals, or an explicit instrument plus entry_price and stop_loss. Returns lot size, cash at risk, margin required and any guardrail warnings. Returns an explicit unavailable reason instead of a guess when equity or an FX rate is missing.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "signal_id": {
+              "description": "Signal id from list_signals.",
+              "type": "string"
+            },
+            "instrument": {
+              "description": "XAUUSD, GBPAUD or EURUSD (with entry_price and stop_loss).",
+              "type": "string"
+            },
+            "entry_price": {
+              "type": "number"
+            },
+            "stop_loss": {
+              "type": "number"
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_intelligence",
+        "title": "Get learning intelligence",
+        "description": "Read the Bayesian learning engine's regime statistics for a setup: shrunk fill and win-if-filled probabilities, expected value, sample sizes, which tier answered, whether the learning gates have cleared (advisory until then), plus the shrinkage ladder and the measured influence of each regime feature. Pass a signal_id, or an explicit instrument/direction/session bucket.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "signal_id": {
+              "description": "Signal id from list_signals.",
+              "type": "string"
+            },
+            "instrument": {
+              "description": "XAUUSD, GBPAUD or EURUSD.",
+              "type": "string"
+            },
+            "direction": {
+              "description": "long or short.",
+              "type": "string"
+            },
+            "session": {
+              "description": "sydney, tokyo, london, london_new_york_overlap or new_york.",
+              "type": "string"
+            },
+            "volatility_index": {
+              "description": "ATR-derived volatility index for the bucket.",
+              "type": "number"
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_shadow_comparison",
+        "title": "Get shadow engine comparison",
+        "description": "Compare the deterministic shadow-replay performance of high-grade setups (A+/A) against lower grades (B/C) over the last 7 days: fill rate, win rate, mean and total R, expectancy, sample sizes, and the statistical significance of each difference. Empty tiers report zeroes rather than estimates.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": false,
           "openWorldHint": false
         },
         "inputSchema": {
