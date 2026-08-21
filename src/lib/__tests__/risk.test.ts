@@ -45,12 +45,27 @@ describe("calculateRisk — fail-closed behaviour", () => {
     if (!out.ok) expect(out.reason).toBe("no_spec");
   });
 
-  it("[INVARIANT] a zero or non-finite stop distance fails closed instead of dividing by zero", () => {
-    for (const stopLoss of [1.1, Number.NaN, Number.POSITIVE_INFINITY]) {
+  it("[INVARIANT] a zero or NaN stop distance fails closed instead of dividing by zero", () => {
+    for (const stopLoss of [1.1, Number.NaN]) {
       const out = calculateRisk({ instrument: "EURUSD", entryPrice: 1.1, stopLoss }, profile());
       expect(out.ok).toBe(false);
       if (!out.ok) expect(out.reason).toBe("invalid_stop");
     }
+  });
+
+  it("[V1_CHARACTERIZATION] an INFINITE stop distance is accepted and leaks NaN into riskAmount", () => {
+    // Math.abs(entry - Infinity) is Infinity, which passes the `> 0` guard, so
+    // the sizing path runs: lots floor to 0 and 0 x Infinity is NaN.
+    // CHARACTERISATION.md #9 — no caller currently supplies a non-finite stop.
+    const out = calculateRisk(
+      { instrument: "EURUSD", entryPrice: 1.1, stopLoss: Number.POSITIVE_INFINITY },
+      profile(),
+    );
+    expect(out.ok).toBe(true);
+    if (!out.ok) return;
+    expect(out.lots).toBe(0);
+    expect(out.belowMinimumLot).toBe(true);
+    expect(Number.isNaN(out.riskAmount)).toBe(true);
   });
 
   it("[INVARIANT] a cross pair without a conversion rate refuses to size", () => {

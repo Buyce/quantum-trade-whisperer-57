@@ -110,11 +110,11 @@ describe("directionalHeadroomAtr", () => {
         low: 99.5 + i,
         close: 100 + i,
       })),
-      ...Array.from({ length: 12 }, (_, i) => ({
-        open: 111 - i,
-        high: 111.5 - i,
-        low: 110.5 - i,
-        close: 111 - i,
+      ...Array.from({ length: 14 }, (_, i) => ({
+        open: 110 - i,
+        high: 110.5 - i,
+        low: 109.5 - i,
+        close: 110 - i,
       })),
     ]);
     const h4 = readTimeframe("H4", candles);

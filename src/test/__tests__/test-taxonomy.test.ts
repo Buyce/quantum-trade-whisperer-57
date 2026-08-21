@@ -52,7 +52,10 @@ describe("test taxonomy", () => {
     const offenders: string[] = [];
     for (const file of FILES) {
       if (file.endsWith(".v2.test.ts")) continue;
-      if (readFileSync(file, "utf8").includes("[INTENDED_V2]")) offenders.push(file);
+      const source = readFileSync(file, "utf8");
+      for (const match of source.matchAll(TITLE)) {
+        if ((match[2] ?? "").startsWith("[INTENDED_V2]")) offenders.push(file);
+      }
     }
     expect(offenders).toEqual([]);
   });

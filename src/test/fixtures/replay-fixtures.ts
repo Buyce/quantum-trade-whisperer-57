@@ -79,7 +79,7 @@ export const postTifTouch: MarketFixture = defineFixture({
   id: "replay/post-tif-touch",
   provenance: {
     ...BASE_PROVENANCE,
-    candleRange: { from: DETECTED_AT, to: "2026-08-20T10:15:00.000Z" },
+    candleRange: { from: DETECTED_AT, to: "2026-08-20T10:00:00.000Z" },
     knownDefects: ["fill-checked-before-tif-deadline"],
   },
   candles: m15Series(DETECTED_AT, [

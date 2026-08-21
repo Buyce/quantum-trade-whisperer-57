@@ -87,13 +87,23 @@ describe("replaySetup — V1 characterization of ambiguous resolutions", () => {
     expect(state.replayCursor).toBe("2026-08-20T09:45:00.000Z");
   });
 
-  it("[INVARIANT] a non-positive planned risk fails closed instead of dividing by zero", () => {
-    for (const riskPrice of [0, -0.001, Number.NaN, Number.POSITIVE_INFINITY]) {
+  it("[INVARIANT] a zero or non-finite planned risk fails closed instead of dividing by zero", () => {
+    for (const riskPrice of [0, Number.NaN, Number.POSITIVE_INFINITY]) {
       const state = replaySetup(longSetup({ riskPrice }), verticalExpiry.candles);
       expect(state.status).toBe("resolved");
       expect(state.outcome).toBe("never_filled");
       expect(state.label).toBe(0);
+      expect(state.realizedR).toBeNull();
     }
+  });
+
+  it("[V1_CHARACTERIZATION] a NEGATIVE planned risk is silently absolute-valued, not rejected", () => {
+    // replaySetup normalises with Math.abs, so a sign error upstream produces a
+    // fully resolved row rather than a fail-closed one. CHARACTERISATION.md #8.
+    const state = replaySetup(longSetup({ riskPrice: -0.005 }), verticalExpiry.candles);
+    expect(state.status).toBe("resolved");
+    expect(state.outcome).toBe("expired");
+    expect(state.realizedR).toBeCloseTo(0.4, 10);
   });
 
   it("[INVARIANT] short setups mirror long resolution exactly", () => {
