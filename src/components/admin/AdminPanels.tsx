@@ -7,6 +7,7 @@
  */
 import type {
   AdminDedup,
+  AdminAuthorSplit,
   AdminDiscipline,
   AdminFeedRow,
   AdminFillRow,
@@ -572,6 +573,28 @@ export function UserIntegrityPanel({ report }: { report: UserAuditReport | undef
         </div>
       ) : null}
 
+      {report.decisionAuthors.length > 0 ? (
+        <div className="space-y-1 rounded-sm border border-border px-2 py-1.5 text-[11px]">
+          <p className="text-muted-foreground">Logged trades by author</p>
+          {report.decisionAuthors.map((a) => (
+            <div
+              key={`d-${a.source}-${a.client ?? ""}`}
+              className="flex items-center justify-between gap-2"
+            >
+              <span className={a.source === "agent" ? "text-warning" : "text-muted-foreground"}>
+                {a.source === "human"
+                  ? "human · web terminal"
+                  : `agent · ${a.client ?? "unknown client"}`}
+              </span>
+              <span className="font-mono">
+                {a.trades} logged · {a.verified} verified · {a.contradicted} contradicted ·{" "}
+                {a.winRate == null ? "—" : pctOf(a.winRate)} win
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
       {Object.keys(report.flagCounts).length > 0 ? (
         <ul className="space-y-1 text-[11px]">
           {Object.entries(report.flagCounts)
@@ -593,6 +616,7 @@ export function UserIntegrityPanel({ report }: { report: UserAuditReport | undef
             <thead className="text-muted-foreground">
               <tr className="border-b border-border">
                 <th className="py-1 text-left">Setup</th>
+                <th className="py-1 text-left">Author</th>
                 <th className="py-1 text-right">Reported</th>
                 <th className="py-1 text-right">Replay</th>
                 <th className="py-1 text-right">max R</th>
@@ -606,6 +630,14 @@ export function UserIntegrityPanel({ report }: { report: UserAuditReport | undef
                   <td className="py-1">
                     {r.instrument} {r.grade} {r.direction}
                     <span className="ml-1 text-muted-foreground">{timeAgo(r.detectedAt)}</span>
+                  </td>
+                  <td className="py-1">
+                    <span className={r.decisionSource === "agent" ? "text-warning" : ""}>
+                      {r.decisionSource}
+                    </span>
+                    {r.priceSource === "agent" ? (
+                      <span className="ml-1 text-warning">(agent priced)</span>
+                    ) : null}
                   </td>
                   <td className="py-1 text-right">
                     {r.outcome}
@@ -644,6 +676,82 @@ function IntegrityStat({ label, value, tone }: { label: string; value: string; t
     <div className="rounded-sm border border-border px-2 py-1.5">
       <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
       <p className={cn("mt-0.5 text-sm", tone)}>{value}</p>
+    </div>
+  );
+}
+
+
+/**
+ * Human vs AI-agent split across accounts, decisions and reported outcomes.
+ * Authorship is stamped server-side at write time, so these counts are the
+ * real request paths — never a client claim.
+ */
+export function AuthorSplitPanel({ split }: { split: AdminAuthorSplit | null }) {
+  if (!split) return <EmptyNote>No author data available yet.</EmptyNote>;
+
+  const label = (source: string, clients: string[]) =>
+    source === "agent"
+      ? `agent${clients.length ? ` · ${clients.join(", ")}` : ""}`
+      : "human · web terminal";
+
+  return (
+    <div className="space-y-3 text-[11px]">
+      <div className="space-y-1">
+        <p className="text-muted-foreground">Active accounts</p>
+        {split.accounts.length === 0 ? (
+          <EmptyNote>No active accounts yet.</EmptyNote>
+        ) : (
+          split.accounts.map((a) => (
+            <div key={`acc-${a.source}`} className="flex items-center justify-between gap-2">
+              <span className={a.source === "agent" ? "text-warning" : "text-muted-foreground"}>
+                {label(a.source, a.clients)}
+              </span>
+              <span className="font-mono">{a.n}</span>
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="space-y-1">
+        <p className="text-muted-foreground">Taken / skipped decisions</p>
+        {split.decisions.length === 0 ? (
+          <EmptyNote>No decisions logged yet.</EmptyNote>
+        ) : (
+          split.decisions.map((d) => (
+            <div key={`dec-${d.source}`} className="flex items-center justify-between gap-2">
+              <span className={d.source === "agent" ? "text-warning" : "text-muted-foreground"}>
+                {label(d.source, d.clients)}
+              </span>
+              <span className="font-mono">
+                {d.taken} taken · {d.skipped} skipped
+              </span>
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="space-y-1">
+        <p className="text-muted-foreground">User-reported outcomes</p>
+        {split.user_reported.length === 0 ? (
+          <EmptyNote>No resolved user-logged outcomes yet.</EmptyNote>
+        ) : (
+          split.user_reported.map((u) => (
+            <div key={`rep-${u.source}`} className="flex items-center justify-between gap-2">
+              <span className={u.source === "agent" ? "text-warning" : "text-muted-foreground"}>
+                {u.source === "agent" ? "agent" : "human · web terminal"}
+              </span>
+              <span className="font-mono">
+                n={u.n} · {pctOf(u.win_rate)} win · mean R {num(u.mean_r)}
+              </span>
+            </div>
+          ))
+        )}
+      </div>
+
+      <p className="text-muted-foreground">
+        Authorship is stamped from the request path: the web terminal writes human, the MCP
+        connection writes agent with its OAuth client id.
+      </p>
     </div>
   );
 }
