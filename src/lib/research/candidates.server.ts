@@ -71,12 +71,13 @@ export async function captureCandidate(
   // list must be visibly partial rather than silently read as "all passed".
   const gatesComplete = e.gates.length === 8;
 
-  // Prompt 7G: a filter-rejected setup with fully derived geometry gets a
-  // research-only ladder so the "fail" arm of filter lift can ever be populated.
-  // It is stored under `plan_origin='counterfactual'` and can never be confused
-  // with a production plan, which keeps its published values untouched.
-  const counterfactual = p ? null : buildCounterfactualPlan(e);
-  const planOrigin = p ? "production" : counterfactual ? "counterfactual" : null;
+  // Prompt 7G (red-team corrected): EVERY executable evaluation — published or
+  // filter-rejected — carries the same frozen research ladder, stored in its own
+  // `cf_*` columns. Production columns keep exactly what V1 derived, so a
+  // research plan can never be read as a traded plan, and the pass/fail arms of
+  // filter lift are replayed under one identical, filter-independent policy.
+  const ladder = buildCounterfactualPlan(e);
+  const planOrigin = p ? "production" : ladder ? "counterfactual" : null;
 
   try {
     const insert = db.from("research_candidates").insert({
@@ -96,25 +97,37 @@ export async function captureCandidate(
       gates_complete: gatesComplete,
       features: e.features,
       // Geometry: only what was derived. Targets exist solely for a full plan.
-      grade: p?.grade ?? counterfactual?.grade ?? null,
+      grade: p?.grade ?? ladder?.grade ?? null,
       plan_origin: planOrigin,
-      counterfactual_stage: counterfactual ? e.stage : null,
-      research_plan_version: counterfactual ? RESEARCH_PLAN_VERSION : null,
+      counterfactual_stage: p ? null : ladder ? e.stage : null,
+      research_plan_version: ladder ? RESEARCH_PLAN_VERSION : null,
       counterfactual_class: e.counterfactual,
       structure_key: g.structureKey,
       entry_price: g.entryPrice,
       stop_loss: g.stopLoss,
       risk_price: g.riskPrice,
       atr: g.atr,
-      tp1: p?.tp1 ?? counterfactual?.tp1 ?? null,
-      tp2: p?.tp2 ?? counterfactual?.tp2 ?? null,
-      tp3: p?.tp3 ?? counterfactual?.tp3 ?? null,
-      tp1_r: p?.tp1R ?? counterfactual?.tp1R ?? null,
-      tp2_r: p?.tp2R ?? counterfactual?.tp2R ?? null,
-      tp3_r: p?.tp3R ?? counterfactual?.tp3R ?? null,
-      max_r: p?.maxR ?? counterfactual?.maxR ?? null,
+      // Production plan columns: NULL unless V1 actually published a profile.
+      tp1: p?.tp1 ?? null,
+      tp2: p?.tp2 ?? null,
+      tp3: p?.tp3 ?? null,
+      tp1_r: p?.tp1R ?? null,
+      tp2_r: p?.tp2R ?? null,
+      tp3_r: p?.tp3R ?? null,
+      max_r: p?.maxR ?? null,
       confidence_score: p?.confidence.score ?? null,
+      // The common research ladder, kept strictly separate from the above.
+      cf_tp1: ladder?.tp1 ?? null,
+      cf_tp2: ladder?.tp2 ?? null,
+      cf_tp3: ladder?.tp3 ?? null,
+      cf_tp1_r: ladder?.tp1R ?? null,
+      cf_tp2_r: ladder?.tp2R ?? null,
+      cf_tp3_r: ladder?.tp3R ?? null,
+      cf_max_r: ladder?.maxR ?? null,
+      cf_grade: ladder?.grade ?? null,
+      cf_plan_version: ladder?.researchPlanVersion ?? null,
       published_signal_id: args.publishedSignalId,
+
     });
 
     const { error } = (await Promise.race([
