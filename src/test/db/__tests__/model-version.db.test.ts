@@ -165,13 +165,14 @@ describe("model_version cohort isolation", () => {
     // Pinned present state. When the expand/contract migration drops these
     // defaults this test must be inverted to a fail-closed INVARIANT.
     //
-    // `model_observations` is deliberately excluded: it is a research ledger
-    // whose writers must state the model version explicitly, so that column has
-    // no default and an omitted version fails closed there by design.
+    // `model_observations` and `v2_structure_claims` are deliberately excluded:
+    // they are research-only tables whose writers must state the model version
+    // explicitly, so those columns have no default and an omitted version fails
+    // closed there by design.
     const defaults = db.rows<{ table_name: string; column_default: string | null }>(
       `select table_name, column_default from information_schema.columns
         where table_schema = 'public' and column_name = 'model_version'
-          and table_name <> 'model_observations'
+          and table_name not in ('model_observations', 'v2_structure_claims')
         order by table_name`,
     );
     expect(defaults.length).toBeGreaterThan(0);
@@ -179,13 +180,18 @@ describe("model_version cohort isolation", () => {
       defaults.map((r) => `${r.table_name}=1`),
     );
 
-    const research = db.rows<{ column_default: string | null; is_nullable: string }>(
-      `select column_default, is_nullable from information_schema.columns
-        where table_schema = 'public' and table_name = 'model_observations'
-          and column_name = 'model_version'`,
+    const research = db.rows<{ table_name: string; column_default: string | null; is_nullable: string }>(
+      `select table_name, column_default, is_nullable from information_schema.columns
+        where table_schema = 'public'
+          and table_name in ('model_observations', 'v2_structure_claims')
+          and column_name = 'model_version'
+        order by table_name`,
     );
-    expect(research[0]?.column_default).toBeNull();
-    expect(research[0]?.is_nullable).toBe("NO");
+    expect(research.length).toBe(2);
+    for (const row of research) {
+      expect(row.column_default).toBeNull();
+      expect(row.is_nullable).toBe("NO");
+    }
 
 
     db.exec(`
