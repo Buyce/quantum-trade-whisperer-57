@@ -41,20 +41,40 @@ r_vs_actual_risk  = gross_move / abs(actual_entry - stop_ref)
 - Weekly censoring: a plan enters a fill-rate denominator only after a full
   eligible outcome horizon.
 
+## Final build lock (binding, supersedes any contradictory text below)
+
+1. **Snapshot at row creation, not resolution.** When an `executed_trades` row is
+   first created, snapshot `planned_entry`, `planned_stop`, `planned_direction`,
+   `signal_detected_at`, `signal_instrument`, `signal_grade`,
+   `signal_trading_session`, `signal_time_of_day`, `signal_day_of_week`. Immutable
+   afterwards, and the canonical source for journal R and performance context.
+   `purge_expired_signals()` already skips signals referenced by a taken trade —
+   that behaviour and the current signal FK semantics are unchanged, and the
+   "purged signal with surviving journal row" scenario is removed as impossible.
+2. **Decision writers.** Both `queries.ts::logDecision` and MCP
+   `log_trade_decision` are fixed: insert initialises state; update changes only
+   decision and provenance; neither resets `outcome` on an existing row. A resolved
+   row returns a friendly already-resolved result and no resolution field changes.
+3. **Deletion stays genuine deletion.** No `trade_resolution_audit` tombstone in
+   Prompt 8/9. Deleted trades disappear from personal statistics. Tamper-resistant
+   broker reconciliation is a separate future capability.
+4. **R representation.** No single ambiguous row-level `r_basis`. Store
+   `r_vs_plan`, `r_vs_actual_risk`, `r_availability`, `r_math_version`,
+   `stop_provenance`. Aggregation APIs explicitly request `plan` or `actual_risk`;
+   `mixed_basis` is an aggregation error status, never a row attribute.
+
+Every other authoritative mathematical, statistical, concurrency, provenance, RLS,
+experiment-ledger, weekly-censoring and testing requirement below is preserved.
+Prompt 8 is implemented and verified first, then Prompt 9.
+
 ## A. Plan defects discovered in this pass
 
-**M1 — DELETE is an unguarded laundering path around the conflict rule.**
-`queries.ts` exposes `deleteTrade` and `deleteAllTrades`, both plain client-side
-deletes scoped by RLS. A `BEFORE UPDATE` trigger cannot see them: a trader who
-dislikes a rejected re-resolution can delete the resolved row and re-log the
-signal from scratch, producing a clean "first" resolution with new prices. The
-approved concurrency rule is therefore incomplete as specified. Fix: keep deletion
-(users must be able to erase their own data) but make it auditable and
-non-silent — a `BEFORE DELETE` trigger writes an append-only
-`trade_resolution_audit` tombstone (trade id, user, outcome, canonical R, basis,
-provenance, deleted_at) that the integrity audit reads, and the audit panel flags
-`resolved_then_deleted`. Statistics never resurrect deleted rows; they only count
-the tombstone for integrity flags.
+**M1 — DELETE bypasses the UPDATE conflict rule (accepted, not mitigated).**
+`queries.ts` exposes `deleteTrade` and `deleteAllTrades`, which a `BEFORE UPDATE`
+trigger cannot see, so a delete-and-relog path exists. Per the build lock, deletion
+remains genuine deletion and no tombstone is introduced in this build; the residual
+gap is recorded as a known limitation to be closed later by broker reconciliation.
+
 
 **M2 — `r_vs_plan` is not reproducible without a planned-price snapshot.**
 Both canonical values are defined against `planned_entry` / `planned_stop`, which
