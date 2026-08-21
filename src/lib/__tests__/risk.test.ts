@@ -99,7 +99,7 @@ describe("calculateRisk — fail-closed behaviour", () => {
     });
     expect(out.ok).toBe(true);
     if (!out.ok) return;
-    expect(out.stopExceedsLimit).toBe(true);
+    expect(out.exceedsStopCeiling).toBe(true);
   });
 });
 
@@ -127,6 +127,7 @@ describe("calculateRisk — position-size invariants (property, fixed seed)", ()
           if (!out.ok) return true;
           const budget = accountEquity * (riskPerTradePercent / 100);
           expect(out.riskAmount).toBeLessThanOrEqual(budget * (1 + 1e-9) + 1e-9);
+          expect(out.riskBudget).toBeCloseTo(budget, 6);
           expect(out.lots).toBeGreaterThanOrEqual(0);
           for (const v of [out.lots, out.riskAmount, out.notional, out.marginRequired]) {
             expect(Number.isFinite(v)).toBe(true);
