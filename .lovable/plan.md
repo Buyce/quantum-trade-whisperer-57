@@ -31,6 +31,10 @@ An `AFTER INSERT` trigger runs inside the parent transaction, so a research fail
 
 `ON CONFLICT DO NOTHING` is kept for idempotency but is explicitly **not** the isolation mechanism. Blocking DB test: force the sibling insert to fail (e.g. a temporarily violated CHECK or a NOT NULL breach injected in the sibling path) and assert the Replay-V1 row is present and complete after commit, with `research_errors` incremented.
 
+### 2a. Sibling starts from a clean execution state (5F-4)
+Both the prospective trigger and the historical backfill clone the **immutable plan only**, never the Replay-V1 execution state. Every sibling is explicitly initialised: same `plan_id`, same `model_version` and immutable geometry/features (instrument, grade, direction, `detected_at`, entry/stop/TP ladder, planned R metadata, session, volatility, ATR, `strategy_family`, `quality_grade`, `entry_source`, `stop_anchor`); `replay_version = 2`; `execution_policy = 'single_exit_first_target'`; `status = 'pending'`; `replay_cursor = detected_at`; `filled_at`, `fill_bar_time`, `fill_price`, `execution_slippage_pips`, `risk_price_actual`, `resolved_outcome`, `ml_target_label`, `realized_r`, `gross_r`, `net_r`, `resolved_at`, `bars_to_outcome`, `adjudication`, `error` all NULL; MFE/MAE `= 0`; `bars_replayed = 0`; `ambiguous_bars = 0`; every gap/ambiguity boolean false. Explicit column lists (no `SELECT *`) prevent accidental carry-over.
+Blocking test: clone an already-resolved Replay-V1 row and assert the sibling starts at detection with a fully clean execution state.
+
 ## 3. `plan_id` lifecycle
 `plan_id uuid NOT NULL DEFAULT gen_random_uuid()` — the default keeps `processNextShadowJob`, `enrolV2Shadow` and `enrolV3Shadow` working unchanged. Historical rows backfill `plan_id = id` (all rows; 149 of 326 already have `signal_id IS NULL`). A new plan mints its id exactly once on the first (Replay-V1) insert; every later replay version and execution policy inherits it. Replay-result `id` stays separate. Blocking tests cover all three enrolment paths: id minted, unique per plan, sibling inherits it.
 
