@@ -39,8 +39,16 @@ export interface UserAuditRow {
   loggedAt: string;
   resolvedAt: string | null;
   outcome: string;
+  /** FROZEN legacy provenance, mixed basis. Never pooled with canonical R. */
   reportedR: number | null;
   derivedR: number | null;
+  /** Canonical dual-basis R. Reported separately; never averaged together. */
+  rVsPlan: number | null;
+  rVsActualRisk: number | null;
+  rAvailability: string | null;
+  stopProvenance: string | null;
+  rMathVersion: number | null;
+  verificationLevel: string | null;
   hasPrices: boolean;
   /** Who entered the prices. null when no prices were ever logged. */
   priceSource: "human" | "agent" | null;
@@ -107,7 +115,7 @@ export const getUserReportAudit = createServerFn({ method: "GET" })
     const { data: trades, error } = await supabaseAdmin
       .from("executed_trades")
       .select(
-        "id, signal_id, outcome, realized_r_multiple, derived_r, actual_entry_price, actual_exit_price, price_source, price_source_client, price_recorded_at, decision_source, decision_source_client, created_at, updated_at",
+        "id, signal_id, outcome, realized_r_multiple, derived_r, r_vs_plan, r_vs_actual_risk, r_availability, stop_provenance, r_math_version, verification_level, planned_entry, planned_stop, planned_direction, signal_detected_at, signal_instrument, signal_grade, actual_entry_price, actual_exit_price, actual_initial_stop, price_source, price_source_client, price_recorded_at, decision_source, decision_source_client, created_at, updated_at",
       )
       .eq("user_decision", "taken")
       .order("created_at", { ascending: false })
@@ -162,13 +170,21 @@ export const getUserReportAudit = createServerFn({ method: "GET" })
     const flagCounts: Record<string, number> = {};
 
     for (const t of rowsIn) {
+      // Snapshot-first: a trade is never dropped just because its signal row has
+      // left retention. The signal join is only a fallback for pre-snapshot rows.
       const s = signals.get(t.signal_id);
-      if (!s) continue;
+      const instrument = t.signal_instrument ?? s?.instrument ?? null;
+      const grade = t.signal_grade ?? (s?.grade == null ? null : String(s.grade));
+      const detectedAt = t.signal_detected_at ?? s?.detected_at ?? null;
+      const direction = t.planned_direction ?? (s?.direction == null ? null : String(s.direction));
+      if (!instrument || !grade || !detectedAt || !direction) continue;
       const sh = shadows.get(t.signal_id);
       const flags: UserAuditFlag[] = [];
 
       const reportedR = t.realized_r_multiple == null ? null : Number(t.realized_r_multiple);
       const derivedR = t.derived_r == null ? null : Number(t.derived_r);
+      const rVsPlan = t.r_vs_plan == null ? null : Number(t.r_vs_plan);
+      const rVsActualRisk = t.r_vs_actual_risk == null ? null : Number(t.r_vs_actual_risk);
       const hasPrices = t.actual_entry_price != null && t.actual_exit_price != null;
       const priceSource = (t.price_source ?? null) as "human" | "agent" | null;
       const priceSourceClient = (t.price_source_client ?? null) as string | null;
@@ -176,7 +192,7 @@ export const getUserReportAudit = createServerFn({ method: "GET" })
         "human" | "agent";
       const decisionSourceClient = (t.decision_source_client ?? null) as string | null;
       const open = t.outcome === "open";
-      const maxR = s.max_r == null ? null : Number(s.max_r);
+      const maxR = s?.max_r == null ? null : Number(s.max_r);
       const replayOutcome = sh?.status === "resolved" ? (sh.resolved_outcome ?? null) : null;
       const replayR = sh?.realized_r == null ? null : Number(sh.realized_r);
 
@@ -185,7 +201,10 @@ export const getUserReportAudit = createServerFn({ method: "GET" })
         if (reportedR != null && PRESET_R_VALUES.includes(reportedR) && !hasPrices) {
           flags.push("preset_r_value");
         }
-        if (maxR != null && reportedR != null && reportedR > maxR + 1e-9) {
+        // max_r is expressed in planned-risk units, so it is only comparable to
+        // the plan-basis R. Legacy R is used only when no canonical value exists.
+        const planBasisR = rVsPlan ?? reportedR;
+        if (maxR != null && planBasisR != null && planBasisR > maxR + 1e-9) {
           flags.push("r_exceeds_max_r");
         }
         if (replayOutcome === "never_filled") flags.push("never_filled_in_replay");
@@ -221,15 +240,21 @@ export const getUserReportAudit = createServerFn({ method: "GET" })
       rows.push({
         tradeId: t.id,
         signalId: t.signal_id,
-        instrument: s.instrument,
-        grade: String(s.grade),
-        direction: String(s.direction),
-        detectedAt: s.detected_at,
+        instrument,
+        grade,
+        direction,
+        detectedAt,
         loggedAt: t.created_at,
         resolvedAt: open ? null : t.updated_at,
         outcome: t.outcome,
         reportedR,
         derivedR,
+        rVsPlan,
+        rVsActualRisk,
+        rAvailability: (t.r_availability ?? null) as string | null,
+        stopProvenance: (t.stop_provenance ?? null) as string | null,
+        rMathVersion: t.r_math_version == null ? null : Number(t.r_math_version),
+        verificationLevel: (t.verification_level ?? null) as string | null,
         hasPrices,
         priceSource,
         priceSourceClient,

@@ -1,19 +1,25 @@
 import { defineTool } from "@lovable.dev/mcp-js";
 import { z } from "zod";
 import { supabaseForUser } from "../supabase";
+import { computeR, computeNetR, R_MATH_VERSION, RMathInputError } from "../../journal/r-math";
 
 /**
  * R is NEVER accepted from the caller. When the agent supplies the real fill and
- * exit prices, R is recomputed here from the originating signal's own risk
- * distance (|entry - stop|), exactly as the web journal does, so the number is
- * reproducible and the trade counts as VERIFIED. Without prices, R stays null —
- * an honest unknown rather than a preset guess.
+ * exit prices, both canonical R values are recomputed here through the SAME
+ * shared module the web journal uses (`src/lib/journal/r-math.ts`), from the
+ * trade's own immutable plan snapshot:
+ *
+ *   r_vs_plan        = gross move / |planned_entry - planned_stop|
+ *   r_vs_actual_risk = gross move / |actual_entry - actual_or_planned_stop|
+ *
+ * Frozen legacy columns are never written. A resolved trade is never silently
+ * rewritten: the tool reports it as already resolved instead.
  */
 export default defineTool({
   name: "update_trade_outcome",
   title: "Update trade outcome",
   description:
-    "Set the outcome (win, loss, breakeven or open) on one of the signed-in user's logged trades. Supply actual_entry_price and actual_exit_price to have the R multiple recomputed server-side from the signal's own risk distance — that marks the trade VERIFIED. Without prices the trade stays unverified and R is left unknown; the R multiple can never be supplied directly.",
+    "Set the outcome (win, loss, breakeven or open) on one of the signed-in user's logged trades. Supply actual_entry_price and actual_exit_price to have both canonical R multiples recomputed server-side (R vs plan and R vs actual risk) — that marks the trade self-reported/verified. Optionally supply actual_initial_stop for a true actual-risk denominator, and commission/swap as money. Without prices, R stays unknown; the R multiple can never be supplied directly. An already-resolved trade is not modified.",
   inputSchema: {
     trade_id: z.string().describe("The id of a trade returned by list_my_trades."),
     outcome: z
@@ -21,6 +27,13 @@ export default defineTool({
       .describe("Resolved outcome of the trade."),
     actual_entry_price: z.number().optional().describe("The real fill price the user got."),
     actual_exit_price: z.number().optional().describe("The real exit price the user got."),
+    actual_initial_stop: z
+      .number()
+      .optional()
+      .describe("The stop the user actually placed at the broker, if they reported it."),
+    commission: z.number().optional().describe("Commission in money, not price distance."),
+    swap: z.number().optional().describe("Swap/financing in money, not price distance."),
+    cost_currency: z.string().max(16).optional().describe("Currency of commission/swap."),
   },
   annotations: {
     readOnlyHint: false,
@@ -28,7 +41,17 @@ export default defineTool({
     idempotentHint: true,
     openWorldHint: false,
   },
-  handler: async ({ trade_id, outcome, actual_entry_price, actual_exit_price }, ctx) => {
+  handler: async (input, ctx) => {
+    const {
+      trade_id,
+      outcome,
+      actual_entry_price,
+      actual_exit_price,
+      actual_initial_stop,
+      commission,
+      swap,
+      cost_currency,
+    } = input;
     if (!ctx.isAuthenticated()) {
       return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
     }
@@ -36,7 +59,9 @@ export default defineTool({
 
     const { data: trade, error: readError } = await supabase
       .from("executed_trades")
-      .select("id, signal_id, scanned_signals(entry_price, stop_loss, direction)")
+      .select(
+        "id, signal_id, outcome, planned_entry, planned_stop, planned_direction, r_vs_plan, r_vs_actual_risk, r_availability, stop_provenance",
+      )
       .eq("id", trade_id)
       .maybeSingle();
     if (readError) return { content: [{ type: "text", text: readError.message }], isError: true };
@@ -47,34 +72,71 @@ export default defineTool({
       };
     }
 
-    const rawSignal = (trade as { scanned_signals: unknown }).scanned_signals;
-    const signal = (Array.isArray(rawSignal) ? rawSignal[0] : rawSignal) as
-      { entry_price: number; stop_loss: number; direction: "long" | "short" } | null | undefined;
+    if (trade.outcome !== "open") {
+      const payload = {
+        trade,
+        already_resolved: true,
+        note: `This trade is already resolved as ${trade.outcome}. Nothing was changed. A resolved trade can only be altered through an explicit correction workflow.`,
+      };
+      return {
+        content: [{ type: "text", text: JSON.stringify(payload) }],
+        structuredContent: payload,
+      };
+    }
 
     const priceValid = (v: number | undefined) => v != null && Number.isFinite(v) && v > 0;
     const closed = outcome !== "open";
     const hasPrices = closed && priceValid(actual_entry_price) && priceValid(actual_exit_price);
 
-    let derivedR: number | null = null;
-    if (hasPrices && signal) {
-      const risk = Math.abs(Number(signal.entry_price) - Number(signal.stop_loss));
-      if (risk > 0) {
-        const move =
-          signal.direction === "long"
-            ? (actual_exit_price as number) - (actual_entry_price as number)
-            : (actual_entry_price as number) - (actual_exit_price as number);
-        derivedR = Math.round((move / risk) * 10000) / 10000;
-      }
+    let result;
+    try {
+      result = computeR({
+        outcome,
+        direction: (trade.planned_direction as "long" | "short" | null) ?? "long",
+        plannedEntry: trade.planned_entry == null ? null : Number(trade.planned_entry),
+        plannedStop: trade.planned_stop == null ? null : Number(trade.planned_stop),
+        actualEntryPrice: hasPrices ? (actual_entry_price as number) : null,
+        actualExitPrice: hasPrices ? (actual_exit_price as number) : null,
+        actualInitialStop: hasPrices && priceValid(actual_initial_stop)
+          ? (actual_initial_stop as number)
+          : null,
+      });
+    } catch (err) {
+      const message =
+        err instanceof RMathInputError ? `Invalid execution prices: ${err.message}` : String(err);
+      return { content: [{ type: "text", text: message }], isError: true };
     }
+
+    // Costs are money. Without documented conversion provenance, net R stays
+    // explicitly unavailable — never quietly equal to gross R.
+    const net = computeNetR(result.rVsActualRisk ?? result.rVsPlan, {
+      commission: commission ?? null,
+      swap: swap ?? null,
+      costCurrency: cost_currency ?? null,
+      costUnit: commission != null || swap != null ? "account_currency" : null,
+      documentedRValueInCostCurrency: null,
+    });
 
     const { data, error } = await supabase
       .from("executed_trades")
       .update({
         outcome,
+        trade_state: closed ? "resolved" : "open",
         actual_entry_price: hasPrices ? (actual_entry_price as number) : null,
         actual_exit_price: hasPrices ? (actual_exit_price as number) : null,
-        derived_r: derivedR,
-        realized_r_multiple: derivedR,
+        actual_initial_stop:
+          hasPrices && priceValid(actual_initial_stop) ? (actual_initial_stop as number) : null,
+        r_vs_plan: result.rVsPlan,
+        r_vs_actual_risk: result.rVsActualRisk,
+        r_availability: result.availability,
+        stop_provenance: result.stopProvenance,
+        r_math_version: R_MATH_VERSION,
+        net_r: net.netR,
+        commission: commission ?? null,
+        swap: swap ?? null,
+        cost_currency: cost_currency ?? null,
+        cost_unit: commission != null || swap != null ? "account_currency" : null,
+        verification_level: hasPrices ? "self_reported" : "unverified",
         // Provenance is stamped from the request path, not from tool input: this
         // handler is only reachable over MCP, so the author is an agent. The
         // OAuth client id names WHICH assistant, so a hallucinating client is
@@ -85,7 +147,7 @@ export default defineTool({
       })
       .eq("id", trade_id)
       .select(
-        "id, signal_id, user_decision, outcome, actual_entry_price, actual_exit_price, derived_r, realized_r_multiple, price_source, price_source_client, price_recorded_at",
+        "id, signal_id, user_decision, outcome, actual_entry_price, actual_exit_price, actual_initial_stop, r_vs_plan, r_vs_actual_risk, r_availability, stop_provenance, r_math_version, net_r, verification_level, price_source, price_source_client, price_recorded_at",
       );
 
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
@@ -98,13 +160,18 @@ export default defineTool({
 
     const payload = {
       trade: data[0],
-      verified: derivedR !== null,
-      derived_r: derivedR,
+      already_resolved: false,
+      verified: hasPrices,
+      r_vs_plan: result.rVsPlan,
+      r_vs_actual_risk: result.rVsActualRisk,
+      r_availability: result.availability,
+      stop_provenance: result.stopProvenance,
+      net_r: net.netR,
+      net_r_note: net.note,
       price_source: hasPrices ? "agent" : null,
-      note:
-        derivedR === null
-          ? "Unverified: supply actual_entry_price and actual_exit_price on a closed trade to compute an auditable R."
-          : "Verified: R was recomputed from the supplied prices and the signal's risk distance. These prices are permanently recorded as agent-entered, attributed to this assistant's client id — only report prices the user actually gave you.",
+      note: !hasPrices
+        ? "Unverified: supply actual_entry_price and actual_exit_price on a closed trade to compute auditable R values."
+        : "Verified: both canonical R values were recomputed from the supplied prices and the trade's own plan snapshot. Never average the two bases together. These prices are permanently recorded as agent-entered, attributed to this assistant's client id — only report prices the user actually gave you.",
     };
 
     return {

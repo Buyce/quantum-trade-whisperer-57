@@ -67,61 +67,139 @@ export type Database = {
       }
       executed_trades: {
         Row: {
+          actual_entry_at: string | null
           actual_entry_price: number | null
+          actual_exit_at: string | null
           actual_exit_price: number | null
+          actual_initial_stop: number | null
+          broker_ticket: string | null
+          commission: number | null
+          cost_currency: string | null
+          cost_unit: string | null
           created_at: string
           decision_source: string
           decision_source_client: string | null
           derived_r: number | null
           id: string
+          net_r: number | null
           notes: string | null
           outcome: Database["public"]["Enums"]["trade_outcome"]
+          partial_exits: Json | null
+          planned_direction: string | null
+          planned_entry: number | null
+          planned_stop: number | null
           price_recorded_at: string | null
           price_source: string | null
           price_source_client: string | null
+          r_availability: string | null
+          r_math_version: number | null
+          r_vs_actual_risk: number | null
+          r_vs_plan: number | null
           realized_r_multiple: number | null
+          signal_day_of_week: number | null
+          signal_detected_at: string | null
+          signal_grade: string | null
           signal_id: string
+          signal_instrument: string | null
+          signal_time_of_day: number | null
+          signal_trading_session: string | null
+          stop_provenance: string | null
+          swap: number | null
+          trade_state: string
           updated_at: string
           user_decision: Database["public"]["Enums"]["decision_kind"]
           user_id: string
+          verification_level: string
         }
         Insert: {
+          actual_entry_at?: string | null
           actual_entry_price?: number | null
+          actual_exit_at?: string | null
           actual_exit_price?: number | null
+          actual_initial_stop?: number | null
+          broker_ticket?: string | null
+          commission?: number | null
+          cost_currency?: string | null
+          cost_unit?: string | null
           created_at?: string
           decision_source?: string
           decision_source_client?: string | null
           derived_r?: number | null
           id?: string
+          net_r?: number | null
           notes?: string | null
           outcome?: Database["public"]["Enums"]["trade_outcome"]
+          partial_exits?: Json | null
+          planned_direction?: string | null
+          planned_entry?: number | null
+          planned_stop?: number | null
           price_recorded_at?: string | null
           price_source?: string | null
           price_source_client?: string | null
+          r_availability?: string | null
+          r_math_version?: number | null
+          r_vs_actual_risk?: number | null
+          r_vs_plan?: number | null
           realized_r_multiple?: number | null
+          signal_day_of_week?: number | null
+          signal_detected_at?: string | null
+          signal_grade?: string | null
           signal_id: string
+          signal_instrument?: string | null
+          signal_time_of_day?: number | null
+          signal_trading_session?: string | null
+          stop_provenance?: string | null
+          swap?: number | null
+          trade_state?: string
           updated_at?: string
           user_decision: Database["public"]["Enums"]["decision_kind"]
           user_id?: string
+          verification_level?: string
         }
         Update: {
+          actual_entry_at?: string | null
           actual_entry_price?: number | null
+          actual_exit_at?: string | null
           actual_exit_price?: number | null
+          actual_initial_stop?: number | null
+          broker_ticket?: string | null
+          commission?: number | null
+          cost_currency?: string | null
+          cost_unit?: string | null
           created_at?: string
           decision_source?: string
           decision_source_client?: string | null
           derived_r?: number | null
           id?: string
+          net_r?: number | null
           notes?: string | null
           outcome?: Database["public"]["Enums"]["trade_outcome"]
+          partial_exits?: Json | null
+          planned_direction?: string | null
+          planned_entry?: number | null
+          planned_stop?: number | null
           price_recorded_at?: string | null
           price_source?: string | null
           price_source_client?: string | null
+          r_availability?: string | null
+          r_math_version?: number | null
+          r_vs_actual_risk?: number | null
+          r_vs_plan?: number | null
           realized_r_multiple?: number | null
+          signal_day_of_week?: number | null
+          signal_detected_at?: string | null
+          signal_grade?: string | null
           signal_id?: string
+          signal_instrument?: string | null
+          signal_time_of_day?: number | null
+          signal_trading_session?: string | null
+          stop_provenance?: string | null
+          swap?: number | null
+          trade_state?: string
           updated_at?: string
           user_decision?: Database["public"]["Enums"]["decision_kind"]
           user_id?: string
+          verification_level?: string
         }
         Relationships: [
           {
@@ -132,6 +210,119 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      experiment_arms: {
+        Row: {
+          arm_label: string
+          ci_hi: number | null
+          ci_lo: number | null
+          cluster_n: number
+          computed_at: string
+          evidence_level: string
+          experiment_id: string
+          hypothesis_key: string
+          id: string
+          n_observations: number
+          p_value: number | null
+          point_estimate: number | null
+          q_value: number | null
+          r_basis: string | null
+          rng_seed: number | null
+          run_id: string | null
+          stat_method: string | null
+          stat_version: number | null
+        }
+        Insert: {
+          arm_label: string
+          ci_hi?: number | null
+          ci_lo?: number | null
+          cluster_n?: number
+          computed_at?: string
+          evidence_level?: string
+          experiment_id: string
+          hypothesis_key: string
+          id?: string
+          n_observations?: number
+          p_value?: number | null
+          point_estimate?: number | null
+          q_value?: number | null
+          r_basis?: string | null
+          rng_seed?: number | null
+          run_id?: string | null
+          stat_method?: string | null
+          stat_version?: number | null
+        }
+        Update: {
+          arm_label?: string
+          ci_hi?: number | null
+          ci_lo?: number | null
+          cluster_n?: number
+          computed_at?: string
+          evidence_level?: string
+          experiment_id?: string
+          hypothesis_key?: string
+          id?: string
+          n_observations?: number
+          p_value?: number | null
+          point_estimate?: number | null
+          q_value?: number | null
+          r_basis?: string | null
+          rng_seed?: number | null
+          run_id?: string | null
+          stat_method?: string | null
+          stat_version?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "experiment_arms_experiment_id_fkey"
+            columns: ["experiment_id"]
+            isOneToOne: false
+            referencedRelation: "experiments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      experiments: {
+        Row: {
+          closed_at: string | null
+          declared_at: string
+          declared_keys: string[]
+          family_key: string
+          holdout_policy: string
+          hypothesis: string
+          id: string
+          multiplicity_method: string
+          practical_effect_threshold: number
+          primary_metric: string
+          status: string
+        }
+        Insert: {
+          closed_at?: string | null
+          declared_at?: string
+          declared_keys: string[]
+          family_key: string
+          holdout_policy: string
+          hypothesis: string
+          id?: string
+          multiplicity_method?: string
+          practical_effect_threshold: number
+          primary_metric: string
+          status?: string
+        }
+        Update: {
+          closed_at?: string | null
+          declared_at?: string
+          declared_keys?: string[]
+          family_key?: string
+          holdout_policy?: string
+          hypothesis?: string
+          id?: string
+          multiplicity_method?: string
+          practical_effect_threshold?: number
+          primary_metric?: string
+          status?: string
+        }
+        Relationships: []
       }
       feedback: {
         Row: {
@@ -2017,6 +2208,7 @@ export type Database = {
       claim_weekly_report: { Args: { _week: string }; Returns: boolean }
       get_admin_author_split: { Args: never; Returns: Json }
       get_admin_candidate_funnel: { Args: never; Returns: Json }
+      get_admin_experiments: { Args: never; Returns: Json }
       get_admin_filter_lift: { Args: never; Returns: Json }
       get_admin_intelligence: { Args: never; Returns: Json }
       get_admin_payoff_research: { Args: never; Returns: Json }

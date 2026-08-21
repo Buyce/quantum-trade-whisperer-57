@@ -5,6 +5,8 @@ import {
   type SignalRow,
   type TradeRow,
 } from "./db-types";
+import { selectR, type RBasis } from "./journal/r-math";
+
 
 export interface RSample {
   key: string;
@@ -95,31 +97,77 @@ export function samplesFromSignals(signals: SignalRow[]): RSample[] {
   return out;
 }
 
-/** Personal samples: trades the user logged as taken and closed. */
-export function samplesFromTrades(trades: TradeRow[], signals: SignalRow[]): RSample[] {
+/**
+ * Personal samples: trades the user logged as taken and closed.
+ *
+ * Context comes from the row's own immutable creation-time snapshot first, so a
+ * trade is never silently dropped because its signal row is gone (the signal
+ * join is only a fallback for rows logged before snapshots existed).
+ *
+ * The caller MUST name the R basis. Only canonical rows of that basis are
+ * included — frozen legacy R lives in `legacySamplesFromTrades` and is never
+ * pooled with canonical values.
+ */
+export function samplesFromTrades(
+  trades: TradeRow[],
+  signals: SignalRow[],
+  basis: RBasis = "actual_risk",
+): RSample[] {
   const byId = new Map(signals.map((s) => [s.id, s]));
   const out: RSample[] = [];
   for (const t of trades) {
     if (t.user_decision !== "taken") continue;
-    if (t.outcome === "open" || t.realized_r_multiple === null) continue;
-    const s = byId.get(t.signal_id);
-    if (!s) continue;
-    const ctx = contextOf(s);
-    const d = new Date(s.detected_at);
-    out.push({
-      key: t.id,
-      instrument: s.instrument,
-      grade: s.grade,
-      outcome: t.outcome,
-      r: Number(t.realized_r_multiple),
-      detectedAt: s.detected_at,
-      hour: ctx?.time_of_day ?? d.getUTCHours(),
-      dayOfWeek: ctx?.day_of_week ?? d.getUTCDay(),
-      session: ctx?.trading_session ?? "unknown",
-    });
+    if (t.outcome === "open") continue;
+    const r = selectR(
+      { r_vs_plan: t.r_vs_plan ?? null, r_vs_actual_risk: t.r_vs_actual_risk ?? null },
+      basis,
+    );
+    if (r === null) continue;
+    const sample = buildTradeSample(t, byId.get(t.signal_id), r);
+    if (sample) out.push(sample);
   }
   return out;
 }
+
+/**
+ * Frozen legacy R rows (pre-r-math version 1). Mixed basis by construction:
+ * surface them separately and labelled, never averaged with canonical R.
+ */
+export function legacySamplesFromTrades(trades: TradeRow[], signals: SignalRow[]): RSample[] {
+  const byId = new Map(signals.map((s) => [s.id, s]));
+  const out: RSample[] = [];
+  for (const t of trades) {
+    if (t.user_decision !== "taken") continue;
+    if (t.outcome === "open") continue;
+    if (t.r_vs_plan != null || t.r_vs_actual_risk != null) continue;
+    if (t.realized_r_multiple == null) continue;
+    const sample = buildTradeSample(t, byId.get(t.signal_id), Number(t.realized_r_multiple));
+    if (sample) out.push(sample);
+  }
+  return out;
+}
+
+function buildTradeSample(t: TradeRow, signal: SignalRow | undefined, r: number): RSample | null {
+  const ctx = signal ? contextOf(signal) : null;
+  const detectedAt = t.signal_detected_at ?? signal?.detected_at ?? t.created_at;
+  if (!detectedAt) return null;
+  const d = new Date(detectedAt);
+  const instrument = t.signal_instrument ?? signal?.instrument;
+  const grade = (t.signal_grade as Grade | null) ?? signal?.grade;
+  if (!instrument || !grade) return null;
+  return {
+    key: t.id,
+    instrument,
+    grade,
+    outcome: t.outcome as "win" | "loss" | "breakeven",
+    r,
+    detectedAt,
+    hour: t.signal_time_of_day ?? ctx?.time_of_day ?? d.getUTCHours(),
+    dayOfWeek: t.signal_day_of_week ?? ctx?.day_of_week ?? d.getUTCDay(),
+    session: t.signal_trading_session ?? ctx?.trading_session ?? "unknown",
+  };
+}
+
 
 export function groupBy<K extends string | number>(
   samples: RSample[],

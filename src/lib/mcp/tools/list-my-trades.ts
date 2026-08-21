@@ -20,7 +20,7 @@ export default defineTool({
     const { data, error } = await supabase
       .from("executed_trades")
       .select(
-        "id, signal_id, user_decision, outcome, realized_r_multiple, derived_r, actual_entry_price, actual_exit_price, price_source, price_source_client, price_recorded_at, notes, created_at",
+        "id, signal_id, user_decision, outcome, realized_r_multiple, derived_r, r_vs_plan, r_vs_actual_risk, r_availability, stop_provenance, r_math_version, net_r, verification_level, trade_state, planned_entry, planned_stop, planned_direction, signal_instrument, signal_grade, signal_detected_at, actual_entry_price, actual_exit_price, actual_initial_stop, commission, swap, cost_currency, cost_unit, price_source, price_source_client, price_recorded_at, notes, created_at",
       )
       .order("created_at", { ascending: false })
       .limit(cap);

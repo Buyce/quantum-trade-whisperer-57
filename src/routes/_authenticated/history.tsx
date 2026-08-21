@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { formatJournalR, journalRView } from "@/lib/journal/display";
 
 export const Route = createFileRoute("/_authenticated/history")({
   head: () => ({
@@ -141,11 +142,17 @@ function HistoryPage() {
       });
       await queryClient.invalidateQueries({ queryKey: ["taken-trade-history"] });
       await queryClient.invalidateQueries({ queryKey: ["my-trades"] });
-      toast.success(
-        res.derivedR != null
-          ? `Outcome updated · ${res.derivedR.toFixed(2)}R from your prices`
-          : "Outcome updated. Add your entry and exit price to record the R.",
-      );
+      if (res.alreadyResolved) {
+        toast.info(res.message);
+      } else {
+        const r = res.rVsActualRisk ?? res.rVsPlan;
+        const basis = res.rVsActualRisk != null ? "R vs actual risk" : "R vs plan";
+        toast.success(
+          r != null
+            ? `Outcome updated · ${r.toFixed(2)}R (${basis})`
+            : "Outcome updated. Add your entry and exit price to record the R.",
+        );
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not update the outcome");
     } finally {
@@ -309,9 +316,11 @@ function HistoryPage() {
                   <div className="flex min-w-0 flex-wrap items-center gap-3 sm:ml-auto sm:shrink-0">
                     <span className={cn("num text-xs font-semibold uppercase", OUTCOME_STYLES[row.outcome])}>
                       {row.outcome}
-                      {row.realized_r_multiple != null
-                        ? ` · ${Number(row.realized_r_multiple).toFixed(2)}R`
-                        : ""}
+                      {(() => {
+                        const view = journalRView(row, "actual_risk");
+                        if (view.value === null) return "";
+                        return ` · ${formatJournalR(view)}${view.provenance === "legacy" ? " (legacy)" : ""}`;
+                      })()}
                     </span>
                     <PriceProvenanceBadge row={row} />
 
@@ -378,10 +387,10 @@ function HistoryPage() {
                 </div>
 
                 <OutcomeEditor
-                  key={`${row.id}-${row.outcome}-${row.derived_r ?? "none"}`}
+                  key={`${row.id}-${row.outcome}-${row.r_vs_actual_risk ?? row.derived_r ?? "none"}`}
                   busy={busyId === row.id}
                   outcome={row.outcome}
-                  realizedR={row.derived_r ?? row.realized_r_multiple}
+                  realizedR={journalRView(row, "actual_risk").value}
                   entryPrice={row.actual_entry_price}
                   exitPrice={row.actual_exit_price}
                   decimals={signal.instrument === "XAUUSD" ? 2 : 5}

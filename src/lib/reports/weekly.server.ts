@@ -26,7 +26,7 @@ export async function loadWeeklyReport(
     // The production view IS the isolation boundary: research-candidate rows
     // are not reachable from here at all, not merely filtered out.
     .from("shadow_executions_production")
-    .select("grade, status, resolved_outcome, realized_r, filled_at, miss_distance_atr")
+    .select("id, detected_at, grade, status, resolved_outcome, realized_r, filled_at, miss_distance_atr")
     // Production model only: a research model's replays must never be reported
     // as the engine's weekly performance.
     .eq("model_version", ACTIVE_MODEL_VERSION)
@@ -73,6 +73,9 @@ export function reportEmailData(report: WeeklyReport): Record<string, unknown> {
     windowStart: report.windowStart.slice(0, 10),
     windowEnd: report.windowEnd.slice(0, 10),
     totalResolved: report.totalResolved,
+    // Censoring is disclosed, never silently dropped.
+    immature: report.immature,
+    maturityHours: report.maturityHours,
     high: tier(report.high),
     low: tier(report.low),
     comparisons: report.comparisons.map((c) => ({
@@ -84,7 +87,11 @@ export function reportEmailData(report: WeeklyReport): Record<string, unknown> {
       difference: c.difference === null ? "n/a" : `${(c.difference * 100).toFixed(1)} pts`,
       z: c.z === null ? "n/a" : c.z.toFixed(3),
       pValue: c.pValue === null ? "n/a" : c.pValue.toFixed(4),
+      highClusters: c.highClusters,
+      lowClusters: c.lowClusters,
       verdict: c.verdict,
+      evidenceLevel: c.evidence.level,
+      blockers: c.evidence.blockers,
       note: c.note,
     })),
   };
