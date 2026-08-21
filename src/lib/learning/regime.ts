@@ -35,8 +35,12 @@ export interface RegimeStatRow {
   n_total: number;
   n_filled: number;
   wins: number;
-  p_fill_shrunk: number;
-  p_win_shrunk: number;
+  /**
+   * NULL when the denominator behind the estimate is empty. The rebuild never
+   * fabricates a 0.5 prior, so every consumer must handle null explicitly.
+   */
+  p_fill_shrunk: number | null;
+  p_win_shrunk: number | null;
   /** Unsmoothed rates; only selected by the explain panel, absent elsewhere. */
   p_fill_raw?: number | null;
   p_win_raw?: number | null;
@@ -51,13 +55,24 @@ export interface RegimeQuery {
   volatilityIndex: number | null;
 }
 
+/**
+ * How much of the prior is statistically defined.
+ * - `active`: both probabilities exist and both sample gates are clear.
+ * - `learning`: probabilities exist but at least one gate is still open.
+ * - `unavailable`: at least one probability has no data behind it (null).
+ */
+export type RegimePriorStatus = "active" | "learning" | "unavailable";
+
 export interface RegimePrior {
-  /** P(the limit entry is reached inside the time-in-force window). */
-  pFill: number;
-  /** P(TP1+ | filled). */
-  pWin: number;
-  /** Expected-value decomposition: pFill x pWin. */
-  ev: number;
+  /** P(the limit entry is reached inside the time-in-force window), null when undefined. */
+  pFill: number | null;
+  /** P(TP1+ | filled), null when no filled samples exist. */
+  pWin: number | null;
+  /**
+   * Joint win probability: pFill x pWin. A PROBABILITY, not an expected return
+   * and not an expected R. Null whenever either factor is null.
+   */
+  pJoint: number | null;
   /** Resolved samples behind pFill at the matched tier. */
   sampleN: number;
   /** Filled samples behind pWin at the matched tier. */
@@ -74,6 +89,10 @@ export interface RegimePrior {
    * user verbatim; never hidden.
    */
   tier3SkippedN: number | null;
+  /** Coarse readiness of this prior. */
+  status: RegimePriorStatus;
+  /** Machine-readable explanation of `status`; safe to surface verbatim. */
+  reason: string;
 }
 
 /**
@@ -116,31 +135,57 @@ export function lookupRegime(rows: RegimeStatRow[], query: RegimeQuery): RegimeP
 }
 
 function summarize(row: RegimeStatRow, tier3SkippedN: number | null): RegimePrior {
-  const pFill = clamp01(Number(row.p_fill_shrunk));
-  const pWin = clamp01(Number(row.p_win_shrunk));
+  const pFill = finiteOrNull(row.p_fill_shrunk);
+  const pWin = finiteOrNull(row.p_win_shrunk);
   const sampleN = Number(row.n_total ?? 0);
   const filledN = Number(row.n_filled ?? 0);
+  const fillGatePassed = sampleN >= MIN_N_FILL;
+  const winGatePassed = filledN >= MIN_N_WIN;
+
+  let status: RegimePriorStatus;
+  let reason: string;
+  if (pFill == null || pWin == null) {
+    status = "unavailable";
+    reason = pFill == null ? "no_resolved_samples" : "no_filled_samples";
+  } else if (fillGatePassed && winGatePassed) {
+    status = "active";
+    reason = "both_gates_passed";
+  } else {
+    status = "learning";
+    reason = !fillGatePassed ? "fill_gate_open" : "win_gate_open";
+  }
+
   return {
     pFill: round(pFill),
     pWin: round(pWin),
-    ev: round(pFill * pWin),
+    pJoint: pFill == null || pWin == null ? null : round(pFill * pWin),
     sampleN,
     filledN,
     tier: row.tier,
-    fillGatePassed: sampleN >= MIN_N_FILL,
-    winGatePassed: filledN >= MIN_N_WIN,
+    fillGatePassed,
+    winGatePassed,
     tier3SkippedN,
+    status,
+    reason,
   };
 }
 
-function clamp01(v: number) {
-  if (!Number.isFinite(v)) return 0.5;
-  return Math.min(1, Math.max(0, v));
+/**
+ * A statistic with an empty denominator has no value. Null in, null out — the
+ * one thing that must never happen is a fabricated midpoint.
+ */
+export function finiteOrNull(v: unknown): number | null {
+  if (v == null) return null;
+  const n = Number(v);
+  if (!Number.isFinite(n)) return null;
+  return Math.min(1, Math.max(0, n));
 }
 
-function round(v: number) {
+function round(v: number | null) {
+  if (v == null) return null;
   return Number(v.toFixed(4));
 }
+
 
 /** Human label for the tier that answered, used by the read-only UI panel. */
 export function tierLabel(tier: number): string {
