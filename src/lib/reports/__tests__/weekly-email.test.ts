@@ -32,8 +32,12 @@ function rows(grade: string, n: number, wins: number, days: number): ShadowRow[]
   });
 }
 
-const renderTemplate = async (data: Record<string, unknown>) =>
-  render(React.createElement(template.component as any, data as any), { plainText: true });
+type TemplateProps = Record<string, unknown>;
+const Component = template.component as unknown as React.ComponentType<TemplateProps>;
+
+const renderTemplate = async (data: TemplateProps) =>
+  render(React.createElement(Component, data), { plainText: true });
+
 
 describe("weekly shadow report email", () => {
   it("[INVARIANT] preview data renders and never headlines a z-test", async () => {
