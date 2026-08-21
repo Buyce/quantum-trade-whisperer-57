@@ -106,7 +106,7 @@
       {
         "name": "update_trade_outcome",
         "title": "Update trade outcome",
-        "description": "Set the outcome (win, loss, breakeven or open) and realized R-multiple on one of the signed-in user's logged trades.",
+        "description": "Set the outcome (win, loss, breakeven or open) on one of the signed-in user's logged trades. Supply actual_entry_price and actual_exit_price to have the R multiple recomputed server-side from the signal's own risk distance — that marks the trade VERIFIED. Without prices the trade stays unverified and R is left unknown; the R multiple can never be supplied directly.",
         "annotations": {
           "readOnlyHint": false,
           "destructiveHint": false,
@@ -131,8 +131,12 @@
               ],
               "description": "Resolved outcome of the trade."
             },
-            "realized_r_multiple": {
-              "description": "Realized result in R multiples, e.g. 2.5 for a 2.5R win or -1 for a full stop.",
+            "actual_entry_price": {
+              "description": "The real fill price the user got.",
+              "type": "number"
+            },
+            "actual_exit_price": {
+              "description": "The real exit price the user got.",
               "type": "number"
             }
           },
