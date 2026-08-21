@@ -14,19 +14,29 @@ command -v initdb >/dev/null 2>&1 || { echo "initdb not found" >&2; exit 3; }
 
 # Vitest runs each database test FILE in its own worker, so two workers can enter
 # this script at the same moment. Without a lock the second one would `rm -rf` the
-# data directory the first is still initialising. Serialise on a lock file that
-# lives outside the (deletable) cluster directory.
+# data directory the first is still initialising.
+#
+# A `flock` fd is NOT usable here: the postgres daemon we start inherits it and
+# would hold the lock for its whole lifetime. Use a mkdir spinlock instead, and
+# always release it on exit.
 LOCK="${DIR}.lock"
-if [ -z "${PTRADES_PG_LOCKED:-}" ] && command -v flock >/dev/null 2>&1; then
-  export PTRADES_PG_LOCKED=1
-  exec flock "$LOCK" bash "$0" "$@"
-fi
-: >"$LOCK" 2>/dev/null || true
+for _ in $(seq 1 600); do
+  if mkdir "$LOCK" 2>/dev/null; then
+    trap 'rmdir "$LOCK" 2>/dev/null || true' EXIT
+    break
+  fi
+  if [ -S "$DIR/.s.PGSQL.$PORT" ]; then
+    echo "PGHOST=$DIR PGPORT=$PORT"
+    exit 0
+  fi
+  sleep 0.5
+done
 
 if [ -S "$DIR/.s.PGSQL.$PORT" ]; then
   echo "PGHOST=$DIR PGPORT=$PORT"
   exit 0
 fi
+
 
 
 rm -rf "$DIR"
