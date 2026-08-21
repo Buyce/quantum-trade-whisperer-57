@@ -12,10 +12,22 @@ PORT="${PTRADES_PG_PORT:-55432}"
 
 command -v initdb >/dev/null 2>&1 || { echo "initdb not found" >&2; exit 3; }
 
+# Vitest runs each database test FILE in its own worker, so two workers can enter
+# this script at the same moment. Without a lock the second one would `rm -rf` the
+# data directory the first is still initialising. Serialise on a lock file that
+# lives outside the (deletable) cluster directory.
+LOCK="${DIR}.lock"
+if [ -z "${PTRADES_PG_LOCKED:-}" ] && command -v flock >/dev/null 2>&1; then
+  export PTRADES_PG_LOCKED=1
+  exec flock "$LOCK" bash "$0" "$@"
+fi
+: >"$LOCK" 2>/dev/null || true
+
 if [ -S "$DIR/.s.PGSQL.$PORT" ]; then
   echo "PGHOST=$DIR PGPORT=$PORT"
   exit 0
 fi
+
 
 rm -rf "$DIR"
 mkdir -p "$DIR"

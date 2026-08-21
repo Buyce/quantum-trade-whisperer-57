@@ -41,7 +41,9 @@ export function ensureCluster(): Cluster | null {
     const out = execFileSync("bash", [START], {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
-      timeout: 120_000,
+      // A concurrent worker may hold the cluster lock while it initialises and
+      // replays every migration, so allow for a full cold boot plus that wait.
+      timeout: 600_000,
     });
     const host = /PGHOST=(\S+)/.exec(out)?.[1];
     const port = /PGPORT=(\S+)/.exec(out)?.[1];
