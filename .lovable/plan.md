@@ -23,9 +23,28 @@ implemented.
   unreachable on current data, whatever the cluster count or interval width.
 - Wilson/Newcombe are descriptive, independence-assuming diagnostics only.
   Dependence-aware conclusions come only from the whole-day bootstrap.
-- BH/q-values are diagnostic only, on explicitly declared hypothesis families.
+- BH/q-values are diagnostic only, and families must be **predeclared and bounded
+  in the experiment ledger** — never an indefinite rolling family.
 - Weekly censoring: a plan enters a fill-rate denominator only after a **full
   eligible outcome horizon** has elapsed.
+
+## Binding R definition (authoritative, supersedes the table below)
+
+```text
+gross_move        = long ? actual_exit - actual_entry : actual_entry - actual_exit
+r_vs_plan         = gross_move / abs(planned_entry - planned_stop)
+stop_ref          = actual_initial_stop ?? planned_stop
+r_vs_actual_risk  = gross_move / abs(actual_entry - stop_ref)
+```
+
+The **actual fill is always the numerator anchor for both measures**; realized
+movement is never computed from planned entry. Both values may coexist on one
+trade — that is normal, not a defect. Aggregations explicitly select the plan or
+the actual-risk basis and never combine them; `mixed_basis` denotes an *attempted
+mixed-unit aggregation*, not a row that holds both values. The current
+planned-risk value is therefore conceptually recoverable as `r_vs_plan` for future
+price-backed rows, but legacy columns are neither backfilled nor rewritten.
+Monetary costs stay out of gross R unless documented conversion provenance exists.
 
 ## A. Plan defects discovered in this pass
 
