@@ -20,10 +20,17 @@ import type { SetupEvaluation } from "@/lib/scanner/profile";
  */
 export const RESEARCH_PLAN_VERSION = 1;
 
+/**
+ * Identity of the common research execution policy. Reported by
+ * `recompute_filter_lift()` so a stored arm can never be read as anything else.
+ */
+export const RESEARCH_LADDER_POLICY = "common_counterfactual_ladder_v1";
+
 /** Fixed research multiples. Deliberately independent of headroom and maxR. */
 export const RESEARCH_TP_R: readonly [number, number, number] = [1, 2, 3];
 
 export type PlanOrigin = "production" | "counterfactual";
+
 
 export interface CounterfactualPlan {
   grade: string;
