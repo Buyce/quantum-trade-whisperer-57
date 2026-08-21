@@ -12,7 +12,14 @@
  * recompute. When a tier has no rows, the corresponding step or feature is
  * omitted rather than filled with a placeholder.
  */
-import { MIN_N_TIER3, volBucketOf, type RegimeQuery, type RegimeStatRow, type VolBucket } from "./regime";
+import {
+  finiteOrNull,
+  MIN_N_TIER3,
+  volBucketOf,
+  type RegimeQuery,
+  type RegimeStatRow,
+  type VolBucket,
+} from "./regime";
 
 /** Prior strength k used by recompute_regime_stats(); mirrored for weight maths. */
 export const PRIOR_STRENGTH = 30;
