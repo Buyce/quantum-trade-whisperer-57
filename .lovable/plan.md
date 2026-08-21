@@ -52,11 +52,15 @@ No M1 adjudication in this release. After fill, if one M15 candle contains **bot
 Fixtures, bullish and bearish: stop only · TP1 only · stop + TP1 · entry + stop · entry + TP1 · entry + stop + TP1.
 Pre-fill bars reason only about entry sequencing and the TIF window; stop/target levels are irrelevant while no position exists.
 
+### 7b. Observed chronology ≠ replay policy (5G-2)
+A conservative stop-first resolution is a *policy* decision, not an observation. For any bar where stop and TP1 are both present and the order is unknowable: outcome may be `loss`, `adjudication = 'm15_conservative_fallback'`, but `tp1_before_stop = NULL` **and** `stop_before_tp1 = NULL`. Chronology fields are populated only when the sequence is genuinely determinable across *different* bars (e.g. TP1 touched in bar n, stop in bar n+2). Assumed chronology is never stored as observed chronology. Blocking tests: ambiguous bars leave both chronology fields NULL; cross-bar sequences populate exactly one of them.
+
 ## 7a. Same-fill-bar target causality (5F-1)
 An ordinary (non-gap) limit fill happens at an unknown instant inside its M15 bar, so that bar's favorable extreme cannot be attributed to the post-entry interval.
 - **Ordinary intrabar fill + TP touched, no stop in that bar** → the target is **not** credited from the fill bar. `ambiguous_bars += 1`, `adjudication = 'm15_conservative_fallback'`, `fill_bar_excursion_ambiguous = true`; the trade stays open and target adjudication resumes on the **next** candle.
 - **Ordinary intrabar fill + stop in that bar** (with or without a target) → the already-approved conservative stop-first result stands: loss, and `ambiguous_bars += 1` when a target was also present.
 - **Favorable gap-through fill at the bar open** → the position exists for the whole bar, so same-bar stop and target evaluation proceeds normally (stop still beats target within one bar) and `fill_bar_excursion_ambiguous = false`.
+- **Target analytics on that bar (5G-3).** Post-entry target-touch fields (`first_target_touched`, `max_target_touched`) are **not** set from an ordinary intrabar fill candle — they stay NULL for that bar; the raw touch is recorded separately in `ambiguous_bar_target_touch smallint` (explicitly labelled "unproven post-entry touch"). Gap-at-open fills use normal same-bar target analytics because the position existed from the bar open.
 Exact bearish mirror in every case. Fixtures: intrabar entry + TP1 · gap-at-open entry + TP1 · intrabar entry + stop · intrabar entry + stop + TP1 · all four bearish mirrors.
 
 
