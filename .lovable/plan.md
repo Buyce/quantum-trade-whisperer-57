@@ -107,13 +107,18 @@ v(r) = 100                            r > 1.6
 
 `r = m15.atr / mean(atr, 20)`. Continuous at 0, 1 and 1.6; monotone non-decreasing; pass set unchanged (`r ≥ 1` ⇒ `v ≥ 60 = PILLAR_PASS_SCORE`). Boundary tests: `v(-1)=0`, `v(0)=0`, `v(0.999)=59.94`, `v(1)=60`, `v(1.3)=80`, `v(1.6)=100`, `v(2.5)=100`, and `v(NaN)`/`v(Infinity)` ⇒ fail-closed 0.
 
-## 6. `atrAtIndex` and lookahead
+## 6. `atrAtIndex` — Wilder, prefix-only (corrected)
 
-Formula: Wilder-style true range mean over the 14 bars ending at `i` — `TR_t = max(high−low, |high−prevClose|, |low−prevClose|)`, simple mean of `TR_{i-13..i}`. Reads only indices `≤ i`, never `i+1`.
+**Correction accepted.** V1's `atr()` is Wilder ATR: arithmetic mean of the first `period` true ranges, then recursive smoothing `ATR_t = ((period − 1) × ATR_{t−1} + TR_t) / period`. A simple mean of `TR[i−13..i]` is *not* equivalent, so the earlier §6 formula was wrong and its equality test would have failed. Replaced by:
 
-Warm-up: `i < 14` ⇒ insufficient history. Insufficient history returns `null` (not 0, not NaN) and the caller fails closed — the zone pillar scores 0 and, where the value is structurally required, the observation becomes `insufficient_data`. Non-finite inputs ⇒ `null`.
+`atrAtIndex(candles, i, period = 14)` returns exactly the value the existing Wilder algorithm produces when run over the prefix `candles[0..i]` — same seeding, same recursion, same `TR_t = max(high−low, |high−prevClose|, |low−prevClose|)`.
 
-Prefix-invariance test: for every `i` in a fixture, `atrAtIndex(candles.slice(0, i+1+k), i) === atrAtIndex(candles, i)` for all `k ≥ 0` — appending future bars cannot move a historical value. A second test asserts the current V1 `atr()` value equals `atrAtIndex(candles, last)` so the two definitions cannot drift.
+Properties: reads no index `> i`; `period = 14` needs 15 candles, i.e. `i ≥ 14`; insufficient history ⇒ `null`; any non-finite OHLC in the prefix ⇒ `null`; appending future candles cannot change `atrAtIndex(..., i)`; and for the last index of a valid series `atrAtIndex(candles, candles.length − 1, 14)` equals `atr(candles, 14)` within floating-point tolerance (`1e-12` relative). `null` fails closed at the caller — zone pillar scores 0, and where the value is structurally required the observation becomes `insufficient_data`. Never 0 as a stand-in, never NaN.
+
+Tests: prefix invariance across every `i` in a fixture; the V1-equality assertion above (so the two definitions cannot drift); seeding boundary at `i = 14`; non-finite rejection.
+
+Native H1/H4 zone normalisation (§7) uses this Wilder historical ATR.
+
 
 ## 7. Native-timeframe zone normalisation
 
