@@ -244,7 +244,7 @@ export async function captureBaseline(
   const signals = await db
     .from("scanned_signals")
     .select(
-      "id, grade, direction, instrument, status, confidence_score, max_r, atr, entry_price, stop_loss, detected_at, p_fill_prior, p_win_prior, ev_prior, prior_sample_n, prior_tier",
+      "id, grade, direction, instrument, status, confidence_score, max_r, atr, entry_price, stop_loss, detected_at, p_fill_prior, p_win_prior, ev_prior, p_joint_prior, prior_sample_n, prior_tier",
     )
     .eq("model_version", ACTIVE_MODEL_VERSION)
     .lte("detected_at", dataAsOf)

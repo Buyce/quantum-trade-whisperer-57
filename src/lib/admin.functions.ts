@@ -84,8 +84,8 @@ export interface AdminRegimeRow {
   wins: number;
   p_fill_raw: number | null;
   p_win_raw: number | null;
-  p_fill_shrunk: number;
-  p_win_shrunk: number;
+  p_fill_shrunk: number | null;
+  p_win_shrunk: number | null;
   computed_at: string;
   fill_gate_pct: number;
   win_gate_pct: number;

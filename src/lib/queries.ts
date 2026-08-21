@@ -5,7 +5,7 @@ import type { RegimeStatRow } from "./learning/regime";
 import type { ScannerSettingsRow, SignalRow, TradeHistoryRow, TradeRow } from "./db-types";
 
 const SIGNAL_COLUMNS =
-  "id, detected_at, instrument, grade, direction, entry_price, stop_loss, tp1, tp2, tp3, tp1_r, tp2_r, tp3_r, max_r, max_acceptable_entry, structure_key, atr, rr_ratio, confidence_score, c_alignment, c_rr, c_symmetry, c_volatility, pattern_symmetry, p_trend, p_order_block, p_momentum, p_volatility_expansion, pillars_passed, h4_bias, h1_bias, m15_bias, qualitative_breakdown, status, resolved_outcome, resolved_r_multiple, expired_at, p_fill_prior, p_win_prior, ev_prior, prior_sample_n, prior_filled_n, prior_tier, market_context(trading_session, volatility_index, time_of_day, day_of_week)";
+  "id, detected_at, instrument, grade, direction, entry_price, stop_loss, tp1, tp2, tp3, tp1_r, tp2_r, tp3_r, max_r, max_acceptable_entry, structure_key, atr, rr_ratio, confidence_score, c_alignment, c_rr, c_symmetry, c_volatility, pattern_symmetry, p_trend, p_order_block, p_momentum, p_volatility_expansion, pillars_passed, h4_bias, h1_bias, m15_bias, qualitative_breakdown, status, resolved_outcome, resolved_r_multiple, expired_at, p_fill_prior, p_win_prior, ev_prior, p_joint_prior, prior_sample_n, prior_filled_n, prior_tier, market_context(trading_session, volatility_index, time_of_day, day_of_week)";
 
 /**
  * ZERO-HALLUCINATION CONTRACT: this fetcher returns exactly what the live
@@ -199,8 +199,8 @@ export interface RegimeSnapshotRow {
   wins: number;
   p_fill_raw: number | null;
   p_win_raw: number | null;
-  p_fill_shrunk: number;
-  p_win_shrunk: number;
+  p_fill_shrunk: number | null;
+  p_win_shrunk: number | null;
 }
 
 /**
