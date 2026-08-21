@@ -11,7 +11,12 @@ import { useServerFn } from "@tanstack/react-start";
 import { RefreshCw, Sigma } from "lucide-react";
 import { toast } from "sonner";
 import { getPayoffResearch, recomputePayoff } from "@/lib/payoff.functions";
-import { formatR, isReportable, type PayoffCohort } from "@/lib/learning/payoff";
+import {
+  formatR,
+  isReportable,
+  type PayoffCohort,
+  type PayoffRegistryRow,
+} from "@/lib/learning/payoff";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -156,7 +161,7 @@ export function PayoffPanel() {
       {data?.registry?.length ? (
         <div className="flex flex-wrap items-center gap-1 text-[11px]">
           <span className="text-muted-foreground">Replay identities</span>
-          {data.registry.map((r) => (
+          {data.registry.map((r: PayoffRegistryRow) => (
             <Badge key={r.version} variant="outline" className="font-mono text-[10px]">
               v{r.version} {r.label} · {r.code_hash}
             </Badge>

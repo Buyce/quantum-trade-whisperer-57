@@ -41,7 +41,7 @@ export const getPayoffResearch = createServerFn({ method: "GET" })
  */
 export const recomputePayoff = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }): Promise<{ runs: unknown[] }> => {
+  .handler(async ({ context }): Promise<{ runs: Record<string, unknown>[] }> => {
     assertOwner(context.claims as Record<string, unknown>);
 
     // The recompute is service_role-only by design; load the privileged client
@@ -59,11 +59,11 @@ export const recomputePayoff = createServerFn({ method: "POST" })
       { _model_version: 1, _replay_version: 2, _execution_policy: "single_exit_first_target" },
     ];
 
-    const runs: unknown[] = [];
+    const runs: Record<string, unknown>[] = [];
     for (const args of cohorts) {
       const { data, error } = await rpc("recompute_payoff_stats", { ...args, _horizon_hours: 24 });
       if (error) throw new Error(error.message);
-      runs.push(data);
+      runs.push((data ?? {}) as Record<string, unknown>);
     }
     return { runs };
   });

@@ -80,7 +80,8 @@ export interface PayoffRegistryRow {
   version: number;
   label: string;
   code_hash: string;
-  semantics: unknown;
+  /** Immutable rulebook JSON; opaque to the UI, rendered only as provenance. */
+  semantics: Record<string, unknown>;
   registered_at: string;
   retired_at: string | null;
 }
