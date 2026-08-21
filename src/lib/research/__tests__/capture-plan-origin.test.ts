@@ -33,8 +33,16 @@ function evaluation(stage: EvaluationStage, geometry: PartialGeometry): SetupEva
   return {
     stage,
     gates: Array.from({ length: 8 }, (_, i) => ({
-      gate: ["candles_present", "m15_direction", "grade", "abc_structure", "risk_defined",
-        "risk_ceiling", "headroom", "reachable_r"][i] as never,
+      gate: [
+        "candles_present",
+        "m15_direction",
+        "grade",
+        "abc_structure",
+        "risk_defined",
+        "risk_ceiling",
+        "headroom",
+        "reachable_r",
+      ][i] as never,
       outcome: "pass" as const,
     })),
     direction,

@@ -213,7 +213,6 @@ export function classifyCounterfactual(
   return complete ? "executable" : "structurally_not_evaluable";
 }
 
-
 const GATE_ORDER: GateId[] = [
   "candles_present",
   "m15_direction",

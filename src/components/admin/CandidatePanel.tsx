@@ -104,7 +104,9 @@ export function CandidatePanel() {
           <Metric label="Incomplete gate lists" value={totals?.gates_incomplete ?? 0} />
           <Metric
             label="Last capture"
-            value={totals?.last_seen ? new Date(totals.last_seen).toISOString().slice(0, 16) + "Z" : "—"}
+            value={
+              totals?.last_seen ? new Date(totals.last_seen).toISOString().slice(0, 16) + "Z" : "—"
+            }
           />
         </div>
 

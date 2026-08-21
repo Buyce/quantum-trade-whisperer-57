@@ -71,12 +71,10 @@ describe("Prompt 7G — counterfactual classification", () => {
   });
 
   it("[INVARIANT] a filter stage without geometry is never promoted", () => {
-    expect(classifyCounterfactual("no_headroom", EMPTY, "long")).toBe(
+    expect(classifyCounterfactual("no_headroom", EMPTY, "long")).toBe("structurally_not_evaluable");
+    expect(classifyCounterfactual("no_headroom", { ...GEOMETRY, riskPrice: 0 }, "long")).toBe(
       "structurally_not_evaluable",
     );
-    expect(
-      classifyCounterfactual("no_headroom", { ...GEOMETRY, riskPrice: 0 }, "long"),
-    ).toBe("structurally_not_evaluable");
     expect(classifyCounterfactual("no_headroom", GEOMETRY, null)).toBe(
       "structurally_not_evaluable",
     );
@@ -111,7 +109,9 @@ describe("Prompt 7G — the frozen research ladder", () => {
   });
 
   it.each(STRUCTURAL_STAGES)("[INVARIANT] no plan is invented for %s", (stage) => {
-    expect(buildCounterfactualPlan(evaluation({ stage, geometry: EMPTY, direction: null }))).toBeNull();
+    expect(
+      buildCounterfactualPlan(evaluation({ stage, geometry: EMPTY, direction: null })),
+    ).toBeNull();
   });
 
   it("[INVARIANT] a missing graded tier blocks the plan rather than guessing one", () => {
