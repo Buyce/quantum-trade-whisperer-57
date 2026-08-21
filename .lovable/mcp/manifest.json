@@ -347,7 +347,7 @@
       {
         "name": "list_my_trades",
         "title": "List my trades",
-        "description": "List the signed-in user's logged trade decisions and their outcomes.",
+        "description": "List the signed-in user's logged trade decisions and their outcomes, including the reported fill prices and who entered them (price_source: 'human' for the web terminal, 'agent' for an AI assistant, null when unverified).",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": true,
