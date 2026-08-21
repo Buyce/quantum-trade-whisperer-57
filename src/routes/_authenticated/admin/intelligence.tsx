@@ -39,6 +39,8 @@ import {
 import { BaselinePanel } from "@/components/admin/BaselinePanel";
 import { ResearchPanel } from "@/components/admin/ResearchPanel";
 import { PayoffPanel } from "@/components/admin/PayoffPanel";
+import { CandidatePanel } from "@/components/admin/CandidatePanel";
+
 
 export const Route = createFileRoute("/_authenticated/admin/intelligence")({
   head: () => ({
