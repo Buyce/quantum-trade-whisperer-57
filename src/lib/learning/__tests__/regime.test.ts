@@ -86,7 +86,7 @@ describe("lookupRegime — hierarchy and gates", () => {
     const prior = lookupRegime([GLOBAL, BOUNDS, TIER2, thin], QUERY)!;
     expect(prior.tier).toBe(2);
     expect(prior.tier3SkippedN).toBe(MIN_N_TIER3 - 1);
-    expect(prior.pFill).toBeCloseTo(0.4, 6);
+    expect(prior.pFill).toBeCloseTo(0.5, 6);
   });
 
   it("[UNIT] an eligible tier-3 bucket answers the lookup", () => {
@@ -102,6 +102,42 @@ describe("lookupRegime — hierarchy and gates", () => {
     expect(prior.tier).toBe(3);
     expect(prior.tier3SkippedN).toBeNull();
     expect(prior.pJoint).toBeCloseTo(Number((0.6 * 0.55).toFixed(4)), 6);
+  });
+
+  it("[UNIT] a null stored probability stays null — no fabricated 0.5 prior", () => {
+    const prior = lookupRegime(
+      [{ ...GLOBAL, n_total: 0, n_filled: 0, wins: 0, p_fill_shrunk: null, p_win_shrunk: null }],
+      QUERY,
+    )!;
+    expect(prior.pFill).toBeNull();
+    expect(prior.pWin).toBeNull();
+    expect(prior.pJoint).toBeNull();
+    expect(prior.status).toBe("unavailable");
+    expect(prior.reason).toBe("no_resolved_samples");
+  });
+
+  it("[UNIT] a defined fill probability with no filled samples reports win as unavailable", () => {
+    const prior = lookupRegime(
+      [{ ...GLOBAL, n_total: 10, n_filled: 0, wins: 0, p_fill_shrunk: 0.3, p_win_shrunk: null }],
+      QUERY,
+    )!;
+    expect(prior.pFill).toBeCloseTo(0.3, 6);
+    expect(prior.pWin).toBeNull();
+    expect(prior.pJoint).toBeNull();
+    expect(prior.status).toBe("unavailable");
+    expect(prior.reason).toBe("no_filled_samples");
+  });
+
+  it("[UNIT] status is learning while a gate is open and active once both clear", () => {
+    const learning = lookupRegime([{ ...GLOBAL, n_total: MIN_N_FILL - 1 }], QUERY)!;
+    expect(learning.status).toBe("learning");
+    expect(learning.reason).toBe("fill_gate_open");
+    const active = lookupRegime(
+      [{ ...GLOBAL, n_total: MIN_N_FILL, n_filled: MIN_N_WIN }],
+      QUERY,
+    )!;
+    expect(active.status).toBe("active");
+    expect(active.reason).toBe("both_gates_passed");
   });
 
   it("[UNIT] falls back to global when the instrument has no tier-2 row", () => {
