@@ -466,7 +466,13 @@ export function evaluateSetup(input: BuildProfileInput): SetupEvaluation {
   if (pillars.volatilityExpansion >= PILLAR_PASS_SCORE) satisfied.push("M15 volatility is expanding above its 20-period ATR average");
   else violated.push("M15 volatility is below its 20-period ATR average");
 
-  return {
+  features["grade"] = grade;
+  features["maxR"] = maxR;
+  features["rrRatio"] = rrRatio;
+  features["confidenceScore"] = confidence.score;
+  features["pillarsPassed"] = pillars.passed;
+
+  const proposedProfile: TradeProfile = {
     instrument: input.instrument,
     grade,
     direction,
@@ -510,7 +516,10 @@ export function evaluateSetup(input: BuildProfileInput): SetupEvaluation {
       maxR,
     }) + dynamicEntryNote,
   };
+
+  return { stage: "published", gates, direction, features, geometry, proposedProfile };
 }
+
 
 /**
  * Stable identity of one ABC leg: instrument, direction, the swing A/B candle
