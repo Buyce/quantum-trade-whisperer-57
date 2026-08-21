@@ -41,20 +41,40 @@ r_vs_actual_risk  = gross_move / abs(actual_entry - stop_ref)
 - Weekly censoring: a plan enters a fill-rate denominator only after a full
   eligible outcome horizon.
 
+## Final build lock (binding, supersedes any contradictory text below)
+
+1. **Snapshot at row creation, not resolution.** When an `executed_trades` row is
+   first created, snapshot `planned_entry`, `planned_stop`, `planned_direction`,
+   `signal_detected_at`, `signal_instrument`, `signal_grade`,
+   `signal_trading_session`, `signal_time_of_day`, `signal_day_of_week`. Immutable
+   afterwards, and the canonical source for journal R and performance context.
+   `purge_expired_signals()` already skips signals referenced by a taken trade —
+   that behaviour and the current signal FK semantics are unchanged, and the
+   "purged signal with surviving journal row" scenario is removed as impossible.
+2. **Decision writers.** Both `queries.ts::logDecision` and MCP
+   `log_trade_decision` are fixed: insert initialises state; update changes only
+   decision and provenance; neither resets `outcome` on an existing row. A resolved
+   row returns a friendly already-resolved result and no resolution field changes.
+3. **Deletion stays genuine deletion.** No `trade_resolution_audit` tombstone in
+   Prompt 8/9. Deleted trades disappear from personal statistics. Tamper-resistant
+   broker reconciliation is a separate future capability.
+4. **R representation.** No single ambiguous row-level `r_basis`. Store
+   `r_vs_plan`, `r_vs_actual_risk`, `r_availability`, `r_math_version`,
+   `stop_provenance`. Aggregation APIs explicitly request `plan` or `actual_risk`;
+   `mixed_basis` is an aggregation error status, never a row attribute.
+
+Every other authoritative mathematical, statistical, concurrency, provenance, RLS,
+experiment-ledger, weekly-censoring and testing requirement below is preserved.
+Prompt 8 is implemented and verified first, then Prompt 9.
+
 ## A. Plan defects discovered in this pass
 
-**M1 — DELETE is an unguarded laundering path around the conflict rule.**
-`queries.ts` exposes `deleteTrade` and `deleteAllTrades`, both plain client-side
-deletes scoped by RLS. A `BEFORE UPDATE` trigger cannot see them: a trader who
-dislikes a rejected re-resolution can delete the resolved row and re-log the
-signal from scratch, producing a clean "first" resolution with new prices. The
-approved concurrency rule is therefore incomplete as specified. Fix: keep deletion
-(users must be able to erase their own data) but make it auditable and
-non-silent — a `BEFORE DELETE` trigger writes an append-only
-`trade_resolution_audit` tombstone (trade id, user, outcome, canonical R, basis,
-provenance, deleted_at) that the integrity audit reads, and the audit panel flags
-`resolved_then_deleted`. Statistics never resurrect deleted rows; they only count
-the tombstone for integrity flags.
+**M1 — DELETE bypasses the UPDATE conflict rule (accepted, not mitigated).**
+`queries.ts` exposes `deleteTrade` and `deleteAllTrades`, which a `BEFORE UPDATE`
+trigger cannot see, so a delete-and-relog path exists. Per the build lock, deletion
+remains genuine deletion and no tombstone is introduced in this build; the residual
+gap is recorded as a known limitation to be closed later by broker reconciliation.
+
 
 **M2 — `r_vs_plan` is not reproducible without a planned-price snapshot.**
 Both canonical values are defined against `planned_entry` / `planned_stop`, which
@@ -136,12 +156,12 @@ it server-side. *Alt A:* TypeScript-only — rejected, admin and app disagree.
 *Alt B:* swap the RPC outright — rejected, the tile drops to n = 0 and reads as
 data loss.
 
-**D4 — trigger for UPDATE conflict + trigger-written tombstone for DELETE (M1).**
-*Why:* only the database sees both writers and both statements.
-*Alt A:* UPDATE trigger only — rejected, delete-and-relog bypasses it.
-*Alt B:* forbid deletion of resolved trades — rejected, users must be able to erase
-their own data. *Changes my mind:* if the owner prefers hard immutability over
-erasure, Alt B is simpler.
+**D4 — UPDATE conflict trigger only; deletion stays genuine deletion.**
+*Why:* the build lock keeps user erasure real, and only the database can arbitrate
+concurrent updates. *Alt A:* delete tombstones — rejected by the build lock.
+*Alt B:* forbid deleting resolved trades — rejected, users must be able to erase
+their own data. *Changes my mind:* broker reconciliation later makes tamper
+resistance meaningful.
 
 **D5 — `evidence.ts` as the only sufficiency gate (M5).**
 *Why:* two gates cannot be kept consistent. *Alt A:* keep both — rejected.
@@ -154,23 +174,19 @@ multiplicity denominator.
 
 ## C. Failure scenarios the architecture must survive
 
-1. **Delete-and-relog laundering.** Trader resolves at −1R, is refused a conflicting
-   re-resolution, deletes the trade, re-logs the signal and resolves at +2R.
-   Expected: tombstone exists, audit flags `resolved_then_deleted`, integrity
-   metric counts it against the account, statistics use only live rows.
-2. **Purged signal after resolution.** A B-grade signal is purged 36 h after
-   detection; its taken trade remains. Expected: `r_vs_plan` recomputes to the
-   identical stored value from the snapshot, the cluster key still resolves, and
-   two bootstrap runs stay byte-identical.
-3. **Concurrent human + agent resolution.** Web writes prices while an assistant
+1. **Snapshot immutability.** A trade is created, then the signal's row is later
+   edited or the trade is re-resolved. Expected: the nine snapshot fields never
+   change, and `r_vs_plan` recomputes to the identical stored value from them.
+2. **Concurrent human + agent resolution.** Web writes prices while an assistant
    writes a conflicting outcome. Expected: one write wins, the conflicting one is
    rejected at DB level, identical retries are accepted as no-ops, and no row ends
    with prices from one author and R from another.
+3. **Repeat decision write on a resolved trade** from either the web terminal or
+   MCP. Expected: friendly already-resolved result, no `outcome` reset, no raw
+   trigger error.
 4. **Single trading day of data.** 12 filled rows, one UTC day. Expected:
    `cluster_n = 1`, no interval, `insufficient`, no prescriptive wording, weekly
    email states why.
-5. **Repeat decision tap on a resolved trade.** Expected: friendly "already
-   resolved" state, no raw trigger error.
 
 ## D. Revised plan
 
@@ -182,34 +198,38 @@ evidence,bh}.ts`: whole-UTC-day clustering, stable total order
 method/version/seed/`run_id`, `actionable` gated behind holdout confirmation, BH on
 predeclared bounded families only.
 
-**Stage 2 — additive migration, no backfill.** `executed_trades` gains
-`planned_entry`, `planned_stop`, `planned_direction`, `signal_detected_at` (M2),
+**Stage 2 — additive migration, no backfill.** `executed_trades` gains the nine
+immutable creation-time snapshot columns (`planned_entry`, `planned_stop`,
+`planned_direction`, `signal_detected_at`, `signal_instrument`, `signal_grade`,
+`signal_trading_session`, `signal_time_of_day`, `signal_day_of_week`) plus
 `actual_initial_stop`, `stop_provenance`, `actual_entry_at`, `actual_exit_at`,
 `broker_ticket`, `commission`, `swap`, `cost_currency`, `cost_unit`,
-`partial_exits`, `r_vs_plan`, `r_vs_actual_risk`, `r_basis`, `r_availability`,
-`net_r`, `verification_level`, `trade_state`. CHECKs: both prices or neither,
-`actual_exit_at >= actual_entry_at`, enumerated text. New `trade_resolution_audit`
-(append-only tombstones), `experiments`, `experiment_arms`: RLS on, `service_role`
+`partial_exits`, `r_vs_plan`, `r_vs_actual_risk`, `r_availability`,
+`r_math_version`, `net_r`, `verification_level`, `trade_state`. No row-level
+`r_basis`. CHECKs: both prices or neither, `actual_exit_at >= actual_entry_at`,
+enumerated text. New `experiments` and `experiment_arms`: RLS on, `service_role`
 only, GRANTs in the same migration, plus `get_admin_experiments()` guarded by
-`is_admin()`.
+`is_admin()`. No tombstone table.
 
 **Stage 3 — DB enforcement.** `BEFORE UPDATE` conflict trigger with rounded,
-NULL-safe comparison (identical retry → no-op; conflict → reject) and
-`BEFORE DELETE` tombstone trigger (M1). TS enums mirrored against SQL CHECK lists
-by a DB test.
+NULL-safe comparison (identical retry → no-op; conflict → reject), plus immutability
+enforcement on the nine snapshot columns. TS enums mirrored against SQL CHECK lists
+by a DB test. Deletion is left untouched.
 
 **Stage 4 — synchronised basis migration.** `r-math.ts` used by
 `trade-journal.functions.ts` and MCP `update_trade_outcome`, writing only the new
-columns. `performance.ts` reads canonical R, selects one basis, returns
-`mixed_basis` on an attempted mixed aggregation. MCP `get_performance_summary` /
-`list_my_trades` emit `r_basis`, `r_availability`; tool names and schemas unchanged,
-descriptions drop the word "verified" for the ladder. `get_admin_intelligence`
-returns `user_reported_legacy` **and** `user_reported_canonical`. `logDecision`
-stops resetting `outcome` and the UI gains an "already resolved" state (M4).
-`export.ts`, `history.tsx`, `SignalCard.tsx` label legacy values as legacy.
-`user-audit.functions.ts`: `preset_r_value` scoped to unpriced rows,
-`r_exceeds_max_r` compared only against `r_vs_plan`, plus the new
-`resolved_then_deleted` flag.
+columns. `performance.ts` and every aggregation API take an explicit `plan` or
+`actual_risk` basis argument and return the `mixed_basis` error status when a
+caller attempts a mixed-unit aggregation. MCP `get_performance_summary` /
+`list_my_trades` emit both canonical values, `r_availability` and `r_math_version`;
+tool names and schemas unchanged, descriptions drop the word "verified" for the
+ladder. `get_admin_intelligence` returns `user_reported_legacy` **and**
+`user_reported_canonical`. Both decision writers — `queries.ts::logDecision` and
+MCP `log_trade_decision` — initialise state on insert, update only decision and
+provenance, never reset `outcome`, and return a friendly already-resolved result on
+a resolved row. `export.ts`, `history.tsx`, `SignalCard.tsx` label legacy values as
+legacy. `user-audit.functions.ts`: `preset_r_value` scoped to unpriced rows,
+`r_exceeds_max_r` compared only against `r_vs_plan`.
 
 **Stage 5 — statistics reporting.** `evidence.ts` becomes the single sufficiency
 gate and `Verdict` derives from it (M5); `z`/`pValue` demoted to diagnostics;
@@ -226,15 +246,16 @@ grades reported separately; email template render test.
 3. `performance.ts` and MCP `get_performance_summary` return non-empty results for
    a canonical-basis trade.
 4. `get_admin_intelligence` returns both blocks; app, MCP and admin agree.
-5. An attempted mixed-unit aggregation returns `mixed_basis`; a row holding both
-   values aggregates cleanly under either basis.
-6. `r_vs_plan` recomputes identically after the source signal is deleted (M2/M3).
+5. An attempted mixed-unit aggregation returns the `mixed_basis` error status; a
+   row holding both canonical values aggregates cleanly under either basis.
+6. The nine snapshot fields are written once at row creation, are rejected on any
+   later mutation, and `r_vs_plan` recomputes identically from them.
 7. Two bootstrap runs are byte-identical with stored seed/method/version/run_id;
    one UTC day of multi-instrument rows forms exactly one cluster.
 8. `actionable` unreachable; no prescriptive wording at n = 3.
 9. DB tests: identical retry accepted, conflicting re-resolution rejected,
-   human-win vs agent-loss race, delete-of-resolved writes a tombstone and raises
-   the audit flag, TS enums equal SQL CHECK lists.
+   human-win vs agent-loss race, snapshot immutability, repeat decision write from
+   both writers leaves resolution untouched, TS enums equal SQL CHECK lists.
 10. Monetary-only costs leave `net_r` NULL and no cost-adjusted claim appears.
 11. Weekly email renders with `pending_resolution` and basis labels; `Verdict`
     derives from `evidence.ts`.
@@ -246,9 +267,9 @@ grades reported separately; email template render test.
 Self-reported prices can still be untrue; the honest output at current sample sizes
 reads "insufficient" nearly everywhere, including in the weekly email; the
 legacy/canonical dual display adds interpretation burden; the conflict trigger can
-block a legitimate late correction until the correction workflow exists; tombstones
-retain outcome metadata for deleted trades, which must be disclosed as integrity
-data rather than treated as erasure failure.
+block a legitimate late correction until the correction workflow exists; and because
+deletion stays genuine deletion, a delete-and-relog path remains open until broker
+reconciliation exists.
 
 ## G. Confidence
 
