@@ -52,6 +52,7 @@ interface ShadowRow {
   bars_replayed: number;
   replay_cursor: string | null;
   model_version: number;
+  replay_version: number;
 }
 
 export interface ResolveSummary {
@@ -60,6 +61,9 @@ export interface ResolveSummary {
   resolved: number;
   instruments: Array<{ instrument: string; candles: number; error?: string }>;
   fetchFailures: number;
+  /** Research (Replay-V2) rows advanced this run. Never affects production counts. */
+  researchScanned: number;
+  researchAdvanced: number;
 }
 
 const OPEN_ROW_COLUMNS =
