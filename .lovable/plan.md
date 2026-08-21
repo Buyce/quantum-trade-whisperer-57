@@ -1,291 +1,277 @@
-# Redesign the Learning Engine's "Expected Value"
+# Red-Team Review of the Expected-Value Remediation Plan (revised plan, not implemented)
 
-## 1. Actual goal
+Reviewed as an independent reader against repository HEAD and live data. The previous plan
+survives in outline but contains four defects serious enough to change the design, one of which
+is an **existing production contamination bug** the plan would have shipped on top of.
 
-P-Trades must tell a trader what a setup is worth in R, with honest uncertainty, or say
-"insufficient data". Today it multiplies two probabilities and calls the product
-"Expected value" — an economically meaningless quantity.
+## Evidence re-read at HEAD
 
-## 2. Current implementation (re-read at HEAD)
+- `regime_stats` PK is `(model_version, tier, regime_key)`. No `replay_version`,
+  no `execution_policy`, no payoff column.
+- `recompute_regime_stats` selects `FROM shadow_executions WHERE status='resolved' AND
+  model_version = mv` — **no `replay_version` filter**.
+- `shadow_executions` today: 335 rows, all `model_version=1`, `replay_version=1`,
+  `execution_policy='legacy_best_target_touched'`. `gross_r`/`net_r`/`adjudication` are NULL on
+  every row. Replay-V2 and model 2/3 cohorts are **empty**.
+- Resolved 329: filled 94 (28.57%), wins 48, `mean R|fill = +0.0149`,
+  unconditional `mean R = +0.00426`, wins pay 0.65R–2.00R.
+- `EXECUTION_POLICY_LEGACY = "legacy_best_target_touched"` in `replay-registry.ts`;
+  Replay-V2 is `single_exit_first_target`.
+- Tier sample depth: tier 2 max 32 filled; tier 3 = 50 buckets, mean 1.9 filled, max 9.
+- Grade cohorts: A n=3/1 filled; B n=246/75 filled, mean R|fill +0.0169; C n=80/18 filled,
+  mean R|fill **−0.0483**.
+- FKs to `scanned_signals`: `executed_trades` **ON DELETE CASCADE**; `shadow_executions`
+  **ON DELETE SET NULL**.
+- Consumers: `pipeline.server.ts:499` (`ev_prior`), `feed.tsx:159-167` (EV sort, gated on
+  `MIN_N_FILL` only), `SignalCard.tsx:262` ("Expected value") and `:722-727` (EV chip),
+  `get-intelligence.ts:115` (`expected_value`), `capture.server.ts:247` (explicit column list),
+  `queries.ts:8` (`SIGNAL_COLUMNS`).
 
-- `src/lib/learning/regime.ts` — `summarize()` sets `ev = pFill * pWin`; `clamp01()` returns
-  **0.5** for non-finite input; gates are fixed `MIN_N_FILL = 150`, `MIN_N_WIN = 200`,
-  `MIN_N_TIER3 = 20`.
-- `recompute_regime_stats(mv)` (latest migration `20260821071943…`) computes fill/win rates
-  only, shrinks with k = 30, and defaults the global prior to **0.5** when a denominator is 0.
-  No payoff (R) statistic exists in `regime_stats` / `regime_snapshots` at all.
-- `pipeline.server.ts` writes `p_fill_prior`, `p_win_prior`, `ev_prior` onto `scanned_signals`.
-- `SignalCard.tsx` shows a tile literally labelled **"Expected value"** with subtitle
-  "fill x win", plus an `EV` chip in the collapsed row gated on `prior_sample_n >= 150`.
-- `feed.tsx` offers **sort "by exp. value"**, gated only on the *fill* sample count — so the
-  ranking uses the win term before the win gate has passed.
-- `get-intelligence.ts` (MCP) returns `expected_value: prior.ev` to AI agents.
-- Regime keys are `instrument|direction|session|vol_bucket` — **no grade, no strategy family,
-  no execution policy**. Statistics are model-version-scoped only.
-- `weekly.server.ts` computes a genuine `expectancyR` from realized R; the admin RPC reports
-  mean R. Those two are correct and disagree with the "EV" tile by an order of magnitude.
+## A. Plan defects discovered
 
-Live data (model 1, replay 1, resolved = 329): fill 94 (28.6%), win|filled 48/94 (51.1%),
-mean R|filled **+0.0149**, unconditional mean R **+0.0043**. The tile currently displays
-0.286 x 0.511 = **14.6%**, which a trader reads as an edge. The measured edge is ~0.004R,
-statistically indistinguishable from zero.
+**A1 (critical, pre-existing, must ship independently of EV work).** `recompute_regime_stats`
+has no `replay_version` filter. The Replay-V2 sibling trigger clones every plan. The moment
+Replay-V2 enrolment turns on, each plan appears **twice** in `_base`: `n_total` inflates, the
+samples are not independent (identical plan, different execution semantics), and V1 fill/win
+priors change silently with no code change and no version bump. My plan buried this filter
+inside a large EV migration; it belongs in its own minimal migration, first.
 
-## 3. Affected surface
+**A2 (critical).** The plan proposed computing and displaying "Expected R" from the only payoff
+data that exists — `legacy_best_target_touched`. That policy credits the **best target touched**
+on the path, which is exactly the credit rule Replay-V2 was built to replace. Wins paying up to
+2.0R are best-case path selection, so `E[R|fill] = +0.0149` is an **upper** bound, not an
+estimate. Publishing it under the more authoritative label "Expected R" would make the product
+more confidently wrong than the mislabelled probability it replaces. Replay-V2 has zero resolved
+rows, so there is currently **no credible payoff sample at all**.
 
-Tables/functions: `regime_stats`, `regime_snapshots`, `scanned_signals`, `shadow_executions`,
-`recompute_regime_stats`, `get_admin_intelligence`, `baseline_snapshots`.
-Code: `learning/regime.ts`, `regime.server.ts`, `explain.ts`, `milestone.server.ts`,
-`scanner/pipeline.server.ts`, `queries.ts`, `SignalCard.tsx`, `LearningHistory.tsx`,
-`feed.tsx`, `mcp/tools/get-intelligence.ts`, `reports/weekly.server.ts`,
-`baseline/capture.server.ts`, plus `learning/__tests__/regime.test.ts` (which currently
-*pins* `ev = pFill*pWin`).
+**A3 (major).** Grade banding of the hierarchy is a trading-model change dressed as a
+statistics fix. Tier 3 already averages 1.9 filled samples; banding by grade multiplies keys and
+makes every specific bucket unanswerable. It also closes a feedback loop (grade → prior →
+future grading/ranking) and would fit a cohort with **one** filled A sample. Rejected in the
+revision: grade becomes an admin-only diagnostic cut, never a live lookup key in this change.
 
-## 4. Confirmed defects
+**A4 (major).** Widening the `regime_stats` primary key is backwards-incompatible and
+effectively irreversible; every reader, the DELETE/INSERT rebuild, and `regime_snapshots`
+comparisons assume the current 3-column identity. Simpler design: **leave `regime_stats`
+untouched** and put payoff statistics in a new sibling table keyed by
+`(model_version, replay_version, execution_policy, tier, regime_key)`.
 
-1. **D1 — Mislabelled statistic.** `pFill x pWin` is P(fill AND win), a probability, rendered
-   as a percentage "expected value". Not a return.
-2. **D2 — Payoff ignored.** No loss magnitude, no expiry/timeout leg, no cost. V1 wins pay
-   0.65R–2.0R (ladder), Replay-V2 policy pays exactly 1R; the same probabilities imply
-   different expectations under the two policies.
-3. **D3 — Fail-open defaults.** `clamp01` → 0.5 and the SQL `g_pfill/g_pwin` → 0.5 invent a
-   coin flip where data is missing. Violates the zero-hallucination rule.
-4. **D4 — Ranking gate wrong.** EV sort and the EV chip gate on resolved samples only; the
-   win term can be almost entirely borrowed prior.
-5. **D5 — Pooling across incomparable strategies.** A+, B and C share one bucket. Measured
-   mean R|fill by grade: B +0.017, C **−0.048**, A n=1. Pooling hides a negative cohort.
-6. **D6 — Precision unreported.** A single 4-dp number with no interval; tier-3 buckets hold
-   a median of ~2 filled samples (max 9), so nothing at tier 3 can support a payoff estimate.
+**A5 (moderate).** The estimator was over-engineered. `pFill × E[R|fill]` needs a covariance
+term (both factors are estimated on the same rows) and a normal CI on a two-point-mass payoff
+(−1 / +0.65..2) at n=94 is a poor approximation. The **unconditional mean of R over all resolved
+rows** (R = 0 when unfilled) is the same quantity, unbiased, needs no decomposition, and its
+interval is directly computable: mean +0.00426, sd ≈ 0.416, SE ≈ 0.023, t-CI ≈ [−0.041, +0.049].
 
-## 5. Hidden/secondary risks found
+**A6 (moderate).** Breaking the MCP key `expected_value` outright would silently break already
+registered agents. A deprecation window with explicit semantics metadata is required.
 
-- `regime_snapshots` has no R columns, so any new statistic has **no history** — the learning
-  chart would start empty; must be stated in the UI, not backfilled.
-- `explain.ts` builds its shrinkage ladder from fill/win only; adding an R term without
-  updating it makes the explain drawer inconsistent with the headline number.
-- `milestone.server.ts` emails on the 150/200 gates; changing gate semantics silently changes
-  who gets emailed and when — needs its own claim key so no duplicate email fires.
-- Replay-V2 siblings exist in `shadow_executions`. Any R aggregate **must** filter
-  `replay_version = 1` or research rows will contaminate production expectations.
-- `recompute_regime_stats` DELETEs and re-INSERTs per model version in one transaction; adding
-  columns is safe, but the hourly cron and a manual admin call can overlap — the existing
-  transaction boundary is the only guard, and there is no advisory lock.
-- Non-finite guard order: SQL `numeric` cannot hold NaN/Infinity, but JS division by 0 can, so
-  the guard must live in TypeScript too.
+**A7 (moderate).** `capture.server.ts:247` uses an explicit column list, so new prior columns
+must be added there or Checkpoint comparisons quietly drift; snapshot payloads need a
+`schema_version` so old and new baselines are not diffed as if they were the same shape.
 
-## 6. Alternatives
+**A8 (moderate, pre-existing, in scope for disclosure).** `executed_trades` cascades on
+`scanned_signals` deletion, and tiered purge deletes signals at 24/36/48h. User-reported wins are
+therefore **survivorship-filtered**, so the admin "user-reported win rate" and any cross-check
+against expected R is biased by construction. Must be labelled, and the cascade re-examined in a
+separate change (not silently altered here).
 
-**A. Empirical mean realized R per regime.** Simple, unbiased, matches the weekly report.
-Drawback: variance is brutal at n≈90 (sd of R|fill ≈ 0.7 → SE ≈ 0.07R, CI wider than the
-signal); tier-3 unusable. Complexity low. Rejected as the *only* estimator, kept as the
-audit reference.
+**A9 (minor).** The advisory lock had no key. Specify
+`pg_advisory_xact_lock(hashtext('recompute_regime_stats'), model_version)`.
 
-**B. Decomposed P(fill) x E[R|fill] with each part shrunk.** Keeps the fill/win decomposition
-the product already exposes, isolates the two evidence gates, and lets P(fill) go active while
-payoff stays "insufficient data". Complexity moderate. Requires an R-moment aggregate in SQL.
-**Recommended.**
+**A10 (minor).** No assertion existed that signal *count* is unchanged. Needed, since the whole
+point is that learning stays advisory.
 
-**C. Full Bayesian hierarchical model of R (MCMC/Stan-style).** Best uncertainty treatment.
-Drawback: no sampler is available in a Cloudflare Worker; it would need an external service.
-Rejected on runtime grounds, not statistical ones.
+## Searched-for risks — findings
 
-**D. Bootstrap of shrunken empirical expectation.** Honest non-parametric intervals, no
-normality assumption. Drawback: needs raw rows per regime at read time (the scanner currently
-reads one small aggregate table); 1k resamples per bucket per scan is the wrong cost profile.
-Rejected for the live path; **kept as the offline validator** that checks B's intervals.
+| Risk | Finding |
+|---|---|
+| Simpler superior design | Yes — A4 (sibling table) and A5 (unconditional mean). Adopted. |
+| Backwards incompatibility | A4 (PK), A6 (MCP key), A7 (baseline column list). |
+| Trading-model change disguised as a fix | A3 (grade-keyed priors). Removed. |
+| Lookahead bias | A2 — best-target-touched credit is path-optimal selection. |
+| Data leakage | A1 — replay siblings double-count the same plan. |
+| Selection bias | A8 — purge cascade truncates user-reported outcomes; also C-grade cohort is the only negative-payoff cohort and would be pooled away. |
+| Backtest overfitting | A3; also tier-3 payoff estimates at n≈2 — forbidden by the precision floor. |
+| Invalid statistical assumptions | A5 — normality and independence of the two factors. |
+| Incorrect R mathematics | Original defect D1/D2 confirmed; ladder credit inflates R (A2). |
+| Race conditions | Overlapping recompute (A9); sibling trigger inserting mid-aggregate — mitigated by the transaction plus a `computed_at` cutoff on the source read. |
+| Duplicated business logic | Payoff maths must live only in `learning/payoff.ts`; `weekly.server.ts` must import it rather than recompute expectancy a second way. |
+| RLS weakness | New table needs an explicit policy **and** `GRANT SELECT` to `authenticated`, `ALL` to `service_role`; otherwise the scanner and UI break with a permission error. Admin research cut goes through `is_admin()`. |
+| SSRF / auth | No new outbound calls, no new public routes. MCP change is read-only aggregates. |
+| Serverless lifecycle | Recompute stays one SQL transaction; no long-lived state, no new provider call, well inside CPU budget. |
+| Partial writes | Single transaction per model version; sibling table written in the same transaction. |
+| Migration irreversibility | Avoided by dropping the PK change; new table is droppable; no column drops; `ev_prior` never rewritten. |
+| Historical contamination | A1; plus forward-only computation, no backfill of `regime_snapshots`. |
+| Alert/delivery regressions | A third milestone gate would email on a new threshold — needs its own claim key in `claim_learning_milestone`, and the weekly report copy must not change numbers. |
+| MCP semantic regressions | A6 — deprecation window instead of a hard rename. |
+| False UI wording | "Expected value / fill x win" is false today; the fix must not replace it with an equally false "Expected R" (A2). |
+| MetaApi cost | Unchanged — zero additional provider calls. |
+| Signal count | Unchanged; asserted by test (A10). |
 
-Chosen: **B, with normal–normal (James–Stein-style) shrinkage of E[R|fill] toward the parent
-tier, and D as an offline audit.**
+## Major decisions — why this option
 
-## 7. Recommended architecture
+**1. Headline estimator = unconditional mean realized R (R = 0 when unfilled).**
+*Why:* it is the definition of expected return per published setup, unbiased, one estimator, one
+interval. *Alternatives:* (a) `pFill × E[R|fill]` with delta-method CI — rejected: needs a
+covariance term and adds a second source of truth that can disagree with the weekly report;
+(b) hierarchical Bayesian payoff model — rejected: no sampler in the Worker runtime and it buys
+precision the data cannot justify. *Evidence:* n=329, SE 0.023 vs SE 0.072 on the conditional
+mean. *Would change my mind:* payoff distribution becoming strongly multi-modal per regime, or a
+need to price fill and payoff improvements separately — then keep the decomposition as the
+headline. The decomposition is still **displayed as explanation**, explicitly non-identity.
 
-- `EV_R = pFill_shrunk x E[R|fill]_shrunk`, in R units, with a variance and a Wilson/delta
-  confidence interval; `null` whenever any input is missing or non-finite.
-- Rename the old quantity everywhere to **`joint_win_probability`** (`p_joint`). It stays
-  visible (it is a real probability) but is never called EV again.
-- Statistics are keyed by `(model_version, replay_version, execution_policy, grade_band,
-  instrument, direction, session, vol_bucket)`. Grade band = `A_PLUS_A | B | C`.
-- **Precision gate** replaces the bare fixed N: a statistic is "active" only when
-  `n >= n_floor` **and** the 95% CI half-width is under a published budget
-  (fill: 0.10 absolute; E[R|fill]: 0.15R). Fixed N stays as a floor because a CI can be
-  narrow-by-luck at tiny n.
-- Fail-closed: no 0.5 defaults; `unavailable` with a reason code.
-- V1 production keeps writing `ev_prior` untouched for historical identity; the new columns are
-  additive and start `NULL`.
+**2. Payoff statistics keyed by execution policy, and no "Expected R" shown until a
+`single_exit_first_target` sample exists.** *Why:* A2. *Alternatives:* (a) ship EV_R from the
+legacy ladder with a caveat — rejected: caveats do not survive a screenshot; (b) retro-score the
+existing 94 fills as 1R-at-first-target — rejected: that is a re-labelled backtest of a replay
+engine, computed outside the audited replay path, i.e. exactly the leakage the replay versioning
+exists to prevent. *Evidence:* wins span 0.65–2.0R under legacy credit; Replay-V2 exists
+precisely because that credit is not execution-credible. *Would change my mind:* Replay-V2
+resolving ≥100 filled siblings with a stable fill rate — then promote it to the headline.
 
-## 8. Derivation
+**3. New sibling table instead of widening `regime_stats`.** *Why:* A4, byte-stable V1
+identity. *Alternatives:* (a) widen the PK — rejected as irreversible and reader-breaking;
+(b) encode policy inside `regime_key` — rejected: silently changes every existing key's meaning
+and defeats indexing. *Evidence:* PK confirmed 3-column; rebuild is DELETE+INSERT.
+*Would change my mind:* if the scanner needed both statistics in a single round trip for latency
+— measured first; today it already reads one small table and can read two.
 
-Let F = fill indicator, R = realized R (0 when unfilled).
-`E[R] = P(F=0)*0 + P(F=1)*E[R|F=1]`.
-`E[R|F=1] = p_win*E[R|win] + p_loss*E[R|loss] + p_expiry*E[R|expiry]` — the current formula is
-the special case `E[R|win]=1, E[R|loss]=0, expiry ignored`, which is false on both counts.
+**4. Rename-first, compute-behind-flag.** *Why:* the false wording is live and costs nothing to
+remove; the new number needs evidence it does not yet have. *Alternatives:* (a) ship both at
+once — rejected: couples an honest deletion to an unproven statistic; (b) leave wording until
+data arrives — rejected: keeps a false claim in front of users for weeks.
+*Evidence:* the tile currently reads 14.6% while measured expectancy is +0.004R.
 
-Live numbers: `E[R|F=1] = (48(0.9875) + 46(−1) + 0)/94 = +0.0149`;
-`EV_R = 0.286 x 0.0149 = +0.0043R`. Variance: `sd(R|fill) ≈ 0.70`, `SE ≈ 0.072`, so
-`CI95(E[R|fill]) ≈ [−0.13, +0.16]` → half-width 0.145R, just inside a 0.15R budget at the
-global tier and hopelessly outside it at tier 2/3.
+**5. Precision gate = fixed floor AND interval budget.** *Why:* either alone fails (narrow CI at
+n=3; wide CI at n=200). *Alternatives:* fixed N only (status quo, D4/D6) or CI only — both
+rejected above. *Would change my mind:* evidence that the interval estimator is unreliable at
+the sample sizes reached; then fall back to a pure floor and publish it.
 
-Shrinkage of the payoff mean: `Ê = (n_f x m_child + k_R x m_parent)/(n_f + k_R)` with
-`k_R = sd_parent^2 / between-bucket variance`, floored at 20 filled samples.
+## Failure scenarios the architecture must survive
 
-**Higher win probability ≠ higher expected R** (hand-calculated):
-- Regime X: pFill 0.40, pWin 0.60, payoff 1R win / −1R loss → `E[R|fill] = 0.2`,
-  `EV_R = +0.080R`. p_joint = 0.24.
-- Regime Y: pFill 0.40, pWin 0.45, ladder payoff `E[R|win] = 1.8` → `E[R|fill] = 0.26`,
-  `EV_R = +0.104R`. p_joint = 0.18.
-  Y ranks **below** X on today's "EV" and **above** it on real expected R.
-- Regime Z: pFill 0.90, pWin 0.55, but 30% of fills expire at −0.4R →
-  `E[R|fill] = 0.55(1) + 0.15(−1) + 0.30(−0.4) = +0.28`… while the same win rate with
-  expiries at −0.9R gives `−0.02` — a losing regime with an attractive-looking win rate.
+**S1 — Replay-V2 enrolment turns on mid-week.** Siblings appear; recompute now filtered to
+`replay_version = 1 AND execution_policy = 'legacy_best_target_touched'`. Expected: V1 fill/win
+values byte-identical to the pre-enrolment run; V2 payoff rows accumulate in the sibling table
+with `stat_status='learning'`; nothing reaches the UI until the flag flips. Failure signature if
+the filter is missing: `n_total` roughly doubles and the global fill rate moves.
 
-## 9. Database changes (all additive)
+**S2 — Hourly cron and a manual admin recompute collide.** Both take
+`pg_advisory_xact_lock(hashtext('recompute_regime_stats'), mv)`; second waits, then rebuilds
+from the same source. Expected: exactly one row per key, no unique violation, no partial
+`regime_stats`. Also covered: recompute aborted mid-transaction leaves the previous hour intact.
 
-- `regime_stats` + `regime_snapshots`: `n_filled_r`, `mean_r_filled`, `sd_r_filled`,
-  `mean_r_filled_shrunk`, `ev_r`, `ev_r_se`, `ev_r_lo`, `ev_r_hi`, `payoff_gate_passed`,
-  `grade_band`, `replay_version`, `execution_policy`, `stat_status` (`active|learning|unavailable`).
-- Widen the uniqueness key to include `grade_band`, `replay_version`, `execution_policy`.
-- `scanned_signals`: `p_joint_prior` (copy of the old semantic), `ev_r_prior`, `ev_r_lo_prior`,
-  `ev_r_hi_prior`, `payoff_sample_n`, `ev_status`. `ev_prior` is **frozen, never rewritten**.
-- `recompute_regime_stats`: add the R moments (`avg`, `stddev_samp`, count over
-  `resolved_outcome <> 'never_filled'`), filter `replay_version = 1`, drop both `0.5`
-  fallbacks in favour of `NULL`, and group by grade band. Add an advisory lock.
+**S3 — Purge deletes signals during aggregation.** `shadow_executions.signal_id` is
+`SET NULL`, so training rows survive with denormalized instrument/grade/session; aggregates read
+`shadow_executions` only and never join `scanned_signals`. Expected: sample counts unaffected by
+purge. The `executed_trades` cascade (A8) is documented as a known bias, not silently patched.
 
-## 10. Backend changes
+**S4 — A cohort turns genuinely negative.** C-grade is already at −0.048R mean-R-given-fill.
+Expected: negative expected R renders as a negative number with its interval, is never clamped
+to zero, and never suppresses or promotes a signal (advisory only).
 
-`regime.ts`: `RegimePrior` gains `pJoint`, `evR`, `evRLo`, `evRHi`, `payoffN`, `status`;
-`clamp01` returns `null` instead of 0.5; new `precisionGate()` helper. `regime.server.ts` selects
-the new columns. `pipeline.server.ts` writes the new columns alongside the frozen ones.
-`explain.ts` gains the payoff ladder row. `milestone.server.ts` gets a third gate
-(`payoff`) with its own claim key. `capture.server.ts` records the new fields.
-`weekly.server.ts` cross-checks: report `expectancyR` vs `ev_r` and flag divergence > 0.05R.
+**S5 — Statistics unavailable.** Empty cohort, NaN volatility, missing payoff moment, or a
+non-finite division all yield `null` + `stat_status='unavailable'` with a reason code. No 0.5
+fallback survives in TypeScript or SQL. UI shows "Insufficient data"; MCP omits the field.
 
-## 11. Frontend changes
+## B. Revised plan
 
-- SignalCard tile: "Expected value / fill x win" → **"Joint win probability"**; a new
-  **"Expected R"** tile showing `+0.08R` with its interval and `Insufficient data` when gated.
-- Collapsed-row chip: only when `ev_status = 'active'`; label `EV +0.08R`, never a percentage.
-- `feed.tsx`: EV sort ranks by the **lower confidence bound** of `ev_r`, and the button is
-  disabled with an explanation until the payoff gate passes; copy updated (currently claims
-  "ranks by measured fill x win rate").
-- `LearningHistory.tsx`: third gate row and the R series (empty until data accrues, labelled).
+**Step 1 — Leakage filter (own migration, ship first, no UI change).**
+`recompute_regime_stats`: add `AND replay_version = 1 AND execution_policy =
+'legacy_best_target_touched'`, add the advisory lock, and replace both `0.5` fallbacks with
+`NULL` (callers already gate on n). Prove the global tier is numerically unchanged today
+(no siblings exist yet), so this is a pure future-proofing fix.
 
-## 12. MCP/API
+**Step 2 — Fail-closed maths.** `learning/regime.ts`: `clamp01` returns `null` instead of 0.5;
+`RegimePrior.ev` renamed to `pJoint` with the comment corrected to "P(fill AND win) — a
+probability, not a return"; add `status` and reason codes. Replace the characterisation test
+that pins `ev = pFill*pWin` with a `pJoint` test and a note in `docs/CHARACTERISATION.md`.
 
-`get_intelligence` payload: keep `p_fill`, `p_win_if_filled`; rename `expected_value` →
-`joint_win_probability`; add `expected_r`, `expected_r_ci`, `payoff_sample_n`,
-`ev_status`, `execution_policy`, `grade_band`. Breaking rename is deliberate — agents must not
-keep reading a number that means something else. Bump the tool description and note it in
-the agent instructions page.
+**Step 3 — Wording truth pass (ships on, no new statistic).**
+`SignalCard.tsx:262` tile → "Joint win probability" with subtitle "P(fill and reach TP1)";
+chip → `WIN-P`; `feed.tsx` sort label → "by win probability" and its gate widened to require
+**both** the fill and win gates (today it ranks on an ungated win term). No signal-count or
+grading change.
 
-## 13. Historical data / versioning
+**Step 4 — Payoff statistics, research-only.** New table `payoff_stats`
+(`model_version, replay_version, execution_policy, tier, regime_key` PK) with
+`n_resolved, n_filled, mean_r, sd_r, se_r, ev_r_lo, ev_r_hi, mean_r_given_fill, sd_r_given_fill,
+stat_status, computed_at`, plus `payoff_snapshots` for history. Explicit RLS policy and
+`GRANT SELECT` to `authenticated`, `GRANT ALL` to `service_role`. Populated in the same
+transaction as `recompute_regime_stats`, per policy present in the data. Single maths module
+`learning/payoff.ts`; `weekly.server.ts` imports it instead of computing expectancy separately.
+Grade appears only as an **admin research cut** (`is_admin()`), floored at 30 filled samples.
 
-No rewrite of `ev_prior`, `scanned_signals`, `shadow_executions` or existing
-`regime_snapshots`. The new statistic is computed forward-only from resolved
-`replay_version = 1` rows; grade-banded buckets start empty. Old snapshots stay readable and
-are shown as "pre-payoff-model" in the chart.
+**Step 5 — Signal-level priors (additive, nullable).** `scanned_signals`:
+`p_joint_prior`, `ev_r_prior`, `ev_r_lo_prior`, `ev_r_hi_prior`, `payoff_sample_n`,
+`payoff_policy`, `ev_status`. `ev_prior` frozen forever. Add the new columns to
+`SIGNAL_COLUMNS` and `capture.server.ts:247`, and stamp baseline payloads with
+`schema_version`.
 
-## 14. Security
+**Step 6 — MCP deprecation window.** Keep `expected_value` returning the joint probability plus
+`expected_value_deprecated: true` and
+`expected_value_semantics: "p_fill_times_p_win_probability"`; add `joint_win_probability`,
+`expected_r`, `expected_r_ci`, `payoff_policy`, `payoff_sample_n`, `ev_status`. Tool description
+and the agent instructions page state the removal condition. Remove only after that window.
 
-All new columns live in already-RLS'd tables; `regime_stats` keeps its read policy,
-`baseline_snapshots` stays admin/service-role. `recompute_regime_stats` remains
-`SECURITY DEFINER` with `search_path = public` and no new grants. No PII, no secrets in
-payloads. MCP exposes aggregates only.
+**Step 7 — Promotion gate (not part of this change's user-visible surface).** "Expected R" is
+rendered only when `payoff_policy = 'single_exit_first_target'`, `n_filled >= 100`, the CI
+half-width is ≤ 0.15R, and `shadow_engine_state.payoff_model_enabled` is true. Third milestone
+email uses a new `claim_learning_milestone('payoff')` key.
 
-## 15. Performance
+Not doing: PK widening, grade-keyed live priors, any backfill, any retro-scoring of legacy fills,
+any change to grading, entry/stop/target geometry, alert fan-out, caps, or the purge cascade.
 
-One extra aggregate pass in the hourly recompute (bounded by resolved rows, currently 329);
-grade banding roughly triples bucket count (~150 rows) — still one small unfiltered select per
-scan job. No change to the p95 scan budget. The advisory lock removes the overlap risk.
+## C. New acceptance criteria
 
-## 16. Implementation sequence
+1. `recompute_regime_stats` filters replay version and policy; a synthetic sibling row does not
+   change any `regime_stats` value (blocking DB test).
+2. Global-tier fill/win values are byte-identical before and after Steps 1–5.
+3. No `0.5` literal fallback remains in `learning/*` or in the recompute function; grep-asserted.
+4. Nothing in the product labels a probability as expected value or R; the EV sort requires both
+   gates; the collapsed chip never shows a percentage under an R label.
+5. `payoff_stats` exists with RLS + grants; an `authenticated` client can read it; `anon` cannot.
+6. No `ev_r` value derived from `legacy_best_target_touched` is reachable by a non-admin.
+7. Expected R is expressed in R, always with an interval, `null` when gated; negative values
+   render as negative.
+8. Signal count and grade distribution over a fixed candle fixture are unchanged (blocking test).
+9. Weekly report and `get_admin_intelligence` figures numerically unchanged for Replay-V1.
+10. Payoff maths exists in exactly one module; the weekly report imports it.
+11. Migration applies twice idempotently; no column dropped; `ev_prior` untouched.
+12. MCP response still contains `expected_value` with deprecation metadata plus the new fields.
+13. Unit fixtures: unconditional mean over the live cohort = `+0.00426` (±1e-5) with
+    CI ≈ [−0.041, +0.049]; the ladder-vs-1R fixture proves higher win probability can mean lower
+    expected R; an all-loss cohort yields a negative headline.
+14. Zero additional MetaApi calls; recompute stays a single transaction.
 
-1. Capture **Baseline C** (section 19) into `baseline_snapshots` — before any migration.
-2. Additive migration: columns, widened key, `recompute_regime_stats` v2 (R moments, no 0.5,
-   grade band, replay filter, advisory lock).
-3. `regime.ts` maths + fail-closed nulls + precision gate, with tests.
-4. `regime.server.ts`, `pipeline.server.ts`, `explain.ts`, `capture.server.ts`, milestones.
-5. Recompute once; verify old fill/win numbers reproduce bit-for-bit at the global tier.
-6. MCP rename; UI rename and new tiles; feed sort switched to lower-bound with a hard gate.
-7. Full blocking suite + new suites; update `docs/CHARACTERISATION.md`.
+## D. Remaining risks
 
-## 17. Test matrix
+Legacy-policy payoff numbers exist in the database and could be misread by a future developer
+(mitigated by the mandatory `execution_policy` key and admin-only exposure). Replay-V2 may never
+accrue 100 filled samples at the current rate (~94 fills over the whole V1 history), so
+"Expected R" may stay dark for a long time — that is the honest outcome, not a bug. Between-tier
+shrinkage of a payoff mean remains unvalidated until there is data to validate it. `regime_stats`
+is still rebuilt destructively each hour; only `regime_snapshots`/`payoff_snapshots` preserve
+history. A8's survivorship bias in user-reported metrics remains open.
 
-- **Unit:** `EV_R` from the live cohort → `0.286 x 0.0149 = 0.00426` (±1e-6); X/Y/Z fixtures in
-  section 8 → `+0.080R`, `+0.104R`, `+0.28R`; ladder-payoff case proves the ranking flip.
-- **Invariant:** `EV_R` sign matches `E[R|fill]` sign; `|EV_R| <= pFill x max|R|`;
-  `ev_r_lo <= ev_r <= ev_r_hi`; `p_joint` in [0,1]; every non-finite input → `null` and
-  `status = 'unavailable'` (never 0.5); a gate never flips to active with `payoffN < floor`.
-- **Property:** shrinkage is monotone in `n_filled` and always lands between child and parent.
-- **DB:** migration applies twice idempotently; V1 rows unchanged; research
-  `replay_version = 2` rows excluded from every aggregate; RLS unchanged;
-  `regime_stats` uniqueness holds under a concurrent double recompute.
-- **Regression:** existing `regime.test.ts` EV assertion is *replaced* by a `p_joint`
-  assertion; global-tier fill/win values identical pre/post migration.
-- **Failure injection:** empty cohort → all `unavailable`; single sample; all-loss cohort
-  (negative EV must display as negative, not clamp to 0); NaN volatility; missing
-  `mean_r_filled`; recompute killed mid-transaction (no partial `regime_stats`).
-- **E2E:** feed EV sort disabled with the payoff gate closed; MCP payload has no
-  `expected_value` key; SignalCard shows `Insufficient data`, not `0.0R`.
-- **Shadow validation:** offline bootstrap (alternative D) reproduces the analytic CI within
-  0.02R on the global tier.
+## E. Confidence
 
-## 18. Failure-mode simulations
+**High (design):** the four defects are grounded in facts re-read at HEAD — the missing replay
+filter, the single legacy execution policy on all 335 rows, the 3-column PK, and tier-3 sparsity.
+Steps 1–3 are strictly subtractive of false claims and cannot change trading behaviour.
+**Medium (statistics):** the estimator is right, but every interval rests on 329 resolved and 94
+filled samples; regime-level payoff conclusions are not yet supportable.
+**Low (edge discovery):** current evidence puts expected R at ~+0.004R with an interval straddling
+zero; this work will most likely show that no edge is yet demonstrated.
 
-Provider outage during recompute (aggregate reads DB only — unaffected); duplicate cron call
-(advisory lock, second call is a no-op); stale `scanned_signals` priors after a recompute
-(priors are point-in-time by design, documented); partial write (single transaction);
-concurrent admin recompute + hourly cron; expired-signal purge removing rows mid-aggregate.
+## F. What still cannot be guaranteed
 
-## 19. Baseline C to capture before change
+That a credible payoff sample will exist soon, or ever, under Replay-V2. That the legacy 94 fills
+carry any information about a 1R-single-exit policy. That normal/t intervals are exact on a
+two-point-mass payoff. That MetaApi candle quality does not bias fills. That agents reading
+`expected_value` will interpret the deprecation metadata. That the purge cascade has not already
+destroyed user-reported outcomes that would change the cross-check. That expected R will be
+positive.
 
-Global and per-(grade band, instrument, direction, session, vol bucket): resolved n, filled n,
-fill rate, win-if-filled, mean/sd R|fill, unconditional mean R, never-filled rate, mean
-`max_r`, expiry count, plus the current `p_joint` for every open signal, the weekly report's
-`expectancyR`, the admin RPC's mean R, and MCP `get_intelligence` output for three fixed
-queries. **Data sufficiency:** the global tier supports fill and payoff means (n = 329/94);
-tier 2 has at most 32 filled; tier 3 has a maximum of 9 filled and a mean of 1.9 — **no tier-3
-payoff estimate is possible today, and none will be fabricated.** Grade A has 1 filled sample:
-`A_PLUS_A` will be `unavailable` at launch.
-
-## 20. Deployment / canary
-
-`shadow_engine_state.payoff_model_enabled` (default **off**) controls whether `ev_r` is written
-and rendered; the statistic is computed and stored regardless so evidence accrues while the UI
-still shows the old wording. Renames (D1 wording, MCP key, sort gate) ship **on**, because
-they remove a false claim. Promotion to "active" ranking requires the precision gate to pass
-and an explicit flip of the flag.
-
-## 21. Rollback
-
-Flag off → `ev_r` disappears from UI/MCP, nothing is deleted. Wording revert is a code revert.
-Migration rollback is forward-fix only: drop-column is avoided; a follow-up migration can
-stop populating a column. `ev_prior` is never touched, so V1 identity survives any rollback.
-
-## 22. Acceptance criteria
-
-Nothing in the product calls `pFill x pWin` "expected value"; expected R is in R units with a
-published interval; no 0.5 fallback exists in TS or SQL; feed EV sort cannot rank on an
-ungated statistic; grade bands are separate buckets; production V1 fill/win numbers and the
-weekly report/admin figures are numerically unchanged; blocking suite green.
-
-## 23. Remaining uncertainties
-
-Between-bucket variance for `k_R` must be estimated from thin data and will be re-estimated as
-samples accrue. Whether `E[R|fill]` should be computed under Replay-V1 (ladder) or Replay-V2
-(single exit) is a policy choice — the plan keys the statistic by execution policy so both can
-exist, but production reads V1 until Replay-V2 is promoted. No expiry-exit rows exist in V1
-yet, so `E[R|expiry]` is currently unobserved.
-
-## 24. What I cannot guarantee
-
-That the corrected EV will be positive — current evidence says the edge is ~0.004R with a CI
-straddling zero. That intervals from a normal approximation are exact at n < 30. That grade
-banding will ever produce enough A/A+ samples. That MetaApi candle quality does not bias
-`E[R|fill]`. That agents relying on the old `expected_value` key will not break — they will,
-intentionally.
-
-## 25. Recommendation
-
-**Proceed, with a modification to your framing:** rename first (it removes a false claim
-immediately), compute expected R forward-only behind a flag, and gate on precision rather than
-fixed N. Do not backfill, and do not promote EV ranking until the payoff interval is inside
-budget.
+**Recommendation:** approve Steps 1–3 for immediate implementation (they only remove falsehoods
+and a live leakage path), approve Steps 4–6 as research-only plumbing, and hold Step 7 until
+Replay-V2 evidence exists.
