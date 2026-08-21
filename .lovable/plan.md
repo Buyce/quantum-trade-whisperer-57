@@ -146,13 +146,21 @@ Not empirically validated; there is no data on open-space outcomes at all. Alter
 
 V2 **preserves the adaptive ladder**: `tp1` and `tp2` are required and finite; `tp3` is nullable exactly as in V1's `maxR < 1.5` branch. The executable-profile validator therefore requires finite `entry`, `stopLoss`, `tp1`, `tp2`, `risk > 0`, finite `maxR ≥ tp1R`, and `tp3` either null or finite — it must not reject thin-extension candidates. A test asserts a `maxR = 1.2` candidate with `tp3R = null` is accepted and enrolled.
 
-## 12. Closed-candle characterisation gates the flip, not the analysis
+## 12. Closed-candle status resolves the "confirmed C" wording (corrected)
 
-Before `v2_enabled` is set true: inspect the last-bar timestamps of H4/H1/M15 from a live fetch against the timeframe boundary and wall clock; document whether the arrays include a forming bar; assert in code and in a test that V1 and V2 receive the *same array reference* from the frozen snapshot; record the finding and its timestamp in `docs/CHARACTERISATION.md` and in the V2 manifest. V1 timing is not modified here — a closed-bar correction, if warranted, becomes model version 3.
+**Correction accepted.** Whether Point C may include a forming bar is decided by what MetaApi actually delivers, not by wording. Before `v2_enabled` is set true: inspect H4/H1/M15 last-bar timestamps from a live fetch against the timeframe boundary and wall clock, and record the finding with its timestamp in `docs/CHARACTERISATION.md` and in the V2 manifest.
 
-## 13. Latency budget
+- Arrays contain **only closed candles** ⇒ V2's C is described as confirmed-bar-only, as originally written.
+- Arrays **include the forming candle** ⇒ V2 keeps the identical delivered snapshot (V1 must not be handed a different array for the paired experiment), and both the manifest and the UI/doc wording state explicitly that the current retracement extreme may include the forming bar. Prompt 3 does **not** strip it.
 
-Instrument the job with a duration measurement written to `scan_queue` timing already present (`started_at`/`finished_at`) and compare three states: pre-refactor baseline, refactor with `v2_enabled = false`, refactor with `v2_enabled = true`. Budget: **≤150 ms added p95 with V2 disabled** (observation writes only) and **≤600 ms added p95 with V2 enabled**, against a p95 that must stay under 5 s — well inside the request ceiling. If exceeded: research writes move behind a fire-and-forget path or are dropped for that cycle (the coverage counter records the gap). V1 always has priority under time pressure; no research call is retried inside the job.
+Either way, `A` and `B` remain confirmed fractal pivots (2 bars either side), and a test asserts V1 and V2 receive the *same array reference* from the frozen snapshot. Switching to closed-bar-only inputs is a new model version, never an in-place V2 mutation.
+
+## 13. Latency budget and bounded research writes (corrected)
+
+**Correction accepted.** No fire-and-forget database promises: on a serverless runtime the request may terminate before an unawaited write lands, which would silently corrupt the coverage metric. Instead, every research write is **awaited inside a bounded best-effort wrapper** — `Promise.race` against a per-call deadline (250 ms observation upsert, 250 ms cooldown claim, 500 ms shadow insert, 250 ms disposition update; ~1.25 s worst case total), placed **after** the V1 write and alert fan-out it follows. On timeout or failure the research work is abandoned for that cycle, `research_errors` / `research_last_error` are updated on a best-effort basis, the coverage ratio records the gap, and the V1 `JobResult` is unchanged.
+
+Measurement: compare p95 job duration (existing `started_at`/`finished_at`) across pre-refactor baseline, refactor with `v2_enabled = false`, and `v2_enabled = true`. Budget: **≤150 ms added p95 disabled**, **≤600 ms added p95 enabled**, absolute p95 under 5 s. If exceeded, deadlines are tightened or the research block is skipped for that cycle — never converted to an unawaited promise. V1 keeps priority under time pressure; no research call is retried inside the job.
+
 
 ## 14. Acceptance tests (failure injections)
 
