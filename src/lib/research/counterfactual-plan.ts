@@ -42,12 +42,19 @@ function round5(v: number): number {
 }
 
 /**
- * Builds the research-only plan for a filter-rejected evaluation, or null when
- * the evaluation cannot support one. `null` is the safe answer everywhere.
+ * Builds the COMMON research plan for an evaluation, or null when the
+ * evaluation cannot support one. `null` is the safe answer everywhere.
+ *
+ * Prompt 7G red-team correction: the ladder is built for EVERY executable
+ * evaluation — published as well as filter-rejected. Filter lift compares a
+ * gate's pass arm with its fail arm, so both arms must be replayed under one
+ * identical, filter-independent execution plan. Grouping a published production
+ * ladder (headroom- and reachable-R-conditioned) against an unconditional 3R
+ * ladder would measure the ladder, not the filter.
  */
 export function buildCounterfactualPlan(e: SetupEvaluation): CounterfactualPlan | null {
-  if (e.stage === "published") return null;
   if (e.counterfactual !== "executable") return null;
+
 
   const entry = e.geometry.entryPrice;
   const stop = e.geometry.stopLoss;
