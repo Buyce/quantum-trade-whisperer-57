@@ -38,6 +38,7 @@ import {
 } from "@/components/admin/AdminPanels";
 import { BaselinePanel } from "@/components/admin/BaselinePanel";
 import { ResearchPanel } from "@/components/admin/ResearchPanel";
+import { PayoffPanel } from "@/components/admin/PayoffPanel";
 
 export const Route = createFileRoute("/_authenticated/admin/intelligence")({
   head: () => ({
@@ -262,6 +263,10 @@ function AdminIntelligencePage() {
 
       <PanelShell title="Grading research ledger — model v1 (live) vs model v2 (shadow)">
         <ResearchPanel />
+      </PanelShell>
+
+      <PanelShell title="Expected R research — payoff distribution, not probability">
+        <PayoffPanel />
       </PanelShell>
 
 
