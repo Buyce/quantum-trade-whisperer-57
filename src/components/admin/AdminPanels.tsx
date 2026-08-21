@@ -512,6 +512,7 @@ const FLAG_LABELS: Record<string, string> = {
   logged_within_60s: "outcome stamped within 60s of the decision",
   no_prices_reported: "no entry/exit price logged",
   outcome_disagrees_with_replay: "outcome opposite to the replay",
+  agent_entered_price: "prices entered by an AI assistant",
   no_replay_yet: "no resolved replay to check against",
 };
 
@@ -552,6 +553,24 @@ export function UserIntegrityPanel({ report }: { report: UserAuditReport | undef
         rate {pctOf(report.reportedWinRate)} vs verified {pctOf(report.verifiedWinRate)} (n=
         {report.verifiedSampleN}, contradicted rows excluded).
       </p>
+
+      {report.priceAuthors.length > 0 ? (
+        <div className="space-y-1 rounded-sm border border-border px-2 py-1.5 text-[11px]">
+          <p className="text-muted-foreground">Verified prices by author</p>
+          {report.priceAuthors.map((a) => (
+            <div key={`${a.source}-${a.client ?? ""}`} className="flex items-center justify-between gap-2">
+              <span className={a.source === "agent" ? "text-warning" : "text-muted-foreground"}>
+                {a.source === "human"
+                  ? "human · web terminal"
+                  : a.source === "agent"
+                    ? `agent · ${a.client ?? "unknown client"}`
+                    : "unattributed (pre-provenance)"}
+              </span>
+              <span className="font-mono">{a.n}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       {Object.keys(report.flagCounts).length > 0 ? (
         <ul className="space-y-1 text-[11px]">
