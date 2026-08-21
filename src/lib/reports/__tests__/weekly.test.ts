@@ -41,9 +41,7 @@ describe("statistics helpers", () => {
   it("[UNIT] a large, clean difference is significant at the 5% level", () => {
     const r = twoProportionZTest(80, 100, 40, 100);
     expect(r.z!).toBeGreaterThan(1.96);
-    expect(r.pValue!).toBeLessThan 
-      ? expect(r.pValue!).toBeLessThan(0.05)
-      : expect(r.pValue!).toBeLessThan(0.05);
+    expect(r.pValue!).toBeLessThan(0.05);
   });
 
   it("[INVARIANT] empty or degenerate samples return nulls, never a fabricated z", () => {
