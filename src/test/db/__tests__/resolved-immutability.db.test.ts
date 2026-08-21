@@ -71,24 +71,25 @@ let tradeSeq = 0;
 /** Creates one resolved trade with the full payload and returns its id. */
 function makeResolvedTrade(): string {
   tradeSeq += 1;
+  const id = crypto.randomUUID();
   const cols = Object.keys(RESOLVED).join(", ");
   const vals = Object.values(RESOLVED).join(", ");
-  const [row] = db.rows<{ id: string }>(`
+  db.exec(`
     insert into public.executed_trades
-      (user_id, signal_id, user_decision, decision_source,
+      (id, user_id, signal_id, user_decision, decision_source,
        planned_entry, planned_stop, planned_direction,
        signal_detected_at, signal_instrument, signal_grade,
        signal_trading_session, signal_time_of_day, signal_day_of_week,
        ${cols})
-    values (gen_random_uuid(), null, 'taken', 'human',
+    values ('${id}', gen_random_uuid(), null, 'taken', 'human',
             1.1000, 1.0980, 'long',
             now() - interval '2 days', 'EURUSD', 'A',
             'london', 10, 4,
-            ${vals})
-    returning id;
+            ${vals});
   `);
-  return row!.id;
+  return id;
 }
+
 
 /** Full identical UPDATE of every protected column. */
 function retryIdentical(id: string): void {
