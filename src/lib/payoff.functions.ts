@@ -13,6 +13,18 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { PayoffResearch } from "@/lib/learning/payoff";
 
+/** Exactly what one recompute run reports back — no opaque passthrough. */
+export interface PayoffRunSummary {
+  model_version: number;
+  replay_version: number;
+  execution_policy: string;
+  payoff_basis: string;
+  terminal_replay_horizon_hours: number;
+  computed_as_of: string;
+  run_id: string;
+  rows: number;
+}
+
 const OWNER_EMAIL = "boatengampomah@gmail.com";
 
 function assertOwner(claims: Record<string, unknown>): void {
@@ -41,7 +53,7 @@ export const getPayoffResearch = createServerFn({ method: "GET" })
  */
 export const recomputePayoff = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }): Promise<{ runs: Record<string, unknown>[] }> => {
+  .handler(async ({ context }): Promise<{ runs: PayoffRunSummary[] }> => {
     assertOwner(context.claims as Record<string, unknown>);
 
     // The recompute is service_role-only by design; load the privileged client
@@ -59,11 +71,11 @@ export const recomputePayoff = createServerFn({ method: "POST" })
       { _model_version: 1, _replay_version: 2, _execution_policy: "single_exit_first_target" },
     ];
 
-    const runs: Record<string, unknown>[] = [];
+    const runs: PayoffRunSummary[] = [];
     for (const args of cohorts) {
       const { data, error } = await rpc("recompute_payoff_stats", { ...args, _horizon_hours: 24 });
       if (error) throw new Error(error.message);
-      runs.push((data ?? {}) as Record<string, unknown>);
+      runs.push(data as PayoffRunSummary);
     }
     return { runs };
   });
