@@ -408,9 +408,9 @@ export type Database = {
           n_filled: number
           n_total: number
           p_fill_raw: number | null
-          p_fill_shrunk: number
+          p_fill_shrunk: number | null
           p_win_raw: number | null
-          p_win_shrunk: number
+          p_win_shrunk: number | null
           regime_key: string
           run_id: string
           session: string | null
@@ -429,9 +429,9 @@ export type Database = {
           n_filled?: number
           n_total?: number
           p_fill_raw?: number | null
-          p_fill_shrunk: number
+          p_fill_shrunk?: number | null
           p_win_raw?: number | null
-          p_win_shrunk: number
+          p_win_shrunk?: number | null
           regime_key: string
           run_id: string
           session?: string | null
@@ -450,9 +450,9 @@ export type Database = {
           n_filled?: number
           n_total?: number
           p_fill_raw?: number | null
-          p_fill_shrunk?: number
+          p_fill_shrunk?: number | null
           p_win_raw?: number | null
-          p_win_shrunk?: number
+          p_win_shrunk?: number | null
           regime_key?: string
           run_id?: string
           session?: string | null
@@ -473,9 +473,9 @@ export type Database = {
           n_filled: number
           n_total: number
           p_fill_raw: number | null
-          p_fill_shrunk: number
+          p_fill_shrunk: number | null
           p_win_raw: number | null
-          p_win_shrunk: number
+          p_win_shrunk: number | null
           regime_key: string
           session: string | null
           tier: number
@@ -492,9 +492,9 @@ export type Database = {
           n_filled?: number
           n_total?: number
           p_fill_raw?: number | null
-          p_fill_shrunk: number
+          p_fill_shrunk?: number | null
           p_win_raw?: number | null
-          p_win_shrunk: number
+          p_win_shrunk?: number | null
           regime_key: string
           session?: string | null
           tier: number
@@ -511,9 +511,9 @@ export type Database = {
           n_filled?: number
           n_total?: number
           p_fill_raw?: number | null
-          p_fill_shrunk?: number
+          p_fill_shrunk?: number | null
           p_win_raw?: number | null
-          p_win_shrunk?: number
+          p_win_shrunk?: number | null
           regime_key?: string
           session?: string | null
           tier?: number
@@ -624,6 +624,7 @@ export type Database = {
           model_version: number
           observation_key: string | null
           p_fill_prior: number | null
+          p_joint_prior: number | null
           p_momentum: number | null
           p_order_block: number | null
           p_trend: number | null
@@ -672,6 +673,7 @@ export type Database = {
           model_version?: number
           observation_key?: string | null
           p_fill_prior?: number | null
+          p_joint_prior?: number | null
           p_momentum?: number | null
           p_order_block?: number | null
           p_trend?: number | null
@@ -720,6 +722,7 @@ export type Database = {
           model_version?: number
           observation_key?: string | null
           p_fill_prior?: number | null
+          p_joint_prior?: number | null
           p_momentum?: number | null
           p_order_block?: number | null
           p_trend?: number | null
