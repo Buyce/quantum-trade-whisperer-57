@@ -9,7 +9,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Camera, ShieldCheck, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
-import { getBaselineStatus, runBaselineCapture } from "@/lib/baseline.functions";
+import {
+  getBaselineStatus,
+  runBaselineCapture,
+  type BaselineStatus,
+} from "@/lib/baseline.functions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -50,13 +54,17 @@ export function BaselinePanel() {
 
   const status = useQuery({
     queryKey: ["admin-baseline-status"],
-    queryFn: () => fetchStatus(),
+    queryFn: () => fetchStatus() as Promise<BaselineStatus>,
     refetchOnWindowFocus: false,
     staleTime: 300_000,
   });
 
   const mutation = useMutation({
-    mutationFn: () => capture(),
+    mutationFn: () => capture() as Promise<{
+      captured: boolean;
+      reason: string | null;
+      pinnedRunId: string | null;
+    }>,
     onSuccess: (result) => {
       if (result.captured) {
         toast.success("Baseline captured", {

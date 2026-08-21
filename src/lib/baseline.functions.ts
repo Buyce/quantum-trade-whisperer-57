@@ -19,7 +19,9 @@ export interface BaselineStatus {
     kind: string;
     captured_at: string;
     pinned_run_id: string | null;
-    metrics: Record<string, unknown>;
+    // `any` here is deliberate: the document is arbitrary JSON and the RPC
+    // serializer rejects `unknown` index signatures.
+    metrics: Record<string, any>;
   } | null;
   total: number;
 }
