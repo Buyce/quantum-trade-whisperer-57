@@ -311,25 +311,92 @@ export async function captureBaseline(
     );
   }
 
-  // 5. Delivery, journal and behaviour counters.
+  // 5. Delivery, journal and behaviour counters — all cut off at data_as_of.
   const [hooks, hookErrors, trades, verifiedTrades, telemetry] = await Promise.all([
-    db.from("webhook_dispatch_log").select("id", { count: "exact", head: true }),
     db
       .from("webhook_dispatch_log")
       .select("id", { count: "exact", head: true })
-      .not("error", "is", null),
-    db.from("executed_trades").select("id", { count: "exact", head: true }),
+      .lte("created_at", dataAsOf),
+    db
+      .from("webhook_dispatch_log")
+      .select("id", { count: "exact", head: true })
+      .not("error", "is", null)
+      .lte("created_at", dataAsOf),
     db
       .from("executed_trades")
       .select("id", { count: "exact", head: true })
-      .not("actual_entry_price", "is", null),
-    db.from("signal_user_telemetry").select("id", { count: "exact", head: true }),
+      .lte("created_at", dataAsOf),
+    db
+      .from("executed_trades")
+      .select("id", { count: "exact", head: true })
+      .not("actual_entry_price", "is", null)
+      .lte("created_at", dataAsOf),
+    db
+      .from("signal_user_telemetry")
+      .select("id", { count: "exact", head: true })
+      .lte("created_at", dataAsOf),
   ]);
   if ((trades.count ?? 0) > 0 && (verifiedTrades.count ?? 0) === 0) {
     caveats.push(
       "No logged trade carries a real entry price, so user-reported win rate and R are recorded as behaviour only and are invalid as performance.",
     );
   }
+
+  // 5b. Source coverage: what window each source can actually speak for, and
+  //     the retention rule that bounds it. Empty sources report null bounds.
+  const [covQueue, covSignals, covShadow, covHooks, covTrades, covTelemetry, covSnapshots] =
+    await Promise.all([
+      coverage(
+        db,
+        "scan_queue",
+        "enqueued_at",
+        dataAsOf,
+        "maintain_scan_queue() deletes jobs older than 7 days; cycles before that window are unobservable.",
+      ),
+      coverage(
+        db,
+        "scanned_signals",
+        "detected_at",
+        dataAsOf,
+        "purge_expired_signals() hard-deletes expired signals (C 24h, B 36h, A/A+ 48h) unless a trade was taken; deleted rows are unrecoverable.",
+      ),
+      coverage(
+        db,
+        "shadow_executions",
+        "detected_at",
+        dataAsOf,
+        "No retention rule: full enrollment history. Rows resolved after data_as_of are counted as unresolved here by design.",
+      ),
+      coverage(
+        db,
+        "webhook_dispatch_log",
+        "created_at",
+        dataAsOf,
+        "maintain_scan_queue() deletes dispatch rows older than 14 days.",
+      ),
+      coverage(
+        db,
+        "executed_trades",
+        "created_at",
+        dataAsOf,
+        "Users can delete journal rows individually or in bulk from Trade History; counts are a lower bound.",
+      ),
+      coverage(
+        db,
+        "signal_user_telemetry",
+        "created_at",
+        dataAsOf,
+        "Append-only, but tied to signals that retention may already have deleted; counts are a lower bound.",
+      ),
+      coverage(
+        db,
+        "regime_snapshots",
+        "computed_at",
+        dataAsOf,
+        "180-day retention. Tier-0 volatility boundaries are preserved only from the migration that added them onward; earlier runs have none.",
+      ),
+    ]);
+
 
   const cell = (rows: ShadowRow[], key: (r: ShadowRow) => string) => {
     const groups = new Map<string, ShadowRow[]>();
