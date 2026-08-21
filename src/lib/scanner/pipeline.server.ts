@@ -6,15 +6,24 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { buildTradeProfile } from "./profile";
 import { buildTradeProfileV2, type V2Evaluation } from "./v2/profile.v2";
+import { buildTradeProfileV3, type V3Evaluation } from "./v3/profile.v3";
 import {
   claimV2Structure,
+  claimV3Structure,
   recordObservations,
   v1ObservationRow,
   v2ErrorObservationRow,
   v2ObservationRow,
+  v3ErrorObservationRow,
+  v3ObservationRow,
   type Disposition,
 } from "@/lib/research/observations.server";
-import { enrolV2Shadow, isV2EnrolmentEnabled } from "@/lib/research/enrol.server";
+import {
+  enrolV2Shadow,
+  enrolV3Shadow,
+  isV2EnrolmentEnabled,
+  isV3EnrolmentEnabled,
+} from "@/lib/research/enrol.server";
 
 import { atr } from "./indicators";
 import { ACTIVE_MODEL_VERSION, observationKey } from "@/lib/versioning";
@@ -195,11 +204,15 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
   let observed = false;
   let v2: V2Evaluation | null = null;
   let v2Error: string | null = null;
+  let v3: V3Evaluation | null = null;
+  let v3Error: string | null = null;
 
   let v2Disposition: Disposition = "none";
+  let v3Disposition: Disposition = "none";
   let v1Grade: string | null = null;
   let v1Direction: "long" | "short" | null = null;
   let v2LatencyMs: number | null = null;
+  let v3LatencyMs: number | null = null;
 
   /** V1 status -> (decision, disposition) for the research ledger. */
   const v1Cell = (
@@ -265,6 +278,30 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
           }),
         );
       }
+      if (v3) {
+        rows.push(
+          v3ObservationRow({
+            runId: job.run_id ?? null,
+            observationKey: key,
+            instrument: job.instrument,
+            evaluation: v3,
+            disposition: v3Disposition,
+            latencyMs: v3LatencyMs,
+          }),
+        );
+      } else if (v3Error) {
+        rows.push(
+          v3ErrorObservationRow({
+            runId: job.run_id ?? null,
+            observationKey: key,
+            instrument: job.instrument,
+            reason: v3Error,
+            latencyMs: v3LatencyMs,
+          }),
+        );
+      }
+
+
 
       await recordObservations(db, rows);
     }
@@ -334,6 +371,46 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
       v2Error = err instanceof Error ? err.message : String(err);
       v2Disposition = "none";
     }
+
+    /**
+     * V3 geometry-correction research evaluation. Same contract as V2: same
+     * candle snapshot, its own try/catch, its own structure claim slot, and its
+     * own kill switch. It writes only research rows and cannot affect V1 or V2.
+     */
+    try {
+      const started = Date.now();
+      v3 = buildTradeProfileV3({ instrument: job.instrument, candles });
+      v3LatencyMs = Date.now() - started;
+      if (v3.decision === "candidate" && v3.profile) {
+        if (v3.observationOnly) {
+          // Mean reversion is recorded but never forward-tested.
+          v3Disposition = "observation_only";
+        } else {
+          const claimed = await claimV3Structure(
+            db,
+            v3.profile.structureKey,
+            STRUCTURE_COOLDOWN_MINUTES,
+          );
+          v3Disposition = claimed ? "observation_only" : "suppressed_cooldown";
+          if (claimed && (await isV3EnrolmentEnabled(db))) {
+            const enrolled = await enrolV3Shadow(db, {
+              profile: v3.profile,
+              detectedAt: now.toISOString(),
+              session,
+              observationKey: observationKey(job.run_id, job.instrument),
+            });
+            if (enrolled) v3Disposition = "shadow_enrolled";
+          }
+        }
+      }
+    } catch (err) {
+      // The crash itself is an observation: keep it instead of dropping V3.
+      v3 = null;
+      v3Error = err instanceof Error ? err.message : String(err);
+      v3Disposition = "none";
+    }
+
+
 
     const profile = buildTradeProfile({ instrument: job.instrument, candles, session });
     if (!profile) return await finish("no_trade", "No structure satisfied the ABC grading rules");

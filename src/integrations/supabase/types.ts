@@ -807,6 +807,7 @@ export type Database = {
           research_last_error_at: string | null
           updated_at: string
           v2_enabled: boolean
+          v3_enabled: boolean
           win_gate_notified_at: string | null
         }
         Insert: {
@@ -821,6 +822,7 @@ export type Database = {
           research_last_error_at?: string | null
           updated_at?: string
           v2_enabled?: boolean
+          v3_enabled?: boolean
           win_gate_notified_at?: string | null
         }
         Update: {
@@ -835,6 +837,7 @@ export type Database = {
           research_last_error_at?: string | null
           updated_at?: string
           v2_enabled?: boolean
+          v3_enabled?: boolean
           win_gate_notified_at?: string | null
         }
         Relationships: []
@@ -849,6 +852,7 @@ export type Database = {
           detected_at: string
           direction: Database["public"]["Enums"]["trade_direction"]
           entry_price: number
+          entry_source: string | null
           error: string | null
           execution_slippage_pips: number | null
           fill_price: number | null
@@ -872,6 +876,7 @@ export type Database = {
           risk_price: number
           signal_id: string | null
           status: string
+          stop_anchor: string | null
           stop_loss: number
           strategy_family: string | null
           tp1: number
@@ -893,6 +898,7 @@ export type Database = {
           detected_at: string
           direction: Database["public"]["Enums"]["trade_direction"]
           entry_price: number
+          entry_source?: string | null
           error?: string | null
           execution_slippage_pips?: number | null
           fill_price?: number | null
@@ -916,6 +922,7 @@ export type Database = {
           risk_price: number
           signal_id?: string | null
           status?: string
+          stop_anchor?: string | null
           stop_loss: number
           strategy_family?: string | null
           tp1: number
@@ -937,6 +944,7 @@ export type Database = {
           detected_at?: string
           direction?: Database["public"]["Enums"]["trade_direction"]
           entry_price?: number
+          entry_source?: string | null
           error?: string | null
           execution_slippage_pips?: number | null
           fill_price?: number | null
@@ -960,6 +968,7 @@ export type Database = {
           risk_price?: number
           signal_id?: string | null
           status?: string
+          stop_anchor?: string | null
           stop_loss?: number
           strategy_family?: string | null
           tp1?: number

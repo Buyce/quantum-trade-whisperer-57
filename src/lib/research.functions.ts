@@ -28,9 +28,12 @@ export interface ResearchLedger {
   windowHours: number;
   generatedAt: string;
   cohorts: ModelCohort[];
-  /** Observations where the two models disagreed on whether to trade at all. */
+  /** Observations where V1 and V2 disagreed on whether to trade at all. */
   disagreements: number;
   agreements: number;
+  /** Same pairing, V1 against the V3 geometry cohort. */
+  disagreementsV3: number;
+  agreementsV3: number;
 }
 
 const WINDOW_HOURS = 168;
@@ -86,21 +89,29 @@ export const getResearchLedger = createServerFn({ method: "GET" })
       };
     });
 
-    // Paired comparison on the shared observation key: same candles, both models.
-    const pairs = new Map<string, { v1?: string; v2?: string }>();
+    // Paired comparison on the shared observation key: same candles, every model.
+    const pairs = new Map<string, { v1?: string; v2?: string; v3?: string }>();
     for (const r of rows) {
       if (!r.observation_key) continue;
       const entry = pairs.get(r.observation_key) ?? {};
       if (Number(r.model_version) === 1) entry.v1 = r.decision;
       if (Number(r.model_version) === 2) entry.v2 = r.decision;
+      if (Number(r.model_version) === 3) entry.v3 = r.decision;
       pairs.set(r.observation_key, entry);
     }
     let agreements = 0;
     let disagreements = 0;
-    for (const { v1, v2 } of pairs.values()) {
-      if (!v1 || !v2) continue;
-      if (v1 === v2) agreements += 1;
-      else disagreements += 1;
+    let agreementsV3 = 0;
+    let disagreementsV3 = 0;
+    for (const { v1, v2, v3 } of pairs.values()) {
+      if (v1 && v2) {
+        if (v1 === v2) agreements += 1;
+        else disagreements += 1;
+      }
+      if (v1 && v3) {
+        if (v1 === v3) agreementsV3 += 1;
+        else disagreementsV3 += 1;
+      }
     }
 
     return {
@@ -109,5 +120,7 @@ export const getResearchLedger = createServerFn({ method: "GET" })
       cohorts,
       agreements,
       disagreements,
+      agreementsV3,
+      disagreementsV3,
     };
   });
