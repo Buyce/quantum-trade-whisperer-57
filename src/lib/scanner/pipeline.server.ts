@@ -486,6 +486,8 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
     const m15Atr = profile.atr;
     const h1Atr = atr(candles.H1, 14);
     const volatilityIndex = h1Atr > 0 && m15Atr > 0 ? Number((m15Atr / h1Atr).toFixed(4)) : null;
+    v1VolatilityIndex = volatilityIndex;
+
 
     // Advisory Bayesian prior from the shadow telemetry. Recorded on the row for
     // observation only: nothing below branches on it, so a stale or empty
