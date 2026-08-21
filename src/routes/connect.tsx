@@ -118,8 +118,9 @@ function ConnectPage() {
           Connect an AI assistant to P-Trades Hub
         </h1>
         <p className="mt-4 text-sm leading-relaxed text-muted-foreground sm:text-base">
-          Once connected, your assistant can read live scanner setups, check scanner health, log the trades you
-          take or skip, and summarise your R-multiple performance — all as you, using your own sign-in.
+          Once connected, your assistant can read live scanner setups, check scanner and session status, size a
+          setup against your risk profile, read the learning engine's regime statistics, adjust your own settings,
+          and maintain your trade journal — all as you, using your own sign-in.
         </p>
 
         <section className="mt-8 rounded-md border border-border bg-card p-4 sm:p-5">
@@ -134,6 +135,52 @@ function ConnectPage() {
             You'll be asked to sign in and approve the connection the first time an assistant uses it.
           </p>
         </section>
+
+        <section className="mt-10">
+          <h2 className="text-lg font-semibold text-foreground">What your assistant can do</h2>
+          <div className="mt-3 overflow-hidden rounded-md border border-border">
+            <table className="w-full text-sm">
+              <tbody className="divide-y divide-border">
+                {TOOL_ROWS.map(([tool, what]) => (
+                  <tr key={tool} className="bg-card align-top">
+                    <td className="num w-[42%] px-3 py-2 text-xs text-foreground sm:w-[34%] sm:text-sm">{tool}</td>
+                    <td className="px-3 py-2 text-xs text-muted-foreground sm:text-sm">{what}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-3 text-xs text-muted-foreground">
+            Off-limits to assistants by design: webhook credentials, other users' data, admin intelligence, and
+            deleting your account or journal.
+          </p>
+        </section>
+
+        <section className="mt-10 rounded-md border border-border bg-card p-4 sm:p-5">
+          <h2 className="text-lg font-semibold text-foreground">No account yet? Create one from your assistant</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            An assistant has no sign-in before an account exists, so registration runs over a plain HTTP endpoint
+            instead of the connector. It starts an ordinary email sign-up: the confirmation email still has to be
+            clicked by whoever owns the inbox before the account works.
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <code className="num min-w-0 flex-1 truncate rounded-sm bg-secondary px-3 py-2 text-xs text-foreground sm:text-sm">
+              POST {registerUrl}
+            </code>
+            <CopyButton value={registerUrl} label="Copy registration endpoint" />
+          </div>
+          <pre className="num mt-3 overflow-x-auto rounded-sm bg-secondary p-3 text-xs text-foreground">
+            {registerExample}
+          </pre>
+          <Steps
+            items={[
+              <>The assistant posts an email and a password of at least 8 characters.</>,
+              <>The account owner clicks the confirmation link we email them.</>,
+              <>The assistant then connects the server URL above and approves the consent screen.</>,
+            ]}
+          />
+        </section>
+
 
         <section className="mt-10">
           <h2 className="text-lg font-semibold text-foreground">Connect your assistant</h2>
