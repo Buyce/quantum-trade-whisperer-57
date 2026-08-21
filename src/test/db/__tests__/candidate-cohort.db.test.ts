@@ -134,6 +134,67 @@ describe("research-candidate cohort contamination", () => {
     expect(leak!.n).toBe(0);
   });
 
+  it("[INVARIANT] a counterfactual (filter-rejected) candidate changes zero production values", () => {
+    guard();
+    db.exec(`select public.recompute_regime_stats(1::smallint)`);
+    db.exec(`select public.recompute_payoff_stats(1::smallint, 1::smallint)`);
+    const regimeBefore = regimeRows();
+    const payoffBefore = payoffRows();
+    expect(regimeBefore.length).toBeGreaterThan(0);
+    expect(payoffBefore.length).toBeGreaterThan(0);
+
+    // A rejected setup with fully derived geometry and the frozen 1R/2R/3R
+    // research ladder, forward-tested in the research cohort only.
+    db.exec(`
+      insert into public.research_candidates
+        (instrument, direction, strategy_version, manifest_hash, detected_at, terminal_stage,
+         v1_decision, gates, gates_complete, trading_session, volatility_index,
+         entry_price, stop_loss, tp1, tp2, tp3, tp1_r, tp2_r, tp3_r, max_r, risk_price, atr,
+         grade, plan_origin, counterfactual_stage, research_plan_version, counterfactual_class)
+      values ('EURUSD', 'long', 1, 'hash-cf', now() - interval '3 days', 'no_headroom',
+              'no_trade', '[{"gate":"headroom","outcome":"fail"}]'::jsonb, true, 'london', 1.2,
+              1.1, 1.09, 1.11, 1.12, 1.13, 1, 2, 3, 3, 0.01, 0.004,
+              'B', 'counterfactual', 'no_headroom', 1, 'executable');
+      insert into public.shadow_executions
+        (instrument, grade, direction, detected_at, entry_price, stop_loss, tp1, tp2,
+         risk_price, status, resolved_outcome, ml_target_label, realized_r, resolved_at,
+         trading_session, volatility_index, model_version, cohort, replay_version,
+         execution_policy, research_candidate_id)
+      values ('EURUSD', 'B', 'long', now() - interval '3 days', 1.1, 1.09, 1.11, 1.12,
+              0.01, 'resolved', 'tp3', 1, 77, now() - interval '2 days',
+              'london', 1.2, 1, 'research_candidate', 1, 'legacy_best_target_touched',
+              (select id from public.research_candidates
+                where plan_origin = 'counterfactual' order by created_at desc limit 1));
+    `);
+
+    db.exec(`select public.recompute_regime_stats(1::smallint)`);
+    db.exec(`select public.recompute_payoff_stats(1::smallint, 1::smallint)`);
+    expect(regimeRows()).toEqual(regimeBefore);
+    expect(payoffRows()).toEqual(payoffBefore);
+
+    // But filter lift DOES see it, under its own plan origin.
+    db.exec(`select public.recompute_filter_lift(24)`);
+    const [lift] = db.rows<{ n: number }>(
+      `select count(*)::int as n from public.filter_lift_stats
+        where plan_origin = 'counterfactual' and gate = 'headroom' and arm = 'fail'`,
+    );
+    expect(lift!.n).toBe(1);
+  });
+
+  it("[INVARIANT] a counterfactual plan cannot exist without genuinely derived geometry", () => {
+    guard();
+    expect(() =>
+      db.exec(`
+        insert into public.research_candidates
+          (instrument, direction, strategy_version, manifest_hash, detected_at, terminal_stage,
+           v1_decision, gates, gates_complete, plan_origin, counterfactual_stage,
+           research_plan_version, counterfactual_class)
+        values ('EURUSD', 'long', 1, 'hash-bad', now(), 'no_abc',
+                'no_trade', '[]'::jsonb, true, 'counterfactual', 'no_abc', 1, 'executable');
+      `),
+    ).toThrow();
+  });
+
   it("[INVARIANT] no candidate row is reachable from the live signal surface", () => {
     guard();
     const [signals] = db.rows<{ n: number }>(
