@@ -1,74 +1,53 @@
-# Red-Team Review + Revised Plan: Statistical Standard & Journal Mathematics
+# Prompt 7 Completion Pass — no redesign, close the gaps
 
-Reviewed against repository HEAD and live data. The first plan survives in outline but had four material defects. It is revised below.
+Every gap named in the audit was re-verified against HEAD and the live database before writing this. The approved Prompt-7 architecture is kept as-is; this pass finishes it.
 
-## A. Plan defects discovered
+## Verified current state
 
-1. **I invented an evidence level the data can never reach.** I proposed an `evidenced` tier gated on ≥10 distinct detection days per side. Live production replays span **8 distinct days total** across three instruments. The tier would be permanently unreachable — dead code that implies a promotion path we cannot honour.
-2. **Duplicated statistical vocabulary.** `payoff_stats` already carries a project standard: `stat_status` ∈ `unavailable | insufficient_coverage | insufficient_sample | descriptive`, with a coverage threshold and an explicit `reason`. My new four-level vocabulary would be a second, conflicting language for the same idea.
-3. **The R redesign, as written, was a net integrity regression.** Planned risk (`|signal.entry − signal.stop|`) is scanner-written and tamper-proof. A self-reported `actual_initial_stop` is typed by the user or an agent, so making it the denominator hands anyone a lever to shrink risk and inflate R — the exact behaviour the integrity audit exists to catch. Collapsing both into one `realized_r_multiple` destroys the distinction.
-4. **False UI wording and an incoherent unit.** `broker_verified` would be awarded for a user-typed ticket string — the label would be a lie. `costs_r` asks the user for costs already expressed in R, which is circular; costs are known in price/currency.
-5. Smaller: `ShadowRow` has no `detected_at`, so any day-clustered statistic needs an additive query and type change; the weekly email template and `weekly.test.ts` read `z`/`pValue` and would break on a reshaped report; Benjamini–Hochberg across two tests is statistical theatre.
+- `src/lib/scanner/pipeline.server.ts:457` still returns the generic `"No structure satisfied the ABC grading rules"` for every rejection, and `v1ObservationRow()` (`src/lib/research/observations.server.ts:276`) hardcodes `profile: null` with no stage, gates or features.
+- `research_candidates_identity` is `UNIQUE (run_id, instrument, direction, strategy_version) WHERE run_id IS NOT NULL AND direction IS NOT NULL` — NULL-direction rejections can be captured twice on retry.
+- `loadOpenRows()` in `src/lib/execution/shadow_resolve.server.ts` filters `replay_version` and `model_version` but **not** `cohort`, and `MAX_ROWS_PER_RUN = 200` is shared. Once candidates enrol they would displace production rows.
+- `weekly.server.ts` has a production-cohort comment but no cohort predicate (and a duplicated `.eq("replay_version")`); `user-audit.functions.ts` and `signal-audit.functions.ts` filter `replay_version = 1` only. `recompute_regime_stats` filters `cohort = 'production'` inline; `recompute_payoff_stats` reads `shadow_executions_production`.
+- Stage 4 runtime enrolment does not exist. No `filter_lift_stats` / `recompute_filter_lift`. No Replay-V2 sibling isolation test.
 
-## B. Revised plan
+## Work items
 
-### B1. One statistical vocabulary, extended — not a new one
+**1. Real V1 observation semantics.** Thread the `SetupEvaluation` from `evaluateSetup()` through to `finish()` and into `v1ObservationRow()`. The ledger reason becomes the actual terminal stage from the existing enum (`no_candles`, `m15_neutral`, `no_grade`, `no_abc`, `risk_undefined`, `risk_too_wide`, `no_headroom`, `unreachable_r`, `published`) plus its gate detail — exact enum values only, no new names. `profile` carries the structured gates, features and any geometry that was genuinely derived; it stays NULL when nothing coherent exists. No fabricated entry, stop or targets anywhere.
 
-Adopt `payoff_stats.stat_status` as the project-wide standard and extend it with `insufficient_clusters`. Every reported figure carries `{ value, interval, n_used, cluster_n, stat_status, reason }`. No metric may render without its status. Remove the `evidenced` tier entirely: nothing in this system currently earns a causal claim, and the report should say so.
+**2. Genuine pre-P7 characterization test.** Extract the pre-Prompt-7 scanner modules from `ab44ff687df4892745a47ffa1f3b737f04b478e0` (read-only `git show`) into a frozen, test-only vendored copy under `src/test/fixtures/pre-p7/`. Drive both the frozen implementation and current `evaluateSetup()`/`buildTradeProfile()` over recorded candle fixtures and assert byte-equality on: publish/no-trade, direction, grade, entry, stop, TP1/TP2/TP3, TP R values, max R, confidence and each component, structure key, and every other persisted scanner field. Blocking. Current V1 behaviour is not touched to make it pass — any difference is reported, not patched away.
 
-- Proportions → **Wilson score intervals** (correct at small n, never leaves [0,1]).
-- Mean R → **day-cluster bootstrap** (detection day is the cluster), reporting `cluster_n` alongside. With 8 clusters the interval will be wide; that is the true answer, and the report states that ≥ ~20 clusters are needed before the interval is worth acting on.
-- Keep `z` and `pValue` as clearly-labelled secondary diagnostics that assume independence. **Additive change only** — the email template and existing tests keep working.
-- Drop multiplicity correction from scope; with a two-metric registry it adds no protection. Instead, commit a registry file listing the comparisons the weekly report is permitted to compute at all, so post-hoc metrics cannot be added silently.
-- `src/lib/performance.ts` prescriptive insights move from n ≥ 3 to n ≥ 30; below that the page shows sample size, interval, and "no conclusion available".
-- Isolation repairs: add `cohort = 'production'` to `weekly.server.ts`, `user-audit.functions.ts`, `signal-audit.functions.ts`; delete the duplicated `replay_version` filter; add a test that fails when a production aggregate omits the cohort boundary.
+**3. NULL-direction idempotency.** Replace the partial unique index with one over `(run_id, instrument, coalesce(direction, '∅'), strategy_version)` — a sentinel in the index expression only; no direction is ever invented in a column. Blocking DB regression: capturing the same NULL-direction evaluation twice leaves one row.
 
-### B2. Two R numbers, never one
+**4. The production view becomes the boundary.** Every production aggregate reads `shadow_executions_production`: `recompute_regime_stats`, `recompute_payoff_stats`, the weekly report loader, user audit, signal audit, and the MCP shadow/performance/intelligence paths. Model, replay-version and execution-policy predicates stay where independently required. Remove the duplicated `replay_version` filter. Regression: insert a synthetic `cohort='research_candidate'` row and prove regime, payoff, weekly and MCP outputs are numerically identical.
 
-Store both, label both, never merge:
+**5. Stage 4 enrolment — implemented, left dark.** New `src/lib/research/enrol-candidates.server.ts`: enrol only candidates with a complete, pre-specified executable profile; a `not_evaluable` gate or absent geometry can never become a trade. Behind `candidate_enrolment_enabled` (stays **false**), idempotent, inserts `cohort='research_candidate'` with `research_candidate_id`, strategy version and manifest hash, Replay-V1 semantics, and sets `enrolled_plan_id`/`enrolled_at` only after the insert succeeds. Claims use a candidate-specific namespace so V2/V3 claims are never consumed.
 
-- **`r_vs_plan`** — denominator `|signal.entry − signal.stop|`, numerator the user's actual fill and exit. Tamper-proof denominator, so this is the only R that feeds engine-facing aggregates and the integrity audit.
-- **`r_vs_actual_risk`** — denominator `|actual_entry − actual_initial_stop|` when the user records their real stop. This is the trader's own P&L truth, shown on the journal and performance pages, explicitly labelled self-reported.
-- `realized_r_multiple` stays the canonical engine number and is set from `r_vs_plan` only. `reported_r` (whatever the user originally claimed) is never overwritten.
+**6. Separate candidate resolver budget.** `loadOpenRows()` gains an explicit `cohort = 'production'` filter. A third pass loads candidate rows under `shadow_engine_state.candidate_rows_per_run`, after production and after Replay-V2, so production capacity is mathematically undisplaceable. No candidate-specific MetaApi fetch: candidates replay only the immutable M15 array already fetched for that instrument in the production pass; with no such fetch they stay in backlog and that fact is surfaced in the resolve summary and health telemetry.
 
-New nullable columns: `actual_initial_stop`, `actual_entry_at`, `actual_exit_at`, `broker_reference`, `costs_price` (price units, not R). Owner-scoped RLS and grants follow the existing table pattern. **No backfill** — the 19 closed, price-less rows stay unverified and no historical R is recomputed.
+**7. Replay-V2 sibling isolation test.** With `replay_v2_shadow_enabled = true`: one production Replay-V1 plan yields exactly one sibling; one `research_candidate` plan yields zero. Blocking.
 
-### B3. Verification levels that don't overclaim
+**8. Stage 5 plumbing, no maturity claim.** `filter_lift_stats` table plus `recompute_filter_lift(...)`: reads only `research_candidate` executions, joins durably to the originating candidate and its gate outcomes, compares only within one manifest hash, excludes `not_evaluable` from that gate's pass/fail split, uses mature resolved observations with the approved per-plan payoff convention (never-filled and gap-beyond-stop = 0R), reports `n` and replay coverage, applies instrument-day dependence handling, and labels every row descriptive or insufficient. No causal or "significant" wording, ever; it never removes a gate or touches grading. Returning `unavailable` today is the correct output. Admin-only panel wording states plainly that Stage 4 is off.
 
-`unverified` → `self_reported` (entry + exit; plan risk used) → `plan_verified` (replay confirms the fill and exit were reachable) → `contradicted` (replay says impossible) → `pending` (replay unresolved). `broker_verified` is deleted; a typed ticket is stored as `broker_reference` metadata and never upgrades a level. Trust score and verified win rate are computed at `plan_verified`, with the level distribution shown beside them and a standing caveat that journal rows are self-selected and are not the strategy's win rate.
+**9 & 10. Security and production behaviour.** Research candidates, candidate executions and filter-lift results stay service-role/admin only — no anon or ordinary authenticated reads, and nothing in feed, alerts, email, push, webhooks, journal or ordinary MCP tools. RLS and RPC grants asserted in DB tests. Zero change to grades, direction, entry, stop, targets, max R, confidence, publication count, structure cooldown, delivery channels, feed ordering, or MetaApi call count.
 
-### B4. Shared helper and re-log fix
+**11. Blocking tests.** All fifteen listed in the prompt, including: capture failure cannot fail a scan job; enrolment failure cannot leave candidate or published state inconsistent; both kill switches fail closed; candidate forward-testing causes zero incremental MetaApi calls (spy-counted).
 
-One pure R function (`plan` and `actual_risk` variants) plus a thin server wrapper, called by both `recordTradeOutcome` and the MCP `update_trade_outcome`, so the paths cannot drift. Both decision writers stop touching outcome state: on conflict they update decision fields only. A separate explicit reopen clears prices, both R values, provenance and level in one statement. MCP compatibility is preserved: `verified` stays a boolean meaning "level ≥ plan_verified", with the new `verification_level` added alongside.
+## Sequence
 
-## C. Major decisions — challenged
+1. Item 4 isolation + item 6 production-cohort filter and budget split (protects production first).
+2. Item 1 observation semantics, item 3 index migration.
+3. Item 2 characterization harness (blocking gate before any further change ships).
+4. Item 5 enrolment code, dark. Item 7 sibling test.
+5. Item 8 filter-lift plumbing and admin panel.
+6. Full `bun run verify` plus the DB regression project.
 
-**Two R columns rather than one corrected R.** *Why:* it fixes the real defect (planned entry as numerator anchor) without surrendering a tamper-proof denominator. *Alternatives:* (1) single actual-risk R — rejected, self-reported denominator becomes the engine's number and inflating R becomes trivial; (2) leave R as-is and only document it — rejected, a worse-than-planned fill is genuinely mis-measured today. *Evidence:* 0 of 19 closed trades have prices, so nothing is broken by changing the definition now; the audit already exists specifically to catch unverifiable R. *Would change my mind:* broker-API-sourced fills, which would make actual risk verifiable and collapse the two into one.
+## Technical notes
 
-**Extend `stat_status` instead of a new evidence vocabulary.** *Why:* one language, already deployed and tested. *Alternatives:* (1) my original four-level scheme — rejected as duplicated logic with an unreachable top tier; (2) raw p-values as today — rejected, `significant` at p<0.05 on 8 clustered days is unsound. *Evidence:* grade A has n=3/1 filled, B 249, C 86 over 8 days — clustered and unbalanced. *Would change my mind:* several months of data giving ≥20 clusters per side.
+- Pre-P7 sources are vendored under a test-only path, excluded from the app graph, with a provenance header naming the SHA — so the baseline cannot drift with HEAD.
+- The index change is expressed as `coalesce(direction, '∅')` inside the unique index; the column stays nullable and untouched.
+- Candidate resolution reuses `replaySetup` unchanged; there is no candidate-specific replay code path and no new provider contract.
+- `ResolveSummary` gains `candidateScanned` / `candidateAdvanced` / `candidateBacklogNoCandles` so a starved backlog is visible rather than silent.
 
-**Day-cluster bootstrap over a t-interval.** *Why:* overlapping plans on three instruments are not independent; day clustering is the minimum honest correction. *Alternatives:* (1) plain t/normal interval — rejected, understates width; (2) instrument-and-week clustering — rejected for now, too few clusters to estimate. *Evidence:* 338 resolved rows across 8 days. *Would change my mind:* evidence that same-day plans are near-independent.
+## Evidence returned on completion
 
-## D. Three failure scenarios it must survive
-
-1. **Agent shrinks the stop to fake a winner.** An assistant writes `actual_initial_stop` 3 pips from entry. `r_vs_actual_risk` inflates, but `realized_r_multiple` and every engine aggregate use plan risk, the audit sees an actual/plan risk ratio far below 1 and flags it, and the level stays `self_reported`. No engine metric moves.
-2. **Re-log during an open browser tab.** A user re-clicks "taken" on an already-resolved trade while an agent updates its outcome. The decision writer no longer touches outcome, prices, or R, so the concurrent update wins intact — today this silently reopens the trade and leaves stale prices attached to `outcome = 'open'`.
-3. **Weekly cron runs on a week with 1 resolved row and research enrolment switched on.** Cohort filter excludes research rows; Wilson interval spans nearly [0,1]; status is `insufficient_clusters`; the email renders the status and no rate as a headline; `z`/`pValue` stay `n/a`; the send latch still fires exactly once.
-
-## E. New acceptance criteria
-
-- No metric renders anywhere without a status and sample size; no "significant" verdict is emitted by any code path.
-- `realized_r_multiple` equals `r_vs_plan` for every row; no row's `reported_r` is mutated by the migration.
-- Long and short cases with worse-than-planned fills produce the correct sign and magnitude for both R variants.
-- Re-logging a decision leaves outcome, prices, R and level byte-identical; reopen clears all of them together.
-- A test fails if any production aggregate query omits `cohort = 'production'`.
-- MCP `update_trade_outcome` still returns a `verified` boolean; `list_my_trades` keeps its existing fields.
-- Zero change to scanner logic, grading, MetaApi calls, or published signal count.
-
-## F. Remaining risks, confidence, and what cannot be guaranteed
-
-**Risks:** journal rows stay self-selected, so no journal statistic generalises; the day-cluster interval is itself estimated from 8 clusters; adding columns to `executed_trades` widens the surface an agent can write; wording changes will make the report look weaker to a reader who preferred the old confident verdicts.
-
-**Confidence: medium-high** on the journal mathematics and the isolation repairs — those are verified defects with local, testable fixes. **Medium** on the statistics, because the right interval width is a judgement call that data this sparse cannot settle.
-
-**Cannot be guaranteed:** that any self-reported fill price or stop is true (no broker feed); that a wide interval will not be read as a point estimate; that historical rows written under the old R definition are comparable to new ones — they are marked, not repaired.
+Commit SHAs; migrations added; full `bun run verify` output; blocking and DB regression counts; pre/post characterization fixture results; candidate count and counts by terminal stage; NULL-direction duplicate result; production vs candidate shadow row counts; actual values of `candidate_capture_enabled`, `candidate_enrolment_enabled`, `candidate_rows_per_run` (reported, never silently flipped); production resolver capacity test; MetaApi calls per resolve before and after; RLS denial tests; regime and payoff baselines before and after; and every deviation, skipped test or unverified claim.
