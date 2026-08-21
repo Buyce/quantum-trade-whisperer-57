@@ -424,13 +424,30 @@ export async function captureBaseline(
   const metrics: Record<string, unknown> = {
     model_version: ACTIVE_MODEL_VERSION,
     model_label: ACTIVE_MODEL_LABEL,
+    // The semantic instant of every number below. `captured_at` is only the
+    // wall-clock time the document was written.
+    data_as_of: dataAsOf,
+    data_as_of_note:
+      "data_as_of is the pinned learning run's computed_at. Every time-varying source is filtered to rows that existed at or before it, so the document is a point-in-time capture, not a live read.",
     captured_at: new Date().toISOString(),
     pinned_run_id: pinnedRunId,
     pinned_run_at: pinnedRunAt,
     pinned_regime_rows: (pinnedRows.data ?? []).length,
+    pinned_tier0_rows: pinnedTier0,
+    source_coverage: {
+      scan_queue: covQueue,
+      scanned_signals: covSignals,
+      shadow_executions: covShadow,
+      webhook_dispatch_log: covHooks,
+      executed_trades: covTrades,
+      signal_user_telemetry: covTelemetry,
+      regime_snapshots: covSnapshots,
+    },
     shadow_cohort: {
       enrolled: shadowRows.length,
       resolved: resolved.length,
+      resolved_after_cutoff_excluded: resolvedAfterCutoff,
+
       filled: filled.length,
       wins: wins.length,
       losses: resolved.filter((r) => r.resolved_outcome === "loss").length,
