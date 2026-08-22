@@ -39,7 +39,7 @@ export default defineTool({
   name: "calculate_position_size",
   title: "Calculate position size",
   description:
-    "Size a setup using the signed-in user's saved risk profile. Pass a signal_id from list_signals, or an explicit instrument plus entry_price and stop_loss. Returns lot size, cash at risk, margin required and any guardrail warnings. Returns an explicit unavailable reason instead of a guess when equity or an FX rate is missing.",
+    "Size a setup using the signed-in user's saved risk profile. Pass a signal_id from list_signals, or an explicit instrument plus entry_price and stop_loss. Returns lot size, cash at risk, an ESTIMATED margin (notional / leverage — not the broker's margin requirement) and any guardrail warnings. Returns an explicit unavailable reason instead of a guess when equity or an FX rate is missing.",
   inputSchema: {
     signal_id: z.string().optional().describe("Signal id from list_signals."),
     instrument: z
