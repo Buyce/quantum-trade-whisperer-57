@@ -13,7 +13,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { buildTestJsonPayload, buildTestPineConnectorPreview } from "@/lib/webhook-test.functions";
-import { validateOutboundUrl } from "../outbound-url.server";
 
 const quote = vi.hoisted(() => ({ fn: vi.fn() }));
 const sizing = vi.hoisted(() => ({ fn: vi.fn() }));
@@ -38,6 +37,10 @@ vi.mock("@/lib/scanner/push.server", () => ({
   sendPushToUsers: (...a: unknown[]) => push.fn(...a),
 }));
 
+// The real validator, deliberately unmocked: these are SSRF regressions.
+const { validateOutboundUrl } = await vi.importActual<typeof import("../outbound-url.server")>(
+  "../outbound-url.server",
+);
 const { revalidateDelivery, liveConfirmationValid } = await import("../revalidate.server");
 const { sendSignalAlerts } = await import("@/lib/scanner/alerts.server");
 
