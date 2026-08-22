@@ -1,13 +1,13 @@
 import { defineTool } from "@lovable.dev/mcp-js";
 import { z } from "zod";
 import { supabaseForUser } from "../supabase";
-import { validateSettings } from "../settings-validation";
+import { SENSITIVE_RISK_FIELDS, sensitiveFieldsIn, validateSettings } from "../settings-validation";
 
 export default defineTool({
   name: "update_my_settings",
   title: "Update my settings",
   description:
-    "Change the signed-in user's own feed filters, alert grade, daily cap (0 = unlimited), notification preferences and risk profile. Only the fields you pass are changed; values outside safe bounds are clamped and reported back. Webhook URL and secret cannot be changed by an agent.",
+    "Change the signed-in user's own feed filters, alert grade, daily cap (0 = unlimited), notification preferences and risk profile. Only the fields you pass are changed; values outside safe bounds are clamped and reported back. Webhook URL and secret cannot be changed by an agent. Changing any risk field (account_equity, account_currency, risk_per_trade_percent, max_position_size, leverage, max_stop_loss_percent) additionally requires confirm_risk_change: true, which asserts the user explicitly approved that change in this conversation; never set it on your own initiative.",
   inputSchema: {
     instruments: z.array(z.string()).optional().describe("Subset of XAUUSD, GBPAUD, EURUSD."),
     timeframes: z.array(z.string()).optional().describe("Subset of H4, H1, M15."),
@@ -35,6 +35,12 @@ export default defineTool({
       .number()
       .optional()
       .describe("Maximum stop distance as a percent of entry; 0 disables the check."),
+    confirm_risk_change: z
+      .boolean()
+      .optional()
+      .describe(
+        "Set true ONLY when the user has explicitly approved changing their risk profile (equity, currency, risk percent, max position size, leverage, max stop-loss percent). Required for those fields; it represents explicit user approval, not agent judgement, and does not relax validation or clamping.",
+      ),
   },
   annotations: {
     readOnlyHint: false,
@@ -46,7 +52,22 @@ export default defineTool({
     if (!ctx.isAuthenticated()) {
       return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
     }
-    const { patch, warnings } = validateSettings(input);
+    const { confirm_risk_change, ...settingsInput } = input;
+    const sensitive = sensitiveFieldsIn(settingsInput);
+    if (sensitive.length > 0 && confirm_risk_change !== true) {
+      // Fail closed and write nothing: an unconfirmed risk change is refused in
+      // full, including any non-sensitive fields sent alongside it.
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Refused: ${sensitive.join(", ")} affect position sizing on real money. Ask the user to confirm the exact change, then retry with confirm_risk_change: true. Sensitive fields: ${SENSITIVE_RISK_FIELDS.join(", ")}.`,
+          },
+        ],
+        isError: true,
+      };
+    }
+    const { patch, warnings } = validateSettings(settingsInput);
     if (Object.keys(patch).length === 0) {
       const text = warnings.length
         ? `Nothing changed. ${warnings.join(" ")}`

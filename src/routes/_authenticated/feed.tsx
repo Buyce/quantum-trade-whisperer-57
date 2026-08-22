@@ -11,9 +11,19 @@ import {
   myTradesQuery,
   settingsQuery,
   signalsQuery,
+  dayFrameQuery,
 } from "@/lib/queries";
 import { recordTradeOutcome } from "@/lib/trade-journal.functions";
-import { contextOf, isWithinRetention, type Grade, type SignalRow, type TradeRow } from "@/lib/db-types";
+import { isWithinRetention, type Grade, type SignalRow, type TradeRow } from "@/lib/db-types";
+import {
+  baseEligibility,
+  buildCapFrame,
+  countEligibleGradedToday,
+  evaluateEligibility,
+  type EligibilitySettings,
+  type EligibilitySignal,
+} from "@/lib/delivery/eligibility";
+import { toEligibilitySignal } from "@/lib/delivery/day-frame";
 import { MIN_N_FILL, MIN_N_WIN } from "@/lib/learning/regime";
 import { SignalCard } from "@/components/SignalCard";
 import { ScanHeartbeat } from "@/components/ScanHeartbeat";
@@ -49,13 +59,14 @@ export const Route = createFileRoute("/_authenticated/feed")({
   component: FeedPage,
 });
 
-const GRADE_ORDER: Record<Grade, number> = { "A+": 4, A: 3, B: 2, C: 1 };
-
 function FeedPage() {
   const { user } = useAuth();
   const { guide } = useGuideMode();
   const queryClient = useQueryClient();
   const signals = useQuery(signalsQuery());
+  // Complete UTC-day frame: the daily-cap authority. The 400-row display query
+  // above can truncate a busy day and must never decide cap membership.
+  const dayFrame = useQuery(dayFrameQuery());
   const trades = useQuery(myTradesQuery(user?.id));
   const settings = useQuery(settingsQuery(user?.id));
   const health = useQuery(instrumentHealthQuery());
@@ -69,35 +80,84 @@ function FeedPage() {
   // only changes the order in which the same rows are read.
   const [sortBy, setSortBy] = useState<"recent" | "winProb">("recent");
 
-  // Per-user alert threshold, independent of the feed filter.
-  const alertMinGrade: Grade = settings.data?.alert_min_grade ?? "B";
-  // Personal daily cap on graded setups (0 = unlimited), read at INSERT time.
-  const alertCapRef = useRef(0);
-  const gradedTodayRef = useRef(0);
-  // Held in a ref so the realtime channel is never torn down and rebuilt just
-  // because settings loaded or changed — resubscribing drops INSERTs in the gap.
-  const alertMinGradeRef = useRef<Grade>(alertMinGrade);
+  const cfgEarly = settings.data;
+  // Canonical eligibility inputs. Held in refs so the realtime channel is never
+  // torn down and rebuilt just because settings or the day frame changed —
+  // resubscribing drops INSERTs in the gap.
+  const eligibilitySettings: EligibilitySettings | null = useMemo(
+    () =>
+      cfgEarly
+        ? {
+            instruments: cfgEarly.instruments ?? [],
+            sessions: cfgEarly.sessions ?? [],
+            min_grade: cfgEarly.min_grade,
+            alert_min_grade: cfgEarly.alert_min_grade,
+            daily_setup_cap: cfgEarly.daily_setup_cap ?? 0,
+          }
+        : null,
+    [cfgEarly],
+  );
+  const settingsRef = useRef<EligibilitySettings | null>(eligibilitySettings);
+  const frameRef = useRef<EligibilitySignal[]>([]);
   useEffect(() => {
-    alertMinGradeRef.current = alertMinGrade;
-  }, [alertMinGrade]);
+    settingsRef.current = eligibilitySettings;
+  }, [eligibilitySettings]);
+  useEffect(() => {
+    frameRef.current = dayFrame.data ?? [];
+  }, [dayFrame.data]);
 
   // Realtime: new scanner output pushes straight into the feed.
   useEffect(() => {
     const channel = supabase
       .channel("scanned-signals-feed")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "scanned_signals" }, (payload) => {
-        const row = payload.new as { instrument?: string; grade?: Grade; direction?: string };
+        const row = payload.new as {
+          id?: string;
+          detected_at?: string;
+          instrument?: string;
+          grade?: Grade;
+          direction?: string;
+        };
         const title = `New ${row.grade === "A+" ? "A+" : `${row.grade ?? ""}-`}Grade setup on ${row.instrument ?? "market"}`;
-        toast.info(title);
-        const rank = row.grade ? (GRADE_ORDER[row.grade] ?? 0) : 0;
-        const meetsAlertThreshold = rank >= GRADE_ORDER[alertMinGradeRef.current];
-        // Personal cap: once today's graded allowance is used up, stay quiet.
-        const userCap = alertCapRef.current;
-        const withinCap =
-          row.grade === "C" || userCap <= 0 || gradedTodayRef.current < userCap;
+        const cfgNow = settingsRef.current;
+        const incoming: EligibilitySignal = {
+          id: row.id ?? "",
+          detected_at: row.detected_at ?? new Date().toISOString(),
+          instrument: row.instrument ?? "",
+          grade: row.grade ?? "C",
+          // The INSERT payload has no market_context yet; session unknown never
+          // suppresses (fail open), exactly as on the server.
+          trading_session: null,
+        };
+        const frame = frameRef.current.some((s) => s.id === incoming.id)
+          ? frameRef.current
+          : [...frameRef.current, incoming];
+
+        // Both the toast and the OS notification now answer to the SAME shared
+        // eligibility function, so neither can announce a setup this user has
+        // filtered out or already used their daily allowance on.
+        const feedVerdict = cfgNow
+          ? evaluateEligibility({
+              signal: incoming,
+              settings: cfgNow,
+              channel: "feed",
+              now: Date.now(),
+              cappedOutIds: buildCapFrame(frame, cfgNow, "feed", Date.now()),
+            })
+          : { eligible: true, reason: "eligible" as const };
+        const alertVerdict = cfgNow
+          ? evaluateEligibility({
+              signal: incoming,
+              settings: cfgNow,
+              channel: "alert",
+              now: Date.now(),
+              cappedOutIds: buildCapFrame(frame, cfgNow, "alert", Date.now()),
+            })
+          : { eligible: true, reason: "eligible" as const };
+
+        if (feedVerdict.eligible) toast.info(title);
         if (
-          meetsAlertThreshold &&
-          withinCap &&
+          alertVerdict.eligible &&
           typeof Notification !== "undefined" &&
           Notification.permission === "granted"
         ) {
@@ -107,12 +167,14 @@ function FeedPage() {
           });
         }
         void queryClient.invalidateQueries({ queryKey: ["signals"] });
+        void queryClient.invalidateQueries({ queryKey: ["signal-day-frame"] });
       })
       .subscribe();
     return () => {
       void supabase.removeChannel(channel);
     };
   }, [queryClient]);
+
 
 
   const tradeBySignal = useMemo(() => {
@@ -125,35 +187,33 @@ function FeedPage() {
   // 0 = unlimited. The scanner has no global ceiling; this is the user's choice.
   const cap = cfg?.daily_setup_cap ?? 0;
 
-  // With a cap set, only the newest `cap` graded (A+/A/B) setups of the current
-  // UTC day are delivered to this account. C-Grade is never capped.
+  // Cap membership comes from the shared function over the COMPLETE UTC-day
+  // frame, in (detected_at ASC, id ASC) order: the first `cap` base-eligible
+  // A+/A/B setups of the day are inside the cap. C-Grade never consumes cap.
   const cappedOutIds = useMemo(() => {
-    const out = new Set<string>();
-    if (cap <= 0) return out;
-    const start = new Date();
-    start.setUTCHours(0, 0, 0, 0);
-    const gradedToday = (signals.data ?? [])
-      .filter((s) => s.grade !== "C" && new Date(s.detected_at) >= start)
-      .sort((a, b) => new Date(b.detected_at).getTime() - new Date(a.detected_at).getTime());
-    for (const s of gradedToday.slice(cap)) out.add(s.id);
-    return out;
-  }, [signals.data, cap]);
+    if (!eligibilitySettings) return new Set<string>();
+    return buildCapFrame(dayFrame.data ?? [], eligibilitySettings, "feed", Date.now());
+  }, [dayFrame.data, eligibilitySettings]);
 
   const visible = useMemo(() => {
     let rows: SignalRow[] = signals.data ?? [];
-    // Retention cutoff: a setup leaves the feed once its grade window elapses,
-    // even when the row survives deletion because a trade was logged on it.
     const now = Date.now();
-    rows = rows.filter((s) => isWithinRetention(s, now));
     if (cappedOutIds.size) rows = rows.filter((s) => !cappedOutIds.has(s.id));
-    if (applyFilters && cfg) {
-      rows = rows.filter((s) => {
-        if (cfg.instruments.length && !cfg.instruments.includes(s.instrument)) return false;
-        if (GRADE_ORDER[s.grade] < GRADE_ORDER[cfg.min_grade]) return false;
-        const ctx = contextOf(s);
-        if (cfg.sessions.length && ctx && !cfg.sessions.includes(ctx.trading_session)) return false;
-        return true;
-      });
+    if (eligibilitySettings) {
+      // The "My settings filter" toggle still bypasses instrument / min-grade /
+      // session DISPLAY filtering. With it off, the only rules left are the ones
+      // that are not user preferences: retention and the daily cap.
+      const displaySettings: EligibilitySettings = applyFilters
+        ? eligibilitySettings
+        : { ...eligibilitySettings, instruments: [], sessions: [], min_grade: "C" };
+      rows = rows.filter(
+        (s) => baseEligibility(toEligibilitySignal(s), displaySettings, "feed", now).eligible,
+      );
+    } else {
+      // Retention cutoff applies even before settings load: a setup leaves the
+      // feed once its grade window elapses, even when the row survives deletion
+      // because a trade was logged on it.
+      rows = rows.filter((s) => isWithinRetention(s, now));
     }
     if (openOnly) rows = rows.filter((s) => s.status === "active");
     if (sortBy === "winProb") {
@@ -179,24 +239,16 @@ function FeedPage() {
       });
     }
     return rows;
-  }, [signals.data, applyFilters, cfg, openOnly, sortBy, cappedOutIds]);
+  }, [signals.data, applyFilters, eligibilitySettings, openOnly, sortBy, cappedOutIds]);
 
-  // Only A+/A/B consume the personal daily cap — C-Grade always shows.
-  // Window is UTC midnight so the number matches the alert fan-out query.
+  // Cap usage: graded setups of the UTC day this account was actually eligible
+  // for — not every signal the scanner published. Computed from the complete day
+  // frame with the same function the alert fan-out uses.
   const todayCount = useMemo(() => {
-    const start = new Date();
-    start.setUTCHours(0, 0, 0, 0);
-    return (signals.data ?? []).filter(
-      (s) => new Date(s.detected_at) >= start && s.grade !== "C",
-    ).length;
-  }, [signals.data]);
+    if (!eligibilitySettings) return 0;
+    return countEligibleGradedToday(dayFrame.data ?? [], eligibilitySettings, "feed", Date.now());
+  }, [dayFrame.data, eligibilitySettings]);
 
-  // Mirrored into refs so the realtime channel reads the live values without
-  // resubscribing (a rebuild drops INSERTs in the gap).
-  useEffect(() => {
-    alertCapRef.current = cap;
-    gradedTodayRef.current = todayCount;
-  }, [cap, todayCount]);
 
   const unavailable = (health.data ?? []).filter((h) => !h.available);
   const lastScanAt = (health.data ?? []).find((h) => h.instrument === "XAUUSD")?.updated_at ?? null;

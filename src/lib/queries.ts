@@ -4,6 +4,8 @@ import { ACTIVE_MODEL_VERSION } from "./versioning";
 import type { RegimeStatRow } from "./learning/regime";
 import type { ScannerSettingsRow, SignalRow, TradeHistoryRow, TradeRow } from "./db-types";
 import { R_MATH_VERSION } from "./journal/r-math";
+import { fetchDayFrame, type FrameClient } from "./delivery/day-frame";
+import type { EligibilitySignal } from "./delivery/eligibility";
 import {
   buildJournalSnapshot,
   planDecisionWrite,
@@ -35,6 +37,22 @@ export function signalsQuery(limit = 400) {
       // No placeholder fallback: absence of signals is real information.
       return (data ?? []) as unknown as SignalRow[];
     },
+  });
+}
+
+/**
+ * The COMPLETE UTC-day eligibility frame — the daily-cap authority.
+ *
+ * `signalsQuery` above is a display window and must never decide cap membership:
+ * on a >400-signal day it truncates and the feed would disagree with the alert
+ * fan-out. This query pages to completion through the same `fetchDayFrame`
+ * helper the server uses, so both sides compute the cap from identical input.
+ */
+export function dayFrameQuery() {
+  return queryOptions({
+    queryKey: ["signal-day-frame"],
+    queryFn: async (): Promise<EligibilitySignal[]> =>
+      fetchDayFrame(supabase as unknown as FrameClient),
   });
 }
 
