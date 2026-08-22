@@ -168,14 +168,33 @@ export function calculateRisk(
   input: RiskInput,
   profile: RiskProfile,
   rates: Record<string, number> = {},
+  options: RiskOptions = {},
 ): RiskResult {
-  const spec = CONTRACT_SPECS[input.instrument];
+  // Model 1 keeps the documented static contract table. Model 2 is used only
+  // when the caller hands over a broker-confirmed spec, so v1 output can never
+  // shift underneath users before the flag is flipped.
+  const brokerSpec = options.spec && options.spec.source === "broker" ? options.spec : null;
+  const sizingModelVersion: 1 | 2 = brokerSpec ? 2 : 1;
+  const staticEntry = CONTRACT_SPECS[input.instrument];
+  const spec = brokerSpec ?? staticEntry;
   if (!spec) return { ok: false, reason: "no_spec" };
+  if (brokerSpec && options.specStale) return { ok: false, reason: "stale_spec" };
+  if (options.quoteStale) return { ok: false, reason: "stale_quote" };
   if (!(profile.accountEquity > 0)) return { ok: false, reason: "no_equity" };
 
   const entry = Number(input.entryPrice);
   const stopDistance = Math.abs(entry - Number(input.stopLoss));
   if (!(stopDistance > 0) || !(entry > 0)) return { ok: false, reason: "invalid_stop" };
+
+  // Broker-only check: a stop inside the broker's stops level cannot be placed,
+  // so no lot size is offered. Unknown stops level ⇒ no claim either way.
+  const minStop =
+    brokerSpec && brokerSpec.stopsLevel !== null && brokerSpec.tickSize !== null
+      ? brokerSpec.stopsLevel * brokerSpec.tickSize
+      : null;
+  if (minStop !== null && minStop > 0 && stopDistance < minStop) {
+    return { ok: false, reason: "below_stops_level" };
+  }
 
   const rate = conversionRate(spec.quote, profile.accountCurrency, rates);
   if (rate === null) return { ok: false, reason: "no_conversion_rate" };
@@ -184,7 +203,14 @@ export function calculateRisk(
   const riskPerLot = stopDistance * spec.contractSize * rate;
   const rawLots = riskBudget / riskPerLot;
 
-  const ceiling = profile.maxPositionSize > 0 ? profile.maxPositionSize : Infinity;
+  const userCeiling = profile.maxPositionSize > 0 ? profile.maxPositionSize : Infinity;
+  const brokerVolumeCaps = brokerSpec
+    ? [brokerSpec.maxLot, brokerSpec.volumeLimit].filter(
+        (v): v is number => typeof v === "number" && v > 0,
+      )
+    : [];
+  const brokerVolumeCap = brokerVolumeCaps.length ? Math.min(...brokerVolumeCaps) : null;
+  const ceiling = Math.min(userCeiling, brokerVolumeCap ?? Infinity);
   const cappedRaw = Math.min(rawLots, ceiling);
   const lots = Math.max(0, floorToStep(cappedRaw, spec.lotStep));
   const belowMinimumLot = lots < spec.minLot;
