@@ -201,13 +201,12 @@ export function calculateRisk(
 
   // Broker-only check: a stop inside the broker's stops level cannot be placed,
   // so no lot size is offered. Unknown stops level ⇒ no claim either way.
-  const minStop =
-    brokerSpec && brokerSpec.stopsLevel !== null && brokerSpec.tickSize !== null
-      ? brokerSpec.stopsLevel * brokerSpec.tickSize
-      : null;
+  // stopsLevel is denominated in POINTS (10^-digits), not ticks.
+  const minStop = brokerSpec ? minStopDistance(brokerSpec) : null;
   if (minStop !== null && minStop > 0 && stopDistance < minStop) {
     return { ok: false, reason: "below_stops_level" };
   }
+
 
   const rate = conversionRate(spec.quote, profile.accountCurrency, rates);
   if (rate === null) return { ok: false, reason: "no_conversion_rate" };
