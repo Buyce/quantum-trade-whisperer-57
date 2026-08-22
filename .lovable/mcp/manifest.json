@@ -19,7 +19,7 @@
       {
         "name": "list_signals",
         "title": "List scanned signals",
-        "description": "List the most recent trade setups produced by the live P-Trades market scanner. Returns real broker-derived signals only; an empty list means the scanner is in Capital Preservation Mode (no valid setup). Scope defaults to all_published (every published setup, including historical and resolved ones); pass scope='my_scanner' to see only the setups the signed-in user's own scanner settings make eligible today.",
+        "description": "List trade setups published by the live P-Trades market scanner. Returns real broker-derived rows only. scope='all_published' (default) returns all retained published rows, including retained historical and resolved ones. scope='my_scanner' returns only the rows currently eligible under the signed-in user's feed settings (instruments, sessions, minimum grade), the retention window and their daily cap. An empty result means nothing matched the requested filters and scope — it is NOT evidence about the scanner's current cycle or that no valid setup exists; use get_scanner_status / get_market_status for scanner state.",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": true,
@@ -44,7 +44,7 @@
               ]
             },
             "scope": {
-              "description": "all_published (default) = every published setup, historical and resolved included. my_scanner = only what this user's instrument/session/grade filters and daily cap deliver.",
+              "description": "all_published (default) = all retained published rows, retained historical/resolved included. my_scanner = rows currently eligible under this user's feed settings, the retention window and the daily cap (the cap governs feed and alert eligibility, each channel using its own grade threshold).",
               "type": "string",
               "enum": [
                 "all_published",
