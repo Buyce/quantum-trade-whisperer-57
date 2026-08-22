@@ -53,7 +53,7 @@ functions, i.e. the
 
 production shape.
 
-## 2. What the layer proves (11 blocking tests)
+## 2. What the layer proved at the time of writing (then: 11 blocking tests)
 
 `src/test/db/__tests__/model-version.db.test.ts`, in the existing `blocking`
 Vitest project:
