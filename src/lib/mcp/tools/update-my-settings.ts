@@ -7,7 +7,7 @@ export default defineTool({
   name: "update_my_settings",
   title: "Update my settings",
   description:
-    "Change the signed-in user's own feed filters, alert grade, daily cap (0 = unlimited), notification preferences and risk profile. Only the fields you pass are changed; values outside safe bounds are clamped and reported back. Webhook URL and secret cannot be changed by an agent. Changing any risk field (account_equity, account_currency, risk_per_trade_percent, max_position_size, leverage, max_stop_loss_percent) additionally requires confirm_risk_change: true, which asserts the user explicitly approved that change in this conversation; never set it on your own initiative.",
+    "Change the signed-in user's own feed filters, alert grade, daily cap (0 = unlimited; the cap governs feed and alert eligibility, each channel using its own grade threshold), notification preferences and risk profile. Only the fields you pass are changed; values outside safe bounds are clamped and reported back. Webhook URL and secret cannot be changed by an agent. Changing any risk field (account_equity, account_currency, risk_per_trade_percent, max_position_size, leverage, max_stop_loss_percent) additionally requires confirm_risk_change: true, which asserts the user explicitly approved that change in this conversation; never set it on your own initiative.",
   inputSchema: {
     instruments: z.array(z.string()).optional().describe("Subset of XAUUSD, GBPAUD, EURUSD."),
     timeframes: z.array(z.string()).optional().describe("Subset of H4, H1, M15."),

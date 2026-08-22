@@ -5,7 +5,7 @@ export default defineTool({
   name: "get_my_settings",
   title: "Get my settings",
   description:
-    "Read the signed-in user's feed filters (instruments, timeframes, sessions, minimum grade), alert preferences, daily cap (0 = unlimited) and risk profile (account equity, currency, risk per trade, leverage, max stop-loss percent, max position size). Webhook credentials are never returned.",
+    "Read the signed-in user's feed filters (instruments, timeframes, sessions, minimum grade), alert preferences, daily cap (0 = unlimited; the cap governs feed and alert eligibility, each channel using its own grade threshold) and risk profile (account equity, currency, risk per trade, leverage, max stop-loss percent, max position size). Webhook credentials are never returned.",
   inputSchema: {},
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
   handler: async (_input, ctx) => {
