@@ -61,6 +61,12 @@ resolved-trade immutability, candidate cohort scoping, and model-version binding
 - Provenance: agent-vs-human authorship, spec source, replay registry, R basis.
 - Isolation: research and shadow rows never reach production reads.
 - Truthfulness of copy: no empty result may claim a market condition.
+- Truthfulness of documentation: `src/test/__tests__/docs-contract.test.ts` asserts
+  the canonical production URL, absence of credentials/account ids and of the
+  preview URL-as-production, resolvable internal doc links, MCP tool names matching
+  `.lovable/mcp/manifest.json`, the execution-policy constant, and the documented
+  instrument/timeframe lists against `src/lib/scanner/types.ts`.
+
 - Zero-hallucination: no fixture path may write demo rows into production tables.
 
 ## Inputs
