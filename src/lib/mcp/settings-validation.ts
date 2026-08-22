@@ -34,6 +34,28 @@ export interface SettingsInput {
   max_stop_loss_percent?: number | undefined;
 }
 
+/**
+ * Money-moving fields. Changing any of these changes how large a real position
+ * the user will take, so an agent must carry the user's explicit approval
+ * (`confirm_risk_change: true`) before it may write them. Clamping and validation
+ * still apply on top of the confirmation — approval is not a bypass.
+ */
+export const SENSITIVE_RISK_FIELDS = [
+  "account_equity",
+  "account_currency",
+  "risk_per_trade_percent",
+  "max_position_size",
+  "leverage",
+  "max_stop_loss_percent",
+] as const;
+
+export type SensitiveRiskField = (typeof SENSITIVE_RISK_FIELDS)[number];
+
+/** Sensitive fields present in the input, in declaration order. */
+export function sensitiveFieldsIn(input: SettingsInput): SensitiveRiskField[] {
+  return SENSITIVE_RISK_FIELDS.filter((f) => input[f] !== undefined);
+}
+
 export interface ValidatedSettings {
   patch: Record<string, unknown>;
   warnings: string[];

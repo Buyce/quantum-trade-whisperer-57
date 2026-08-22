@@ -4,7 +4,14 @@ import { ORDER_TIF_MINUTES } from "@/lib/db-types";
 import { dispatchWebhooks, type WebhookTarget } from "./webhook.server";
 import { sendPushToUsers } from "./push.server";
 
-const GRADE_RANK: Record<string, number> = { "A+": 4, A: 3, B: 2, C: 1 };
+import {
+  buildCapFrame,
+  evaluateEligibility,
+  type EligibilitySettings,
+  type EligibilitySignal,
+} from "@/lib/delivery/eligibility";
+import { fetchDayFrame, type FrameClient } from "@/lib/delivery/day-frame";
+import type { Grade } from "@/lib/db-types";
 
 export interface AlertSignal {
   id: string;
@@ -65,33 +72,53 @@ export async function sendSignalAlerts(db: SupabaseClient, signal: AlertSignal) 
     .or("notify_email.eq.true,notify_push.eq.true,webhook_enabled.eq.true");
   if (error || !rows?.length) return;
 
-  const signalRank = GRADE_RANK[signal.grade] ?? 0;
+  const now = Date.now();
+  const target: EligibilitySignal = {
+    id: signal.id,
+    detected_at: new Date(now).toISOString(),
+    instrument: signal.instrument,
+    grade: signal.grade as Grade,
+    trading_session: signal.session,
+  };
 
-  // Graded (A+/A/B) setups already published earlier today. Each recipient's own
-  // `daily_setup_cap` is measured against this count; 0 means unlimited.
-  let gradedToday = 0;
-  if (signal.grade !== "C") {
-    const start = new Date();
-    start.setUTCHours(0, 0, 0, 0);
-    const { count } = await db
-      .from("scanned_signals")
-      .select("id", { count: "exact", head: true })
-      .gte("detected_at", start.toISOString())
-      .in("grade", ["A+", "A", "B"])
-      .neq("id", signal.id);
-    gradedToday = count ?? 0;
+  // The COMPLETE UTC-day frame. The per-user cap is derived from each user's own
+  // base-eligible sequence, never from a global count of every published signal:
+  // a London-only Gold trader must not lose allowance to Tokyo EURUSD setups.
+  // An unreadable frame must not silently understate consumption, so on error we
+  // fall back to the single target signal (cap effectively unlimited for this
+  // publish) rather than to a wrong count.
+  let frame: EligibilitySignal[] = [target];
+  try {
+    const fetched = await fetchDayFrame(db as unknown as FrameClient, now);
+    frame = fetched.some((s) => s.id === target.id) ? fetched : [...fetched, target];
+  } catch (err) {
+    console.error("alert eligibility frame unavailable", err);
   }
+
   const webhookTargets: WebhookTarget[] = [];
   const pushUserIds: string[] = [];
 
   for (const row of rows as SettingsRow[]) {
-    if (row.instruments?.length && !row.instruments.includes(signal.instrument)) continue;
-    if (row.sessions?.length && !row.sessions.includes(signal.session)) continue;
-    // Per-user alert threshold — no hardcoded grade muting.
-    if (signalRank < (GRADE_RANK[row.alert_min_grade ?? "B"] ?? 2)) continue;
-    // Per-user daily cap on graded setups. 0 = unlimited; C-Grade never counts.
-    const userCap = row.daily_setup_cap ?? 0;
-    if (signal.grade !== "C" && userCap > 0 && gradedToday >= userCap) continue;
+    const alertGrade = (row.alert_min_grade ?? "B") as Grade;
+    const settings: EligibilitySettings = {
+      instruments: row.instruments ?? [],
+      sessions: row.sessions ?? [],
+      // The alert channel is gated by `alert_min_grade`; `min_grade` belongs to
+      // the feed and is deliberately not consulted here.
+      min_grade: alertGrade,
+      alert_min_grade: alertGrade,
+      daily_setup_cap: row.daily_setup_cap ?? 0,
+    };
+    const cappedOutIds = buildCapFrame(frame, settings, "alert", now);
+    const verdict = evaluateEligibility({
+      signal: target,
+      settings,
+      channel: "alert",
+      now,
+      cappedOutIds,
+    });
+    if (!verdict.eligible) continue;
+
 
     if (row.webhook_enabled && row.webhook_url) {
       webhookTargets.push({

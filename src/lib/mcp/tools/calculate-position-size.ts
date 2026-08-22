@@ -1,25 +1,38 @@
 import { defineTool } from "@lovable.dev/mcp-js";
 import { z } from "zod";
 import { supabaseForUser } from "../supabase";
-import { RISK_UNAVAILABLE_COPY, calculateRisk, riskProfileFromSettings } from "@/lib/risk";
+import {
+  CONTRACT_SPECS,
+  RISK_UNAVAILABLE_COPY,
+  calculateRisk,
+  riskProfileFromSettings,
+} from "@/lib/risk";
+import { planConversion, resolveConversionRates } from "../fx";
 
 /**
  * FX rates needed to convert quote-currency risk into the account currency.
- * Best-effort: a missing rate produces an explicit "unavailable" reason rather
- * than an assumed parity number.
+ * Demand-driven: zero requests when the currencies already match, and only the
+ * legs the route actually needs otherwise. A missing rate produces an explicit
+ * "unavailable" reason rather than an assumed parity number.
  */
-async function conversionRates(): Promise<Record<string, number>> {
-  const rates: Record<string, number> = {};
+async function conversionRates(
+  instrument: string,
+  accountCurrency: string,
+): Promise<{ rates: Record<string, number>; route: string; requests: number }> {
+  const quote = CONTRACT_SPECS[instrument]?.quote;
+  if (!quote) return { rates: {}, route: "unknown_instrument", requests: 0 };
+  const plan = planConversion(quote, accountCurrency);
+  if (plan.symbols.length === 0) {
+    return { rates: {}, route: plan.kind, requests: 0 };
+  }
   try {
     const { fetchQuote } = await import("@/lib/scanner/metaapi.server");
-    for (const symbol of ["AUDUSD", "GBPUSD"]) {
-      const q = await fetchQuote(symbol);
-      if (q) rates[symbol] = (q.bid + q.ask) / 2;
-    }
+    const resolved = await resolveConversionRates(quote, accountCurrency, fetchQuote);
+    return { rates: resolved.rates, route: resolved.plan.kind, requests: resolved.requests };
   } catch {
     // Leave rates empty; calculateRisk reports no_conversion_rate.
+    return { rates: {}, route: plan.kind, requests: 0 };
   }
-  return rates;
 }
 
 export default defineTool({
@@ -91,10 +104,11 @@ export default defineTool({
       };
     }
 
+    const conversion = await conversionRates(symbol, profile.accountCurrency);
     const result = calculateRisk(
       { instrument: symbol, entryPrice: entry, stopLoss: stop, finalTargetR },
       profile,
-      await conversionRates(),
+      conversion.rates,
     );
 
     if (!result.ok) {
@@ -102,6 +116,7 @@ export default defineTool({
         available: false,
         reason: result.reason,
         explanation: RISK_UNAVAILABLE_COPY[result.reason],
+        conversion_route: conversion.route,
         risk_profile: profile,
       };
       return {
@@ -138,6 +153,7 @@ export default defineTool({
         result.rewardAtFinalTarget === null ? null : Number(result.rewardAtFinalTarget.toFixed(2)),
       final_target_r: result.finalTargetR,
       conversion_rate: result.conversionRate,
+      conversion_route: conversion.route,
       warnings,
       risk_profile: profile,
     };
