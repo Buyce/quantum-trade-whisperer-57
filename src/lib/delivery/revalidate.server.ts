@@ -14,6 +14,7 @@ import {
   DEFAULT_EXECUTION_POLICY,
   REVALIDATION_QUOTE_MAX_AGE_MS,
   buildBridgeOrder,
+  hostAllowedForLive,
   spreadAcceptable,
   withinMaxAcceptableEntry,
   type BridgeOrder,
@@ -72,6 +73,7 @@ interface ControlsRow {
   force_dry_run: boolean | null;
   disabled_bridges: string[] | null;
   disabled_instruments: string[] | null;
+  allowed_live_hosts: string[] | null;
   execution_policy: string | null;
 }
 
@@ -98,7 +100,7 @@ export async function revalidateDelivery(
   const { data: controlsRow, error: controlsError } = await db
     .from("execution_controls")
     .select(
-      "live_execution_enabled, force_dry_run, disabled_bridges, disabled_instruments, execution_policy",
+      "live_execution_enabled, force_dry_run, disabled_bridges, disabled_instruments, allowed_live_hosts, execution_policy",
     )
     .maybeSingle();
   if (controlsError || !controlsRow) {
@@ -269,6 +271,14 @@ export async function revalidateDelivery(
   const resolved = await validateOutboundUrl(settings.webhook_url);
   if (!resolved.ok) return reject("endpoint_rejected", resolved.reason);
 
+  // Either switch alone forces dry-run: the safe state is the union.
+  const dryRun = controls.force_dry_run === true || delivery.dry_run === true;
+  // A LIVE order may only leave to an operator-listed destination. Dry-run is
+  // unrestricted, so any bridge can still be fully validated end to end.
+  if (!dryRun && !hostAllowedForLive(resolved.host, controls.allowed_live_hosts ?? [])) {
+    return reject("host_not_allowlisted", resolved.host);
+  }
+
   const secret = settings.webhook_secret?.trim() ?? "";
   const format = settings.webhook_format === "pineconnector" ? "pineconnector" : "json";
   if (!secret) return reject("webhook_not_configured", "no bridge secret / licence id");
@@ -277,8 +287,7 @@ export async function revalidateDelivery(
     ok: true,
     order,
     policy,
-    // Either switch alone forces dry-run: the safe state is the union.
-    dryRun: controls.force_dry_run === true || delivery.dry_run === true,
+    dryRun,
     endpoint: { url: resolved.url, host: resolved.host, secret, format },
   };
 }
