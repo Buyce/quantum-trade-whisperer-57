@@ -18,7 +18,13 @@ const bridgeInput = z.object({
   webhookFormat: z.enum(["json", "pineconnector"]),
   executionEnabled: z.boolean(),
   executionDryRun: z.boolean(),
+  /**
+   * Opt-in only. When false (the default) the journal-derived exposure figure is
+   * advisory and never blocks a delivery.
+   */
+  exposureLimitEnabled: z.boolean().optional(),
 });
+
 
 export const saveBridgeSettings = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -64,14 +70,33 @@ export const saveBridgeSettings = createServerFn({ method: "POST" })
         webhook_format: data.webhookFormat,
         execution_enabled: executionEnabled,
         execution_dry_run: data.executionDryRun,
+        exposure_limit_enabled: data.exposureLimitEnabled === true,
         webhook_validated_at: validatedAt,
         webhook_validation_reason: validationReason,
       })
       .eq("user_id", context.userId);
 
     if (error) return { ok: false as const, error: error.message };
-    return { ok: true as const, host, validatedAt, executionEnabled };
+
+    // The configuration version is bumped by a DB trigger on the columns that
+    // authorize a delivery. Report it back so the UI can show that queued
+    // orders from the previous configuration will no longer be sent.
+    const { data: after } = await context.supabase
+      .from("scanner_settings")
+      .select("execution_config_version")
+      .eq("user_id", context.userId)
+      .maybeSingle();
+
+    return {
+      ok: true as const,
+      host,
+      validatedAt,
+      executionEnabled,
+      configVersion:
+        (after as { execution_config_version?: number } | null)?.execution_config_version ?? null,
+    };
   });
+
 
 /**
  * Global execution posture, for honest UI copy. Reveals only the two switches

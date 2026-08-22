@@ -68,6 +68,8 @@ function SettingsPage() {
   // the one you get without touching anything.
   const [executionEnabled, setExecutionEnabled] = useState(false);
   const [executionDryRun, setExecutionDryRun] = useState(true);
+  const [exposureLimitEnabled, setExposureLimitEnabled] = useState(false);
+
   // Risk profile. Held as strings so a half-typed number never becomes NaN or
   // snaps back to a default while the field has focus.
   const [equity, setEquity] = useState("0");
@@ -175,6 +177,10 @@ function SettingsPage() {
     setWebhookFormat(s.webhook_format ?? "json");
     setExecutionEnabled((s as { execution_enabled?: boolean }).execution_enabled ?? false);
     setExecutionDryRun((s as { execution_dry_run?: boolean }).execution_dry_run !== false);
+    setExposureLimitEnabled(
+      (s as { exposure_limit_enabled?: boolean }).exposure_limit_enabled === true,
+    );
+
     setEquity(String(Number(s.account_equity ?? 0)));
     setCurrency(s.account_currency ?? "USD");
     setRiskPercent(String(Number(s.risk_per_trade_percent ?? 1)));
@@ -253,7 +259,9 @@ function SettingsPage() {
           webhookFormat,
           executionEnabled,
           executionDryRun,
+          exposureLimitEnabled,
         },
+
       });
       await queryClient.invalidateQueries({ queryKey: ["scanner-settings"] });
       await queryClient.invalidateQueries({ queryKey: ["execution-deliveries"] });
@@ -753,6 +761,14 @@ function SettingsPage() {
                       checked={executionDryRun}
                       onChange={setExecutionDryRun}
                     />
+                    <Row
+                      id="exposure-limit-enabled"
+                      title="Block orders when my logged exposure is too high"
+                      desc="Off by default. This limit is calculated solely from trades you logged in P-Trades — it is not your broker-account exposure, and a missing journal entry is not proof that you have no open position. When on, an order is not sent once your logged open + pending risk or logged loss today passes the limit."
+                      checked={exposureLimitEnabled}
+                      onChange={setExposureLimitEnabled}
+                    />
+
 
                     <p className="text-xs text-muted-foreground">
                       {executionStatus.data

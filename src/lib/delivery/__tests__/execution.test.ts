@@ -26,9 +26,16 @@ const long: BridgeSignal = {
   confidence: 82,
 };
 
+const qty = {
+  lots: 0.25,
+  sizingModel: 1 as const,
+  specSource: "static_v1" as const,
+  specAsOf: null,
+};
+
 describe("bridge order", () => {
   it("[UNIT] is always a limit order carrying the single first-target exit", () => {
-    const order = buildBridgeOrder(long);
+    const order = buildBridgeOrder(long, qty);
     expect(order.action).toBe("buy_limit");
     expect(order.takeProfit).toBe(long.tp1);
     expect(order.policy).toBe(DEFAULT_EXECUTION_POLICY);
@@ -36,12 +43,12 @@ describe("bridge order", () => {
   });
 
   it("[UNIT] mirrors direction for shorts", () => {
-    expect(buildBridgeOrder({ ...long, direction: "short" }).action).toBe("sell_limit");
+    expect(buildBridgeOrder({ ...long, direction: "short" }, qty).action).toBe("sell_limit");
   });
 
   it("[UNIT] refuses an unsupported policy rather than inventing behaviour", () => {
     expect(() =>
-      buildBridgeOrder(long, "multi_exit" as unknown as typeof DEFAULT_EXECUTION_POLICY),
+      buildBridgeOrder(long, qty, "multi_exit" as unknown as typeof DEFAULT_EXECUTION_POLICY),
     ).toThrow();
   });
 });
@@ -59,25 +66,28 @@ describe("state machine", () => {
 
 describe("price gates", () => {
   it("[UNIT] rejects a long once price is beyond the slippage ceiling", () => {
-    const order = buildBridgeOrder(long);
+    const order = buildBridgeOrder(long, qty);
     expect(withinMaxAcceptableEntry(order, 1.1561)).toBe(true);
     expect(withinMaxAcceptableEntry(order, 1.15625)).toBe(false);
   });
 
   it("[UNIT] mirrors the ceiling for shorts", () => {
-    const order = buildBridgeOrder({
-      ...long,
-      direction: "short",
-      entryPrice: 1.156,
-      stopLoss: 1.157,
-      maxAcceptableEntry: 1.15585,
-    });
+    const order = buildBridgeOrder(
+      {
+        ...long,
+        direction: "short",
+        entryPrice: 1.156,
+        stopLoss: 1.157,
+        maxAcceptableEntry: 1.15585,
+      },
+      qty,
+    );
     expect(withinMaxAcceptableEntry(order, 1.1559)).toBe(true);
     expect(withinMaxAcceptableEntry(order, 1.1558)).toBe(false);
   });
 
   it("[UNIT] rejects a spread larger than 15% of planned risk", () => {
-    const order = buildBridgeOrder(long); // risk = 0.001
+    const order = buildBridgeOrder(long, qty); // risk = 0.001
     expect(spreadAcceptable(order, 1.156, 1.15612)).toBe(true);
     expect(spreadAcceptable(order, 1.156, 1.1562)).toBe(false);
   });
@@ -88,18 +98,39 @@ describe("price gates", () => {
 });
 
 describe("execution exposure limits", () => {
-  it("[UNIT] blocks when combined risk would exceed the ceiling", () => {
-    expect(
-      evaluateExposure({ openRiskR: 2, pendingRiskR: 1, realizedLossTodayR: 0 }).allowed,
-    ).toBe(false);
-    expect(
-      evaluateExposure({ openRiskR: 1, pendingRiskR: 0, realizedLossTodayR: 0 }).allowed,
-    ).toBe(true);
+  const over = { openRiskR: 2, pendingRiskR: 1, realizedLossTodayR: 0 };
+
+  it("[UNIT] is advisory by default: an exceeded limit does not block", () => {
+    const verdict = evaluateExposure(over);
+    expect(verdict.exceeded).toBe(true);
+    expect(verdict.allowed).toBe(true);
+    expect(verdict.enforced).toBe(false);
   });
 
-  it("[UNIT] blocks after the daily logged loss limit", () => {
-    const verdict = evaluateExposure({ openRiskR: 0, pendingRiskR: 0, realizedLossTodayR: 2 });
+  it("[UNIT] blocks only after the user opts in", () => {
+    const verdict = evaluateExposure(over, 1, { enforce: true });
+    expect(verdict.exceeded).toBe(true);
     expect(verdict.allowed).toBe(false);
-    expect(verdict.detail).toContain("logged");
+  });
+
+  it("[UNIT] leaves a within-limit snapshot untouched", () => {
+    const verdict = evaluateExposure(
+      { openRiskR: 1, pendingRiskR: 0, realizedLossTodayR: 0 },
+      1,
+      { enforce: true },
+    );
+    expect(verdict.exceeded).toBe(false);
+    expect(verdict.allowed).toBe(true);
+  });
+
+  it("[UNIT] attributes the daily loss limit to trades the user logged, not the broker", () => {
+    const verdict = evaluateExposure(
+      { openRiskR: 0, pendingRiskR: 0, realizedLossTodayR: 2 },
+      1,
+      { enforce: true },
+    );
+    expect(verdict.allowed).toBe(false);
+    expect(verdict.detail).toContain("trades you logged");
+    expect(verdict.detail).toContain("not broker-account exposure");
   });
 });

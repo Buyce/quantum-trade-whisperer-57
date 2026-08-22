@@ -54,6 +54,7 @@ const delivery = {
   signal_id: "sig-1",
   bridge_profile: "primary",
   dry_run: false,
+  execution_config_version: 4,
 };
 
 const approved = {
@@ -72,6 +73,12 @@ const approved = {
     grade: "A",
     rr: 3,
     confidence: 82,
+    quantity: {
+      lots: 0.24,
+      sizingModel: 1 as const,
+      specSource: "static_v1" as const,
+      specAsOf: null,
+    },
   },
   endpoint: {
     url: "https://bridge.example.com/hook",
@@ -80,6 +87,8 @@ const approved = {
     format: "json" as const,
   },
   dryRun: false,
+  dryRunReason: null,
+  exposure: null,
 };
 
 afterEach(() => {
