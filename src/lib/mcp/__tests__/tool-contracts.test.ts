@@ -92,6 +92,24 @@ describe("update_my_settings risk confirmation", () => {
     );
     expect(stored.patch["risk_per_trade_percent"]).toBe(10);
   });
+
+  it("[INVARIANT] the acknowledgement cannot be cleared while stored risk stays above 2%", () => {
+    const { patch, warnings } = validateSettings(
+      { risk_ack_high: false },
+      { currentAckHigh: true, currentRiskPercent: 5 },
+    );
+    expect(patch["risk_ack_high"]).toBeUndefined();
+    expect(warnings.join(" ")).toMatch(/cannot be cleared/);
+  });
+
+  it("[UNIT] clearing the acknowledgement is allowed when the same update lowers risk to 2% or less", () => {
+    const { patch } = validateSettings(
+      { risk_ack_high: false, risk_per_trade_percent: 1 },
+      { currentAckHigh: true, currentRiskPercent: 5 },
+    );
+    expect(patch["risk_ack_high"]).toBe(false);
+    expect(patch["risk_per_trade_percent"]).toBe(1);
+  });
 });
 
 describe("calculate_position_size", () => {
