@@ -219,7 +219,8 @@ export function calculateRisk(
   // Price of one base unit in the account currency: entry is quote-denominated.
   const notional = lots * spec.contractSize * entry * rate;
   const leverage = profile.leverage > 0 ? profile.leverage : 1;
-  const marginRequired = notional / leverage;
+  // ESTIMATE: broker margin depends on calc mode / margin currency / margin rates.
+  const marginEstimate = notional / leverage;
 
   const finalTargetR =
     input.finalTargetR != null && Number.isFinite(input.finalTargetR)
