@@ -90,6 +90,39 @@ function SettingsPage() {
   const savedWebhookUrl = settings.data?.webhook_url?.trim() ?? "";
   const savedWebhookSecret = settings.data?.webhook_secret?.trim() ?? "";
   const canTestWebhook = /^https:\/\//i.test(savedWebhookUrl) && savedWebhookSecret.length > 0;
+  const savedValidatedAt =
+    (settings.data as { webhook_validated_at?: string | null } | undefined)?.webhook_validated_at ??
+    null;
+
+  const persistBridge = useServerFn(saveBridgeSettings);
+  const executionStatus = useQuery({
+    queryKey: ["execution-status"],
+    queryFn: () => getExecutionStatus(),
+    staleTime: 60_000,
+  });
+  // Owner-only read: RLS scopes the ledger to the signed-in user, and endpoint
+  // URLs are never exposed here — only the host we actually posted to.
+  const deliveries = useQuery({
+    queryKey: ["execution-deliveries", user?.id],
+    enabled: Boolean(user?.id),
+    queryFn: async () => {
+      const { supabase } = await import("@/integrations/supabase/client");
+      const { data } = await supabase
+        .from("execution_deliveries")
+        .select("id, state, reason, dry_run, endpoint_host, http_status, enqueued_at")
+        .order("enqueued_at", { ascending: false })
+        .limit(8);
+      return (data ?? []) as Array<{
+        id: number;
+        state: string;
+        reason: string | null;
+        dry_run: boolean;
+        endpoint_host: string | null;
+        http_status: number | null;
+        enqueued_at: string;
+      }>;
+    },
+  });
 
   async function onSendTestWebhook() {
     setTestingWebhook(true);
