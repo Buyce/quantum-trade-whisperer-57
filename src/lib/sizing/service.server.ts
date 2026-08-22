@@ -112,7 +112,22 @@ async function sizingV2Enabled(): Promise<boolean> {
   }
 }
 
-async function logDivergence(row: Record<string, unknown>): Promise<void> {
+interface DivergenceRow {
+  instrument: string;
+  signal_id: string | null;
+  user_id: string | null;
+  authoritative_model: number;
+  spec_source: string;
+  v1_lots: number | null;
+  v2_lots: number | null;
+  v1_reason: string | null;
+  v2_reason: string | null;
+  lots_delta: number | null;
+  risk_delta: number | null;
+  summary: string;
+}
+
+async function logDivergence(row: DivergenceRow): Promise<void> {
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     await supabaseAdmin.from("sizing_divergence_log").insert(row);
