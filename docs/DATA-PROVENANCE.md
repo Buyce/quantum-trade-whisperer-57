@@ -85,7 +85,11 @@ Confidence is a **rule-satisfaction score, not a win probability**.
 5. **"Verified" is never used alone.** A price is verified *against a named source*
    or it is self-reported.
 6. **Advisory exposure describes your journal**, not your broker account.
-7. **An empty feed is data**, not an outage — it means no structure qualified.
+7. **An empty view is data**, not an outage — and not a market claim either. A
+   filtered/capped/settings-scoped empty result means only that no rows match that
+   view. A scanner-wide "No Trade" statement requires an unfiltered, current-cycle
+   source.
+
 
 ## Failure behaviour
 
