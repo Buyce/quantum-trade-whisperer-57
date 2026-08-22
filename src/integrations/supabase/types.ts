@@ -328,6 +328,7 @@ export type Database = {
           dry_run: boolean
           endpoint_host: string | null
           enqueued_at: string
+          execution_config_version: number | null
           execution_policy: string
           http_status: number | null
           id: number
@@ -350,6 +351,7 @@ export type Database = {
           dry_run?: boolean
           endpoint_host?: string | null
           enqueued_at?: string
+          execution_config_version?: number | null
           execution_policy?: string
           http_status?: number | null
           id?: number
@@ -372,6 +374,7 @@ export type Database = {
           dry_run?: boolean
           endpoint_host?: string | null
           enqueued_at?: string
+          execution_config_version?: number | null
           execution_policy?: string
           http_status?: number | null
           id?: number
@@ -1597,8 +1600,10 @@ export type Database = {
           created_at: string
           daily_setup_cap: number
           equity_as_of: string | null
+          execution_config_version: number
           execution_dry_run: boolean
           execution_enabled: boolean
+          exposure_limit_enabled: boolean
           instruments: string[]
           leverage: number
           max_position_size: number
@@ -1627,8 +1632,10 @@ export type Database = {
           created_at?: string
           daily_setup_cap?: number
           equity_as_of?: string | null
+          execution_config_version?: number
           execution_dry_run?: boolean
           execution_enabled?: boolean
+          exposure_limit_enabled?: boolean
           instruments?: string[]
           leverage?: number
           max_position_size?: number
@@ -1657,8 +1664,10 @@ export type Database = {
           created_at?: string
           daily_setup_cap?: number
           equity_as_of?: string | null
+          execution_config_version?: number
           execution_dry_run?: boolean
           execution_enabled?: boolean
+          exposure_limit_enabled?: boolean
           instruments?: string[]
           leverage?: number
           max_position_size?: number
@@ -2472,6 +2481,7 @@ export type Database = {
           bridge_profile: string
           dry_run: boolean
           enqueued_at: string
+          execution_config_version: number
           id: number
           signal_id: string
           user_id: string

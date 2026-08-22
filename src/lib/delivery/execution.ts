@@ -64,8 +64,10 @@ export type RejectReason =
   | "market_closed"
   | "stop_below_broker_stops_level"
   | "risk_guardrail"
+  | "quantity_unavailable"
   | "exposure_guardrail"
   | "host_not_allowlisted"
+  | "configuration_changed_since_enqueue"
   | "policy_unsupported";
 
 export const REJECT_COPY: Record<RejectReason, string> = {
@@ -88,11 +90,17 @@ export const REJECT_COPY: Record<RejectReason, string> = {
   market_closed: "The market was closed.",
   stop_below_broker_stops_level: "The stop is closer than your broker's minimum stop distance.",
   risk_guardrail: "A position-size guardrail blocked the order.",
-  exposure_guardrail: "An advisory exposure limit blocked the order.",
+  quantity_unavailable:
+    "No valid position quantity could be established, so no order was sent. A quantity is never invented.",
+  exposure_guardrail:
+    "Your opt-in exposure limit, based solely on trades you logged, blocked the order.",
   host_not_allowlisted:
     "Live execution is only permitted to bridge destinations on the trusted list. Dry-run still works for this host.",
+  configuration_changed_since_enqueue:
+    "Your execution configuration changed after this setup was queued, so the queued order was not sent under the new authorization.",
   policy_unsupported: "The configured execution policy is not supported.",
 };
+
 
 /**
  * Live-mode destination allowlist. The Worker cannot pin the resolved address
@@ -135,6 +143,74 @@ export interface BridgeSignal {
   confidence: number;
 }
 
+/**
+ * The position quantity actually authorized for this order, together with the
+ * sizing provenance that produced it. There is no default and no fallback: a
+ * missing or invalid quantity rejects the delivery rather than inventing one.
+ */
+export interface OrderQuantity {
+  /** Volume in lots, from the AUTHORITATIVE Prompt-12 sizing result. */
+  lots: number;
+  /** Which sizing model was authoritative (1 = static contract table). */
+  sizingModel: 1 | 2;
+  /** Provenance of the authoritative model's specification. */
+  specSource: "broker" | "static_v1";
+  specAsOf: string | null;
+}
+
+/** Broker volume constraints a quantity must satisfy. Unknown fields are null. */
+export interface VolumeLimits {
+  minLot: number | null;
+  maxLot: number | null;
+  lotStep: number | null;
+  /** Any additional broker volume ceiling reported by sizing. */
+  volumeCap: number | null;
+}
+
+export type QuantityVerdict = { ok: true } | { ok: false; detail: string };
+
+/**
+ * Verifies a quantity is a real, tradable volume. Unknown broker limits are
+ * simply not checked — they are never assumed to be satisfied by a default.
+ */
+export function validateQuantity(
+  lots: number | null | undefined,
+  limits: VolumeLimits,
+): QuantityVerdict {
+  if (typeof lots !== "number" || !Number.isFinite(lots) || lots <= 0) {
+    return { ok: false, detail: "no finite positive position quantity was produced" };
+  }
+  if (limits.minLot !== null && lots < limits.minLot) {
+    return { ok: false, detail: `${lots} is below the broker minimum volume ${limits.minLot}` };
+  }
+  if (limits.maxLot !== null && lots > limits.maxLot) {
+    return { ok: false, detail: `${lots} exceeds the broker maximum volume ${limits.maxLot}` };
+  }
+  if (limits.volumeCap !== null && lots > limits.volumeCap) {
+    return { ok: false, detail: `${lots} exceeds the broker volume ceiling ${limits.volumeCap}` };
+  }
+  const step = limits.lotStep;
+  if (step !== null && step > 0) {
+    const steps = lots / step;
+    // Floating-point volumes must still land on a broker step boundary.
+    if (Math.abs(steps - Math.round(steps)) > 1e-6) {
+      return { ok: false, detail: `${lots} is not a multiple of the broker volume step ${step}` };
+    }
+  }
+  return { ok: true };
+}
+
+/**
+ * Bridge formats whose quantity/risk field we have VERIFIED against the
+ * receiver contract. Anything absent here cannot be sent a live order with a
+ * guessed volume syntax, so it stays dry-run-only for automatic execution.
+ */
+export const QUANTITY_VERIFIED_FORMATS = ["json"] as const;
+
+export function bridgeSupportsVerifiedQuantity(format: string): boolean {
+  return (QUANTITY_VERIFIED_FORMATS as readonly string[]).includes(format);
+}
+
 export interface BridgeOrder {
   signalId: string;
   instrument: string;
@@ -151,10 +227,13 @@ export interface BridgeOrder {
   grade: string;
   rr: number;
   confidence: number;
+  /** Authoritative position quantity. Part of the execution contract. */
+  quantity: OrderQuantity;
 }
 
 export function buildBridgeOrder(
   signal: BridgeSignal,
+  quantity: OrderQuantity,
   policy: ExecutionPolicy = DEFAULT_EXECUTION_POLICY,
 ): BridgeOrder {
   if (policy !== "single_exit_first_target") {
@@ -173,8 +252,10 @@ export function buildBridgeOrder(
     grade: String(signal.grade),
     rr: signal.rrRatio,
     confidence: signal.confidence,
+    quantity,
   };
 }
+
 
 /**
  * True when the live broker price is still on the tradable side of the slippage

@@ -9,6 +9,13 @@ import {
 import { jsonBody, pineBody, readOrderId } from "../dispatch.server";
 import { buildBridgeOrder, type BridgeSignal } from "../execution";
 
+const qty = {
+  lots: 0.25,
+  sizingModel: 1 as const,
+  specSource: "static_v1" as const,
+  specAsOf: null,
+};
+
 const signal: BridgeSignal = {
   id: "s1",
   instrument: "EURUSD",
@@ -54,7 +61,7 @@ describe("signing", () => {
 
 describe("payloads", () => {
   it("[INVARIANT] json payload carries version 2, the policy and the slippage ceiling", () => {
-    const body = jsonBody(buildBridgeOrder(signal), "sek", false);
+    const body = jsonBody(buildBridgeOrder(signal, qty), "sek", false);
     expect(body.payload_version).toBe(2);
     expect(body.secret).toBe("sek");
     expect(body.execution_policy).toBe("single_exit_first_target");
@@ -64,7 +71,7 @@ describe("payloads", () => {
   });
 
   it("[INVARIANT] pineconnector payload is a single comma line with a limit action", () => {
-    const line = pineBody(buildBridgeOrder(signal), "LIC1");
+    const line = pineBody(buildBridgeOrder(signal, qty), "LIC1");
     expect(line.startsWith("LIC1,buylimit,EURUSD,")).toBe(true);
     expect(line).toContain("expiration=30");
   });

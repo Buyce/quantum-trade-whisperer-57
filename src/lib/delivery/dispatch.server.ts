@@ -55,6 +55,13 @@ export function jsonBody(order: BridgeOrder, secret: string, dryRun: boolean) {
     max_acceptable_entry: order.maxAcceptableEntry,
     stop_loss: order.stopLoss,
     take_profit: order.takeProfit,
+    // The authoritative position quantity, with its provenance. There is no
+    // default: the delivery is rejected before this point when it is unknown.
+    quantity: order.quantity.lots,
+    quantity_unit: "lots",
+    quantity_sizing_model: order.quantity.sizingModel,
+    quantity_spec_source: order.quantity.specSource,
+    quantity_spec_as_of: order.quantity.specAsOf,
     rr: order.rr,
     confidence: order.confidence,
     expires_in_minutes: order.expiresInMinutes,
@@ -65,6 +72,10 @@ export function jsonBody(order: BridgeOrder, secret: string, dryRun: boolean) {
  * PineConnector single-line format. The bridge itself is UNAUTHENTICATED beyond
  * the licence id in the body — it has no signature scheme — so the signature
  * headers are still sent but cannot be relied on by that receiver.
+ *
+ * Its volume/risk field syntax is NOT verified against the receiver contract, so
+ * no quantity is guessed here and this format is dry-run-only for automatic
+ * execution (enforced in revalidation).
  */
 export function pineBody(order: BridgeOrder, licence: string): string {
   return [
@@ -78,6 +89,7 @@ export function pineBody(order: BridgeOrder, licence: string): string {
     `comment=P-Trades ${order.grade}`,
   ].join(",");
 }
+
 
 /** Extracts a broker order id when the bridge returns one. Absence ⇒ `unknown`. */
 export function readOrderId(text: string): string | null {
@@ -153,10 +165,12 @@ export async function processNextDelivery(db: Db, now = Date.now()): Promise<Dis
 
   if (dryRun) {
     // Dry-run proves the whole control plane — switches, eligibility, quote
-    // freshness, guardrails, SSRF validation, signing — without a broker order.
+    // freshness, guardrails, quantity, SSRF validation, signing — without a
+    // broker order. It runs even while live execution is globally disabled.
+    const why = approved.dryRunReason ?? "dry-run";
     await settle(db, delivery.id, {
       state: "acknowledged",
-      reason: "dry_run: validated and signed, not sent",
+      reason: `dry_run: validated and signed, not sent (${why})`,
       dry_run: true,
       execution_policy: order.policy,
       payload_version: PAYLOAD_VERSION,
@@ -167,6 +181,7 @@ export async function processNextDelivery(db: Db, now = Date.now()): Promise<Dis
     });
     return { deliveryId: delivery.id, state: "acknowledged", reason: "dry_run", dryRun: true };
   }
+
 
   // Mark `sent` BEFORE the POST: if this process dies mid-flight the row can
   // never be re-claimed, which is the whole point.
