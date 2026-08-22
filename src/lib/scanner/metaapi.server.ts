@@ -153,3 +153,27 @@ export async function fetchQuote(
   if (!Number.isFinite(bid) || !Number.isFinite(ask)) return null;
   return { bid, ask, time: raw?.time ?? new Date().toISOString() };
 }
+
+/**
+ * Broker symbol specification (contract size, volume bounds, stops level, ...).
+ *
+ * VERIFIED against the live account: this route exists and returns the fields
+ * `broker_symbol_specs` persists. Called at most once per symbol per 24h by the
+ * spec refresher — never per render and never inside the grading path.
+ */
+export async function fetchSymbolSpecification(
+  symbol: string,
+): Promise<Record<string, unknown> | null> {
+  const token = process.env["METAAPI_TOKEN"];
+  if (!token) throw new MetaApiNotConfiguredError();
+
+  const path =
+    `/users/current/accounts/${METAAPI_ACCOUNT.accountId}` +
+    `/symbols/${encodeURIComponent(symbol)}/specification`;
+
+  const raw = (await restGet(path, token, symbol, "specification", clientBaseUrl())) as
+    | Record<string, unknown>
+    | null;
+  if (!raw || typeof raw !== "object") return null;
+  return raw;
+}
