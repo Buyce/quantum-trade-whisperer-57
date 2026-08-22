@@ -22,12 +22,9 @@ import { MIN_N_FILL, MIN_N_TIER3, MIN_N_WIN, tierLabel } from "@/lib/learning/re
 import { explainRegime, PRIOR_STRENGTH } from "@/lib/learning/explain";
 import { regimeStatsQuery } from "@/lib/queries";
 import { useQuery } from "@tanstack/react-query";
-import {
-  calculateRisk,
-  money,
-  RISK_UNAVAILABLE_COPY,
-  type RiskProfile,
-} from "@/lib/risk";
+import { useServerFn } from "@tanstack/react-start";
+import { money } from "@/lib/risk";
+import { resolveSizingForSetup } from "@/lib/sizing.functions";
 
 const GRADE_STYLES: Record<string, string> = {
   "A+": "bg-grade-aplus/15 text-grade-aplus border-grade-aplus/50",
@@ -986,9 +983,7 @@ export function SignalCard({
             </div>
           </div>
 
-          {riskProfile ? (
-            <RiskPanel signal={signal} profile={riskProfile} rates={fxRates ?? {}} />
-          ) : null}
+          {showRisk ? <RiskPanel signal={signal} /> : null}
 
           <IntelligencePanel signal={signal} />
         </div>
