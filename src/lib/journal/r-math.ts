@@ -36,14 +36,20 @@ export type RAvailability =
   | "unavailable_open"
   | "unavailable_no_prices"
   | "unavailable_no_plan"
-  | "unavailable_zero_risk";
+  | "unavailable_zero_risk"
+  | "unavailable_no_direction";
 
 export type RBasis = "plan" | "actual_risk";
 
 export interface RMathInput {
   /** "open" means the trade is unresolved: no R exists yet. */
   outcome: "win" | "loss" | "breakeven" | "open";
-  direction: TradeDirection;
+  /**
+   * NULL means the trade direction could not be established (legacy row with no
+   * snapshot and no surviving signal). Direction is NEVER inferred: a null
+   * direction yields NULL R with `unavailable_no_direction`.
+   */
+  direction: TradeDirection | null;
   /** Creation-time snapshot of the published plan. */
   plannedEntry: number | null;
   plannedStop: number | null;
@@ -126,7 +132,7 @@ export function assertRMathInput(input: RMathInput): void {
   // r_vs_actual_risk by an abs().
   const entry = input.actualEntryPrice;
   const stop = input.actualInitialStop;
-  if (entry != null && stop != null) {
+  if (entry != null && stop != null && input.direction != null) {
     const distance = entry - stop;
     if (!Number.isFinite(distance) || distance === 0) {
       throw new RMathInputError(
@@ -166,6 +172,12 @@ export function computeR(input: RMathInput): RMathResult {
 
   if (input.outcome === "open") {
     return { ...base, availability: "unavailable_open" };
+  }
+
+  // Fail closed: without a known direction there is no signed gross move, so no
+  // canonical R can exist. Nothing is assumed to be long.
+  if (input.direction == null) {
+    return { ...base, availability: "unavailable_no_direction" };
   }
 
   const entry = input.actualEntryPrice;
