@@ -207,7 +207,9 @@ function SettingsPage() {
         max_position_size: lotsValue,
         leverage: leverageValue,
         max_stop_loss_percent: stopValue,
-        risk_ack_high: riskValue > 2 ? true : riskAckHigh,
+        // Never fabricate the acknowledgement: above-2% saves are blocked above
+        // unless the box is ticked, so this only persists the user's own choice.
+        risk_ack_high: riskAckHigh,
         // Provenance: user-entered balance, timestamped when it changes.
         ...(equityChanged || !equityAsOf ? { equity_as_of: new Date().toISOString() } : {}),
       });
