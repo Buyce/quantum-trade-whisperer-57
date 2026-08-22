@@ -283,6 +283,116 @@ export type Database = {
           },
         ]
       }
+      execution_controls: {
+        Row: {
+          disabled_bridges: string[]
+          disabled_instruments: string[]
+          execution_policy: string
+          force_dry_run: boolean
+          id: boolean
+          live_execution_enabled: boolean
+          note: string | null
+          updated_at: string
+        }
+        Insert: {
+          disabled_bridges?: string[]
+          disabled_instruments?: string[]
+          execution_policy?: string
+          force_dry_run?: boolean
+          id?: boolean
+          live_execution_enabled?: boolean
+          note?: string | null
+          updated_at?: string
+        }
+        Update: {
+          disabled_bridges?: string[]
+          disabled_instruments?: string[]
+          execution_policy?: string
+          force_dry_run?: boolean
+          id?: boolean
+          live_execution_enabled?: boolean
+          note?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      execution_deliveries: {
+        Row: {
+          attempts: number
+          bridge_profile: string
+          broker_order_id: string | null
+          claimed_at: string | null
+          dry_run: boolean
+          endpoint_host: string | null
+          enqueued_at: string
+          execution_policy: string
+          http_status: number | null
+          id: number
+          latency_ms: number | null
+          lease_expires_at: string | null
+          payload_version: number
+          reason: string | null
+          request_fingerprint: string | null
+          sent_at: string | null
+          settled_at: string | null
+          signal_id: string
+          state: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          bridge_profile?: string
+          broker_order_id?: string | null
+          claimed_at?: string | null
+          dry_run?: boolean
+          endpoint_host?: string | null
+          enqueued_at?: string
+          execution_policy?: string
+          http_status?: number | null
+          id?: number
+          latency_ms?: number | null
+          lease_expires_at?: string | null
+          payload_version?: number
+          reason?: string | null
+          request_fingerprint?: string | null
+          sent_at?: string | null
+          settled_at?: string | null
+          signal_id: string
+          state?: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          bridge_profile?: string
+          broker_order_id?: string | null
+          claimed_at?: string | null
+          dry_run?: boolean
+          endpoint_host?: string | null
+          enqueued_at?: string
+          execution_policy?: string
+          http_status?: number | null
+          id?: number
+          latency_ms?: number | null
+          lease_expires_at?: string | null
+          payload_version?: number
+          reason?: string | null
+          request_fingerprint?: string | null
+          sent_at?: string | null
+          settled_at?: string | null
+          signal_id?: string
+          state?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "execution_deliveries_signal_id_fkey"
+            columns: ["signal_id"]
+            isOneToOne: false
+            referencedRelation: "scanned_signals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       experiment_arms: {
         Row: {
           arm_label: string
@@ -1484,6 +1594,8 @@ export type Database = {
           created_at: string
           daily_setup_cap: number
           equity_as_of: string | null
+          execution_dry_run: boolean
+          execution_enabled: boolean
           instruments: string[]
           leverage: number
           max_position_size: number
@@ -1502,6 +1614,8 @@ export type Database = {
           webhook_format: string
           webhook_secret: string | null
           webhook_url: string | null
+          webhook_validated_at: string | null
+          webhook_validation_reason: string | null
         }
         Insert: {
           account_currency?: string
@@ -1510,6 +1624,8 @@ export type Database = {
           created_at?: string
           daily_setup_cap?: number
           equity_as_of?: string | null
+          execution_dry_run?: boolean
+          execution_enabled?: boolean
           instruments?: string[]
           leverage?: number
           max_position_size?: number
@@ -1528,6 +1644,8 @@ export type Database = {
           webhook_format?: string
           webhook_secret?: string | null
           webhook_url?: string | null
+          webhook_validated_at?: string | null
+          webhook_validation_reason?: string | null
         }
         Update: {
           account_currency?: string
@@ -1536,6 +1654,8 @@ export type Database = {
           created_at?: string
           daily_setup_cap?: number
           equity_as_of?: string | null
+          execution_dry_run?: boolean
+          execution_enabled?: boolean
           instruments?: string[]
           leverage?: number
           max_position_size?: number
@@ -1554,6 +1674,8 @@ export type Database = {
           webhook_format?: string
           webhook_secret?: string | null
           webhook_url?: string | null
+          webhook_validated_at?: string | null
+          webhook_validation_reason?: string | null
         }
         Relationships: []
       }
@@ -2340,6 +2462,18 @@ export type Database = {
       }
     }
     Functions: {
+      claim_execution_delivery: {
+        Args: { lease_seconds?: number }
+        Returns: {
+          attempts: number
+          bridge_profile: string
+          dry_run: boolean
+          enqueued_at: string
+          id: number
+          signal_id: string
+          user_id: string
+        }[]
+      }
       claim_learning_milestone: { Args: { _gate: string }; Returns: boolean }
       claim_scan_job: {
         Args: never
@@ -2374,6 +2508,7 @@ export type Database = {
         Returns: boolean
       }
       claim_weekly_report: { Args: { _week: string }; Returns: boolean }
+      expire_execution_leases: { Args: never; Returns: number }
       get_admin_author_split: { Args: never; Returns: Json }
       get_admin_candidate_funnel: { Args: never; Returns: Json }
       get_admin_experiments: { Args: never; Returns: Json }

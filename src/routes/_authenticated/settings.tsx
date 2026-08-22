@@ -7,6 +7,7 @@ import { Copy, RefreshCw, Save, Send } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { runScanNow, type ManualScanResult } from "@/lib/scanner/scan.functions";
 import { sendTestWebhook } from "@/lib/webhook-test.functions";
+import { getExecutionStatus, saveBridgeSettings } from "@/lib/execution.functions";
 
 import { useAuth } from "@/hooks/useAuth";
 import { saveSettings, settingsQuery } from "@/lib/queries";
@@ -63,6 +64,10 @@ function SettingsPage() {
   const [webhookUrl, setWebhookUrl] = useState("");
   const [webhookSecret, setWebhookSecret] = useState("");
   const [webhookFormat, setWebhookFormat] = useState<WebhookFormat>("json");
+  // Automated execution. Off by default, dry-run by default: the safe posture is
+  // the one you get without touching anything.
+  const [executionEnabled, setExecutionEnabled] = useState(false);
+  const [executionDryRun, setExecutionDryRun] = useState(true);
   // Risk profile. Held as strings so a half-typed number never becomes NaN or
   // snaps back to a default while the field has focus.
   const [equity, setEquity] = useState("0");
@@ -85,6 +90,39 @@ function SettingsPage() {
   const savedWebhookUrl = settings.data?.webhook_url?.trim() ?? "";
   const savedWebhookSecret = settings.data?.webhook_secret?.trim() ?? "";
   const canTestWebhook = /^https:\/\//i.test(savedWebhookUrl) && savedWebhookSecret.length > 0;
+  const savedValidatedAt =
+    (settings.data as { webhook_validated_at?: string | null } | undefined)?.webhook_validated_at ??
+    null;
+
+  const persistBridge = useServerFn(saveBridgeSettings);
+  const executionStatus = useQuery({
+    queryKey: ["execution-status"],
+    queryFn: () => getExecutionStatus(),
+    staleTime: 60_000,
+  });
+  // Owner-only read: RLS scopes the ledger to the signed-in user, and endpoint
+  // URLs are never exposed here — only the host we actually posted to.
+  const deliveries = useQuery({
+    queryKey: ["execution-deliveries", user?.id],
+    enabled: Boolean(user?.id),
+    queryFn: async () => {
+      const { supabase } = await import("@/integrations/supabase/client");
+      const { data } = await supabase
+        .from("execution_deliveries")
+        .select("id, state, reason, dry_run, endpoint_host, http_status, enqueued_at")
+        .order("enqueued_at", { ascending: false })
+        .limit(8);
+      return (data ?? []) as Array<{
+        id: number;
+        state: string;
+        reason: string | null;
+        dry_run: boolean;
+        endpoint_host: string | null;
+        http_status: number | null;
+        enqueued_at: string;
+      }>;
+    },
+  });
 
   async function onSendTestWebhook() {
     setTestingWebhook(true);
@@ -135,6 +173,8 @@ function SettingsPage() {
     setWebhookUrl(s.webhook_url ?? "");
     setWebhookSecret(s.webhook_secret ?? "");
     setWebhookFormat(s.webhook_format ?? "json");
+    setExecutionEnabled((s as { execution_enabled?: boolean }).execution_enabled ?? false);
+    setExecutionDryRun((s as { execution_dry_run?: boolean }).execution_dry_run !== false);
     setEquity(String(Number(s.account_equity ?? 0)));
     setCurrency(s.account_currency ?? "USD");
     setRiskPercent(String(Number(s.risk_per_trade_percent ?? 1)));
@@ -151,17 +191,10 @@ function SettingsPage() {
 
   async function onSave() {
     if (!user) return;
-    // The dispatcher must never be armed with an endpoint we cannot reach.
-    if (webhookEnabled) {
-      if (!/^https:\/\//i.test(webhookUrl.trim())) {
-        toast.error("Webhook URL must be a full https:// address");
-        return;
-      }
-      if (!webhookSecret.trim()) {
-        toast.error("A webhook secret or licence ID is required");
-        return;
-      }
-    }
+    // Bridge fields are validated and written SERVER-SIDE below. There is
+    // deliberately no client-side URL check standing in for that: a browser
+    // regex cannot classify what a hostname resolves to.
+
 
     // Clamped to the same bounds the database enforces, so a save is never
     // rejected by a constraint the user cannot see.
@@ -197,10 +230,6 @@ function SettingsPage() {
         notify_push: push,
         notify_email: email,
         order_strategy: orderStrategy,
-        webhook_enabled: webhookEnabled,
-        webhook_url: webhookUrl.trim() || null,
-        webhook_secret: webhookSecret.trim() || null,
-        webhook_format: webhookFormat,
         account_equity: equityValue,
         account_currency: currency,
         risk_per_trade_percent: riskValue,
@@ -213,7 +242,25 @@ function SettingsPage() {
         // Provenance: user-entered balance, timestamped when it changes.
         ...(equityChanged || !equityAsOf ? { equity_as_of: new Date().toISOString() } : {}),
       });
+      // Bridge + execution fields go through the server: the URL is parsed,
+      // resolved and classified there, and the validation stamp is written with
+      // it. A rejected endpoint leaves the previously validated one untouched.
+      const bridge = await persistBridge({
+        data: {
+          webhookEnabled,
+          webhookUrl: webhookUrl.trim(),
+          webhookSecret: webhookSecret.trim(),
+          webhookFormat,
+          executionEnabled,
+          executionDryRun,
+        },
+      });
       await queryClient.invalidateQueries({ queryKey: ["scanner-settings"] });
+      await queryClient.invalidateQueries({ queryKey: ["execution-deliveries"] });
+      if (!bridge.ok) {
+        toast.error(bridge.error ?? "The bridge URL could not be validated");
+        return;
+      }
       toast.success("Settings saved");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not save settings");
@@ -681,10 +728,76 @@ function SettingsPage() {
                       </pre>
                     ) : null}
                   </div>
+
+                  <div className="space-y-4 border-t border-border pt-4 sm:col-span-2">
+                    <div>
+                      <h3 className="label-xs">Automated execution</h3>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {savedValidatedAt
+                          ? `Bridge endpoint validated ${new Date(savedValidatedAt).toLocaleString()}.`
+                          : "Save the bridge URL to validate the endpoint. Nothing is dispatched until it passes."}
+                      </p>
+                    </div>
+
+                    <Row
+                      id="execution-enabled"
+                      title="Send orders automatically"
+                      desc="Queue every alert-eligible setup for delivery to your bridge. Each queued order is re-checked against live price, spread, session, your daily cap and your risk guardrails immediately before it is sent."
+                      checked={executionEnabled}
+                      onChange={setExecutionEnabled}
+                    />
+                    <Row
+                      id="execution-dry-run"
+                      title="Dry run"
+                      desc="Validate and sign each order but never POST it. Leave this on until the delivery log looks right — it exercises the entire path without touching your broker."
+                      checked={executionDryRun}
+                      onChange={setExecutionDryRun}
+                    />
+
+                    <p className="text-xs text-muted-foreground">
+                      {executionStatus.data
+                        ? executionStatus.data.liveEnabled
+                          ? executionStatus.data.forceDryRun
+                            ? "Live execution is enabled system-wide but currently forced to dry run, so nothing is sent to any bridge."
+                            : `Live execution is enabled system-wide. ${executionStatus.data.policyNote}`
+                          : "Live execution is disabled system-wide. Orders are queued and validated but never sent."
+                        : "Checking system execution status…"}
+                    </p>
+
+                    {deliveries.data?.length ? (
+                      <div className="space-y-1 rounded-md border border-border bg-background p-3 font-mono text-xs">
+                        <p className="text-muted-foreground">Recent deliveries</p>
+                        {deliveries.data.map((d) => (
+                          <p key={d.id} className="truncate">
+                            <span
+                              className={cn(
+                                d.state === "acknowledged"
+                                  ? "text-primary"
+                                  : d.state === "rejected" || d.state === "failed"
+                                    ? "text-destructive"
+                                    : "text-foreground",
+                              )}
+                            >
+                              {d.state}
+                            </span>
+                            {d.dry_run ? " · dry run" : ""}
+                            {d.endpoint_host ? ` · ${d.endpoint_host}` : ""}
+                            {d.http_status ? ` · ${d.http_status}` : ""}
+                            {d.reason ? ` · ${d.reason}` : ""}
+                          </p>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        No deliveries yet. Rows appear here once a setup is queued for your bridge.
+                      </p>
+                    )}
+                  </div>
                 </div>
               ) : null}
             </div>
           </section>
+
 
           <SaveBar saving={saving} onSave={() => void onSave()} />
         </TabsContent>

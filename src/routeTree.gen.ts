@@ -33,6 +33,7 @@ import { Route as ApiPublicCronScanRouteImport } from './routes/api/public/cron/
 import { Route as ApiPublicCronShadowResolveRouteImport } from './routes/api/public/cron/shadow-resolve'
 import { Route as ApiPublicCronVerifyRemindersRouteImport } from './routes/api/public/cron/verify-reminders'
 import { Route as ApiPublicCronWeeklyReportRouteImport } from './routes/api/public/cron/weekly-report'
+import { Route as ApiPublicWorkerDispatchRouteImport } from './routes/api/public/worker/dispatch'
 import { Route as ApiPublicWorkerProcessRouteImport } from './routes/api/public/worker/process'
 import { Route as ApiPublicWorkerShadowRouteImport } from './routes/api/public/worker/shadow'
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
@@ -168,6 +169,11 @@ const ApiPublicCronWeeklyReportRoute =
     path: '/api/public/cron/weekly-report',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicWorkerDispatchRoute = ApiPublicWorkerDispatchRouteImport.update({
+  id: '/api/public/worker/dispatch',
+  path: '/api/public/worker/dispatch',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicWorkerProcessRoute = ApiPublicWorkerProcessRouteImport.update({
   id: '/api/public/worker/process',
   path: '/api/public/worker/process',
@@ -219,6 +225,7 @@ export interface FileRoutesByFullPath {
   '/api/public/cron/shadow-resolve': typeof ApiPublicCronShadowResolveRoute
   '/api/public/cron/verify-reminders': typeof ApiPublicCronVerifyRemindersRoute
   '/api/public/cron/weekly-report': typeof ApiPublicCronWeeklyReportRoute
+  '/api/public/worker/dispatch': typeof ApiPublicWorkerDispatchRoute
   '/api/public/worker/process': typeof ApiPublicWorkerProcessRoute
   '/api/public/worker/shadow': typeof ApiPublicWorkerShadowRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -249,6 +256,7 @@ export interface FileRoutesByTo {
   '/api/public/cron/shadow-resolve': typeof ApiPublicCronShadowResolveRoute
   '/api/public/cron/verify-reminders': typeof ApiPublicCronVerifyRemindersRoute
   '/api/public/cron/weekly-report': typeof ApiPublicCronWeeklyReportRoute
+  '/api/public/worker/dispatch': typeof ApiPublicWorkerDispatchRoute
   '/api/public/worker/process': typeof ApiPublicWorkerProcessRoute
   '/api/public/worker/shadow': typeof ApiPublicWorkerShadowRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -281,6 +289,7 @@ export interface FileRoutesById {
   '/api/public/cron/shadow-resolve': typeof ApiPublicCronShadowResolveRoute
   '/api/public/cron/verify-reminders': typeof ApiPublicCronVerifyRemindersRoute
   '/api/public/cron/weekly-report': typeof ApiPublicCronWeeklyReportRoute
+  '/api/public/worker/dispatch': typeof ApiPublicWorkerDispatchRoute
   '/api/public/worker/process': typeof ApiPublicWorkerProcessRoute
   '/api/public/worker/shadow': typeof ApiPublicWorkerShadowRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -313,6 +322,7 @@ export interface FileRouteTypes {
     | '/api/public/cron/shadow-resolve'
     | '/api/public/cron/verify-reminders'
     | '/api/public/cron/weekly-report'
+    | '/api/public/worker/dispatch'
     | '/api/public/worker/process'
     | '/api/public/worker/shadow'
     | '/lovable/email/auth/preview'
@@ -343,6 +353,7 @@ export interface FileRouteTypes {
     | '/api/public/cron/shadow-resolve'
     | '/api/public/cron/verify-reminders'
     | '/api/public/cron/weekly-report'
+    | '/api/public/worker/dispatch'
     | '/api/public/worker/process'
     | '/api/public/worker/shadow'
     | '/lovable/email/auth/preview'
@@ -374,6 +385,7 @@ export interface FileRouteTypes {
     | '/api/public/cron/shadow-resolve'
     | '/api/public/cron/verify-reminders'
     | '/api/public/cron/weekly-report'
+    | '/api/public/worker/dispatch'
     | '/api/public/worker/process'
     | '/api/public/worker/shadow'
     | '/lovable/email/auth/preview'
@@ -400,6 +412,7 @@ export interface RootRouteChildren {
   ApiPublicCronShadowResolveRoute: typeof ApiPublicCronShadowResolveRoute
   ApiPublicCronVerifyRemindersRoute: typeof ApiPublicCronVerifyRemindersRoute
   ApiPublicCronWeeklyReportRoute: typeof ApiPublicCronWeeklyReportRoute
+  ApiPublicWorkerDispatchRoute: typeof ApiPublicWorkerDispatchRoute
   ApiPublicWorkerProcessRoute: typeof ApiPublicWorkerProcessRoute
   ApiPublicWorkerShadowRoute: typeof ApiPublicWorkerShadowRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
@@ -577,6 +590,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicCronWeeklyReportRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/worker/dispatch': {
+      id: '/api/public/worker/dispatch'
+      path: '/api/public/worker/dispatch'
+      fullPath: '/api/public/worker/dispatch'
+      preLoaderRoute: typeof ApiPublicWorkerDispatchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/worker/process': {
       id: '/api/public/worker/process'
       path: '/api/public/worker/process'
@@ -668,6 +688,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicCronShadowResolveRoute: ApiPublicCronShadowResolveRoute,
   ApiPublicCronVerifyRemindersRoute: ApiPublicCronVerifyRemindersRoute,
   ApiPublicCronWeeklyReportRoute: ApiPublicCronWeeklyReportRoute,
+  ApiPublicWorkerDispatchRoute: ApiPublicWorkerDispatchRoute,
   ApiPublicWorkerProcessRoute: ApiPublicWorkerProcessRoute,
   ApiPublicWorkerShadowRoute: ApiPublicWorkerShadowRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
