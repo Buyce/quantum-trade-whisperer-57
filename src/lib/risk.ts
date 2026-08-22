@@ -280,6 +280,11 @@ export const RISK_UNAVAILABLE_COPY: Record<RiskUnavailableReason, string> = {
   no_conversion_rate:
     "Live FX rate needed to convert this pair's risk into your account currency is unavailable.",
   invalid_stop: "This setup has no usable stop distance.",
+  below_stops_level:
+    "This stop is closer to entry than your broker's minimum stop distance, so the order cannot be placed as planned.",
+  stale_quote: "The live quote is too old to size this setup safely. Waiting for a fresh price.",
+  stale_spec:
+    "The broker's contract specification for this symbol is out of date, so no size is calculated.",
 };
 
 /** Currencies an account may be denominated in. */
