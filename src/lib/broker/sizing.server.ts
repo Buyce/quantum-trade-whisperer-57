@@ -38,12 +38,13 @@ export function resolveSizing(
   const spec = options.spec ?? null;
   const specStale = spec ? isSpecStale(spec, now) : false;
 
-  const v1 = calculateRisk(input, profile, rates, { quoteStale: options.quoteStale });
+  const quoteStale = options.quoteStale === true;
+  const v1 = calculateRisk(input, profile, rates, { quoteStale });
   const v2 = spec
     ? calculateRisk(input, profile, rates, {
         spec,
         specStale,
-        quoteStale: options.quoteStale,
+        quoteStale,
       })
     : v1;
 
