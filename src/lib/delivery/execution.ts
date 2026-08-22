@@ -65,6 +65,7 @@ export type RejectReason =
   | "stop_below_broker_stops_level"
   | "risk_guardrail"
   | "exposure_guardrail"
+  | "host_not_allowlisted"
   | "policy_unsupported";
 
 export const REJECT_COPY: Record<RejectReason, string> = {
