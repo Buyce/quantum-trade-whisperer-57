@@ -29,7 +29,7 @@ import { SignalCard } from "@/components/SignalCard";
 import { ScanHeartbeat } from "@/components/ScanHeartbeat";
 import { MarketStatus } from "@/components/MarketStatus";
 import { OnboardingBanner } from "@/components/OnboardingBanner";
-import { useGuideMode } from "@/components/GuideMode";
+import { GuideNote, useGuideMode } from "@/components/GuideMode";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -316,11 +316,19 @@ function FeedPage() {
 
       <MarketStatus health={health.data ?? []} />
 
+      <GuideNote anchor="grades">
+        Grades describe structure quality, not the odds of winning: A+ is an A-grade structure with
+        all four confluence pillars passing. The confidence score is a rule-satisfaction score, never
+        a win probability. An empty feed means no structure qualified — that is a result, not a
+        fault.
+      </GuideNote>
+
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 sm:flex sm:flex-wrap">
         <div className="min-w-0">
           <p className="label-xs">Phase 2 · Trade assistant</p>
           <h1 className="truncate text-xl font-bold tracking-tight text-foreground sm:text-2xl">Signal Feed</h1>
         </div>
+
 
         <div className="flex shrink-0 items-center gap-2 sm:ml-auto">
           <Popover>

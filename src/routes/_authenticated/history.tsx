@@ -18,6 +18,7 @@ import { recordTradeOutcome } from "@/lib/trade-journal.functions";
 import { INSTRUMENT_LABELS, type Outcome, type SignalRow, type TradeHistoryRow } from "@/lib/db-types";
 import { downloadCsv, downloadJson, historyToCsv, historyToExportJson, todayStamp } from "@/lib/export";
 import { GradeBadge } from "@/components/SignalCard";
+import { GuideNote } from "@/components/GuideMode";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -212,6 +213,12 @@ function HistoryPage() {
           Every setup you logged as taken is kept here for good, even after it leaves the signal feed. Skipped
           setups are not retained.
         </p>
+        <GuideNote anchor="two-r" className="mt-3 max-w-2xl">
+          The plan is snapshotted when you log a trade, so a later expiry cannot change what your
+          trade is measured against. Add your real entry and exit to get R. Prices you or your
+          assistant enter are self-reported and stamped with their author — a blank R means an input
+          is genuinely missing, and nothing is estimated.
+        </GuideNote>
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
           <Button size="sm" variant="ghost" disabled={allRows.length === 0} onClick={exportCsv}>

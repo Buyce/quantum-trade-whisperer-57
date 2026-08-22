@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Link } from "@tanstack/react-router";
 import { HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -89,5 +90,61 @@ export function InfoLabel({
       </TooltipTrigger>
       <TooltipContent className="max-w-xs text-xs leading-relaxed">{hint}</TooltipContent>
     </Tooltip>
+  );
+}
+
+/**
+ * A "Learn more" link into the in-app guide. Rendered only in Guide Mode so the
+ * data-dense terminal stays dense for experienced users.
+ *
+ * `anchor` is a guide entry id (e.g. "confidence"), not a URL.
+ */
+export function GuideLink({
+  anchor,
+  children = "Learn more",
+  className,
+}: {
+  anchor: string;
+  children?: ReactNode;
+  className?: string;
+}) {
+  const { guide } = useGuideMode();
+  if (!guide) return null;
+  return (
+    <Link
+      to="/guide"
+      hash={anchor}
+      className={cn("text-xs text-primary underline underline-offset-2", className)}
+    >
+      {children}
+    </Link>
+  );
+}
+
+/**
+ * Guide-Mode-only explanatory panel. Use for a short paragraph that would be
+ * noise to an experienced user but is essential context for a newcomer.
+ */
+export function GuideNote({
+  children,
+  anchor,
+  className,
+}: {
+  children: ReactNode;
+  anchor?: string;
+  className?: string;
+}) {
+  const { guide } = useGuideMode();
+  if (!guide) return null;
+  return (
+    <div
+      className={cn(
+        "rounded-sm border border-border bg-surface/60 p-3 text-xs leading-relaxed text-muted-foreground",
+        className,
+      )}
+    >
+      {children}
+      {anchor ? <GuideLink anchor={anchor} className="ml-1" /> : null}
+    </div>
   );
 }

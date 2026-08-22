@@ -21,7 +21,7 @@ import { downloadCsv, samplesToCsv, todayStamp } from "@/lib/export";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { InfoLabel } from "@/components/GuideMode";
+import { GuideNote, InfoLabel } from "@/components/GuideMode";
 import { LearningHistory } from "@/components/LearningHistory";
 import { SignalAudit } from "@/components/SignalAudit";
 import { cn } from "@/lib/utils";
@@ -123,6 +123,13 @@ function PerformancePage() {
           </Button>
         </div>
       </div>
+
+      <GuideNote anchor="expectancy">
+        Expectancy in R is (win rate x average win in R) − (loss rate x average loss in R): the
+        average risk-multiple this sample produced. It describes these trades, not your next one. My
+        trade log is built from prices you reported; Scanner baseline is deterministic replay with no
+        orders placed. The two are separate measurements and are never combined.
+      </GuideNote>
 
       {signals.isError || trades.isError ? (
         <p className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm">
