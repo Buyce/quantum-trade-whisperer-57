@@ -133,13 +133,24 @@ interface RawPrice {
   ask?: number;
 }
 
+export interface BrokerQuote {
+  bid: number;
+  ask: number;
+  /**
+   * Broker-supplied source timestamp, or NULL when MetaApi omitted it or sent
+   * something unparseable. Never substituted with local time: a fabricated
+   * timestamp would let a stale price back a real position size.
+   */
+  sourceTime: string | null;
+  /** When this process received the response (display/diagnostics only). */
+  receivedAt: string;
+}
+
 /**
  * Current bid/ask for one symbol over the REST client API. Used only by the
  * shared, cached quotes endpoint — never per client, never inside the scanner.
  */
-export async function fetchQuote(
-  symbol: string,
-): Promise<{ bid: number; ask: number; time: string } | null> {
+export async function fetchQuote(symbol: string): Promise<BrokerQuote | null> {
   const token = process.env["METAAPI_TOKEN"];
   if (!token) throw new MetaApiNotConfiguredError();
 
@@ -151,8 +162,15 @@ export async function fetchQuote(
   const bid = Number(raw?.bid);
   const ask = Number(raw?.ask);
   if (!Number.isFinite(bid) || !Number.isFinite(ask)) return null;
-  return { bid, ask, time: raw?.time ?? new Date().toISOString() };
+  const parsed = raw?.time ? Date.parse(raw.time) : Number.NaN;
+  return {
+    bid,
+    ask,
+    sourceTime: Number.isFinite(parsed) ? new Date(parsed).toISOString() : null,
+    receivedAt: new Date().toISOString(),
+  };
 }
+
 
 /**
  * Broker symbol specification (contract size, volume bounds, stops level, ...).

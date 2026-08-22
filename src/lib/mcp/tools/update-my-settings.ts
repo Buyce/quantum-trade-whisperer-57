@@ -81,12 +81,14 @@ export default defineTool({
     // does not have to re-acknowledge on every subsequent change.
     const { data: current } = await supabase
       .from("scanner_settings")
-      .select("risk_ack_high")
+      .select("risk_ack_high, risk_per_trade_percent")
       .eq("user_id", userId)
       .maybeSingle();
 
     const { patch, warnings } = validateSettings(settingsInput, {
       currentAckHigh: (current as { risk_ack_high?: boolean } | null)?.risk_ack_high === true,
+      currentRiskPercent:
+        (current as { risk_per_trade_percent?: number } | null)?.risk_per_trade_percent ?? null,
     });
     if (Object.keys(patch).length === 0) {
       const text = warnings.length

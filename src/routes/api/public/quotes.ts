@@ -22,7 +22,10 @@ interface Quote {
   bid: number;
   ask: number;
   mid: number;
-  at: string;
+  /** Broker source timestamp, or null when the broker did not supply one. */
+  at: string | null;
+  /** When this server received the price. Never a substitute for `at`. */
+  receivedAt: string;
 }
 
 let cache: { at: number; quotes: Quote[] } | null = null;
@@ -42,7 +45,8 @@ export const Route = createFileRoute("/api/public/quotes")({
                   bid: q.bid,
                   ask: q.ask,
                   mid: (q.bid + q.ask) / 2,
-                  at: q.time,
+                  at: q.sourceTime,
+                  receivedAt: q.receivedAt,
                 });
               }
             } catch (err) {
