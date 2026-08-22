@@ -68,6 +68,9 @@ function SettingsPage() {
   const [equity, setEquity] = useState("0");
   const [currency, setCurrency] = useState("USD");
   const [riskPercent, setRiskPercent] = useState("1");
+  // Persisted high-risk acknowledgement + entered-balance provenance.
+  const [riskAckHigh, setRiskAckHigh] = useState(false);
+  const [equityAsOf, setEquityAsOf] = useState<string | null>(null);
   const [maxLots, setMaxLots] = useState("0");
   const [leverage, setLeverage] = useState("100");
   const [maxStopPercent, setMaxStopPercent] = useState("0");
@@ -135,6 +138,8 @@ function SettingsPage() {
     setEquity(String(Number(s.account_equity ?? 0)));
     setCurrency(s.account_currency ?? "USD");
     setRiskPercent(String(Number(s.risk_per_trade_percent ?? 1)));
+    setRiskAckHigh(s.risk_ack_high === true);
+    setEquityAsOf(s.equity_as_of ?? null);
     setMaxLots(String(Number(s.max_position_size ?? 0)));
     setLeverage(String(Number(s.leverage ?? 100)));
     setMaxStopPercent(String(Number(s.max_stop_loss_percent ?? 0)));
@@ -167,6 +172,14 @@ function SettingsPage() {
     const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
     const equityValue = clamp(num(equity, 0), 0, 1e12);
     const riskValue = clamp(num(riskPercent, 1), 0.01, 100);
+    // Above 2% is only applied with an explicit, persisted acknowledgement.
+    if (riskValue > 2 && !riskAckHigh) {
+      toast.error(
+        "Risking more than 2% per trade needs the high-risk acknowledgement below before it can be saved.",
+      );
+      return;
+    }
+    const equityChanged = Number(settings.data?.account_equity ?? -1) !== equityValue;
     const lotsValue = clamp(num(maxLots, 0), 0, 1000);
     const leverageValue = Math.round(clamp(num(leverage, 100), 1, 3000));
     const stopValue = clamp(num(maxStopPercent, 0), 0, 100);
@@ -194,6 +207,9 @@ function SettingsPage() {
         max_position_size: lotsValue,
         leverage: leverageValue,
         max_stop_loss_percent: stopValue,
+        risk_ack_high: riskValue > 2 ? true : riskAckHigh,
+        // Provenance: user-entered balance, timestamped when it changes.
+        ...(equityChanged || !equityAsOf ? { equity_as_of: new Date().toISOString() } : {}),
       });
       await queryClient.invalidateQueries({ queryKey: ["scanner-settings"] });
       toast.success("Settings saved");
@@ -391,7 +407,18 @@ function SettingsPage() {
                 />
                 <p className="mt-1 text-xs text-muted-foreground">
                   Required: without a balance there is nothing to take a percentage of, so cards
-                  show no lot size rather than a guess.
+                  show no lot size rather than a guess. This is the balance{" "}
+                  <span className="font-medium">you entered</span> — P-Trades cannot read your
+                  broker account, so it is never broker-confirmed.
+                </p>
+                <p className="num mt-1 text-xs text-muted-foreground">
+                  {equityAsOf
+                    ? `Last confirmed ${new Date(equityAsOf).toLocaleDateString()}${
+                        Date.now() - new Date(equityAsOf).getTime() > 30 * 24 * 3600_000
+                          ? " — over a month old, please confirm it is still correct."
+                          : ""
+                      }`
+                    : "Never confirmed — saving will record today's date."}
                 </p>
               </div>
               <div>
@@ -431,9 +458,24 @@ function SettingsPage() {
                   onChange={(e) => setRiskPercent(e.target.value)}
                 />
                 <p className="mt-1 text-xs text-muted-foreground">
-                  The loss if the stop is hit — this is what sets the lot size. 1–2% is the
-                  conventional ceiling.
+                  The loss if the stop is hit — this is what sets the lot size. 1% is the
+                  conservative default and 2% the conventional ceiling.
                 </p>
+                {Number(riskPercent) > 2 ? (
+                  <label className="mt-2 flex items-start gap-2 rounded-sm border border-warning/40 bg-warning/10 px-2 py-1.5 text-xs leading-snug text-warning">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5"
+                      checked={riskAckHigh}
+                      onChange={(e) => setRiskAckHigh(e.target.checked)}
+                    />
+                    <span>
+                      I understand that risking {Number(riskPercent) || 0}% of my balance per trade
+                      is above the 2% conventional ceiling and can lose my account materially
+                      faster. This acknowledgement is saved with my settings.
+                    </span>
+                  </label>
+                ) : null}
               </div>
               <div>
                 <Label className="text-xs" htmlFor="max-lots">
