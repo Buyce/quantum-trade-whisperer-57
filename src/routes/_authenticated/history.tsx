@@ -18,6 +18,7 @@ import { recordTradeOutcome } from "@/lib/trade-journal.functions";
 import { INSTRUMENT_LABELS, type Outcome, type SignalRow, type TradeHistoryRow } from "@/lib/db-types";
 import { downloadCsv, downloadJson, historyToCsv, historyToExportJson, todayStamp } from "@/lib/export";
 import { GradeBadge } from "@/components/SignalCard";
+import { GuideNote } from "@/components/GuideMode";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
