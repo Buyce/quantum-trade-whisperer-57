@@ -103,17 +103,18 @@ bun run verify        # lint:blocking -> typecheck -> blocking tests -> build (c
 
 Property tests use fixed seeds (`20260821`) so any failure is reproducible.
 
-## Known repository debt (not introduced by this suite)
+## Repository debt at the time of writing (superseded)
 
-Repo-wide `bun run lint` reports ~2,231 pre-existing prettier formatting errors
-across application sources. `verify` therefore lints the test sources
-(`lint:blocking`, clean) and CI runs the repo-wide lint as a separate non-blocking
-step until that debt is cleared.
+When this ledger was written, repo-wide `bun run lint` reported thousands of
+pre-existing Prettier formatting errors across application sources, so `verify`
+linted only the test sources (`lint:blocking`) and the repo-wide lint ran as a
+separate non-blocking step. That formatting debt was subsequently cleared in the
+documentation/source-quality release; `bun run lint` is the current authority on
+formatting state, and `verify` still gates on `lint:blocking`.
 
-The git remote in this environment is not GitHub, so no GitHub status check can
-be observed from here: `.github/workflows/ci.yml` is committed and will run once
-the repository is mirrored to GitHub, but nothing about a passing GitHub check is
-claimed.
+No claim is made here about any CI status check. `.github/workflows/ci.yml` is
+committed; read the CI provider for its actual result.
+
 
 ## Pinned: `model_version` defaults to 1
 
