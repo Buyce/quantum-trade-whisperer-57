@@ -94,7 +94,14 @@ Confidence is a **rule-satisfaction score, not a win probability**.
 ## Failure behaviour
 
 A missing provenance-bearing input produces an explicit refusal with a reason. No
-value is defaulted, estimated or coalesced to zero to fill a gap.
+value is defaulted, coalesced to zero, or silently fabricated to fill a gap.
+
+"Fail closed" is scoped: an input the app genuinely cannot know is refused with a
+named reason, while a value the app *can* derive but cannot confirm against a
+broker is allowed **only** when it is explicitly labelled as an estimate (margin
+is the canonical example). Labelled estimate — permitted. Silent invention —
+never.
+
 
 ## What this map does not guarantee
 
