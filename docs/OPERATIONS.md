@@ -45,8 +45,11 @@ expected behaviour.
 
 - `get_scanner_status` / the in-app heartbeat is the authority on whether the
   scanner is cycling.
-- An empty feed is **not** a health signal. Zero signals is a valid No-Trade
-  outcome and must render "Capital Preservation Mode Active".
+- An empty feed is **not** a health signal, and it is **not** by itself a No-Trade
+  claim: the feed is filtered by the user's instruments, sessions, minimum grade,
+  daily cap and retention window. Read it as "nothing matches this view". Only an
+  unfiltered, current-cycle read supports a scanner-wide No-Trade statement.
+
 - Market closed (weekend) means no new candles, therefore no new signals.
 
 ### Runbooks
