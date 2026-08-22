@@ -50,7 +50,17 @@ export const DEFAULT_RISK_PROFILE: RiskProfile = {
   maxStopLossPercent: 0,
 };
 
-export type RiskUnavailableReason = "no_equity" | "no_spec" | "no_conversion_rate" | "invalid_stop";
+export type RiskUnavailableReason =
+  | "no_equity"
+  | "no_spec"
+  | "no_conversion_rate"
+  | "invalid_stop"
+  /** Broker-confirmed minimum stop distance is wider than this setup's stop. */
+  | "below_stops_level"
+  /** Live quote used for conversion is older than the caller's freshness bound. */
+  | "stale_quote"
+  /** Broker spec exists but is older than its freshness bound. */
+  | "stale_spec";
 
 export interface RiskUnavailable {
   ok: false;
