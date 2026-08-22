@@ -154,7 +154,9 @@ describe("dry-run first", () => {
 
 describe("single attempt per delivery identity", () => {
   it("[INVARIANT] marks sent before the POST and carries a stable idempotency key", async () => {
-    const fetchSpy = vi.fn(async () => new Response('{"order_id":"55"}', { status: 200 }));
+    const fetchSpy = vi.fn(
+      async (_url: string, _init: RequestInit) => new Response('{"order_id":"55"}', { status: 200 }),
+    );
     vi.stubGlobal("fetch", fetchSpy);
     revalidate.fn.mockResolvedValue(approved);
     const db = fakeDb([{ ...delivery }]);
@@ -165,7 +167,7 @@ describe("single attempt per delivery identity", () => {
     expect(db.patches.indexOf(sentPatch!)).toBeLessThan(db.patches.length - 1);
     expect(fetchSpy).toHaveBeenCalledTimes(1);
 
-    const init = fetchSpy.mock.calls[0]![1] as RequestInit;
+    const init = fetchSpy.mock.calls[0]![1];
     const headers = init.headers as Record<string, string>;
     expect(headers['x-ptrades-idempotency-key']).toBe("sig-1-u1-primary");
     expect(headers['X-PTrades-Signature']).toMatch(/^sha256=[0-9a-f]{64}$/);
