@@ -9,7 +9,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchSymbolSpecification } from "@/lib/scanner/metaapi.server";
 import { INSTRUMENTS } from "@/lib/scanner/types";
-import { rowFromSpecification, specFromRow, type BrokerSpecRow, type SizingSpec } from "./specs";
+import {
+  rowFromSpecification,
+  specFromRow,
+  type BrokerSpecRow,
+  type RawSpecification,
+  type SizingSpec,
+} from "./specs";
 
 /** One refresh per symbol per 24h; the freshness bound in `specs.ts` is 36h. */
 export const SPEC_REFRESH_MS = 24 * 60 * 60 * 1000;
@@ -56,7 +62,7 @@ export async function refreshSymbolSpecs(
         outcomes.push({ symbol, action: "failed", error: "empty specification" });
         continue;
       }
-      const row = rowFromSpecification(symbol, raw);
+      const row = rowFromSpecification(symbol, raw as RawSpecification);
       const { error } = await db.from("broker_symbol_specs").upsert(row, { onConflict: "symbol" });
       if (error) {
         outcomes.push({ symbol, action: "failed", error: error.message });

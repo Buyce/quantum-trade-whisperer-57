@@ -7,7 +7,7 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { calculateRisk, type RiskProfile, type RiskInput, type RiskResult } from "@/lib/risk";
-import { isSpecFresh, type SizingSpec } from "./specs";
+import { isSpecStale, type SizingSpec } from "./specs";
 import { compareSizing, type SizingDivergence } from "./sizing-compare";
 
 type Db = Pick<SupabaseClient, "from">;
@@ -36,7 +36,7 @@ export function resolveSizing(
 ): ResolvedSizing {
   const now = options.now ?? Date.now();
   const spec = options.spec ?? null;
-  const specStale = spec ? !isSpecFresh(spec, now) : false;
+  const specStale = spec ? isSpecStale(spec, now) : false;
 
   const v1 = calculateRisk(input, profile, rates, { quoteStale: options.quoteStale });
   const v2 = spec
