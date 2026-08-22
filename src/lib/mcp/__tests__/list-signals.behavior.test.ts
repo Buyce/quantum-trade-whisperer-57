@@ -109,8 +109,20 @@ function signal(i: number, overrides: Row = {}): Row {
   };
 }
 
-function textOf(result: { content: { type: string; text: string }[] }) {
-  return result.content[0]!.text;
+type ToolResult = {
+  content: { type: string; text: string }[];
+  structuredContent?: { scope: string; count: number; signals: Row[] };
+  isError?: boolean;
+};
+
+function textOf(result: unknown) {
+  return (result as ToolResult).content[0]!.text;
+}
+
+function out(result: unknown) {
+  const structured = (result as ToolResult).structuredContent;
+  if (!structured) throw new Error(`expected a structured result, got: ${textOf(result)}`);
+  return structured;
 }
 
 describe("list_signals my_scanner retrieval completeness", () => {
@@ -128,8 +140,8 @@ describe("list_signals my_scanner retrieval completeness", () => {
     });
 
     const result = await runListSignals(client, { scope: "my_scanner", limit: 2 }, NOW);
-    expect(result.structuredContent?.count).toBe(2);
-    expect(result.structuredContent?.signals.map((s: Row) => s["id"])).toEqual([
+    expect(out(result).count).toBe(2);
+    expect(out(result).signals.map((s: Row) => s["id"])).toEqual([
       "sig-0300",
       "sig-0301",
     ]);
@@ -148,8 +160,8 @@ describe("list_signals my_scanner retrieval completeness", () => {
     });
 
     const result = await runListSignals(client, { scope: "my_scanner", limit: 5 }, NOW);
-    expect(result.structuredContent?.count).toBe(1);
-    expect(result.structuredContent?.signals[0]["id"]).toBe("sig-0400");
+    expect(out(result).count).toBe(1);
+    expect(out(result).signals[0]["id"]).toBe("sig-0400");
   });
 
   it("[INVARIANT] min_grade=A with limit 2 returns only A-or-better rows", async () => {
@@ -167,7 +179,7 @@ describe("list_signals my_scanner retrieval completeness", () => {
     });
 
     const result = await runListSignals(client, { min_grade: "A", limit: 2 }, NOW);
-    expect(result.structuredContent?.signals.map((s: Row) => s["grade"])).toEqual(["A", "A+"]);
+    expect(out(result).signals.map((s: Row) => s["grade"])).toEqual(["A", "A+"]);
   });
 
   it("[UNIT] defaults to all_published and keeps resolved rows", async () => {
@@ -182,8 +194,8 @@ describe("list_signals my_scanner retrieval completeness", () => {
     });
 
     const result = await runListSignals(client, {}, NOW);
-    expect(result.structuredContent?.scope).toBe("all_published");
-    expect(result.structuredContent?.count).toBe(2);
+    expect(out(result).scope).toBe("all_published");
+    expect(out(result).count).toBe(2);
   });
 });
 
@@ -197,8 +209,8 @@ describe("list_signals empty semantics", () => {
     });
 
     const result = await runListSignals(client, { scope: "my_scanner" }, NOW);
-    const text = textOf(result as never);
-    expect(result.structuredContent?.count).toBe(0);
+    const text = textOf(result);
+    expect(out(result).count).toBe(0);
     expect(text).not.toMatch(/Capital Preservation/i);
     expect(text).not.toMatch(/No Trade/i);
     expect(text).toMatch(/scanner settings/);
@@ -212,8 +224,8 @@ describe("list_signals empty semantics", () => {
     });
 
     const result = await runListSignals(client, { instrument: "GBPAUD" }, NOW);
-    const text = textOf(result as never);
-    expect(result.structuredContent?.count).toBe(0);
+    const text = textOf(result);
+    expect(out(result).count).toBe(0);
     expect(text).not.toMatch(/Capital Preservation/i);
     expect(text).not.toMatch(/No Trade/i);
     expect(text).toMatch(/No retained published signals/);

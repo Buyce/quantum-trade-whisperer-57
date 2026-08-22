@@ -43,10 +43,10 @@ export interface SignalsClient {
 }
 
 export interface ListSignalsArgs {
-  instrument?: string;
-  min_grade?: "A+" | "A" | "B" | "C";
-  scope?: "all_published" | "my_scanner";
-  limit?: number;
+  instrument?: string | undefined;
+  min_grade?: "A+" | "A" | "B" | "C" | undefined;
+  scope?: "all_published" | "my_scanner" | undefined;
+  limit?: number | undefined;
 }
 
 /**
