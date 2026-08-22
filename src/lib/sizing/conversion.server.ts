@@ -43,16 +43,26 @@ export interface ConversionResult {
   requests: number;
   /** Oldest source timestamp among the legs used; null when no leg was needed. */
   quoteAsOf: string | null;
-  /** A required leg is older than QUOTE_MAX_AGE_MS. */
+  /** A required leg carried no usable broker source timestamp. */
+  timestampMissing: boolean;
+  /** A required leg is older than QUOTE_MAX_AGE_MS, or has no source timestamp. */
   stale: boolean;
 }
 
-type TimedQuote = { bid: number; ask: number; time: string } | null;
+type TimedQuote = {
+  bid: number;
+  ask: number;
+  /** Broker-supplied source time. Null/absent means unknown, never "now". */
+  sourceTime?: string | null;
+} | null;
 export type TimedQuoteFetcher = (symbol: string) => Promise<TimedQuote>;
 
 /**
  * Fetch exactly the legs the plan needs (deduplicated), returning mid prices and
  * the oldest source timestamp.
+ *
+ * Fails closed on time: a leg whose broker timestamp is missing or unparseable
+ * is treated as stale. Receipt time is never substituted for source time.
  */
 export async function resolveConversion(
   quoteCurrency: string,
@@ -63,7 +73,14 @@ export async function resolveConversion(
   const plan = planConversion(quoteCurrency, accountCurrency);
   if (plan.symbols.length === 0) {
     // Parity or unsupported: no upstream request is made either way.
-    return { rates: {}, route: plan.kind, requests: 0, quoteAsOf: null, stale: false };
+    return {
+      rates: {},
+      route: plan.kind,
+      requests: 0,
+      quoteAsOf: null,
+      timestampMissing: false,
+      stale: false,
+    };
   }
 
   const allowed = allowedFxSymbols();
@@ -72,6 +89,7 @@ export async function resolveConversion(
   let requests = 0;
   let oldest: number | null = null;
   let oldestIso: string | null = null;
+  let timestampMissing = false;
 
   for (const symbol of plan.symbols) {
     if (seen.has(symbol)) continue;
@@ -82,8 +100,14 @@ export async function resolveConversion(
       const q = await fetchQuote(symbol);
       if (!q || !(q.bid > 0) || !(q.ask > 0)) continue;
       mids[symbol] = (q.bid + q.ask) / 2;
-      const at = new Date(q.time).getTime();
-      if (Number.isFinite(at) && (oldest === null || at < oldest)) {
+      const iso = q.sourceTime ?? null;
+      const at = iso ? Date.parse(iso) : Number.NaN;
+      if (!Number.isFinite(at)) {
+        // Missing or malformed broker timestamp: unusable for sizing.
+        timestampMissing = true;
+        continue;
+      }
+      if (oldest === null || at < oldest) {
         oldest = at;
         oldestIso = new Date(at).toISOString();
       }
@@ -92,8 +116,10 @@ export async function resolveConversion(
     }
   }
 
-  const rates = buildRates(quoteCurrency, accountCurrency, plan, mids);
-  const stale = Object.keys(rates).length > 0 && oldest !== null && now - oldest > QUOTE_MAX_AGE_MS;
+  const used = Object.keys(mids).length > 0;
+  const stale =
+    used && (timestampMissing || oldest === null || now - oldest > QUOTE_MAX_AGE_MS);
 
-  return { rates, route: plan.kind, requests, quoteAsOf: oldestIso, stale };
+  return { rates: buildRates(quoteCurrency, accountCurrency, plan, mids), route: plan.kind, requests, quoteAsOf: oldestIso, timestampMissing, stale };
 }
+
