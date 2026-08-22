@@ -124,6 +124,13 @@ function PerformancePage() {
         </div>
       </div>
 
+      <GuideNote anchor="expectancy">
+        Expectancy in R is (win rate x average win in R) − (loss rate x average loss in R): the
+        average risk-multiple this sample produced. It describes these trades, not your next one. My
+        trade log is built from prices you reported; Scanner baseline is deterministic replay with no
+        orders placed. The two are separate measurements and are never combined.
+      </GuideNote>
+
       {signals.isError || trades.isError ? (
         <p className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm">
           Could not load performance data, so the metrics below are incomplete. Reload before drawing

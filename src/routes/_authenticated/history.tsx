@@ -212,6 +212,12 @@ function HistoryPage() {
           Every setup you logged as taken is kept here for good, even after it leaves the signal feed. Skipped
           setups are not retained.
         </p>
+        <GuideNote anchor="two-r" className="mt-3 max-w-2xl">
+          The plan is snapshotted when you log a trade, so a later expiry cannot change what your
+          trade is measured against. Add your real entry and exit to get R. Prices you or your
+          assistant enter are self-reported and stamped with their author — a blank R means an input
+          is genuinely missing, and nothing is estimated.
+        </GuideNote>
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
           <Button size="sm" variant="ghost" disabled={allRows.length === 0} onClick={exportCsv}>

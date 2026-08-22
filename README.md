@@ -1,94 +1,202 @@
 # P-Trades Hub
 
-Name of Projects: P-Trades Hub
+A quantitative FX market-scanning, trade-planning, risk-sizing, journaling,
+statistical-analysis and assistant-access terminal.
 
-Objective: Build a fully functional, highly responsive Web Terminal and Android Progressive Web App (PWA) designed as an Autonomous Forex Trading Market Scanner and Trade Assistant. The absolute priority is the backend logic, algorithmic data processing, system stability, and preventing timeout errors.
+P-Trades Hub is built around **selectivity, not trade frequency**. The scanner's
+normal output is nothing. It examines a small, fixed instrument set on a fixed
+cadence, rejects structures that fail its rules, and publishes only what
+survives. An empty feed is a valid, expected result — not a failure and not a
+sign that data is missing. Every number the terminal shows is either derived
+from broker market data or explicitly labelled as user-entered, estimated, or
+research-only. When an input is missing or stale, the app refuses to compute
+rather than guessing.
 
-Design & UI Aesthetic: Do not focus on complex UI animations. Use a dark-mode, high-contrast, data-dense UI suitable for quantitative traders. The UI should be component-based and modular:
+It is analytical software. It does not manage money, guarantee returns, or give
+financial advice.
 
-A feed for Phase 2 Trade Profiles with "Log as Taken" and "Log as Skipped" buttons.
+- Production app: **https://getptrades.com**
+- Documentation: [`docs/`](docs/README.md)
 
-A statistical dashboard for Phase 3 performance metrics and time-of-day heat maps.
+---
 
-A Settings page to handle custom domain and notification configuration.
+## 1. Current production scope
 
-Backend & Infrastructure (Supabase & Edge Functions): The backend must be powered by Supabase. Because of Supabase Edge Functions' strict 2-second maximum CPU limit and 256MB memory cap, all custom edge functions must be highly modular.
+Everything below is derived from the implementation at HEAD.
 
-Utilize a decoupled, event-driven architecture using PostgreSQL pg_cron scheduling to handle tasks asynchronously.
+| Area | Current behaviour | Source |
+| --- | --- | --- |
+| Instruments | `XAUUSD`, `GBPAUD`, `EURUSD` | `src/lib/scanner/types.ts` (`INSTRUMENTS`) |
+| Timeframes | `H4`, `H1`, `M15` | `src/lib/scanner/types.ts` (`TIMEFRAMES`) |
+| Candle depth | 300 / 300 / 200 bars | `CANDLE_LIMITS` |
+| Scan cadence | Every 15 minutes, cron-triggered, queue + worker fan-out | `src/routes/api/public/cron/scan.ts`, `src/routes/api/public/worker/*` |
+| Market data | MetaApi REST only (no streaming sockets), hard per-request timeout, per-instrument health flags | `src/lib/scanner/metaapi.server.ts` |
+| Pattern | ABC retracement structure with a Point-C liquidity test | `src/lib/scanner/grading.ts` |
+| Grades | `A+`, `A`, `B`, `C` | `Grade` in `src/lib/scanner/types.ts` |
+| Confluence weighting | trend 35%, order block 25%, momentum 20%, volatility expansion 20%; R:R applied afterwards as a cap, not a fifth weight | `CONFIDENCE_WEIGHTS` |
+| Signal lifecycle | `active` → resolved or `expired`; active setups older than 24h are swept each cycle | `SIGNAL_MAX_AGE_HOURS` |
+| Order time-in-force | 30 minutes (two M15 candles) for an unfilled pending order | `ORDER_TIF_MINUTES` |
+| Retention | A+/A 48h, B 36h, C 24h | `RETENTION_HOURS` in `src/lib/db-types.ts` |
+| Per-user filtering | instruments, sessions, separate feed and alert grade thresholds | `src/lib/delivery/eligibility.ts` |
+| Per-user daily cap | User-chosen; `0` = unlimited (the default). C-grade never consumes cap. Feed and alert keep separate sequences | `evaluateEligibility`, `buildCapFrame` |
+| Journal | Taken / Skipped, win / loss / breakeven, planned plan snapshot at first creation, actual fill prices, per-write author provenance | `src/lib/trade-journal.functions.ts` |
+| Canonical R | Two separate measures — `r_vs_plan` and `r_vs_actual_risk` — never averaged together | `src/lib/journal/r-math.ts`, `src/lib/journal/basis.ts` |
+| Performance Engine | Expectancy in R, win rate, average win/loss, R distribution, per-grade and per-instrument splits, time-of-day view — from the user's own log | `src/lib/performance.ts` |
+| Research / shadow | Deterministic replay of published setups and of pre-publication research candidates, in isolated research-only tables | `src/lib/execution/replay.ts`, `src/lib/research/*` |
+| Statistics | Wilson intervals, whole-UTC-day cluster bootstrap (2000 replicates, fixed seed), Benjamini–Hochberg, 30-sample / 10-cluster floors, no holdout available | `src/lib/stats/*` |
+| Risk sizing | Lots, cash risk and a margin estimate from the user's own equity/risk/leverage settings; refuses to size on any missing or stale input | `src/lib/risk.ts`, `src/lib/sizing/service.server.ts` |
+| Broker-spec sizing | Broker symbol specs refreshed on a separate daily budget and run in shadow against the static model; the **static model (`static_v1`) remains authoritative** | `src/lib/broker/*`, `src/lib/sizing/service.server.ts` |
+| Notifications | Web/Android push, transactional email briefs | `src/lib/push.functions.ts`, `src/lib/email-templates/*` |
+| AI assistants | 12 MCP tools over an OAuth-protected `/mcp` endpoint | `.lovable/mcp/manifest.json`, `src/lib/mcp/tools/*` |
+| Execution delivery | Queue → claim → revalidate → quantity → SSRF check → HMAC signature → single dispatch attempt. **Globally disabled by default; dry-run first; live requires explicit confirmation.** PineConnector is dry-run only | `src/lib/delivery/*` |
 
-The cron job must trigger a lightweight function that places a raw JSON response into a temporary database queue, allowing subsequent triggered functions to process the logic for a single timeframe and symbol without exceeding computational limits.
+Not enabled: live execution by default, any multi-exit order policy, holdout /
+out-of-sample statistical validation, and broker-authoritative margin.
 
-External API Integration (MetaApi): Integrate the metaapi.cloud-sdk via Supabase Edge Functions.
+## 2. Architecture
 
-Crucial Rule: Hardcode the connection logic to utilize the REST API (RpcMetaApiConnection) exclusively. Do not use WebSockets (StreamingMetaApiConnection) to avoid silent state desynchronization and memory leak vulnerabilities.
+```mermaid
+flowchart TD
+  MA[MetaApi REST<br/>OHLCV + quotes] --> CRON[scan cron<br/>every 15 min]
+  CRON --> Q[(scan job queue)]
+  Q --> W[dispatch + process workers]
+  W --> SC[scanner: indicators, ABC detection,<br/>grading, trade profile]
+  SC --> SS[(scanned_signals)]
 
-Credentials to hardcode: Region: london, Type: cloud-g2, Reliability: high, Account ID: f6a72106-7709-4835-8022-75cad470a505, Login: 5053558014, Server: MetaQuotes-Demo, Application: MetaApi, UserID: 067203c067c11bc7d5a60157395637f2, and quoteStreamingIntervalInSeconds of 2.5.
+  SS --> FEED[feed + alert eligibility<br/>push / email]
+  SS --> JN[journal: executed_trades<br/>canonical R]
+  SS --> RS[research + shadow replay<br/>research-only tables]
+  SS --> ST[statistics: Wilson,<br/>day-cluster bootstrap, BH]
+  SS --> EX[execution delivery queue<br/>dry-run by default]
 
-Bug Mitigation: Wrap all external MetaApi data fetch calls (e.g., querying OHLCV historical candles) in an 8-second timeout promise. If the known MT5 missing data infinite loop bug occurs and the request times out, abort gracefully, skip the pair, flag it as temporarily unavailable, and route the scanner to the next instrument.
+  JN --> ST
+  RS --> ST
+```
 
-Phase 1: Market Scanner Engine Logic: Implement a pg_cron scheduling system to query the MetaApi REST endpoints for historical OHLCV candles every 15 minutes.
+Four planes, deliberately isolated:
 
-Monitor exactly three instruments: XAUUSD, GBPAUD, and EURUSD across H4, H1, and M15 timeframes.
+1. **Production signal generation** — cron, queue, workers, scanner, `scanned_signals`.
+   Nothing downstream can influence what gets published.
+2. **Research / shadow computation** — replay and candidate enrolment write only to
+   research tables and never feed the user's own performance numbers.
+3. **User analytics** — the journal and the Performance Engine, built from what the
+   user (or their assistant) recorded.
+4. **Execution delivery** — a separate queue with its own state machine. A delivery
+   failure can never interrupt a scan, a statistic, or the feed.
 
-Implement an algorithmic grading function based on the mathematical structure of the ABC retracement pattern:
+## 3. Safety philosophy
 
-A-Grade: Perfect moving average alignment across H4, H1, M15. Price is testing a structural liquidity zone (Point C).
+- **Fail closed on money.** Every financial calculation returns an explicit
+  unavailable reason instead of a plausible number. No equity, no FX rate, no
+  contract spec, or a stale quote ⇒ no lot size.
+- **No invented prices or specifications.** Candles and quotes come from the
+  broker feed. Specs are broker-supplied when available and labelled; otherwise
+  the documented static specification is used and labelled `static_v1`.
+- **Self-reported vs broker-derived is always distinguished.** Fill prices are
+  user- or assistant-entered unless a broker source proves otherwise, and every
+  price write records who wrote it.
+- **Execution is off by default.** Live execution is globally disabled; the
+  pipeline runs in dry-run, and arming live requires a fresh explicit
+  confirmation pinned to the current configuration version.
+- **One attempt.** A `sent` or `unknown` delivery is never automatically
+  re-claimed, because retrying an ambiguous POST is how a bridge double-fires.
+- **Egress is constrained.** Outbound URLs are validated server-side immediately
+  before every request, redirects are `manual`, and only allow-listed hosts may
+  receive a live order.
+- **Resolved trades are immutable** at the database layer, so published history
+  stays reproducible.
+- **R carries provenance** — which basis, which stop reference, which model
+  version produced it.
 
-B-Grade: Primary trend alignment on H1 and M15, but H4 indicates the market is approaching major macroeconomic resistance.
+## 4. Data provenance
 
-C-Grade: Aggressive M15 localized structural break (mean-reversion), with higher timeframes conflicting.
+| Data | Source | Label shown to the user |
+| --- | --- | --- |
+| Candles, quotes | Broker via MetaApi REST | Broker-derived |
+| Account equity, risk %, leverage | User entered in Settings | Self-reported |
+| Journal fill prices | User or connected assistant, unless a broker source is proven | Self-reported / agent-entered |
+| Broker symbol specs | Broker when available and fresh; documented static table otherwise | Broker spec / `static_v1` static specification |
+| Margin | Derived from the sizing model and stated leverage | Margin estimate — never broker-authoritative |
+| Shadow / research outcomes | Deterministic replay over stored candles | Research-only |
+| Personal performance | The user's own journal | Trades you logged |
+| Scanner baseline | Replayed published setups | Scanner baseline, separate from personal results |
 
-Phase 2: Trade Assistant Logic: The system must default to a "No Trade" philosophy. Limit output to a maximum of 15 setups per day. Do not force trade execution.
+## 5. Testing
 
-Generate a "Trade Profile" containing: Direction, Entry Price (at M15 structural break), Stop-Loss (structural extreme + ATR buffer), Targets (1:1, 1:2, 1:3 extensions based on Fibonacci multiples), Risk-to-Reward (R:R) Ratio, and Confidence Score.
+- Taxonomy: `[UNIT]`, `[V1_CHARACTERIZATION]`, `[INVARIANT]` (blocking) and
+  `[INTENDED_V2]` (report-only). Enforced by
+  `src/test/__tests__/test-taxonomy.test.ts`. See [docs/TESTING.md](docs/TESTING.md).
+- A database regression layer runs real SQL against an ephemeral cluster — see
+  [docs/DB-TESTS.md](docs/DB-TESTS.md).
+- Local gate: `bun run verify` = blocking lint + typecheck + tests + build.
+- Local verification is not an independent attestation. GitHub Actions
+  (`.github/workflows/ci.yml`) is the only externally attested signal; this
+  README makes no claim about the current CI colour.
 
-Calculate Confidence Score as a weighted percentage: 40% Timeframe Alignment, 30% R:R Ratio, 20% Pattern Symmetry, 10% Volatility Context.
+Exact test-file and test counts move with every commit; run `bun run test` for
+the number at your checkout rather than trusting a figure written in prose.
 
-Include a "Qualitative Breakdown" text block dynamically explaining the exact rules satisfied or violated for the tier grade.
-
-Phase 3: Performance Engine (Database & Analytics): Create the following Supabase tables:
-
-scanned_signals (logging every setup generated: timestamp, instrument, grade, confidence_score, etc.)
-
-executed_trades (logging user decision and outcome: user_decision, outcome, realized_r_multiple, etc.)
-
-market_context (trading_session, volatility_index, time_of_day).
-
-Calculate Trading Expectancy in R-multiples using the formula: Expectancy in R = (Win Rate × Average Win in R) − (Loss Rate × Average Loss in R).
-
-Implement a backend function to join tables and dynamically generate natural language text insights on the frontend (e.g., "Your Gold breakout trades have a 58% win rate with a 2.9R average.").
-
-Notification Infrastructure:
-
-Integrate web and Android PWA push notifications (using Service Workers or Capacitor) triggered by database inserts into the scanned_signals table via Supabase WebSockets.
-
-Configure Lovable's transactional email system (via Entri) to send alerts from the custom domain notify.getptrades.com.
-
-Build a Settings UI instructing the user to input the lovable_verify= TXT record and NS records into their domain registrar to authenticate getptrades.com for high-deliverability email sending.
-
-Final Step:
-
-Ask me any questions you need in order to fully understand what I want from this system, how the Supabase edge constraints work, and how I envision the final quantitative terminal before you begin writing the code.
-
-This project was built with [Lovable](https://lovable.dev).
-
-**Live app**: https://quantum-trade-whisperer-57.lovable.app
-
-## Build with Lovable
-
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/5d3af58e-f9f0-42a3-a7b5-a3a78b1e93c6).
-
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
-
-## Development
-
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+## 6. Local development
 
 ```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
-npm run dev
+bun install
+bun run dev        # http://localhost:8080
+bun run verify     # lint:blocking + typecheck + test + build
 ```
+
+Configuration is by environment variable. No credential, account identifier,
+login number or secret value belongs in this repository.
+
+| Variable | Purpose |
+| --- | --- |
+| `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_SUPABASE_PROJECT_ID` | Browser backend client (publishable, safe to ship) |
+| `METAAPI_TOKEN`, `METAAPI_ACCOUNT_ID` | Broker market-data access (server only) |
+| `CRON_SECRET` | Authorises `/api/public/cron/*` callers |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | Web push signing |
+| `WEBHOOK_*` / per-user bridge secrets | Stored per account in the database, never in source |
+
+Secrets are managed through the platform's secret store and read inside server
+handlers only.
+
+## 7. Deployment
+
+The canonical public app is **https://getptrades.com**. Preview builds exist for
+development and must not be treated as production endpoints.
+
+### Development
+
+This project is also editable in the
+[Lovable editor](https://lovable.dev/projects/5d3af58e-f9f0-42a3-a7b5-a3a78b1e93c6);
+commits pushed to `main` sync both ways.
+
+## 8. Documentation index
+
+| Document | Covers |
+| --- | --- |
+| [docs/README.md](docs/README.md) | Index and reading order |
+| [docs/PRODUCT.md](docs/PRODUCT.md) | What the product does, for whom |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Planes, data flow, isolation rules |
+| [docs/SCANNER.md](docs/SCANNER.md) | Cron, queue, workers, MetaApi budget |
+| [docs/SIGNALS-AND-GRADES.md](docs/SIGNALS-AND-GRADES.md) | Grading, profile, lifecycle |
+| [docs/RISK-SIZING.md](docs/RISK-SIZING.md) | Lots, cash risk, margin estimate |
+| [docs/JOURNAL-AND-R.md](docs/JOURNAL-AND-R.md) | Canonical R and provenance |
+| [docs/PERFORMANCE-AND-STATISTICS.md](docs/PERFORMANCE-AND-STATISTICS.md) | Expectancy, evidence standard |
+| [docs/RESEARCH-AND-SHADOW.md](docs/RESEARCH-AND-SHADOW.md) | Replay, candidates, isolation |
+| [docs/ALERTS-AND-ELIGIBILITY.md](docs/ALERTS-AND-ELIGIBILITY.md) | Feed/alert rules, daily cap |
+| [docs/EXECUTION.md](docs/EXECUTION.md) | Delivery state machine and safety locks |
+| [docs/MCP.md](docs/MCP.md) | Assistant tools and permissions |
+| [docs/SECURITY.md](docs/SECURITY.md) | Auth, RLS, egress, secrets |
+| [docs/OPERATIONS.md](docs/OPERATIONS.md) | Cron schedule, runbooks |
+| [docs/TESTING.md](docs/TESTING.md) | Taxonomy and gates |
+| [docs/DATA-PROVENANCE.md](docs/DATA-PROVENANCE.md) | Every field's origin |
+| [docs/GLOSSARY.md](docs/GLOSSARY.md) | Canonical terminology |
+| [docs/CHARACTERISATION.md](docs/CHARACTERISATION.md) | Historical V1 behaviour ledger |
+| [docs/DB-TESTS.md](docs/DB-TESTS.md) | Database regression layer |
+
+## 9. Disclaimer
+
+P-Trades Hub is trade-analysis and trade-assistance software. It does not
+guarantee returns, does not constitute financial advice, and does not place or
+manage trades on your behalf unless you explicitly configure and confirm the
+execution bridge yourself. Statistical output describes a past sample; it is not
+a prediction. Trading leveraged FX carries substantial risk of loss.
