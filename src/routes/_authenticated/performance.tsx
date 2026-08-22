@@ -21,7 +21,7 @@ import { downloadCsv, samplesToCsv, todayStamp } from "@/lib/export";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { InfoLabel } from "@/components/GuideMode";
+import { GuideNote, InfoLabel } from "@/components/GuideMode";
 import { LearningHistory } from "@/components/LearningHistory";
 import { SignalAudit } from "@/components/SignalAudit";
 import { cn } from "@/lib/utils";
