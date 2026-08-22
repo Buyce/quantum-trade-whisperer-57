@@ -68,8 +68,8 @@ const SYSTEMS = [
   },
   {
     icon: ShieldCheck,
-    title: "Verified trade journal",
-    body: "Log a setup as taken or skipped, then add your real entry and exit prices so R is recomputed server-side. Every price write is permanently stamped with who entered it — you or an AI agent — so bad data can always be traced.",
+    title: "Attributed trade journal",
+    body: "Log a setup as taken or skipped, then add your real entry and exit prices so R is recomputed server-side against the plan snapshotted at the time. Prices are self-reported and every write is permanently stamped with its author — you or an AI agent — so questionable data can be traced rather than trusted.",
   },
   {
     icon: Bell,
