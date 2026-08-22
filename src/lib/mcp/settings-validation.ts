@@ -69,6 +69,8 @@ export function sensitiveFieldsIn(input: SettingsInput): SensitiveRiskField[] {
 export interface ValidateOptions {
   /** The acknowledgement already stored for this user. */
   currentAckHigh?: boolean;
+  /** The risk percent already stored for this user. */
+  currentRiskPercent?: number | null;
   /** Timestamp written alongside a new entered balance. */
   now?: Date;
 }
@@ -137,6 +139,7 @@ export function validateSettings(
 
   if (input.risk_ack_high !== undefined) patch["risk_ack_high"] = input.risk_ack_high;
 
+
   if (input.notify_push !== undefined) patch["notify_push"] = input.notify_push;
   if (input.notify_email !== undefined) patch["notify_email"] = input.notify_email;
 
@@ -185,6 +188,21 @@ export function validateSettings(
       patch["risk_ack_high"] = true;
       warnings.push(
         `Risking ${requestedRisk}% per trade is above the ${HIGH_RISK_THRESHOLD_PERCENT}% conventional ceiling; the acknowledgement has been recorded.`,
+      );
+    }
+  }
+
+  // Persistent invariant: risk above the threshold can never coexist with a
+  // cleared acknowledgement. Clearing it is only allowed when the same atomic
+  // update also brings the risk down to the threshold or below.
+  if (patch["risk_ack_high"] === false) {
+    const effectiveRisk =
+      (patch["risk_per_trade_percent"] as number | undefined) ??
+      (options.currentRiskPercent ?? null);
+    if (effectiveRisk !== null && effectiveRisk > HIGH_RISK_THRESHOLD_PERCENT) {
+      delete patch["risk_ack_high"];
+      warnings.push(
+        `risk_ack_high left unchanged: it cannot be cleared while risk_per_trade_percent is ${effectiveRisk}% (above ${HIGH_RISK_THRESHOLD_PERCENT}%). Lower the risk to ${HIGH_RISK_THRESHOLD_PERCENT}% or less in the same update to withdraw the acknowledgement.`,
       );
     }
   }
