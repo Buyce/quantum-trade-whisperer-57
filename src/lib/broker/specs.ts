@@ -30,8 +30,16 @@ export interface SizingSpec {
   maxLot: number | null;
   /** Broker aggregate volume limit for the symbol; null when unknown. */
   volumeLimit: number | null;
-  /** Price increment of one point; null when unknown. */
+  /** Price increment of one tick (the smallest quoted price change). */
   tickSize: number | null;
+  /**
+   * MT5 SYMBOL_POINT: the price value of one "point", i.e. 10^-digits. This is
+   * the unit `stopsLevel` and `freezeLevel` are expressed in, and it is NOT
+   * necessarily equal to `tickSize` (a symbol may quote in multi-point ticks).
+   */
+  point: number | null;
+  /** Where `point` came from: the broker field, or derived from `digits`. */
+  pointSource: "broker_point" | "derived_from_digits" | null;
   /** Minimum stop distance in points; null when unknown (never assumed zero). */
   stopsLevel: number | null;
   freezeLevel: number | null;
@@ -62,6 +70,8 @@ export interface BrokerSpecRow {
   margin_currency: string | null;
   trade_mode: string | null;
   calc_mode: string | null;
+  point?: number | string | null;
+  point_source?: string | null;
   fetched_at: string;
 }
 
@@ -85,6 +95,8 @@ export function staticSpec(instrument: string): SizingSpec | null {
     maxLot: null,
     volumeLimit: null,
     tickSize: null,
+    point: null,
+    pointSource: null,
     stopsLevel: null,
     freezeLevel: null,
     digits: null,
@@ -121,6 +133,11 @@ export function specFromRow(row: BrokerSpecRow): SizingSpec | null {
     maxLot: num(row.volume_max),
     volumeLimit: num(row.volume_limit),
     tickSize: num(row.tick_size),
+    point: num(row.point ?? null),
+    pointSource:
+      row.point_source === "broker_point" || row.point_source === "derived_from_digits"
+        ? row.point_source
+        : null,
     stopsLevel: num(row.stops_level),
     freezeLevel: num(row.freeze_level),
     digits: num(row.digits),
@@ -151,10 +168,34 @@ export interface RawSpecification {
   marginCurrency?: string;
   tradeMode?: string;
   priceCalculationMode?: string;
+  /** Present on some brokers; when absent we derive point from `digits`. */
+  point?: number;
+}
+
+/**
+ * VERIFIED SEMANTICS: MT5 exposes SYMBOL_POINT = 10^-SYMBOL_DIGITS, and
+ * SYMBOL_TRADE_STOPS_LEVEL is expressed in POINTS, not ticks. MetaApi's
+ * specification payload always carries `digits`; `tickSize` is the minimum
+ * price change, which can be a multiple of a point. We therefore prefer an
+ * explicit broker `point` field and otherwise derive it from `digits`. We never
+ * substitute `tickSize` for `point`.
+ */
+export function derivePoint(raw: RawSpecification): {
+  point: number | null;
+  source: "broker_point" | "derived_from_digits" | null;
+} {
+  const explicit = num(raw.point);
+  if (explicit && explicit > 0) return { point: explicit, source: "broker_point" };
+  const digits = num(raw.digits);
+  if (digits !== null && digits >= 0 && Number.isInteger(digits)) {
+    return { point: Number(Math.pow(10, -digits).toFixed(12)), source: "derived_from_digits" };
+  }
+  return { point: null, source: null };
 }
 
 /** MetaApi payload -> upsert row. Absent fields stay null. */
 export function rowFromSpecification(symbol: string, raw: RawSpecification) {
+  const point = derivePoint(raw);
   return {
     symbol,
     contract_size: num(raw.contractSize),
@@ -172,16 +213,22 @@ export function rowFromSpecification(symbol: string, raw: RawSpecification) {
     margin_currency: raw.marginCurrency ?? null,
     trade_mode: raw.tradeMode ?? null,
     calc_mode: raw.priceCalculationMode ?? null,
+    point: point.point,
+    point_source: point.source,
     raw: raw as unknown as Record<string, unknown>,
     fetched_at: new Date().toISOString(),
     source: "metaapi_specification",
   };
 }
 
-/** Minimum stop distance in price, or null when the broker did not tell us. */
+/**
+ * Minimum stop distance in price, or null when the broker did not tell us.
+ * stopsLevel is denominated in POINTS, so the conversion uses `point`
+ * (10^-digits), never `tickSize`.
+ */
 export function minStopDistance(spec: SizingSpec): number | null {
-  if (spec.stopsLevel === null || spec.tickSize === null) return null;
-  return spec.stopsLevel * spec.tickSize;
+  if (spec.stopsLevel === null || spec.point === null || spec.point <= 0) return null;
+  return spec.stopsLevel * spec.point;
 }
 
 /** A broker row older than this is stale and reported as such. */
