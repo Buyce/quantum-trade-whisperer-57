@@ -72,12 +72,12 @@ const VerifyTradePricesEmail = ({
         <Text style={text}>
           You marked these setups as taken and recorded a result, but not the prices
           you actually got. Without your real entry and exit price the R multiple
-          cannot be calculated, so those wins and losses stay unverified.
+          cannot be calculated, so those wins and losses have execution prices missing.
         </Text>
         <Text style={text}>
           Add both prices in the Trade History tab and the terminal recomputes the R
-          from the setup&apos;s own risk distance — a number that is reproducible
-          instead of self-reported, and that makes your win rate meaningful.
+          from the setup&apos;s own risk distance — a self-reported but auditable
+          number that makes your price-backed win rate meaningful.
         </Text>
 
         {trades.length ? (
