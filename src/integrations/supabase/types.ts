@@ -285,6 +285,7 @@ export type Database = {
       }
       execution_controls: {
         Row: {
+          allowed_live_hosts: string[]
           disabled_bridges: string[]
           disabled_instruments: string[]
           execution_policy: string
@@ -295,6 +296,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          allowed_live_hosts?: string[]
           disabled_bridges?: string[]
           disabled_instruments?: string[]
           execution_policy?: string
@@ -305,6 +307,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          allowed_live_hosts?: string[]
           disabled_bridges?: string[]
           disabled_instruments?: string[]
           execution_policy?: string
