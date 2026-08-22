@@ -27,7 +27,7 @@ const long: BridgeSignal = {
 };
 
 describe("bridge order", () => {
-  it("is always a limit order carrying the single first-target exit", () => {
+  it("[UNIT] is always a limit order carrying the single first-target exit", () => {
     const order = buildBridgeOrder(long);
     expect(order.action).toBe("buy_limit");
     expect(order.takeProfit).toBe(long.tp1);
@@ -35,11 +35,11 @@ describe("bridge order", () => {
     expect(order.expiresInMinutes).toBe(ORDER_TIF_MINUTES);
   });
 
-  it("mirrors direction for shorts", () => {
+  it("[UNIT] mirrors direction for shorts", () => {
     expect(buildBridgeOrder({ ...long, direction: "short" }).action).toBe("sell_limit");
   });
 
-  it("refuses an unsupported policy rather than inventing behaviour", () => {
+  it("[UNIT] refuses an unsupported policy rather than inventing behaviour", () => {
     expect(() =>
       buildBridgeOrder(long, "multi_exit" as unknown as typeof DEFAULT_EXECUTION_POLICY),
     ).toThrow();
@@ -47,7 +47,7 @@ describe("bridge order", () => {
 });
 
 describe("state machine", () => {
-  it("only claims pending, and never re-claims an unacknowledged send", () => {
+  it("[UNIT] only claims pending, and never re-claims an unacknowledged send", () => {
     expect(isClaimable("pending")).toBe(true);
     for (const s of ["claimed", "sent", "unknown", "acknowledged", "rejected", "failed"] as const) {
       expect(isClaimable(s), s).toBe(false);
@@ -58,13 +58,13 @@ describe("state machine", () => {
 });
 
 describe("price gates", () => {
-  it("rejects a long once price is beyond the slippage ceiling", () => {
+  it("[UNIT] rejects a long once price is beyond the slippage ceiling", () => {
     const order = buildBridgeOrder(long);
     expect(withinMaxAcceptableEntry(order, 1.1561)).toBe(true);
     expect(withinMaxAcceptableEntry(order, 1.15625)).toBe(false);
   });
 
-  it("mirrors the ceiling for shorts", () => {
+  it("[UNIT] mirrors the ceiling for shorts", () => {
     const order = buildBridgeOrder({
       ...long,
       direction: "short",
@@ -76,19 +76,19 @@ describe("price gates", () => {
     expect(withinMaxAcceptableEntry(order, 1.1558)).toBe(false);
   });
 
-  it("rejects a spread larger than 15% of planned risk", () => {
+  it("[UNIT] rejects a spread larger than 15% of planned risk", () => {
     const order = buildBridgeOrder(long); // risk = 0.001
     expect(spreadAcceptable(order, 1.156, 1.15612)).toBe(true);
     expect(spreadAcceptable(order, 1.156, 1.1562)).toBe(false);
   });
 
-  it("treats a zero-risk setup as unacceptable rather than dividing by zero", () => {
+  it("[UNIT] treats a zero-risk setup as unacceptable rather than dividing by zero", () => {
     expect(spreadAcceptable({ entry: 1.156, stopLoss: 1.156 }, 1.156, 1.156)).toBe(false);
   });
 });
 
 describe("execution exposure limits", () => {
-  it("blocks when combined risk would exceed the ceiling", () => {
+  it("[UNIT] blocks when combined risk would exceed the ceiling", () => {
     expect(
       evaluateExposure({ openRiskR: 2, pendingRiskR: 1, realizedLossTodayR: 0 }).allowed,
     ).toBe(false);
@@ -97,7 +97,7 @@ describe("execution exposure limits", () => {
     ).toBe(true);
   });
 
-  it("blocks after the daily logged loss limit", () => {
+  it("[UNIT] blocks after the daily logged loss limit", () => {
     const verdict = evaluateExposure({ openRiskR: 0, pendingRiskR: 0, realizedLossTodayR: 2 });
     expect(verdict.allowed).toBe(false);
     expect(verdict.detail).toContain("logged");

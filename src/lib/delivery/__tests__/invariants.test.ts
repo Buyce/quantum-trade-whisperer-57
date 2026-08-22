@@ -34,7 +34,7 @@ function walk(dir: string): string[] {
 }
 
 describe("scanner independence", () => {
-  it("no scanner module imports a risk or execution module", () => {
+  it("[INVARIANT] no scanner module imports a risk or execution module", () => {
     const offenders: string[] = [];
     for (const file of walk(SCANNER_DIR)) {
       const source = readFileSync(file, "utf8");
@@ -47,7 +47,7 @@ describe("scanner independence", () => {
     expect(offenders).toEqual([]);
   });
 
-  it("publication enqueues deliveries in SQL, so no scanner code calls the dispatcher", () => {
+  it("[INVARIANT] publication enqueues deliveries in SQL, so no scanner code calls the dispatcher", () => {
     const offenders = walk(SCANNER_DIR).filter((file) =>
       readFileSync(file, "utf8").includes("processNextDelivery"),
     );
