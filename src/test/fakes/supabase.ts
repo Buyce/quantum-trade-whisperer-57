@@ -110,6 +110,7 @@ export function createFakeSupabase(
       return {
         select: (columns?: string) => builder(table, "select", null).select(columns),
         insert: (payload: Record<string, unknown>) => builder(table, "insert", payload),
+        upsert: (payload: Record<string, unknown>) => builder(table, "insert", payload),
         update: (payload: Record<string, unknown>) => builder(table, "update", payload),
         delete: () => builder(table, "delete", null),
       };
