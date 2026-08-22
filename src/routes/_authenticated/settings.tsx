@@ -728,10 +728,76 @@ function SettingsPage() {
                       </pre>
                     ) : null}
                   </div>
+
+                  <div className="space-y-4 border-t border-border pt-4 sm:col-span-2">
+                    <div>
+                      <h3 className="label-xs">Automated execution</h3>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {savedValidatedAt
+                          ? `Bridge endpoint validated ${new Date(savedValidatedAt).toLocaleString()}.`
+                          : "Save the bridge URL to validate the endpoint. Nothing is dispatched until it passes."}
+                      </p>
+                    </div>
+
+                    <Row
+                      id="execution-enabled"
+                      title="Send orders automatically"
+                      desc="Queue every alert-eligible setup for delivery to your bridge. Each queued order is re-checked against live price, spread, session, your daily cap and your risk guardrails immediately before it is sent."
+                      checked={executionEnabled}
+                      onChange={setExecutionEnabled}
+                    />
+                    <Row
+                      id="execution-dry-run"
+                      title="Dry run"
+                      desc="Validate and sign each order but never POST it. Leave this on until the delivery log looks right — it exercises the entire path without touching your broker."
+                      checked={executionDryRun}
+                      onChange={setExecutionDryRun}
+                    />
+
+                    <p className="text-xs text-muted-foreground">
+                      {executionStatus.data
+                        ? executionStatus.data.liveEnabled
+                          ? executionStatus.data.forceDryRun
+                            ? "Live execution is enabled system-wide but currently forced to dry run, so nothing is sent to any bridge."
+                            : `Live execution is enabled system-wide. ${executionStatus.data.policyNote}`
+                          : "Live execution is disabled system-wide. Orders are queued and validated but never sent."
+                        : "Checking system execution status…"}
+                    </p>
+
+                    {deliveries.data?.length ? (
+                      <div className="space-y-1 rounded-md border border-border bg-background p-3 font-mono text-xs">
+                        <p className="text-muted-foreground">Recent deliveries</p>
+                        {deliveries.data.map((d) => (
+                          <p key={d.id} className="truncate">
+                            <span
+                              className={cn(
+                                d.state === "acknowledged"
+                                  ? "text-primary"
+                                  : d.state === "rejected" || d.state === "failed"
+                                    ? "text-destructive"
+                                    : "text-foreground",
+                              )}
+                            >
+                              {d.state}
+                            </span>
+                            {d.dry_run ? " · dry run" : ""}
+                            {d.endpoint_host ? ` · ${d.endpoint_host}` : ""}
+                            {d.http_status ? ` · ${d.http_status}` : ""}
+                            {d.reason ? ` · ${d.reason}` : ""}
+                          </p>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        No deliveries yet. Rows appear here once a setup is queued for your bridge.
+                      </p>
+                    )}
+                  </div>
                 </div>
               ) : null}
             </div>
           </section>
+
 
           <SaveBar saving={saving} onSave={() => void onSave()} />
         </TabsContent>
