@@ -51,6 +51,7 @@ describe("update_my_settings risk confirmation", () => {
       "max_position_size",
       "leverage",
       "max_stop_loss_percent",
+      "risk_ack_high",
     ]);
     expect(sensitiveFieldsIn({ min_grade: "A" })).toEqual([]);
     expect(sensitiveFieldsIn({ leverage: 200, notify_push: true })).toEqual(["leverage"]);
@@ -69,10 +70,27 @@ describe("update_my_settings risk confirmation", () => {
   });
 
   it("[UNIT] confirmation does not bypass clamping", () => {
-    const { patch, warnings } = validateSettings({ risk_per_trade_percent: 500, leverage: 9000 });
-    expect(patch["risk_per_trade_percent"]).toBe(10);
+    const { patch, warnings } = validateSettings({ leverage: 9000 });
     expect(patch["leverage"]).toBe(500);
-    expect(warnings.length).toBe(2);
+    expect(warnings.length).toBe(1);
+  });
+
+  it("[INVARIANT] risk above 2% is left unchanged without a high-risk acknowledgement", () => {
+    const { patch, warnings } = validateSettings({ risk_per_trade_percent: 5 });
+    expect(patch["risk_per_trade_percent"]).toBeUndefined();
+    expect(warnings.join(" ")).toMatch(/high-risk acknowledgement/);
+  });
+
+  it("[UNIT] an acknowledged high risk is applied and the acknowledgement persisted", () => {
+    const fresh = validateSettings({ risk_per_trade_percent: 5, risk_ack_high: true });
+    expect(fresh.patch["risk_per_trade_percent"]).toBe(5);
+    expect(fresh.patch["risk_ack_high"]).toBe(true);
+    // A previously stored acknowledgement also counts.
+    const stored = validateSettings(
+      { risk_per_trade_percent: 500 },
+      { currentAckHigh: true },
+    );
+    expect(stored.patch["risk_per_trade_percent"]).toBe(10);
   });
 });
 
@@ -81,8 +99,8 @@ describe("calculate_position_size", () => {
 
   it("[INVARIANT] no fixed FX symbol list is fetched on every call", () => {
     expect(src).not.toMatch(/\["AUDUSD", "GBPUSD"\]/);
-    expect(src).toMatch(/planConversion/);
-    expect(src).toMatch(/resolveConversionRates/);
+    // Conversion legs are resolved on demand inside the shared server service.
+    expect(src).toMatch(/resolveSizingForUser/);
   });
 
   it("[INVARIANT] does not touch the scanner's own MetaApi candle path", () => {
