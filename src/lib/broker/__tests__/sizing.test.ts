@@ -44,20 +44,20 @@ function brokerRow(overrides: Partial<BrokerSpecRow> = {}): BrokerSpecRow {
 }
 
 describe("broker spec parsing", () => {
-  it("rejects a partial spec instead of guessing the missing fields", () => {
+  it("[INVARIANT] rejects a partial spec instead of guessing the missing fields", () => {
     expect(specFromRow(brokerRow({ contract_size: null }))).toBeNull();
     expect(specFromRow(brokerRow({ volume_step: null }))).toBeNull();
     expect(specFromRow(brokerRow({ profit_currency: null }))).toBeNull();
   });
 
-  it("keeps absent broker fields null rather than defaulting them", () => {
+  it("[INVARIANT] keeps absent broker fields null rather than defaulting them", () => {
     const row = rowFromSpecification("EURUSD", { contractSize: 100000, volumeStep: 0.01 });
     expect(row.stops_level).toBeNull();
     expect(row.tick_size).toBeNull();
     expect(row.volume_limit).toBeNull();
   });
 
-  it("labels the static table so it can never read as broker-confirmed", () => {
+  it("[INVARIANT] labels the static table so it can never read as broker-confirmed", () => {
     const spec = staticSpec("XAUUSD");
     expect(spec?.source).toBe("static_v1");
     expect(spec?.asOf).toBeNull();
@@ -66,7 +66,7 @@ describe("broker spec parsing", () => {
 });
 
 describe("calculateRisk with broker specs", () => {
-  it("matches model 1 when the broker confirms the same contract facts", () => {
+  it("[UNIT] matches model 1 when the broker confirms the same contract facts", () => {
     const v1 = calculateRisk(setup, profile);
     const v2 = calculateRisk(setup, profile, {}, { spec: specFromRow(brokerRow())! });
     expect(v1.ok && v2.ok).toBe(true);
@@ -78,7 +78,7 @@ describe("calculateRisk with broker specs", () => {
     expect(v1.specSource).toBe("static_v1");
   });
 
-  it("refuses to size when the stop is inside the broker's stops level", () => {
+  it("[INVARIANT] refuses to size when the stop is inside the broker's stops level", () => {
     const spec = specFromRow(brokerRow({ stops_level: 5000, tick_size: 0.01 }))!;
     const res = calculateRisk(setup, profile, {}, { spec });
     expect(res.ok).toBe(false);
@@ -86,7 +86,7 @@ describe("calculateRisk with broker specs", () => {
     expect(res.reason).toBe("below_stops_level");
   });
 
-  it("makes no stops-level claim when the broker omitted it", () => {
+  it("[INVARIANT] makes no stops-level claim when the broker omitted it", () => {
     const spec = specFromRow(brokerRow({ stops_level: null }))!;
     const res = calculateRisk(setup, profile, {}, { spec });
     expect(res.ok).toBe(true);
@@ -94,7 +94,7 @@ describe("calculateRisk with broker specs", () => {
     expect(res.minStopDistance).toBeNull();
   });
 
-  it("applies the broker volume ceiling and flags it separately", () => {
+  it("[UNIT] applies the broker volume ceiling and flags it separately", () => {
     const spec = specFromRow(brokerRow({ volume_max: 0.05 }))!;
     const res = calculateRisk(
       { ...setup, stopLoss: 2399.9 },
@@ -108,7 +108,7 @@ describe("calculateRisk with broker specs", () => {
     expect(res.cappedByBrokerVolume).toBe(true);
   });
 
-  it("reports stale broker specs and stale quotes instead of sizing", () => {
+  it("[INVARIANT] reports stale broker specs and stale quotes instead of sizing", () => {
     const spec = specFromRow(brokerRow())!;
     const stale = calculateRisk(setup, profile, {}, { spec, specStale: true });
     expect(stale.ok === false && stale.reason === "stale_spec").toBe(true);
@@ -116,7 +116,7 @@ describe("calculateRisk with broker specs", () => {
     expect(staleQuote.ok === false && staleQuote.reason === "stale_quote").toBe(true);
   });
 
-  it("labels margin as an estimate derived from notional and leverage", () => {
+  it("[INVARIANT] labels margin as an estimate derived from notional and leverage", () => {
     const res = calculateRisk(setup, profile);
     expect(res.ok).toBe(true);
     if (!res.ok) return;
@@ -127,7 +127,7 @@ describe("calculateRisk with broker specs", () => {
 });
 
 describe("dual-run resolution", () => {
-  it("keeps model 1 authoritative until v2 is promoted", () => {
+  it("[INVARIANT] keeps model 1 authoritative until v2 is promoted", () => {
     const spec = specFromRow(brokerRow({ volume_max: 0.05 }))!;
     const wide = { ...setup, stopLoss: 2399.9 };
     const shadowOnly = resolveSizing(wide, profile, {}, { spec });
@@ -139,7 +139,7 @@ describe("dual-run resolution", () => {
     expect(promoted.authoritative).toBe(promoted.shadow);
   });
 
-  it("never promotes a stale broker spec", () => {
+  it("[INVARIANT] never promotes a stale broker spec", () => {
     const old = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
     const spec = specFromRow(brokerRow({ fetched_at: old }))!;
     const res = resolveSizing(setup, profile, {}, { spec, v2Promoted: true });
@@ -147,7 +147,7 @@ describe("dual-run resolution", () => {
     expect(res.authoritative.ok).toBe(true);
   });
 
-  it("reports identical runs as non-divergent", () => {
+  it("[UNIT] reports identical runs as non-divergent", () => {
     const v1 = calculateRisk(setup, profile);
     expect(compareSizing(v1, v1).diverged).toBe(false);
   });
