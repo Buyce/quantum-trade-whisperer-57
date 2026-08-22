@@ -48,7 +48,9 @@ skip list contains nothing else. Everything under `public` — tables, indexes,
 constraints, GRANTs, RLS policies and RPC bodies — is the production migration
 SQL verbatim.
 
-Result after replay: 21 `public` tables and 18 `public` functions, i.e. the
+Result after replay at the time of the spike: 21 `public` tables and 18 `public`
+functions, i.e. the
+
 production shape.
 
 ## 2. What the layer proves (11 blocking tests)
