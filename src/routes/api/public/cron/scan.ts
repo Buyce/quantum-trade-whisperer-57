@@ -19,17 +19,11 @@ export const Route = createFileRoute("/api/public/cron/scan")({
           const db = adminClient();
           const result = await enqueueScanCycle(db);
 
-          // Broker contract specs: at most one request per symbol per 24h, and
-          // deliberately AFTER enqueueing so it can never delay or fail a scan.
-          let specs: unknown = null;
-          try {
-            const { refreshSymbolSpecs } = await import("@/lib/broker/specs.server");
-            specs = await refreshSymbolSpecs(db);
-          } catch (err) {
-            console.error("[cron/scan] spec refresh failed", err);
-          }
+          // Broker contract specifications are refreshed by their own daily cron
+          // (/api/public/cron/refresh-specs). They are deliberately NOT touched
+          // here: this endpoint must stay a lightweight enqueue-and-return.
+          return Response.json({ ok: true, ...result });
 
-          return Response.json({ ok: true, ...result, specs });
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           console.error("[cron/scan]", message);
