@@ -14,9 +14,8 @@ export interface AdvisoryTradeRow {
   actual_exit_at?: string | null;
   updated_at?: string | null;
   signal_instrument?: string | null;
+  /** Canonical planned-risk R. The ONLY R this advisory may aggregate. */
   r_vs_plan?: number | string | null;
-  derived_r?: number | string | null;
-  realized_r_multiple?: number | string | null;
 }
 
 export interface CurrencyExposure {
@@ -95,7 +94,10 @@ export function portfolioAdvisory(
     // Resolved: count only losses closed today, and only from a canonical R.
     const closedDay = utcDay(t.actual_exit_at ?? t.updated_at ?? null);
     if (closedDay !== today) continue;
-    const r = num(t.r_vs_plan) ?? num(t.derived_r) ?? num(t.realized_r_multiple);
+    // Prompt-9 basis isolation: canonical r_vs_plan only. Frozen legacy R
+    // (derived_r / realized_r_multiple) is a different unit of account and is
+    // excluded rather than converted.
+    const r = num(t.r_vs_plan);
     if (r !== null && r < 0) realizedLossTodayR += Math.abs(r);
   }
 
