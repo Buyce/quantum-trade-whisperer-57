@@ -1,4 +1,12 @@
-# Database regression layer — feasibility spike and results
+# Database regression layer — feasibility spike and results (historical)
+
+> **Historical document.** This records the feasibility spike and the state of the
+> database regression layer when it was built. It is preserved deliberately and is
+> **not** updated as the schema grows. Every count below (migrations, `public`
+> tables, `public` functions, number of blocking tests) is a point-in-time
+> observation from that spike — the repository, not this page, is the authority on
+> current counts. Where this page and the code disagree, the code wins.
+
 
 ## 1. Feasibility spike (executed, not assumed)
 
