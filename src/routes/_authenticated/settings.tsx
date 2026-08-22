@@ -140,6 +140,8 @@ function SettingsPage() {
     setWebhookUrl(s.webhook_url ?? "");
     setWebhookSecret(s.webhook_secret ?? "");
     setWebhookFormat(s.webhook_format ?? "json");
+    setExecutionEnabled((s as { execution_enabled?: boolean }).execution_enabled ?? false);
+    setExecutionDryRun((s as { execution_dry_run?: boolean }).execution_dry_run !== false);
     setEquity(String(Number(s.account_equity ?? 0)));
     setCurrency(s.account_currency ?? "USD");
     setRiskPercent(String(Number(s.risk_per_trade_percent ?? 1)));
