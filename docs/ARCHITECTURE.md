@@ -44,7 +44,7 @@ tables are read through cohort-scoped views rather than the production tables.
 
 ### Stack
 
-TanStack Start v1 on Vite 7, React 19, Tailwind v4, Supabase (Postgres + auth +
+TanStack Start v1 on Vite 8, React 19, Tailwind v4, Supabase (Postgres + auth +
 RLS) as the backend, deployed to an edge Worker runtime. Server logic is
 `createServerFn` for in-app RPC and file routes under `src/routes/api/` for HTTP
 endpoints. `/api/public/*` bypasses site auth and therefore authenticates its own
