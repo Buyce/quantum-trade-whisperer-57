@@ -51,7 +51,7 @@ const CORE = [
   {
     icon: Sliders,
     title: "Your risk, your rules",
-    body: "Set account equity, risk per trade, leverage and a maximum stop-loss distance once. Every signal then shows your lot size, the cash at risk and the margin required — converted for the quote currency, not a generic estimate.",
+    body: "Set account equity, risk per trade, leverage and a maximum stop-loss distance once. Every signal then shows your lot size, the cash at risk and an estimated margin requirement, converted for the instrument's quote currency. When a rate or specification is stale, it refuses and says why instead of guessing.",
   },
   {
     icon: BarChart3,
@@ -63,8 +63,8 @@ const CORE = [
 const SYSTEMS = [
   {
     icon: Brain,
-    title: "Shadow replay + Bayesian learning",
-    body: "Every published setup is forward-tested on real candles with a deterministic triple-barrier replay. A hierarchical Beta-Binomial model then reports fill and win priors per market regime, with per-bucket sample floors and visible gates. Advisory only — it never invents a number it does not have the samples for.",
+    title: "Shadow replay + evidence gates",
+    body: "Every published setup is forward-tested on real candles by a deterministic replay under one fixed policy, with adverse intrabar ordering assumed where M15 data cannot resolve it. Results are reported per market regime behind sample and distinct-day floors, with Wilson intervals and a whole-day cluster bootstrap. Research-only and descriptive — no order is placed, and no bucket is estimated below its gate.",
   },
   {
     icon: ShieldCheck,
@@ -90,6 +90,22 @@ const SYSTEMS = [
     icon: Smartphone,
     title: "Installable and resilient",
     body: "Installs to an Android home screen as a PWA. Behind it: a decoupled job queue, REST-only market data, hard 8-second fetch timeouts, a self-chaining worker and per-instrument health flags so one stalled feed never blocks a scan cycle.",
+  },
+] as const;
+
+/** The three-step user loop the whole terminal is organised around. */
+const LOOP = [
+  {
+    title: "Scan",
+    body: "Three instruments, three timeframes, every 15 minutes. Structures are graded on four confluence pillars, and the default answer is No Trade — when nothing qualifies, the feed says so.",
+  },
+  {
+    title: "Plan",
+    body: "Each survivor becomes a fully specified profile: limit entry, a maximum acceptable entry so you never chase, an ATR-buffered structural stop, structure-capped targets, and the lot size your own risk settings allow.",
+  },
+  {
+    title: "Measure",
+    body: "Log taken or skipped, add your real fills, and see expectancy in R against an explicit basis — with evidence gates that say 'not enough data' instead of showing you a win rate built on six trades.",
   },
 ] as const;
 
@@ -225,6 +241,29 @@ function Landing() {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      <section className="border-t border-border bg-surface/50">
+        <div className="mx-auto max-w-6xl px-4 py-16">
+          <p className="label-xs">The loop</p>
+          <h2 className="mt-3 text-2xl font-semibold tracking-tight text-foreground">
+            Scan · Plan · Measure
+          </h2>
+          <ol className="mt-6 grid gap-4 sm:grid-cols-3">
+            {LOOP.map((step, i) => (
+              <li key={step.title} className="rounded-md border border-border bg-card p-5">
+                <span className="num text-xs text-primary">0{i + 1}</span>
+                <h3 className="mt-2 text-base font-semibold text-foreground">{step.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{step.body}</p>
+              </li>
+            ))}
+          </ol>
+          <p className="mt-6 max-w-3xl text-sm text-muted-foreground">
+            Nothing is estimated to fill a gap. Where an input is missing or stale, the terminal
+            refuses and names the reason — and every figure is labelled by where it came from: broker
+            data, engine calculation, deterministic replay, or your own reporting.
+          </p>
         </div>
       </section>
 
