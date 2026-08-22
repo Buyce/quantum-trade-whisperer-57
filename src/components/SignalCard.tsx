@@ -433,73 +433,81 @@ function ModelExplain({ signal }: { signal: SignalRow }) {
 
 
 /**
- * Per-user position sizing. Everything here is derived from the stored setup and
- * the trader's own risk profile — it places nothing and changes no grade.
+ * Per-user position sizing, resolved by the shared authenticated sizing service.
  *
- * ZERO-HALLUCINATION: when equity is unset or the FX conversion rate is missing,
- * this renders the reason instead of a lot size. It never guesses a balance,
- * assumes currency parity, or shows an example position.
+ * The browser no longer computes sizing: the server loads the broker contract
+ * specification, decides spec/quote freshness, runs the dual model and returns
+ * the authoritative answer plus its provenance. UI and agents therefore always
+ * quote the same number and the same caveats.
+ *
+ * ZERO-HALLUCINATION: when equity is unset, the FX conversion rate is missing or
+ * the quote is stale, this renders the reason instead of a lot size.
  */
-function RiskPanel({
-  signal,
-  profile,
-  rates,
-}: {
-  signal: SignalRow;
-  profile: RiskProfile;
-  rates: Record<string, number>;
-}) {
+function RiskPanel({ signal }: { signal: SignalRow }) {
   const ladder = targetLadder(signal);
   const finalR = ladder.length ? ladder[ladder.length - 1]!.r : (signal.max_r ?? null);
-  const result = calculateRisk(
-    {
-      instrument: signal.instrument,
-      entryPrice: Number(signal.entry_price),
-      stopLoss: Number(signal.stop_loss),
-      finalTargetR: finalR,
-    },
-    profile,
-    rates,
-  );
+  const resolve = useServerFn(resolveSizingForSetup);
+  const sizing = useQuery({
+    queryKey: ["sizing", signal.id],
+    staleTime: 30_000,
+    queryFn: () =>
+      resolve({
+        data: {
+          instrument: signal.instrument,
+          entryPrice: Number(signal.entry_price),
+          stopLoss: Number(signal.stop_loss),
+          finalTargetR: finalR,
+          signalId: signal.id,
+        },
+      }),
+  });
 
-  if (!result.ok) {
+  if (sizing.isLoading) {
     return (
       <div className="border-t border-border px-3 py-4 sm:px-4">
         <p className="label-xs">Your position size</p>
-        <p className="mt-2 text-sm text-muted-foreground">{RISK_UNAVAILABLE_COPY[result.reason]}</p>
+        <p className="mt-2 text-sm text-muted-foreground">Sizing this setup…</p>
+      </div>
+    );
+  }
+
+  const result = sizing.data;
+  if (!result || sizing.isError) {
+    return (
+      <div className="border-t border-border px-3 py-4 sm:px-4">
+        <p className="label-xs">Your position size</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Position size could not be calculated right now. Nothing is estimated in its place.
+        </p>
+      </div>
+    );
+  }
+
+  if (!result.available) {
+    return (
+      <div className="border-t border-border px-3 py-4 sm:px-4">
+        <p className="label-xs">Your position size</p>
+        <p className="mt-2 text-sm text-muted-foreground">{result.explanation}</p>
+        <ProvenanceLine provenance={result.provenance} />
+        <AdvisoryLine advisory={result.advisory} />
       </div>
     );
   }
 
   const cur = result.currency;
-  const warnings: string[] = [];
-  if (result.belowMinimumLot)
-    warnings.push(
-      `Your ${money(result.riskBudget, cur)} risk budget is below the 0.01-lot minimum for this stop distance. Sizing down is not possible — skipping is the only way to respect your limit.`,
-    );
-  if (result.cappedByPositionSize)
-    warnings.push(
-      `Size limited by your ${result.rawLots.toFixed(2)}-lot calculation hitting the ${profile.maxPositionSize}-lot ceiling, so you are risking ${money(result.riskAmount, cur)} instead of the full ${money(result.riskBudget, cur)}.`,
-    );
-  if (result.exceedsMargin)
-    warnings.push(
-      `Estimated margin of ${money(result.marginEstimate, cur)} at 1:${profile.leverage} exceeds your account equity — this size is likely not fundable. Your broker's actual requirement may differ.`,
-    );
-  if (result.exceedsStopCeiling)
-    warnings.push(
-      `Stop is ${result.stopPercent.toFixed(2)}% from entry, wider than your ${profile.maxStopLossPercent}% ceiling.`,
-    );
+  const profile = result.profile;
 
   return (
     <div className="border-t border-border px-3 py-4 sm:px-4">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <p className="label-xs">
-          <InfoLabel hint="Calculated from your own risk profile in Settings: your balance and risk-per-trade decide the lot size, this setup's stop distance decides how much one lot can lose. Rounded down to a tradable lot step, so the money at risk is never more than your limit.">
+          <InfoLabel hint="Calculated on the server from your own risk profile in Settings: your entered balance and risk-per-trade decide the lot size, this setup's stop distance decides how much one lot can lose. Rounded down to a tradable lot step, so the money at risk is never more than your limit.">
             Your position size
           </InfoLabel>
         </p>
         <span className="num text-xs text-muted-foreground">
-          {profile.riskPerTradePercent}% of {money(profile.accountEquity, cur)} · 1:{profile.leverage}
+          {profile.riskPerTradePercent}% of {money(profile.accountEquity, cur)} · 1:
+          {profile.leverage}
         </span>
       </div>
 
@@ -549,19 +557,24 @@ function RiskPanel({
         <span className="num">Per lot: {money(result.riskPerLot, cur)}</span>
         <span className="num">Position value: {money(result.notional, cur)}</span>
         <span className="num">
-          Est. margin: {result.marginPercentOfEquity.toFixed(1)}% of equity (notional ÷ leverage, not your
-          broker's figure)
+          Est. margin: {result.marginPercentOfEquity.toFixed(1)}% of equity (notional ÷ leverage,
+          not your broker's figure)
         </span>
         {result.quoteCurrency !== cur ? (
           <span className="num">
             Converted from {result.quoteCurrency} at {result.conversionRate.toFixed(5)}
           </span>
         ) : null}
+        {result.minStopDistance !== null ? (
+          <span className="num">
+            Broker minimum stop distance: {result.minStopDistance.toFixed(5)}
+          </span>
+        ) : null}
       </div>
 
-      {warnings.length ? (
+      {result.guardrails.length ? (
         <ul className="mt-3 space-y-1.5">
-          {warnings.map((w) => (
+          {result.guardrails.map((w) => (
             <li
               key={w}
               className="rounded-sm border border-warning/40 bg-warning/10 px-2 py-1.5 text-xs leading-snug text-warning"
@@ -572,6 +585,9 @@ function RiskPanel({
         </ul>
       ) : null}
 
+      <ProvenanceLine provenance={result.provenance} />
+      <AdvisoryLine advisory={result.advisory} />
+
       <p className="mt-3 text-xs leading-snug text-muted-foreground">
         Sizing guidance from your saved settings, not financial advice. Confirm the lot size and
         margin in your own platform before placing the order.
@@ -579,6 +595,92 @@ function RiskPanel({
     </div>
   );
 }
+
+/** Where the numbers came from — never implied, always stated. */
+function ProvenanceLine({
+  provenance,
+}: {
+  provenance: {
+    specSource: string;
+    specAsOf: string | null;
+    specStale: boolean;
+    quoteAsOf: string | null;
+    quoteStale: boolean;
+    conversionRoute: string;
+    equityAsOf: string | null;
+    authoritativeModel: number;
+    shadowAvailable: boolean;
+  };
+}) {
+  const specLabel =
+    provenance.specSource === "broker"
+      ? `broker contract spec${provenance.specAsOf ? ` · ${new Date(provenance.specAsOf).toLocaleString()}` : ""}`
+      : "documented contract table (not broker-confirmed)";
+  return (
+    <p className="mt-3 text-xs leading-snug text-muted-foreground">
+      Contract data: {specLabel}
+      {provenance.specStale ? " · out of date" : ""}. Conversion: {provenance.conversionRoute}
+      {provenance.quoteAsOf ? ` · quoted ${new Date(provenance.quoteAsOf).toLocaleTimeString()}` : ""}
+      . Balance: entered by you
+      {provenance.equityAsOf
+        ? `, last updated ${new Date(provenance.equityAsOf).toLocaleDateString()}`
+        : " (date unknown)"}
+      , not broker-confirmed.
+    </p>
+  );
+}
+
+/** Advisory exposure from the user's own journal — never broker account state. */
+function AdvisoryLine({
+  advisory,
+}: {
+  advisory: {
+    openPositions: number;
+    pendingPositions: number;
+    openRiskR: number;
+    openRiskMoney: number | null;
+    realizedLossTodayR: number;
+    realizedLossTodayMoney: number | null;
+    currency: string;
+    byCurrency: { currency: string; positions: number; share: number }[];
+  } | null;
+}) {
+  if (!advisory) return null;
+  if (
+    advisory.openPositions === 0 &&
+    advisory.pendingPositions === 0 &&
+    advisory.realizedLossTodayR === 0
+  ) {
+    return null;
+  }
+  const cur = advisory.currency;
+  return (
+    <div className="mt-3 rounded-sm border border-border bg-surface/50 px-2 py-1.5 text-xs leading-snug text-muted-foreground">
+      <p className="font-medium text-foreground/80">Exposure based on trades you logged</p>
+      <p className="num mt-1">
+        Open: {advisory.openPositions} ({advisory.openRiskR.toFixed(2)}R
+        {advisory.openRiskMoney === null ? "" : ` ≈ ${money(advisory.openRiskMoney, cur)}`}) ·
+        Pending fills: {advisory.pendingPositions} · Realized loss today:{" "}
+        {advisory.realizedLossTodayR.toFixed(2)}R
+        {advisory.realizedLossTodayMoney === null
+          ? ""
+          : ` ≈ ${money(advisory.realizedLossTodayMoney, cur)}`}
+      </p>
+      {advisory.byCurrency.length ? (
+        <p className="num mt-1">
+          Concentration:{" "}
+          {advisory.byCurrency
+            .map((c) => `${c.currency} ${(c.share * 100).toFixed(0)}%`)
+            .join(" · ")}
+        </p>
+      ) : null}
+      <p className="mt-1">
+        Advisory only, from your own journal — not your broker account. It never blocks a size.
+      </p>
+    </div>
+  );
+}
+
 
 export function SignalCard({
   signal,
