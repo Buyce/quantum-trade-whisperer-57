@@ -161,7 +161,7 @@ describe("list_signals my_scanner retrieval completeness", () => {
 
     const result = await runListSignals(client, { scope: "my_scanner", limit: 5 }, NOW);
     expect(out(result).count).toBe(1);
-    expect(out(result).signals[0]["id"]).toBe("sig-0400");
+    expect(out(result).signals[0]!["id"]).toBe("sig-0400");
   });
 
   it("[INVARIANT] min_grade=A with limit 2 returns only A-or-better rows", async () => {
