@@ -33,6 +33,8 @@ function brokerRow(overrides: Partial<BrokerSpecRow> = {}): BrokerSpecRow {
     stops_level: 0,
     freeze_level: 0,
     digits: 2,
+    point: 0.01,
+    point_source: "derived_from_digits",
     base_currency: "XAU",
     profit_currency: "USD",
     margin_currency: "USD",
@@ -79,11 +81,45 @@ describe("calculateRisk with broker specs", () => {
   });
 
   it("[INVARIANT] refuses to size when the stop is inside the broker's stops level", () => {
-    const spec = specFromRow(brokerRow({ stops_level: 5000, tick_size: 0.01 }))!;
+    // 5000 points x 0.01 point size = 50 in price, wider than the 10 stop.
+    const spec = specFromRow(brokerRow({ stops_level: 5000 }))!;
     const res = calculateRisk(setup, profile, {}, { spec });
     expect(res.ok).toBe(false);
     if (res.ok) return;
     expect(res.reason).toBe("below_stops_level");
+  });
+
+  it("[INVARIANT] converts stops level with the point size, never with the tick size", () => {
+    // Tick size is 25x the point here: using it would overstate the minimum
+    // stop distance by 25x and refuse a perfectly valid stop.
+    const spec = specFromRow(brokerRow({ stops_level: 500, tick_size: 0.25 }))!;
+    expect(spec.point).toBe(0.01);
+    const res = calculateRisk(setup, profile, {}, { spec });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.minStopDistance).toBeCloseTo(5, 10);
+  });
+
+  it("[INVARIANT] derives the point size from digits and never from the tick size", () => {
+    const row = rowFromSpecification("EURUSD", {
+      contractSize: 100_000,
+      volumeStep: 0.01,
+      tickSize: 0.00005,
+      digits: 5,
+    });
+    expect(row.point).toBeCloseTo(0.00001, 12);
+    expect(row.point_source).toBe("derived_from_digits");
+  });
+
+  it("[INVARIANT] prefers an explicit broker point field over the derived one", () => {
+    const row = rowFromSpecification("XAUUSD", {
+      contractSize: 100,
+      volumeStep: 0.01,
+      digits: 3,
+      point: 0.01,
+    });
+    expect(row.point).toBe(0.01);
+    expect(row.point_source).toBe("broker_point");
   });
 
   it("[INVARIANT] makes no stops-level claim when the broker omitted it", () => {

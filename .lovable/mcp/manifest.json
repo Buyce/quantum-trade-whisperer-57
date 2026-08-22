@@ -186,6 +186,10 @@
               "description": "Maximum stop distance as a percent of entry; 0 disables the check.",
               "type": "number"
             },
+            "risk_ack_high": {
+              "description": "Persisted acknowledgement that the user accepts risking more than 2% of equity per trade. Required (together with confirm_risk_change) before risk_per_trade_percent above 2 is applied; without it the percent is left unchanged.",
+              "type": "boolean"
+            },
             "confirm_risk_change": {
               "description": "Set true ONLY when the user has explicitly approved changing their risk profile (equity, currency, risk percent, max position size, leverage, max stop-loss percent). Required for those fields; it represents explicit user approval, not agent judgement, and does not relax validation or clamping.",
               "type": "boolean"
@@ -197,7 +201,7 @@
       {
         "name": "calculate_position_size",
         "title": "Calculate position size",
-        "description": "Size a setup using the signed-in user's saved risk profile. Pass a signal_id from list_signals, or an explicit instrument plus entry_price and stop_loss. Returns lot size, cash at risk, an ESTIMATED margin (notional / leverage — not the broker's margin requirement) and any guardrail warnings. Returns an explicit unavailable reason instead of a guess when equity or an FX rate is missing.",
+        "description": "Size a setup using the signed-in user's saved risk profile, through the SAME server sizing service the P-Trades terminal uses. Pass a signal_id from list_signals, or an explicit instrument plus entry_price and stop_loss. Returns lot size, cash at risk, an ESTIMATED margin (notional / leverage — not the broker's margin requirement), contract-specification and quote provenance, and any guardrail warnings. Account equity is user-entered, never broker-confirmed. Returns an explicit unavailable reason instead of a guess when equity, a broker specification or a fresh FX rate is missing.",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": false,

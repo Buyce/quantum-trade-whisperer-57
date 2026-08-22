@@ -28,6 +28,7 @@ import { Route as AuthenticatedAdminIntelligenceRouteImport } from './routes/_au
 import { Route as ApiPublicQuotesRouteImport } from './routes/api/public/quotes'
 import { Route as ApiPublicAgentRegisterRouteImport } from './routes/api/public/agent/register'
 import { Route as ApiPublicCronPurgeAccountsRouteImport } from './routes/api/public/cron/purge-accounts'
+import { Route as ApiPublicCronRefreshSpecsRouteImport } from './routes/api/public/cron/refresh-specs'
 import { Route as ApiPublicCronScanRouteImport } from './routes/api/public/cron/scan'
 import { Route as ApiPublicCronShadowResolveRouteImport } from './routes/api/public/cron/shadow-resolve'
 import { Route as ApiPublicCronVerifyRemindersRouteImport } from './routes/api/public/cron/verify-reminders'
@@ -138,6 +139,12 @@ const ApiPublicCronPurgeAccountsRoute =
     path: '/api/public/cron/purge-accounts',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicCronRefreshSpecsRoute =
+  ApiPublicCronRefreshSpecsRouteImport.update({
+    id: '/api/public/cron/refresh-specs',
+    path: '/api/public/cron/refresh-specs',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicCronScanRoute = ApiPublicCronScanRouteImport.update({
   id: '/api/public/cron/scan',
   path: '/api/public/cron/scan',
@@ -207,6 +214,7 @@ export interface FileRoutesByFullPath {
   '/api/public/quotes': typeof ApiPublicQuotesRoute
   '/api/public/agent/register': typeof ApiPublicAgentRegisterRoute
   '/api/public/cron/purge-accounts': typeof ApiPublicCronPurgeAccountsRoute
+  '/api/public/cron/refresh-specs': typeof ApiPublicCronRefreshSpecsRoute
   '/api/public/cron/scan': typeof ApiPublicCronScanRoute
   '/api/public/cron/shadow-resolve': typeof ApiPublicCronShadowResolveRoute
   '/api/public/cron/verify-reminders': typeof ApiPublicCronVerifyRemindersRoute
@@ -236,6 +244,7 @@ export interface FileRoutesByTo {
   '/api/public/quotes': typeof ApiPublicQuotesRoute
   '/api/public/agent/register': typeof ApiPublicAgentRegisterRoute
   '/api/public/cron/purge-accounts': typeof ApiPublicCronPurgeAccountsRoute
+  '/api/public/cron/refresh-specs': typeof ApiPublicCronRefreshSpecsRoute
   '/api/public/cron/scan': typeof ApiPublicCronScanRoute
   '/api/public/cron/shadow-resolve': typeof ApiPublicCronShadowResolveRoute
   '/api/public/cron/verify-reminders': typeof ApiPublicCronVerifyRemindersRoute
@@ -267,6 +276,7 @@ export interface FileRoutesById {
   '/api/public/quotes': typeof ApiPublicQuotesRoute
   '/api/public/agent/register': typeof ApiPublicAgentRegisterRoute
   '/api/public/cron/purge-accounts': typeof ApiPublicCronPurgeAccountsRoute
+  '/api/public/cron/refresh-specs': typeof ApiPublicCronRefreshSpecsRoute
   '/api/public/cron/scan': typeof ApiPublicCronScanRoute
   '/api/public/cron/shadow-resolve': typeof ApiPublicCronShadowResolveRoute
   '/api/public/cron/verify-reminders': typeof ApiPublicCronVerifyRemindersRoute
@@ -298,6 +308,7 @@ export interface FileRouteTypes {
     | '/api/public/quotes'
     | '/api/public/agent/register'
     | '/api/public/cron/purge-accounts'
+    | '/api/public/cron/refresh-specs'
     | '/api/public/cron/scan'
     | '/api/public/cron/shadow-resolve'
     | '/api/public/cron/verify-reminders'
@@ -327,6 +338,7 @@ export interface FileRouteTypes {
     | '/api/public/quotes'
     | '/api/public/agent/register'
     | '/api/public/cron/purge-accounts'
+    | '/api/public/cron/refresh-specs'
     | '/api/public/cron/scan'
     | '/api/public/cron/shadow-resolve'
     | '/api/public/cron/verify-reminders'
@@ -357,6 +369,7 @@ export interface FileRouteTypes {
     | '/api/public/quotes'
     | '/api/public/agent/register'
     | '/api/public/cron/purge-accounts'
+    | '/api/public/cron/refresh-specs'
     | '/api/public/cron/scan'
     | '/api/public/cron/shadow-resolve'
     | '/api/public/cron/verify-reminders'
@@ -382,6 +395,7 @@ export interface RootRouteChildren {
   ApiPublicQuotesRoute: typeof ApiPublicQuotesRoute
   ApiPublicAgentRegisterRoute: typeof ApiPublicAgentRegisterRoute
   ApiPublicCronPurgeAccountsRoute: typeof ApiPublicCronPurgeAccountsRoute
+  ApiPublicCronRefreshSpecsRoute: typeof ApiPublicCronRefreshSpecsRoute
   ApiPublicCronScanRoute: typeof ApiPublicCronScanRoute
   ApiPublicCronShadowResolveRoute: typeof ApiPublicCronShadowResolveRoute
   ApiPublicCronVerifyRemindersRoute: typeof ApiPublicCronVerifyRemindersRoute
@@ -528,6 +542,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicCronPurgeAccountsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/cron/refresh-specs': {
+      id: '/api/public/cron/refresh-specs'
+      path: '/api/public/cron/refresh-specs'
+      fullPath: '/api/public/cron/refresh-specs'
+      preLoaderRoute: typeof ApiPublicCronRefreshSpecsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/cron/scan': {
       id: '/api/public/cron/scan'
       path: '/api/public/cron/scan'
@@ -642,6 +663,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicQuotesRoute: ApiPublicQuotesRoute,
   ApiPublicAgentRegisterRoute: ApiPublicAgentRegisterRoute,
   ApiPublicCronPurgeAccountsRoute: ApiPublicCronPurgeAccountsRoute,
+  ApiPublicCronRefreshSpecsRoute: ApiPublicCronRefreshSpecsRoute,
   ApiPublicCronScanRoute: ApiPublicCronScanRoute,
   ApiPublicCronShadowResolveRoute: ApiPublicCronShadowResolveRoute,
   ApiPublicCronVerifyRemindersRoute: ApiPublicCronVerifyRemindersRoute,

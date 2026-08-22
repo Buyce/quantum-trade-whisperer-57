@@ -74,6 +74,8 @@ export type Database = {
           fetched_at: string
           freeze_level: number | null
           margin_currency: string | null
+          point: number | null
+          point_source: string | null
           profit_currency: string | null
           raw: Json | null
           source: string
@@ -95,6 +97,8 @@ export type Database = {
           fetched_at?: string
           freeze_level?: number | null
           margin_currency?: string | null
+          point?: number | null
+          point_source?: string | null
           profit_currency?: string | null
           raw?: Json | null
           source?: string
@@ -116,6 +120,8 @@ export type Database = {
           fetched_at?: string
           freeze_level?: number | null
           margin_currency?: string | null
+          point?: number | null
+          point_source?: string | null
           profit_currency?: string | null
           raw?: Json | null
           source?: string
@@ -1567,6 +1573,7 @@ export type Database = {
           research_errors: number
           research_last_error: string | null
           research_last_error_at: string | null
+          sizing_v2_enabled: boolean
           updated_at: string
           v2_enabled: boolean
           v3_enabled: boolean
@@ -1587,6 +1594,7 @@ export type Database = {
           research_errors?: number
           research_last_error?: string | null
           research_last_error_at?: string | null
+          sizing_v2_enabled?: boolean
           updated_at?: string
           v2_enabled?: boolean
           v3_enabled?: boolean
@@ -1607,6 +1615,7 @@ export type Database = {
           research_errors?: number
           research_last_error?: string | null
           research_last_error_at?: string | null
+          sizing_v2_enabled?: boolean
           updated_at?: string
           v2_enabled?: boolean
           v3_enabled?: boolean
@@ -1971,6 +1980,30 @@ export type Database = {
           },
         ]
       }
+      spec_refresh_attempts: {
+        Row: {
+          attempts: number
+          last_attempt_at: string
+          last_error: string | null
+          last_outcome: string | null
+          symbol: string
+        }
+        Insert: {
+          attempts?: number
+          last_attempt_at?: string
+          last_error?: string | null
+          last_outcome?: string | null
+          symbol: string
+        }
+        Update: {
+          attempts?: number
+          last_attempt_at?: string
+          last_error?: string | null
+          last_outcome?: string | null
+          symbol?: string
+        }
+        Relationships: []
+      }
       v2_structure_claims: {
         Row: {
           claimed_at: string
@@ -2324,6 +2357,10 @@ export type Database = {
           signal_id: string
         }[]
       }
+      claim_spec_refresh: {
+        Args: { _min_interval_seconds: number; _symbol: string }
+        Returns: boolean
+      }
       claim_v2_structure: {
         Args: {
           _cooldown_minutes?: number
@@ -2364,6 +2401,10 @@ export type Database = {
       recompute_regime_stats: {
         Args: { _model_version?: number }
         Returns: Json
+      }
+      record_spec_refresh_outcome: {
+        Args: { _error: string; _outcome: string; _symbol: string }
+        Returns: undefined
       }
       release_learning_milestone: {
         Args: { _gate: string }

@@ -32,7 +32,16 @@ export interface SettingsInput {
   max_position_size?: number | undefined;
   leverage?: number | undefined;
   max_stop_loss_percent?: number | undefined;
+  /** Explicit, persisted acknowledgement for risking more than 2% per trade. */
+  risk_ack_high?: boolean | undefined;
 }
+
+/**
+ * Conservative default risk. Anything above this needs a persisted high-risk
+ * acknowledgement — the number is not silently accepted.
+ */
+export const CONSERVATIVE_RISK_PERCENT = 1;
+export const HIGH_RISK_THRESHOLD_PERCENT = 2;
 
 /**
  * Money-moving fields. Changing any of these changes how large a real position
@@ -47,6 +56,7 @@ export const SENSITIVE_RISK_FIELDS = [
   "max_position_size",
   "leverage",
   "max_stop_loss_percent",
+  "risk_ack_high",
 ] as const;
 
 export type SensitiveRiskField = (typeof SENSITIVE_RISK_FIELDS)[number];
@@ -54,6 +64,13 @@ export type SensitiveRiskField = (typeof SENSITIVE_RISK_FIELDS)[number];
 /** Sensitive fields present in the input, in declaration order. */
 export function sensitiveFieldsIn(input: SettingsInput): SensitiveRiskField[] {
   return SENSITIVE_RISK_FIELDS.filter((f) => input[f] !== undefined);
+}
+
+export interface ValidateOptions {
+  /** The acknowledgement already stored for this user. */
+  currentAckHigh?: boolean;
+  /** Timestamp written alongside a new entered balance. */
+  now?: Date;
 }
 
 export interface ValidatedSettings {
@@ -82,7 +99,10 @@ function filterList(
 }
 
 /** Builds a safe database patch from agent-supplied settings. */
-export function validateSettings(input: SettingsInput): ValidatedSettings {
+export function validateSettings(
+  input: SettingsInput,
+  options: ValidateOptions = {},
+): ValidatedSettings {
   const patch: Record<string, unknown> = {};
   const warnings: string[] = [];
 
@@ -114,6 +134,8 @@ export function validateSettings(input: SettingsInput): ValidatedSettings {
     if (cap !== input.daily_setup_cap) warnings.push(`daily_setup_cap clamped to ${cap}.`);
     patch["daily_setup_cap"] = cap;
   }
+
+  if (input.risk_ack_high !== undefined) patch["risk_ack_high"] = input.risk_ack_high;
 
   if (input.notify_push !== undefined) patch["notify_push"] = input.notify_push;
   if (input.notify_email !== undefined) patch["notify_email"] = input.notify_email;
@@ -147,6 +169,30 @@ export function validateSettings(input: SettingsInput): ValidatedSettings {
       column === "leverage" ? Math.round(clamp(value, min, max)) : clamp(value, min, max);
     if (clamped !== value) warnings.push(`${column} clamped to ${clamped}.`);
     patch[column] = clamped;
+  }
+
+  // Above-2% risk requires an explicit, persisted acknowledgement. Without it
+  // the percent is left unchanged rather than quietly applied.
+  const requestedRisk = patch["risk_per_trade_percent"] as number | undefined;
+  if (requestedRisk !== undefined && requestedRisk > HIGH_RISK_THRESHOLD_PERCENT) {
+    const acknowledged = input.risk_ack_high === true || options.currentAckHigh === true;
+    if (!acknowledged) {
+      delete patch["risk_per_trade_percent"];
+      warnings.push(
+        `risk_per_trade_percent left unchanged: risking more than ${HIGH_RISK_THRESHOLD_PERCENT}% per trade requires an explicit high-risk acknowledgement (risk_ack_high: true). The conservative default is ${CONSERVATIVE_RISK_PERCENT}%.`,
+      );
+    } else {
+      patch["risk_ack_high"] = true;
+      warnings.push(
+        `Risking ${requestedRisk}% per trade is above the ${HIGH_RISK_THRESHOLD_PERCENT}% conventional ceiling; the acknowledgement has been recorded.`,
+      );
+    }
+  }
+
+  // Provenance: a new entered balance is timestamped so staleness is visible.
+  // P-Trades never reads equity from the broker, so this is user-entered only.
+  if (patch["account_equity"] !== undefined) {
+    patch["equity_as_of"] = (options.now ?? new Date()).toISOString();
   }
 
   return { patch, warnings };

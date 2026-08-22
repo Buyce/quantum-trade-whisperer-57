@@ -173,6 +173,10 @@ export interface ScannerSettingsRow {
   leverage: number;
   /** Max stop distance as a percent of entry; 0 means the check is off. */
   max_stop_loss_percent: number;
+  /** When the user last confirmed their entered balance. Never broker-confirmed. */
+  equity_as_of: string | null;
+  /** Persisted acknowledgement required to risk more than 2% per trade. */
+  risk_ack_high: boolean;
 }
 
 export type OrderStrategy = "smart_adaptive" | "strict_retest";
