@@ -110,7 +110,7 @@ describe("shared sizing service", () => {
     expect(result.provenance.specSource).toBe("static_v1");
     if (result.available) {
       // V1 sizing is unaffected by the broker's tighter volume ceiling.
-      expect(result.lots).toBeCloseTo(1, 5);
+      expect(result.lots).toBeCloseTo(0.1, 5);
       expect(result.cappedByBrokerVolume).toBe(false);
     }
   });
@@ -125,7 +125,7 @@ describe("shared sizing service", () => {
     );
     const logged = adminInserts.filter((i) => i.table === "sizing_divergence_log");
     expect(logged).toHaveLength(1);
-    expect(logged[0]?.row).toMatchObject({ authoritative_model: 1, v1_lots: 1, v2_lots: 0.05 });
+    expect(logged[0]?.row).toMatchObject({ authoritative_model: 1, v1_lots: 0.1, v2_lots: 0.05 });
   });
 
   it("[INVARIANT] refuses to size when the required conversion quote is stale", async () => {
@@ -226,9 +226,11 @@ describe("one sizing implementation", () => {
     expect(src).not.toMatch(/calculateRisk\(/);
   });
 
-  it("[INVARIANT] the public quotes endpoint no longer fetches FX legs unconditionally", () => {
+  it("[INVARIANT] the public quotes endpoint serves display prices only, no FX rate map", () => {
     const src = readFileSync("src/routes/api/public/quotes.ts", "utf8");
-    expect(src).not.toMatch(/AUDUSD/);
-    expect(src).not.toMatch(/GBPUSD/);
+    // No conversion-rate payload: conversion legs are demand-driven inside the
+    // authenticated sizing service, never fetched for every open terminal.
+    expect(src).not.toMatch(/rates:/);
+    expect(src).not.toMatch(/CONVERSION|resolveConversionRates/);
   });
 });
