@@ -141,6 +141,19 @@ export interface RiskInput {
 }
 
 /**
+ * Optional broker inputs. Passing a broker-confirmed spec switches the
+ * calculation to sizing model 2; omitting it keeps the model-1 static behaviour
+ * byte-for-byte, which is what keeps the dual-run honest.
+ */
+export interface RiskOptions {
+  spec?: import("./broker/specs").SizingSpec | null;
+  /** The broker spec is older than its freshness bound. */
+  specStale?: boolean;
+  /** The FX quote backing the conversion is older than the caller's bound. */
+  quoteStale?: boolean;
+}
+
+/**
  * Rate converting one unit of `quote` into `accountCurrency`.
  * Returns null when the pair needs a rate we do not have — the caller must then
  * show "unavailable" rather than assuming parity.
