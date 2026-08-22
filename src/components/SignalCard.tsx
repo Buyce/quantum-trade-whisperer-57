@@ -687,8 +687,7 @@ export function SignalCard({
   busy,
   quoteMid,
   orderStrategy = "smart_adaptive",
-  riskProfile,
-  fxRates,
+  showRisk = true,
 }: {
   signal: SignalRow;
   trade: TradeRow | undefined;
@@ -703,10 +702,11 @@ export function SignalCard({
   quoteMid?: number | undefined;
   /** The user's manual order-guidance preference. */
   orderStrategy?: OrderStrategy;
-  /** The user's saved risk profile, used to size the setup. */
-  riskProfile?: RiskProfile;
-  /** FX pairs for converting risk into the account currency. */
-  fxRates?: Record<string, number>;
+  /**
+   * Render the sizing panel. Sizing itself is resolved server-side by the shared
+   * sizing service, so no risk profile or FX rate is passed through the browser.
+   */
+  showRisk?: boolean;
 }) {
   const ctx = contextOf(signal);
   const long = signal.direction === "long";
