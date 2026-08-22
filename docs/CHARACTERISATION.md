@@ -1,4 +1,12 @@
-# V1 Characterisation Ledger
+# V1 Characterisation Ledger (historical)
+
+> **Historical document.** This is the V1 behaviour ledger as captured when the
+> characterisation layer was built. It is preserved deliberately and is **not**
+> updated as the repository changes. Where it disagrees with the code, the code
+> wins; for current documentation start at [README.md](README.md). Any count,
+> command list or CI statement below is a point-in-time observation, not a
+> present-tense fact — read the repository for current numbers.
+
 
 The automated suite pins the behaviour of the **V1 production engine**
 (`ACTIVE_MODEL_VERSION = 1`) exactly as it runs today — including behaviour that
