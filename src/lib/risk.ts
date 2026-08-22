@@ -90,8 +90,27 @@ export interface RiskBreakdown {
   riskPercentOfEquity: number;
   /** Position value in account currency. */
   notional: number;
+  /**
+   * ESTIMATE ONLY: notional / leverage. Real MT5 margin depends on the symbol's
+   * calc mode, margin currency and broker margin rates, which we do not have.
+   * Never present this as the broker's requirement.
+   */
+  marginEstimate: number;
+  marginBasis: "notional_over_leverage";
+  /** @deprecated Same number as `marginEstimate`; kept for existing callers. */
   marginRequired: number;
   marginPercentOfEquity: number;
+  /** Provenance of the contract specification used for this calculation. */
+  specSource: "broker" | "static_v1";
+  specAsOf: string | null;
+  /** Which sizing model produced this row: 1 = static specs, 2 = broker specs. */
+  sizingModelVersion: 1 | 2;
+  /** Broker minimum stop distance in price; null when the broker did not say. */
+  minStopDistance: number | null;
+  /** Broker volume ceiling actually applied, when known. */
+  brokerVolumeCap: number | null;
+  /** Size was limited by the broker's volume ceiling rather than by risk. */
+  cappedByBrokerVolume: boolean;
   /** Profit at the furthest reachable target, at `lots`. */
   rewardAtFinalTarget: number | null;
   finalTargetR: number | null;
