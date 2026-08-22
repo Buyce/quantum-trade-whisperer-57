@@ -42,9 +42,9 @@ const TOOL_ROWS: [string, string][] = [
   ["log_trade_decision", "Record that you took or skipped a signal."],
   [
     "update_trade_outcome",
-    "Set the outcome and, with real entry/exit prices, get a verified R computed server-side. Agent-written prices are permanently stamped as agent-entered and attributed to the assistant.",
+    "Set the outcome and, with real entry/exit prices, get self-reported R values computed server-side (never broker verified). Agent-written prices are permanently stamped as agent-entered and attributed to the assistant.",
   ],
-  ["list_my_trades", "Your journal entries, verified and unverified, including who entered each price."],
+  ["list_my_trades", "Your journal entries, price-backed and price-missing, including who entered each self-reported price."],
 
   ["get_performance_summary", "Your expectancy and R-multiple performance."],
 ];
