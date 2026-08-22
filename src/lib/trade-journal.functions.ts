@@ -81,11 +81,25 @@ export const recordTradeOutcome = createServerFn({ method: "POST" })
     const priced =
       data.outcome !== "open" && data.actualEntryPrice != null && data.actualExitPrice != null;
 
+    // Direction fails closed. The snapshot is authoritative; for pre-snapshot
+    // legacy rows we read the EXACT direction from the referenced signal if it
+    // still exists. It is never inferred and never defaults to long.
+    let direction = (trade.planned_direction as "long" | "short" | null) ?? null;
+    if (direction == null && trade.signal_id) {
+      const { data: signal } = await context.supabase
+        .from("scanned_signals")
+        .select("direction")
+        .eq("id", trade.signal_id)
+        .maybeSingle();
+      const raw = signal?.direction == null ? null : String(signal.direction);
+      direction = raw === "long" || raw === "short" ? raw : null;
+    }
+
     let result;
     try {
       result = computeR({
         outcome: data.outcome,
-        direction: (trade.planned_direction as "long" | "short" | null) ?? "long",
+        direction,
         plannedEntry: trade.planned_entry == null ? null : Number(trade.planned_entry),
         plannedStop: trade.planned_stop == null ? null : Number(trade.planned_stop),
         actualEntryPrice: data.outcome === "open" ? null : data.actualEntryPrice,
@@ -167,6 +181,11 @@ export const recordTradeOutcome = createServerFn({ method: "POST" })
       netR: net.netR,
       netRNote: net.note,
       alreadyResolved: false,
-      message: wasResolved ? "Identical retry accepted." : "Outcome recorded.",
+      message:
+        result.availability === "unavailable_no_direction"
+          ? "Outcome recorded. R could not be computed: this trade's direction could not be established, and it is never assumed."
+          : wasResolved
+            ? "Identical retry accepted."
+            : "Outcome recorded.",
     };
   });
