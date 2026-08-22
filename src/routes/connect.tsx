@@ -31,23 +31,47 @@ export const Route = createFileRoute("/connect")({
 const SERVER_SLUG = "p-trades-hub";
 
 const TOOL_ROWS: [string, string][] = [
-  ["list_signals", "Live scanner setups with entry, stop, targets, R:R and confidence. An empty list means no valid setup."],
+  [
+    "list_signals",
+    "Published scanner setups with entry, stop, targets, R:R and confidence. An empty list means only that nothing matched the requested filters and scope — never that the scanner found no valid setup.",
+  ],
   ["get_scanner_status", "Scan engine health, last run, and your active filters."],
-  ["get_market_status", "Which FX sessions are open right now and per-instrument broker feed health."],
-  ["get_my_settings", "Your instruments, timeframes, alert grade, daily cap and risk profile."],
-  ["update_my_settings", "Change those preferences. Values are clamped to safe bounds server-side."],
-  ["calculate_position_size", "Lot size, cash risk and margin for a setup, using your saved equity and risk percent."],
-  ["get_intelligence", "Bayesian fill/win priors, sample sizes, learning-gate status and regime feature influence."],
-  ["get_shadow_comparison", "Weekly shadow-replay comparison of A+/A against B/C, with sample sizes and significance."],
+  [
+    "get_market_status",
+    "Which FX sessions are open right now and per-instrument broker feed health.",
+  ],
+  [
+    "get_my_settings",
+    "Your instruments, timeframes, alert grade, daily cap and risk profile.",
+  ],
+  [
+    "update_my_settings",
+    "Change those preferences. Values are clamped to safe bounds server-side.",
+  ],
+  [
+    "calculate_position_size",
+    "Lot size, cash risk and an estimated margin requirement for a setup, using your saved equity and risk percent. Margin is an estimate from the contract specification and your leverage, not a broker quote.",
+  ],
+  [
+    "get_intelligence",
+    "Regime statistics from the learning engine: shrunk fill and win-if-filled priors, sample sizes, gate status and feature influence. Descriptive, not predictive.",
+  ],
+  [
+    "get_shadow_comparison",
+    "Weekly shadow-replay comparison of A+/A against B/C, with sample sizes and significance. Replay only — no order was placed.",
+  ],
   ["log_trade_decision", "Record that you took or skipped a signal."],
   [
     "update_trade_outcome",
     "Set the outcome and, with real entry/exit prices, get self-reported R values computed server-side (never broker verified). Agent-written prices are permanently stamped as agent-entered and attributed to the assistant.",
   ],
-  ["list_my_trades", "Your journal entries, price-backed and price-missing, including who entered each self-reported price."],
-
+  [
+    "list_my_trades",
+    "Your journal entries, price-backed and price-missing, including who entered each self-reported price.",
+  ],
   ["get_performance_summary", "Your expectancy and R-multiple performance."],
 ];
+
 
 function useMcpUrl() {
   const [url, setUrl] = useState("");

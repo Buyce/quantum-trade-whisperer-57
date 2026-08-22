@@ -40,8 +40,15 @@ means that barrier, not the 1:3 default, set the final target.
 **TIF (time in force)** — an unfilled pending order is cancelled after
 `ORDER_TIF_MINUTES` (30), two M15 candles.
 
-**No Trade** — the default. Zero qualifying setups is a correct outcome and renders
-"Capital Preservation Mode Active".
+**No Trade** — the default outcome of a completed scan cycle in which no structure
+qualified. It is a claim about the scanner, so it may only be made from an
+unfiltered, current-cycle source.
+
+**Zero rows in a view** — a *different* statement. A filtered, capped, paged or
+settings-scoped empty result means only that nothing matched that view. It is never
+evidence of No Trade, and never evidence of an outage; the scanner heartbeat is the
+authority on engine health.
+
 
 ## Delivery
 

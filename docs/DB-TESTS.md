@@ -1,4 +1,12 @@
-# Database regression layer — feasibility spike and results
+# Database regression layer — feasibility spike and results (historical)
+
+> **Historical document.** This records the feasibility spike and the state of the
+> database regression layer when it was built. It is preserved deliberately and is
+> **not** updated as the schema grows. Every count below (migrations, `public`
+> tables, `public` functions, number of blocking tests) is a point-in-time
+> observation from that spike — the repository, not this page, is the authority on
+> current counts. Where this page and the code disagree, the code wins.
+
 
 ## 1. Feasibility spike (executed, not assumed)
 
@@ -40,10 +48,12 @@ skip list contains nothing else. Everything under `public` — tables, indexes,
 constraints, GRANTs, RLS policies and RPC bodies — is the production migration
 SQL verbatim.
 
-Result after replay: 21 `public` tables and 18 `public` functions, i.e. the
+Result after replay at the time of the spike: 21 `public` tables and 18 `public`
+functions, i.e. the
+
 production shape.
 
-## 2. What the layer proves (11 blocking tests)
+## 2. What the layer proved at the time of writing (then: 11 blocking tests)
 
 `src/test/db/__tests__/model-version.db.test.ts`, in the existing `blocking`
 Vitest project:

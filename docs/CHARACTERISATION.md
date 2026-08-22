@@ -1,4 +1,12 @@
-# V1 Characterisation Ledger
+# V1 Characterisation Ledger (historical)
+
+> **Historical document.** This is the V1 behaviour ledger as captured when the
+> characterisation layer was built. It is preserved deliberately and is **not**
+> updated as the repository changes. Where it disagrees with the code, the code
+> wins; for current documentation start at [README.md](README.md). Any count,
+> command list or CI statement below is a point-in-time observation, not a
+> present-tense fact — read the repository for current numbers.
+
 
 The automated suite pins the behaviour of the **V1 production engine**
 (`ACTIVE_MODEL_VERSION = 1`) exactly as it runs today — including behaviour that
@@ -95,17 +103,18 @@ bun run verify        # lint:blocking -> typecheck -> blocking tests -> build (c
 
 Property tests use fixed seeds (`20260821`) so any failure is reproducible.
 
-## Known repository debt (not introduced by this suite)
+## Repository debt at the time of writing (superseded)
 
-Repo-wide `bun run lint` reports ~2,231 pre-existing prettier formatting errors
-across application sources. `verify` therefore lints the test sources
-(`lint:blocking`, clean) and CI runs the repo-wide lint as a separate non-blocking
-step until that debt is cleared.
+When this ledger was written, repo-wide `bun run lint` reported thousands of
+pre-existing Prettier formatting errors across application sources, so `verify`
+linted only the test sources (`lint:blocking`) and the repo-wide lint ran as a
+separate non-blocking step. That formatting debt was subsequently cleared in the
+documentation/source-quality release; `bun run lint` is the current authority on
+formatting state, and `verify` still gates on `lint:blocking`.
 
-The git remote in this environment is not GitHub, so no GitHub status check can
-be observed from here: `.github/workflows/ci.yml` is committed and will run once
-the repository is mirrored to GitHub, but nothing about a passing GitHub check is
-claimed.
+No claim is made here about any CI status check. `.github/workflows/ci.yml` is
+committed; read the CI provider for its actual result.
+
 
 ## Pinned: `model_version` defaults to 1
 

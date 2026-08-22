@@ -85,12 +85,23 @@ Confidence is a **rule-satisfaction score, not a win probability**.
 5. **"Verified" is never used alone.** A price is verified *against a named source*
    or it is self-reported.
 6. **Advisory exposure describes your journal**, not your broker account.
-7. **An empty feed is data**, not an outage — it means no structure qualified.
+7. **An empty view is data**, not an outage — and not a market claim either. A
+   filtered/capped/settings-scoped empty result means only that no rows match that
+   view. A scanner-wide "No Trade" statement requires an unfiltered, current-cycle
+   source.
+
 
 ## Failure behaviour
 
 A missing provenance-bearing input produces an explicit refusal with a reason. No
-value is defaulted, estimated or coalesced to zero to fill a gap.
+value is defaulted, coalesced to zero, or silently fabricated to fill a gap.
+
+"Fail closed" is scoped: an input the app genuinely cannot know is refused with a
+named reason, while a value the app *can* derive but cannot confirm against a
+broker is allowed **only** when it is explicitly labelled as an estimate (margin
+is the canonical example). Labelled estimate — permitted. Silent invention —
+never.
+
 
 ## What this map does not guarantee
 
