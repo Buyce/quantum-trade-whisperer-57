@@ -242,7 +242,25 @@ function SettingsPage() {
         // Provenance: user-entered balance, timestamped when it changes.
         ...(equityChanged || !equityAsOf ? { equity_as_of: new Date().toISOString() } : {}),
       });
+      // Bridge + execution fields go through the server: the URL is parsed,
+      // resolved and classified there, and the validation stamp is written with
+      // it. A rejected endpoint leaves the previously validated one untouched.
+      const bridge = await persistBridge({
+        data: {
+          webhookEnabled,
+          webhookUrl: webhookUrl.trim(),
+          webhookSecret: webhookSecret.trim(),
+          webhookFormat,
+          executionEnabled,
+          executionDryRun,
+        },
+      });
       await queryClient.invalidateQueries({ queryKey: ["scanner-settings"] });
+      await queryClient.invalidateQueries({ queryKey: ["execution-deliveries"] });
+      if (!bridge.ok) {
+        toast.error(bridge.error ?? "The bridge URL could not be validated");
+        return;
+      }
       toast.success("Settings saved");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not save settings");
