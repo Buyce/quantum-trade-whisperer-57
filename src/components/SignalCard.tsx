@@ -483,7 +483,7 @@ function RiskPanel({
     );
   if (result.exceedsMargin)
     warnings.push(
-      `Margin of ${money(result.marginRequired, cur)} at 1:${profile.leverage} exceeds your account equity — this size is not fundable.`,
+      `Estimated margin of ${money(result.marginEstimate, cur)} at 1:${profile.leverage} exceeds your account equity — this size is likely not fundable. Your broker's actual requirement may differ.`,
     );
   if (result.exceedsStopCeiling)
     warnings.push(
@@ -532,14 +532,14 @@ function RiskPanel({
           </dd>
         </div>
         <div className="min-w-0">
-          <dt className="label-xs">Margin</dt>
+          <dt className="label-xs">Margin (est.)</dt>
           <dd
             className={cn(
               "num text-base font-semibold",
               result.exceedsMargin ? "text-short" : "text-foreground",
             )}
           >
-            {money(result.marginRequired, cur)}
+            {money(result.marginEstimate, cur)}
           </dd>
         </div>
       </dl>
@@ -548,7 +548,10 @@ function RiskPanel({
         <span className="num">Stop distance: {result.stopPercent.toFixed(2)}% of entry</span>
         <span className="num">Per lot: {money(result.riskPerLot, cur)}</span>
         <span className="num">Position value: {money(result.notional, cur)}</span>
-        <span className="num">Margin used: {result.marginPercentOfEquity.toFixed(1)}% of equity</span>
+        <span className="num">
+          Est. margin: {result.marginPercentOfEquity.toFixed(1)}% of equity (notional ÷ leverage, not your
+          broker's figure)
+        </span>
         {result.quoteCurrency !== cur ? (
           <span className="num">
             Converted from {result.quoteCurrency} at {result.conversionRate.toFixed(5)}

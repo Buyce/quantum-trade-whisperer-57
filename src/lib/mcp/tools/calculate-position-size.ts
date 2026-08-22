@@ -130,7 +130,9 @@ export default defineTool({
     if (result.cappedByPositionSize)
       warnings.push("Size limited by the user's max position size, not by risk.");
     if (result.exceedsMargin)
-      warnings.push("Margin required exceeds account equity at this leverage.");
+      warnings.push(
+        "Estimated margin (notional / leverage) exceeds account equity at this leverage. This is an estimate, not the broker's margin requirement.",
+      );
     if (result.exceedsStopCeiling)
       warnings.push("Stop distance is wider than the user's max stop-loss percent.");
 
@@ -147,8 +149,14 @@ export default defineTool({
       stop_distance: result.stopDistance,
       stop_percent: Number(result.stopPercent.toFixed(3)),
       notional: Number(result.notional.toFixed(2)),
-      margin_required: Number(result.marginRequired.toFixed(2)),
+      margin_estimate: Number(result.marginEstimate.toFixed(2)),
+      margin_estimate_basis: result.marginBasis,
+      margin_estimate_note:
+        "Estimate only: notional / leverage. Real MT5 margin depends on the symbol calc mode and broker margin rates.",
       margin_percent_of_equity: Number(result.marginPercentOfEquity.toFixed(2)),
+      spec_source: result.specSource,
+      spec_as_of: result.specAsOf,
+      sizing_model_version: result.sizingModelVersion,
       reward_at_final_target:
         result.rewardAtFinalTarget === null ? null : Number(result.rewardAtFinalTarget.toFixed(2)),
       final_target_r: result.finalTargetR,
