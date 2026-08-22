@@ -186,7 +186,8 @@ export async function revalidateDelivery(
   if (!verdict.eligible) return reject("not_alert_eligible", verdict.reason);
 
   // ---- 5. Market state -----------------------------------------------------
-  if (!marketStatus(new Date(now)).open) return reject("market_closed");
+  const market = marketStatus(new Date(now));
+  if (market.weekendClosed || market.openCount === 0) return reject("market_closed");
 
   const order = buildBridgeOrder(
     {
