@@ -46,6 +46,15 @@ const DNS_RECORDS = [
   { type: "NS", name: "notify", value: "ns4.lovable.cloud" },
 ];
 
+/** Display-only host extraction for the live-execution confirmation copy. */
+function hostOf(raw: string): string {
+  try {
+    return new URL(raw.trim()).hostname;
+  } catch {
+    return "";
+  }
+}
+
 function SettingsPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -68,6 +77,9 @@ function SettingsPage() {
   // the one you get without touching anything.
   const [executionEnabled, setExecutionEnabled] = useState(false);
   const [executionDryRun, setExecutionDryRun] = useState(true);
+  // Dedicated live-execution confirmation. Never persisted as "sticky intent":
+  // it must be given again whenever the execution configuration changes.
+  const [confirmLive, setConfirmLive] = useState(false);
   const [exposureLimitEnabled, setExposureLimitEnabled] = useState(false);
 
   // Risk profile. Held as strings so a half-typed number never becomes NaN or
@@ -131,8 +143,9 @@ function SettingsPage() {
     try {
       const res = await triggerTestWebhook();
       setTestPreview(res.preview ?? null);
-      if (res.ok) toast.success(`Test webhook delivered (${res.status} OK)`);
-      else toast.error(res.error ?? "The test webhook failed");
+      if (res.ok && res.posted === false) toast.info(res.note ?? "Local preview only — nothing was sent.");
+      else if (res.ok) toast.success(`Test request delivered (${res.status} OK)`);
+      else toast.error(res.error ?? "The test request failed");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "The test webhook could not be sent");
     } finally {
@@ -177,6 +190,7 @@ function SettingsPage() {
     setWebhookFormat(s.webhook_format ?? "json");
     setExecutionEnabled((s as { execution_enabled?: boolean }).execution_enabled ?? false);
     setExecutionDryRun((s as { execution_dry_run?: boolean }).execution_dry_run !== false);
+    setConfirmLive(false);
     setExposureLimitEnabled(
       (s as { exposure_limit_enabled?: boolean }).exposure_limit_enabled === true,
     );
@@ -259,6 +273,7 @@ function SettingsPage() {
           webhookFormat,
           executionEnabled,
           executionDryRun,
+          confirmLiveExecution: !executionDryRun && confirmLive,
           exposureLimitEnabled,
         },
 
@@ -726,7 +741,9 @@ function SettingsPage() {
                       </Button>
                       <p className="text-xs text-muted-foreground">
                         {canTestWebhook
-                          ? "Posts a dummy B-Grade EURUSD buy-limit to your saved URL. Nothing is written to the database."
+                          ? webhookFormat === "pineconnector"
+                            ? "Shows the payload shape locally. Nothing is sent: every PineConnector command is a real order, so it is never used as a connectivity test."
+                            : "Posts a non-executable {\"event\":\"test\"} body to your validated URL. No action, no quantity, nothing written to the database."
                           : "Save a valid https URL and your secret / licence ID to enable the test."}
                       </p>
                     </div>
@@ -759,8 +776,37 @@ function SettingsPage() {
                       title="Dry run"
                       desc="Validate and sign each order but never POST it. Leave this on until the delivery log looks right — it exercises the entire path without touching your broker."
                       checked={executionDryRun}
-                      onChange={setExecutionDryRun}
+                      onChange={(v) => {
+                        setExecutionDryRun(v);
+                        if (v) setConfirmLive(false);
+                      }}
                     />
+                    {!executionDryRun ? (
+                      <label className="flex gap-3 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs text-muted-foreground">
+                        <input
+                          type="checkbox"
+                          className="mt-0.5 h-4 w-4 shrink-0 accent-destructive"
+                          checked={confirmLive}
+                          onChange={(e) => setConfirmLive(e.target.checked)}
+                        />
+                        <span>
+                          <span className="font-semibold text-foreground">
+                            I confirm live execution.
+                          </span>{" "}
+                          Eligible setups may create real broker orders at{" "}
+                          <span className="num">{hostOf(webhookUrl) || "your bridge host"}</span>{" "}
+                          without another manual click. Policy:{" "}
+                          <span className="num">single_exit_first_target</span> — one pending
+                          buy/sell limit exiting at the first target. Position size comes solely
+                          from your saved risk profile and your broker's contract specification;
+                          no quantity is ever invented. This confirmation applies to the current
+                          configuration only — changing your bridge, secret, format, risk profile,
+                          instruments, sessions, alert grade or daily cap returns you to dry run
+                          until you confirm again. Live execution also has to be available
+                          system-wide.
+                        </span>
+                      </label>
+                    ) : null}
                     <Row
                       id="exposure-limit-enabled"
                       title="Block orders when my logged exposure is too high"
