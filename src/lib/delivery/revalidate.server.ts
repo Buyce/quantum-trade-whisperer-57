@@ -77,6 +77,25 @@ export interface RevalidationApproved {
 
 export type Revalidation = RevalidationApproved | RevalidationRejected;
 
+/**
+ * The live-execution confirmation is only valid when it was given explicitly,
+ * for the CURRENT configuration version, and at a time when live execution was
+ * genuinely available system-wide.
+ */
+export function liveConfirmationValid(
+  settings: {
+    live_execution_confirmed_at?: string | null;
+    live_execution_confirmed_version?: number | null;
+    live_execution_confirmed_global_live?: boolean | null;
+  },
+  currentVersion: number | null,
+): boolean {
+  if (!settings.live_execution_confirmed_at) return false;
+  if (settings.live_execution_confirmed_global_live !== true) return false;
+  if (currentVersion === null) return false;
+  return settings.live_execution_confirmed_version === currentVersion;
+}
+
 function reject(reason: RejectReason, detail: string | null = null): RevalidationRejected {
   return { ok: false, reason, detail };
 }
@@ -104,6 +123,10 @@ interface SettingsRow {
   webhook_secret: string | null;
   webhook_format: string | null;
   webhook_validated_at: string | null;
+  /** Explicit owner confirmation of the dry-run → live transition. */
+  live_execution_confirmed_at?: string | null;
+  live_execution_confirmed_version?: number | null;
+  live_execution_confirmed_global_live?: boolean | null;
 }
 
 
@@ -138,7 +161,7 @@ export async function revalidateDelivery(
   const { data: settingsRow } = await db
     .from("scanner_settings")
     .select(
-      "instruments, sessions, alert_min_grade, daily_setup_cap, execution_enabled, execution_dry_run, execution_config_version, exposure_limit_enabled, webhook_enabled, webhook_url, webhook_secret, webhook_format, webhook_validated_at",
+      "instruments, sessions, alert_min_grade, daily_setup_cap, execution_enabled, execution_dry_run, execution_config_version, exposure_limit_enabled, webhook_enabled, webhook_url, webhook_secret, webhook_format, webhook_validated_at, live_execution_confirmed_at, live_execution_confirmed_version, live_execution_confirmed_global_live",
     )
     .eq("user_id", delivery.user_id)
     .maybeSingle();
@@ -359,6 +382,13 @@ export async function revalidateDelivery(
   else if (delivery.dry_run === true) dryRunReason = "you selected dry-run";
   else if (!bridgeSupportsVerifiedQuantity(format)) {
     dryRunReason = `the ${format} bridge has no verified quantity contract, so automatic live orders are not sent to it`;
+  } else if (!liveConfirmationValid(settings, currentVersion)) {
+    // A live POST requires a FRESH, explicit owner confirmation given for this
+    // exact configuration while live execution was actually available. A
+    // previously stored dry-run preference can therefore never become live just
+    // because an operator flipped the global switch afterwards.
+    dryRunReason =
+      "live execution has not been confirmed for this configuration, so no live order is sent";
   }
   const dryRun = dryRunReason !== null;
 

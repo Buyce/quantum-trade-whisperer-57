@@ -19,11 +19,19 @@ const bridgeInput = z.object({
   executionEnabled: z.boolean(),
   executionDryRun: z.boolean(),
   /**
+   * Dedicated owner confirmation for the dry-run → live transition. An ordinary
+   * settings save is NEVER sufficient to arm live execution, and the
+   * confirmation is only honoured while live execution is actually available
+   * system-wide, so nobody can pre-arm and become live later in silence.
+   */
+  confirmLiveExecution: z.boolean().optional(),
+  /**
    * Opt-in only. When false (the default) the journal-derived exposure figure is
    * advisory and never blocks a delivery.
    */
   exposureLimitEnabled: z.boolean().optional(),
 });
+
 
 
 export const saveBridgeSettings = createServerFn({ method: "POST" })
@@ -61,6 +69,40 @@ export const saveBridgeSettings = createServerFn({ method: "POST" })
     // Automated execution requires an explicit bridge; it can never imply one.
     const executionEnabled = data.executionEnabled && data.webhookEnabled;
 
+    // ---- Live arming gate ---------------------------------------------------
+    // Turning dry-run OFF is a distinct, explicitly confirmed act, and it is only
+    // accepted while live execution is genuinely available system-wide. Without
+    // this, a user could pre-arm live and silently start trading the moment an
+    // operator flipped the global switch.
+    let liveRequested = executionEnabled && data.executionDryRun === false;
+    if (liveRequested) {
+      if (data.confirmLiveExecution !== true) {
+        return {
+          ok: false as const,
+          error:
+            "Live execution needs its own confirmation. Tick the live-execution confirmation box to arm it; saving settings is not enough.",
+        };
+      }
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { data: controls } = await supabaseAdmin
+        .from("execution_controls")
+        .select("live_execution_enabled, force_dry_run")
+        .maybeSingle();
+      const row = controls as
+        | { live_execution_enabled?: boolean; force_dry_run?: boolean }
+        | null;
+      const globallyLive = row?.live_execution_enabled === true && row?.force_dry_run !== true;
+      if (!globallyLive) {
+        return {
+          ok: false as const,
+          error:
+            "Live execution is not available system-wide right now, so it cannot be armed in advance. Dry run stays on; confirm live again once live execution is available.",
+        };
+      }
+    }
+
+    const confirmedAt = liveRequested ? new Date().toISOString() : null;
+
     const { error } = await context.supabase
       .from("scanner_settings")
       .update({
@@ -69,11 +111,17 @@ export const saveBridgeSettings = createServerFn({ method: "POST" })
         webhook_secret: data.webhookSecret || null,
         webhook_format: data.webhookFormat,
         execution_enabled: executionEnabled,
-        execution_dry_run: data.executionDryRun,
+        execution_dry_run: !liveRequested,
         exposure_limit_enabled: data.exposureLimitEnabled === true,
         webhook_validated_at: validatedAt,
         webhook_validation_reason: validationReason,
-      })
+        // Confirmation state is part of the execution configuration identity and
+        // is cleared whenever the user is not explicitly arming live execution.
+        live_execution_confirmed_at: confirmedAt,
+        live_execution_confirmed_host: liveRequested ? host : null,
+        live_execution_confirmed_global_live: liveRequested,
+        live_execution_confirmed_version: null,
+      } as never)
       .eq("user_id", context.userId);
 
     if (error) return { ok: false as const, error: error.message };
@@ -86,16 +134,33 @@ export const saveBridgeSettings = createServerFn({ method: "POST" })
       .select("execution_config_version")
       .eq("user_id", context.userId)
       .maybeSingle();
+    const configVersion =
+      (after as { execution_config_version?: number } | null)?.execution_config_version ?? null;
+
+    // Pin the confirmation to the configuration version it was given for. Any
+    // later configuration change bumps the version, so the stale confirmation
+    // stops authorizing live orders until it is given again.
+    if (liveRequested && configVersion !== null) {
+      const { error: pinError } = await context.supabase
+        .from("scanner_settings")
+        .update({ live_execution_confirmed_version: configVersion } as never)
+        .eq("user_id", context.userId);
+      if (pinError) {
+        liveRequested = false;
+        return { ok: false as const, error: pinError.message };
+      }
+    }
 
     return {
       ok: true as const,
       host,
       validatedAt,
       executionEnabled,
-      configVersion:
-        (after as { execution_config_version?: number } | null)?.execution_config_version ?? null,
+      liveArmed: liveRequested,
+      configVersion,
     };
   });
+
 
 
 /**

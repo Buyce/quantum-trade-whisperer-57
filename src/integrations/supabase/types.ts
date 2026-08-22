@@ -1606,6 +1606,10 @@ export type Database = {
           exposure_limit_enabled: boolean
           instruments: string[]
           leverage: number
+          live_execution_confirmed_at: string | null
+          live_execution_confirmed_global_live: boolean
+          live_execution_confirmed_host: string | null
+          live_execution_confirmed_version: number | null
           max_position_size: number
           max_stop_loss_percent: number
           min_grade: Database["public"]["Enums"]["signal_grade"]
@@ -1638,6 +1642,10 @@ export type Database = {
           exposure_limit_enabled?: boolean
           instruments?: string[]
           leverage?: number
+          live_execution_confirmed_at?: string | null
+          live_execution_confirmed_global_live?: boolean
+          live_execution_confirmed_host?: string | null
+          live_execution_confirmed_version?: number | null
           max_position_size?: number
           max_stop_loss_percent?: number
           min_grade?: Database["public"]["Enums"]["signal_grade"]
@@ -1670,6 +1678,10 @@ export type Database = {
           exposure_limit_enabled?: boolean
           instruments?: string[]
           leverage?: number
+          live_execution_confirmed_at?: string | null
+          live_execution_confirmed_global_live?: boolean
+          live_execution_confirmed_host?: string | null
+          live_execution_confirmed_version?: number | null
           max_position_size?: number
           max_stop_loss_percent?: number
           min_grade?: Database["public"]["Enums"]["signal_grade"]

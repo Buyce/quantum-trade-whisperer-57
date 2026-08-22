@@ -1,7 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendTemplateEmail } from "@/lib/email-templates/send-email";
 import { ORDER_TIF_MINUTES } from "@/lib/db-types";
-import { dispatchWebhooks, type WebhookTarget } from "./webhook.server";
 import { sendPushToUsers } from "./push.server";
 
 import {
@@ -19,7 +18,7 @@ export interface AlertSignal {
   grade: string;
   direction: string;
   entryPrice: number;
-  /** Slippage ceiling — printed in the email and sent to webhooks. */
+  /** Slippage ceiling — printed in the email and the push body. */
   maxAcceptableEntry: number;
   stopLoss: number;
   tp1: number;
@@ -51,25 +50,26 @@ interface SettingsRow {
   daily_setup_cap: number | null;
   notify_email: boolean | null;
   notify_push: boolean | null;
-  webhook_enabled: boolean | null;
-  webhook_url: string | null;
-  webhook_secret: string | null;
-  webhook_format: string | null;
 }
 
 /**
  * Fans a freshly published signal out to each user whose scanner settings accept
- * it: a branded email when email alerts are on, and a broker webhook POST when
- * the dispatcher is enabled. Email sends are keyed to the signal id so worker
- * retries never duplicate; webhooks carry the same key in a header.
+ * it: a branded email when email alerts are on and a push notification when push
+ * is on. Email sends are keyed to the signal id so worker retries never
+ * duplicate.
+ *
+ * This path is NOTIFICATION-ONLY. It never emits a broker instruction: every
+ * execution-capable delivery goes exclusively through the Prompt-13 control
+ * plane (execution_deliveries → claim → revalidate → quantity → SSRF →
+ * signature → dispatch). `webhook_enabled` alone can never place a trade.
  */
 export async function sendSignalAlerts(db: SupabaseClient, signal: AlertSignal) {
   const { data: rows, error } = await db
     .from("scanner_settings")
     .select(
-      "user_id, instruments, sessions, alert_min_grade, daily_setup_cap, notify_email, notify_push, webhook_enabled, webhook_url, webhook_secret, webhook_format",
+      "user_id, instruments, sessions, alert_min_grade, daily_setup_cap, notify_email, notify_push",
     )
-    .or("notify_email.eq.true,notify_push.eq.true,webhook_enabled.eq.true");
+    .or("notify_email.eq.true,notify_push.eq.true");
   if (error || !rows?.length) return;
 
   const now = Date.now();
@@ -95,7 +95,6 @@ export async function sendSignalAlerts(db: SupabaseClient, signal: AlertSignal) 
     console.error("alert eligibility frame unavailable", err);
   }
 
-  const webhookTargets: WebhookTarget[] = [];
   const pushUserIds: string[] = [];
 
   for (const row of rows as SettingsRow[]) {
@@ -119,15 +118,6 @@ export async function sendSignalAlerts(db: SupabaseClient, signal: AlertSignal) 
     });
     if (!verdict.eligible) continue;
 
-
-    if (row.webhook_enabled && row.webhook_url) {
-      webhookTargets.push({
-        userId: row.user_id,
-        url: row.webhook_url,
-        secret: row.webhook_secret,
-        format: row.webhook_format === "pineconnector" ? "pineconnector" : "json",
-      });
-    }
 
     if (row.notify_push) pushUserIds.push(row.user_id);
 
@@ -181,25 +171,4 @@ export async function sendSignalAlerts(db: SupabaseClient, signal: AlertSignal) 
     console.error("signal push send failed", err);
   }
 
-  // Dispatch last, after the signal is already committed: a hung broker bridge
-  // can cost one 5s timeout and nothing else.
-  await dispatchWebhooks(
-    {
-      id: signal.id,
-      instrument: signal.instrument,
-      grade: signal.grade,
-      direction: signal.direction,
-      entryPrice: signal.entryPrice,
-      maxAcceptableEntry: signal.maxAcceptableEntry,
-      stopLoss: signal.stopLoss,
-      tp1: signal.tp1,
-      tp2: signal.tp2,
-      tp3: signal.tp3,
-      rrRatio: signal.rrRatio,
-      confidence: signal.confidence,
-      tifMinutes: ORDER_TIF_MINUTES,
-    },
-    webhookTargets,
-    db,
-  );
 }
