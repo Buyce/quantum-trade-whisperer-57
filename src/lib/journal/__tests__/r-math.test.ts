@@ -1,11 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  computeNetR,
-  computeR,
-  RMathInputError,
-  R_MATH_VERSION,
-  selectR,
-} from "../r-math";
+import { computeNetR, computeR, RMathInputError, R_MATH_VERSION, selectR } from "../r-math";
 import { collectSingleBasis, basisLabel } from "../basis";
 
 describe("canonical R mathematics", () => {
@@ -300,8 +294,7 @@ describe("actual-stop geometry (shared by web and MCP)", () => {
 
   it("[INVARIANT] a long stop at or above the actual entry is impossible, never a valid actual-risk R", () => {
     for (const stop of [101, 102]) {
-      const call = () =>
-        computeR({ ...base, direction: "long", actualInitialStop: stop });
+      const call = () => computeR({ ...base, direction: "long", actualInitialStop: stop });
       expect(call).toThrow(RMathInputError);
       try {
         call();
@@ -345,8 +338,55 @@ describe("actual-stop geometry (shared by web and MCP)", () => {
   });
 
   it("[INVARIANT] a zero-distance actual stop is rejected rather than dividing by zero", () => {
+    expect(() => computeR({ ...base, direction: "long", actualInitialStop: 101 })).toThrow(
+      /below its actual entry|non-zero/,
+    );
+  });
+});
+
+describe("direction fails closed", () => {
+  it("[INVARIANT] a null direction on long-shaped prices yields no R, never a long assumption", () => {
+    const r = computeR({
+      outcome: "win",
+      direction: null,
+      plannedEntry: 100,
+      plannedStop: 98,
+      actualEntryPrice: 101,
+      actualExitPrice: 105,
+      actualInitialStop: null,
+    });
+    expect(r.availability).toBe("unavailable_no_direction");
+    expect(r.rVsPlan).toBeNull();
+    expect(r.rVsActualRisk).toBeNull();
+    expect(r.grossMove).toBeNull();
+  });
+
+  it("[INVARIANT] a null direction on short-shaped prices yields no R", () => {
+    const r = computeR({
+      outcome: "loss",
+      direction: null,
+      plannedEntry: 100,
+      plannedStop: 102,
+      actualEntryPrice: 100,
+      actualExitPrice: 102,
+      actualInitialStop: null,
+    });
+    expect(r.availability).toBe("unavailable_no_direction");
+    expect(r.rVsPlan).toBeNull();
+    expect(r.rVsActualRisk).toBeNull();
+  });
+
+  it("[INVARIANT] stop geometry is not asserted when direction is unknown", () => {
     expect(() =>
-      computeR({ ...base, direction: "long", actualInitialStop: 101 }),
-    ).toThrow(/below its actual entry|non-zero/);
+      computeR({
+        outcome: "win",
+        direction: null,
+        plannedEntry: 100,
+        plannedStop: 98,
+        actualEntryPrice: 101,
+        actualExitPrice: 105,
+        actualInitialStop: 130,
+      }),
+    ).not.toThrow();
   });
 });

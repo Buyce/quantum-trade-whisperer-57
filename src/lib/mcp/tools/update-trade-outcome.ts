@@ -84,15 +84,45 @@ export default defineTool({
       };
     }
 
+    // One-sided prices are a data-entry error, never a NULL R. Rejected BEFORE
+    // any database mutation, and never collapsed to null/null.
+    const entrySupplied = actual_entry_price != null;
+    const exitSupplied = actual_exit_price != null;
+    if (entrySupplied !== exitSupplied) {
+      const missing = entrySupplied ? "actual_exit_price" : "actual_entry_price";
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Rejected: ${missing} is missing. Supply actual_entry_price and actual_exit_price together or omit both. Nothing was changed.`,
+          },
+        ],
+        isError: true,
+      };
+    }
+
     const priceValid = (v: number | undefined) => v != null && Number.isFinite(v) && v > 0;
     const closed = outcome !== "open";
     const hasPrices = closed && priceValid(actual_entry_price) && priceValid(actual_exit_price);
+
+    // Direction fails closed: snapshot first, then the exact direction from the
+    // referenced signal for pre-snapshot legacy rows. Never assumed to be long.
+    let direction = (trade.planned_direction as "long" | "short" | null) ?? null;
+    if (direction == null && trade.signal_id) {
+      const { data: signal } = await supabase
+        .from("scanned_signals")
+        .select("direction")
+        .eq("id", trade.signal_id)
+        .maybeSingle();
+      const raw = signal?.direction == null ? null : String(signal.direction);
+      direction = raw === "long" || raw === "short" ? raw : null;
+    }
 
     let result;
     try {
       result = computeR({
         outcome,
-        direction: (trade.planned_direction as "long" | "short" | null) ?? "long",
+        direction,
         plannedEntry: trade.planned_entry == null ? null : Number(trade.planned_entry),
         plannedStop: trade.planned_stop == null ? null : Number(trade.planned_stop),
         actualEntryPrice: hasPrices ? (actual_entry_price as number) : null,
@@ -176,7 +206,9 @@ export default defineTool({
       net_r: net.netR,
       net_r_note: net.note,
       price_source: hasPrices ? "agent" : null,
-      note: !hasPrices
+      note: result.availability === "unavailable_no_direction"
+        ? "This trade's direction could not be established (no plan snapshot and no surviving signal), so no canonical R was computed. Direction is never assumed — do not report an R for this trade."
+        : !hasPrices
         ? "verification_level = unverified: supply actual_entry_price and actual_exit_price on a closed trade to compute auditable R values."
         : "verification_level = self_reported — these prices came from the user or from you and are NOT broker verified. Only replay/market-path consistency could ever raise this to plan_verified, which still never means broker execution verified. Both canonical R values were recomputed from the supplied prices and the trade's own plan snapshot. Never average the two bases together. These prices are permanently recorded as agent-entered, attributed to this assistant's client id — only report prices the user actually gave you.",
     };

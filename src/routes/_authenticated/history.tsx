@@ -69,7 +69,7 @@ const OUTCOME_STYLES: Record<Outcome, string> = {
 };
 
 /** A closed trade without both real fill prices cannot have an auditable R. */
-function isUnverified(row: TradeHistoryRow) {
+function isMissingPrices(row: TradeHistoryRow) {
   return row.outcome !== "open" && (row.actual_entry_price == null || row.actual_exit_price == null);
 }
 
@@ -79,12 +79,12 @@ function isUnverified(row: TradeHistoryRow) {
  * numbers as yours.
  */
 function PriceProvenanceBadge({ row }: { row: TradeHistoryRow }) {
-  if (isUnverified(row) || row.outcome === "open") return null;
+  if (isMissingPrices(row) || row.outcome === "open") return null;
   const agent = row.price_source === "agent";
   const when = row.price_recorded_at ? new Date(row.price_recorded_at).toLocaleString() : null;
   const title = agent
-    ? `Prices entered by an AI assistant${row.price_source_client ? ` (client ${row.price_source_client})` : ""}${when ? ` on ${when}` : ""}`
-    : `Prices entered by you in the terminal${when ? ` on ${when}` : ""}`;
+    ? `Self-reported prices entered by an AI assistant — not broker verified${row.price_source_client ? ` (client ${row.price_source_client})` : ""}${when ? ` on ${when}` : ""}`
+    : `Self-reported prices you entered in the terminal — not broker verified${when ? ` on ${when}` : ""}`;
   return (
     <span
       title={title}
@@ -96,7 +96,7 @@ function PriceProvenanceBadge({ row }: { row: TradeHistoryRow }) {
       )}
     >
       {agent ? <Bot className="size-3" /> : <UserRound className="size-3" />}
-      Verified · {agent ? "agent" : "you"}
+      Self-reported · {agent ? "agent" : "you"}
     </span>
   );
 }
@@ -107,16 +107,16 @@ function HistoryPage() {
   const queryClient = useQueryClient();
   const history = useQuery(takenTradeHistoryQuery(user?.id));
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [onlyUnverified, setOnlyUnverified] = useState(false);
+  const [onlyMissingPrices, setOnlyMissingPrices] = useState(false);
 
   const allRows = useMemo(
     () => (history.data ?? []).filter((r) => signalOf(r) !== null),
     [history.data],
   );
-  const unverifiedCount = useMemo(() => allRows.filter(isUnverified).length, [allRows]);
+  const missingPricesCount = useMemo(() => allRows.filter(isMissingPrices).length, [allRows]);
   const rows = useMemo(
-    () => (onlyUnverified ? allRows.filter(isUnverified) : allRows),
-    [allRows, onlyUnverified],
+    () => (onlyMissingPrices ? allRows.filter(isMissingPrices) : allRows),
+    [allRows, onlyMissingPrices],
   );
 
   function exportCsv() {
@@ -249,27 +249,28 @@ function HistoryPage() {
         </div>
       </div>
 
-      {unverifiedCount > 0 ? (
+      {missingPricesCount > 0 ? (
         <div className="rounded-md border border-warning/40 bg-warning/10 px-3 py-3 sm:px-4">
           <div className="flex flex-wrap items-start gap-x-3 gap-y-2">
             <ShieldAlert className="mt-0.5 size-4 shrink-0 text-warning" />
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-foreground">
-                {unverifiedCount} closed {unverifiedCount === 1 ? "trade has" : "trades have"} no fill prices
+                {missingPricesCount} closed {missingPricesCount === 1 ? "trade has" : "trades have"} execution prices missing
               </p>
               <p className="mt-1 max-w-2xl text-xs text-muted-foreground">
                 Add the entry and exit price you actually got and the R multiple is recalculated from the
-                setup's own risk distance. Until then those results stay unverified and are excluded from
-                your verified win rate. Prices are optional — nothing is changed if you skip this.
+                setup's own risk distance. Until then those results have execution prices missing and are
+                excluded from your price-backed win rate. Prices are optional — nothing is changed if you
+                skip this. Prices you or an assistant enter are self-reported, never broker verified.
               </p>
             </div>
             <Button
               size="sm"
-              variant={onlyUnverified ? "default" : "outline"}
+              variant={onlyMissingPrices ? "default" : "outline"}
               className="sm:ml-auto"
-              onClick={() => setOnlyUnverified((v) => !v)}
+              onClick={() => setOnlyMissingPrices((v) => !v)}
             >
-              {onlyUnverified ? "Show all trades" : "Show only unverified"}
+              {onlyMissingPrices ? "Show all trades" : "Show only trades missing prices"}
             </Button>
           </div>
         </div>
