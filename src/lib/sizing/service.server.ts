@@ -37,9 +37,17 @@ export interface SizingRequest {
 
 export interface SizingProvenance {
   authoritativeModel: 1 | 2;
+  /** A usable broker spec exists for the model-2 shadow run. */
   shadowAvailable: boolean;
+  /**
+   * Provenance of the AUTHORITATIVE model only. While model 1 is authoritative
+   * this is always `static_v1`, even when a broker spec exists for the shadow.
+   */
   specSource: "broker" | "static_v1";
   specAsOf: string | null;
+  /** Shadow (model-2) provenance, reported separately and never conflated. */
+  shadowSpecSource: "broker" | "static_v1";
+  shadowSpecAsOf: string | null;
   specStale: boolean;
   quoteAsOf: string | null;
   quoteStale: boolean;
@@ -193,7 +201,7 @@ export async function resolveSizingForUser(
     const { data: trades } = await db
       .from("executed_trades")
       .select(
-        "outcome, trade_state, actual_entry_at, actual_exit_at, updated_at, signal_instrument, r_vs_plan, derived_r, realized_r_multiple",
+        "outcome, trade_state, actual_entry_at, actual_exit_at, updated_at, signal_instrument, r_vs_plan",
       )
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
@@ -254,8 +262,12 @@ export async function resolveSizingForUser(
   const provenance: SizingProvenance = {
     authoritativeModel: resolved.authoritativeModel,
     shadowAvailable: brokerSpec !== null,
-    specSource: authoritative.ok ? authoritative.specSource : brokerSpec ? "broker" : "static_v1",
-    specAsOf: authoritative.ok ? authoritative.specAsOf : (brokerSpec?.asOf ?? null),
+    // Authoritative provenance follows the authoritative model, including on
+    // unavailable results — a shadow broker spec must never be reported here.
+    specSource: resolved.authoritativeModel === 2 ? "broker" : "static_v1",
+    specAsOf: resolved.authoritativeModel === 2 ? (brokerSpec?.asOf ?? null) : null,
+    shadowSpecSource: brokerSpec ? "broker" : "static_v1",
+    shadowSpecAsOf: brokerSpec?.asOf ?? null,
     specStale,
     quoteAsOf: conversion.quoteAsOf,
     quoteStale: conversion.stale,
