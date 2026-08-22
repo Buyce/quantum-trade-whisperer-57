@@ -1,11 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  computeNetR,
-  computeR,
-  RMathInputError,
-  R_MATH_VERSION,
-  selectR,
-} from "../r-math";
+import { computeNetR, computeR, RMathInputError, R_MATH_VERSION, selectR } from "../r-math";
 import { collectSingleBasis, basisLabel } from "../basis";
 
 describe("canonical R mathematics", () => {
@@ -300,8 +294,7 @@ describe("actual-stop geometry (shared by web and MCP)", () => {
 
   it("[INVARIANT] a long stop at or above the actual entry is impossible, never a valid actual-risk R", () => {
     for (const stop of [101, 102]) {
-      const call = () =>
-        computeR({ ...base, direction: "long", actualInitialStop: stop });
+      const call = () => computeR({ ...base, direction: "long", actualInitialStop: stop });
       expect(call).toThrow(RMathInputError);
       try {
         call();
@@ -345,9 +338,9 @@ describe("actual-stop geometry (shared by web and MCP)", () => {
   });
 
   it("[INVARIANT] a zero-distance actual stop is rejected rather than dividing by zero", () => {
-    expect(() =>
-      computeR({ ...base, direction: "long", actualInitialStop: 101 }),
-    ).toThrow(/below its actual entry|non-zero/);
+    expect(() => computeR({ ...base, direction: "long", actualInitialStop: 101 })).toThrow(
+      /below its actual entry|non-zero/,
+    );
   });
 });
 
