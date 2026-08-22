@@ -153,7 +153,7 @@
               "type": "string"
             },
             "daily_setup_cap": {
-              "description": "Max graded setups alerted per day; 0 = unlimited.",
+              "description": "Max graded (A+/A/B) setups per UTC day; 0 = unlimited. The cap governs both feed and alert eligibility, each channel counting against its own grade threshold (min_grade for the feed, alert_min_grade for alerts).",
               "type": "number"
             },
             "notify_push": {

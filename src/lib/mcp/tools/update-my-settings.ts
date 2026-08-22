@@ -20,7 +20,9 @@ export default defineTool({
     daily_setup_cap: z
       .number()
       .optional()
-      .describe("Max graded setups alerted per day; 0 = unlimited."),
+      .describe(
+        "Max graded (A+/A/B) setups per UTC day; 0 = unlimited. The cap governs both feed and alert eligibility, each channel counting against its own grade threshold (min_grade for the feed, alert_min_grade for alerts).",
+      ),
     notify_push: z.boolean().optional(),
     notify_email: z.boolean().optional(),
     account_equity: z.number().optional().describe("Account balance in the account currency."),
