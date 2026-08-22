@@ -202,7 +202,13 @@ export function calculateRisk(
   // Broker-only check: a stop inside the broker's stops level cannot be placed,
   // so no lot size is offered. Unknown stops level ⇒ no claim either way.
   // stopsLevel is denominated in POINTS (10^-digits), not ticks.
-  const minStop = brokerSpec ? minStopDistance(brokerSpec) : null;
+  // Inlined rather than imported from ./broker/specs to keep risk.ts free of a
+  // circular import (specs.ts reads CONTRACT_SPECS from here).
+  const minStop =
+    brokerSpec && brokerSpec.stopsLevel !== null && brokerSpec.point !== null && brokerSpec.point > 0
+      ? brokerSpec.stopsLevel * brokerSpec.point
+      : null;
+
   if (minStop !== null && minStop > 0 && stopDistance < minStop) {
     return { ok: false, reason: "below_stops_level" };
   }
