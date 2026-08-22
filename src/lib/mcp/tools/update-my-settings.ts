@@ -37,6 +37,12 @@ export default defineTool({
       .number()
       .optional()
       .describe("Maximum stop distance as a percent of entry; 0 disables the check."),
+    risk_ack_high: z
+      .boolean()
+      .optional()
+      .describe(
+        "Persisted acknowledgement that the user accepts risking more than 2% of equity per trade. Required (together with confirm_risk_change) before risk_per_trade_percent above 2 is applied; without it the percent is left unchanged.",
+      ),
     confirm_risk_change: z
       .boolean()
       .optional()
@@ -69,7 +75,19 @@ export default defineTool({
         isError: true,
       };
     }
-    const { patch, warnings } = validateSettings(settingsInput);
+    const supabase = supabaseForUser(ctx);
+    const userId = ctx.getUserId() as string;
+    // Existing acknowledgement counts: a user who already accepted high risk
+    // does not have to re-acknowledge on every subsequent change.
+    const { data: current } = await supabase
+      .from("scanner_settings")
+      .select("risk_ack_high")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    const { patch, warnings } = validateSettings(settingsInput, {
+      currentAckHigh: (current as { risk_ack_high?: boolean } | null)?.risk_ack_high === true,
+    });
     if (Object.keys(patch).length === 0) {
       const text = warnings.length
         ? `Nothing changed. ${warnings.join(" ")}`
@@ -77,13 +95,12 @@ export default defineTool({
       return { content: [{ type: "text", text }], isError: true };
     }
 
-    const supabase = supabaseForUser(ctx);
     const { data, error } = await supabase
       .from("scanner_settings")
       .update(patch)
-      .eq("user_id", ctx.getUserId() as string)
+      .eq("user_id", userId)
       .select(
-        "instruments, timeframes, sessions, min_grade, alert_min_grade, daily_setup_cap, notify_push, notify_email, account_equity, account_currency, risk_per_trade_percent, max_position_size, leverage, max_stop_loss_percent",
+        "instruments, timeframes, sessions, min_grade, alert_min_grade, daily_setup_cap, notify_push, notify_email, account_equity, account_currency, risk_per_trade_percent, max_position_size, leverage, max_stop_loss_percent, equity_as_of, risk_ack_high",
       );
 
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
@@ -94,7 +111,15 @@ export default defineTool({
       };
     }
 
-    const payload = { updated: Object.keys(patch), settings: data[0], warnings };
+    const payload = {
+      updated: Object.keys(patch),
+      settings: data[0],
+      warnings,
+      notes: {
+        account_equity:
+          "User-entered balance, never read from the broker. equity_as_of records when the user last set it.",
+      },
+    };
     return {
       content: [{ type: "text", text: JSON.stringify(payload) }],
       structuredContent: payload,
