@@ -65,6 +65,7 @@ export type RejectReason =
   | "stop_below_broker_stops_level"
   | "risk_guardrail"
   | "exposure_guardrail"
+  | "host_not_allowlisted"
   | "policy_unsupported";
 
 export const REJECT_COPY: Record<RejectReason, string> = {
@@ -88,8 +89,30 @@ export const REJECT_COPY: Record<RejectReason, string> = {
   stop_below_broker_stops_level: "The stop is closer than your broker's minimum stop distance.",
   risk_guardrail: "A position-size guardrail blocked the order.",
   exposure_guardrail: "An advisory exposure limit blocked the order.",
+  host_not_allowlisted:
+    "Live execution is only permitted to bridge destinations on the trusted list. Dry-run still works for this host.",
   policy_unsupported: "The configured execution policy is not supported.",
 };
+
+/**
+ * Live-mode destination allowlist. The Worker cannot pin the resolved address
+ * onto the socket, so an arbitrary custom host is not a trustworthy live egress
+ * target even after SSRF validation: DNS could rebind between validation and
+ * connect. Live orders therefore only leave to hosts an operator has listed;
+ * every other host is still fully exercisable in dry-run.
+ *
+ * An entry is either an exact hostname or a `.suffix` covering its subdomains.
+ * An EMPTY allowlist means no live destination is trusted — fail closed.
+ */
+export function hostAllowedForLive(host: string, allowlist: readonly string[]): boolean {
+  const h = host.trim().toLowerCase().replace(/\.$/, "");
+  if (!h) return false;
+  return allowlist.some((raw) => {
+    const entry = raw.trim().toLowerCase().replace(/\.$/, "");
+    if (!entry) return false;
+    return entry.startsWith(".") ? h.endsWith(entry) : h === entry;
+  });
+}
 
 /** Spread may not consume more than this share of the planned stop distance. */
 export const MAX_SPREAD_FRACTION_OF_RISK = 0.15;
