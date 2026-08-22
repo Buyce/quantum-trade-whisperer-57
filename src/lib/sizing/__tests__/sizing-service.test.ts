@@ -133,7 +133,7 @@ describe("shared sizing service", () => {
     fetchQuote.mockResolvedValue({
       bid: 0.66,
       ask: 0.661,
-      time: new Date(NOW - 10 * 60_000).toISOString(),
+      sourceTime: new Date(NOW - 10 * 60_000).toISOString(),
     });
     const fake = db(null);
     const result = await resolveSizingForUser(
@@ -145,6 +145,28 @@ describe("shared sizing service", () => {
     expect(result.available).toBe(false);
     if (!result.available) expect(result.reason).toBe("stale_quote");
     expect(result.provenance.quoteStale).toBe(true);
+  });
+
+  it("[INVARIANT] a stale quote leaves authoritative provenance on the static model", async () => {
+    // Broker spec exists (shadow available) but model 1 is authoritative, so
+    // authoritative provenance must stay static_v1 even on an unavailable result.
+    fetchQuote.mockResolvedValue({
+      bid: 0.66,
+      ask: 0.661,
+      sourceTime: new Date(NOW - 10 * 60_000).toISOString(),
+    });
+    const fake = db(brokerRow({ symbol: "GBPAUD" }));
+    const result = await resolveSizingForUser(
+      fake.client as Parameters<typeof resolveSizingForUser>[0],
+      "user-1",
+      { instrument: "GBPAUD", entryPrice: 1.95, stopLoss: 1.94, finalTargetR: 2 },
+      NOW,
+    );
+    expect(result.available).toBe(false);
+    expect(result.provenance.authoritativeModel).toBe(1);
+    expect(result.provenance.specSource).toBe("static_v1");
+    expect(result.provenance.specAsOf).toBeNull();
+    expect(result.provenance.shadowSpecSource).toBe("broker");
   });
 
   it("[UNIT] issues zero conversion requests when the currencies already match", async () => {
