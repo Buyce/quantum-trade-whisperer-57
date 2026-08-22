@@ -350,3 +350,50 @@ describe("actual-stop geometry (shared by web and MCP)", () => {
     ).toThrow(/below its actual entry|non-zero/);
   });
 });
+
+describe("direction fails closed", () => {
+  it("[INVARIANT] a null direction on long-shaped prices yields no R, never a long assumption", () => {
+    const r = computeR({
+      outcome: "win",
+      direction: null,
+      plannedEntry: 100,
+      plannedStop: 98,
+      actualEntryPrice: 101,
+      actualExitPrice: 105,
+      actualInitialStop: null,
+    });
+    expect(r.availability).toBe("unavailable_no_direction");
+    expect(r.rVsPlan).toBeNull();
+    expect(r.rVsActualRisk).toBeNull();
+    expect(r.grossMove).toBeNull();
+  });
+
+  it("[INVARIANT] a null direction on short-shaped prices yields no R", () => {
+    const r = computeR({
+      outcome: "loss",
+      direction: null,
+      plannedEntry: 100,
+      plannedStop: 102,
+      actualEntryPrice: 100,
+      actualExitPrice: 102,
+      actualInitialStop: null,
+    });
+    expect(r.availability).toBe("unavailable_no_direction");
+    expect(r.rVsPlan).toBeNull();
+    expect(r.rVsActualRisk).toBeNull();
+  });
+
+  it("[INVARIANT] stop geometry is not asserted when direction is unknown", () => {
+    expect(() =>
+      computeR({
+        outcome: "win",
+        direction: null,
+        plannedEntry: 100,
+        plannedStop: 98,
+        actualEntryPrice: 101,
+        actualExitPrice: 105,
+        actualInitialStop: 130,
+      }),
+    ).not.toThrow();
+  });
+});
