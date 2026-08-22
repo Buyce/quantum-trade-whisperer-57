@@ -191,17 +191,10 @@ function SettingsPage() {
 
   async function onSave() {
     if (!user) return;
-    // The dispatcher must never be armed with an endpoint we cannot reach.
-    if (webhookEnabled) {
-      if (!/^https:\/\//i.test(webhookUrl.trim())) {
-        toast.error("Webhook URL must be a full https:// address");
-        return;
-      }
-      if (!webhookSecret.trim()) {
-        toast.error("A webhook secret or licence ID is required");
-        return;
-      }
-    }
+    // Bridge fields are validated and written SERVER-SIDE below. There is
+    // deliberately no client-side URL check standing in for that: a browser
+    // regex cannot classify what a hostname resolves to.
+
 
     // Clamped to the same bounds the database enforces, so a save is never
     // rejected by a constraint the user cannot see.
