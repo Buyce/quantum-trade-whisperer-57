@@ -64,6 +64,10 @@ function SettingsPage() {
   const [webhookUrl, setWebhookUrl] = useState("");
   const [webhookSecret, setWebhookSecret] = useState("");
   const [webhookFormat, setWebhookFormat] = useState<WebhookFormat>("json");
+  // Automated execution. Off by default, dry-run by default: the safe posture is
+  // the one you get without touching anything.
+  const [executionEnabled, setExecutionEnabled] = useState(false);
+  const [executionDryRun, setExecutionDryRun] = useState(true);
   // Risk profile. Held as strings so a half-typed number never becomes NaN or
   // snaps back to a default while the field has focus.
   const [equity, setEquity] = useState("0");
