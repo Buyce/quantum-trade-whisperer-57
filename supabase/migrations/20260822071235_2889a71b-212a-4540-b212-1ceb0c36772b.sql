@@ -1,0 +1,1 @@
+REVOKE ALL ON FUNCTION public.enqueue_execution_deliveries() FROM PUBLIC, anon, authenticated;
