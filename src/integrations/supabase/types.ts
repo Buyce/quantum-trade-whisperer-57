@@ -65,6 +65,72 @@ export type Database = {
         }
         Relationships: []
       }
+      broker_symbol_specs: {
+        Row: {
+          base_currency: string | null
+          calc_mode: string | null
+          contract_size: number | null
+          digits: number | null
+          fetched_at: string
+          freeze_level: number | null
+          margin_currency: string | null
+          profit_currency: string | null
+          raw: Json | null
+          source: string
+          stops_level: number | null
+          symbol: string
+          tick_size: number | null
+          tick_value: number | null
+          trade_mode: string | null
+          volume_limit: number | null
+          volume_max: number | null
+          volume_min: number | null
+          volume_step: number | null
+        }
+        Insert: {
+          base_currency?: string | null
+          calc_mode?: string | null
+          contract_size?: number | null
+          digits?: number | null
+          fetched_at?: string
+          freeze_level?: number | null
+          margin_currency?: string | null
+          profit_currency?: string | null
+          raw?: Json | null
+          source?: string
+          stops_level?: number | null
+          symbol: string
+          tick_size?: number | null
+          tick_value?: number | null
+          trade_mode?: string | null
+          volume_limit?: number | null
+          volume_max?: number | null
+          volume_min?: number | null
+          volume_step?: number | null
+        }
+        Update: {
+          base_currency?: string | null
+          calc_mode?: string | null
+          contract_size?: number | null
+          digits?: number | null
+          fetched_at?: string
+          freeze_level?: number | null
+          margin_currency?: string | null
+          profit_currency?: string | null
+          raw?: Json | null
+          source?: string
+          stops_level?: number | null
+          symbol?: string
+          tick_size?: number | null
+          tick_value?: number | null
+          trade_mode?: string | null
+          volume_limit?: number | null
+          volume_max?: number | null
+          volume_min?: number | null
+          volume_step?: number | null
+        }
+        Relationships: []
+      }
       executed_trades: {
         Row: {
           actual_entry_at: string | null
@@ -1411,6 +1477,7 @@ export type Database = {
           alert_min_grade: Database["public"]["Enums"]["signal_grade"]
           created_at: string
           daily_setup_cap: number
+          equity_as_of: string | null
           instruments: string[]
           leverage: number
           max_position_size: number
@@ -1419,6 +1486,7 @@ export type Database = {
           notify_email: boolean
           notify_push: boolean
           order_strategy: string
+          risk_ack_high: boolean
           risk_per_trade_percent: number
           sessions: string[]
           timeframes: string[]
@@ -1435,6 +1503,7 @@ export type Database = {
           alert_min_grade?: Database["public"]["Enums"]["signal_grade"]
           created_at?: string
           daily_setup_cap?: number
+          equity_as_of?: string | null
           instruments?: string[]
           leverage?: number
           max_position_size?: number
@@ -1443,6 +1512,7 @@ export type Database = {
           notify_email?: boolean
           notify_push?: boolean
           order_strategy?: string
+          risk_ack_high?: boolean
           risk_per_trade_percent?: number
           sessions?: string[]
           timeframes?: string[]
@@ -1459,6 +1529,7 @@ export type Database = {
           alert_min_grade?: Database["public"]["Enums"]["signal_grade"]
           created_at?: string
           daily_setup_cap?: number
+          equity_as_of?: string | null
           instruments?: string[]
           leverage?: number
           max_position_size?: number
@@ -1467,6 +1538,7 @@ export type Database = {
           notify_email?: boolean
           notify_push?: boolean
           order_strategy?: string
+          risk_ack_high?: boolean
           risk_per_trade_percent?: number
           sessions?: string[]
           timeframes?: string[]
@@ -1833,6 +1905,65 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "signal_user_telemetry_signal_id_fkey"
+            columns: ["signal_id"]
+            isOneToOne: false
+            referencedRelation: "scanned_signals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sizing_divergence_log: {
+        Row: {
+          authoritative_model: number
+          created_at: string
+          id: string
+          instrument: string
+          lots_delta: number | null
+          risk_delta: number | null
+          signal_id: string | null
+          spec_source: string
+          summary: string | null
+          user_id: string | null
+          v1_lots: number | null
+          v1_reason: string | null
+          v2_lots: number | null
+          v2_reason: string | null
+        }
+        Insert: {
+          authoritative_model: number
+          created_at?: string
+          id?: string
+          instrument: string
+          lots_delta?: number | null
+          risk_delta?: number | null
+          signal_id?: string | null
+          spec_source: string
+          summary?: string | null
+          user_id?: string | null
+          v1_lots?: number | null
+          v1_reason?: string | null
+          v2_lots?: number | null
+          v2_reason?: string | null
+        }
+        Update: {
+          authoritative_model?: number
+          created_at?: string
+          id?: string
+          instrument?: string
+          lots_delta?: number | null
+          risk_delta?: number | null
+          signal_id?: string | null
+          spec_source?: string
+          summary?: string | null
+          user_id?: string | null
+          v1_lots?: number | null
+          v1_reason?: string | null
+          v2_lots?: number | null
+          v2_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sizing_divergence_log_signal_id_fkey"
             columns: ["signal_id"]
             isOneToOne: false
             referencedRelation: "scanned_signals"

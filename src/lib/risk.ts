@@ -50,7 +50,17 @@ export const DEFAULT_RISK_PROFILE: RiskProfile = {
   maxStopLossPercent: 0,
 };
 
-export type RiskUnavailableReason = "no_equity" | "no_spec" | "no_conversion_rate" | "invalid_stop";
+export type RiskUnavailableReason =
+  | "no_equity"
+  | "no_spec"
+  | "no_conversion_rate"
+  | "invalid_stop"
+  /** Broker-confirmed minimum stop distance is wider than this setup's stop. */
+  | "below_stops_level"
+  /** Live quote used for conversion is older than the caller's freshness bound. */
+  | "stale_quote"
+  /** Broker spec exists but is older than its freshness bound. */
+  | "stale_spec";
 
 export interface RiskUnavailable {
   ok: false;
@@ -80,8 +90,27 @@ export interface RiskBreakdown {
   riskPercentOfEquity: number;
   /** Position value in account currency. */
   notional: number;
+  /**
+   * ESTIMATE ONLY: notional / leverage. Real MT5 margin depends on the symbol's
+   * calc mode, margin currency and broker margin rates, which we do not have.
+   * Never present this as the broker's requirement.
+   */
+  marginEstimate: number;
+  marginBasis: "notional_over_leverage";
+  /** @deprecated Same number as `marginEstimate`; kept for existing callers. */
   marginRequired: number;
   marginPercentOfEquity: number;
+  /** Provenance of the contract specification used for this calculation. */
+  specSource: "broker" | "static_v1";
+  specAsOf: string | null;
+  /** Which sizing model produced this row: 1 = static specs, 2 = broker specs. */
+  sizingModelVersion: 1 | 2;
+  /** Broker minimum stop distance in price; null when the broker did not say. */
+  minStopDistance: number | null;
+  /** Broker volume ceiling actually applied, when known. */
+  brokerVolumeCap: number | null;
+  /** Size was limited by the broker's volume ceiling rather than by risk. */
+  cappedByBrokerVolume: boolean;
   /** Profit at the furthest reachable target, at `lots`. */
   rewardAtFinalTarget: number | null;
   finalTargetR: number | null;
@@ -112,6 +141,19 @@ export interface RiskInput {
 }
 
 /**
+ * Optional broker inputs. Passing a broker-confirmed spec switches the
+ * calculation to sizing model 2; omitting it keeps the model-1 static behaviour
+ * byte-for-byte, which is what keeps the dual-run honest.
+ */
+export interface RiskOptions {
+  spec?: import("./broker/specs").SizingSpec | null;
+  /** The broker spec is older than its freshness bound. */
+  specStale?: boolean;
+  /** The FX quote backing the conversion is older than the caller's bound. */
+  quoteStale?: boolean;
+}
+
+/**
  * Rate converting one unit of `quote` into `accountCurrency`.
  * Returns null when the pair needs a rate we do not have — the caller must then
  * show "unavailable" rather than assuming parity.
@@ -139,14 +181,33 @@ export function calculateRisk(
   input: RiskInput,
   profile: RiskProfile,
   rates: Record<string, number> = {},
+  options: RiskOptions = {},
 ): RiskResult {
-  const spec = CONTRACT_SPECS[input.instrument];
+  // Model 1 keeps the documented static contract table. Model 2 is used only
+  // when the caller hands over a broker-confirmed spec, so v1 output can never
+  // shift underneath users before the flag is flipped.
+  const brokerSpec = options.spec && options.spec.source === "broker" ? options.spec : null;
+  const sizingModelVersion: 1 | 2 = brokerSpec ? 2 : 1;
+  const staticEntry = CONTRACT_SPECS[input.instrument];
+  const spec = brokerSpec ?? staticEntry;
   if (!spec) return { ok: false, reason: "no_spec" };
+  if (brokerSpec && options.specStale) return { ok: false, reason: "stale_spec" };
+  if (options.quoteStale) return { ok: false, reason: "stale_quote" };
   if (!(profile.accountEquity > 0)) return { ok: false, reason: "no_equity" };
 
   const entry = Number(input.entryPrice);
   const stopDistance = Math.abs(entry - Number(input.stopLoss));
   if (!(stopDistance > 0) || !(entry > 0)) return { ok: false, reason: "invalid_stop" };
+
+  // Broker-only check: a stop inside the broker's stops level cannot be placed,
+  // so no lot size is offered. Unknown stops level ⇒ no claim either way.
+  const minStop =
+    brokerSpec && brokerSpec.stopsLevel !== null && brokerSpec.tickSize !== null
+      ? brokerSpec.stopsLevel * brokerSpec.tickSize
+      : null;
+  if (minStop !== null && minStop > 0 && stopDistance < minStop) {
+    return { ok: false, reason: "below_stops_level" };
+  }
 
   const rate = conversionRate(spec.quote, profile.accountCurrency, rates);
   if (rate === null) return { ok: false, reason: "no_conversion_rate" };
@@ -155,7 +216,14 @@ export function calculateRisk(
   const riskPerLot = stopDistance * spec.contractSize * rate;
   const rawLots = riskBudget / riskPerLot;
 
-  const ceiling = profile.maxPositionSize > 0 ? profile.maxPositionSize : Infinity;
+  const userCeiling = profile.maxPositionSize > 0 ? profile.maxPositionSize : Infinity;
+  const brokerVolumeCaps = brokerSpec
+    ? [brokerSpec.maxLot, brokerSpec.volumeLimit].filter(
+        (v): v is number => typeof v === "number" && v > 0,
+      )
+    : [];
+  const brokerVolumeCap = brokerVolumeCaps.length ? Math.min(...brokerVolumeCaps) : null;
+  const ceiling = Math.min(userCeiling, brokerVolumeCap ?? Infinity);
   const cappedRaw = Math.min(rawLots, ceiling);
   const lots = Math.max(0, floorToStep(cappedRaw, spec.lotStep));
   const belowMinimumLot = lots < spec.minLot;
@@ -164,7 +232,8 @@ export function calculateRisk(
   // Price of one base unit in the account currency: entry is quote-denominated.
   const notional = lots * spec.contractSize * entry * rate;
   const leverage = profile.leverage > 0 ? profile.leverage : 1;
-  const marginRequired = notional / leverage;
+  // ESTIMATE: broker margin depends on calc mode / margin currency / margin rates.
+  const marginEstimate = notional / leverage;
 
   const finalTargetR =
     input.finalTargetR != null && Number.isFinite(input.finalTargetR)
@@ -185,13 +254,21 @@ export function calculateRisk(
     riskAmount,
     riskPercentOfEquity: (riskAmount / profile.accountEquity) * 100,
     notional,
-    marginRequired,
-    marginPercentOfEquity: (marginRequired / profile.accountEquity) * 100,
+    marginEstimate,
+    marginBasis: "notional_over_leverage",
+    marginRequired: marginEstimate,
+    marginPercentOfEquity: (marginEstimate / profile.accountEquity) * 100,
+    specSource: brokerSpec ? "broker" : "static_v1",
+    specAsOf: brokerSpec?.asOf ?? null,
+    sizingModelVersion,
+    minStopDistance: minStop,
+    brokerVolumeCap,
+    cappedByBrokerVolume: brokerVolumeCap !== null && rawLots > brokerVolumeCap,
     rewardAtFinalTarget: finalTargetR === null ? null : riskAmount * finalTargetR,
     finalTargetR,
-    cappedByPositionSize: rawLots > ceiling,
+    cappedByPositionSize: rawLots > userCeiling,
     belowMinimumLot,
-    exceedsMargin: marginRequired > profile.accountEquity,
+    exceedsMargin: marginEstimate > profile.accountEquity,
     exceedsStopCeiling:
       profile.maxStopLossPercent > 0 && (stopDistance / entry) * 100 > profile.maxStopLossPercent,
   };
@@ -203,6 +280,11 @@ export const RISK_UNAVAILABLE_COPY: Record<RiskUnavailableReason, string> = {
   no_conversion_rate:
     "Live FX rate needed to convert this pair's risk into your account currency is unavailable.",
   invalid_stop: "This setup has no usable stop distance.",
+  below_stops_level:
+    "This stop is closer to entry than your broker's minimum stop distance, so the order cannot be placed as planned.",
+  stale_quote: "The live quote is too old to size this setup safely. Waiting for a fresh price.",
+  stale_spec:
+    "The broker's contract specification for this symbol is out of date, so no size is calculated.",
 };
 
 /** Currencies an account may be denominated in. */
