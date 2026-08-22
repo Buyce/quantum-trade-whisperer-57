@@ -9,13 +9,27 @@ Describe what the suite protects, and what a green run does and does not prove.
 ### Running
 
 ```sh
-bun run test          # full vitest suite
+bun run test          # the BLOCKING vitest project only: UNIT + V1_CHARACTERIZATION
+                      # + INVARIANT + db. This is the gate.
+bun run test:report   # the NON-BLOCKING `report` project: [INTENDED_V2] tests in
+                      # *.v2.test.ts, which describe desired future behaviour and
+                      # are expected to fail against current V1. Never a gate.
+bun run test:watch    # blocking project in watch mode
 bunx vitest run path  # one file
-bun run lint
+bun run lint          # eslint + prettier over the repository
+bun run lint:blocking # eslint + prettier over the test sources (part of verify)
+bun run typecheck
 bun run build
+bun run verify        # lint:blocking -> typecheck -> blocking tests -> build
 ```
 
-CI is defined in `.github/workflows/ci.yml`.
+`bun run test` and `bun run test:report` are two different vitest projects, not a
+short and long form of the same run. A green `verify` means the blocking project
+passed; it says nothing about `test:report`, by design.
+
+CI is defined in `.github/workflows/ci.yml`. No claim about a CI status check is
+made in this documentation set — read the CI provider for that.
+
 
 ### Taxonomy
 
