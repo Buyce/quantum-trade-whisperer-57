@@ -19,7 +19,7 @@
       {
         "name": "list_signals",
         "title": "List scanned signals",
-        "description": "List the most recent trade setups produced by the live P-Trades market scanner. Returns real broker-derived signals only; an empty list means the scanner is in Capital Preservation Mode (no valid setup). Scope defaults to all_published (every published setup, including historical and resolved ones); pass scope='my_scanner' to see only the setups the signed-in user's own scanner settings make eligible today.",
+        "description": "List trade setups published by the live P-Trades market scanner. Returns real broker-derived rows only. scope='all_published' (default) returns all retained published rows, including retained historical and resolved ones. scope='my_scanner' returns only the rows currently eligible under the signed-in user's feed settings (instruments, sessions, minimum grade), the retention window and their daily cap. An empty result means nothing matched the requested filters and scope — it is NOT evidence about the scanner's current cycle or that no valid setup exists; use get_scanner_status / get_market_status for scanner state.",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": true,
@@ -44,7 +44,7 @@
               ]
             },
             "scope": {
-              "description": "all_published (default) = every published setup, historical and resolved included. my_scanner = only what this user's instrument/session/grade filters and daily cap deliver.",
+              "description": "all_published (default) = all retained published rows, retained historical/resolved included. my_scanner = rows currently eligible under this user's feed settings, the retention window and the daily cap (the cap governs feed and alert eligibility, each channel using its own grade threshold).",
               "type": "string",
               "enum": [
                 "all_published",
@@ -96,7 +96,7 @@
       {
         "name": "get_my_settings",
         "title": "Get my settings",
-        "description": "Read the signed-in user's feed filters (instruments, timeframes, sessions, minimum grade), alert preferences, daily cap (0 = unlimited) and risk profile (account equity, currency, risk per trade, leverage, max stop-loss percent, max position size). Webhook credentials are never returned.",
+        "description": "Read the signed-in user's feed filters (instruments, timeframes, sessions, minimum grade), alert preferences, daily cap (0 = unlimited; the cap governs feed and alert eligibility, each channel using its own grade threshold) and risk profile (account equity, currency, risk per trade, leverage, max stop-loss percent, max position size). Webhook credentials are never returned.",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": true,
@@ -112,7 +112,7 @@
       {
         "name": "update_my_settings",
         "title": "Update my settings",
-        "description": "Change the signed-in user's own feed filters, alert grade, daily cap (0 = unlimited), notification preferences and risk profile. Only the fields you pass are changed; values outside safe bounds are clamped and reported back. Webhook URL and secret cannot be changed by an agent. Changing any risk field (account_equity, account_currency, risk_per_trade_percent, max_position_size, leverage, max_stop_loss_percent) additionally requires confirm_risk_change: true, which asserts the user explicitly approved that change in this conversation; never set it on your own initiative.",
+        "description": "Change the signed-in user's own feed filters, alert grade, daily cap (0 = unlimited; the cap governs feed and alert eligibility, each channel using its own grade threshold), notification preferences and risk profile. Only the fields you pass are changed; values outside safe bounds are clamped and reported back. Webhook URL and secret cannot be changed by an agent. Changing any risk field (account_equity, account_currency, risk_per_trade_percent, max_position_size, leverage, max_stop_loss_percent) additionally requires confirm_risk_change: true, which asserts the user explicitly approved that change in this conversation; never set it on your own initiative.",
         "annotations": {
           "readOnlyHint": false,
           "destructiveHint": false,
@@ -153,7 +153,7 @@
               "type": "string"
             },
             "daily_setup_cap": {
-              "description": "Max graded setups alerted per day; 0 = unlimited.",
+              "description": "Max graded (A+/A/B) setups per UTC day; 0 = unlimited. The cap governs both feed and alert eligibility, each channel counting against its own grade threshold (min_grade for the feed, alert_min_grade for alerts).",
               "type": "number"
             },
             "notify_push": {
