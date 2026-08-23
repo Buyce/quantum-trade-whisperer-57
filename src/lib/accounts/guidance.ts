@@ -98,11 +98,12 @@ export function isOfferedRegion(region: string): region is ConnectionRegionId {
 
 /**
  * Plain-language statement of what P-Trades does with connected accounts when
- * NOTHING is armed. It is only accurate for that case, so the page must derive
- * its header from real account state via `capabilityNote` below.
+ * NOTHING is armed. It states the current state without denying the Demo Auto
+ * capability, which exists and is the trader's own choice to arm. The page
+ * derives its header from real account state via `capabilityNote` below.
  */
 export const STAGE_CAPABILITY_NOTE =
-  "Connected accounts are in Observe mode: P-Trades reads what your broker reports and shows it back to you. It does not place, change or close any order on your account.";
+  "Every connected account starts in Observe mode: P-Trades reads what your broker reports and places nothing until you arm an account yourself. Nothing is armed right now. A demo account your broker confirms as DEMO can be armed for automatic orders; automatic orders on real money stay switched off.";
 
 /**
  * Honest header copy for /accounts, derived from what the accounts are ACTUALLY
