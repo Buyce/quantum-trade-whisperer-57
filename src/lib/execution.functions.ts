@@ -40,7 +40,7 @@ export const saveBridgeSettings = createServerFn({ method: "POST" })
       await import("@/lib/delivery/outbound-url.server");
 
     let validatedAt: string | null = null;
-    let validationReason: string | null = null;
+    const validationReason: string | null = null;
     let host: string | null = null;
 
     if (data.webhookEnabled || data.executionEnabled) {
