@@ -107,9 +107,10 @@ describe("metaApiRequest", () => {
   });
 
   it("[UNIT] an empty body is null rather than a parse failure", async () => {
-    globalThis.fetch = (async () => new Response("", { status: 204 })) as unknown as typeof fetch;
+    globalThis.fetch = (async () => new Response("", { status: 200 })) as unknown as typeof fetch;
     await expect(
       metaApiRequest({ service: "provisioning", path: "/x", label: "deploy" }),
     ).resolves.toBeNull();
   });
+
 });
