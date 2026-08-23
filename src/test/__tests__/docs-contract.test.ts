@@ -190,6 +190,63 @@ describe("documentation contract: provenance wording", () => {
   });
 });
 
+describe("documentation contract: ChatGPT developer mode instructions", () => {
+  const CONNECT = "src/routes/connect.tsx";
+
+  it("[INVARIANT] does not use the stale Settings → Security and login path", () => {
+    expect(read(CONNECT)).not.toMatch(/Security and login/i);
+  });
+
+  it("[INVARIANT] does not claim Plus supports custom MCP developer mode", () => {
+    expect(read(CONNECT)).not.toMatch(/\bPlus\b/);
+  });
+
+  it("[INVARIANT] does not imply full write MCP on Pro", () => {
+    const text = read(CONNECT);
+    expect(text).toMatch(/Pro[^.\n]{0,80}read\/fetch/i);
+    expect(text).not.toMatch(/Pro,\s*Plus/i);
+  });
+
+  it("[INVARIANT] documents the plan-specific developer-access paths", () => {
+    const text = read(CONNECT);
+    expect(text).toMatch(/Advanced Settings/);
+    expect(text).toMatch(/Enterprise\/Edu/);
+    expect(text).toMatch(/Business/);
+  });
+
+  it("[INVARIANT] documents the Scan Tools → authorization → Create sequence", () => {
+    const text = read(CONNECT);
+    expect(text).toMatch(/Scan Tools/);
+    expect(text).toMatch(/OAuth authorization/i);
+    expect(text).toMatch(/wait for the scan/i);
+  });
+
+  it("[INVARIANT] does not use chatgpt.com/plugins as the setup path", () => {
+    expect(read(CONNECT)).not.toContain("chatgpt.com/plugins");
+  });
+
+  it("[INVARIANT] states confirmation depends on permissions, context and risk", () => {
+    expect(read(CONNECT)).toMatch(
+      /may ask for confirmation depending on permissions, action context and risk/i,
+    );
+  });
+
+  it("[INVARIANT] keeps the OpenAI Help Center article authoritative and notes change", () => {
+    const text = read(CONNECT);
+    expect(text).toContain(
+      "help.openai.com/en/articles/12584461-developer-mode-and-mcp-apps-in-chatgpt",
+    );
+    expect(text).toMatch(/plan availability may change/i);
+  });
+
+  it("[INVARIANT] keeps the write-tool availability caveat", () => {
+    const text = read(CONNECT);
+    expect(text).toMatch(/update_my_settings/);
+    expect(text).toMatch(/availability depends[^.\n]{0,80}plan and workspace permissions/i);
+  });
+});
+
+
 describe("documentation contract: code constants", () => {
   it("[INVARIANT] the documented execution policy matches the code constant", () => {
     expect(read("docs/EXECUTION.md")).toContain(DEFAULT_EXECUTION_POLICY);
