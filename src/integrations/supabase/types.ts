@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_quota_defaults: {
+        Row: {
+          id: boolean
+          max_demo: number
+          max_live: number
+          updated_at: string
+        }
+        Insert: {
+          id?: boolean
+          max_demo?: number
+          max_live?: number
+          updated_at?: string
+        }
+        Update: {
+          id?: boolean
+          max_demo?: number
+          max_live?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      account_quota_overrides: {
+        Row: {
+          created_at: string
+          max_demo: number | null
+          max_live: number | null
+          note: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          max_demo?: number | null
+          max_live?: number | null
+          note?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          max_demo?: number | null
+          max_live?: number | null
+          note?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       agent_registrations: {
         Row: {
           client_label: string | null
@@ -134,6 +179,294 @@ export type Database = {
           volume_max?: number | null
           volume_min?: number | null
           volume_step?: number | null
+        }
+        Relationships: []
+      }
+      connected_account_features: {
+        Row: {
+          account_id: string
+          metastats_api_enabled: boolean
+          mt5_netting: boolean
+          observed_at: string
+          reliability: string | null
+          risk_guardian_available: boolean
+          risk_guardian_reason: string | null
+          risk_management_api_enabled: boolean
+          user_id: string
+        }
+        Insert: {
+          account_id: string
+          metastats_api_enabled?: boolean
+          mt5_netting?: boolean
+          observed_at?: string
+          reliability?: string | null
+          risk_guardian_available?: boolean
+          risk_guardian_reason?: string | null
+          risk_management_api_enabled?: boolean
+          user_id: string
+        }
+        Update: {
+          account_id?: string
+          metastats_api_enabled?: boolean
+          mt5_netting?: boolean
+          observed_at?: string
+          reliability?: string | null
+          risk_guardian_available?: boolean
+          risk_guardian_reason?: string | null
+          risk_management_api_enabled?: boolean
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "connected_account_features_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: true
+            referencedRelation: "connected_trading_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      connected_account_specs: {
+        Row: {
+          account_id: string
+          base_currency: string | null
+          broker_symbol: string
+          calc_mode: string | null
+          canonical_symbol: string | null
+          contract_size: number | null
+          digits: number | null
+          fetched_at: string
+          freeze_level: number | null
+          id: string
+          margin_currency: string | null
+          point: number | null
+          point_source: string | null
+          profit_currency: string | null
+          raw: Json | null
+          stops_level: number | null
+          tick_size: number | null
+          tick_value: number | null
+          trade_mode: string | null
+          user_id: string
+          volume_limit: number | null
+          volume_max: number | null
+          volume_min: number | null
+          volume_step: number | null
+        }
+        Insert: {
+          account_id: string
+          base_currency?: string | null
+          broker_symbol: string
+          calc_mode?: string | null
+          canonical_symbol?: string | null
+          contract_size?: number | null
+          digits?: number | null
+          fetched_at?: string
+          freeze_level?: number | null
+          id?: string
+          margin_currency?: string | null
+          point?: number | null
+          point_source?: string | null
+          profit_currency?: string | null
+          raw?: Json | null
+          stops_level?: number | null
+          tick_size?: number | null
+          tick_value?: number | null
+          trade_mode?: string | null
+          user_id: string
+          volume_limit?: number | null
+          volume_max?: number | null
+          volume_min?: number | null
+          volume_step?: number | null
+        }
+        Update: {
+          account_id?: string
+          base_currency?: string | null
+          broker_symbol?: string
+          calc_mode?: string | null
+          canonical_symbol?: string | null
+          contract_size?: number | null
+          digits?: number | null
+          fetched_at?: string
+          freeze_level?: number | null
+          id?: string
+          margin_currency?: string | null
+          point?: number | null
+          point_source?: string | null
+          profit_currency?: string | null
+          raw?: Json | null
+          stops_level?: number | null
+          tick_size?: number | null
+          tick_value?: number | null
+          trade_mode?: string | null
+          user_id?: string
+          volume_limit?: number | null
+          volume_max?: number | null
+          volume_min?: number | null
+          volume_step?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "connected_account_specs_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "connected_trading_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      connected_account_symbols: {
+        Row: {
+          account_id: string
+          broker_symbol: string | null
+          candidates: string[]
+          canonical_symbol: string
+          id: string
+          mapping_kind: string
+          resolved_at: string
+          user_id: string
+        }
+        Insert: {
+          account_id: string
+          broker_symbol?: string | null
+          candidates?: string[]
+          canonical_symbol: string
+          id?: string
+          mapping_kind: string
+          resolved_at?: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string
+          broker_symbol?: string | null
+          candidates?: string[]
+          canonical_symbol?: string
+          id?: string
+          mapping_kind?: string
+          resolved_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "connected_account_symbols_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "connected_trading_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      connected_trading_accounts: {
+        Row: {
+          account_currency: string | null
+          broker_account_type: string
+          broker_balance: number | null
+          broker_equity: number | null
+          broker_free_margin: number | null
+          broker_login_masked: string | null
+          broker_margin_level: number | null
+          broker_name: string | null
+          broker_observed_at: string | null
+          broker_server: string | null
+          connection_status: string | null
+          created_at: string
+          credentials_configured: boolean
+          disconnected_at: string | null
+          id: string
+          intent: string
+          intent_conflict: boolean
+          intent_conflict_reason: string | null
+          investor_mode: boolean | null
+          label: string
+          last_error: string | null
+          last_reconciled_at: string | null
+          leverage: number | null
+          magic: number | null
+          margin_mode: string | null
+          metaapi_account_id: string | null
+          mode: string
+          phase: string
+          platform: string
+          provision_transaction_id: string
+          provisioning_state: string | null
+          region: string
+          trade_allowed: boolean | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_currency?: string | null
+          broker_account_type?: string
+          broker_balance?: number | null
+          broker_equity?: number | null
+          broker_free_margin?: number | null
+          broker_login_masked?: string | null
+          broker_margin_level?: number | null
+          broker_name?: string | null
+          broker_observed_at?: string | null
+          broker_server?: string | null
+          connection_status?: string | null
+          created_at?: string
+          credentials_configured?: boolean
+          disconnected_at?: string | null
+          id?: string
+          intent: string
+          intent_conflict?: boolean
+          intent_conflict_reason?: string | null
+          investor_mode?: boolean | null
+          label: string
+          last_error?: string | null
+          last_reconciled_at?: string | null
+          leverage?: number | null
+          magic?: number | null
+          margin_mode?: string | null
+          metaapi_account_id?: string | null
+          mode?: string
+          phase?: string
+          platform: string
+          provision_transaction_id: string
+          provisioning_state?: string | null
+          region: string
+          trade_allowed?: boolean | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_currency?: string | null
+          broker_account_type?: string
+          broker_balance?: number | null
+          broker_equity?: number | null
+          broker_free_margin?: number | null
+          broker_login_masked?: string | null
+          broker_margin_level?: number | null
+          broker_name?: string | null
+          broker_observed_at?: string | null
+          broker_server?: string | null
+          connection_status?: string | null
+          created_at?: string
+          credentials_configured?: boolean
+          disconnected_at?: string | null
+          id?: string
+          intent?: string
+          intent_conflict?: boolean
+          intent_conflict_reason?: string | null
+          investor_mode?: boolean | null
+          label?: string
+          last_error?: string | null
+          last_reconciled_at?: string | null
+          leverage?: number | null
+          magic?: number | null
+          margin_mode?: string | null
+          metaapi_account_id?: string | null
+          mode?: string
+          phase?: string
+          platform?: string
+          provision_transaction_id?: string
+          provisioning_state?: string | null
+          region?: string
+          trade_allowed?: boolean | null
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -2489,6 +2822,13 @@ export type Database = {
       }
     }
     Functions: {
+      account_quota: {
+        Args: { _user_id: string }
+        Returns: {
+          max_demo: number
+          max_live: number
+        }[]
+      }
       admin_reset_shadow_breaker: { Args: never; Returns: Json }
       claim_execution_delivery: {
         Args: { lease_seconds?: number }
