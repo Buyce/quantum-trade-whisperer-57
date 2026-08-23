@@ -130,3 +130,19 @@ describe("Risk Guardian rules", () => {
     expect(GUARDIAN_INFLUENCES.publishedStatistics).toBe(false);
   });
 });
+
+describe("vendor budget park decisions", () => {
+  it("[INVARIANT] a billing or feature refusal parks the account instead of looping", async () => {
+    const { reasonShouldPark } = await import("../metastats");
+    expect(reasonShouldPark("MetaApi billing is required for this account")).toBe(true);
+    expect(reasonShouldPark("The MetaStats API is not enabled on this account")).toBe(true);
+    expect(reasonShouldPark("unauthorized")).toBe(true);
+  });
+
+  it("[INVARIANT] a transient failure is not parked, so it retries on the interval", async () => {
+    const { reasonShouldPark } = await import("../metastats");
+    expect(reasonShouldPark("the request timed out")).toBe(false);
+    expect(reasonShouldPark("the statistics service returned a server error")).toBe(false);
+    expect(reasonShouldPark(null)).toBe(false);
+  });
+});
