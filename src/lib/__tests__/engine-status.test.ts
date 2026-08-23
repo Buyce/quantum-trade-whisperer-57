@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyEngineError, cooldownRemaining } from "@/lib/engine-status";
+import { classifyEngineError, classifyScanHealth, cooldownRemaining } from "@/lib/engine-status";
 
 describe("classifyEngineError", () => {
   it("[UNIT] treats no error as no error", () => {
@@ -39,5 +39,72 @@ describe("cooldownRemaining", () => {
   it("[UNIT] formats minutes and hours", () => {
     expect(cooldownRemaining("2026-08-23T04:20:00Z", now)).toBe("20m");
     expect(cooldownRemaining("2026-08-23T06:30:00Z", now)).toBe("2h 30m");
+  });
+});
+
+describe("classifyScanHealth", () => {
+  it("[UNIT] reports RUNNING when the window has no failures", () => {
+    const h = classifyScanHealth({ total: 12, failed: 0, succeeded: 12 });
+    expect(h.state).toBe("running");
+    expect(h.value).toBe("RUNNING");
+    expect(h.errorIsCurrent).toBe(false);
+  });
+
+  it("[UNIT] reports NO CYCLES for an empty window", () => {
+    const h = classifyScanHealth({ total: 0, failed: 0, succeeded: 0 });
+    expect(h.state).toBe("no_cycles");
+    expect(h.value).toBe("NO CYCLES");
+    expect(h.errorIsCurrent).toBe(false);
+  });
+
+  it("[UNIT] reports FAILING when every cycle in the window failed", () => {
+    const h = classifyScanHealth({
+      total: 9,
+      failed: 9,
+      succeeded: 0,
+      last_failure_at: "2026-08-23T03:45:00Z",
+      last_success_at: null,
+    });
+    expect(h.state).toBe("failing");
+    expect(h.tone).toBe("bad");
+    expect(h.errorIsCurrent).toBe(true);
+  });
+
+  it("[UNIT] reports RECOVERED when the newest cycle succeeded after the last failure", () => {
+    const h = classifyScanHealth({
+      total: 18,
+      failed: 3,
+      succeeded: 15,
+      last_failure_at: "2026-08-23T03:45:02Z",
+      last_success_at: "2026-08-23T04:30:09Z",
+    });
+    expect(h.state).toBe("recovered");
+    expect(h.value).toBe("RECOVERED");
+    // The stored provider/billing error has healed and must not be shown as current.
+    expect(h.errorIsCurrent).toBe(false);
+  });
+
+  it("[UNIT] stays DEGRADED while the newest failure is more recent than the newest success", () => {
+    const h = classifyScanHealth({
+      total: 18,
+      failed: 3,
+      succeeded: 15,
+      last_failure_at: "2026-08-23T04:30:09Z",
+      last_success_at: "2026-08-23T03:45:02Z",
+    });
+    expect(h.state).toBe("degraded");
+    expect(h.errorIsCurrent).toBe(true);
+  });
+
+  it("[UNIT] treats a failure with no recorded success in the window as still current", () => {
+    const h = classifyScanHealth({
+      total: 4,
+      failed: 1,
+      succeeded: 3,
+      last_failure_at: "2026-08-23T04:30:09Z",
+      last_success_at: null,
+    });
+    expect(h.state).toBe("degraded");
+    expect(h.errorIsCurrent).toBe(true);
   });
 });
