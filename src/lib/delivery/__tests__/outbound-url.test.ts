@@ -4,11 +4,7 @@
  * be refused with a NAMED reason — never accepted "just this once".
  */
 import { describe, expect, it, vi, afterEach } from "vitest";
-import {
-  inspectUrlSyntax,
-  isPublicAddress,
-  validateOutboundUrl,
-} from "../outbound-url.server";
+import { inspectUrlSyntax, isPublicAddress, validateOutboundUrl } from "../outbound-url.server";
 
 function dohResponse(addresses: string[], type: "A" | "AAAA") {
   return {
@@ -117,7 +113,10 @@ describe("validateOutboundUrl", () => {
   });
 
   it("[INVARIANT] rejects a hostname that resolves into private space (DNS rebind attempt)", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => dohResponse(["10.0.0.7"], "A")));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => dohResponse(["10.0.0.7"], "A")),
+    );
     const r = await validateOutboundUrl("https://rebind.example.com/hook");
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.reason).toBe("resolves_to_private_address");
@@ -153,7 +152,10 @@ describe("validateOutboundUrl", () => {
   });
 
   it("[INVARIANT] rejects a hostname with no records", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => dohResponse([], "A")));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => dohResponse([], "A")),
+    );
     const r = await validateOutboundUrl("https://nowhere.example.com/hook");
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.reason).toBe("resolution_failed");

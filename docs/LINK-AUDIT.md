@@ -16,34 +16,34 @@ vendor changes its connector UI or a route is renamed.
 
 ## Canonical URLs
 
-| Purpose | URL | Notes |
-| --- | --- | --- |
-| Production app | `https://getptrades.com` | canonical everywhere: README, robots, sitemap, OG tags |
-| Notification sender | `notify.getptrades.com` | email sender domain only |
-| MCP server | `<app origin>/mcp` | derived at runtime from `window.location.origin`; never hardcoded |
+| Purpose             | URL                      | Notes                                                             |
+| ------------------- | ------------------------ | ----------------------------------------------------------------- |
+| Production app      | `https://getptrades.com` | canonical everywhere: README, robots, sitemap, OG tags            |
+| Notification sender | `notify.getptrades.com`  | email sender domain only                                          |
+| MCP server          | `<app origin>/mcp`       | derived at runtime from `window.location.origin`; never hardcoded |
 
 Stale Lovable preview hosts are no longer cited as the production app anywhere in
 canonical documentation.
 
 ## Internal links
 
-| Source | Targets | Result |
-| --- | --- | --- |
-| `README.md` | `docs/*` index, `AGENTS.md` | resolve |
-| `docs/README.md` | all 18 documents in `docs/` | resolve |
-| `docs/*` | sibling documents, `src/**` implementation paths | resolve |
-| `src/routes/index.tsx` | `/auth`, `/feed`, `/connect` | routes exist |
-| `src/components/AppShell.tsx` | `/feed`, `/history`, `/performance`, `/connect`, `/settings`, `/guide` | routes exist |
-| `/guide` anchors | in-page section ids referenced by `GuideDetail` deep links | resolve in-page |
+| Source                        | Targets                                                                | Result          |
+| ----------------------------- | ---------------------------------------------------------------------- | --------------- |
+| `README.md`                   | `docs/*` index, `AGENTS.md`                                            | resolve         |
+| `docs/README.md`              | all 18 documents in `docs/`                                            | resolve         |
+| `docs/*`                      | sibling documents, `src/**` implementation paths                       | resolve         |
+| `src/routes/index.tsx`        | `/auth`, `/feed`, `/connect`                                           | routes exist    |
+| `src/components/AppShell.tsx` | `/feed`, `/history`, `/performance`, `/connect`, `/settings`, `/guide` | routes exist    |
+| `/guide` anchors              | in-page section ids referenced by `GuideDetail` deep links             | resolve in-page |
 
 ## External vendor steps on `/connect`
 
-| Client | What the page tells the user | Audit note |
-| --- | --- | --- |
-| ChatGPT | Enable Developer mode under Settings → Apps & Connectors → Advanced, create a custom connector, paste the MCP URL, accept the trust confirmation, enable it in the composer | Rewritten to current Apps/Connectors terminology. The older "Plugins" phrasing has been removed. |
-| Claude | Open the Connectors page, add a custom connector with the app name and MCP URL, confirm, then enable it in the composer | Prefilled connector deep link, with a written fallback if the prefilled dialog does not open. |
-| Claude Code | One `claude mcp add --scope user --transport http` command with the runtime URL single-quoted, then `/mcp` to confirm | The command is the client's whole install step; no config-file editing is documented. |
-| Other MCP clients | Generic remote-MCP steps: open connector settings, add a remote server, paste the URL, finish sign-in, enable | Vendor-neutral so it does not go stale. |
+| Client            | What the page tells the user                                                                                                                                                | Audit note                                                                                       |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| ChatGPT           | Enable Developer mode under Settings → Apps & Connectors → Advanced, create a custom connector, paste the MCP URL, accept the trust confirmation, enable it in the composer | Rewritten to current Apps/Connectors terminology. The older "Plugins" phrasing has been removed. |
+| Claude            | Open the Connectors page, add a custom connector with the app name and MCP URL, confirm, then enable it in the composer                                                     | Prefilled connector deep link, with a written fallback if the prefilled dialog does not open.    |
+| Claude Code       | One `claude mcp add --scope user --transport http` command with the runtime URL single-quoted, then `/mcp` to confirm                                                       | The command is the client's whole install step; no config-file editing is documented.            |
+| Other MCP clients | Generic remote-MCP steps: open connector settings, add a remote server, paste the URL, finish sign-in, enable                                                               | Vendor-neutral so it does not go stale.                                                          |
 
 ## Refresh guidance audited
 

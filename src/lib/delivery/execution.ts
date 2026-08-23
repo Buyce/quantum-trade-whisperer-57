@@ -10,13 +10,7 @@
 import { ORDER_TIF_MINUTES, type Direction, type Grade } from "@/lib/db-types";
 
 export type DeliveryState =
-  | "pending"
-  | "claimed"
-  | "sent"
-  | "acknowledged"
-  | "rejected"
-  | "unknown"
-  | "failed";
+  "pending" | "claimed" | "sent" | "acknowledged" | "rejected" | "unknown" | "failed";
 
 /**
  * Only `pending` is claimable. A `sent` or `unknown` row is NEVER re-attempted:
@@ -85,8 +79,7 @@ export const REJECT_COPY: Record<RejectReason, string> = {
   quote_unavailable: "No broker price was available to revalidate the setup.",
   quote_stale: "The broker price was too old to revalidate the setup.",
   spread_too_wide: "The spread was too wide relative to the planned risk.",
-  price_beyond_max_acceptable_entry:
-    "Price had already run beyond the maximum acceptable entry.",
+  price_beyond_max_acceptable_entry: "Price had already run beyond the maximum acceptable entry.",
   market_closed: "The market was closed.",
   stop_below_broker_stops_level: "The stop is closer than your broker's minimum stop distance.",
   risk_guardrail: "A position-size guardrail blocked the order.",
@@ -100,7 +93,6 @@ export const REJECT_COPY: Record<RejectReason, string> = {
     "Your execution configuration changed after this setup was queued, so the queued order was not sent under the new authorization.",
   policy_unsupported: "The configured execution policy is not supported.",
 };
-
 
 /**
  * Live-mode destination allowlist. The Worker cannot pin the resolved address
@@ -255,7 +247,6 @@ export function buildBridgeOrder(
     quantity,
   };
 }
-
 
 /**
  * True when the live broker price is still on the tradable side of the slippage

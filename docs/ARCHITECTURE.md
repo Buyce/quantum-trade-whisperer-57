@@ -31,12 +31,12 @@ flowchart TD
 
 ### The four planes
 
-| Plane | Owns | Must never |
-| --- | --- | --- |
-| Production signal generation | cron, queue, workers, scanner, `scanned_signals`, `market_context` | read the journal, research tables, or delivery state |
-| Research / shadow | `research_candidates`, shadow executions, replay, regime and payoff stats | write to `scanned_signals` or change any published field |
-| User analytics | `executed_trades`, canonical R, Performance Engine | mix R bases, or borrow research numbers as personal results |
-| Execution delivery | `execution_deliveries`, controls, dispatch | influence publication, eligibility, enrolment or any statistic; interrupt a scan |
+| Plane                        | Owns                                                                      | Must never                                                                       |
+| ---------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Production signal generation | cron, queue, workers, scanner, `scanned_signals`, `market_context`        | read the journal, research tables, or delivery state                             |
+| Research / shadow            | `research_candidates`, shadow executions, replay, regime and payoff stats | write to `scanned_signals` or change any published field                         |
+| User analytics               | `executed_trades`, canonical R, Performance Engine                        | mix R bases, or borrow research numbers as personal results                      |
+| Execution delivery           | `execution_deliveries`, controls, dispatch                                | influence publication, eligibility, enrolment or any statistic; interrupt a scan |
 
 Isolation is enforced structurally: `src/lib/delivery/execution.ts` documents that
 nothing importing it may be reachable from the scanner pipeline, and the research

@@ -144,7 +144,6 @@ const HISTORY_HEADERS = [
   "Notes",
 ];
 
-
 export function historyToCsv(rows: TradeHistoryRow[]): string {
   const data: Array<Array<unknown>> = [];
   for (const row of rows) {

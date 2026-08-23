@@ -33,7 +33,13 @@ import {
   type EligibilitySignal,
 } from "./eligibility";
 import { fetchDayFrame, toEligibilitySignal, type FrameClient } from "./day-frame";
-import { ORDER_TIF_MINUTES, contextOf, maxAcceptableEntry, type Grade, type SignalRow } from "@/lib/db-types";
+import {
+  ORDER_TIF_MINUTES,
+  contextOf,
+  maxAcceptableEntry,
+  type Grade,
+  type SignalRow,
+} from "@/lib/db-types";
 import { marketStatus } from "@/lib/market-hours";
 import { minStopDistance } from "@/lib/broker/specs";
 import { loadBrokerSpec } from "@/lib/broker/specs.server";
@@ -129,7 +135,6 @@ interface SettingsRow {
   live_execution_confirmed_global_live?: boolean | null;
 }
 
-
 export async function revalidateDelivery(
   db: Db,
   delivery: DeliveryRow,
@@ -192,7 +197,6 @@ export async function revalidateDelivery(
       `queued under configuration v${queuedVersion}, current is v${currentVersion}`,
     );
   }
-
 
   // ---- 3. The setup itself -------------------------------------------------
   const { data: signalRow } = await db
@@ -287,12 +291,16 @@ export async function revalidateDelivery(
   if (now - sourceMs > REVALIDATION_QUOTE_MAX_AGE_MS) {
     return reject("quote_stale", `${Math.round((now - sourceMs) / 1000)}s old`);
   }
-  if (!spreadAcceptable({ entry: plan.entryPrice, stopLoss: plan.stopLoss }, quote.bid, quote.ask)) {
+  if (
+    !spreadAcceptable({ entry: plan.entryPrice, stopLoss: plan.stopLoss }, quote.bid, quote.ask)
+  ) {
     return reject("spread_too_wide");
   }
 
   const marketPrice = action === "buy_limit" ? quote.ask : quote.bid;
-  if (!withinMaxAcceptableEntry({ action, maxAcceptableEntry: plan.maxAcceptableEntry }, marketPrice)) {
+  if (
+    !withinMaxAcceptableEntry({ action, maxAcceptableEntry: plan.maxAcceptableEntry }, marketPrice)
+  ) {
     return reject("price_beyond_max_acceptable_entry", String(marketPrice));
   }
 
@@ -308,7 +316,12 @@ export async function revalidateDelivery(
   const sizing = await resolveSizingForUser(
     db,
     delivery.user_id,
-    { instrument: signal.instrument, entryPrice: plan.entryPrice, stopLoss: plan.stopLoss, signalId: signal.id },
+    {
+      instrument: signal.instrument,
+      entryPrice: plan.entryPrice,
+      stopLoss: plan.stopLoss,
+      signalId: signal.id,
+    },
     now,
   );
   if (!sizing.available) return reject("risk_guardrail", sizing.reason);
@@ -407,5 +420,4 @@ export async function revalidateDelivery(
     endpoint: { url: resolved.url, host: resolved.host, secret, format },
     exposure,
   };
-
 }

@@ -8,11 +8,11 @@ the default state is that nothing goes out.
 
 **Two separate things exist and must not be confused:**
 
-| | Notification webhook | Execution delivery |
-| --- | --- | --- |
-| Purpose | tells a system a setup exists | asks a bridge to place an order |
-| Path | notification fan-out (email/push equivalent) | `execution_deliveries` queue only |
-| Default | user-configurable | globally disabled |
+|         | Notification webhook                         | Execution delivery                |
+| ------- | -------------------------------------------- | --------------------------------- |
+| Purpose | tells a system a setup exists                | asks a bridge to place an order   |
+| Path    | notification fan-out (email/push equivalent) | `execution_deliveries` queue only |
+| Default | user-configurable                            | globally disabled                 |
 
 The legacy path that sent broker instructions directly from the scanner's alert
 fan-out has been **removed**. `src/lib/scanner/alerts.server.ts` is notification-only.

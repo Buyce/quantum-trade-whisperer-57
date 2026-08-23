@@ -71,7 +71,9 @@ describe("documentation contract: no credentials", () => {
       // not a broker or account credential.
       const scrubbed = text.replace(/https:\/\/lovable\.dev\/projects\/[0-9a-f-]+/gi, "");
       expect(scrubbed, `${rel} must not contain a UUID-shaped identifier`).not.toMatch(uuid);
-      expect(text, `${rel} must not contain a broker login number`).not.toMatch(/\b50535580\d{2}\b/);
+      expect(text, `${rel} must not contain a broker login number`).not.toMatch(
+        /\b50535580\d{2}\b/,
+      );
       expect(text, `${rel} must not contain a bearer/JWT-shaped token`).not.toMatch(
         /\beyJ[A-Za-z0-9_-]{10,}/,
       );
@@ -86,9 +88,7 @@ describe("documentation contract: internal links resolve", () => {
       const dir = rel.includes("/") ? rel.slice(0, rel.lastIndexOf("/")) : ".";
       for (const m of text.matchAll(link)) {
         const target = m[1]!;
-        const abs = target.startsWith("/")
-          ? join(ROOT, target.slice(1))
-          : join(ROOT, dir, target);
+        const abs = target.startsWith("/") ? join(ROOT, target.slice(1)) : join(ROOT, dir, target);
         expect(existsSync(abs), `${rel} links to missing ${target}`).toBe(true);
       }
     }

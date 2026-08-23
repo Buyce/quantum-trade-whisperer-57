@@ -8,7 +8,6 @@ import {
 import { selectR, type RBasis } from "./journal/r-math";
 import { MIN_GROUP_SAMPLES } from "./stats/evidence";
 
-
 export interface RSample {
   key: string;
   instrument: string;
@@ -169,7 +168,6 @@ function buildTradeSample(t: TradeRow, signal: SignalRow | undefined, r: number)
   };
 }
 
-
 export function groupBy<K extends string | number>(
   samples: RSample[],
   keyFn: (s: RSample) => K,
@@ -319,7 +317,6 @@ export function generateInsights(samples: RSample[], scopeLabel: string): string
 
   return insights;
 }
-
 
 export function fmtR(v: number): string {
   return `${v >= 0 ? "" : "-"}${Math.abs(v).toFixed(2)}R`;

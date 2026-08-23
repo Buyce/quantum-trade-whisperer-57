@@ -98,7 +98,9 @@ export function PanelShell({
   return (
     <Card className="overflow-hidden">
       <div className="flex items-center justify-between border-b border-border px-3 py-2">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{title}</h2>
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          {title}
+        </h2>
         {right}
       </div>
       <div className="p-3">{children}</div>
@@ -107,7 +109,8 @@ export function PanelShell({
 }
 
 export function InstrumentHealthList({ health }: { health: AdminHealth }) {
-  if (!health.instruments.length) return <EmptyNote>No instrument health rows recorded yet.</EmptyNote>;
+  if (!health.instruments.length)
+    return <EmptyNote>No instrument health rows recorded yet.</EmptyNote>;
   return (
     <ul className="space-y-1">
       {health.instruments.map((i) => (
@@ -128,7 +131,8 @@ export function InstrumentHealthList({ health }: { health: AdminHealth }) {
 }
 
 export function RegimeTable({ rows }: { rows: AdminRegimeRow[] }) {
-  if (!rows.length) return <EmptyNote>The learning engine has not produced regime statistics yet.</EmptyNote>;
+  if (!rows.length)
+    return <EmptyNote>The learning engine has not produced regime statistics yet.</EmptyNote>;
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-[11px]">
@@ -164,7 +168,9 @@ export function RegimeTable({ rows }: { rows: AdminRegimeRow[] }) {
               <td className="py-1 pr-2">
                 <span className="flex items-center gap-1">
                   <Progress value={r.fill_gate_pct} className="h-1 w-16" />
-                  <span className={r.fill_gate_passed ? "text-emerald-400" : "text-muted-foreground"}>
+                  <span
+                    className={r.fill_gate_passed ? "text-emerald-400" : "text-muted-foreground"}
+                  >
                     {r.fill_gate_pct}%
                   </span>
                 </span>
@@ -172,7 +178,9 @@ export function RegimeTable({ rows }: { rows: AdminRegimeRow[] }) {
               <td className="py-1">
                 <span className="flex items-center gap-1">
                   <Progress value={r.win_gate_pct} className="h-1 w-16" />
-                  <span className={r.win_gate_passed ? "text-emerald-400" : "text-muted-foreground"}>
+                  <span
+                    className={r.win_gate_passed ? "text-emerald-400" : "text-muted-foreground"}
+                  >
                     {r.win_gate_pct}%
                   </span>
                 </span>
@@ -182,7 +190,8 @@ export function RegimeTable({ rows }: { rows: AdminRegimeRow[] }) {
         </tbody>
       </table>
       <p className="mt-2 text-[10px] text-muted-foreground">
-        Shrunk value first, raw empirical rate in brackets. Probabilities stay advisory until a gate passes.
+        Shrunk value first, raw empirical rate in brackets. Probabilities stay advisory until a gate
+        passes.
       </p>
     </div>
   );
@@ -239,8 +248,8 @@ export function DisciplinePanel({ discipline }: { discipline: AdminDiscipline })
     return (
       <EmptyNote>
         Insufficient samples (&lt;{MIN_DISCIPLINE_SAMPLES}). {discipline.total_decisions} decision
-        {discipline.total_decisions === 1 ? "" : "s"} logged so far — the comparison is suppressed until it
-        would mean something.
+        {discipline.total_decisions === 1 ? "" : "s"} logged so far — the comparison is suppressed
+        until it would mean something.
       </EmptyNote>
     );
   }
@@ -296,9 +305,9 @@ export function DisciplinePanel({ discipline }: { discipline: AdminDiscipline })
   );
 }
 
-
 export function GradeTable({ rows }: { rows: AdminGradeRow[] }) {
-  if (!rows.length) return <EmptyNote>No resolved shadow executions to calibrate against yet.</EmptyNote>;
+  if (!rows.length)
+    return <EmptyNote>No resolved shadow executions to calibrate against yet.</EmptyNote>;
   return (
     <table className="w-full text-[11px]">
       <thead className="text-left text-muted-foreground">
@@ -402,9 +411,16 @@ export function IntersectionTable({ rows }: { rows: AdminFeedRow[] }) {
         <tbody className="font-mono">
           {rows.map((r) => (
             <tr key={r.id} className="border-b border-border/50">
-              <td className="py-1 pr-2 whitespace-nowrap text-muted-foreground">{timeAgo(r.detected_at)}</td>
+              <td className="py-1 pr-2 whitespace-nowrap text-muted-foreground">
+                {timeAgo(r.detected_at)}
+              </td>
               <td className="py-1 pr-2">{r.instrument}</td>
-              <td className={cn("py-1 pr-2", r.direction === "long" ? "text-emerald-400" : "text-destructive")}>
+              <td
+                className={cn(
+                  "py-1 pr-2",
+                  r.direction === "long" ? "text-emerald-400" : "text-destructive",
+                )}
+              >
                 {r.direction === "long" ? "L" : "S"}
               </td>
               <td className="py-1 pr-2">{r.grade}</td>
@@ -496,7 +512,8 @@ export function WeeklyTierPanel({ report }: { report: WeeklyReport | undefined }
             </div>
             <p className="mt-1 font-mono text-muted-foreground">
               A/A+ {pctOf(c.highRate)} (n={c.highN}) vs B/C {pctOf(c.lowRate)} (n={c.lowN}) · z{" "}
-              {c.z === null ? "n/a" : c.z.toFixed(2)} · p {c.pValue === null ? "n/a" : c.pValue.toFixed(4)}
+              {c.z === null ? "n/a" : c.z.toFixed(2)} · p{" "}
+              {c.pValue === null ? "n/a" : c.pValue.toFixed(4)}
             </p>
             <p className="mt-0.5 text-muted-foreground">{c.note}</p>
           </li>
@@ -531,7 +548,8 @@ const VERDICT_TONE: Record<string, string> = {
  */
 export function UserIntegrityPanel({ report }: { report: UserAuditReport | undefined }) {
   if (!report) return <EmptyNote>Loading integrity audit…</EmptyNote>;
-  if (report.totals.trades === 0) return <EmptyNote>No user-logged taken trades to audit yet.</EmptyNote>;
+  if (report.totals.trades === 0)
+    return <EmptyNote>No user-logged taken trades to audit yet.</EmptyNote>;
 
   const t = report.totals;
   const flagged = report.rows.filter((r) => r.flags.length > 0);
@@ -541,7 +559,11 @@ export function UserIntegrityPanel({ report }: { report: UserAuditReport | undef
       <div className="grid grid-cols-2 gap-2 text-[11px] font-mono md:grid-cols-4">
         <IntegrityStat label="verified" value={String(t.verified)} tone="text-emerald-400" />
         <IntegrityStat label="unverifiable" value={String(t.unverifiable)} tone="text-amber-400" />
-        <IntegrityStat label="contradicted" value={String(t.contradicted)} tone="text-destructive" />
+        <IntegrityStat
+          label="contradicted"
+          value={String(t.contradicted)}
+          tone="text-destructive"
+        />
         <IntegrityStat
           label="trust score"
           value={t.trustScore == null ? "—" : pctOf(t.trustScore)}
@@ -550,8 +572,9 @@ export function UserIntegrityPanel({ report }: { report: UserAuditReport | undef
       </div>
 
       <p className="text-[11px] text-muted-foreground">
-        {t.resolved} resolved · {t.pending} still open · {t.withPrices} with real prices logged. Reported win
-        rate {pctOf(report.reportedWinRate)} vs verified {pctOf(report.verifiedWinRate)} (n=
+        {t.resolved} resolved · {t.pending} still open · {t.withPrices} with real prices logged.
+        Reported win rate {pctOf(report.reportedWinRate)} vs verified{" "}
+        {pctOf(report.verifiedWinRate)} (n=
         {report.verifiedSampleN}, contradicted rows excluded).
       </p>
 
@@ -559,7 +582,10 @@ export function UserIntegrityPanel({ report }: { report: UserAuditReport | undef
         <div className="space-y-1 rounded-sm border border-border px-2 py-1.5 text-[11px]">
           <p className="text-muted-foreground">Verified prices by author</p>
           {report.priceAuthors.map((a) => (
-            <div key={`${a.source}-${a.client ?? ""}`} className="flex items-center justify-between gap-2">
+            <div
+              key={`${a.source}-${a.client ?? ""}`}
+              className="flex items-center justify-between gap-2"
+            >
               <span className={a.source === "agent" ? "text-warning" : "text-muted-foreground"}>
                 {a.source === "human"
                   ? "human · web terminal"
@@ -664,8 +690,8 @@ export function UserIntegrityPanel({ report }: { report: UserAuditReport | undef
       )}
 
       <p className="text-[10px] text-muted-foreground">
-        Observational only. The Bayesian learning engine trains exclusively on deterministic shadow replay
-        labels and never reads user-reported outcomes.
+        Observational only. The Bayesian learning engine trains exclusively on deterministic shadow
+        replay labels and never reads user-reported outcomes.
       </p>
     </div>
   );
@@ -679,7 +705,6 @@ function IntegrityStat({ label, value, tone }: { label: string; value: string; t
     </div>
   );
 }
-
 
 /**
  * Human vs AI-agent split across accounts, decisions and reported outcomes.

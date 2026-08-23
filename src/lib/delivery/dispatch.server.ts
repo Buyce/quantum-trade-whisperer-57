@@ -90,7 +90,6 @@ export function pineBody(order: BridgeOrder, licence: string): string {
   ].join(",");
 }
 
-
 /** Extracts a broker order id when the bridge returns one. Absence ⇒ `unknown`. */
 export function readOrderId(text: string): string | null {
   try {
@@ -107,11 +106,7 @@ export function readOrderId(text: string): string | null {
   }
 }
 
-async function settle(
-  db: Db,
-  id: number,
-  patch: Record<string, unknown>,
-): Promise<void> {
+async function settle(db: Db, id: number, patch: Record<string, unknown>): Promise<void> {
   const { error } = await db.from("execution_deliveries").update(patch).eq("id", id);
   if (error) console.error("[dispatch] settle failed", { id, error: error.message });
 }
@@ -120,7 +115,10 @@ async function settle(
  * Processes at most one delivery. Returns null when the queue is empty. Never
  * throws: an execution failure must not interrupt the scanner or statistics.
  */
-export async function processNextDelivery(db: Db, now = Date.now()): Promise<DispatchResult | null> {
+export async function processNextDelivery(
+  db: Db,
+  now = Date.now(),
+): Promise<DispatchResult | null> {
   const { data, error } = await db.rpc("claim_execution_delivery", {
     lease_seconds: LEASE_SECONDS,
   });
@@ -181,7 +179,6 @@ export async function processNextDelivery(db: Db, now = Date.now()): Promise<Dis
     });
     return { deliveryId: delivery.id, state: "acknowledged", reason: "dry_run", dryRun: true };
   }
-
 
   // Mark `sent` BEFORE the POST: if this process dies mid-flight the row can
   // never be re-claimed, which is the whole point.

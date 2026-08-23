@@ -12,7 +12,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { GuideModeToggle } from "@/components/GuideMode";
 
-
 export const Route = createFileRoute("/_authenticated/guide")({
   head: () => ({
     meta: [
@@ -160,7 +159,6 @@ const SECTIONS: Section[] = [
     ],
   },
   {
-
     id: "signals",
     title: "Signals and grades",
     blurb: "What the scanner publishes, and how strong a setup actually is.",
@@ -459,9 +457,10 @@ function GuidePage() {
         </h1>
         <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
           Every number here is either derived from broker candles, computed by the engine from that
-          data, produced by deterministic replay, or reported by you — and it is labelled with which.
-          Where an input is missing or stale, the terminal refuses and names the reason instead of
-          inventing one. This page explains what each figure means, and what it does not claim.
+          data, produced by deterministic replay, or reported by you — and it is labelled with
+          which. Where an input is missing or stale, the terminal refuses and names the reason
+          instead of inventing one. This page explains what each figure means, and what it does not
+          claim.
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs text-muted-foreground">
@@ -545,7 +544,6 @@ function GuidePage() {
         ))}
       </div>
 
-
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Still unclear?</CardTitle>
@@ -553,8 +551,7 @@ function GuidePage() {
         <CardContent className="space-y-2 text-sm text-muted-foreground">
           <p>
             The repository's <span className="text-foreground">/docs</span> directory documents each
-            subsystem in full, including its inputs, failure behaviour and explicit
-            non-guarantees.
+            subsystem in full, including its inputs, failure behaviour and explicit non-guarantees.
           </p>
           <p>
             To let an AI assistant answer questions against your own live data, see{" "}

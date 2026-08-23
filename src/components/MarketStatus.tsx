@@ -33,7 +33,9 @@ export function MarketStatus({ health }: { health?: MarketStatusHealth[] }) {
         {status.weekendClosed ? (
           <span className="num text-xs text-warning">
             Market closed — weekend
-            {status.minutesToReopen ? ` · reopens in ${formatDuration(status.minutesToReopen)}` : ""}
+            {status.minutesToReopen
+              ? ` · reopens in ${formatDuration(status.minutesToReopen)}`
+              : ""}
           </span>
         ) : (
           <span className="num text-xs text-muted-foreground">
@@ -48,7 +50,10 @@ export function MarketStatus({ health }: { health?: MarketStatusHealth[] }) {
           <div key={s.key} className="flex items-center gap-2 text-xs">
             <span
               aria-hidden
-              className={cn("size-2 shrink-0 rounded-full", s.open ? "bg-success" : "bg-muted-foreground/40")}
+              className={cn(
+                "size-2 shrink-0 rounded-full",
+                s.open ? "bg-success" : "bg-muted-foreground/40",
+              )}
             />
             <span className="min-w-0 text-foreground">{s.label}</span>
             <span className="num ml-auto whitespace-nowrap text-muted-foreground">
@@ -82,7 +87,9 @@ export function MarketStatus({ health }: { health?: MarketStatusHealth[] }) {
                 className={cn("size-2 rounded-full", h.available ? "bg-success" : "bg-destructive")}
               />
               <span className="num text-foreground">{h.instrument}</span>
-              <span className="text-muted-foreground">{h.available ? "live feed" : "feed down"}</span>
+              <span className="text-muted-foreground">
+                {h.available ? "live feed" : "feed down"}
+              </span>
             </span>
           ))}
         </div>

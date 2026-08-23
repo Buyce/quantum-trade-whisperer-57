@@ -32,15 +32,12 @@ const bridgeInput = z.object({
   exposureLimitEnabled: z.boolean().optional(),
 });
 
-
-
 export const saveBridgeSettings = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => bridgeInput.parse(input))
   .handler(async ({ data, context }) => {
-    const { validateOutboundUrl, URL_REJECTION_COPY } = await import(
-      "@/lib/delivery/outbound-url.server"
-    );
+    const { validateOutboundUrl, URL_REJECTION_COPY } =
+      await import("@/lib/delivery/outbound-url.server");
 
     let validatedAt: string | null = null;
     let validationReason: string | null = null;
@@ -88,9 +85,7 @@ export const saveBridgeSettings = createServerFn({ method: "POST" })
         .from("execution_controls")
         .select("live_execution_enabled, force_dry_run")
         .maybeSingle();
-      const row = controls as
-        | { live_execution_enabled?: boolean; force_dry_run?: boolean }
-        | null;
+      const row = controls as { live_execution_enabled?: boolean; force_dry_run?: boolean } | null;
       const globallyLive = row?.live_execution_enabled === true && row?.force_dry_run !== true;
       if (!globallyLive) {
         return {
@@ -161,8 +156,6 @@ export const saveBridgeSettings = createServerFn({ method: "POST" })
     };
   });
 
-
-
 /**
  * Global execution posture, for honest UI copy. Reveals only the two switches
  * and the named policy — never another user's data and never an endpoint URL.
@@ -170,9 +163,8 @@ export const saveBridgeSettings = createServerFn({ method: "POST" })
 export const getExecutionStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async () => {
-    const { EXECUTION_POLICY_NOTE, DEFAULT_EXECUTION_POLICY } = await import(
-      "@/lib/delivery/execution"
-    );
+    const { EXECUTION_POLICY_NOTE, DEFAULT_EXECUTION_POLICY } =
+      await import("@/lib/delivery/execution");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data } = await supabaseAdmin
       .from("execution_controls")

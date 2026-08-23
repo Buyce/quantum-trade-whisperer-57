@@ -95,8 +95,8 @@ function Consent() {
         </CardHeader>
         <CardContent className="space-y-4 text-sm">
           <p className="text-muted-foreground">
-            {clientName} will be able to read your scanner signals and performance data and log trade
-            decisions on your behalf, acting as your account.
+            {clientName} will be able to read your scanner signals and performance data and log
+            trade decisions on your behalf, acting as your account.
           </p>
           {error && (
             <p role="alert" className="text-destructive">

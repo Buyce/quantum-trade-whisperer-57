@@ -24,31 +24,31 @@ financial advice.
 
 Everything below is derived from the implementation at HEAD.
 
-| Area | Current behaviour | Source |
-| --- | --- | --- |
-| Instruments | `XAUUSD`, `GBPAUD`, `EURUSD` | `src/lib/scanner/types.ts` (`INSTRUMENTS`) |
-| Timeframes | `H4`, `H1`, `M15` | `src/lib/scanner/types.ts` (`TIMEFRAMES`) |
-| Candle depth | 300 / 300 / 200 bars | `CANDLE_LIMITS` |
-| Scan cadence | Every 15 minutes, cron-triggered, queue + worker fan-out | `src/routes/api/public/cron/scan.ts`, `src/routes/api/public/worker/*` |
-| Market data | MetaApi REST only (no streaming sockets), hard per-request timeout, per-instrument health flags | `src/lib/scanner/metaapi.server.ts` |
-| Pattern | ABC retracement structure with a Point-C liquidity test | `src/lib/scanner/grading.ts` |
-| Grades | `A+`, `A`, `B`, `C` | `Grade` in `src/lib/scanner/types.ts` |
-| Confluence weighting | trend 35%, order block 25%, momentum 20%, volatility expansion 20%; R:R applied afterwards as a cap, not a fifth weight | `CONFIDENCE_WEIGHTS` |
-| Signal lifecycle | `active` → resolved or `expired`; active setups older than 24h are swept each cycle | `SIGNAL_MAX_AGE_HOURS` |
-| Order time-in-force | 30 minutes (two M15 candles) for an unfilled pending order | `ORDER_TIF_MINUTES` |
-| Retention | A+/A 48h, B 36h, C 24h | `RETENTION_HOURS` in `src/lib/db-types.ts` |
-| Per-user filtering | instruments, sessions, separate feed and alert grade thresholds | `src/lib/delivery/eligibility.ts` |
-| Per-user daily cap | User-chosen; `0` = unlimited (the default). C-grade never consumes cap. Feed and alert keep separate sequences | `evaluateEligibility`, `buildCapFrame` |
-| Journal | Taken / Skipped, win / loss / breakeven, planned plan snapshot at first creation, actual fill prices, per-write author provenance | `src/lib/trade-journal.functions.ts` |
-| Canonical R | Two separate measures — `r_vs_plan` and `r_vs_actual_risk` — never averaged together | `src/lib/journal/r-math.ts`, `src/lib/journal/basis.ts` |
-| Performance Engine | Expectancy in R, win rate, average win/loss, R distribution, per-grade and per-instrument splits, time-of-day view — from the user's own log | `src/lib/performance.ts` |
-| Research / shadow | Deterministic replay of published setups and of pre-publication research candidates, in isolated research-only tables | `src/lib/execution/replay.ts`, `src/lib/research/*` |
-| Statistics | Wilson intervals, whole-UTC-day cluster bootstrap (2000 replicates, fixed seed), Benjamini–Hochberg, 30-sample / 10-cluster floors, no holdout available | `src/lib/stats/*` |
-| Risk sizing | Lots, cash risk and a margin estimate from the user's own equity/risk/leverage settings; refuses to size on any missing or stale input | `src/lib/risk.ts`, `src/lib/sizing/service.server.ts` |
-| Broker-spec sizing | Broker symbol specs refreshed on a separate daily budget and run in shadow against the static model; the **static model (`static_v1`) remains authoritative** | `src/lib/broker/*`, `src/lib/sizing/service.server.ts` |
-| Notifications | Web/Android push, transactional email briefs | `src/lib/push.functions.ts`, `src/lib/email-templates/*` |
-| AI assistants | 12 MCP tools over an OAuth-protected `/mcp` endpoint | `.lovable/mcp/manifest.json`, `src/lib/mcp/tools/*` |
-| Execution delivery | Queue → claim → revalidate → quantity → SSRF check → HMAC signature → single dispatch attempt. **Globally disabled by default; dry-run first; live requires explicit confirmation.** PineConnector is dry-run only | `src/lib/delivery/*` |
+| Area                 | Current behaviour                                                                                                                                                                                                  | Source                                                                 |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| Instruments          | `XAUUSD`, `GBPAUD`, `EURUSD`                                                                                                                                                                                       | `src/lib/scanner/types.ts` (`INSTRUMENTS`)                             |
+| Timeframes           | `H4`, `H1`, `M15`                                                                                                                                                                                                  | `src/lib/scanner/types.ts` (`TIMEFRAMES`)                              |
+| Candle depth         | 300 / 300 / 200 bars                                                                                                                                                                                               | `CANDLE_LIMITS`                                                        |
+| Scan cadence         | Every 15 minutes, cron-triggered, queue + worker fan-out                                                                                                                                                           | `src/routes/api/public/cron/scan.ts`, `src/routes/api/public/worker/*` |
+| Market data          | MetaApi REST only (no streaming sockets), hard per-request timeout, per-instrument health flags                                                                                                                    | `src/lib/scanner/metaapi.server.ts`                                    |
+| Pattern              | ABC retracement structure with a Point-C liquidity test                                                                                                                                                            | `src/lib/scanner/grading.ts`                                           |
+| Grades               | `A+`, `A`, `B`, `C`                                                                                                                                                                                                | `Grade` in `src/lib/scanner/types.ts`                                  |
+| Confluence weighting | trend 35%, order block 25%, momentum 20%, volatility expansion 20%; R:R applied afterwards as a cap, not a fifth weight                                                                                            | `CONFIDENCE_WEIGHTS`                                                   |
+| Signal lifecycle     | `active` → resolved or `expired`; active setups older than 24h are swept each cycle                                                                                                                                | `SIGNAL_MAX_AGE_HOURS`                                                 |
+| Order time-in-force  | 30 minutes (two M15 candles) for an unfilled pending order                                                                                                                                                         | `ORDER_TIF_MINUTES`                                                    |
+| Retention            | A+/A 48h, B 36h, C 24h                                                                                                                                                                                             | `RETENTION_HOURS` in `src/lib/db-types.ts`                             |
+| Per-user filtering   | instruments, sessions, separate feed and alert grade thresholds                                                                                                                                                    | `src/lib/delivery/eligibility.ts`                                      |
+| Per-user daily cap   | User-chosen; `0` = unlimited (the default). C-grade never consumes cap. Feed and alert keep separate sequences                                                                                                     | `evaluateEligibility`, `buildCapFrame`                                 |
+| Journal              | Taken / Skipped, win / loss / breakeven, planned plan snapshot at first creation, actual fill prices, per-write author provenance                                                                                  | `src/lib/trade-journal.functions.ts`                                   |
+| Canonical R          | Two separate measures — `r_vs_plan` and `r_vs_actual_risk` — never averaged together                                                                                                                               | `src/lib/journal/r-math.ts`, `src/lib/journal/basis.ts`                |
+| Performance Engine   | Expectancy in R, win rate, average win/loss, R distribution, per-grade and per-instrument splits, time-of-day view — from the user's own log                                                                       | `src/lib/performance.ts`                                               |
+| Research / shadow    | Deterministic replay of published setups and of pre-publication research candidates, in isolated research-only tables                                                                                              | `src/lib/execution/replay.ts`, `src/lib/research/*`                    |
+| Statistics           | Wilson intervals, whole-UTC-day cluster bootstrap (2000 replicates, fixed seed), Benjamini–Hochberg, 30-sample / 10-cluster floors, no holdout available                                                           | `src/lib/stats/*`                                                      |
+| Risk sizing          | Lots, cash risk and a margin estimate from the user's own equity/risk/leverage settings; refuses to size on any missing or stale input                                                                             | `src/lib/risk.ts`, `src/lib/sizing/service.server.ts`                  |
+| Broker-spec sizing   | Broker symbol specs refreshed on a separate daily budget and run in shadow against the static model; the **static model (`static_v1`) remains authoritative**                                                      | `src/lib/broker/*`, `src/lib/sizing/service.server.ts`                 |
+| Notifications        | Web/Android push, transactional email briefs                                                                                                                                                                       | `src/lib/push.functions.ts`, `src/lib/email-templates/*`               |
+| AI assistants        | 12 MCP tools over an OAuth-protected `/mcp` endpoint                                                                                                                                                               | `.lovable/mcp/manifest.json`, `src/lib/mcp/tools/*`                    |
+| Execution delivery   | Queue → claim → revalidate → quantity → SSRF check → HMAC signature → single dispatch attempt. **Globally disabled by default; dry-run first; live requires explicit confirmation.** PineConnector is dry-run only | `src/lib/delivery/*`                                                   |
 
 Not enabled: live execution by default, any multi-exit order policy, holdout /
 out-of-sample statistical validation, and broker-authoritative margin.
@@ -110,16 +110,16 @@ Four planes, deliberately isolated:
 
 ## 4. Data provenance
 
-| Data | Source | Label shown to the user |
-| --- | --- | --- |
-| Candles, quotes | Broker via MetaApi REST | Broker-derived |
-| Account equity, risk %, leverage | User entered in Settings | Self-reported |
-| Journal fill prices | User or connected assistant, unless a broker source is proven | Self-reported / agent-entered |
-| Broker symbol specs | Broker when available and fresh; documented static table otherwise | Broker spec / `static_v1` static specification |
-| Margin | Derived from the sizing model and stated leverage | Margin estimate — never broker-authoritative |
-| Shadow / research outcomes | Deterministic replay over stored candles | Research-only |
-| Personal performance | The user's own journal | Trades you logged |
-| Scanner baseline | Replayed published setups | Scanner baseline, separate from personal results |
+| Data                             | Source                                                             | Label shown to the user                          |
+| -------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------ |
+| Candles, quotes                  | Broker via MetaApi REST                                            | Broker-derived                                   |
+| Account equity, risk %, leverage | User entered in Settings                                           | Self-reported                                    |
+| Journal fill prices              | User or connected assistant, unless a broker source is proven      | Self-reported / agent-entered                    |
+| Broker symbol specs              | Broker when available and fresh; documented static table otherwise | Broker spec / `static_v1` static specification   |
+| Margin                           | Derived from the sizing model and stated leverage                  | Margin estimate — never broker-authoritative     |
+| Shadow / research outcomes       | Deterministic replay over stored candles                           | Research-only                                    |
+| Personal performance             | The user's own journal                                             | Trades you logged                                |
+| Scanner baseline                 | Replayed published setups                                          | Scanner baseline, separate from personal results |
 
 ## 5. Testing
 
@@ -147,13 +147,13 @@ bun run verify     # lint:blocking + typecheck + test + build
 Configuration is by environment variable. No credential, account identifier,
 login number or secret value belongs in this repository.
 
-| Variable | Purpose |
-| --- | --- |
-| `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_SUPABASE_PROJECT_ID` | Browser backend client (publishable, safe to ship) |
-| `METAAPI_TOKEN`, `METAAPI_ACCOUNT_ID` | Broker market-data access (server only) |
-| `CRON_SECRET` | Authorises `/api/public/cron/*` callers |
-| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | Web push signing |
-| `WEBHOOK_*` / per-user bridge secrets | Stored per account in the database, never in source |
+| Variable                                                                         | Purpose                                             |
+| -------------------------------------------------------------------------------- | --------------------------------------------------- |
+| `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_SUPABASE_PROJECT_ID` | Browser backend client (publishable, safe to ship)  |
+| `METAAPI_TOKEN`, `METAAPI_ACCOUNT_ID`                                            | Broker market-data access (server only)             |
+| `CRON_SECRET`                                                                    | Authorises `/api/public/cron/*` callers             |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`                                          | Web push signing                                    |
+| `WEBHOOK_*` / per-user bridge secrets                                            | Stored per account in the database, never in source |
 
 Secrets are managed through the platform's secret store and read inside server
 handlers only.
@@ -171,27 +171,27 @@ commits pushed to `main` sync both ways.
 
 ## 8. Documentation index
 
-| Document | Covers |
-| --- | --- |
-| [docs/README.md](docs/README.md) | Index and reading order |
-| [docs/PRODUCT.md](docs/PRODUCT.md) | What the product does, for whom |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Planes, data flow, isolation rules |
-| [docs/SCANNER.md](docs/SCANNER.md) | Cron, queue, workers, MetaApi budget |
-| [docs/SIGNALS-AND-GRADES.md](docs/SIGNALS-AND-GRADES.md) | Grading, profile, lifecycle |
-| [docs/RISK-SIZING.md](docs/RISK-SIZING.md) | Lots, cash risk, margin estimate |
-| [docs/JOURNAL-AND-R.md](docs/JOURNAL-AND-R.md) | Canonical R and provenance |
-| [docs/PERFORMANCE-AND-STATISTICS.md](docs/PERFORMANCE-AND-STATISTICS.md) | Expectancy, evidence standard |
-| [docs/RESEARCH-AND-SHADOW.md](docs/RESEARCH-AND-SHADOW.md) | Replay, candidates, isolation |
-| [docs/ALERTS-AND-ELIGIBILITY.md](docs/ALERTS-AND-ELIGIBILITY.md) | Feed/alert rules, daily cap |
-| [docs/EXECUTION.md](docs/EXECUTION.md) | Delivery state machine and safety locks |
-| [docs/MCP.md](docs/MCP.md) | Assistant tools and permissions |
-| [docs/SECURITY.md](docs/SECURITY.md) | Auth, RLS, egress, secrets |
-| [docs/OPERATIONS.md](docs/OPERATIONS.md) | Cron schedule, runbooks |
-| [docs/TESTING.md](docs/TESTING.md) | Taxonomy and gates |
-| [docs/DATA-PROVENANCE.md](docs/DATA-PROVENANCE.md) | Every field's origin |
-| [docs/GLOSSARY.md](docs/GLOSSARY.md) | Canonical terminology |
-| [docs/CHARACTERISATION.md](docs/CHARACTERISATION.md) | Historical V1 behaviour ledger |
-| [docs/DB-TESTS.md](docs/DB-TESTS.md) | Database regression layer |
+| Document                                                                 | Covers                                  |
+| ------------------------------------------------------------------------ | --------------------------------------- |
+| [docs/README.md](docs/README.md)                                         | Index and reading order                 |
+| [docs/PRODUCT.md](docs/PRODUCT.md)                                       | What the product does, for whom         |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)                             | Planes, data flow, isolation rules      |
+| [docs/SCANNER.md](docs/SCANNER.md)                                       | Cron, queue, workers, MetaApi budget    |
+| [docs/SIGNALS-AND-GRADES.md](docs/SIGNALS-AND-GRADES.md)                 | Grading, profile, lifecycle             |
+| [docs/RISK-SIZING.md](docs/RISK-SIZING.md)                               | Lots, cash risk, margin estimate        |
+| [docs/JOURNAL-AND-R.md](docs/JOURNAL-AND-R.md)                           | Canonical R and provenance              |
+| [docs/PERFORMANCE-AND-STATISTICS.md](docs/PERFORMANCE-AND-STATISTICS.md) | Expectancy, evidence standard           |
+| [docs/RESEARCH-AND-SHADOW.md](docs/RESEARCH-AND-SHADOW.md)               | Replay, candidates, isolation           |
+| [docs/ALERTS-AND-ELIGIBILITY.md](docs/ALERTS-AND-ELIGIBILITY.md)         | Feed/alert rules, daily cap             |
+| [docs/EXECUTION.md](docs/EXECUTION.md)                                   | Delivery state machine and safety locks |
+| [docs/MCP.md](docs/MCP.md)                                               | Assistant tools and permissions         |
+| [docs/SECURITY.md](docs/SECURITY.md)                                     | Auth, RLS, egress, secrets              |
+| [docs/OPERATIONS.md](docs/OPERATIONS.md)                                 | Cron schedule, runbooks                 |
+| [docs/TESTING.md](docs/TESTING.md)                                       | Taxonomy and gates                      |
+| [docs/DATA-PROVENANCE.md](docs/DATA-PROVENANCE.md)                       | Every field's origin                    |
+| [docs/GLOSSARY.md](docs/GLOSSARY.md)                                     | Canonical terminology                   |
+| [docs/CHARACTERISATION.md](docs/CHARACTERISATION.md)                     | Historical V1 behaviour ledger          |
+| [docs/DB-TESTS.md](docs/DB-TESTS.md)                                     | Database regression layer               |
 
 ## 9. Disclaimer
 

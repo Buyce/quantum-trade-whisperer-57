@@ -243,14 +243,21 @@ function IntelligencePanel({ signal }: { signal: SignalRow }) {
         <div className="min-w-0">
           <dt className="label-xs">Fill rate</dt>
           <dd className="num text-base font-semibold text-foreground">{pct(pFill)}</dd>
-          <p className={cn("mt-0.5 text-[11px]", fillGate ? "text-success" : "text-muted-foreground")}>
+          <p
+            className={cn(
+              "mt-0.5 text-[11px]",
+              fillGate ? "text-success" : "text-muted-foreground",
+            )}
+          >
             {fillGate ? "Active" : `Learning ${n}/${MIN_N_FILL}`}
           </p>
         </div>
         <div className="min-w-0">
           <dt className="label-xs">Win if filled</dt>
           <dd className="num text-base font-semibold text-foreground">{pct(pWin)}</dd>
-          <p className={cn("mt-0.5 text-[11px]", winGate ? "text-success" : "text-muted-foreground")}>
+          <p
+            className={cn("mt-0.5 text-[11px]", winGate ? "text-success" : "text-muted-foreground")}
+          >
             {filledN == null
               ? "Sample not recorded"
               : winGate
@@ -281,7 +288,6 @@ function IntelligencePanel({ signal }: { signal: SignalRow }) {
     </div>
   );
 }
-
 
 const PCT = (v: number | null) => (v == null ? "—" : `${(v * 100).toFixed(1)}%`);
 const SIGNED = (v: number | null) => (v == null ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(1)} pp`);
@@ -428,7 +434,6 @@ function ModelExplain({ signal }: { signal: SignalRow }) {
   );
 }
 
-
 /**
  * Per-user position sizing, resolved by the shared authenticated sizing service.
  *
@@ -508,7 +513,6 @@ function RiskPanel({ signal }: { signal: SignalRow }) {
       </div>
     );
   }
-
 
   const cur = result.currency;
   const profile = result.profile;
@@ -646,7 +650,9 @@ function ProvenanceLine({
     <p className="mt-3 text-xs leading-snug text-muted-foreground">
       Contract data: {specLabel}
       {provenance.specStale ? " · out of date" : ""}. Conversion: {provenance.conversionRoute}
-      {provenance.quoteAsOf ? ` · quoted ${new Date(provenance.quoteAsOf).toLocaleTimeString()}` : ""}
+      {provenance.quoteAsOf
+        ? ` · quoted ${new Date(provenance.quoteAsOf).toLocaleTimeString()}`
+        : ""}
       . Balance: entered by you
       {provenance.equityAsOf
         ? `, last updated ${new Date(provenance.equityAsOf).toLocaleDateString()}`
@@ -706,7 +712,6 @@ function AdvisoryLine({
     </div>
   );
 }
-
 
 export function SignalCard({
   signal,
@@ -774,7 +779,6 @@ export function SignalCard({
     }
   }
 
-
   return (
     <article
       className={cn(
@@ -811,7 +815,11 @@ export function SignalCard({
                 long ? "bg-long/15 text-long" : "bg-short/15 text-short",
               )}
             >
-              {long ? <ArrowUpRight className="size-3.5" /> : <ArrowDownRight className="size-3.5" />}
+              {long ? (
+                <ArrowUpRight className="size-3.5" />
+              ) : (
+                <ArrowDownRight className="size-3.5" />
+              )}
               {long ? "LONG" : "SHORT"}
             </span>
             {/* Always-on: these are pending limit orders, never market entries. */}
@@ -827,7 +835,11 @@ export function SignalCard({
               </Badge>
             ) : null}
             {execution ? (
-              <ExecutionChip read={execution} instrument={signal.instrument} strategy={orderStrategy} />
+              <ExecutionChip
+                read={execution}
+                instrument={signal.instrument}
+                strategy={orderStrategy}
+              />
             ) : null}
             {distance ? <DistanceChip d={distance} /> : null}
             <Badge variant="outline" className="num shrink-0 font-normal text-muted-foreground">
@@ -855,7 +867,9 @@ export function SignalCard({
             <span className="num flex min-w-0 flex-col sm:block">
               <span className="label-xs sm:hidden">Confluence</span>
               <span className="hidden sm:inline">Confl </span>
-              <span className="text-sm font-semibold text-primary sm:text-xs">{conf.toFixed(0)}%</span>
+              <span className="text-sm font-semibold text-primary sm:text-xs">
+                {conf.toFixed(0)}%
+              </span>
             </span>
             {/* The joint win probability only appears once its sample gate is clear,
                 so the summary row never implies a measured rate that does not exist. */}
@@ -907,12 +921,15 @@ export function SignalCard({
             <span>{INSTRUMENT_LABELS[signal.instrument] ?? ""}</span>
             {guide ? (
               <span>
-                Place this as a pending {orderType.toLowerCase()} and wait for the fill. Anything worse
-                than {price(ceiling, signal.instrument)} is a chase — leave the limit where it is.
+                Place this as a pending {orderType.toLowerCase()} and wait for the fill. Anything
+                worse than {price(ceiling, signal.instrument)} is a chase — leave the limit where it
+                is.
               </span>
             ) : null}
             <Badge variant="outline" className="num font-normal">
-              <InfoLabel hint={`Time-in-force. If the market has not come back to your entry within ${ORDER_TIF_MINUTES} minutes (2 M15 candles), the structure that was graded is gone. Cancelling the un-filled order protects your capital from a stale setup.`}>
+              <InfoLabel
+                hint={`Time-in-force. If the market has not come back to your entry within ${ORDER_TIF_MINUTES} minutes (2 M15 candles), the structure that was graded is gone. Cancelling the un-filled order protects your capital from a stale setup.`}
+              >
                 Cancel un-filled orders in {ORDER_TIF_MINUTES} minutes (2 candles)
               </InfoLabel>
             </Badge>
@@ -965,13 +982,14 @@ export function SignalCard({
               hint="Risk-to-reward of the final target. This is the true reachable payoff, not a default 1:3."
               value={`${Number(signal.rr_ratio).toFixed(2)}`}
             />
-
           </div>
 
           <div className="grid gap-5 border-t border-border px-3 py-4 sm:px-4 lg:grid-cols-[minmax(0,1fr)_320px]">
             <div className="min-w-0">
               <p className="label-xs">Qualitative breakdown</p>
-              <p className="mt-2 text-sm leading-relaxed text-foreground/90">{signal.qualitative_breakdown}</p>
+              <p className="mt-2 text-sm leading-relaxed text-foreground/90">
+                {signal.qualitative_breakdown}
+              </p>
               <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted-foreground">
                 <span className="num">H4: {signal.h4_bias ?? "—"}</span>
                 <span className="num">H1: {signal.h1_bias ?? "—"}</span>
@@ -990,7 +1008,10 @@ export function SignalCard({
                 <span className="num text-xl font-bold text-primary">{conf.toFixed(1)}%</span>
               </div>
               <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                <div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(100, conf)}%` }} />
+                <div
+                  className="h-full rounded-full bg-primary"
+                  style={{ width: `${Math.min(100, conf)}%` }}
+                />
               </div>
               <div className="mt-3 flex items-baseline justify-between">
                 <p className="label-xs">
@@ -998,16 +1019,26 @@ export function SignalCard({
                     Confluence pillars
                   </InfoLabel>
                 </p>
-                <span className="num text-xs text-muted-foreground">{signal.pillars_passed ?? "—"}/4 passed</span>
+                <span className="num text-xs text-muted-foreground">
+                  {signal.pillars_passed ?? "—"}/4 passed
+                </span>
               </div>
               <dl className="mt-2 space-y-1.5">
                 {/* Pillars are only ever shown from pillar columns. Older rows predate
                     them and render as "—" — substituting a confluence score here
                     displayed an unrelated metric under a pillar label. */}
                 <Component label="Trend alignment" weight="35%" value={signal.p_trend} />
-                <Component label="Displacement-origin zone" weight="25%" value={signal.p_order_block} />
+                <Component
+                  label="Displacement-origin zone"
+                  weight="25%"
+                  value={signal.p_order_block}
+                />
                 <Component label="Momentum exhaustion" weight="20%" value={signal.p_momentum} />
-                <Component label="Volatility expansion" weight="20%" value={signal.p_volatility_expansion} />
+                <Component
+                  label="Volatility expansion"
+                  weight="20%"
+                  value={signal.p_volatility_expansion}
+                />
               </dl>
             </div>
           </div>
@@ -1016,7 +1047,6 @@ export function SignalCard({
 
           <IntelligencePanel signal={signal} />
         </div>
-
       ) : null}
 
       <div className="border-t border-border bg-surface/50 px-3 py-3 sm:px-4">
@@ -1084,10 +1114,7 @@ export function SignalCard({
                       variant="outline"
                       disabled={busy}
                       onClick={() => onResult(o)}
-                      className={cn(
-                        "h-10 px-0 sm:h-8 sm:px-3",
-                        o === "loss" && "text-short",
-                      )}
+                      className={cn("h-10 px-0 sm:h-8 sm:px-3", o === "loss" && "text-short")}
                     >
                       {o === "win" ? "Win" : o === "breakeven" ? "Break-even" : "Loss"}
                     </Button>
@@ -1142,7 +1169,9 @@ function Metric({
 }) {
   return (
     <div className="min-w-0 bg-card px-3 py-3.5 sm:px-4 sm:py-3">
-      <p className="label-xs break-words">{hint ? <InfoLabel hint={hint}>{label}</InfoLabel> : label}</p>
+      <p className="label-xs break-words">
+        {hint ? <InfoLabel hint={hint}>{label}</InfoLabel> : label}
+      </p>
       <p
         className={cn(
           "num mt-1 break-words text-base font-semibold sm:text-sm",

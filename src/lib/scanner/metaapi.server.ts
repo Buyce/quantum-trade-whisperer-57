@@ -171,7 +171,6 @@ export async function fetchQuote(symbol: string): Promise<BrokerQuote | null> {
   };
 }
 
-
 /**
  * Broker symbol specification (contract size, volume bounds, stops level, ...).
  *
@@ -189,9 +188,10 @@ export async function fetchSymbolSpecification(
     `/users/current/accounts/${METAAPI_ACCOUNT.accountId}` +
     `/symbols/${encodeURIComponent(symbol)}/specification`;
 
-  const raw = (await restGet(path, token, symbol, "specification", clientBaseUrl())) as
-    | Record<string, unknown>
-    | null;
+  const raw = (await restGet(path, token, symbol, "specification", clientBaseUrl())) as Record<
+    string,
+    unknown
+  > | null;
   if (!raw || typeof raw !== "object") return null;
   return raw;
 }

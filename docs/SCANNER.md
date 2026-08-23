@@ -47,12 +47,12 @@ fallback setups anywhere in the production path, and adding one is prohibited.
 
 ## Failure behaviour
 
-| Condition | Behaviour |
-| --- | --- |
-| Broker timeout / error | instrument skipped, flagged, cycle continues |
-| Insufficient candles | no structure is claimed; note that `atr()` returns `0` rather than `null` on short series (pinned V1 defect, see CHARACTERISATION.md) |
-| Duplicate structure | suppressed by structure key + cooldown, so the same setup is never re-published |
-| Worker death mid-job | the job stays claimable and is retried on the next dispatch |
+| Condition              | Behaviour                                                                                                                             |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Broker timeout / error | instrument skipped, flagged, cycle continues                                                                                          |
+| Insufficient candles   | no structure is claimed; note that `atr()` returns `0` rather than `null` on short series (pinned V1 defect, see CHARACTERISATION.md) |
+| Duplicate structure    | suppressed by structure key + cooldown, so the same setup is never re-published                                                       |
+| Worker death mid-job   | the job stays claimable and is retried on the next dispatch                                                                           |
 
 ## User-facing meaning
 

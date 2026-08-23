@@ -41,7 +41,6 @@ import { ResearchPanel } from "@/components/admin/ResearchPanel";
 import { PayoffPanel } from "@/components/admin/PayoffPanel";
 import { CandidatePanel } from "@/components/admin/CandidatePanel";
 
-
 export const Route = createFileRoute("/_authenticated/admin/intelligence")({
   head: () => ({
     meta: [
@@ -108,14 +107,25 @@ function AdminIntelligencePage() {
     return (
       <div className="mx-auto max-w-2xl p-6">
         <PanelShell title="Terminal unavailable">
-          <EmptyNote>{error instanceof Error ? error.message : "Failed to load intelligence."}</EmptyNote>
+          <EmptyNote>
+            {error instanceof Error ? error.message : "Failed to load intelligence."}
+          </EmptyNote>
         </PanelShell>
       </div>
     );
   }
 
-  const { health, engagement, fill_diagnostic, learning_matrix, discipline, webhooks, grade_calibration, dedup_pressure, intersection_feed } =
-    data;
+  const {
+    health,
+    engagement,
+    fill_diagnostic,
+    learning_matrix,
+    discipline,
+    webhooks,
+    grade_calibration,
+    dedup_pressure,
+    intersection_feed,
+  } = data;
   const engine = health.engine;
   const jobTotal = Object.values(health.jobs ?? {}).reduce((a, b) => a + b, 0);
 
@@ -218,7 +228,6 @@ function AdminIntelligencePage() {
           value={String(learning_matrix.length)}
           sub="tiers 1–3 from regime_stats"
         />
-
       </section>
 
       <div className="grid gap-3 lg:grid-cols-3">
@@ -227,7 +236,11 @@ function AdminIntelligencePage() {
         </PanelShell>
         <PanelShell
           title="Scan results 24h"
-          right={<Badge variant="secondary" className="text-[10px]">{jobTotal} jobs</Badge>}
+          right={
+            <Badge variant="secondary" className="text-[10px]">
+              {jobTotal} jobs
+            </Badge>
+          }
         >
           {Object.keys(health.results ?? {}).length === 0 ? (
             <EmptyNote>No scan cycles completed in the last 24 hours.</EmptyNote>
@@ -275,8 +288,6 @@ function AdminIntelligencePage() {
         <CandidatePanel />
       </PanelShell>
 
-
-
       <PanelShell title="Human vs AI agent — accounts, decisions and reported outcomes">
         <AuthorSplitPanel split={data.author_split} />
       </PanelShell>
@@ -290,8 +301,6 @@ function AdminIntelligencePage() {
           <UserIntegrityPanel report={audit.data} />
         )}
       </PanelShell>
-
-
 
       <div className="grid gap-3 lg:grid-cols-3">
         <PanelShell title="Grade calibration">
@@ -344,7 +353,11 @@ function AdminIntelligencePage() {
 
       <PanelShell
         title="Trade-by-trade intersection telemetry"
-        right={<Badge variant="secondary" className="text-[10px]">last {intersection_feed.length}</Badge>}
+        right={
+          <Badge variant="secondary" className="text-[10px]">
+            last {intersection_feed.length}
+          </Badge>
+        }
       >
         <IntersectionTable rows={intersection_feed} />
       </PanelShell>

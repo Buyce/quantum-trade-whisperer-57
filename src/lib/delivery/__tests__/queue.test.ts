@@ -155,52 +155,61 @@ describe("dry-run first", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(result).toMatchObject({ state: "acknowledged", dryRun: true });
     const settled = db.patches.at(-1)!;
-    expect(settled['sent_at']).toBeNull();
-    expect(settled['request_fingerprint']).toEqual(expect.any(String));
-    expect(settled['payload_version']).toBe(2);
+    expect(settled["sent_at"]).toBeNull();
+    expect(settled["request_fingerprint"]).toEqual(expect.any(String));
+    expect(settled["payload_version"]).toBe(2);
   });
 });
 
 describe("single attempt per delivery identity", () => {
   it("[INVARIANT] marks sent before the POST and carries a stable idempotency key", async () => {
     const fetchSpy = vi.fn(
-      async (_url: string, _init: RequestInit) => new Response('{"order_id":"55"}', { status: 200 }),
+      async (_url: string, _init: RequestInit) =>
+        new Response('{"order_id":"55"}', { status: 200 }),
     );
     vi.stubGlobal("fetch", fetchSpy);
     revalidate.fn.mockResolvedValue(approved);
     const db = fakeDb([{ ...delivery }]);
     const result = await processNextDelivery(db as never);
 
-    const sentPatch = db.patches.find((p) => p['state'] === "sent");
+    const sentPatch = db.patches.find((p) => p["state"] === "sent");
     expect(sentPatch).toBeDefined();
     expect(db.patches.indexOf(sentPatch!)).toBeLessThan(db.patches.length - 1);
     expect(fetchSpy).toHaveBeenCalledTimes(1);
 
     const init = fetchSpy.mock.calls[0]![1];
     const headers = init.headers as Record<string, string>;
-    expect(headers['x-ptrades-idempotency-key']).toBe("sig-1-u1-primary");
-    expect(headers['X-PTrades-Signature']).toMatch(/^sha256=[0-9a-f]{64}$/);
+    expect(headers["x-ptrades-idempotency-key"]).toBe("sig-1-u1-primary");
+    expect(headers["X-PTrades-Signature"]).toMatch(/^sha256=[0-9a-f]{64}$/);
     expect(init.redirect).toBe("manual");
     expect(result).toMatchObject({ state: "acknowledged" });
   });
 
   it("[INVARIANT] an unacknowledged 200 becomes unknown, not a retry", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => new Response('{"status":"ok"}', { status: 200 })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response('{"status":"ok"}', { status: 200 })),
+    );
     revalidate.fn.mockResolvedValue(approved);
     const db = fakeDb([{ ...delivery }]);
     const result = await processNextDelivery(db as never);
     expect(result?.state).toBe("unknown");
     // Nothing re-enqueues: no patch ever returns the row to `pending`.
-    expect(db.patches.some((p) => p['state'] === "pending")).toBe(false);
+    expect(db.patches.some((p) => p["state"] === "pending")).toBe(false);
   });
 
   it("[INVARIANT] a transport error after send is ambiguous, so it becomes unknown", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("socket hang up"); }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("socket hang up");
+      }),
+    );
     revalidate.fn.mockResolvedValue(approved);
     const db = fakeDb([{ ...delivery }]);
     const result = await processNextDelivery(db as never);
     expect(result?.state).toBe("unknown");
-    expect(db.patches.some((p) => p['state'] === "pending")).toBe(false);
+    expect(db.patches.some((p) => p["state"] === "pending")).toBe(false);
   });
 
   it("[INVARIANT] an explicit bridge error is a rejection, and still only one POST", async () => {

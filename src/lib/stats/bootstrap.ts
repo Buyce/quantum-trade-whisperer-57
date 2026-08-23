@@ -87,7 +87,8 @@ export function clusterBootstrapMeanR(
   const replicates = options.replicates ?? DEFAULT_REPLICATES;
   const seed = options.seed ?? DEFAULT_SEED;
   const minClusters = options.minClusters ?? MIN_CLUSTERS;
-  const runId = options.runId ?? `${BOOTSTRAP_METHOD}:v${BOOTSTRAP_VERSION}:seed${seed}:B${replicates}`;
+  const runId =
+    options.runId ?? `${BOOTSTRAP_METHOD}:v${BOOTSTRAP_VERSION}:seed${seed}:B${replicates}`;
 
   const ordered = stableOrder(rows);
   const clusters = buildDayClusters(ordered);
@@ -210,8 +211,7 @@ export function clusterBootstrapProportionDifference(
   const seed = options.seed ?? DEFAULT_SEED;
   const minClusters = options.minClusters ?? MIN_CLUSTERS;
   const runId =
-    options.runId ??
-    `${BOOTSTRAP_METHOD}:diff:v${BOOTSTRAP_VERSION}:seed${seed}:B${replicates}`;
+    options.runId ?? `${BOOTSTRAP_METHOD}:diff:v${BOOTSTRAP_VERSION}:seed${seed}:B${replicates}`;
 
   const ordered = stableOrder(rows);
   const clusters = buildDayClusters(ordered);

@@ -38,8 +38,7 @@ function Cell({ label, value }: { label: string; value: string }) {
 
 function CohortRow({ c }: { c: PayoffCohort }) {
   const reportable = isReportable(c);
-  const coverage =
-    c.replay_coverage === null ? "—" : `${(c.replay_coverage * 100).toFixed(1)}%`;
+  const coverage = c.replay_coverage === null ? "—" : `${(c.replay_coverage * 100).toFixed(1)}%`;
   const interval =
     reportable && c.ci_lo !== null && c.ci_hi !== null
       ? `${formatR(c.ci_lo)} … ${formatR(c.ci_hi)}`
@@ -62,7 +61,9 @@ function CohortRow({ c }: { c: PayoffCohort }) {
         </div>
       </div>
 
-      <div className="text-[11px] text-muted-foreground">{ESTIMAND_LABEL[c.estimand] ?? c.estimand}</div>
+      <div className="text-[11px] text-muted-foreground">
+        {ESTIMAND_LABEL[c.estimand] ?? c.estimand}
+      </div>
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Cell label="Mean R" value={reportable ? formatR(c.mean_r) : "withheld"} />
@@ -127,10 +128,10 @@ export function PayoffPanel() {
       <div className="flex flex-wrap items-start justify-between gap-2">
         <p className="max-w-2xl text-[11px] text-muted-foreground">
           <Sigma className="mr-1 inline h-3 w-3" />
-          Expected R is a return, not a probability. The headline estimand counts every
-          published plan — a plan that never traded contributes exactly 0R. Broken
-          observations are excluded from all denominators rather than scored. Research
-          only: none of this feeds signal ranking or the learning priors.
+          Expected R is a return, not a probability. The headline estimand counts every published
+          plan — a plan that never traded contributes exactly 0R. Broken observations are excluded
+          from all denominators rather than scored. Research only: none of this feeds signal ranking
+          or the learning priors.
         </p>
         <Button
           size="sm"

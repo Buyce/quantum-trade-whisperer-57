@@ -1,4 +1,4 @@
-import * as React from 'react'
+import * as React from "react";
 
 import {
   Body,
@@ -10,13 +10,13 @@ import {
   Html,
   Preview,
   Text,
-} from '@react-email/components'
+} from "@react-email/components";
 
-import { brandBar, button, container, footer, h1, hr, main, text } from './brand'
+import { brandBar, button, container, footer, h1, hr, main, text } from "./brand";
 
 interface MagicLinkEmailProps {
-  siteName: string
-  confirmationUrl: string
+  siteName: string;
+  confirmationUrl: string;
 }
 
 export const MagicLinkEmail = ({ confirmationUrl }: MagicLinkEmailProps) => (
@@ -28,8 +28,7 @@ export const MagicLinkEmail = ({ confirmationUrl }: MagicLinkEmailProps) => (
         <Text style={brandBar}>P-Trades Hub · Sign in</Text>
         <Heading style={h1}>Your login link</Heading>
         <Text style={text}>
-          Click below to open your terminal. This single-use link expires
-          shortly.
+          Click below to open your terminal. This single-use link expires shortly.
         </Text>
         <Button style={button} href={confirmationUrl}>
           Open terminal
@@ -41,6 +40,6 @@ export const MagicLinkEmail = ({ confirmationUrl }: MagicLinkEmailProps) => (
       </Container>
     </Body>
   </Html>
-)
+);
 
-export default MagicLinkEmail
+export default MagicLinkEmail;

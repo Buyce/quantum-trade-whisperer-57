@@ -76,10 +76,7 @@ export interface RMathResult {
 
 export class RMathInputError extends Error {
   readonly code:
-    | "one_sided_prices"
-    | "non_finite"
-    | "non_positive_price"
-    | "impossible_stop_geometry";
+    "one_sided_prices" | "non_finite" | "non_positive_price" | "impossible_stop_geometry";
   constructor(code: RMathInputError["code"], message: string) {
     super(message);
     this.name = "RMathInputError";
@@ -253,10 +250,7 @@ export interface CostInput {
 }
 
 export type NetRStatus =
-  | "no_costs_recorded"
-  | "no_conversion_provenance"
-  | "computed"
-  | "unavailable_gross";
+  "no_costs_recorded" | "no_conversion_provenance" | "computed" | "unavailable_gross";
 
 export interface NetRResult {
   netR: number | null;

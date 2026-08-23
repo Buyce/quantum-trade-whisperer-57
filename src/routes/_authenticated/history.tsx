@@ -15,8 +15,19 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { deleteAllTrades, deleteTrade, takenTradeHistoryQuery } from "@/lib/queries";
 import { recordTradeOutcome } from "@/lib/trade-journal.functions";
-import { INSTRUMENT_LABELS, type Outcome, type SignalRow, type TradeHistoryRow } from "@/lib/db-types";
-import { downloadCsv, downloadJson, historyToCsv, historyToExportJson, todayStamp } from "@/lib/export";
+import {
+  INSTRUMENT_LABELS,
+  type Outcome,
+  type SignalRow,
+  type TradeHistoryRow,
+} from "@/lib/db-types";
+import {
+  downloadCsv,
+  downloadJson,
+  historyToCsv,
+  historyToExportJson,
+  todayStamp,
+} from "@/lib/export";
 import { GradeBadge } from "@/components/SignalCard";
 import { GuideNote } from "@/components/GuideMode";
 import { Button } from "@/components/ui/button";
@@ -42,10 +53,14 @@ export const Route = createFileRoute("/_authenticated/history")({
       { title: "Trade History — P-Trades Hub" },
       {
         name: "description",
-        content: "Every setup you logged as taken, with entry, stop, targets, R:R and the recorded outcome.",
+        content:
+          "Every setup you logged as taken, with entry, stop, targets, R:R and the recorded outcome.",
       },
       { property: "og:title", content: "Trade History — P-Trades Hub" },
-      { property: "og:description", content: "Your permanent log of taken forex trades and their outcomes." },
+      {
+        property: "og:description",
+        content: "Your permanent log of taken forex trades and their outcomes.",
+      },
       { name: "robots", content: "noindex" },
     ],
   }),
@@ -71,7 +86,9 @@ const OUTCOME_STYLES: Record<Outcome, string> = {
 
 /** A closed trade without both real fill prices cannot have an auditable R. */
 function isMissingPrices(row: TradeHistoryRow) {
-  return row.outcome !== "open" && (row.actual_entry_price == null || row.actual_exit_price == null);
+  return (
+    row.outcome !== "open" && (row.actual_entry_price == null || row.actual_exit_price == null)
+  );
 }
 
 /**
@@ -101,7 +118,6 @@ function PriceProvenanceBadge({ row }: { row: TradeHistoryRow }) {
     </span>
   );
 }
-
 
 function HistoryPage() {
   const { user } = useAuth();
@@ -207,18 +223,20 @@ function HistoryPage() {
     <div className="space-y-5">
       <div className="grid gap-4 sm:flex sm:flex-wrap sm:items-start">
         <div className="min-w-0">
-        <p className="label-xs">Permanent record</p>
-        <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">Trade History</h1>
-        <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-          Every setup you logged as taken is kept here for good, even after it leaves the signal feed. Skipped
-          setups are not retained.
-        </p>
-        <GuideNote anchor="two-r" className="mt-3 max-w-2xl">
-          The plan is snapshotted when you log a trade, so a later expiry cannot change what your
-          trade is measured against. Add your real entry and exit to get R. Prices you or your
-          assistant enter are self-reported and stamped with their author — a blank R means an input
-          is genuinely missing, and nothing is estimated.
-        </GuideNote>
+          <p className="label-xs">Permanent record</p>
+          <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+            Trade History
+          </h1>
+          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+            Every setup you logged as taken is kept here for good, even after it leaves the signal
+            feed. Skipped setups are not retained.
+          </p>
+          <GuideNote anchor="two-r" className="mt-3 max-w-2xl">
+            The plan is snapshotted when you log a trade, so a later expiry cannot change what your
+            trade is measured against. Add your real entry and exit to get R. Prices you or your
+            assistant enter are self-reported and stamped with their author — a blank R means an
+            input is genuinely missing, and nothing is estimated.
+          </GuideNote>
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
           <Button size="sm" variant="ghost" disabled={allRows.length === 0} onClick={exportCsv}>
@@ -243,13 +261,15 @@ function HistoryPage() {
                 <AlertDialogTitle>Delete your entire trade history?</AlertDialogTitle>
                 <AlertDialogDescription>
                   This permanently removes {allRows.length} logged{" "}
-                  {allRows.length === 1 ? "trade" : "trades"} from your personal log. Scanner signals and
-                  learning data are not affected. This cannot be undone.
+                  {allRows.length === 1 ? "trade" : "trades"} from your personal log. Scanner
+                  signals and learning data are not affected. This cannot be undone.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Keep history</AlertDialogCancel>
-                <AlertDialogAction onClick={() => void removeAll()}>Delete everything</AlertDialogAction>
+                <AlertDialogAction onClick={() => void removeAll()}>
+                  Delete everything
+                </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
@@ -262,13 +282,15 @@ function HistoryPage() {
             <ShieldAlert className="mt-0.5 size-4 shrink-0 text-warning" />
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-foreground">
-                {missingPricesCount} closed {missingPricesCount === 1 ? "trade has" : "trades have"} execution prices missing
+                {missingPricesCount} closed {missingPricesCount === 1 ? "trade has" : "trades have"}{" "}
+                execution prices missing
               </p>
               <p className="mt-1 max-w-2xl text-xs text-muted-foreground">
-                Add the entry and exit price you actually got and the R multiple is recalculated from the
-                setup's own risk distance. Until then those results have execution prices missing and are
-                excluded from your price-backed win rate. Prices are optional — nothing is changed if you
-                skip this. Prices you or an assistant enter are self-reported, never broker verified.
+                Add the entry and exit price you actually got and the R multiple is recalculated
+                from the setup's own risk distance. Until then those results have execution prices
+                missing and are excluded from your price-backed win rate. Prices are optional —
+                nothing is changed if you skip this. Prices you or an assistant enter are
+                self-reported, never broker verified.
               </p>
             </div>
             <Button
@@ -291,7 +313,8 @@ function HistoryPage() {
         <div className="rounded-md border border-border bg-card px-4 py-10 text-center sm:px-6 sm:py-16">
           <p className="num text-lg font-semibold text-foreground">NO TAKEN TRADES YET</p>
           <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-            When you press "Log as Taken" on a setup in the signal feed, it appears here permanently.
+            When you press "Log as Taken" on a setup in the signal feed, it appears here
+            permanently.
           </p>
         </div>
       ) : (
@@ -317,12 +340,21 @@ function HistoryPage() {
                           : "border-destructive/40 bg-destructive/10 text-destructive",
                       )}
                     >
-                      {long ? <ArrowUpRight className="size-3" /> : <ArrowDownRight className="size-3" />}
+                      {long ? (
+                        <ArrowUpRight className="size-3" />
+                      ) : (
+                        <ArrowDownRight className="size-3" />
+                      )}
                       {long ? "LONG" : "SHORT"}
                     </span>
                   </div>
                   <div className="flex min-w-0 flex-wrap items-center gap-3 sm:ml-auto sm:shrink-0">
-                    <span className={cn("num text-xs font-semibold uppercase", OUTCOME_STYLES[row.outcome])}>
+                    <span
+                      className={cn(
+                        "num text-xs font-semibold uppercase",
+                        OUTCOME_STYLES[row.outcome],
+                      )}
+                    >
                       {row.outcome}
                       {(() => {
                         const view = journalRView(row, "actual_risk");
@@ -357,23 +389,28 @@ function HistoryPage() {
                           <AlertDialogTitle>Delete this trade?</AlertDialogTitle>
                           <AlertDialogDescription>
                             {signal.instrument} {long ? "long" : "short"} from{" "}
-                            {new Date(signal.detected_at).toLocaleString()} will be permanently removed from your
-                            trade log. This cannot be undone.
+                            {new Date(signal.detected_at).toLocaleString()} will be permanently
+                            removed from your trade log. This cannot be undone.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => void removeOne(row.id)}>Delete</AlertDialogAction>
+                          <AlertDialogAction onClick={() => void removeOne(row.id)}>
+                            Delete
+                          </AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>
                     </AlertDialog>
                   </div>
                 </div>
 
-
                 <div className="grid grid-cols-2 gap-px bg-border sm:grid-cols-3 lg:grid-cols-6">
                   <Cell label="Entry" value={p(signal.entry_price)} />
-                  <Cell label="Stop-loss" value={p(signal.stop_loss)} className="text-destructive" />
+                  <Cell
+                    label="Stop-loss"
+                    value={p(signal.stop_loss)}
+                    className="text-destructive"
+                  />
                   <Cell
                     label={`TP1 · 1:${Number(signal.tp1_r ?? 1).toFixed(signal.tp1_r === null ? 0 : 2)}`}
                     value={p(signal.tp1)}
@@ -408,7 +445,6 @@ function HistoryPage() {
             );
           })}
         </div>
-
       )}
     </div>
   );
@@ -507,8 +543,8 @@ function OutcomeEditor({
           />
         </label>
         <p className="text-xs text-muted-foreground sm:max-w-xs">
-          Optional, but with both prices your R multiple is calculated from the setup's real risk distance
-          instead of being estimated.
+          Optional, but with both prices your R multiple is calculated from the setup's real risk
+          distance instead of being estimated.
         </p>
       </div>
 

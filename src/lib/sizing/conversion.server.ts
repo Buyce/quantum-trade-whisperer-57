@@ -117,9 +117,14 @@ export async function resolveConversion(
   }
 
   const used = Object.keys(mids).length > 0;
-  const stale =
-    used && (timestampMissing || oldest === null || now - oldest > QUOTE_MAX_AGE_MS);
+  const stale = used && (timestampMissing || oldest === null || now - oldest > QUOTE_MAX_AGE_MS);
 
-  return { rates: buildRates(quoteCurrency, accountCurrency, plan, mids), route: plan.kind, requests, quoteAsOf: oldestIso, timestampMissing, stale };
+  return {
+    rates: buildRates(quoteCurrency, accountCurrency, plan, mids),
+    route: plan.kind,
+    requests,
+    quoteAsOf: oldestIso,
+    timestampMissing,
+    stale,
+  };
 }
-

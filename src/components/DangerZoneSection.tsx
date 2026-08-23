@@ -51,10 +51,10 @@ export function DangerZoneSection() {
         <h2 className="label-xs text-destructive">Danger zone — cancel account</h2>
       </div>
       <p className="text-sm text-muted-foreground">
-        Cancelling closes your access immediately and schedules your account for permanent deletion in{" "}
-        <span className="num text-foreground">30 days</span>. Sign back in before then and everything — scanner
-        preferences, trade journal, performance history — is restored in full. After 30 days it is deleted
-        permanently and cannot be recovered.
+        Cancelling closes your access immediately and schedules your account for permanent deletion
+        in <span className="num text-foreground">30 days</span>. Sign back in before then and
+        everything — scanner preferences, trade journal, performance history — is restored in full.
+        After 30 days it is deleted permanently and cannot be recovered.
       </p>
 
       <Dialog
@@ -71,8 +71,8 @@ export function DangerZoneSection() {
           <DialogHeader>
             <DialogTitle>Cancel your account?</DialogTitle>
             <DialogDescription>
-              You&apos;ll be signed out now. Your data is kept for 30 days so you can restore the account simply by
-              signing back in. After that it is permanently deleted.
+              You&apos;ll be signed out now. Your data is kept for 30 days so you can restore the
+              account simply by signing back in. After that it is permanently deleted.
             </DialogDescription>
           </DialogHeader>
           <div>

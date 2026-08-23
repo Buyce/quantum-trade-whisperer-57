@@ -40,7 +40,6 @@ const DESKTOP_NAV = [
   { to: "/guide", label: "Guide", short: "Guide", icon: BookOpen },
 ] as const;
 
-
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
@@ -54,7 +53,6 @@ export function AppShell({ children }: { children: ReactNode }) {
     },
     staleTime: Infinity,
   });
-
 
   async function signOut() {
     await queryClient.cancelQueries();
@@ -84,7 +82,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                 className="size-7 shrink-0"
               />
 
-              <span className="num hidden text-sm font-semibold tracking-tight md:inline">P-TRADES HUB</span>
+              <span className="num hidden text-sm font-semibold tracking-tight md:inline">
+                P-TRADES HUB
+              </span>
             </Link>
 
             <nav className="hidden items-center gap-1 md:flex">
@@ -119,19 +119,29 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </Button>
               ) : null}
               {/* Guide is not in the five-item mobile bar; this is its entry point there. */}
-              <Button variant="ghost" size="sm" asChild aria-label="Guide and help" className="md:hidden">
+              <Button
+                variant="ghost"
+                size="sm"
+                asChild
+                aria-label="Guide and help"
+                className="md:hidden"
+              >
                 <Link to="/guide">
                   <BookOpen className="size-4" />
                   <span className="hidden lg:inline">Guide</span>
                 </Link>
               </Button>
               <GuideModeToggle />
-              <Button variant="ghost" size="sm" aria-label="Sign out" onClick={() => void signOut()}>
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label="Sign out"
+                onClick={() => void signOut()}
+              >
                 <LogOut className="size-4" />
                 <span className="hidden lg:inline">Sign out</span>
               </Button>
             </div>
-
           </div>
 
           <nav className="grid grid-cols-5 border-t border-border md:hidden">

@@ -18,7 +18,7 @@ A user's loop:
 2. **Signal card** — direction, grade, confidence, planned entry, maximum
    acceptable entry, planned stop, TP1/TP2/TP3 with their true R multiples, R:R,
    time-in-force, session and their own lot size.
-3. **Decide** — log the setup as *Taken* or *Skipped*.
+3. **Decide** — log the setup as _Taken_ or _Skipped_.
 4. **Record** — after the trade closes, add the actual entry and actual exit (and
    the actual initial stop when known) so canonical R can be computed.
 5. **Performance** — expectancy and distribution over the trades they logged,

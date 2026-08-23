@@ -18,10 +18,10 @@ USD account needs an AUDUSD rate to convert the risk.
 
 ### Two sizing models, one authority
 
-| Model | Spec source | Status |
-| --- | --- | --- |
-| Model 1 | `static_v1` static contract specifications | **Authoritative** |
-| Model 2 | Broker symbol specs refreshed daily | Shadow only, logged for divergence |
+| Model   | Spec source                                | Status                             |
+| ------- | ------------------------------------------ | ---------------------------------- |
+| Model 1 | `static_v1` static contract specifications | **Authoritative**                  |
+| Model 2 | Broker symbol specs refreshed daily        | Shadow only, logged for divergence |
 
 Both run; disagreements are recorded in the sizing divergence log. The
 authoritative `specSource` remains `static_v1` while Model 1 is active. Promotion
@@ -81,15 +81,15 @@ and the stated leverage.
 No number is invented. Each refusal has a user-visible reason
 (`RISK_UNAVAILABLE_COPY`):
 
-| Reason | Shown as |
-| --- | --- |
-| `no_equity` | Add your account balance in Settings → Risk |
-| `no_spec` | No contract specification for this instrument |
-| `no_conversion_rate` | Live FX rate needed for conversion is unavailable |
-| `invalid_stop` | This setup has no usable stop distance |
-| `below_stops_level` | Stop is closer than your broker's minimum stop distance |
-| `stale_quote` | The live quote is too old to size safely |
-| `stale_spec` | The broker's contract specification is out of date |
+| Reason               | Shown as                                                |
+| -------------------- | ------------------------------------------------------- |
+| `no_equity`          | Add your account balance in Settings → Risk             |
+| `no_spec`            | No contract specification for this instrument           |
+| `no_conversion_rate` | Live FX rate needed for conversion is unavailable       |
+| `invalid_stop`       | This setup has no usable stop distance                  |
+| `below_stops_level`  | Stop is closer than your broker's minimum stop distance |
+| `stale_quote`        | The live quote is too old to size safely                |
+| `stale_spec`         | The broker's contract specification is out of date      |
 
 ## User-facing meaning
 

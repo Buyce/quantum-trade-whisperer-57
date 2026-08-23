@@ -27,13 +27,13 @@ visible in review.
 `/api/public/*` bypasses site auth by design, so each handler authenticates its
 own caller:
 
-| Route group | Caller check |
-| --- | --- |
-| `cron/*` | cron secret (`src/lib/cron-auth.ts`) |
-| `worker/*` | cron/worker secret |
-| `agent/register` | validated registration flow |
-| `quotes` | read-only, no user data |
-| `lovable/email/webhook` | signature verification |
+| Route group             | Caller check                         |
+| ----------------------- | ------------------------------------ |
+| `cron/*`                | cron secret (`src/lib/cron-auth.ts`) |
+| `worker/*`              | cron/worker secret                   |
+| `agent/register`        | validated registration flow          |
+| `quotes`                | read-only, no user data              |
+| `lovable/email/webhook` | signature verification               |
 
 ### Outbound egress
 

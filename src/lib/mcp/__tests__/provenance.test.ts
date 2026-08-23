@@ -17,7 +17,8 @@ describe("MCP price provenance wording", () => {
   it("[INVARIANT] no agent-visible string claims a self-reported row is Verified", () => {
     // Only quoted, agent-visible strings are checked; comments may explain.
     const strings = src.match(/"(?:[^"\\]|\\.)*"/g) ?? [];
-    const offenders = strings.filter((s) => /(^|[^n])"?Verified\b|\bis verified\b/i.test(s))
+    const offenders = strings
+      .filter((s) => /(^|[^n])"?Verified\b|\bis verified\b/i.test(s))
       .filter(
         (s) =>
           !/legacy|NOT broker verified|verification_level|broker verification/i.test(s) &&

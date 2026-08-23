@@ -137,7 +137,12 @@ function fakeDb(s: Scenario = {}) {
         error: null,
       }),
       maybeSingle: async () => ({
-        data: table === "execution_controls" ? controls : table === "scanner_settings" ? settings : signal,
+        data:
+          table === "execution_controls"
+            ? controls
+            : table === "scanner_settings"
+              ? settings
+              : signal,
         error: null,
       }),
       update: (patch: Record<string, unknown>) => ({
@@ -214,9 +219,9 @@ describe("A. global disable forces dry-run instead of disabling validation", () 
     expect(result).toMatchObject({ state: "acknowledged", dryRun: true });
     expect(fetchSpy).not.toHaveBeenCalled();
     const settled = db.patches.at(-1)!;
-    expect(settled['sent_at']).toBeNull();
-    expect(settled['payload_version']).toBe(2);
-    expect(String(settled['reason'])).toContain("disabled system-wide");
+    expect(settled["sent_at"]).toBeNull();
+    expect(settled["payload_version"]).toBe(2);
+    expect(String(settled["reason"])).toContain("disabled system-wide");
   });
 
   it("[INVARIANT] unreadable controls still fail closed", async () => {
@@ -266,7 +271,12 @@ describe("B. authoritative position quantity in the execution contract", () => {
       max_stop_loss_percent: 5,
     });
     const resolved = resolveSizing(
-      { instrument: "EURUSD", entryPrice: plan.entryPrice, stopLoss: plan.stopLoss, finalTargetR: 3 },
+      {
+        instrument: "EURUSD",
+        entryPrice: plan.entryPrice,
+        stopLoss: plan.stopLoss,
+        finalTargetR: 3,
+      },
       profile,
       { USD: 1 },
       { spec: null, v2Promoted: false, quoteStale: false, now: NOW },
@@ -282,12 +292,22 @@ describe("B. authoritative position quantity in the execution contract", () => {
     expect(large).toBeGreaterThan(small);
 
     const bodySmall = jsonBody(
-      buildBridgeOrder(plan, { lots: small, sizingModel: 1, specSource: "static_v1", specAsOf: null }),
+      buildBridgeOrder(plan, {
+        lots: small,
+        sizingModel: 1,
+        specSource: "static_v1",
+        specAsOf: null,
+      }),
       "sek",
       false,
     );
     const bodyLarge = jsonBody(
-      buildBridgeOrder(plan, { lots: large, sizingModel: 1, specSource: "static_v1", specAsOf: null }),
+      buildBridgeOrder(plan, {
+        lots: large,
+        sizingModel: 1,
+        specSource: "static_v1",
+        specAsOf: null,
+      }),
       "sek",
       false,
     );

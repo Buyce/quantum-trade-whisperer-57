@@ -32,10 +32,14 @@ export const Route = createFileRoute("/_authenticated/performance")({
       { title: "Performance Engine — P-Trades Hub" },
       {
         name: "description",
-        content: "Trading expectancy in R, win rate, R distribution and a time-of-day heat map for your logged trades.",
+        content:
+          "Trading expectancy in R, win rate, R distribution and a time-of-day heat map for your logged trades.",
       },
       { property: "og:title", content: "Performance Engine — P-Trades Hub" },
-      { property: "og:description", content: "R-multiple expectancy analytics for your forex trade log." },
+      {
+        property: "og:description",
+        content: "R-multiple expectancy analytics for your forex trade log.",
+      },
       { name: "robots", content: "noindex" },
     ],
   }),
@@ -50,7 +54,6 @@ const GRADE_TIERS = ["A+", "A", "B", "C"] as const;
  */
 const MIN_SAMPLES_CHART = 5;
 const MIN_SAMPLES_HEATMAP = 10;
-
 
 function PerformancePage() {
   const { user } = useAuth();
@@ -85,8 +88,10 @@ function PerformancePage() {
     });
   }, [samples]);
 
-  const insights = useMemo(() => generateInsights(coreSamples, scopeLabel), [coreSamples, scopeLabel]);
-
+  const insights = useMemo(
+    () => generateInsights(coreSamples, scopeLabel),
+    [coreSamples, scopeLabel],
+  );
 
   function exportMetrics() {
     if (samples.length === 0) return;
@@ -109,7 +114,9 @@ function PerformancePage() {
       <div className="grid gap-4 sm:flex sm:flex-wrap sm:items-end">
         <div className="min-w-0">
           <p className="label-xs">Phase 3 · Performance engine</p>
-          <h1 className="truncate text-xl font-bold tracking-tight text-foreground sm:text-2xl">Performance</h1>
+          <h1 className="truncate text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+            Performance
+          </h1>
         </div>
         <div className="flex flex-wrap items-center gap-3 sm:ml-auto">
           <Tabs value={effectiveScope} onValueChange={(v) => setScope(v as "mine" | "baseline")}>
@@ -127,21 +134,21 @@ function PerformancePage() {
       <GuideNote anchor="expectancy">
         Expectancy in R is (win rate x average win in R) − (loss rate x average loss in R): the
         average risk-multiple this sample produced. It describes these trades, not your next one. My
-        trade log is built from prices you reported; Scanner baseline is deterministic replay with no
-        orders placed. The two are separate measurements and are never combined.
+        trade log is built from prices you reported; Scanner baseline is deterministic replay with
+        no orders placed. The two are separate measurements and are never combined.
       </GuideNote>
 
       {signals.isError || trades.isError ? (
         <p className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm">
-          Could not load performance data, so the metrics below are incomplete. Reload before drawing
-          conclusions from them.
+          Could not load performance data, so the metrics below are incomplete. Reload before
+          drawing conclusions from them.
         </p>
       ) : null}
 
       {scope === "mine" && mine.length === 0 ? (
         <p className="rounded-md border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
-          You have no closed trades yet, so these numbers show the scanner baseline — every graded setup and how
-          it resolved. Log trades in the feed to see your own expectancy here.
+          You have no closed trades yet, so these numbers show the scanner baseline — every graded
+          setup and how it resolved. Log trades in the feed to see your own expectancy here.
         </p>
       ) : null}
 
@@ -183,10 +190,10 @@ function PerformancePage() {
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Global metrics above reflect B-Grade and above — C-Grade setups are excluded so they do not drag down the
-        core edge. C-Grade performance is tracked separately in the “By grade tier” table below.
+        Global metrics above reflect B-Grade and above — C-Grade setups are excluded so they do not
+        drag down the core edge. C-Grade performance is tracked separately in the “By grade tier”
+        table below.
       </p>
-
 
       {/* Progressive disclosure: KPIs and insights are always visible, the heavier
           charts and tables sit behind tabs so the page opens light. */}
@@ -206,26 +213,50 @@ function PerformancePage() {
 
       <Tabs defaultValue="distribution" className="space-y-4">
         <TabsList className="grid h-auto w-full grid-cols-2 gap-1 sm:grid-cols-3 lg:inline-flex lg:h-9 lg:w-auto lg:gap-0">
-          <TabsTrigger className="h-10 lg:h-auto" value="distribution">R distribution</TabsTrigger>
-          <TabsTrigger className="h-10 lg:h-auto" value="timing">Timing</TabsTrigger>
-          <TabsTrigger className="h-10 lg:h-auto" value="instrument">By instrument</TabsTrigger>
-          <TabsTrigger className="h-10 lg:h-auto" value="grade">By grade</TabsTrigger>
-          <TabsTrigger className="h-10 lg:h-auto" value="signals">Signal audit</TabsTrigger>
-          <TabsTrigger className="h-10 lg:h-auto" value="learning">Learning</TabsTrigger>
+          <TabsTrigger className="h-10 lg:h-auto" value="distribution">
+            R distribution
+          </TabsTrigger>
+          <TabsTrigger className="h-10 lg:h-auto" value="timing">
+            Timing
+          </TabsTrigger>
+          <TabsTrigger className="h-10 lg:h-auto" value="instrument">
+            By instrument
+          </TabsTrigger>
+          <TabsTrigger className="h-10 lg:h-auto" value="grade">
+            By grade
+          </TabsTrigger>
+          <TabsTrigger className="h-10 lg:h-auto" value="signals">
+            Signal audit
+          </TabsTrigger>
+          <TabsTrigger className="h-10 lg:h-auto" value="learning">
+            Learning
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="distribution">
           <section className="rounded-md border border-border bg-card p-4">
             <h2 className="label-xs">R-multiple distribution</h2>
             {coreSamples.length < MIN_SAMPLES_CHART ? (
-              <NeedsSamples have={coreSamples.length} need={MIN_SAMPLES_CHART} what="a distribution" />
+              <NeedsSamples
+                have={coreSamples.length}
+                need={MIN_SAMPLES_CHART}
+                what="a distribution"
+              />
             ) : (
               <div className="mt-4 h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={dist}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="var(--color-border)"
+                      vertical={false}
+                    />
                     <XAxis dataKey="bucket" stroke="var(--color-muted-foreground)" fontSize={11} />
-                    <YAxis stroke="var(--color-muted-foreground)" fontSize={11} allowDecimals={false} />
+                    <YAxis
+                      stroke="var(--color-muted-foreground)"
+                      fontSize={11}
+                      allowDecimals={false}
+                    />
                     <Tooltip
                       contentStyle={{
                         background: "var(--color-popover)",
@@ -246,7 +277,11 @@ function PerformancePage() {
           <section className="rounded-md border border-border bg-card p-4">
             <h2 className="label-xs">Time-of-day heat map · expectancy in R (UTC)</h2>
             {coreSamples.length < MIN_SAMPLES_HEATMAP ? (
-              <NeedsSamples have={coreSamples.length} need={MIN_SAMPLES_HEATMAP} what="a time-of-day map" />
+              <NeedsSamples
+                have={coreSamples.length}
+                need={MIN_SAMPLES_HEATMAP}
+                what="a time-of-day map"
+              />
             ) : (
               <div className="mt-4 overflow-x-auto">
                 <table className="w-full border-separate border-spacing-0.5">
@@ -267,8 +302,10 @@ function PerformancePage() {
                         {Array.from({ length: 8 }, (_, i) => i * 3).map((hour) => {
                           const cell = cells.find((c) => c.dayOfWeek === day && c.hour === hour);
                           const v = cell?.expectancyR ?? 0;
-                          const alpha = cell && cell.count > 0 ? Math.min(0.85, Math.abs(v) / maxAbs) : 0;
-                          const color = v >= 0 ? "var(--color-success)" : "var(--color-destructive)";
+                          const alpha =
+                            cell && cell.count > 0 ? Math.min(0.85, Math.abs(v) / maxAbs) : 0;
+                          const color =
+                            v >= 0 ? "var(--color-success)" : "var(--color-destructive)";
                           return (
                             <td key={hour} className="p-0">
                               <div
@@ -328,7 +365,6 @@ function PerformancePage() {
           <LearningHistory />
         </TabsContent>
       </Tabs>
-
     </div>
   );
 }
@@ -370,44 +406,48 @@ function BreakdownTable({
     <section className="rounded-md border border-border bg-card">
       <p className="label-xs border-b border-border px-4 py-3">{title}</p>
       <div className="overflow-x-auto">
-      <table className="w-full min-w-[520px] text-sm">
-        <thead>
-          <tr className="border-b border-border">
-            {["", "N", "Win%", "Avg win", "Avg loss", "Expectancy"].map((h) => (
-              <th key={h} className="label-xs px-3 py-2 text-right first:text-left">
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.length === 0 ? (
-            <tr>
-              <td colSpan={6} className="px-3 py-6 text-center text-xs text-muted-foreground">
-                No closed results yet.
-              </td>
+        <table className="w-full min-w-[520px] text-sm">
+          <thead>
+            <tr className="border-b border-border">
+              {["", "N", "Win%", "Avg win", "Avg loss", "Expectancy"].map((h) => (
+                <th key={h} className="label-xs px-3 py-2 text-right first:text-left">
+                  {h}
+                </th>
+              ))}
             </tr>
-          ) : (
-            rows.map((r) => (
-              <tr key={r.label} className="border-b border-border/60 last:border-0">
-                <td className="num px-3 py-2 text-left text-xs">{r.label}</td>
-                <td className="num px-3 py-2 text-right text-xs">{r.stats.count}</td>
-                <td className="num px-3 py-2 text-right text-xs">{pct(r.stats.winRate)}</td>
-                <td className="num px-3 py-2 text-right text-xs text-success">{fmtR(r.stats.avgWinR)}</td>
-                <td className="num px-3 py-2 text-right text-xs text-destructive">{fmtR(r.stats.avgLossR)}</td>
-                <td
-                  className={cn(
-                    "num px-3 py-2 text-right text-xs font-semibold",
-                    r.stats.expectancyR >= 0 ? "text-success" : "text-destructive",
-                  )}
-                >
-                  {fmtR(r.stats.expectancyR)}
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-3 py-6 text-center text-xs text-muted-foreground">
+                  No closed results yet.
                 </td>
               </tr>
-            ))
-          )}
-        </tbody>
-      </table>
+            ) : (
+              rows.map((r) => (
+                <tr key={r.label} className="border-b border-border/60 last:border-0">
+                  <td className="num px-3 py-2 text-left text-xs">{r.label}</td>
+                  <td className="num px-3 py-2 text-right text-xs">{r.stats.count}</td>
+                  <td className="num px-3 py-2 text-right text-xs">{pct(r.stats.winRate)}</td>
+                  <td className="num px-3 py-2 text-right text-xs text-success">
+                    {fmtR(r.stats.avgWinR)}
+                  </td>
+                  <td className="num px-3 py-2 text-right text-xs text-destructive">
+                    {fmtR(r.stats.avgLossR)}
+                  </td>
+                  <td
+                    className={cn(
+                      "num px-3 py-2 text-right text-xs font-semibold",
+                      r.stats.expectancyR >= 0 ? "text-success" : "text-destructive",
+                    )}
+                  >
+                    {fmtR(r.stats.expectancyR)}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
     </section>
   );
@@ -425,8 +465,9 @@ function NeedsSamples({ have, need, what }: { have: number; need: number; what: 
         Needs {missing} more sample{missing === 1 ? "" : "s"}
       </p>
       <p className="mt-1 max-w-sm text-xs text-muted-foreground">
-        {have} of {need} closed B-Grade-or-better results recorded. {what.charAt(0).toUpperCase() + what.slice(1)}{" "}
-        drawn from fewer samples would be noise, so it stays hidden until the data supports it.
+        {have} of {need} closed B-Grade-or-better results recorded.{" "}
+        {what.charAt(0).toUpperCase() + what.slice(1)} drawn from fewer samples would be noise, so
+        it stays hidden until the data supports it.
       </p>
     </div>
   );

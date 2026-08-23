@@ -141,10 +141,7 @@ describe("list_signals my_scanner retrieval completeness", () => {
 
     const result = await runListSignals(client, { scope: "my_scanner", limit: 2 }, NOW);
     expect(out(result).count).toBe(2);
-    expect(out(result).signals.map((s: Row) => s["id"])).toEqual([
-      "sig-0300",
-      "sig-0301",
-    ]);
+    expect(out(result).signals.map((s: Row) => s["id"])).toEqual(["sig-0300", "sig-0301"]);
   });
 
   it("[INVARIANT] finds an eligible row behind 200 wrong-instrument rows", async () => {

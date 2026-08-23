@@ -33,7 +33,12 @@ export function ScanHeartbeat({ lastScanAt }: { lastScanAt: string | null | unde
             stale ? "bg-warning" : "bg-success",
           )}
         />
-        <span className={cn("relative inline-flex size-2 rounded-full", stale ? "bg-warning" : "bg-success")} />
+        <span
+          className={cn(
+            "relative inline-flex size-2 rounded-full",
+            stale ? "bg-warning" : "bg-success",
+          )}
+        />
       </span>
       {valid && !stale ? (
         <span className="num">

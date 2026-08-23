@@ -128,7 +128,12 @@ export function inspectUrlSyntax(raw: string): UrlValidationError | { ok: true; 
     return { ok: false, reason: "scheme_not_https", detail: url.protocol, unavailable: false };
   }
   if (url.username || url.password) {
-    return { ok: false, reason: "userinfo_present", detail: "credentials in URL", unavailable: false };
+    return {
+      ok: false,
+      reason: "userinfo_present",
+      detail: "credentials in URL",
+      unavailable: false,
+    };
   }
   if (url.port && url.port !== "443") {
     return { ok: false, reason: "port_not_443", detail: url.port, unavailable: false };

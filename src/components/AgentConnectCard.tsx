@@ -73,10 +73,10 @@ export function AgentConnectCard() {
           anchor="ai"
         />
         <p className="mt-2 text-sm text-muted-foreground">
-          Paste the server URL below into ChatGPT, Claude, Claude Code or any MCP client. The assistant then acts
-          as you, using your own sign-in: it can read live setups, size them against your risk profile, adjust
-          these settings and maintain your journal. Prices an assistant writes are permanently marked as
-          agent-entered.
+          Paste the server URL below into ChatGPT, Claude, Claude Code or any MCP client. The
+          assistant then acts as you, using your own sign-in: it can read live setups, size them
+          against your risk profile, adjust these settings and maintain your journal. Prices an
+          assistant writes are permanently marked as agent-entered.
         </p>
       </div>
 

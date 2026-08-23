@@ -23,11 +23,11 @@ never mixed into one average.
 
 ### Statistical standard (research)
 
-| Method | Constant | Purpose |
-| --- | --- | --- |
-| Wilson score interval | `src/lib/stats/wilson.ts` | Proportion intervals; carries `DIAGNOSTIC_ONLY_NOTE` |
+| Method                          | Constant                                                                                                                                | Purpose                                                                                                                |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Wilson score interval           | `src/lib/stats/wilson.ts`                                                                                                               | Proportion intervals; carries `DIAGNOSTIC_ONLY_NOTE`                                                                   |
 | Whole-UTC-day cluster bootstrap | `BOOTSTRAP_METHOD = "whole_utc_day_cluster_bootstrap"`, `DEFAULT_REPLICATES = 2000`, `DEFAULT_SEED = 20260821`, `BOOTSTRAP_VERSION = 1` | Dependence-aware intervals: trades from one UTC day are correlated, so whole days are resampled, not individual trades |
-| Benjamini–Hochberg | `src/lib/stats/bh.ts` | Multiple-comparison control across buckets; carries `BH_DIAGNOSTIC_NOTE` |
+| Benjamini–Hochberg              | `src/lib/stats/bh.ts`                                                                                                                   | Multiple-comparison control across buckets; carries `BH_DIAGNOSTIC_NOTE`                                               |
 
 Maturity gates: `MIN_GROUP_SAMPLES = 30`, `MIN_GROUP_CLUSTERS = 10` (equal to
 `MIN_CLUSTERS`), practical-effect threshold `PRACTICAL_EFFECT_THRESHOLD = 0.05`.

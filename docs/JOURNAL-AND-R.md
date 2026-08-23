@@ -36,12 +36,12 @@ selection is explicit and enforced by `src/lib/journal/basis.ts`.
 
 ### Provenance fields
 
-| Field | Meaning |
-| --- | --- |
-| `r_availability` | `both`, `plan_only`, `actual_risk_only`, or an explicit `unavailable_*` reason |
-| `stop_provenance` | `actual_stop`, `planned_stop_fallback`, or `unavailable` |
-| `r_math_version` | Stamp of the formula that produced the value (`R_MATH_VERSION`) |
-| price author | Who wrote each price — the user or a named AI agent |
+| Field             | Meaning                                                                        |
+| ----------------- | ------------------------------------------------------------------------------ |
+| `r_availability`  | `both`, `plan_only`, `actual_risk_only`, or an explicit `unavailable_*` reason |
+| `stop_provenance` | `actual_stop`, `planned_stop_fallback`, or `unavailable`                       |
+| `r_math_version`  | Stamp of the formula that produced the value (`R_MATH_VERSION`)                |
+| price author      | Who wrote each price — the user or a named AI agent                            |
 
 All R values are rounded to `R_DECIMALS` (4) for storage and comparison.
 

@@ -103,23 +103,30 @@ export function PushSection({
             Fires within seconds of a new signal at or above your alert minimum grade.
           </p>
         </div>
-        <Switch id="notify-push" checked={enabled} onCheckedChange={(v) => void onToggle(v)} disabled={busy} />
+        <Switch
+          id="notify-push"
+          checked={enabled}
+          onCheckedChange={(v) => void onToggle(v)}
+          disabled={busy}
+        />
       </div>
 
       {status === "denied" && (
         <p className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive-foreground">
-          This browser has blocked notifications. Re-allow them in the site permissions, then toggle again.
+          This browser has blocked notifications. Re-allow them in the site permissions, then toggle
+          again.
         </p>
       )}
       {status === "needs-install" && (
         <p className="rounded-md border border-border bg-muted/40 p-2 text-xs text-muted-foreground">
-          On iPhone and iPad, push works only after you add P-Trades Hub to the Home Screen (Share → Add to Home
-          Screen), then open it from the icon.
+          On iPhone and iPad, push works only after you add P-Trades Hub to the Home Screen (Share →
+          Add to Home Screen), then open it from the icon.
         </p>
       )}
       {status === "unsupported" && (
         <p className="rounded-md border border-border bg-muted/40 p-2 text-xs text-muted-foreground">
-          This browser does not support web push. Email alerts and the webhook dispatcher still work.
+          This browser does not support web push. Email alerts and the webhook dispatcher still
+          work.
         </p>
       )}
       {enabled && status === "off" && (
@@ -139,7 +146,11 @@ export function PushSection({
           onClick={() => void onTest()}
           disabled={testing || status !== "on"}
         >
-          {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <BellRing className="h-4 w-4" />}
+          {testing ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <BellRing className="h-4 w-4" />
+          )}
           Send test alert
         </Button>
         {status === "on" && (
@@ -148,7 +159,11 @@ export function PushSection({
             variant="ghost"
             className="h-10 w-full sm:h-9 sm:w-auto"
             disabled={busy}
-            onClick={() => void disable().then(() => queryClient.invalidateQueries({ queryKey: ["push-devices"] }))}
+            onClick={() =>
+              void disable().then(() =>
+                queryClient.invalidateQueries({ queryKey: ["push-devices"] }),
+              )
+            }
           >
             Unregister this device
           </Button>

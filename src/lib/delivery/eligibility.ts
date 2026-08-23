@@ -90,7 +90,10 @@ export function baseEligibility(
   }
   const min = channelMinGrade(settings, channel);
   if ((GRADE_RANK[signal.grade] ?? 0) < (GRADE_RANK[min] ?? 0)) {
-    return { eligible: false, reason: channel === "feed" ? "below_min_grade" : "below_alert_grade" };
+    return {
+      eligible: false,
+      reason: channel === "feed" ? "below_min_grade" : "below_alert_grade",
+    };
   }
   // Missing context ⇒ session unknown ⇒ never session-suppressed (fail open),
   // matching the behaviour the alert fan-out has always had.

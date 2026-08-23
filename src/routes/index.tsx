@@ -13,7 +13,10 @@ export const Route = createFileRoute("/")({
         content:
           "A quantitative Forex terminal: XAUUSD, GBPAUD and EURUSD scanned every 15 minutes across H4/H1/M15, setups graded A+/A/B/C, risk sized to your own settings, and expectancy tracked in R.",
       },
-      { property: "og:title", content: "P-Trades Hub — Forex Scanner, Risk Sizing & Trade Journal" },
+      {
+        property: "og:title",
+        content: "P-Trades Hub — Forex Scanner, Risk Sizing & Trade Journal",
+      },
       {
         property: "og:description",
         content:
@@ -135,8 +138,8 @@ function Landing() {
       <section className="mx-auto max-w-6xl px-4 py-16 sm:py-20">
         <p className="label-xs">Autonomous forex market scanner</p>
         <h1 className="mt-3 max-w-3xl text-4xl font-bold leading-[1.1] tracking-tight text-foreground sm:text-6xl">
-          A quantitative terminal that also tells you when{" "}
-          <span className="text-primary">not</span> to trade.
+          A quantitative terminal that also tells you when <span className="text-primary">not</span>{" "}
+          to trade.
         </h1>
         <p className="mt-6 max-w-2xl text-base text-muted-foreground">
           P-Trades Hub scans XAUUSD, GBPAUD and EURUSD across H4, H1 and M15, grades the ABC
@@ -188,7 +191,10 @@ function Landing() {
           <p className="label-xs">How it behaves</p>
           <dl className="mt-6 divide-y divide-border border-y border-border">
             {METHOD.map((m) => (
-              <div key={m.k} className="grid gap-1 py-4 sm:grid-cols-[13rem_minmax(0,1fr)] sm:gap-6">
+              <div
+                key={m.k}
+                className="grid gap-1 py-4 sm:grid-cols-[13rem_minmax(0,1fr)] sm:gap-6"
+              >
                 <dt className="text-sm font-semibold text-foreground">{m.k}</dt>
                 <dd className="text-sm leading-relaxed text-muted-foreground">{m.v}</dd>
               </div>
