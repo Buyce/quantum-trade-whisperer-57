@@ -8,9 +8,18 @@ cannot support a decision.
 
 ## Current behaviour
 
-### Performance Engine (personal)
+### Performance Engine (source-separated)
 
-Built only from the user's own journal:
+The user chooses exactly one source:
+
+| UI source          | Required provenance          | Included rows                                                                             |
+| ------------------ | ---------------------------- | ----------------------------------------------------------------------------------------- |
+| My Journal         | **SELF-REPORTED JOURNAL**    | Closed, taken journal entries recorded by the user or assistant                           |
+| Broker Account     | **CUSTOMER BROKER EVIDENCE** | Closed deals positively associated with P-Trades orders on that user's connected accounts |
+| P-Trades Benchmark | **CONTROLLED BENCHMARK**     | Closed, associated deals from the dedicated P-Trades demo benchmark policy                |
+
+No source falls back to another when empty. Deterministic scanner replay is
+research-only and is not a Performance source.
 
 ```text
 Expectancy in R = (win rate x average win in R) - (loss rate x average loss in R)
@@ -42,8 +51,9 @@ The bootstrap is deterministic: same input, same seed, same interval.
 
 ## Inputs
 
-Resolved journal rows on one R basis, or replayed research outcomes with their
-cohort and UTC-day cluster labels.
+Resolved rows from the selected Performance source on one R basis. Research
+estimands separately use broker evidence or replay outcomes with `signal_id` and
+whole-UTC-day cluster labels; neither changes the user-facing source boundary.
 
 ## Outputs
 
@@ -52,9 +62,9 @@ counts, maturity verdicts, and plain-language notes.
 
 ## Provenance
 
-Personal performance = **trades you logged**. Scanner baseline = replayed
-published setups. The two are computed and displayed separately and are never
-summed.
+The source badge and CSV export carry the exact provenance label. CSV also names
+`r_vs_plan` or `r_vs_actual_risk`. The bases and sources are never summed,
+averaged, filled from one another or silently substituted.
 
 ## Failure behaviour
 
@@ -78,7 +88,8 @@ never renders a synthesised row or an example trade.
 
 ## Implementation
 
-`src/lib/performance.ts`, `src/lib/stats/wilson.ts`, `bootstrap.ts`, `bh.ts`,
+`src/lib/performance.ts`, `src/lib/performance-evidence.server.ts`,
+`src/lib/stats/wilson.ts`, `bootstrap.ts`, `bh.ts`,
 `clusters.ts`, `evidence.ts`, `src/lib/learning/*`, `src/lib/reports/weekly*`.
 
 ## Tests

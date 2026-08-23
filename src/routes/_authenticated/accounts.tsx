@@ -56,13 +56,10 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { describePhase } from "@/lib/accounts/lifecycle";
-import {
-  CONNECTION_REGIONS,
-  HELP_TOPICS,
-  capabilityNote,
-} from "@/lib/accounts/guidance";
+import { CONNECTION_REGIONS, HELP_TOPICS, capabilityNote } from "@/lib/accounts/guidance";
 import type { AccountMode, ConnectedAccountView } from "@/lib/accounts/types";
 import { getExecutionStatus } from "@/lib/execution.functions";
 import {
@@ -73,6 +70,7 @@ import {
   reissueBrokerConfigurationLink,
   resolveAmbiguousSymbol,
   setAccountExposureBoundary,
+  setAccountResearchConsent,
   setBrokerAccountMode,
   startBrokerConnection,
 } from "@/lib/accounts.functions";
@@ -155,7 +153,6 @@ function AccountsPage() {
             broker-connection provider&rsquo;s own secure page.
           </p>
         </div>
-
 
         {accounts.isLoading ? (
           <p className="text-sm text-muted-foreground">Loading your connections…</p>
@@ -246,8 +243,7 @@ function ConnectWizard({
   const [region, setRegion] = useState<string>("london");
 
   const mutation = useMutation({
-    mutationFn: () =>
-      start({ data: { label, platform, brokerServer, region, intent } }),
+    mutationFn: () => start({ data: { label, platform, brokerServer, region, intent } }),
     onSuccess: (result) => {
       onDone();
       setStep(4);
@@ -255,7 +251,9 @@ function ConnectWizard({
         // Opened, never rendered or stored: the URL grants credential entry.
         window.open(result.configurationUrl, "_blank", "noopener,noreferrer");
       } else {
-        toast.error("Your broker-connection provider did not return a secure page. Refresh the connection to retry.");
+        toast.error(
+          "Your broker-connection provider did not return a secure page. Refresh the connection to retry.",
+        );
       }
     },
     onError: (err: Error) => toast.error(err.message),
@@ -394,7 +392,8 @@ function ConnectWizard({
             <CheckCircle2 className="size-4 text-success" /> Connection created
           </p>
           <p className="text-xs text-muted-foreground">
-            Enter your MetaTrader login on the secure page that just opened. Then come back and press
+            Enter your MetaTrader login on the secure page that just opened. Then come back and
+            press
             <strong> Refresh</strong> on the connection below. P-Trades will show it as Ready only
             once your broker itself confirms the account.
           </p>
@@ -532,7 +531,9 @@ function AccountCard({
         <div className="flex gap-2 border-b border-destructive/40 bg-destructive/10 p-3 text-xs">
           <AlertTriangle className="mt-0.5 size-4 shrink-0 text-destructive" />
           <div>
-            <p className="font-semibold text-destructive">Stopped: this is not the account you chose</p>
+            <p className="font-semibold text-destructive">
+              Stopped: this is not the account you chose
+            </p>
             <p className="mt-1">{account.intentConflictReason}</p>
           </div>
         </div>
@@ -578,6 +579,9 @@ function AccountCard({
 
       <ArmingSection account={account} onChanged={onChanged} />
       <ExposureSection account={account} onChanged={onChanged} />
+      {!account.isBenchmark ? (
+        <ResearchConsentSection account={account} onChanged={onChanged} />
+      ) : null}
 
       {account.features || account.telemetry || account.riskBreaches.length > 0 ? (
         <div className="border-t border-border p-3 text-xs">
@@ -620,7 +624,6 @@ function AccountCard({
         </div>
       ) : null}
 
-
       {account.symbols.length > 0 ? (
         <div className="border-t border-border p-3 text-xs">
           <p className="font-medium">Your broker&rsquo;s symbol names</p>
@@ -633,9 +636,7 @@ function AccountCard({
                   <span className="num">{s.broker_symbol}</span>
                 ) : s.mapping_kind === "ambiguous" ? (
                   <>
-                    <span className="text-destructive">
-                      several possible matches — choose one
-                    </span>
+                    <span className="text-destructive">several possible matches — choose one</span>
                     {s.candidates.map((candidate) => (
                       <Button
                         key={candidate}
@@ -654,9 +655,7 @@ function AccountCard({
                     ))}
                   </>
                 ) : (
-                  <span className="text-muted-foreground">
-                    not offered on this account
-                  </span>
+                  <span className="text-muted-foreground">not offered on this account</span>
                 )}
               </li>
             ))}
@@ -670,8 +669,8 @@ function AccountCard({
             <AlertDialogTitle>Disconnect {account.label}?</AlertDialogTitle>
             <AlertDialogDescription>
               P-Trades will stop this connection and remove it from your broker-connection provider.
-              Your broker account itself is untouched, and everything already recorded in P-Trades is
-              kept.
+              Your broker account itself is untouched, and everything already recorded in P-Trades
+              is kept.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -699,6 +698,90 @@ function Fact({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 /**
+ * Research consent is a separate, optional decision. Switching it on never
+ * arms execution and switching it off stops only future evidence inclusion.
+ */
+function ResearchConsentSection({
+  account,
+  onChanged,
+}: {
+  account: ConnectedAccountView;
+  onChanged: () => void;
+}) {
+  const save = useServerFn(setAccountResearchConsent);
+  const [pending, setPending] = useState<boolean | null>(null);
+  const mutation = useMutation({
+    mutationFn: (enabled: boolean) => save({ data: { accountId: account.id, enabled } }),
+    onSuccess: (result) => {
+      setPending(null);
+      toast.success(
+        result.enabled
+          ? "Pooled research consent recorded."
+          : "Research consent withdrawn for future evidence.",
+      );
+      onChanged();
+    },
+    onError: (err: Error) => {
+      setPending(null);
+      toast.error(err.message);
+    },
+  });
+
+  return (
+    <div className="border-t border-border p-3 text-xs">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="font-medium">Optional pooled research</p>
+          <p className="mt-1 max-w-2xl text-muted-foreground">
+            Allow future positively associated broker evidence from this account to contribute to
+            grouped P-Trades research under a random pseudonymous reference. Your broker login,
+            MetaApi account id and identity are never exposed on research surfaces. This does not
+            affect signals, orders, your journal or your Performance sources.
+          </p>
+        </div>
+        <Switch
+          checked={account.researchConsent.current}
+          disabled={mutation.isPending}
+          aria-label="Allow future broker evidence in pooled research"
+          onCheckedChange={(enabled) => setPending(enabled)}
+        />
+      </div>
+      <p className="mt-2 text-[11px] text-muted-foreground">
+        {account.researchConsent.current
+          ? `Consent version ${account.researchConsent.version} recorded ${new Date(account.researchConsent.updatedAt as string).toUTCString()}. You can withdraw at any time; withdrawal stops future pooling and does not rewrite evidence already collected with consent.`
+          : account.researchConsent.updatedAt
+            ? `Not participating. Your latest decision was recorded ${new Date(account.researchConsent.updatedAt).toUTCString()}.`
+            : "Not participating — consent defaults to off."}
+      </p>
+
+      <AlertDialog open={pending !== null} onOpenChange={(open) => !open && setPending(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {pending ? "Consent to optional pooled research?" : "Withdraw research consent?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pending
+                ? "Only future broker evidence that P-Trades can positively associate with its own orders may be included, under a random pseudonymous reference. Participation is optional and has no effect on service or execution."
+                : "Future broker evidence from this account will stop entering pooled research immediately. Evidence already collected under valid consent remains historically accurate and is not rewritten."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={mutation.isPending}
+              onClick={() => pending !== null && mutation.mutate(pending)}
+            >
+              {pending ? "I consent" : "Withdraw consent"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
+/**
  * Automatic orders for ONE account.
  *
  * Two independent gates are shown honestly and separately: what the BROKER
@@ -715,7 +798,10 @@ function ArmingSection({
   onChanged: () => void;
 }) {
   const setMode = useServerFn(setBrokerAccountMode);
-  const controls = useQuery({ queryKey: ["execution-status"], queryFn: () => getExecutionStatus() });
+  const controls = useQuery({
+    queryKey: ["execution-status"],
+    queryFn: () => getExecutionStatus(),
+  });
   const [pending, setPending] = useState<AccountMode | null>(null);
 
   const mutation = useMutation({
@@ -859,9 +945,9 @@ function ExposureSection({
       <p className="font-medium">Account exposure boundary</p>
       <p className="mt-1 text-muted-foreground">
         The most simultaneous positions and pending orders P-Trades may leave open on this broker
-        account. Leave it empty for no boundary. Before each order P-Trades reads your broker&rsquo;s
-        own open positions — if your broker cannot be read, the order is abandoned rather than sent
-        on an assumption.
+        account. Leave it empty for no boundary. Before each order P-Trades reads your
+        broker&rsquo;s own open positions — if your broker cannot be read, the order is abandoned
+        rather than sent on an assumption.
       </p>
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <Label htmlFor={`exposure-${account.id}`} className="sr-only">
@@ -875,7 +961,12 @@ function ExposureSection({
           value={value}
           onChange={(e) => setValue(e.target.value)}
         />
-        <Button size="sm" variant="outline" disabled={mutation.isPending} onClick={() => mutation.mutate()}>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={mutation.isPending}
+          onClick={() => mutation.mutate()}
+        >
           {mutation.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
           Save boundary
         </Button>

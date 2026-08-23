@@ -10,10 +10,7 @@
  */
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import type {
-  AccountQuotaView,
-  ConnectedAccountView,
-} from "@/lib/accounts/types";
+import type { AccountQuotaView, ConnectedAccountView } from "@/lib/accounts/types";
 
 export const listConnectedAccounts = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -101,4 +98,12 @@ export const setAccountExposureBoundary = createServerFn({ method: "POST" })
     await save(context.userId, data.accountId, data.maxOpenPositions);
     const views = await loadAccountViews(context.supabase, context.userId);
     return views.find((v) => v.id === data.accountId) ?? null;
+  });
+
+export const setAccountResearchConsent = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { accountId: string; enabled: boolean }) => input)
+  .handler(async ({ data, context }) => {
+    const { setResearchConsent } = await import("@/lib/accounts/research-consent.server");
+    return await setResearchConsent(context.userId, data.accountId, data.enabled);
   });

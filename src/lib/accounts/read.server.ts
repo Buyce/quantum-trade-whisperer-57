@@ -9,6 +9,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { isReadOnly } from "@/lib/metaapi/classify";
+import { pooledInclusionAllowed } from "@/lib/research/consent";
 import { isConnectionReady } from "./lifecycle";
 import { canArm, offerableModes, type ModeContext } from "./mode";
 import type {
@@ -23,6 +24,7 @@ import type {
 type Client = SupabaseClient<never, never, never>;
 
 function num(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
 }
@@ -107,6 +109,11 @@ export async function toAccountView(
     investorMode: row.investor_mode,
     tradeAllowed: row.trade_allowed,
   });
+  const researchConsent = pooledInclusionAllowed({
+    researchConsent: row.research_consent,
+    researchConsentVersion: row.research_consent_version,
+    researchConsentAt: row.research_consent_at,
+  });
 
   return {
     id: row.id,
@@ -144,6 +151,12 @@ export async function toAccountView(
     features: (features.data as AccountFeatureRow | null) ?? null,
     maxAccountOpenPositions: num(row.max_account_open_positions),
     isBenchmark: row.is_benchmark === true,
+    researchConsent: {
+      enabled: row.research_consent === true,
+      version: row.research_consent_version,
+      updatedAt: row.research_consent_at,
+      current: researchConsent.included,
+    },
     offerableModes: offerableModes(modeContext),
     armRefusal: armVerdict.ok ? null : armVerdict.detail,
     telemetry: telemetry.data
@@ -151,16 +164,16 @@ export async function toAccountView(
           status: (telemetry.data as { status: string }).status,
           reason: (telemetry.data as { reason: string | null }).reason ?? null,
           observedAt: (telemetry.data as { observed_at: string | null }).observed_at ?? null,
-          metrics: numericMetrics(
-            (telemetry.data as { metrics: unknown }).metrics,
-          ),
+          metrics: numericMetrics((telemetry.data as { metrics: unknown }).metrics),
         }
       : null,
-    riskBreaches: ((breaches.data ?? []) as {
-      event_at: string;
-      relative_drawdown: number | null;
-      absolute_drawdown: number | null;
-    }[]).map((e) => ({
+    riskBreaches: (
+      (breaches.data ?? []) as {
+        event_at: string;
+        relative_drawdown: number | null;
+        absolute_drawdown: number | null;
+      }[]
+    ).map((e) => ({
       eventAt: e.event_at,
       relativeDrawdown: num(e.relative_drawdown),
       absoluteDrawdown: num(e.absolute_drawdown),
@@ -198,7 +211,9 @@ export async function loadQuota(userId: string): Promise<AccountQuotaView> {
   const db = supabaseAdmin as unknown as Client;
 
   const { data: quota } = await db.rpc("account_quota" as never, { _user_id: userId } as never);
-  const first = Array.isArray(quota) ? (quota[0] as { max_demo: number; max_live: number } | undefined) : undefined;
+  const first = Array.isArray(quota)
+    ? (quota[0] as { max_demo: number; max_live: number } | undefined)
+    : undefined;
 
   const { data: rows } = await db
     .from("connected_trading_accounts" as never)

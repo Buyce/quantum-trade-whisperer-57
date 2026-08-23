@@ -25,18 +25,21 @@ flowchart TD
   SIGNALS --> RESEARCH[(research_candidates,<br/>shadow executions)]
 
   JOURNAL --> PERF[Performance Engine]
+  DELIV --> ACCOUNT[connected MetaTrader account]
+  ACCOUNT --> EVIDENCE[(broker_trade_evidence)]
+  EVIDENCE --> PERF
   RESEARCH --> STATS[research statistics]
   DELIV --> DISPATCH2[dispatch.server.ts]
 ```
 
 ### The four planes
 
-| Plane                        | Owns                                                                      | Must never                                                                       |
-| ---------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| Production signal generation | cron, queue, workers, scanner, `scanned_signals`, `market_context`        | read the journal, research tables, or delivery state                             |
-| Research / shadow            | `research_candidates`, shadow executions, replay, regime and payoff stats | write to `scanned_signals` or change any published field                         |
-| User analytics               | `executed_trades`, canonical R, Performance Engine                        | mix R bases, or borrow research numbers as personal results                      |
-| Execution delivery           | `execution_deliveries`, controls, dispatch                                | influence publication, eligibility, enrolment or any statistic; interrupt a scan |
+| Plane                        | Owns                                                                      | Must never                                                                 |
+| ---------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Production signal generation | cron, queue, workers, scanner, `scanned_signals`, `market_context`        | read the journal, research tables, or delivery state                       |
+| Research / shadow            | `research_candidates`, shadow executions, replay, regime and payoff stats | write to `scanned_signals` or change any published field                   |
+| Performance evidence         | journal, customer broker evidence, controlled benchmark, canonical R      | mix sources or R bases; borrow replay numbers as broker results            |
+| Execution delivery           | deliveries, connected accounts, controls, dispatch, reconciliation        | influence publication, eligibility or research enrolment; interrupt a scan |
 
 Isolation is enforced structurally: `src/lib/delivery/execution.ts` documents that
 nothing importing it may be reachable from the scanner pipeline, and the research
@@ -64,7 +67,7 @@ and email messages.
 
 The plane a value came from is recorded with it — model version on signals,
 author on journal price writes, cohort on research rows, config version on
-deliveries.
+deliveries, and evidence class/association basis on reconciled broker deals.
 
 ## Failure behaviour
 
@@ -88,7 +91,8 @@ research result generalises to live trading.
 ## Implementation
 
 `src/routes/api/**`, `src/lib/scanner/pipeline.server.ts`,
-`src/lib/delivery/*`, `src/lib/research/*`, `src/start.ts`, `src/server.ts`.
+`src/lib/delivery/*`, `src/lib/accounts/*`, `src/lib/evidence/*`,
+`src/lib/research/*`, `src/start.ts`, `src/server.ts`.
 
 ## Tests
 

@@ -2,9 +2,10 @@
 
 ## Purpose
 
-Optionally forward an alert-eligible setup to an external trading bridge, as a
-financial control plane: every step is authorised, revalidated and recorded, and
-the default state is that nothing goes out.
+Optionally deliver an alert-eligible setup to an approved external bridge or an
+explicitly connected MetaTrader account, as a financial control plane: every step
+is authorised, revalidated and recorded, and the default state is that nothing
+goes out.
 
 **Two separate things exist and must not be confused:**
 
@@ -31,6 +32,11 @@ signature-> HMAC-SHA256 v2 over the payload
 dispatch -> ONE POST attempt, redirect: "manual"
 ```
 
+A `metaapi_direct` destination follows the same ledger and revalidation boundary,
+then uses the connected account's broker-reported classification, symbol map,
+equity and volume specification. It does not bypass the queue because it is a
+broker connection.
+
 ### States
 
 `pending` → `claimed` → one of `sent`, `acknowledged`, `rejected`, `unknown`,
@@ -47,6 +53,9 @@ Resolution of those states is manual or dry-run.
   outbound live POSTs but does **not** stop the dry-run validation pipeline, so a
   user can prove their configuration end-to-end with zero outbound requests.
 - **Unreadable controls fail closed.**
+- **Observe first.** Connected accounts begin in `observe`. Demo auto requires a
+  broker-confirmed demo account, explicit account arming and the global demo gate.
+  Real accounts require their independent live gates; demo intent is never enough.
 - **Explicit live confirmation.** Arming live requires an owner confirmation that
   names the destination host, the execution policy and the position-sizing basis,
   and states that eligible signals may create broker orders. The confirmation is
@@ -62,8 +71,9 @@ Resolution of those states is manual or dry-run.
   new authorisation.
 - **Named policy.** `single_exit_first_target` — one pending order exiting at the
   first target. Any other policy value is rejected as `policy_unsupported`.
-- **Authoritative quantity.** The order carries the authoritative sizing result's
-  lots, with its model and spec source as provenance in the v2 JSON payload. No
+- **Authoritative quantity.** Bridge orders carry the authoritative sizing result.
+  Direct connected-account orders are sized from fresh broker equity and that
+  account's broker specification, then checked against broker min/max/step. No
   amount is invented when sizing is unavailable.
 - **Bridge formats.** The JSON receiver contract is verified and can carry an
   explicit quantity, so it is eligible for automatic live execution.
@@ -78,6 +88,9 @@ Resolution of those states is manual or dry-run.
 - **Exposure is advisory by default.** Logged-trades exposure never blocks unless
   the user opts in (`exposure_limit_enabled`), and the wording always says the
   figure is based solely on trades they logged.
+- **Account exposure is separate.** A connected account may have an owner-set
+  boundary checked against broker-reported open positions and pending orders. A
+  failed broker read refuses submission; it never assumes zero.
 - **Isolation.** An execution failure can never interrupt the scanner, the feed,
   research enrolment or any statistic.
 
@@ -115,14 +128,16 @@ Every refusal has a named reason, including
 
 ## What execution does not guarantee
 
-That a bridge or broker accepted, filled, or is still holding an order, unless an
-acknowledgement proves it. It is not a broker connection and cannot read broker
-state.
+That a bridge or broker accepted, filled, or is still holding an order, unless a
+named acknowledgement or reconciled broker-evidence row proves that state. An
+external bridge cannot read broker state; a connected MetaTrader destination can
+read only the facts the provider returns, and missing facts remain unavailable.
 
 ## Implementation
 
 `src/lib/delivery/execution.ts`, `revalidate.server.ts`, `dispatch.server.ts`,
 `hmac.ts`, `outbound-url.server.ts`, `exposure.ts`, `eligibility.ts`,
+`src/lib/execution/direct.server.ts`, `src/lib/evidence/reconcile.server.ts`,
 `src/lib/execution.functions.ts`, `src/lib/webhook-test.functions.ts`,
 `src/routes/_authenticated/settings.tsx`.
 

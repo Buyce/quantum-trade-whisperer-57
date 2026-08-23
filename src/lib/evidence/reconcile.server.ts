@@ -14,6 +14,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchPositions } from "@/lib/metaapi/accounts.server";
 import { fetchDeals, fetchHistoryOrders } from "@/lib/metaapi/history.server";
 import { computeR, R_MATH_VERSION } from "@/lib/journal/r-math";
+import { isSafeResearchRef, newsContextFor, pooledInclusionAllowed } from "@/lib/research/consent";
 import {
   evidenceClassFor,
   groupOwnedDeals,
@@ -52,6 +53,10 @@ interface AccountRow {
   region: string;
   magic: number | null;
   broker_account_type: string | null;
+  research_consent: boolean;
+  research_consent_version: number | null;
+  research_consent_at: string | null;
+  research_account_ref: string | null;
 }
 
 export interface ReconcileResult {
@@ -105,7 +110,9 @@ export async function reconcileBrokerEvidence(
 
   const { data: accountRows } = await db
     .from("connected_trading_accounts")
-    .select("id, user_id, metaapi_account_id, region, magic, broker_account_type")
+    .select(
+      "id, user_id, metaapi_account_id, region, magic, broker_account_type, research_consent, research_consent_version, research_consent_at, research_account_ref",
+    )
     .in("id", [...accountIds]);
   const accounts = (accountRows ?? []) as unknown as AccountRow[];
 
@@ -115,12 +122,7 @@ export async function reconcileBrokerEvidence(
 
     let deals;
     try {
-      deals = await fetchDeals(
-        account.metaapi_account_id,
-        account.region,
-        since,
-        new Date(now),
-      );
+      deals = await fetchDeals(account.metaapi_account_id, account.region, since, new Date(now));
     } catch (err) {
       result.errors.push(
         `${account.id}: broker history unavailable — ${err instanceof Error ? err.message : String(err)}`,
@@ -161,8 +163,7 @@ export async function reconcileBrokerEvidence(
         account,
         brokerStop: resolveBrokerStop(group, positions, historyOrders),
         isBenchmark:
-          !!options.benchmarkAccountId &&
-          options.benchmarkAccountId === account.metaapi_account_id,
+          !!options.benchmarkAccountId && options.benchmarkAccountId === account.metaapi_account_id,
       });
       if (written === "error") result.errors.push(`${group.clientId}: evidence write failed`);
       else if (written === "written") result.evidenceWritten += 1;
@@ -187,10 +188,40 @@ async function writeEvidence(
 
   const { data: signalRow } = await db
     .from("scanned_signals")
-    .select("direction")
+    .select("direction, instrument, grade, detected_at")
     .eq("id", delivery.signal_id)
     .maybeSingle();
-  const direction = (signalRow as { direction?: string } | null)?.direction ?? null;
+  const signal = signalRow as {
+    direction?: string;
+    instrument?: string;
+    grade?: string;
+    detected_at?: string;
+  } | null;
+  const direction = signal?.direction ?? null;
+  const { data: contextRow } = await db
+    .from("market_context")
+    .select("trading_session, time_of_day, day_of_week")
+    .eq("signal_id", delivery.signal_id)
+    .maybeSingle();
+  const context = contextRow as {
+    trading_session?: string;
+    time_of_day?: number;
+    day_of_week?: number;
+  } | null;
+
+  const consent = pooledInclusionAllowed({
+    researchConsent: account.research_consent,
+    researchConsentVersion: account.research_consent_version,
+    researchConsentAt: account.research_consent_at,
+  });
+  const researchRefAllowed =
+    !input.isBenchmark &&
+    consent.included &&
+    isSafeResearchRef(account.research_account_ref, [
+      account.id,
+      account.user_id,
+      account.metaapi_account_id,
+    ]);
 
   // Canonical Prompt-9 journal mathematics, unchanged: the ACTUAL fill anchors
   // both measures, and a missing input yields NULL with an explicit reason.
@@ -209,9 +240,21 @@ async function writeEvidence(
   const row = {
     user_id: delivery.user_id,
     evidence_class: evidenceClassFor(input.isBenchmark),
+    evidence_phase: "development",
+    news_context: newsContextFor(),
+    // Snapshot consent at observation time. Withdrawing on the account stops
+    // future rows from receiving either the flag or pseudonymous reference.
+    research_consent: researchRefAllowed,
+    research_account_ref: researchRefAllowed ? account.research_account_ref : null,
     account_id: account.id,
     metaapi_account_id: account.metaapi_account_id,
     signal_id: delivery.signal_id,
+    signal_instrument: signal?.instrument ?? null,
+    signal_grade: signal?.grade ?? null,
+    signal_detected_at: signal?.detected_at ?? null,
+    signal_trading_session: context?.trading_session ?? null,
+    signal_time_of_day: typeof context?.time_of_day === "number" ? context.time_of_day : null,
+    signal_day_of_week: typeof context?.day_of_week === "number" ? context.day_of_week : null,
     delivery_id: delivery.id,
     client_id: group.clientId,
     magic: group.magic ?? delivery.magic,
@@ -260,9 +303,28 @@ async function writeEvidence(
   // Closed evidence is immutable — the database refuses the update too.
   if (found.state === "closed") return "skipped";
 
+  // Consent and phase are observation-time facts. An opt-out stops future
+  // evidence; it must not rewrite the consent snapshot on a row already
+  // observed, even while that broker position remains open.
+  const updateRow: Record<string, unknown> = { ...row };
+  delete updateRow["research_consent"];
+  delete updateRow["research_account_ref"];
+  delete updateRow["evidence_phase"];
+  delete updateRow["news_context"];
+  if (!signal) {
+    delete updateRow["signal_instrument"];
+    delete updateRow["signal_grade"];
+    delete updateRow["signal_detected_at"];
+  }
+  if (!context) {
+    delete updateRow["signal_trading_session"];
+    delete updateRow["signal_time_of_day"];
+    delete updateRow["signal_day_of_week"];
+  }
+
   const { error } = await db
     .from("broker_trade_evidence")
-    .update(row as never)
+    .update(updateRow as never)
     .eq("id", found.id);
   return error ? "error" : "written";
 }
