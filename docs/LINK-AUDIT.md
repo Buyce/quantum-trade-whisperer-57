@@ -49,9 +49,14 @@ canonical documentation.
 ## Refresh guidance audited
 
 Each client's "after the app changes" path is stated separately, because a
-connected assistant caches the tool list. ChatGPT and Claude cannot edit an
-existing connector's URL, so both paths say to remove and re-add if the URL
-changes; Claude Code re-reads tools on a new session.
+connected assistant caches the tool list. In ChatGPT the app's details page at
+`chatgpt.com/plugins` has the Refresh action that re-pulls tools, descriptions
+and server instructions. ChatGPT and Claude cannot edit an existing
+connector's URL, so both paths say to remove and re-add if the URL changes;
+Claude Code re-reads tools on a new session. Vendor availability, plan tiers and
+menu labels can change without notice, and `/connect` says so on both vendor
+tabs, pointing the reader at the vendor's own documentation as authoritative.
+
 
 ## Deliberate exclusions
 
