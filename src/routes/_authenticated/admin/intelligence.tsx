@@ -40,6 +40,7 @@ import { BaselinePanel } from "@/components/admin/BaselinePanel";
 import { ResearchPanel } from "@/components/admin/ResearchPanel";
 import { PayoffPanel } from "@/components/admin/PayoffPanel";
 import { CandidatePanel } from "@/components/admin/CandidatePanel";
+import { EngineStatusPanel } from "@/components/admin/EngineStatusPanel";
 
 export const Route = createFileRoute("/_authenticated/admin/intelligence")({
   head: () => ({
@@ -126,7 +127,6 @@ function AdminIntelligencePage() {
     dedup_pressure,
     intersection_feed,
   } = data;
-  const engine = health.engine;
   const jobTotal = Object.values(health.jobs ?? {}).reduce((a, b) => a + b, 0);
 
   return (
