@@ -127,23 +127,34 @@ function AccountsPage() {
   const canAddDemo = (quota.data?.usedDemo ?? 0) < (quota.data?.maxDemo ?? 0);
   const canAddLive = (quota.data?.usedLive ?? 0) < (quota.data?.maxLive ?? 0);
 
+  const armed = list.filter((account) => account.mode !== "observe");
+
   return (
     <AppShell>
       <div className="mx-auto max-w-[1100px] px-3 py-5 sm:px-4">
         <header className="mb-5">
           <h1 className="text-lg font-semibold tracking-tight sm:text-xl">Broker Accounts</h1>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{STAGE_CAPABILITY_NOTE}</p>
+          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{capabilityNote(list)}</p>
         </header>
 
         <div className="mb-4 rounded-sm border border-border bg-surface p-3 text-xs text-muted-foreground">
           <div className="flex items-center gap-2 font-medium text-foreground">
-            <Eye className="size-4" /> Observe mode
+            {armed.length === 0 ? (
+              <>
+                <Eye className="size-4" /> Observe mode
+              </>
+            ) : (
+              <>
+                <Zap className="size-4" /> Automatic orders armed
+              </>
+            )}
           </div>
           <p className="mt-1">
             P-Trades never receives or stores your MetaTrader password. You enter it on your
             broker-connection provider&rsquo;s own secure page.
           </p>
         </div>
+
 
         {accounts.isLoading ? (
           <p className="text-sm text-muted-foreground">Loading your connections…</p>
