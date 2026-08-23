@@ -170,12 +170,14 @@ export async function collectAccountTelemetry(
         }
       } else {
         summary.unavailable += 1;
-        const failure = classifyMetaApiFailure(new Error(snapshot.reason ?? ""));
-        if (PARK_KINDS.includes(failure.kind)) {
-          await park(row.id, snapshot.reason ?? failure.message);
+        // `unavailable` carries only a sentence, so the park decision is made on
+        // that sentence rather than pretending we still have the failure kind.
+        if (reasonShouldPark(snapshot.reason)) {
+          await park(row.id, snapshot.reason ?? "the statistics service refused the request");
           summary.parked += 1;
         }
       }
+
     } catch (err) {
       const failure = classifyMetaApiFailure(err);
       summary.errors.push(`${row.id}: ${failure.message}`);
