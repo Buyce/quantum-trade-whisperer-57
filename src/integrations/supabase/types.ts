@@ -1715,6 +1715,7 @@ export type Database = {
           last_error: string | null
           last_run_at: string | null
           paused: boolean
+          paused_until: string | null
           replay_v2_shadow_enabled: boolean
           research_errors: number
           research_last_error: string | null
@@ -1736,6 +1737,7 @@ export type Database = {
           last_error?: string | null
           last_run_at?: string | null
           paused?: boolean
+          paused_until?: string | null
           replay_v2_shadow_enabled?: boolean
           research_errors?: number
           research_last_error?: string | null
@@ -1757,6 +1759,7 @@ export type Database = {
           last_error?: string | null
           last_run_at?: string | null
           paused?: boolean
+          paused_until?: string | null
           replay_v2_shadow_enabled?: boolean
           research_errors?: number
           research_last_error?: string | null
@@ -2486,6 +2489,7 @@ export type Database = {
       }
     }
     Functions: {
+      admin_reset_shadow_breaker: { Args: never; Returns: Json }
       claim_execution_delivery: {
         Args: { lease_seconds?: number }
         Returns: {
@@ -2536,6 +2540,7 @@ export type Database = {
       expire_execution_leases: { Args: never; Returns: number }
       get_admin_author_split: { Args: never; Returns: Json }
       get_admin_candidate_funnel: { Args: never; Returns: Json }
+      get_admin_engine_status: { Args: never; Returns: Json }
       get_admin_experiments: { Args: never; Returns: Json }
       get_admin_filter_lift: { Args: never; Returns: Json }
       get_admin_intelligence: { Args: never; Returns: Json }

@@ -40,6 +40,7 @@ import { BaselinePanel } from "@/components/admin/BaselinePanel";
 import { ResearchPanel } from "@/components/admin/ResearchPanel";
 import { PayoffPanel } from "@/components/admin/PayoffPanel";
 import { CandidatePanel } from "@/components/admin/CandidatePanel";
+import { EngineStatusPanel } from "@/components/admin/EngineStatusPanel";
 
 export const Route = createFileRoute("/_authenticated/admin/intelligence")({
   head: () => ({
@@ -126,7 +127,6 @@ function AdminIntelligencePage() {
     dedup_pressure,
     intersection_feed,
   } = data;
-  const engine = health.engine;
   const jobTotal = Object.values(health.jobs ?? {}).reduce((a, b) => a + b, 0);
 
   return (
@@ -144,19 +144,10 @@ function AdminIntelligencePage() {
         </Button>
       </header>
 
+      <EngineStatusPanel />
+
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatCard
-          label="Scan engine"
-          value={engine?.paused ? "PAUSED" : "RUNNING"}
-          sub={`last run ${timeAgo(engine?.last_run_at ?? null)}`}
-          tone={engine?.paused ? "bad" : "good"}
-        />
-        <StatCard
-          label="Consecutive failures"
-          value={String(engine?.consecutive_failures ?? 0)}
-          sub={engine?.last_error ? engine.last_error.slice(0, 60) : "no recent error"}
-          tone={(engine?.consecutive_failures ?? 0) > 0 ? "warn" : "good"}
-        />
+
         <StatCard
           label="Cycle latency p50 / p95"
           value={`${num(health.p50_ms, 0)} / ${num(health.p95_ms, 0)} ms`}

@@ -188,6 +188,16 @@ const SECTIONS: Section[] = [
           "That is a claim about a scan cycle, not about your screen. Your own feed is filtered by instruments, sessions, minimum grade, daily cap and the retention window, so an empty feed only tells you that nothing matched that view — see “My feed is empty” under Understanding a signal. The scanner heartbeat in Settings is the authority on whether the engine is cycling.",
         ],
       },
+      {
+        id: "data-outage",
+        q: "What happens if the market data provider stops serving candles?",
+        a: [
+          "Scan cycles that cannot fetch candles record a failure and evaluate nothing. Those cycles produce missing results, not empty ones: nothing was judged, so nothing can be concluded about the market. The terminal never substitutes cached, simulated or example candles to cover a gap.",
+          "A delayed heartbeat in Settings is the signal for this. If the provider refuses market data outright — for example an account or billing limit at the data vendor — the engine keeps recording the refusal verbatim rather than reporting a quiet market, and a repeated whole-cycle data failure also trips a safety pause on the separate replay/statistics engine so it stops retrying a dead source. Live scanning is not paused by that safety switch; statistics simply stop advancing until data returns.",
+        ],
+      },
+
+
 
       {
         id: "entry-window",

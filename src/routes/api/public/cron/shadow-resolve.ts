@@ -14,15 +14,26 @@ export const Route = createFileRoute("/api/public/cron/shadow-resolve")({
         if (!authorizeCronRequest(request)) return unauthorizedResponse();
 
         const { adminClient } = await import("@/lib/scanner/pipeline.server");
-        const { isShadowPaused, noteShadowRun } =
+        const { shadowBreakerGate, noteShadowRun } =
           await import("@/lib/execution/shadow_worker.server");
         const { resolveShadowExecutions } = await import("@/lib/execution/shadow_resolve.server");
 
         const db = adminClient();
+        let probe = false;
         try {
-          if (await isShadowPaused(db)) {
-            return Response.json({ ok: true, paused: true });
+          const gate = await shadowBreakerGate(db);
+          if (!gate.allowed) {
+            return Response.json({
+              ok: true,
+              paused: true,
+              paused_until: gate.pausedUntil,
+              consecutive_failures: gate.consecutiveFailures,
+            });
           }
+          // Single probe pass through a still-tripped breaker: a clean pass
+          // clears it, a failed one extends the cooldown (see noteShadowRun).
+          probe = gate.probe;
+
 
           const { data: maintenance } = await db.rpc("maintain_shadow_queue");
           const summary = await resolveShadowExecutions(db);
@@ -81,6 +92,8 @@ export const Route = createFileRoute("/api/public/cron/shadow-resolve")({
 
           return Response.json({
             ok: true,
+            probe,
+            breaker_cleared: probe && !allFailed,
             maintenance,
             stats,
             statsError,
@@ -88,6 +101,7 @@ export const Route = createFileRoute("/api/public/cron/shadow-resolve")({
             candidateEnrolment,
             ...summary,
           });
+
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           console.error("[cron/shadow-resolve]", message);

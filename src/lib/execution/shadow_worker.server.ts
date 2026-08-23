@@ -16,13 +16,52 @@ export interface ShadowJobResult {
   error?: string;
 }
 
+/**
+ * How long the breaker stays closed after it trips before one probe pass is
+ * allowed through. A tripped breaker used to be terminal: the resolve pass
+ * returned early *before* it could ever record a success, so `paused` stayed
+ * true (and `consecutive_failures` stuck at 5) until someone edited the row by
+ * hand. The cooldown keeps the "stop hammering a dead data source" intent while
+ * letting the engine heal itself once the source recovers.
+ */
+export const SHADOW_BREAKER_COOLDOWN_MS = 60 * 60 * 1000;
+
+export interface ShadowBreakerGate {
+  /** True when this pass may run (either not paused, or a probe is due). */
+  allowed: boolean;
+  /** True when this is a single probe pass through a still-tripped breaker. */
+  probe: boolean;
+  paused: boolean;
+  pausedUntil: string | null;
+  consecutiveFailures: number;
+}
+
 export async function isShadowPaused(db: SupabaseClient): Promise<boolean> {
+  const gate = await shadowBreakerGate(db);
+  return !gate.allowed;
+}
+
+/**
+ * Reads the breaker and decides whether this pass runs. A paused breaker whose
+ * cooldown has elapsed yields `{ allowed: true, probe: true }` — exactly one
+ * pass is let through; if it fails, `noteShadowRun` extends the cooldown.
+ */
+export async function shadowBreakerGate(db: SupabaseClient): Promise<ShadowBreakerGate> {
   const { data } = await db
     .from("shadow_engine_state")
-    .select("paused")
+    .select("paused, paused_until, consecutive_failures")
     .eq("id", true)
     .maybeSingle();
-  return Boolean(data?.paused);
+
+  const paused = Boolean(data?.paused);
+  const pausedUntil = (data?.paused_until as string | null) ?? null;
+  const consecutiveFailures = Number(data?.consecutive_failures ?? 0);
+  if (!paused) return { allowed: true, probe: false, paused, pausedUntil, consecutiveFailures };
+
+  // Missing cooldown (rows tripped before this column existed) counts as due.
+  const dueAt = pausedUntil ? Date.parse(pausedUntil) : 0;
+  const due = !Number.isFinite(dueAt) || Date.now() >= dueAt;
+  return { allowed: due, probe: due, paused, pausedUntil, consecutiveFailures };
 }
 
 export async function noteShadowRun(
@@ -36,18 +75,24 @@ export async function noteShadowRun(
     .maybeSingle();
   const current = Number(data?.consecutive_failures ?? 0);
   const failures = patch.failure ? current + 1 : 0;
+  // Five consecutive failed passes means the data source, not one setup, is
+  // broken. Trip the breaker rather than hammer MetaApi every hour — but stamp
+  // a cooldown so a later pass can probe and clear it automatically.
+  const paused = failures >= 5;
   await db
     .from("shadow_engine_state")
     .update({
       consecutive_failures: failures,
-      // Five consecutive failed passes means the data source, not one setup, is
-      // broken. Pause rather than hammer MetaApi every hour.
-      paused: failures >= 5,
+      paused,
+      paused_until: paused
+        ? new Date(Date.now() + SHADOW_BREAKER_COOLDOWN_MS).toISOString()
+        : null,
       last_error: patch.error ?? null,
       last_run_at: new Date().toISOString(),
     })
     .eq("id", true);
 }
+
 
 /** Claim and enrol exactly one queued signal. Returns null when the queue is empty. */
 export async function processNextShadowJob(db: SupabaseClient): Promise<ShadowJobResult | null> {
