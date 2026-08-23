@@ -63,6 +63,7 @@ import { CONNECTION_REGIONS, HELP_TOPICS, capabilityNote } from "@/lib/accounts/
 import type { AccountMode, ConnectedAccountView } from "@/lib/accounts/types";
 import { getExecutionStatus } from "@/lib/execution.functions";
 import {
+  adoptBrokerConnection,
   disconnectBrokerConnection,
   getAccountQuota,
   listConnectedAccounts,
