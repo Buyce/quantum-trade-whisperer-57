@@ -165,7 +165,9 @@ function AccountsPage() {
             <p className="mt-2 text-sm font-medium">No broker account connected yet</p>
             <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
               Connecting one lets P-Trades show your broker&rsquo;s own balance, equity and symbol
-              names beside each signal. It cannot trade for you.
+              names beside each signal. A demo account can also be armed for automatic orders once
+              your broker confirms it as DEMO — that is your choice, and it stays off until you make
+              it.
             </p>
           </div>
         ) : (
