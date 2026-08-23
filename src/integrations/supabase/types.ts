@@ -59,6 +59,163 @@ export type Database = {
         }
         Relationships: []
       }
+      account_risk_events: {
+        Row: {
+          absolute_drawdown: number | null
+          account_id: string
+          event_at: string
+          exceeded_threshold_type: string | null
+          fingerprint: string
+          id: number
+          payload: Json
+          recorded_at: string
+          relative_drawdown: number | null
+          tracker_id: string
+          user_id: string
+        }
+        Insert: {
+          absolute_drawdown?: number | null
+          account_id: string
+          event_at: string
+          exceeded_threshold_type?: string | null
+          fingerprint: string
+          id?: number
+          payload?: Json
+          recorded_at?: string
+          relative_drawdown?: number | null
+          tracker_id: string
+          user_id: string
+        }
+        Update: {
+          absolute_drawdown?: number | null
+          account_id?: string
+          event_at?: string
+          exceeded_threshold_type?: string | null
+          fingerprint?: string
+          id?: number
+          payload?: Json
+          recorded_at?: string
+          relative_drawdown?: number | null
+          tracker_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_risk_events_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "connected_trading_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_risk_events_tracker_id_fkey"
+            columns: ["tracker_id"]
+            isOneToOne: false
+            referencedRelation: "account_risk_trackers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      account_risk_trackers: {
+        Row: {
+          account_id: string
+          created_at: string
+          id: string
+          last_error: string | null
+          name: string
+          period: string
+          supported: boolean
+          threshold_kind: string
+          threshold_value: number
+          unsupported_reason: string | null
+          updated_at: string
+          user_id: string
+          vendor_tracker_id: string | null
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          name: string
+          period: string
+          supported?: boolean
+          threshold_kind: string
+          threshold_value: number
+          unsupported_reason?: string | null
+          updated_at?: string
+          user_id: string
+          vendor_tracker_id?: string | null
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          name?: string
+          period?: string
+          supported?: boolean
+          threshold_kind?: string
+          threshold_value?: number
+          unsupported_reason?: string | null
+          updated_at?: string
+          user_id?: string
+          vendor_tracker_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_risk_trackers_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "connected_trading_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      account_telemetry_snapshots: {
+        Row: {
+          account_id: string
+          id: number
+          metrics: Json
+          observed_at: string
+          reason: string | null
+          retry_after_seconds: number | null
+          source: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          account_id: string
+          id?: number
+          metrics?: Json
+          observed_at?: string
+          reason?: string | null
+          retry_after_seconds?: number | null
+          source?: string
+          status: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string
+          id?: number
+          metrics?: Json
+          observed_at?: string
+          reason?: string | null
+          retry_after_seconds?: number | null
+          source?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_telemetry_snapshots_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "connected_trading_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agent_registrations: {
         Row: {
           client_label: string | null
@@ -109,6 +266,59 @@ export type Database = {
           pinned_run_id?: string | null
         }
         Relationships: []
+      }
+      benchmark_policy: {
+        Row: {
+          benchmark_account_id: string | null
+          daily_order_cap: number | null
+          dry_run: boolean
+          enabled: boolean
+          id: boolean
+          instruments: string[]
+          max_concurrent_risk: number | null
+          min_grade: string
+          note: string | null
+          policy_version: number
+          risk_percent: number | null
+          updated_at: string
+        }
+        Insert: {
+          benchmark_account_id?: string | null
+          daily_order_cap?: number | null
+          dry_run?: boolean
+          enabled?: boolean
+          id?: boolean
+          instruments?: string[]
+          max_concurrent_risk?: number | null
+          min_grade?: string
+          note?: string | null
+          policy_version?: number
+          risk_percent?: number | null
+          updated_at?: string
+        }
+        Update: {
+          benchmark_account_id?: string | null
+          daily_order_cap?: number | null
+          dry_run?: boolean
+          enabled?: boolean
+          id?: boolean
+          instruments?: string[]
+          max_concurrent_risk?: number | null
+          min_grade?: string
+          note?: string | null
+          policy_version?: number
+          risk_percent?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "benchmark_policy_benchmark_account_id_fkey"
+            columns: ["benchmark_account_id"]
+            isOneToOne: false
+            referencedRelation: "connected_trading_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       broker_symbol_specs: {
         Row: {
@@ -199,6 +409,7 @@ export type Database = {
           entry_at: string | null
           entry_price: number | null
           evidence_class: string
+          evidence_phase: string
           exit_at: string | null
           exit_price: number | null
           first_observed_at: string
@@ -207,6 +418,7 @@ export type Database = {
           last_reconciled_at: string | null
           magic: number | null
           metaapi_account_id: string | null
+          news_context: string
           planned_entry: number | null
           planned_stop: number | null
           planned_target: number | null
@@ -215,6 +427,8 @@ export type Database = {
           r_math_version: number | null
           r_vs_actual_risk: number | null
           r_vs_plan: number | null
+          research_account_ref: string | null
+          research_consent: boolean
           resolved_at: string | null
           signal_id: string | null
           state: string
@@ -241,6 +455,7 @@ export type Database = {
           entry_at?: string | null
           entry_price?: number | null
           evidence_class: string
+          evidence_phase?: string
           exit_at?: string | null
           exit_price?: number | null
           first_observed_at?: string
@@ -249,6 +464,7 @@ export type Database = {
           last_reconciled_at?: string | null
           magic?: number | null
           metaapi_account_id?: string | null
+          news_context?: string
           planned_entry?: number | null
           planned_stop?: number | null
           planned_target?: number | null
@@ -257,6 +473,8 @@ export type Database = {
           r_math_version?: number | null
           r_vs_actual_risk?: number | null
           r_vs_plan?: number | null
+          research_account_ref?: string | null
+          research_consent?: boolean
           resolved_at?: string | null
           signal_id?: string | null
           state?: string
@@ -283,6 +501,7 @@ export type Database = {
           entry_at?: string | null
           entry_price?: number | null
           evidence_class?: string
+          evidence_phase?: string
           exit_at?: string | null
           exit_price?: number | null
           first_observed_at?: string
@@ -291,6 +510,7 @@ export type Database = {
           last_reconciled_at?: string | null
           magic?: number | null
           metaapi_account_id?: string | null
+          news_context?: string
           planned_entry?: number | null
           planned_stop?: number | null
           planned_target?: number | null
@@ -299,6 +519,8 @@ export type Database = {
           r_math_version?: number | null
           r_vs_actual_risk?: number | null
           r_vs_plan?: number | null
+          research_account_ref?: string | null
+          research_consent?: boolean
           resolved_at?: string | null
           signal_id?: string | null
           state?: string
@@ -535,13 +757,22 @@ export type Database = {
           leverage: number | null
           magic: number | null
           margin_mode: string | null
+          max_account_exposure_note: string | null
+          max_account_open_positions: number | null
           metaapi_account_id: string | null
           mode: string
+          mode_armed_at: string | null
+          mode_armed_config_version: number | null
           phase: string
           platform: string
           provision_transaction_id: string
           provisioning_state: string | null
           region: string
+          research_account_ref: string | null
+          research_consent: boolean
+          research_consent_at: string | null
+          research_consent_version: number | null
+          stand_down_reason: string | null
           trade_allowed: boolean | null
           updated_at: string
           user_id: string
@@ -573,13 +804,22 @@ export type Database = {
           leverage?: number | null
           magic?: number | null
           margin_mode?: string | null
+          max_account_exposure_note?: string | null
+          max_account_open_positions?: number | null
           metaapi_account_id?: string | null
           mode?: string
+          mode_armed_at?: string | null
+          mode_armed_config_version?: number | null
           phase?: string
           platform: string
           provision_transaction_id: string
           provisioning_state?: string | null
           region: string
+          research_account_ref?: string | null
+          research_consent?: boolean
+          research_consent_at?: string | null
+          research_consent_version?: number | null
+          stand_down_reason?: string | null
           trade_allowed?: boolean | null
           updated_at?: string
           user_id: string
@@ -611,13 +851,22 @@ export type Database = {
           leverage?: number | null
           magic?: number | null
           margin_mode?: string | null
+          max_account_exposure_note?: string | null
+          max_account_open_positions?: number | null
           metaapi_account_id?: string | null
           mode?: string
+          mode_armed_at?: string | null
+          mode_armed_config_version?: number | null
           phase?: string
           platform?: string
           provision_transaction_id?: string
           provisioning_state?: string | null
           region?: string
+          research_account_ref?: string | null
+          research_consent?: boolean
+          research_consent_at?: string | null
+          research_consent_version?: number | null
+          stand_down_reason?: string | null
           trade_allowed?: boolean | null
           updated_at?: string
           user_id?: string
@@ -1229,6 +1478,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      metaapi_api_observations: {
+        Row: {
+          account_id: string | null
+          cost_units: number
+          detail: string | null
+          http_status: number | null
+          id: number
+          latency_ms: number | null
+          observed_at: string
+          outcome: string
+          surface: string
+        }
+        Insert: {
+          account_id?: string | null
+          cost_units?: number
+          detail?: string | null
+          http_status?: number | null
+          id?: number
+          latency_ms?: number | null
+          observed_at?: string
+          outcome: string
+          surface: string
+        }
+        Update: {
+          account_id?: string | null
+          cost_units?: number
+          detail?: string | null
+          http_status?: number | null
+          id?: number
+          latency_ms?: number | null
+          observed_at?: string
+          outcome?: string
+          surface?: string
+        }
+        Relationships: []
       }
       model_observations: {
         Row: {
@@ -2707,6 +2992,41 @@ export type Database = {
         }
         Relationships: []
       }
+      telemetry_budget: {
+        Row: {
+          account_id: string
+          consecutive_failures: number
+          last_claimed_at: string | null
+          next_allowed_at: string
+          parked_reason: string | null
+          source: string
+        }
+        Insert: {
+          account_id: string
+          consecutive_failures?: number
+          last_claimed_at?: string | null
+          next_allowed_at?: string
+          parked_reason?: string | null
+          source: string
+        }
+        Update: {
+          account_id?: string
+          consecutive_failures?: number
+          last_claimed_at?: string | null
+          next_allowed_at?: string
+          parked_reason?: string | null
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "telemetry_budget_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "connected_trading_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v2_structure_claims: {
         Row: {
           claimed_at: string
@@ -3051,6 +3371,14 @@ export type Database = {
         }[]
       }
       admin_reset_shadow_breaker: { Args: never; Returns: Json }
+      claim_account_telemetry: {
+        Args: {
+          _account_id: string
+          _min_interval_seconds: number
+          _source: string
+        }
+        Returns: boolean
+      }
       claim_execution_delivery: {
         Args: { lease_seconds?: number }
         Returns: {
@@ -3112,6 +3440,15 @@ export type Database = {
       is_admin: { Args: never; Returns: boolean }
       maintain_scan_queue: { Args: never; Returns: Json }
       maintain_shadow_queue: { Args: never; Returns: Json }
+      park_account_telemetry: {
+        Args: {
+          _account_id: string
+          _reason: string
+          _retry_after_seconds: number
+          _source: string
+        }
+        Returns: undefined
+      }
       prune_v2_structure_claims: { Args: never; Returns: number }
       purge_expired_signals: { Args: never; Returns: number }
       recompute_filter_lift: {
