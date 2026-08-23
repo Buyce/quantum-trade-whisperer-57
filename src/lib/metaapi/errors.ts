@@ -74,6 +74,7 @@ export type MetaApiFailureKind =
   | "not_configured"
   | "unreachable"
   | "auth"
+  | "permission"
   | "not_found"
   | "feature_not_enabled"
   | "provider_billing"
