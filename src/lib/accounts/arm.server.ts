@@ -9,6 +9,7 @@
  * system-wide.
  */
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import type { AccountType } from "@/lib/metaapi/classify";
 import { canArm, isAccountMode } from "./mode";
 import type { AccountMode } from "./types";
 
@@ -43,7 +44,7 @@ export async function setAccountMode(
     intent_conflict: boolean | null;
     trade_allowed: boolean | null;
     investor_mode: boolean | null;
-    broker_account_type: "demo" | "live" | "unknown" | null;
+    broker_account_type: AccountType | null;
   };
 
   const verdict = canArm(
@@ -66,7 +67,7 @@ export async function setAccountMode(
     const { data: controls } = await supabaseAdmin
       .from("execution_controls")
       .select("live_execution_enabled")
-      .eq("id", 1)
+      .eq("id", true)
       .maybeSingle();
     if ((controls as { live_execution_enabled?: boolean } | null)?.live_execution_enabled !== true) {
       throw new Error("Live execution is disabled system-wide, so a live mode cannot be armed.");
