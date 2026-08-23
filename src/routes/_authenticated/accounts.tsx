@@ -251,6 +251,107 @@ function AccountsPage() {
   );
 }
 
+/**
+ * Link a trading account the owner already provisioned with the provider. No
+ * account is created and no credentials are entered here: the provider already
+ * holds them, so this only attaches the existing account to this P-Trades user.
+ */
+function LinkExistingAccount({
+  canAddDemo,
+  canAddLive,
+  onClose,
+  onDone,
+}: {
+  canAddDemo: boolean;
+  canAddLive: boolean;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const adopt = useServerFn(adoptBrokerConnection);
+  const [intent, setIntent] = useState<"demo" | "live">(canAddDemo ? "demo" : "live");
+  const [label, setLabel] = useState("");
+  const [metaapiAccountId, setMetaapiAccountId] = useState("");
+
+  const mutation = useMutation({
+    mutationFn: () => adopt({ data: { label, metaapiAccountId, intent } }),
+    onSuccess: () => {
+      onDone();
+      toast.success("Account linked. Press Refresh on the connection to check it with your broker.");
+      onClose();
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  return (
+    <div className="mt-5 rounded-sm border border-border bg-surface p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-sm font-semibold">Link an account you already have</h2>
+        <Button variant="ghost" size="sm" onClick={onClose}>
+          Close
+        </Button>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Use this when the account already exists with your broker-connection provider. P-Trades
+        reads the platform, broker server and region from the provider&rsquo;s own record — you do
+        not enter credentials, and nothing new is created or charged.
+      </p>
+
+      <div className="mt-3 space-y-3">
+        <div className="flex gap-2">
+          <Button
+            variant={intent === "demo" ? "default" : "outline"}
+            disabled={!canAddDemo}
+            onClick={() => setIntent("demo")}
+          >
+            Demo account (automatic orders optional)
+          </Button>
+          <Button
+            variant={intent === "live" ? "default" : "outline"}
+            disabled={!canAddLive}
+            onClick={() => setIntent("live")}
+          >
+            Live account (observe only)
+          </Button>
+        </div>
+        <div>
+          <Label htmlFor="existing-id">Trading account id</Label>
+          <Input
+            id="existing-id"
+            className="num mt-1"
+            placeholder="00000000-0000-0000-0000-000000000000"
+            value={metaapiAccountId}
+            onChange={(e) => setMetaapiAccountId(e.target.value)}
+          />
+          <p className="mt-1 text-xs text-muted-foreground">
+            Copy it from your broker-connection provider&rsquo;s MT Accounts page. Accounts reserved
+            by P-Trades itself cannot be linked.
+          </p>
+        </div>
+        <div>
+          <Label htmlFor="existing-label">Name this connection</Label>
+          <Input
+            id="existing-label"
+            className="mt-1"
+            placeholder="My demo account"
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+          />
+        </div>
+        <Button
+          size="sm"
+          disabled={
+            label.trim().length < 2 || metaapiAccountId.trim().length < 36 || mutation.isPending
+          }
+          onClick={() => mutation.mutate()}
+        >
+          {mutation.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+          Link this account
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function ConnectWizard({
   canAddDemo,
   canAddLive,
