@@ -24,7 +24,7 @@ const PROVISIONING = { service: "provisioning" as const, region: null };
  * into a sentence the account owner can act on.
  */
 function assertCanCreateAccounts(): void {
-  const scope = inspectCreateAccountScope(readMetaApiToken());
+  const scope = inspectCreateAccountScope(readMetaApiToken("provisioning"));
   if (scope.allowed || scope.reason === "unreadable") return;
   throw new MetaApiTokenScopeError("create account", describeCreateAccountScope(scope.reason));
 }
