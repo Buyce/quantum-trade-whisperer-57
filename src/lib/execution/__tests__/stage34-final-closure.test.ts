@@ -150,13 +150,13 @@ const healthy: ModeContext = {
 };
 
 describe("Demo Auto through reconciliation", () => {
-  it("[REGRESSION] a healthy broker refresh keeps an explicitly armed demo_auto", () => {
+  it("[INVARIANT] a healthy broker refresh keeps an explicitly armed demo_auto", () => {
     const out = modeAfterReconcile("demo_auto", healthy);
     expect(out.mode).toBe("demo_auto");
     expect(out.standDownReason).toBeNull();
   });
 
-  it("[REGRESSION] an unsafe broker refresh stands demo_auto down to observe", () => {
+  it("[INVARIANT] an unsafe broker refresh stands demo_auto down to observe", () => {
     for (const unsafe of [
       { ...healthy, brokerAccountType: "real" as const },
       { ...healthy, tradeAllowed: false },
@@ -175,7 +175,7 @@ describe("Demo Auto through reconciliation", () => {
 
 // ---- 2. Fail-closed connected-account sizing -------------------------------
 describe("connected-account sizing fails closed", () => {
-  it("[REGRESSION] missing broker equity yields account_equity_unavailable and no quantity", async () => {
+  it("[INVARIANT] missing broker equity yields account_equity_unavailable and no quantity", async () => {
     const fake = db();
     const result = await resolveSizingForAccount(
       fake.client as never,
@@ -191,7 +191,7 @@ describe("connected-account sizing fails closed", () => {
     expect((result as { lots?: number }).lots).toBeUndefined();
   });
 
-  it("[REGRESSION] a missing account currency is never defaulted to USD", async () => {
+  it("[INVARIANT] a missing account currency is never defaulted to USD", async () => {
     const fake = db();
     for (const currency of [null, "", "   "]) {
       const result = await resolveSizingForAccount(
@@ -208,7 +208,7 @@ describe("connected-account sizing fails closed", () => {
     }
   });
 
-  it("[REGRESSION] static and benchmark specs cannot rescue a missing account spec", async () => {
+  it("[INVARIANT] static and benchmark specs cannot rescue a missing account spec", async () => {
     // `broker_symbol_specs` (the benchmark broker's table) HAS a usable XAUUSD
     // row here, and a static contract table entry exists in code. Neither may
     // authorise a quantity for a customer's broker account.
@@ -227,7 +227,7 @@ describe("connected-account sizing fails closed", () => {
     expect(fake.calls.some((c) => c.table === "broker_symbol_specs")).toBe(false);
   });
 
-  it("[REGRESSION] a stale account spec refuses instead of falling back", async () => {
+  it("[INVARIANT] a stale account spec refuses instead of falling back", async () => {
     const fake = db({
       accountSpecRow: accountSpec({
         fetched_at: new Date(NOW - 30 * 24 * 3_600_000).toISOString(),
@@ -266,7 +266,7 @@ describe("connected-account sizing fails closed", () => {
 
 // ---- 5. Benchmark risk independence ---------------------------------------
 describe("benchmark risk percentage", () => {
-  it("[REGRESSION] the operator risk percentage overrides the customer's", async () => {
+  it("[INVARIANT] the operator risk percentage overrides the customer's", async () => {
     const account = {
       id: "acct-1",
       equity: 10_000,
@@ -296,7 +296,7 @@ describe("benchmark risk percentage", () => {
     }
   });
 
-  it("[REGRESSION] two customers changing risk cannot move a benchmark quantity", async () => {
+  it("[INVARIANT] two customers changing risk cannot move a benchmark quantity", async () => {
     const account = {
       id: "acct-1",
       equity: 10_000,
@@ -352,7 +352,7 @@ const plan = {
 };
 
 describe("final quantity comes from the pre-submit broker snapshot", () => {
-  it("[REGRESSION] equity halving between validation and submission halves the volume", async () => {
+  it("[INVARIANT] equity halving between validation and submission halves the volume", async () => {
     const fake = db();
     const client = fake.client as never;
 
@@ -418,7 +418,7 @@ describe("final quantity comes from the pre-submit broker snapshot", () => {
     }
   });
 
-  it("[REGRESSION] the refresh happens before sizing, and a lost currency stops the order", async () => {
+  it("[INVARIANT] the refresh happens before sizing, and a lost currency stops the order", async () => {
     const fake = db();
     const client = fake.client as never;
     fetchAccountFacts.mockResolvedValue({
@@ -456,7 +456,7 @@ describe("final quantity comes from the pre-submit broker snapshot", () => {
 
 // ---- 6. Research sample units ---------------------------------------------
 describe("research sample units", () => {
-  it("[REGRESSION] 100 executions of one setup on one UTC day are N=1 for edge, N=100 for quality", () => {
+  it("[INVARIANT] 100 executions of one setup on one UTC day are N=1 for edge, N=100 for quality", () => {
     const observations = Array.from({ length: 100 }, (_, i) => ({
       signalId: request.signalId,
       researchRef: `ra_${i}`,

@@ -62,7 +62,7 @@ beforeEach(() => {
 });
 
 describe("arming against the global capability", () => {
-  it("[REGRESSION] demo_auto is refused while Demo Auto is off system-wide", async () => {
+  it("[INVARIANT] demo_auto is refused while Demo Auto is off system-wide", async () => {
     controls = { ...controls, demo_auto_enabled: false };
     await expect(setAccountMode("user-1", "acct-1", "demo_auto")).rejects.toThrow(
       /unavailable system-wide/i,
