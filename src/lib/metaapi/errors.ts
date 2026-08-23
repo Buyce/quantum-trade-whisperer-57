@@ -74,6 +74,7 @@ export type MetaApiFailureKind =
   | "not_configured"
   | "unreachable"
   | "auth"
+  | "permission"
   | "not_found"
   | "feature_not_enabled"
   | "provider_billing"
@@ -131,6 +132,20 @@ export function classifyMetaApiFailure(err: unknown): MetaApiFailure {
     const billing = /top up|topup|payment|billing|insufficient funds/.test(body);
     const disabled = /not enabled|not activated/.test(body);
     if (err.status === 401 || err.status === 403) {
+      // A 403 that names a `methodId` / ForbiddenError is the provider saying the
+      // configured access token is not permitted to call that method at all. It is
+      // a configuration gap, not a bad credential and not a broker rejection, so
+      // it gets its own kind and a plain sentence instead of vendor JSON.
+      const scoped = /forbiddenerror|methodid|do not have access to/.test(body);
+      if (!billing && !disabled && scoped) {
+        return {
+          kind: "permission",
+          message: `Your broker-connection provider refused ${err.label} because the access token P-Trades is configured with is not allowed to perform it. Nothing was created, changed or charged — the token needs the matching permission. Technical detail: ${err.body}`,
+          status: err.status,
+          retryAfterSeconds: err.retryAfterSeconds,
+          retryable: false,
+        };
+      }
       return {
         kind: billing ? "provider_billing" : disabled ? "feature_not_enabled" : "auth",
         message: err.message,

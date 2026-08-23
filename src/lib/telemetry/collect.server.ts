@@ -41,6 +41,7 @@ const PARK_KINDS: MetaApiFailureKind[] = [
   "provider_billing",
   "feature_not_enabled",
   "auth",
+  "permission",
   "not_found",
 ];
 
