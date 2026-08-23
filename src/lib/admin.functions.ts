@@ -281,7 +281,6 @@ export interface AdminExecutionSwitches {
   liveExecutionEnabled: boolean;
   liveAutoEnabled: boolean;
   executionPolicy: string;
-  configVersion: number | null;
   updatedAt: string | null;
 }
 
@@ -302,7 +301,7 @@ export const getAdminExecutionSwitches = createServerFn({ method: "GET" })
     const { data, error } = await supabaseAdmin
       .from("execution_controls")
       .select(
-        "demo_auto_enabled, force_dry_run, live_execution_enabled, live_auto_enabled, execution_policy, config_version, updated_at",
+        "demo_auto_enabled, force_dry_run, live_execution_enabled, live_auto_enabled, execution_policy, updated_at",
       )
       .eq("id", true)
       .maybeSingle();
@@ -313,7 +312,6 @@ export const getAdminExecutionSwitches = createServerFn({ method: "GET" })
       live_execution_enabled?: boolean;
       live_auto_enabled?: boolean;
       execution_policy?: string;
-      config_version?: number;
       updated_at?: string;
     } | null;
 
@@ -323,7 +321,6 @@ export const getAdminExecutionSwitches = createServerFn({ method: "GET" })
       liveExecutionEnabled: row?.live_execution_enabled === true,
       liveAutoEnabled: row?.live_auto_enabled === true,
       executionPolicy: row?.execution_policy ?? "single_exit_first_target",
-      configVersion: row?.config_version ?? null,
       updatedAt: row?.updated_at ?? null,
     };
   });
@@ -360,7 +357,7 @@ export const setAdminExecutionSwitches = createServerFn({ method: "POST" })
     const { data: fresh, error: readError } = await supabaseAdmin
       .from("execution_controls")
       .select(
-        "demo_auto_enabled, force_dry_run, live_execution_enabled, live_auto_enabled, execution_policy, config_version, updated_at",
+        "demo_auto_enabled, force_dry_run, live_execution_enabled, live_auto_enabled, execution_policy, updated_at",
       )
       .eq("id", true)
       .maybeSingle();
@@ -371,7 +368,6 @@ export const setAdminExecutionSwitches = createServerFn({ method: "POST" })
       live_execution_enabled?: boolean;
       live_auto_enabled?: boolean;
       execution_policy?: string;
-      config_version?: number;
       updated_at?: string;
     } | null;
 
@@ -381,7 +377,6 @@ export const setAdminExecutionSwitches = createServerFn({ method: "POST" })
       liveExecutionEnabled: row?.live_execution_enabled === true,
       liveAutoEnabled: row?.live_auto_enabled === true,
       executionPolicy: row?.execution_policy ?? "single_exit_first_target",
-      configVersion: row?.config_version ?? null,
       updatedAt: row?.updated_at ?? null,
     };
   });
