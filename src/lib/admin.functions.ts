@@ -332,8 +332,7 @@ export const getAdminExecutionSwitches = createServerFn({ method: "GET" })
  * arming REAL money remains a separate, deliberate act outside this panel, so
  * this control can never turn live execution on by accident. Turning a switch
  * off is always accepted. Live switches are untouched by this control.
- * existing trigger, so in-flight deliveries stay bound to the configuration
- * they were validated under.
+ */
  */
 export const setAdminExecutionSwitches = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
