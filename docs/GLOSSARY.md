@@ -72,7 +72,9 @@ be retried automatically.
 **r_vs_plan** — realised move measured against the planned risk distance.
 
 **r_vs_actual_risk** — realised move measured against the risk actually taken from
-the actual fill to the actual (or fallback planned) stop.
+the actual fill to the actual initial stop. A self-reported journal row may label
+an explicit planned-stop fallback; broker evidence requires the broker-held stop
+and otherwise leaves this basis unavailable.
 
 **Basis** — which of the two is in use. Explicit, never mixed, never averaged
 together.
@@ -86,6 +88,10 @@ recorded; otherwise "gross R only".
 promotion is service-role only.
 
 **Advisory exposure** — derived from trades the user logged. It is not broker state.
+
+**Account exposure boundary** — an owner-set direct-execution limit checked
+against broker-reported positions and pending orders. Separate from advisory
+journal exposure.
 
 **Margin estimate** — a model figure from stated leverage, not a broker quote.
 
@@ -124,6 +130,14 @@ research cohorts.
 research ladder. Admin-only.
 
 ## Provenance
+
+**SELF-REPORTED JOURNAL** — journal prices entered by the user or assistant.
+
+**CUSTOMER BROKER EVIDENCE** — positively associated broker deals from the
+signed-in user's connected accounts.
+
+**CONTROLLED BENCHMARK** — positively associated broker deals from the dedicated
+P-Trades demo benchmark policy; not live performance and not replay.
 
 **Broker-derived**, **engine-derived**, **self-reported**, **replay-derived**,
 **estimate** — see [DATA-PROVENANCE.md](DATA-PROVENANCE.md).

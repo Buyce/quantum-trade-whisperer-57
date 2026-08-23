@@ -42,6 +42,10 @@ export interface ConnectedAccountRow {
   mode: AccountMode;
   max_account_open_positions: number | null;
   is_benchmark: boolean | null;
+  research_consent: boolean;
+  research_consent_version: number | null;
+  research_consent_at: string | null;
+  research_account_ref: string | null;
   intent_conflict: boolean;
   intent_conflict_reason: string | null;
   last_error: string | null;
@@ -121,6 +125,16 @@ export interface ConnectedAccountView {
   maxAccountOpenPositions: number | null;
   /** Operator-owned benchmark account: executes under the benchmark policy. */
   isBenchmark: boolean;
+  /**
+   * Optional pooled-research permission. The opaque research account reference
+   * deliberately never leaves the server.
+   */
+  researchConsent: {
+    enabled: boolean;
+    version: number | null;
+    updatedAt: string | null;
+    current: boolean;
+  };
   /**
    * Modes this account may be moved into RIGHT NOW, derived from what the broker
    * reports. Always contains `observe`: standing down is never blocked.

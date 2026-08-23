@@ -58,6 +58,15 @@ an explicit opt-in (`exposure_limit_enabled`), and the wording always states tha
 it is based solely on trades the user logged. A missing journal record is never
 treated as proof of zero broker exposure.
 
+### Direct connected-account sizing
+
+Direct MetaApi execution does not reuse the self-entered Settings equity as if it
+were a broker fact. It reads fresh broker equity and that account's symbol
+specification, normalizes quantity to the reported minimum/maximum/step and checks
+the separately configured account exposure boundary against broker-reported open
+positions and pending orders. Any unreadable or stale broker input refuses the
+delivery.
+
 ## Inputs
 
 Planned entry, planned stop, instrument, the user's risk profile, a contract or
@@ -72,9 +81,10 @@ exceeds the stop ceiling.
 
 ## Provenance
 
-Equity, risk %, leverage and currency are **self-reported**. Specs are `static_v1`
-or broker-supplied and labelled. Margin is an **estimate** derived from the model
-and the stated leverage.
+For manual guidance, equity, risk %, leverage and currency are **self-reported**.
+For direct connected-account execution, equity and symbol limits are
+**broker-reported**. The manual margin figure remains an **estimate** derived from
+the model and stated leverage.
 
 ## Failure behaviour
 
@@ -98,8 +108,9 @@ distance." Nothing more.
 
 ## What sizing does not guarantee
 
-- It cannot read your broker equity, open positions, free margin or commission
-  schedule.
+- Manual sizing does not read broker equity, open positions, free margin or the
+  commission schedule. A connected direct destination has separate broker reads;
+  those facts never overwrite the Settings profile.
 - The margin figure is not a broker-authoritative margin quote.
 - It does not account for slippage beyond the plan's maximum acceptable entry.
 

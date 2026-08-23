@@ -6,12 +6,13 @@ import {
   type TradeRow,
 } from "./db-types";
 import { selectR, type RBasis } from "./journal/r-math";
+import type { PerformanceEvidenceRow } from "./performance-evidence";
 import { MIN_GROUP_SAMPLES } from "./stats/evidence";
 
 export interface RSample {
   key: string;
   instrument: string;
-  grade: Grade;
+  grade: Grade | "Unknown";
   outcome: "win" | "loss" | "breakeven";
   r: number;
   /** ISO timestamp of when the setup was detected (used by CSV export). */
@@ -125,6 +126,30 @@ export function samplesFromTrades(
     if (r === null) continue;
     const sample = buildTradeSample(t, byId.get(t.signal_id), r);
     if (sample) out.push(sample);
+  }
+  return out;
+}
+
+/** Broker-confirmed samples. The caller names one R basis; null rows stay out. */
+export function samplesFromBrokerEvidence(
+  evidence: PerformanceEvidenceRow[],
+  basis: RBasis,
+): RSample[] {
+  const out: RSample[] = [];
+  for (const row of evidence) {
+    const r = basis === "plan" ? row.rVsPlan : row.rVsActualRisk;
+    if (r === null || !Number.isFinite(r)) continue;
+    out.push({
+      key: row.key,
+      instrument: row.instrument,
+      grade: row.grade,
+      outcome: r > 0 ? "win" : r < 0 ? "loss" : "breakeven",
+      r,
+      detectedAt: row.detectedAt,
+      hour: row.hour,
+      dayOfWeek: row.dayOfWeek,
+      session: row.session,
+    });
   }
   return out;
 }

@@ -21,9 +21,11 @@ A user's loop:
 3. **Decide** — log the setup as _Taken_ or _Skipped_.
 4. **Record** — after the trade closes, add the actual entry and actual exit (and
    the actual initial stop when known) so canonical R can be computed.
-5. **Performance** — expectancy and distribution over the trades they logged,
-   gated on sample size.
-6. **Settings** — instruments, sessions, feed and alert grade thresholds, daily
+5. **Broker Accounts** — optionally connect MetaTrader in Observe, inspect
+   broker-reported account facts and explicitly choose an available mode.
+6. **Performance** — select My Journal, Broker Account or P-Trades Benchmark;
+   choose one R basis; never combine the sources.
+7. **Settings** — instruments, sessions, feed and alert grade thresholds, daily
    cap, risk profile, notifications, assistant access, execution bridge.
 
 ## Inputs
@@ -39,8 +41,10 @@ deliveries.
 
 ## Provenance
 
-Market structure is broker-derived. Account equity, fills and outcomes are
-self-reported. Anything computed from a self-reported input inherits that label.
+Market structure is broker-derived. Settings equity and journal fills remain
+self-reported. A connected account's facts and positively associated deals are
+broker evidence and are kept separate from both the journal and the controlled
+P-Trades demo benchmark.
 
 ## Failure behaviour
 
@@ -58,7 +62,9 @@ performance figure means "what the trades you logged produced".
 ## What this product does not guarantee
 
 - It does not predict outcomes; no score here is a win probability.
-- It does not see the user's broker account, equity, open positions or margin.
+- It sees broker facts only for a connected account and labels their observation
+  time. Missing broker fields remain unavailable; Settings equity is never
+  relabelled as broker-confirmed.
 - It does not guarantee a bridge or broker accepted an order unless an
   acknowledgement proves it.
 - It does not provide financial advice.

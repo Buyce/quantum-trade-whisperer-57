@@ -27,16 +27,21 @@ and is never updated retroactively.
 8. [RISK-SIZING.md](RISK-SIZING.md)
 9. [JOURNAL-AND-R.md](JOURNAL-AND-R.md)
 10. [PERFORMANCE-AND-STATISTICS.md](PERFORMANCE-AND-STATISTICS.md)
-11. [RESEARCH-AND-SHADOW.md](RESEARCH-AND-SHADOW.md)
+11. [BROKER-EVIDENCE.md](BROKER-EVIDENCE.md)
+12. [RESEARCH-AND-SHADOW.md](RESEARCH-AND-SHADOW.md)
 
 **Integrations and operations**
 
-12. [EXECUTION.md](EXECUTION.md)
-13. [MCP.md](MCP.md)
-14. [SECURITY.md](SECURITY.md)
-15. [OPERATIONS.md](OPERATIONS.md)
-16. [TESTING.md](TESTING.md)
-17. [LINK-AUDIT.md](LINK-AUDIT.md) — canonical URLs, internal link results and the
+13. [BROKER-ACCOUNTS.md](BROKER-ACCOUNTS.md)
+14. [METASTATS.md](METASTATS.md)
+15. [RISK-GUARDIAN.md](RISK-GUARDIAN.md)
+16. [EXECUTION.md](EXECUTION.md)
+17. [MCP.md](MCP.md)
+18. [SECURITY.md](SECURITY.md)
+19. [OPERATIONS.md](OPERATIONS.md)
+20. [TESTING.md](TESTING.md)
+21. [PROMPT-14-VERIFICATION.md](PROMPT-14-VERIFICATION.md)
+22. [LINK-AUDIT.md](LINK-AUDIT.md) — canonical URLs, internal link results and the
     vendor-guide audit behind the `/connect` steps.
 
 **Historical**

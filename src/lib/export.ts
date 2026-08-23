@@ -96,15 +96,20 @@ export function signalsToExportJson(signals: SignalRow[]) {
 
 /* ------------------------------- performance ------------------------------ */
 
-export function samplesToCsv(samples: RSample[]): string {
+export function samplesToCsv(
+  samples: RSample[],
+  metadata: { provenance: string; rBasis: "plan" | "actual_risk" },
+): string {
   return toCsv(
-    ["Date", "Instrument", "Grade", "Outcome", "R_Yield"],
+    ["Date", "Instrument", "Grade", "Outcome", "R_Yield", "R_Basis", "Provenance"],
     samples.map((s) => [
       s.detectedAt ? s.detectedAt.slice(0, 10) : "",
       s.instrument,
       s.grade,
       s.outcome === "win" ? "Win" : s.outcome === "loss" ? "Loss" : "Breakeven",
       s.r.toFixed(2),
+      metadata.rBasis === "plan" ? "r_vs_plan" : "r_vs_actual_risk",
+      metadata.provenance,
     ]),
   );
 }

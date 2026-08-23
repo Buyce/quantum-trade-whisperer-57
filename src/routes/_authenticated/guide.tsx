@@ -19,7 +19,7 @@ export const Route = createFileRoute("/_authenticated/guide")({
       {
         name: "description",
         content:
-          "Plain-English explanations of grades, confidence, R, risk sizing, the trade journal, performance statistics and execution safety in P-Trades Hub.",
+          "Plain-English explanations of MetaTrader connections, provenance, grades, risk sizing, performance evidence and execution safety in P-Trades Hub.",
       },
       { property: "og:title", content: "Guide — How the P-Trades Hub terminal works" },
       {
@@ -75,23 +75,23 @@ const SECTIONS: Section[] = [
         ],
         means: "Settings are the inputs the whole terminal computes against.",
         matters:
-          "Lot size, cash risk, margin estimates and your alert stream are all derived from what you enter here. Nothing is read from your broker.",
+          "Manual lot size, cash risk and margin estimates are derived from what you enter here. A connected MetaTrader account is separate: its account facts, execution limits and evidence come from the broker and are labelled as such.",
         todo: "Set equity, currency, leverage, risk percent, instruments, sessions and minimum grade before you rely on a lot size.",
         assume:
-          "Do not assume the app knows your real balance, open positions or broker costs. It knows what you told it.",
+          "Do not treat Settings equity as broker-confirmed. Broker facts exist only for a connected, ready account and remain unavailable whenever the broker has not supplied them.",
       },
       {
         id: "tour",
         q: "What is each screen for?",
         a: [
-          "Feed: setups currently published and eligible under your settings, newest first. History: your trade journal of setups you logged as Taken — skipped decisions are recorded for statistics but do not appear on that screen. Performance: expectancy and R statistics computed from your journal, behind evidence gates. Settings: risk inputs, filters, alerts, execution controls and the scanner heartbeat. Connect AI: how to attach ChatGPT, Claude or Claude Code to your own data.",
+          "Feed: published setups eligible under your settings. Broker Accounts: connect MetaTrader, inspect broker-reported facts and choose observe or an available execution mode. History: your self-reported journal; skipped decisions do not appear there. Performance: three separate sources — My Journal, Broker Account and P-Trades Benchmark. Settings: manual risk inputs, filters, alerts, execution controls and scanner heartbeat. Connect AI: attach an assistant to the currently exposed P-Trades tools.",
         ],
         means: "Four working surfaces plus one integration page.",
         matters:
           "Feed and Performance answer different questions: what the engine found, and what your decisions actually earned.",
         todo: "Use the scanner heartbeat in Settings whenever you want to know whether the engine is cycling.",
         assume:
-          "An empty Feed is not a statement about Performance, and Performance never includes replay or research rows.",
+          "An empty Feed is not a statement about Performance. Performance sources never fall back to one another, and replay/research rows never masquerade as broker evidence.",
       },
       {
         id: "guide-mode",
@@ -99,6 +99,61 @@ const SECTIONS: Section[] = [
         a: [
           "A toggle in the header. With it on, terminal labels gain an inline explanation you can expand: what the figure is, why it matters, what to do with it, and what not to assume — plus a link into the matching section of this page.",
           "It is progressive disclosure only. Nothing is hidden while it is off, and no permanent walls of text appear while it is on.",
+        ],
+      },
+    ],
+  },
+  {
+    id: "connect-metatrader",
+    title: "Connect MetaTrader",
+    blurb:
+      "Progressive steps from an isolated connection to broker evidence and optional execution.",
+    entries: [
+      {
+        id: "connect-account",
+        q: "How do I connect a MetaTrader account?",
+        a: [
+          "Open Broker Accounts, choose Demo or Live as your onboarding intent, select MT4 or MT5, enter the exact broker server name and give the connection a label. P-Trades then opens the provider's secure configuration page in a new tab. Enter the MetaTrader login there; P-Trades does not receive or store the password.",
+          "Return to Broker Accounts and press Refresh. The account becomes Ready only after the broker reports its account type and connection facts. If the broker contradicts your Demo/Live intent, P-Trades stops instead of arming the account.",
+        ],
+        means: "A broker-reported connection, separate from your Settings risk profile.",
+        matters:
+          "The broker's classification, equity, symbol names, volume limits and trading permissions are authoritative for direct execution.",
+        todo: "Start in Observe, verify the masked login, server, account type and symbols, then choose an execution mode only if it is offered.",
+        assume:
+          "Your onboarding Demo/Live choice is intent, not evidence. Only the broker-reported account type is authoritative.",
+      },
+      {
+        id: "account-modes",
+        q: "What do Observe, Demo auto and Live modes permit?",
+        a: [
+          "Observe reads broker facts and places no orders. Demo auto can place orders only on a broker-confirmed demo account after the account is explicitly armed and the system-wide demo gate is enabled. Live on confirmation and Live auto are available only to broker-confirmed real accounts and remain blocked while their independent global live gates are off.",
+          "Every direct order still passes freshness, symbol, account-readiness, exposure, broker specification, volume and price checks. Missing broker data is a refusal, never a guessed replacement.",
+        ],
+        assume:
+          "A Ready connection is not the same as an armed account, and an armed account is not enough when the matching system-wide gate is off.",
+      },
+      {
+        id: "broker-performance",
+        q: "Where do connected-account results appear?",
+        a: [
+          "Closed deals that can be positively associated with P-Trades' own client reference appear under Broker Account as CUSTOMER BROKER EVIDENCE. Manual broker trades and other EAs are excluded. The dedicated operator demo account appears separately as CONTROLLED BENCHMARK. Prices typed into the journal remain SELF-REPORTED JOURNAL.",
+          "Each source has an explicit R vs plan / R vs actual risk selector. The two R bases and the three populations are never combined or silently substituted.",
+        ],
+      },
+      {
+        id: "research-consent",
+        q: "What does optional pooled research consent do?",
+        a: [
+          "Consent is off by default on every connected customer account. If you explicitly enable the current consent version, future positively associated broker evidence may enter grouped research under a random pseudonymous reference. Broker login, MetaApi account id, user id and identity do not enter the research surface.",
+          "Withdrawal stops future pooling immediately. Evidence already collected under valid consent remains part of the historical population so results are not silently rewritten. Consent never changes signals, orders, journal rows or the three Performance sources.",
+        ],
+      },
+      {
+        id: "disconnect-account",
+        q: "What happens when I disconnect?",
+        a: [
+          "P-Trades removes the connection from the provider and stops future observation and execution through it. The broker account itself is untouched. Existing journal, delivery and evidence records are retained with their original provenance.",
         ],
       },
     ],
@@ -224,14 +279,14 @@ const SECTIONS: Section[] = [
         q: "How is my lot size calculated?",
         a: [
           "From the stop distance in the plan and the risk settings you entered: account equity, risk per trade, leverage and account currency. Lots are rounded to the instrument's lot step and floored at its minimum.",
-          "Your equity, risk percentage and leverage are self-reported. The app cannot read your broker, so it sizes against what you told it.",
+          "For manual guidance, equity, risk percentage and leverage remain self-reported Settings inputs. For a direct connected-account delivery, the execution service separately sizes from fresh broker-reported equity and that account's broker specification. It refuses if either is unavailable; it never copies broker equity into Settings.",
         ],
       },
       {
         id: "margin",
         q: "Is the margin figure what my broker will charge?",
         a: [
-          "No. It is an estimate from the contract specification and the leverage you entered. Your broker's own margin requirement, commission and swap are not visible to this app.",
+          "The margin shown beside manual sizing is an estimate from the contract specification and the leverage you entered; it is not a broker promise. A connected account can report free margin and account facts, while commission and swap are recorded from associated broker evidence when the broker supplies them. Missing costs stay missing.",
         ],
       },
       {
@@ -246,7 +301,7 @@ const SECTIONS: Section[] = [
         id: "exposure",
         q: "What does the exposure figure describe?",
         a: [
-          "Only the trades you logged in this app. It is advisory. A missing journal entry is never treated as proof that you have no open position at your broker.",
+          "The journal exposure figure describes only trades you logged in this app and remains advisory. A connected account has a separate owner-configured account boundary checked against broker-reported open positions and pending orders at submission time. The two are never presented as the same measurement.",
         ],
       },
       {
@@ -318,7 +373,8 @@ const SECTIONS: Section[] = [
         id: "expectancy",
         q: "What is expectancy in R?",
         a: [
-          "(win rate x average win in R) − (loss rate x average loss in R). It is the average R this sample of your completed trades produced. Positive means this sample returned more than it lost. It says nothing about your next trade.",
+          "(win rate x average win in R) − (loss rate x average loss in R). It is the average R produced by the currently selected source and R basis. Positive means that sample returned more than it lost. It says nothing about your next trade.",
+          "My Journal is SELF-REPORTED JOURNAL, Broker Account is CUSTOMER BROKER EVIDENCE, and P-Trades Benchmark is CONTROLLED BENCHMARK from the dedicated demo policy. They are never pooled, and scanner replay is not used as a fallback.",
         ],
       },
       {
@@ -369,7 +425,7 @@ const SECTIONS: Section[] = [
         id: "isolation",
         q: "Does research data affect what I see?",
         a: [
-          "No. Research and shadow rows never enter the feed, alerts, eligibility, your journal or your personal performance. Your performance page is built from your logged trades and nothing else, and the two are never summed.",
+          "No. Research and shadow rows never enter the feed, alerts, eligibility, journal or any broker-evidence Performance source. The Performance page keeps self-reported journal, customer broker evidence and controlled benchmark evidence separate, and never sums them.",
           "Replay results are also not a track record: no order was placed, and spread, commission, swap and slippage beyond the plan's own tolerances are not included.",
         ],
       },
@@ -391,8 +447,8 @@ const SECTIONS: Section[] = [
         id: "execution-safety",
         q: "Can this app place trades for me?",
         a: [
-          "Only if you configure an external bridge and explicitly arm it. Live execution is disabled globally by default, and the scanner's alert path cannot send broker instructions at all — orders only travel through the execution ledger.",
-          "Arming live requires a confirmation that names the destination host, the execution policy and the sizing basis. Any change to the settings that determine authorisation or quantity invalidates queued deliveries rather than sending them under new rules.",
+          "Only through an explicitly configured destination and the execution ledger. A connected MetaTrader account starts in Observe. Demo auto requires a broker-confirmed demo account, explicit account arming and the independent system-wide demo gate. Live execution remains disabled globally by default and requires its own real-account and global gates.",
+          "The alert path cannot send broker instructions. Any change to settings that determine authorisation or quantity invalidates queued deliveries rather than sending them under new rules, and an unavailable broker fact fails closed.",
         ],
       },
       {
@@ -408,7 +464,7 @@ const SECTIONS: Section[] = [
         q: "What can a connected AI assistant do?",
         a: [
           "Read your signals, scanner and market status, settings, journal and performance; size a position; and log or update trades on your behalf. It uses the same eligibility rules, the same sizing service and the same R mathematics as this screen, so it cannot be told a different number.",
-          "It cannot reach your broker, see anyone else's data, enable live execution, alter grading or published signals, or retrieve secrets. Every price it writes is permanently stamped as agent-entered.",
+          "The current assistant toolset cannot read connected-account details or send broker orders. It also cannot see anyone else's data, enable live execution, alter grading or published signals, or retrieve secrets. Every journal price it writes is permanently stamped as agent-entered.",
         ],
       },
     ],

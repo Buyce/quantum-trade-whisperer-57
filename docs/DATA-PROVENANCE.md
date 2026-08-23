@@ -7,13 +7,15 @@ If a value is not in this map, treat it as unproven.
 
 ## Provenance classes
 
-| Class              | Meaning                                                                        |
-| ------------------ | ------------------------------------------------------------------------------ |
-| **broker-derived** | computed from OHLCV candles fetched from MetaApi                               |
-| **engine-derived** | computed by this codebase from broker-derived inputs                           |
-| **self-reported**  | typed in by the user or their assistant; unverified against any broker         |
-| **replay-derived** | produced by deterministic replay over stored candles; no order was ever placed |
-| **estimate**       | model output that depends on assumptions and is labelled as such               |
+| Class                    | Meaning                                                                        |
+| ------------------------ | ------------------------------------------------------------------------------ |
+| **broker-derived**       | computed from OHLCV candles fetched from MetaApi                               |
+| **engine-derived**       | computed by this codebase from broker-derived inputs                           |
+| **self-reported**        | typed in by the user or their assistant; unverified against any broker         |
+| **broker evidence**      | account/deal facts returned by the connected broker and positively associated  |
+| **controlled benchmark** | broker evidence from the dedicated P-Trades demo benchmark policy              |
+| **replay-derived**       | produced by deterministic replay over stored candles; no order was ever placed |
+| **estimate**             | model output that depends on assumptions and is labelled as such               |
 
 ## Field map
 
@@ -43,6 +45,9 @@ Confidence is a **rule-satisfaction score, not a win probability**.
 | lots, cash at risk                                                           | engine-derived from self-reported inputs                 |
 | margin required                                                              | **estimate**                                             |
 | exposure / daily loss advisory                                               | derived from **logged trades only**                      |
+| connected-account equity, free margin, leverage and account type             | broker evidence with observation time                    |
+| direct connected-account quantity                                            | engine-derived from fresh broker equity and account spec |
+| connected-account open-position boundary check                               | broker evidence at submission time                       |
 
 ### Journal
 
@@ -61,30 +66,35 @@ Confidence is a **rule-satisfaction score, not a win probability**.
 
 | Field                                                              | Class                                         |
 | ------------------------------------------------------------------ | --------------------------------------------- |
-| expectancy, win rate, average win/loss, total R, distributions     | engine-derived from self-reported prices      |
+| My Journal expectancy and distributions                            | engine-derived from self-reported prices      |
+| Broker Account expectancy and distributions                        | engine-derived from customer broker evidence  |
+| P-Trades Benchmark expectancy and distributions                    | engine-derived from controlled demo benchmark |
 | Wilson intervals, cluster-bootstrap intervals, BH-adjusted results | engine-derived, diagnostic-only unless mature |
 | shadow outcomes, fill rates, payoff stats                          | replay-derived                                |
 | candidate cohorts, filter lift                                     | replay-derived, admin-only                    |
 
 ### Execution
 
-| Field                                  | Class                                 |
-| -------------------------------------- | ------------------------------------- |
-| delivery state, reason, config version | recorded fact                         |
-| quantity in the payload                | engine-derived (authoritative sizing) |
-| acknowledgement                        | receiver-reported                     |
+| Field                                      | Class                                 |
+| ------------------------------------------ | ------------------------------------- |
+| delivery state, reason, config version     | recorded fact                         |
+| quantity in the payload                    | engine-derived (authoritative sizing) |
+| acknowledgement                            | receiver-reported                     |
+| associated broker deal, fill and held stop | broker evidence                       |
 
 ## The important distinctions
 
 1. **Confidence is not probability.**
-2. **Personal performance is self-reported.** Scanner baseline is replay-derived.
-   They are never summed or compared as if equivalent.
+2. **Performance sources stay separate.** SELF-REPORTED JOURNAL, CUSTOMER BROKER
+   EVIDENCE and CONTROLLED BENCHMARK are never summed or substituted. Scanner
+   replay remains research-only.
 3. **Replay is not a track record.** No order was placed; no spread, commission,
    swap or slippage beyond the plan's own tolerances is included.
 4. **Margin is an estimate**, never a broker margin quote.
 5. **"Verified" is never used alone.** A price is verified _against a named source_
    or it is self-reported.
-6. **Advisory exposure describes your journal**, not your broker account.
+6. **Advisory exposure describes your journal.** A connected-account boundary is
+   a separate pre-submit broker-state check.
 7. **An empty view is data**, not an outage — and not a market claim either. A
    filtered/capped/settings-scoped empty result means only that no rows match that
    view. A scanner-wide "No Trade" statement requires an unfiltered, current-cycle
@@ -110,4 +120,4 @@ attributed.
 
 `src/lib/scanner/*`, `src/lib/risk.ts`, `src/lib/sizing/*`, `src/lib/broker/*`,
 `src/lib/journal/*`, `src/lib/stats/*`, `src/lib/execution/*`,
-`src/lib/delivery/*`.
+`src/lib/delivery/*`, `src/lib/accounts/*`, `src/lib/evidence/*`.

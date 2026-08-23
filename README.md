@@ -24,34 +24,37 @@ financial advice.
 
 Everything below is derived from the implementation at HEAD.
 
-| Area                 | Current behaviour                                                                                                                                                                                                  | Source                                                                 |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
-| Instruments          | `XAUUSD`, `GBPAUD`, `EURUSD`                                                                                                                                                                                       | `src/lib/scanner/types.ts` (`INSTRUMENTS`)                             |
-| Timeframes           | `H4`, `H1`, `M15`                                                                                                                                                                                                  | `src/lib/scanner/types.ts` (`TIMEFRAMES`)                              |
-| Candle depth         | 300 / 300 / 200 bars                                                                                                                                                                                               | `CANDLE_LIMITS`                                                        |
-| Scan cadence         | Every 15 minutes, cron-triggered, queue + worker fan-out                                                                                                                                                           | `src/routes/api/public/cron/scan.ts`, `src/routes/api/public/worker/*` |
-| Market data          | MetaApi REST only (no streaming sockets), hard per-request timeout, per-instrument health flags                                                                                                                    | `src/lib/scanner/metaapi.server.ts`                                    |
-| Pattern              | ABC retracement structure with a Point-C liquidity test                                                                                                                                                            | `src/lib/scanner/grading.ts`                                           |
-| Grades               | `A+`, `A`, `B`, `C`                                                                                                                                                                                                | `Grade` in `src/lib/scanner/types.ts`                                  |
-| Confluence weighting | trend 35%, order block 25%, momentum 20%, volatility expansion 20%; R:R applied afterwards as a cap, not a fifth weight                                                                                            | `CONFIDENCE_WEIGHTS`                                                   |
-| Signal lifecycle     | `active` → resolved or `expired`; active setups older than 24h are swept each cycle                                                                                                                                | `SIGNAL_MAX_AGE_HOURS`                                                 |
-| Order time-in-force  | 30 minutes (two M15 candles) for an unfilled pending order                                                                                                                                                         | `ORDER_TIF_MINUTES`                                                    |
-| Retention            | A+/A 48h, B 36h, C 24h                                                                                                                                                                                             | `RETENTION_HOURS` in `src/lib/db-types.ts`                             |
-| Per-user filtering   | instruments, sessions, separate feed and alert grade thresholds                                                                                                                                                    | `src/lib/delivery/eligibility.ts`                                      |
-| Per-user daily cap   | User-chosen; `0` = unlimited (the default). C-grade never consumes cap. Feed and alert keep separate sequences                                                                                                     | `evaluateEligibility`, `buildCapFrame`                                 |
-| Journal              | Taken / Skipped, win / loss / breakeven, planned plan snapshot at first creation, actual fill prices, per-write author provenance                                                                                  | `src/lib/trade-journal.functions.ts`                                   |
-| Canonical R          | Two separate measures — `r_vs_plan` and `r_vs_actual_risk` — never averaged together                                                                                                                               | `src/lib/journal/r-math.ts`, `src/lib/journal/basis.ts`                |
-| Performance Engine   | Expectancy in R, win rate, average win/loss, R distribution, per-grade and per-instrument splits, time-of-day view — from the user's own log                                                                       | `src/lib/performance.ts`                                               |
-| Research / shadow    | Deterministic replay of published setups and of pre-publication research candidates, in isolated research-only tables                                                                                              | `src/lib/execution/replay.ts`, `src/lib/research/*`                    |
-| Statistics           | Wilson intervals, whole-UTC-day cluster bootstrap (2000 replicates, fixed seed), Benjamini–Hochberg, 30-sample / 10-cluster floors, no holdout available                                                           | `src/lib/stats/*`                                                      |
-| Risk sizing          | Lots, cash risk and a margin estimate from the user's own equity/risk/leverage settings; refuses to size on any missing or stale input                                                                             | `src/lib/risk.ts`, `src/lib/sizing/service.server.ts`                  |
-| Broker-spec sizing   | Broker symbol specs refreshed on a separate daily budget and run in shadow against the static model; the **static model (`static_v1`) remains authoritative**                                                      | `src/lib/broker/*`, `src/lib/sizing/service.server.ts`                 |
-| Notifications        | Web/Android push, transactional email briefs                                                                                                                                                                       | `src/lib/push.functions.ts`, `src/lib/email-templates/*`               |
-| AI assistants        | 12 MCP tools over an OAuth-protected `/mcp` endpoint                                                                                                                                                               | `.lovable/mcp/manifest.json`, `src/lib/mcp/tools/*`                    |
-| Execution delivery   | Queue → claim → revalidate → quantity → SSRF check → HMAC signature → single dispatch attempt. **Globally disabled by default; dry-run first; live requires explicit confirmation.** PineConnector is dry-run only | `src/lib/delivery/*`                                                   |
+| Area                 | Current behaviour                                                                                                                                                                                  | Source                                                                                      |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Instruments          | `XAUUSD`, `GBPAUD`, `EURUSD`                                                                                                                                                                       | `src/lib/scanner/types.ts` (`INSTRUMENTS`)                                                  |
+| Timeframes           | `H4`, `H1`, `M15`                                                                                                                                                                                  | `src/lib/scanner/types.ts` (`TIMEFRAMES`)                                                   |
+| Candle depth         | 300 / 300 / 200 bars                                                                                                                                                                               | `CANDLE_LIMITS`                                                                             |
+| Scan cadence         | Every 15 minutes, cron-triggered, queue + worker fan-out                                                                                                                                           | `src/routes/api/public/cron/scan.ts`, `src/routes/api/public/worker/*`                      |
+| Market data          | MetaApi REST only (no streaming sockets), hard per-request timeout, per-instrument health flags                                                                                                    | `src/lib/scanner/metaapi.server.ts`                                                         |
+| Pattern              | ABC retracement structure with a Point-C liquidity test                                                                                                                                            | `src/lib/scanner/grading.ts`                                                                |
+| Grades               | `A+`, `A`, `B`, `C`                                                                                                                                                                                | `Grade` in `src/lib/scanner/types.ts`                                                       |
+| Confluence weighting | trend 35%, order block 25%, momentum 20%, volatility expansion 20%; R:R applied afterwards as a cap, not a fifth weight                                                                            | `CONFIDENCE_WEIGHTS`                                                                        |
+| Signal lifecycle     | `active` → resolved or `expired`; active setups older than 24h are swept each cycle                                                                                                                | `SIGNAL_MAX_AGE_HOURS`                                                                      |
+| Order time-in-force  | 30 minutes (two M15 candles) for an unfilled pending order                                                                                                                                         | `ORDER_TIF_MINUTES`                                                                         |
+| Retention            | A+/A 48h, B 36h, C 24h                                                                                                                                                                             | `RETENTION_HOURS` in `src/lib/db-types.ts`                                                  |
+| Per-user filtering   | instruments, sessions, separate feed and alert grade thresholds                                                                                                                                    | `src/lib/delivery/eligibility.ts`                                                           |
+| Per-user daily cap   | User-chosen; `0` = unlimited (the default). C-grade never consumes cap. Feed and alert keep separate sequences                                                                                     | `evaluateEligibility`, `buildCapFrame`                                                      |
+| Journal              | Taken / Skipped, win / loss / breakeven, planned plan snapshot at first creation, actual fill prices, per-write author provenance                                                                  | `src/lib/trade-journal.functions.ts`                                                        |
+| Canonical R          | Two separate measures — `r_vs_plan` and `r_vs_actual_risk` — never averaged together                                                                                                               | `src/lib/journal/r-math.ts`, `src/lib/journal/basis.ts`                                     |
+| Performance Engine   | Three non-combining sources: **SELF-REPORTED JOURNAL**, **CUSTOMER BROKER EVIDENCE**, and **CONTROLLED BENCHMARK**; each uses one explicitly selected R basis                                      | `src/lib/performance.ts`, `src/lib/performance-evidence.server.ts`                          |
+| Research / shadow    | Deterministic replay of published setups and of pre-publication research candidates, in isolated research-only tables                                                                              | `src/lib/execution/replay.ts`, `src/lib/research/*`                                         |
+| Statistics           | Wilson intervals, whole-UTC-day cluster bootstrap (2000 replicates, fixed seed), Benjamini–Hochberg, 30-sample / 10-cluster floors, no holdout available                                           | `src/lib/stats/*`                                                                           |
+| Risk sizing          | Manual guidance uses self-entered settings; direct connected-account execution separately uses fresh broker equity/specifications and refuses missing inputs                                       | `src/lib/risk.ts`, `src/lib/sizing/service.server.ts`, `src/lib/execution/direct.server.ts` |
+| Broker-spec sizing   | Broker symbol specs refreshed on a separate daily budget and run in shadow against the static model; the **static model (`static_v1`) remains authoritative**                                      | `src/lib/broker/*`, `src/lib/sizing/service.server.ts`                                      |
+| Notifications        | Web/Android push, transactional email briefs                                                                                                                                                       | `src/lib/push.functions.ts`, `src/lib/email-templates/*`                                    |
+| AI assistants        | 12 MCP tools over an OAuth-protected `/mcp` endpoint                                                                                                                                               | `.lovable/mcp/manifest.json`, `src/lib/mcp/tools/*`                                         |
+| Broker accounts      | MetaTrader connection through MetaApi; broker-authoritative account classification, observe-first modes, explicit arming and account exposure boundary                                             | `src/lib/accounts/*`, `src/lib/metaapi/*`                                                   |
+| Broker evidence      | Positive association by P-Trades client reference (and magic where reported); journal, customer and benchmark populations stay separate                                                            | `src/lib/evidence/*`                                                                        |
+| Execution delivery   | Queue → claim → revalidate → quantity → single dispatch attempt to an approved bridge or connected MetaApi account. **Globally disabled by default; dry-run first; live requires separate gates.** | `src/lib/delivery/*`, `src/lib/execution/*`                                                 |
 
 Not enabled: live execution by default, any multi-exit order policy, holdout /
-out-of-sample statistical validation, and broker-authoritative margin.
+out-of-sample statistical validation, and any claim that an advisory margin
+estimate is the broker's exact margin requirement.
 
 ## 2. Architecture
 
@@ -68,9 +71,12 @@ flowchart TD
   SS --> RS[research + shadow replay<br/>research-only tables]
   SS --> ST[statistics: Wilson,<br/>day-cluster bootstrap, BH]
   SS --> EX[execution delivery queue<br/>dry-run by default]
+  EX --> BA[connected MetaTrader account<br/>observe / explicit arming]
+  BA --> BE[(broker trade evidence)]
 
   JN --> ST
   RS --> ST
+  BE --> PF[Performance sources<br/>kept separate]
 ```
 
 Four planes, deliberately isolated:
@@ -79,8 +85,9 @@ Four planes, deliberately isolated:
    Nothing downstream can influence what gets published.
 2. **Research / shadow computation** — replay and candidate enrolment write only to
    research tables and never feed the user's own performance numbers.
-3. **User analytics** — the journal and the Performance Engine, built from what the
-   user (or their assistant) recorded.
+3. **Performance evidence** — self-reported journal, customer broker evidence and
+   the controlled benchmark are queried and labelled separately. No fallback or
+   pooling crosses these boundaries.
 4. **Execution delivery** — a separate queue with its own state machine. A delivery
    failure can never interrupt a scan, a statistic, or the feed.
 
@@ -110,16 +117,19 @@ Four planes, deliberately isolated:
 
 ## 4. Data provenance
 
-| Data                             | Source                                                             | Label shown to the user                          |
-| -------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------ |
-| Candles, quotes                  | Broker via MetaApi REST                                            | Broker-derived                                   |
-| Account equity, risk %, leverage | User entered in Settings                                           | Self-reported                                    |
-| Journal fill prices              | User or connected assistant, unless a broker source is proven      | Self-reported / agent-entered                    |
-| Broker symbol specs              | Broker when available and fresh; documented static table otherwise | Broker spec / `static_v1` static specification   |
-| Margin                           | Derived from the sizing model and stated leverage                  | Margin estimate — never broker-authoritative     |
-| Shadow / research outcomes       | Deterministic replay over stored candles                           | Research-only                                    |
-| Personal performance             | The user's own journal                                             | Trades you logged                                |
-| Scanner baseline                 | Replayed published setups                                          | Scanner baseline, separate from personal results |
+| Data                             | Source                                                             | Label shown to the user                        |
+| -------------------------------- | ------------------------------------------------------------------ | ---------------------------------------------- |
+| Candles, quotes                  | Broker via MetaApi REST                                            | Broker-derived                                 |
+| Account equity, risk %, leverage | User entered in Settings                                           | Self-reported                                  |
+| Journal fill prices              | User or connected assistant, unless a broker source is proven      | Self-reported / agent-entered                  |
+| Broker symbol specs              | Broker when available and fresh; documented static table otherwise | Broker spec / `static_v1` static specification |
+| Margin                           | Derived from the sizing model and stated leverage                  | Margin estimate — never broker-authoritative   |
+| Shadow / research outcomes       | Deterministic replay over stored candles                           | Research-only                                  |
+| Personal performance             | The user's own journal                                             | Trades you logged                              |
+| Customer broker performance      | Positively associated connected-account deals                      | **CUSTOMER BROKER EVIDENCE**                   |
+| P-Trades benchmark               | Dedicated operator demo policy, actual associated broker deals     | **CONTROLLED BENCHMARK**                       |
+| Journal performance              | User/assistant-entered journal prices                              | **SELF-REPORTED JOURNAL**                      |
+| Scanner replay                   | Deterministic research replay; never a Performance fallback        | Research-only                                  |
 
 ## 5. Testing
 
@@ -184,6 +194,11 @@ commits pushed to `main` sync both ways.
 | [docs/RESEARCH-AND-SHADOW.md](docs/RESEARCH-AND-SHADOW.md)               | Replay, candidates, isolation           |
 | [docs/ALERTS-AND-ELIGIBILITY.md](docs/ALERTS-AND-ELIGIBILITY.md)         | Feed/alert rules, daily cap             |
 | [docs/EXECUTION.md](docs/EXECUTION.md)                                   | Delivery state machine and safety locks |
+| [docs/BROKER-ACCOUNTS.md](docs/BROKER-ACCOUNTS.md)                       | MetaTrader connection and account modes |
+| [docs/BROKER-EVIDENCE.md](docs/BROKER-EVIDENCE.md)                       | Association and Performance provenance  |
+| [docs/METASTATS.md](docs/METASTATS.md)                                   | Broker statistics telemetry             |
+| [docs/RISK-GUARDIAN.md](docs/RISK-GUARDIAN.md)                           | Drawdown trackers and limitations       |
+| [docs/PROMPT-14-VERIFICATION.md](docs/PROMPT-14-VERIFICATION.md)         | Closure checks and demo smoke result    |
 | [docs/MCP.md](docs/MCP.md)                                               | Assistant tools and permissions         |
 | [docs/SECURITY.md](docs/SECURITY.md)                                     | Auth, RLS, egress, secrets              |
 | [docs/OPERATIONS.md](docs/OPERATIONS.md)                                 | Cron schedule, runbooks                 |
@@ -196,7 +211,8 @@ commits pushed to `main` sync both ways.
 ## 9. Disclaimer
 
 P-Trades Hub is trade-analysis and trade-assistance software. It does not
-guarantee returns, does not constitute financial advice, and does not place or
-manage trades on your behalf unless you explicitly configure and confirm the
-execution bridge yourself. Statistical output describes a past sample; it is not
-a prediction. Trading leveraged FX carries substantial risk of loss.
+guarantee returns or constitute financial advice. It places no order unless a
+destination is configured, the connected account and system-wide gates permit
+that mode, and the execution ledger passes every check. Statistical output
+describes a past sample; it is not a prediction. Trading leveraged FX carries
+substantial risk of loss.

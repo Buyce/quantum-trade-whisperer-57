@@ -43,8 +43,15 @@ history.
 ### Isolation
 
 Production reads go through cohort-scoped views, not the research tables. Research
-rows never enter feed, alerts, eligibility, the journal or personal performance.
+rows never enter feed, alerts, eligibility, the journal or any Performance
+evidence source.
 Research standard errors that cannot be computed are stored as `NULL`, not zero.
+
+Consented customer broker evidence is a separate research input. Consent defaults
+off, is versioned and timestamped, and future inclusion stops on withdrawal. The
+research surface receives only a random pseudonymous reference. Estimands cluster
+by `signal_id` and whole UTC day; customer, benchmark and replay populations retain
+their evidence-class boundary.
 
 ## Inputs
 

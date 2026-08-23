@@ -4,6 +4,7 @@ import {
   EMPTY_EXPECTANCY,
   computeExpectancy,
   generateInsights,
+  samplesFromBrokerEvidence,
   type RSample,
 } from "../performance";
 import type { Grade } from "../db-types";
@@ -118,5 +119,45 @@ describe("generateInsights is non-prescriptive at small n", () => {
 
   it("[UNIT] zero closed results says so instead of inventing a number", () => {
     expect(generateInsights([], "EURUSD").join(" ")).toMatch(/no closed results/i);
+  });
+});
+
+describe("broker Performance evidence separation", () => {
+  const evidence = [
+    {
+      key: "customer-0",
+      source: "customer" as const,
+      instrument: "EURUSD",
+      grade: "A" as const,
+      detectedAt: "2026-08-20T09:00:00.000Z",
+      hour: 9,
+      dayOfWeek: 4,
+      session: "london",
+      rVsPlan: 2,
+      rVsActualRisk: 1.25,
+    },
+    {
+      key: "customer-1",
+      source: "customer" as const,
+      instrument: "XAUUSD",
+      grade: "Unknown" as const,
+      detectedAt: "2026-08-20T10:00:00.000Z",
+      hour: 10,
+      dayOfWeek: 4,
+      session: "london",
+      rVsPlan: -1,
+      rVsActualRisk: null,
+    },
+  ];
+
+  it("[INVARIANT] selects r_vs_plan without averaging it with actual-risk R", () => {
+    const samples = samplesFromBrokerEvidence(evidence, "plan");
+    expect(samples.map((row) => row.r)).toEqual([2, -1]);
+  });
+
+  it("[INVARIANT] selects only available r_vs_actual_risk rows and never falls back to plan", () => {
+    const samples = samplesFromBrokerEvidence(evidence, "actual_risk");
+    expect(samples).toHaveLength(1);
+    expect(samples[0]?.r).toBe(1.25);
   });
 });
