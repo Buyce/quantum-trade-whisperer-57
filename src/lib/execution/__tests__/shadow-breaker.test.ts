@@ -38,12 +38,12 @@ function fakeDb(row: Row) {
 }
 
 describe("shadowBreakerGate", () => {
-  it("allows a normal pass when not paused", async () => {
+  it("[INVARIANT] allows a normal pass when not paused", async () => {
     const { db } = fakeDb({ paused: false, paused_until: null, consecutive_failures: 0 });
     expect(await shadowBreakerGate(db)).toMatchObject({ allowed: true, probe: false });
   });
 
-  it("blocks while the cooldown is still running", async () => {
+  it("[INVARIANT] blocks while the cooldown is still running", async () => {
     const { db } = fakeDb({
       paused: true,
       paused_until: new Date(Date.now() + 30 * 60_000).toISOString(),
@@ -52,7 +52,7 @@ describe("shadowBreakerGate", () => {
     expect(await shadowBreakerGate(db)).toMatchObject({ allowed: false, probe: false });
   });
 
-  it("allows exactly one probe once the cooldown has elapsed", async () => {
+  it("[INVARIANT] allows exactly one probe once the cooldown has elapsed", async () => {
     const { db } = fakeDb({
       paused: true,
       paused_until: new Date(Date.now() - 60_000).toISOString(),
@@ -61,14 +61,14 @@ describe("shadowBreakerGate", () => {
     expect(await shadowBreakerGate(db)).toMatchObject({ allowed: true, probe: true });
   });
 
-  it("treats a missing cooldown (legacy tripped row) as due", async () => {
+  it("[INVARIANT] treats a missing cooldown (legacy tripped row) as due", async () => {
     const { db } = fakeDb({ paused: true, paused_until: null, consecutive_failures: 5 });
     expect(await shadowBreakerGate(db)).toMatchObject({ allowed: true, probe: true });
   });
 });
 
 describe("noteShadowRun", () => {
-  it("trips with a cooldown on the fifth consecutive failure", async () => {
+  it("[INVARIANT] trips with a cooldown on the fifth consecutive failure", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-08-23T04:00:00Z"));
     const { db, state } = fakeDb({ paused: false, paused_until: null, consecutive_failures: 4 });
@@ -79,7 +79,7 @@ describe("noteShadowRun", () => {
     vi.useRealTimers();
   });
 
-  it("clears the breaker on a successful pass", async () => {
+  it("[INVARIANT] clears the breaker on a successful pass", async () => {
     const { db, state } = fakeDb({
       paused: true,
       paused_until: new Date().toISOString(),
@@ -89,7 +89,7 @@ describe("noteShadowRun", () => {
     expect(state).toMatchObject({ paused: false, consecutive_failures: 0, paused_until: null });
   });
 
-  it("extends the cooldown when a probe pass fails again", async () => {
+  it("[INVARIANT] extends the cooldown when a probe pass fails again", async () => {
     const { db, state } = fakeDb({
       paused: true,
       paused_until: new Date(Date.now() - 1000).toISOString(),
