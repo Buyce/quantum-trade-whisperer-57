@@ -61,16 +61,38 @@ export async function setAccountMode(
   );
   if (!verdict.ok) throw new Error(verdict.detail);
 
-  // A live mode also needs the system-wide live switch; without it, arming would
-  // create an account that looks live-armed but can never send.
-  if (mode === "live_auto" || mode === "live_confirm") {
-    const { data: controls } = await supabaseAdmin
+  // An automatic mode also needs the matching system-wide capability at the
+  // moment of arming. Without this an account could be saved as `demo_auto`
+  // while Demo Auto is unavailable and then start trading later, purely because
+  // an operator flipped a switch — authorisation the trader never gave for that
+  // state of the system. Demo money is still the trader's decision, so we refuse
+  // now and ask for an explicit enable once the capability exists.
+  if (mode !== "observe") {
+    const { data: controlsRow } = await supabaseAdmin
       .from("execution_controls")
-      .select("live_execution_enabled")
+      .select("live_execution_enabled, demo_auto_enabled, live_auto_enabled")
       .eq("id", true)
       .maybeSingle();
-    if ((controls as { live_execution_enabled?: boolean } | null)?.live_execution_enabled !== true) {
-      throw new Error("Live execution is disabled system-wide, so a live mode cannot be armed.");
+    const controls = controlsRow as {
+      live_execution_enabled?: boolean;
+      demo_auto_enabled?: boolean;
+      live_auto_enabled?: boolean;
+    } | null;
+
+    if (mode === "demo_auto" && controls?.demo_auto_enabled !== true) {
+      throw new Error(
+        "Demo auto-execution is currently unavailable system-wide, so it cannot be armed. Enable it again once the capability is back — authorisation is never carried over silently.",
+      );
+    }
+    if (mode === "live_auto" || mode === "live_confirm") {
+      if (controls?.live_execution_enabled !== true) {
+        throw new Error("Live execution is disabled system-wide, so a live mode cannot be armed.");
+      }
+      if (mode === "live_auto" && controls?.live_auto_enabled !== true) {
+        throw new Error(
+          "Live auto-execution is currently unavailable system-wide, so it cannot be armed.",
+        );
+      }
     }
   }
 

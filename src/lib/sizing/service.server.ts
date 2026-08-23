@@ -197,6 +197,11 @@ export interface AccountSizingOverride {
   equityAsOf: string | null;
   /** The account's own contract specification, or null when unavailable. */
   spec: SizingSpec | null;
+  /**
+   * Risk percentage that owns this order. Present only for the operator-owned
+   * benchmark policy, which never borrows a customer's risk profile.
+   */
+  riskPercent?: number | null;
 }
 
 /**
@@ -219,7 +224,14 @@ export async function resolveSizingForUser(
     .maybeSingle();
   const baseProfile = riskProfileFromSettings(settings as Record<string, unknown> | null);
   const profile: RiskProfile = override
-    ? { ...baseProfile, accountEquity: override.equity, accountCurrency: override.currency }
+    ? {
+        ...baseProfile,
+        accountEquity: override.equity,
+        accountCurrency: override.currency,
+        ...(typeof override.riskPercent === "number" && Number.isFinite(override.riskPercent)
+          ? { riskPerTradePercent: override.riskPercent }
+          : {}),
+      }
     : baseProfile;
   const equityAsOf = override
     ? override.equityAsOf
@@ -366,36 +378,100 @@ export async function resolveSizingForUser(
 }
 
 /**
- * Prompt 14 Stage 3 closure (B/C) — AUTHORITATIVE sizing for a direct broker
- * destination.
+ * Prompt 14 Stage 3/4 final closure (2) — AUTHORITATIVE sizing for a direct
+ * broker destination, strictly FAIL CLOSED.
  *
- * The order that reaches a broker must be sized from that broker's own numbers:
- * equity it reports and the contract specification it published for the symbol.
- * When either is missing we refuse (`no_equity` / `no_spec`) rather than sizing
- * from the trader's typed-in equity or from the benchmark broker's contract
- * table.
+ * The order that reaches a broker must be sized from THAT broker's own numbers.
+ * Three inputs are therefore mandatory and none of them has a fallback:
+ *
+ *  - a finite, positive broker-reported equity (never the trader's typed-in
+ *    equity) → otherwise `account_equity_unavailable`;
+ *  - a non-empty broker-reported account currency (never assumed to be USD)
+ *    → otherwise `account_currency_unavailable`;
+ *  - a FRESH specification fetched for THIS account and symbol. The static
+ *    contract table and the benchmark broker's table can never stand in for a
+ *    customer account's specification → otherwise `account_spec_unavailable`.
+ *
+ * When any of them is missing no quantity is produced at all, so no order can
+ * exist. Ordinary Prompt-12 SignalCard sizing (`resolveSizingForUser` with no
+ * override) is untouched and keeps its static-table behaviour.
  */
+export type AccountSizingRefusalReason =
+  | "account_equity_unavailable"
+  | "account_currency_unavailable"
+  | "account_spec_unavailable";
+
+export interface AccountSizingRefusal {
+  available: false;
+  /** Which mandatory broker input was missing. */
+  accountReason: AccountSizingRefusalReason;
+  detail: string;
+}
+
+export type AccountSizingResponse = SizingResponse | AccountSizingRefusal;
+
+/** Narrowing helper: did connected-account sizing refuse for a broker-input reason? */
+export function isAccountSizingRefusal(
+  result: AccountSizingResponse,
+): result is AccountSizingRefusal {
+  return result.available === false && "accountReason" in result;
+}
+
 export async function resolveSizingForAccount(
   db: Db,
   userId: string,
   account: { id: string; equity: number | null; currency: string | null; equityAsOf: string | null },
   request: SizingRequest,
   now = Date.now(),
-): Promise<SizingResponse> {
-  const { loadAccountSizingSpec, accountSpecStale } = await import("@/lib/accounts/specs.server");
-  const spec = await loadAccountSizingSpec(db, account.id, request.instrument);
-  const usableSpec = spec && !accountSpecStale(spec, now) ? spec : null;
-
+  options?: { riskPercent?: number | null },
+): Promise<AccountSizingResponse> {
   const equity =
-    account.equity !== null && Number.isFinite(account.equity) && account.equity > 0
+    account.equity !== null &&
+    account.equity !== undefined &&
+    Number.isFinite(account.equity) &&
+    account.equity > 0
       ? account.equity
       : null;
+  if (equity === null) {
+    return {
+      available: false,
+      accountReason: "account_equity_unavailable",
+      detail: "your broker did not report a usable equity for this account",
+    };
+  }
+
+  const currency = (account.currency ?? "").trim();
+  if (!currency) {
+    return {
+      available: false,
+      accountReason: "account_currency_unavailable",
+      detail: "your broker did not report the deposit currency of this account",
+    };
+  }
+
+  const { loadAccountSizingSpec, accountSpecStale } = await import("@/lib/accounts/specs.server");
+  const spec = await loadAccountSizingSpec(db, account.id, request.instrument);
+  if (!spec) {
+    return {
+      available: false,
+      accountReason: "account_spec_unavailable",
+      detail: `no contract specification is stored for ${request.instrument} on this account`,
+    };
+  }
+  if (accountSpecStale(spec, now)) {
+    return {
+      available: false,
+      accountReason: "account_spec_unavailable",
+      detail: `this account's ${request.instrument} specification (as of ${spec.asOf ?? "unknown"}) is too old to size an order`,
+    };
+  }
 
   return await resolveSizingForUser(db, userId, request, now, {
     accountId: account.id,
-    equity: equity ?? 0,
-    currency: account.currency || "USD",
+    equity,
+    currency,
     equityAsOf: account.equityAsOf,
-    spec: usableSpec,
+    spec,
+    riskPercent: options?.riskPercent ?? null,
   });
 }

@@ -66,6 +66,7 @@ export type RejectReason =
   | "live_authorization_stale"
   | "account_spec_unavailable"
   | "account_equity_unavailable"
+  | "account_currency_unavailable"
   | "account_not_armed";
 
 export const REJECT_COPY: Record<RejectReason, string> = {
@@ -102,6 +103,8 @@ export const REJECT_COPY: Record<RejectReason, string> = {
     "Your broker has not published a usable contract specification for this symbol on this account, so no quantity could be established.",
   account_equity_unavailable:
     "Your broker did not report equity for this account, so the order could not be sized from the account it would land in.",
+  account_currency_unavailable:
+    "Your broker did not report the deposit currency of this account, so the order could not be sized. A currency is never assumed.",
   account_not_armed:
     "This broker account is not armed for automatic orders, or the matching system-wide switch is off.",
 };

@@ -186,13 +186,53 @@ export async function submitDirectOrder(
   plan: DirectOrderPlan,
   quantity: OrderQuantity,
   target: DirectTarget,
+  resize?: DirectResizer,
 ): Promise<DirectSubmitResult> {
+  // ---- Pre-submission safety refresh + FINAL sizing ------------------------
+  // Everything the earlier revalidation read can change in the meantime: an
+  // account can be switched to investor-only, have trading disabled, be
+  // converted, lose free margin — or simply hold different equity. The broker is
+  // asked ONE more time here, and the volume that goes on the order is derived
+  // from THAT answer, never from the earlier snapshot.
+  const refreshed = await refreshAccountSafety(db, target);
+  if (!refreshed.ok) {
+    await settle(db, delivery.id, {
+      destination_type: "metaapi_direct",
+      account_mode: target.mode,
+      state: "rejected",
+      reason: `pre_submit_safety: ${refreshed.detail}`,
+      settled_at: new Date().toISOString(),
+    });
+    return { state: "rejected", reason: refreshed.detail, brokerOrderId: null };
+  }
+  const freeMargin = refreshed.freeMargin;
+
+  let finalQuantity = quantity;
+  if (resize) {
+    const resized = await resize({
+      equity: refreshed.equity,
+      currency: refreshed.currency,
+      observedAt: refreshed.observedAt,
+    });
+    if (!resized.ok) {
+      await settle(db, delivery.id, {
+        destination_type: "metaapi_direct",
+        account_mode: target.mode,
+        state: "rejected",
+        reason: `pre_submit_sizing: ${resized.reason}: ${resized.detail}`,
+        settled_at: new Date().toISOString(),
+      });
+      return { state: "rejected", reason: resized.detail, brokerOrderId: null };
+    }
+    finalQuantity = resized.quantity;
+  }
+
   let order;
   try {
     order = buildDirectOrder(plan, {
       brokerSymbol: target.brokerSymbol,
       magic: target.magic,
-      quantity,
+      quantity: finalQuantity,
       deliveryId: delivery.id,
     });
   } catch (err) {
@@ -217,23 +257,6 @@ export async function submitDirectOrder(
     submitted_stop: order.stopLoss,
     submitted_target: order.takeProfit,
   };
-
-  // ---- Pre-submission safety refresh (Prompt 14 Stage 3 closure, D) --------
-  // Everything below was read when the delivery was revalidated; an account can
-  // be switched to investor-only, have trading disabled, be converted, or lose
-  // free margin in the meantime. The broker is asked ONE more time, immediately
-  // before submission, and a refusal or an absent answer stops the order.
-  const refreshed = await refreshAccountSafety(db, target);
-  if (!refreshed.ok) {
-    await settle(db, delivery.id, {
-      ...common,
-      state: "rejected",
-      reason: `pre_submit_safety: ${refreshed.detail}`,
-      settled_at: new Date().toISOString(),
-    });
-    return { state: "rejected", reason: refreshed.detail, brokerOrderId: null };
-  }
-  const freeMargin = refreshed.freeMargin;
 
   // ---- Broker-authoritative margin gate ------------------------------------
   let brokerMargin: number | null = null;
@@ -319,7 +342,25 @@ export async function submitDirectOrder(
 interface SafetyRefresh {
   ok: true;
   freeMargin: number | null;
+  /** The equity the broker reports RIGHT NOW; the only basis for the volume. */
+  equity: number | null;
+  /** The deposit currency the broker reports right now. Never assumed. */
+  currency: string | null;
+  /** When the broker observed the figures above. */
+  observedAt: string | null;
 }
+
+/**
+ * Derives the FINAL order quantity from the pre-submit broker snapshot. Supplied
+ * by the dispatcher; absent only in tests that assert the gates themselves.
+ */
+export type DirectResizer = (snapshot: {
+  equity: number | null;
+  currency: string | null;
+  observedAt: string | null;
+}) => Promise<
+  { ok: true; quantity: OrderQuantity } | { ok: false; reason: string; detail: string }
+>;
 
 /**
  * Re-read the destination account from the BROKER and re-apply every Stage-3
@@ -364,6 +405,9 @@ export async function refreshAccountSafety(
       investor_mode: typeof info.investorMode === "boolean" ? info.investorMode : null,
       broker_free_margin: freeMargin,
       broker_equity: typeof info.equity === "number" ? info.equity : null,
+      ...(typeof info.currency === "string" && info.currency.trim()
+        ? { account_currency: info.currency.trim() }
+        : {}),
       broker_observed_at: facts.observedAt,
     } as never)
     .eq("id", target.accountId);
@@ -390,7 +434,13 @@ export async function refreshAccountSafety(
   if (freeMargin === null) {
     return { ok: false, detail: "your broker did not report free margin for this account" };
   }
-  return { ok: true, freeMargin };
+  return {
+    ok: true,
+    freeMargin,
+    equity: typeof info.equity === "number" && Number.isFinite(info.equity) ? info.equity : null,
+    currency: typeof info.currency === "string" && info.currency.trim() ? info.currency.trim() : null,
+    observedAt: facts.observedAt ?? null,
+  };
 }
 
 async function settle(db: Db, id: number, patch: Record<string, unknown>): Promise<void> {

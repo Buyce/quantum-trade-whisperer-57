@@ -172,6 +172,26 @@ export async function processNextDelivery(
       },
       approved.quantity,
       approved.direct,
+      // The FINAL quantity is derived here, from the pre-submit broker snapshot,
+      // so an equity change between revalidation and submission is reflected in
+      // the submitted volume instead of being silently ignored.
+      async (snapshot) => {
+        const { resizeFromBrokerSnapshot } = await import("@/lib/execution/resize.server");
+        return await resizeFromBrokerSnapshot(
+          db,
+          {
+            userId: delivery.user_id,
+            accountId: approved.direct!.accountId,
+            instrument: approved.plan.instrument,
+            entryPrice: approved.plan.entryPrice,
+            stopLoss: approved.plan.stopLoss,
+            signalId: approved.plan.signalId,
+            riskPercent: approved.riskPercentOverride ?? null,
+          },
+          snapshot,
+          Date.now(),
+        );
+      },
     );
     return {
       deliveryId: delivery.id,

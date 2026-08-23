@@ -48,6 +48,8 @@ import { resolveSizingForAccount, resolveSizingForUser } from "@/lib/sizing/serv
 import { fetchQuote } from "@/lib/scanner/metaapi.server";
 import type { DeliveryDestination } from "@/lib/execution/direct";
 import { loadDirectTarget, type DirectTarget } from "@/lib/execution/direct.server";
+import { resolveBenchmarkDesignation } from "@/lib/benchmark/policy.server";
+import { isAccountSizingRefusal } from "@/lib/sizing/service.server";
 
 
 type Db = Pick<SupabaseClient, "from" | "rpc">;
@@ -111,6 +113,12 @@ export interface RevalidationApproved {
   };
   /** Always reported; only blocks when the user opted in. */
   exposure: ExposureVerdict | null;
+  /**
+   * Operator-owned benchmark risk percentage. Present ONLY for benchmark
+   * deliveries, so the benchmark record can never be sized by a customer's risk
+   * profile. Null ⇒ the account owner's own risk percentage applies.
+   */
+  riskPercentOverride: number | null;
 }
 
 
@@ -211,7 +219,62 @@ export async function revalidateDelivery(
     .eq("user_id", delivery.user_id)
     .maybeSingle();
 
-  const settings = settingsRow as SettingsRow | null;
+  // ---- 2a. Benchmark deliveries are governed by the OPERATOR policy --------
+  // The benchmark account exists to produce one honest broker-verified record of
+  // the published strategy. It therefore reads NOTHING from a customer's
+  // scanner_settings: instruments, minimum grade, daily cap, dry-run and risk
+  // percentage all come from the persisted, versioned benchmark policy. Two
+  // customers changing their preferences cannot alter a single benchmark order.
+  const isBenchmark = delivery.bridge_profile.startsWith("benchmark:");
+  let benchmarkRiskPercent: number | null = null;
+  let settings = settingsRow as SettingsRow | null;
+
+  if (isBenchmark) {
+    const designation = await resolveBenchmarkDesignation(db);
+    if (!designation.ok || !designation.policy) {
+      return reject(
+        "user_execution_disabled",
+        designation.reason ?? "benchmark execution is unavailable",
+      );
+    }
+    const policyRow = designation.policy;
+    if (policyRow.riskPercent === null || !(policyRow.riskPercent > 0)) {
+      return reject(
+        "user_execution_disabled",
+        "the benchmark policy has no risk percentage, so benchmark execution is unavailable",
+      );
+    }
+    if (
+      !delivery.connected_account_id ||
+      delivery.connected_account_id !== designation.accountId
+    ) {
+      return reject(
+        "account_not_armed",
+        "this delivery does not name the designated benchmark account",
+      );
+    }
+    benchmarkRiskPercent = policyRow.riskPercent;
+    settings = {
+      instruments: policyRow.instruments,
+      // The benchmark trades the published strategy in every session it is
+      // published in; a customer's session filter is not part of the record.
+      sessions: [],
+      alert_min_grade: policyRow.minGrade,
+      daily_setup_cap: policyRow.dailyOrderCap ?? 0,
+      execution_enabled: true,
+      execution_dry_run: policyRow.dryRun,
+      // A benchmark delivery is authorised by the POLICY version it was enqueued
+      // under, never by a customer's execution configuration version.
+      execution_config_version: policyRow.policyVersion,
+      exposure_limit_enabled: false,
+      webhook_enabled: false,
+      webhook_url: null,
+      webhook_secret: null,
+      webhook_format: null,
+      webhook_validated_at: null,
+    };
+  }
+
   if (!settings) return reject("user_execution_disabled");
   // A DIRECT delivery is authorized by the ACCOUNT's armed mode, not by the
   // customer-bridge switches: it never touches a webhook, so requiring bridge
@@ -426,8 +489,14 @@ export async function revalidateDelivery(
         },
         sizingRequest,
         now,
+        { riskPercent: benchmarkRiskPercent },
       )
     : await resolveSizingForUser(db, delivery.user_id, sizingRequest, now);
+  // Fail-closed broker inputs surface as themselves, never as a generic
+  // guardrail: a missing account currency is not a risk decision.
+  if (isAccountSizingRefusal(sizing)) {
+    return reject(sizing.accountReason, sizing.detail);
+  }
   if (!sizing.available) return reject("risk_guardrail", sizing.reason);
   if (sizing.belowMinimumLot || sizing.exceedsMargin || sizing.exceedsStopCeiling) {
     return reject(
@@ -514,6 +583,7 @@ export async function revalidateDelivery(
       quantity,
       plan: approvedPlan,
       exposure,
+      riskPercentOverride: benchmarkRiskPercent,
     };
   }
 
@@ -567,6 +637,7 @@ export async function revalidateDelivery(
     quantity,
     plan: approvedPlan,
     exposure,
+    riskPercentOverride: null,
   };
 }
 
