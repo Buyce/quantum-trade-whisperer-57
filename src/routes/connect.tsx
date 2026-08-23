@@ -451,22 +451,21 @@ function ConnectPage() {
               <Steps
                 items={[
                   <>
-                    Open{" "}
-                    <Ext href="https://chatgpt.com/#settings/Connectors">Apps &amp; Connectors</Ext>{" "}
-                    and select P-Trades Hub.
+                    Open <Ext href="https://chatgpt.com/plugins">chatgpt.com/plugins</Ext> and open
+                    the P-Trades Hub app's details page.
                   </>,
                   <>
-                    Scroll to its details and click{" "}
-                    <strong className="text-foreground">Refresh</strong> to reload what the
-                    connector can do.
+                    Click <strong className="text-foreground">Refresh</strong> to pull the latest
+                    tools, descriptions and server instructions, then check the tool toggles.
                   </>,
                   <>
-                    ChatGPT can't change an existing connector's URL — if the URL above changed,
-                    delete the connector and connect again.
+                    ChatGPT can't change an existing app's URL — if the URL above changed, delete the
+                    app and connect again.
                   </>,
                   <>Start a new chat and ask ChatGPT to use P-Trades Hub.</>,
                 ]}
               />
+
             </TabsContent>
 
             <TabsContent
