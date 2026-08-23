@@ -142,7 +142,7 @@ function AccountsPage() {
           <div className="flex items-center gap-2 font-medium text-foreground">
             {armed.length === 0 ? (
               <>
-                <Eye className="size-4" /> Observe mode
+                <Eye className="size-4" /> Observe mode — nothing armed yet
               </>
             ) : (
               <>
