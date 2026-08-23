@@ -19,7 +19,7 @@
  * worker, so every per-account error is caught and summarised.
  */
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { classifyMetaApiFailure } from "@/lib/metaapi/errors";
+import { classifyMetaApiFailure, type MetaApiFailureKind } from "@/lib/metaapi/errors";
 import { fetchMetrics } from "@/lib/metaapi/metastats.server";
 import {
   TELEMETRY_ITEMS_PER_RUN,
@@ -30,6 +30,18 @@ import {
 
 /** Backoff applied to an account whose refusal will not resolve by itself. */
 const PARK_SECONDS = 24 * 3600;
+
+/**
+ * Refusals that will NOT clear on their own: retrying hourly would keep failing
+ * and, in the billing case, keep costing. The account is parked and probed once
+ * after a long backoff instead.
+ */
+const PARK_KINDS: MetaApiFailureKind[] = [
+  "provider_billing",
+  "feature_not_enabled",
+  "auth",
+  "not_found",
+];
 
 export interface CollectSummary {
   considered: number;
@@ -159,7 +171,7 @@ export async function collectAccountTelemetry(
       } else {
         summary.unavailable += 1;
         const failure = classifyMetaApiFailure(new Error(snapshot.reason ?? ""));
-        if (failure.kind === "billing" || failure.kind === "permission") {
+        if (PARK_KINDS.includes(failure.kind)) {
           await park(row.id, snapshot.reason ?? failure.message);
           summary.parked += 1;
         }
@@ -167,7 +179,7 @@ export async function collectAccountTelemetry(
     } catch (err) {
       const failure = classifyMetaApiFailure(err);
       summary.errors.push(`${row.id}: ${failure.message}`);
-      if (failure.kind === "billing" || failure.kind === "permission") {
+      if (PARK_KINDS.includes(failure.kind)) {
         await park(row.id, failure.message).catch(() => undefined);
         summary.parked += 1;
       }

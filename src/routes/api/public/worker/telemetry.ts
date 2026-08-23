@@ -25,7 +25,7 @@ export const Route = createFileRoute("/api/public/worker/telemetry")({
 
         try {
           const summary = await collectAccountTelemetry(TELEMETRY_ITEMS_PER_RUN);
-          return Response.json({ ok: true, ...summary });
+          return Response.json({ ok: true, summary });
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           console.error("[worker/telemetry]", message);
