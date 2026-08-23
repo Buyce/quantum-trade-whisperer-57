@@ -192,6 +192,8 @@ describe("documentation contract: provenance wording", () => {
 
 describe("documentation contract: ChatGPT developer mode instructions", () => {
   const CONNECT = "src/routes/connect.tsx";
+  /** Collapse JSX line wrapping so prose assertions are not layout-sensitive. */
+  const flat = (text: string) => text.replace(/\s+/g, " ");
 
   it("[INVARIANT] does not use the stale Settings → Security and login path", () => {
     expect(read(CONNECT)).not.toMatch(/Security and login/i);
@@ -226,8 +228,8 @@ describe("documentation contract: ChatGPT developer mode instructions", () => {
   });
 
   it("[INVARIANT] states confirmation depends on permissions, context and risk", () => {
-    expect(read(CONNECT)).toMatch(
-      /may ask for confirmation depending on permissions, action context and risk/i,
+    expect(flat(read(CONNECT))).toMatch(
+      /may ask for confirmation before an action depending on permissions, action context and risk/i,
     );
   });
 
@@ -242,7 +244,7 @@ describe("documentation contract: ChatGPT developer mode instructions", () => {
   it("[INVARIANT] keeps the write-tool availability caveat", () => {
     const text = read(CONNECT);
     expect(text).toMatch(/update_my_settings/);
-    expect(text).toMatch(/availability depends[^.\n]{0,80}plan and workspace permissions/i);
+    expect(flat(text)).toMatch(/availability depends[^.]{0,80}plan and workspace permissions/i);
   });
 });
 
