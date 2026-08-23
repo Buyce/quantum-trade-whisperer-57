@@ -41,9 +41,10 @@ import {
   type SignalRow,
 } from "@/lib/db-types";
 import { marketStatus } from "@/lib/market-hours";
-import { minStopDistance } from "@/lib/broker/specs";
+import { minStopDistance, type SizingSpec } from "@/lib/broker/specs";
 import { loadBrokerSpec } from "@/lib/broker/specs.server";
-import { resolveSizingForUser } from "@/lib/sizing/service.server";
+import { accountSpecStale, loadAccountSizingSpec } from "@/lib/accounts/specs.server";
+import { resolveSizingForAccount, resolveSizingForUser } from "@/lib/sizing/service.server";
 import { fetchQuote } from "@/lib/scanner/metaapi.server";
 import type { DeliveryDestination } from "@/lib/execution/direct";
 import { loadDirectTarget, type DirectTarget } from "@/lib/execution/direct.server";
@@ -352,8 +353,54 @@ export async function revalidateDelivery(
     return reject("price_beyond_max_acceptable_entry", String(marketPrice));
   }
 
+  // ---- 5b. Direct destination: resolve and gate the ACCOUNT first ----------
+  // The destination account decides the specification, the equity and the
+  // authorisation, so it is resolved before any sizing happens.
+  let directTarget: DirectTarget | null = null;
+  if (destination === "metaapi_direct") {
+    const resolvedTarget = await loadDirectTarget(db, {
+      connectedAccountId: delivery.connected_account_id as string,
+      userId: delivery.user_id,
+      instrument: signal.instrument,
+      globalDemoAuto: controls.demo_auto_enabled === true,
+      globalLiveAuto: controls.live_auto_enabled === true,
+    });
+    if (!resolvedTarget.ok) return reject("account_not_armed", resolvedTarget.detail);
+    directTarget = resolvedTarget.target;
+
+    // A LIVE destination additionally needs a confirmation that is still bound
+    // to the CURRENT configuration and was given while live execution was
+    // genuinely available. A stale authorisation is never reused.
+    if (directTarget.mode === "live_auto" || directTarget.mode === "live_confirm") {
+      if (!globallyLive) {
+        return reject("live_execution_globally_disabled", "live execution is disabled system-wide");
+      }
+      if (!liveConfirmationValid(settings, currentVersion)) {
+        return reject("live_authorization_stale", `configuration v${currentVersion}`);
+      }
+    }
+  }
+
   // ---- 6. Broker stop distance + sizing guardrails --------------------------
-  const spec = await loadBrokerSpec(db, signal.instrument);
+  // A direct order is validated against the DESTINATION account's own
+  // specification; the benchmark broker's table is never substituted for it.
+  const spec: SizingSpec | null = directTarget
+    ? await loadAccountSizingSpec(db, directTarget.accountId, signal.instrument)
+    : await loadBrokerSpec(db, signal.instrument);
+  if (directTarget) {
+    if (!spec) {
+      return reject(
+        "account_spec_unavailable",
+        `no contract specification is stored for ${signal.instrument} on this account`,
+      );
+    }
+    if (accountSpecStale(spec, now)) {
+      return reject("account_spec_unavailable", `specification as of ${spec.asOf ?? "unknown"}`);
+    }
+    if (directTarget.equity === null || !(directTarget.equity > 0)) {
+      return reject("account_equity_unavailable");
+    }
+  }
   if (spec) {
     const minDistance = minStopDistance(spec);
     if (minDistance !== null && Math.abs(plan.entryPrice - plan.stopLoss) < minDistance) {
@@ -361,17 +408,26 @@ export async function revalidateDelivery(
     }
   }
 
-  const sizing = await resolveSizingForUser(
-    db,
-    delivery.user_id,
-    {
-      instrument: signal.instrument,
-      entryPrice: plan.entryPrice,
-      stopLoss: plan.stopLoss,
-      signalId: signal.id,
-    },
-    now,
-  );
+  const sizingRequest = {
+    instrument: signal.instrument,
+    entryPrice: plan.entryPrice,
+    stopLoss: plan.stopLoss,
+    signalId: signal.id,
+  };
+  const sizing = directTarget
+    ? await resolveSizingForAccount(
+        db,
+        delivery.user_id,
+        {
+          id: directTarget.accountId,
+          equity: directTarget.equity,
+          currency: directTarget.currency,
+          equityAsOf: directTarget.observedAt,
+        },
+        sizingRequest,
+        now,
+      )
+    : await resolveSizingForUser(db, delivery.user_id, sizingRequest, now);
   if (!sizing.available) return reject("risk_guardrail", sizing.reason);
   if (sizing.belowMinimumLot || sizing.exceedsMargin || sizing.exceedsStopCeiling) {
     return reject(
@@ -438,16 +494,7 @@ export async function revalidateDelivery(
   // No endpoint, no signature, no allowlist: the destination is the broker
   // itself through MetaApi, and authorization comes from the ACCOUNT's armed
   // mode plus the matching system-wide gate. Both default OFF.
-  if (destination === "metaapi_direct") {
-    const target = await loadDirectTarget(db, {
-      connectedAccountId: delivery.connected_account_id as string,
-      userId: delivery.user_id,
-      instrument: signal.instrument,
-      globalDemoAuto: controls.demo_auto_enabled === true,
-      globalLiveAuto: controls.live_auto_enabled === true,
-    });
-    if (!target.ok) return reject("user_execution_disabled", target.detail);
-
+  if (destination === "metaapi_direct" && directTarget) {
     // The only dry-run levers on the direct path are the operator's global
     // force flag and the queued row's own flag. There is no "verified quantity
     // contract" question: we construct the order ourselves.
@@ -463,7 +510,7 @@ export async function revalidateDelivery(
       dryRun: directDryReason !== null,
       dryRunReason: directDryReason,
       endpoint: null,
-      direct: target.target,
+      direct: directTarget,
       quantity,
       plan: approvedPlan,
       exposure,

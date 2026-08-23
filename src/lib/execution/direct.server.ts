@@ -16,6 +16,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { isMappingUsable, mapSymbol } from "@/lib/accounts/symbol-map";
+import { fetchAccountFacts } from "@/lib/metaapi/accounts.server";
 import { estimateMargin } from "@/lib/metaapi/margin.server";
 import { submitPendingOrder } from "@/lib/metaapi/trade.server";
 import type { AccountMode } from "@/lib/accounts/types";
@@ -41,6 +42,15 @@ export interface DirectTarget {
   brokerSymbol: string;
   freeMargin: number | null;
   accountType: AccountType;
+  /** Broker-reported equity, used as the AUTHORITATIVE sizing equity. */
+  equity: number | null;
+  /** Broker-reported deposit currency of this account. */
+  currency: string | null;
+  /** When the broker reported the figures above. */
+  observedAt: string | null;
+  /** System-wide mode gates, carried so the pre-submit refresh can re-apply them. */
+  globalDemoAuto: boolean;
+  globalLiveAuto: boolean;
 }
 
 export type DirectTargetResult =
@@ -59,6 +69,9 @@ interface AccountRow {
   investor_mode: boolean | null;
   broker_account_type: AccountType;
   broker_free_margin: number | null;
+  broker_equity: number | null;
+  account_currency: string | null;
+  broker_observed_at: string | null;
   disconnected_at: string | null;
 }
 
@@ -82,7 +95,7 @@ export async function loadDirectTarget(
   const { data } = await db
     .from("connected_trading_accounts")
     .select(
-      "id, metaapi_account_id, region, magic, mode, phase, intent_conflict, trade_allowed, investor_mode, broker_account_type, broker_free_margin, disconnected_at",
+      "id, metaapi_account_id, region, magic, mode, phase, intent_conflict, trade_allowed, investor_mode, broker_account_type, broker_free_margin, broker_equity, account_currency, broker_observed_at, disconnected_at",
     )
     .eq("id", input.connectedAccountId)
     .eq("user_id", input.userId)
@@ -148,6 +161,11 @@ export async function loadDirectTarget(
       freeMargin:
         account.broker_free_margin === null ? null : Number(account.broker_free_margin),
       accountType: account.broker_account_type,
+      equity: account.broker_equity === null ? null : Number(account.broker_equity),
+      currency: account.account_currency,
+      observedAt: account.broker_observed_at,
+      globalDemoAuto: input.globalDemoAuto,
+      globalLiveAuto: input.globalLiveAuto,
     },
   };
 }
@@ -200,6 +218,23 @@ export async function submitDirectOrder(
     submitted_target: order.takeProfit,
   };
 
+  // ---- Pre-submission safety refresh (Prompt 14 Stage 3 closure, D) --------
+  // Everything below was read when the delivery was revalidated; an account can
+  // be switched to investor-only, have trading disabled, be converted, or lose
+  // free margin in the meantime. The broker is asked ONE more time, immediately
+  // before submission, and a refusal or an absent answer stops the order.
+  const refreshed = await refreshAccountSafety(db, target);
+  if (!refreshed.ok) {
+    await settle(db, delivery.id, {
+      ...common,
+      state: "rejected",
+      reason: `pre_submit_safety: ${refreshed.detail}`,
+      settled_at: new Date().toISOString(),
+    });
+    return { state: "rejected", reason: refreshed.detail, brokerOrderId: null };
+  }
+  const freeMargin = refreshed.freeMargin;
+
   // ---- Broker-authoritative margin gate ------------------------------------
   let brokerMargin: number | null = null;
   try {
@@ -212,7 +247,7 @@ export async function submitDirectOrder(
   } catch {
     brokerMargin = null;
   }
-  const marginGate = marginAcceptable(brokerMargin, target.freeMargin);
+  const marginGate = marginAcceptable(brokerMargin, freeMargin);
   if (!marginGate.ok) {
     await settle(db, delivery.id, {
       ...common,
@@ -279,6 +314,83 @@ export async function submitDirectOrder(
     reason: state === "acknowledged" ? null : (verdict.message ?? verdict.stringCode ?? null),
     brokerOrderId: verdict.orderId,
   };
+}
+
+interface SafetyRefresh {
+  ok: true;
+  freeMargin: number | null;
+}
+
+/**
+ * Re-read the destination account from the BROKER and re-apply every Stage-3
+ * gate. Fails closed: no answer, a changed account type, investor mode, trading
+ * disabled or a conflicted connection all refuse.
+ */
+export async function refreshAccountSafety(
+  db: Db,
+  target: DirectTarget,
+): Promise<SafetyRefresh | { ok: false; detail: string }> {
+  let facts;
+  try {
+    facts = await fetchAccountFacts(target.metaapiAccountId, target.region);
+  } catch (err) {
+    return {
+      ok: false,
+      detail: `your broker could not be reached to re-check the account (${err instanceof Error ? err.message : String(err)})`,
+    };
+  }
+  if (!facts) return { ok: false, detail: "your broker returned no account information" };
+
+  const info = facts.info as {
+    tradeAllowed?: boolean | null;
+    investorMode?: boolean | null;
+    freeMargin?: number | null;
+    equity?: number | null;
+    balance?: number | null;
+    currency?: string | null;
+  };
+  const freeMargin =
+    typeof info.freeMargin === "number" && Number.isFinite(info.freeMargin)
+      ? info.freeMargin
+      : null;
+
+  // Persist the fresh broker facts: the account screen must not keep showing
+  // figures that were already superseded at submission time.
+  await db
+    .from("connected_trading_accounts")
+    .update({
+      broker_account_type: facts.type,
+      trade_allowed: info.tradeAllowed ?? null,
+      investor_mode: typeof info.investorMode === "boolean" ? info.investorMode : null,
+      broker_free_margin: freeMargin,
+      broker_equity: typeof info.equity === "number" ? info.equity : null,
+      broker_observed_at: facts.observedAt,
+    } as never)
+    .eq("id", target.accountId);
+
+  if (facts.type !== target.accountType) {
+    return {
+      ok: false,
+      detail: `your broker now reports this account as ${facts.type.toUpperCase()}, not ${target.accountType.toUpperCase()}`,
+    };
+  }
+
+  const gate = directExecutionAllowed({
+    mode: target.mode,
+    brokerAccountType: facts.type,
+    tradeAllowed: info.tradeAllowed ?? null,
+    investorMode: typeof info.investorMode === "boolean" ? info.investorMode : null,
+    ready: true,
+    intentConflict: false,
+    globalDemoAuto: target.globalDemoAuto,
+    globalLiveAuto: target.globalLiveAuto,
+  });
+  if (!gate.ok) return { ok: false, detail: gate.detail };
+
+  if (freeMargin === null) {
+    return { ok: false, detail: "your broker did not report free margin for this account" };
+  }
+  return { ok: true, freeMargin };
 }
 
 async function settle(db: Db, id: number, patch: Record<string, unknown>): Promise<void> {

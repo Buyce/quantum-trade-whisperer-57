@@ -193,3 +193,59 @@ export function summariseGroup(group: DealGroup): DealSummary {
 export function evidenceClassFor(isBenchmarkAccount: boolean): EvidenceClass {
   return isBenchmarkAccount ? "benchmark" : "customer";
 }
+
+/**
+ * Prompt 14 Stage 4 closure (F) — broker stop provenance.
+ *
+ * `actual_initial_stop` must be the stop THE BROKER holds, not the stop
+ * P-Trades asked for. They differ whenever a broker adjusts or rejects a level.
+ * Resolution order, each strictly broker-reported:
+ *   1. the open position matched to this group
+ *   2. the order that opened it (history order)
+ * Nothing matched, or no stop attached, yields `null` with an explicit source so
+ * downstream R math can declare the input unavailable instead of guessing.
+ */
+export type StopSource = "broker_position" | "broker_order" | "broker_reported_none" | "unknown";
+
+export interface BrokerStop {
+  stop: number | null;
+  source: StopSource;
+}
+
+function stopOf(value: number | null | undefined): number | null {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
+}
+
+export function resolveBrokerStop(
+  group: DealGroup,
+  positions: readonly { id?: string | null; clientId?: string | null; stopLoss?: number | null }[],
+  orders: readonly {
+    id?: string | null;
+    positionId?: string | null;
+    clientId?: string | null;
+    stopLoss?: number | null;
+  }[],
+): BrokerStop {
+  const position = positions.find(
+    (p) =>
+      (group.brokerPositionId !== null && p.id === group.brokerPositionId) ||
+      (p.clientId !== null && p.clientId === group.clientId),
+  );
+  if (position) {
+    const stop = stopOf(position.stopLoss);
+    return { stop, source: stop === null ? "broker_reported_none" : "broker_position" };
+  }
+
+  const order = orders.find(
+    (o) =>
+      (group.brokerOrderId !== null && o.id === group.brokerOrderId) ||
+      (group.brokerPositionId !== null && o.positionId === group.brokerPositionId) ||
+      (o.clientId !== null && o.clientId === group.clientId),
+  );
+  if (order) {
+    const stop = stopOf(order.stopLoss);
+    return { stop, source: stop === null ? "broker_reported_none" : "broker_order" };
+  }
+
+  return { stop: null, source: "unknown" };
+}

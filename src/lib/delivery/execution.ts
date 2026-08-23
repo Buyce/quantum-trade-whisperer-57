@@ -62,7 +62,11 @@ export type RejectReason =
   | "exposure_guardrail"
   | "host_not_allowlisted"
   | "configuration_changed_since_enqueue"
-  | "policy_unsupported";
+  | "policy_unsupported"
+  | "live_authorization_stale"
+  | "account_spec_unavailable"
+  | "account_equity_unavailable"
+  | "account_not_armed";
 
 export const REJECT_COPY: Record<RejectReason, string> = {
   live_execution_globally_disabled: "Live execution is disabled system-wide.",
@@ -92,6 +96,14 @@ export const REJECT_COPY: Record<RejectReason, string> = {
   configuration_changed_since_enqueue:
     "Your execution configuration changed after this setup was queued, so the queued order was not sent under the new authorization.",
   policy_unsupported: "The configured execution policy is not supported.",
+  live_authorization_stale:
+    "Your live-execution confirmation does not match the current configuration, so no live order was sent. Confirm live execution again to re-authorise it.",
+  account_spec_unavailable:
+    "Your broker has not published a usable contract specification for this symbol on this account, so no quantity could be established.",
+  account_equity_unavailable:
+    "Your broker did not report equity for this account, so the order could not be sized from the account it would land in.",
+  account_not_armed:
+    "This broker account is not armed for automatic orders, or the matching system-wide switch is off.",
 };
 
 /**
