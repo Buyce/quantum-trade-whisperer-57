@@ -177,8 +177,24 @@ function AccountsPage() {
         )}
 
         <div className="mt-5 flex flex-wrap items-center gap-3">
-          <Button onClick={() => setWizardOpen(true)} disabled={!canAddDemo && !canAddLive}>
+          <Button
+            onClick={() => {
+              setLinkOpen(false);
+              setWizardOpen(true);
+            }}
+            disabled={!canAddDemo && !canAddLive}
+          >
             <Plus className="size-4" /> Connect a broker account
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setWizardOpen(false);
+              setLinkOpen(true);
+            }}
+            disabled={!canAddDemo && !canAddLive}
+          >
+            <Link2 className="size-4" /> Link an account I already have
           </Button>
           {quota.data ? (
             <span className="num text-xs text-muted-foreground">
@@ -193,6 +209,15 @@ function AccountsPage() {
             canAddDemo={canAddDemo}
             canAddLive={canAddLive}
             onClose={() => setWizardOpen(false)}
+            onDone={invalidate}
+          />
+        ) : null}
+
+        {linkOpen ? (
+          <LinkExistingAccount
+            canAddDemo={canAddDemo}
+            canAddLive={canAddLive}
+            onClose={() => setLinkOpen(false)}
             onDone={invalidate}
           />
         ) : null}
