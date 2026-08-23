@@ -46,7 +46,7 @@ function retryAfterSeconds(res: Response): number | null {
  * `MetaApiHttpError` — nothing else escapes.
  */
 export async function metaApiRequest<T = unknown>(options: MetaApiRequestOptions): Promise<T | null> {
-  const token = readMetaApiToken();
+  const token = readMetaApiToken(options.service === "provisioning" ? "provisioning" : "general");
   const host = resolveHost(options.service, options.region ?? null);
   if (!host) {
     throw new MetaApiNotConfiguredError(
