@@ -56,6 +56,7 @@ export async function createAccount(
   input: CreateAccountInput,
   transactionId: string,
 ): Promise<{ id: string; state: string | null }> {
+  assertCanCreateAccounts();
   const body: Record<string, unknown> = {
     name: input.name,
     type: "cloud-g2",
