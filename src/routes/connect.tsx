@@ -275,10 +275,9 @@ function ConnectPage() {
                 <Ext href="https://help.openai.com/en/articles/12584461-developer-mode-and-mcp-apps-in-chatgpt">
                   developer mode help article
                 </Ext>
-                ). P-Trades Hub does expose write tools — <code className="num">
-                  update_my_settings
-                </code>
-                , <code className="num">log_trade_decision</code>,{" "}
+                ). P-Trades Hub does expose write tools —{" "}
+                <code className="num">update_my_settings</code>,{" "}
+                <code className="num">log_trade_decision</code>,{" "}
                 <code className="num">update_trade_outcome</code> — but whether ChatGPT may invoke
                 them depends on your current plan and workspace permissions, not on this app.
                 Reading setups, status, sizing and your journal works wherever developer mode is
@@ -299,20 +298,20 @@ function ConnectPage() {
                   </>,
                   <>
                     Name it <strong className="text-foreground">P-Trades Hub</strong>, paste the
-                    server URL above, and choose{" "}
-                    <strong className="text-foreground">OAuth</strong> authentication — P-Trades Hub
-                    signs you in with your own account, so no static key is needed.
+                    server URL above, and choose <strong className="text-foreground">OAuth</strong>{" "}
+                    authentication — P-Trades Hub signs you in with your own account, so no static
+                    key is needed.
                   </>,
                   <>
-                    Confirm the trust/risk acknowledgement ChatGPT shows for every custom MCP server,
-                    then create the app. ChatGPT scans the server and lists its tools; you can
-                    toggle individual tools on the app's details page.
+                    Confirm the trust/risk acknowledgement ChatGPT shows for every custom MCP
+                    server, then create the app. ChatGPT scans the server and lists its tools; you
+                    can toggle individual tools on the app's details page.
                   </>,
                   <>
                     In a chat, pick <strong className="text-foreground">Developer mode</strong> from
-                    the “+” menu, enable P-Trades Hub, sign in when prompted, then ask ChatGPT to use
-                    it. Write actions ask for confirmation each time unless you choose to remember
-                    the approval for that conversation.
+                    the “+” menu, enable P-Trades Hub, sign in when prompted, then ask ChatGPT to
+                    use it. Write actions ask for confirmation each time unless you choose to
+                    remember the approval for that conversation.
                   </>,
                 ]}
               />
@@ -388,7 +387,6 @@ function ConnectPage() {
               </p>
             </TabsContent>
 
-
             <TabsContent
               value="claude-code"
               className="rounded-md border border-border bg-card p-4 sm:p-5"
@@ -459,13 +457,12 @@ function ConnectPage() {
                     tools, descriptions and server instructions, then check the tool toggles.
                   </>,
                   <>
-                    ChatGPT can't change an existing app's URL — if the URL above changed, delete the
-                    app and connect again.
+                    ChatGPT can't change an existing app's URL — if the URL above changed, delete
+                    the app and connect again.
                   </>,
                   <>Start a new chat and ask ChatGPT to use P-Trades Hub.</>,
                 ]}
               />
-
             </TabsContent>
 
             <TabsContent
@@ -476,8 +473,9 @@ function ConnectPage() {
                 items={[
                   <>
                     Open <strong className="text-foreground">Customize → Connectors</strong> (Team
-                    and Enterprise Owners: <strong className="text-foreground">Organization
-                    settings → Connectors</strong>) and select P-Trades Hub.
+                    and Enterprise Owners:{" "}
+                    <strong className="text-foreground">Organization settings → Connectors</strong>)
+                    and select P-Trades Hub.
                   </>,
 
                   <>Refresh or update the connector.</>,

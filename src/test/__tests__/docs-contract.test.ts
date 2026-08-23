@@ -109,7 +109,6 @@ describe("documentation contract: guide matches the History route", () => {
   });
 });
 
-
 describe("documentation contract: internal links resolve", () => {
   it("[INVARIANT] every relative markdown link points at a file that exists", () => {
     const link = /\]\((?!https?:|mailto:|#)([^)\s#]+)/g;

@@ -197,8 +197,6 @@ const SECTIONS: Section[] = [
         ],
       },
 
-
-
       {
         id: "entry-window",
         q: "Why did a setup disappear, and what is the maximum acceptable entry?",
