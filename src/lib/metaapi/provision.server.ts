@@ -79,35 +79,36 @@ export async function fetchProvisionedAccount(accountId: string): Promise<Provis
 
 export interface ConfigurationLink {
   url: string;
-  /** Link lifetime in minutes, as requested. */
-  ttlMinutes: number;
+  /** Link lifetime in days, as requested (MetaApi's own unit for this call). */
+  ttlDays: number;
   expiresAt: string;
 }
 
 /** MetaApi's documented default TTL for configuration links. */
-export const CONFIGURATION_LINK_DEFAULT_TTL_MINUTES = 60;
+export const CONFIGURATION_LINK_DEFAULT_TTL_DAYS = 7;
 
 /**
- * A one-time hosted page where the account owner enters broker credentials.
+ * A hosted page where the account owner enters their broker credentials.
  * We never see, transmit or store the password.
  */
 export async function createConfigurationLink(
   accountId: string,
-  ttlMinutes = CONFIGURATION_LINK_DEFAULT_TTL_MINUTES,
+  ttlDays = CONFIGURATION_LINK_DEFAULT_TTL_DAYS,
 ): Promise<ConfigurationLink | null> {
   const res = await metaApiRequest<{ configurationLink?: string }>({
     ...PROVISIONING,
     method: "PUT",
     label: "configuration link",
-    path: `/users/current/accounts/${accountId}/configuration-link?ttlInDays=${(ttlMinutes / (60 * 24)).toFixed(6)}`,
+    path: `/users/current/accounts/${accountId}/configuration-link?ttlInDays=${ttlDays}`,
   });
   if (!res?.configurationLink) return null;
   return {
     url: res.configurationLink,
-    ttlMinutes,
-    expiresAt: new Date(Date.now() + ttlMinutes * 60_000).toISOString(),
+    ttlDays,
+    expiresAt: new Date(Date.now() + ttlDays * 86_400_000).toISOString(),
   };
 }
+
 
 export async function deployAccount(accountId: string): Promise<void> {
   await metaApiRequest({
