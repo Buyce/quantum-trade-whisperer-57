@@ -30,10 +30,15 @@ export type MetaStatsResult<T> =
   | { status: "processing"; retryAfterSeconds: number | null }
   | { status: "unavailable"; reason: string };
 
-async function read<T>(label: string, path: string): Promise<MetaStatsResult<T>> {
+async function read<T>(
+  label: string,
+  path: string,
+  region: string | null,
+): Promise<MetaStatsResult<T>> {
   try {
     const data = await metaApiRequest<T>({
       service: "metastats",
+      region,
       label,
       path,
       throwOn202: true,
@@ -51,19 +56,23 @@ async function read<T>(label: string, path: string): Promise<MetaStatsResult<T>>
 
 export async function fetchMetrics(
   accountId: string,
+  region: string | null,
   includeOpenPositions = false,
 ): Promise<MetaStatsResult<MetaStatsMetrics>> {
   return await read<MetaStatsMetrics>(
     "metastats metrics",
     `/users/current/accounts/${accountId}/metrics?includeOpenPositions=${includeOpenPositions}`,
+    region,
   );
 }
 
 export async function fetchOpenTrades(
   accountId: string,
+  region: string | null,
 ): Promise<MetaStatsResult<Record<string, unknown>[]>> {
   return await read<Record<string, unknown>[]>(
     "metastats open trades",
     `/users/current/accounts/${accountId}/open-trades`,
+    region,
   );
 }
