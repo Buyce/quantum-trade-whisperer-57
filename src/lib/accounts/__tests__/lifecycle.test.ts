@@ -122,10 +122,12 @@ describe("onboarding guidance", () => {
     expect(HELP_TOPICS.some((t) => t.id === "server" && t.whereToLook.length > 0)).toBe(true);
   });
 
-  it("[INVARIANT] with nothing armed the page promises observation only", () => {
+  it("[INVARIANT] with nothing armed the page says nothing is armed, without denying Demo Auto", () => {
     expect(capabilityNote([])).toBe(STAGE_CAPABILITY_NOTE);
     expect(STAGE_CAPABILITY_NOTE).toMatch(/Observe mode/);
-    expect(STAGE_CAPABILITY_NOTE).toMatch(/does not place, change or close any order/);
+    expect(STAGE_CAPABILITY_NOTE).toMatch(/Nothing is armed right now/);
+    expect(STAGE_CAPABILITY_NOTE).not.toMatch(/does not place, change or close any order/);
+    expect(STAGE_CAPABILITY_NOTE).toMatch(/real money stay switched off/);
   });
 
   it("[INVARIANT] an armed account is never described as observe-only", () => {
