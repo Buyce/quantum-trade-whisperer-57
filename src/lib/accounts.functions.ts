@@ -80,3 +80,14 @@ export const resolveAmbiguousSymbol = createServerFn({ method: "POST" })
     const { chooseBrokerSymbol } = await import("@/lib/accounts/provision.server");
     return await chooseBrokerSymbol(context.userId, data);
   });
+
+export const setBrokerAccountMode = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { accountId: string; mode: string }) => input)
+  .handler(async ({ data, context }): Promise<ConnectedAccountView | null> => {
+    const { setAccountMode } = await import("@/lib/accounts/arm.server");
+    const { loadAccountViews } = await import("@/lib/accounts/read.server");
+    await setAccountMode(context.userId, data.accountId, data.mode);
+    const views = await loadAccountViews(context.supabase, context.userId);
+    return views.find((v) => v.id === data.accountId) ?? null;
+  });

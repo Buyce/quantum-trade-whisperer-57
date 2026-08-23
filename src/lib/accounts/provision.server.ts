@@ -145,8 +145,12 @@ export async function startConnection(
         magic: 0,
         reliability: "high",
         manualTrades: true,
-        metastatsApiEnabled: true,
-        riskManagementApiEnabled: true,
+        // Prompt 14 Stage 3 closure (E): MetaStats and the Risk Management API
+        // are separately billed MetaApi features. A customer connection never
+        // silently opts the operator into them; Stage 5 enables them explicitly
+        // per account when telemetry is requested.
+        metastatsApiEnabled: false,
+        riskManagementApiEnabled: false,
         draft: true,
       },
       transactionId,
