@@ -45,6 +45,9 @@ import { minStopDistance } from "@/lib/broker/specs";
 import { loadBrokerSpec } from "@/lib/broker/specs.server";
 import { resolveSizingForUser } from "@/lib/sizing/service.server";
 import { fetchQuote } from "@/lib/scanner/metaapi.server";
+import type { DeliveryDestination } from "@/lib/execution/direct";
+import { loadDirectTarget, type DirectTarget } from "@/lib/execution/direct.server";
+
 
 type Db = Pick<SupabaseClient, "from" | "rpc">;
 
@@ -56,6 +59,14 @@ export interface DeliveryRow {
   dry_run: boolean;
   /** Configuration version that authorized this delivery when it was enqueued. */
   execution_config_version?: number | null;
+  /**
+   * Where this delivery goes. `bridge_json` is the Prompt-13 customer bridge;
+   * `metaapi_direct` submits the order to the broker ourselves (Stage 3).
+   * Absent ⇒ bridge, so every pre-Stage-3 row keeps its exact behaviour.
+   */
+  destination_type?: DeliveryDestination | null;
+  connected_account_id?: string | null;
+  account_mode?: string | null;
 }
 
 export interface RevalidationRejected {
@@ -68,6 +79,8 @@ export interface RevalidationApproved {
   ok: true;
   order: BridgeOrder;
   policy: ExecutionPolicy;
+  /** Which destination was authorized. */
+  destination: DeliveryDestination;
   /**
    * Effective dry-run. TRUE whenever live execution is globally disabled, the
    * global force flag is set, the user chose dry-run, or the bridge format has
@@ -76,10 +89,29 @@ export interface RevalidationApproved {
   dryRun: boolean;
   /** Why the effective mode is dry-run, for honest settlement copy. */
   dryRunReason: string | null;
-  endpoint: { url: string; host: string; secret: string; format: "json" | "pineconnector" };
+  /** Present for bridge deliveries only. */
+  endpoint:
+    | { url: string; host: string; secret: string; format: "json" | "pineconnector" }
+    | null;
+  /** Present for direct broker deliveries only. */
+  direct: DirectTarget | null;
+  /** The authoritative quantity actually authorized, with its provenance. */
+  quantity: OrderQuantity;
+  /** The plan the order was built from, for the direct submission path. */
+  plan: {
+    signalId: string;
+    instrument: string;
+    direction: string;
+    grade: string;
+    detectedAt: string;
+    entryPrice: number;
+    stopLoss: number;
+    tp1: number;
+  };
   /** Always reported; only blocks when the user opted in. */
   exposure: ExposureVerdict | null;
 }
+
 
 export type Revalidation = RevalidationApproved | RevalidationRejected;
 
@@ -113,7 +145,11 @@ interface ControlsRow {
   disabled_instruments: string[] | null;
   allowed_live_hosts: string[] | null;
   execution_policy: string | null;
+  /** Stage-3 mode gates. Absent ⇒ disabled. */
+  demo_auto_enabled?: boolean | null;
+  live_auto_enabled?: boolean | null;
 }
+
 
 interface SettingsRow {
   instruments: string[] | null;
@@ -141,10 +177,13 @@ export async function revalidateDelivery(
   now = Date.now(),
 ): Promise<Revalidation> {
   // ---- 1. Global switches. Unreadable controls fail closed. -----------------
+  const destination: DeliveryDestination =
+    delivery.destination_type === "metaapi_direct" ? "metaapi_direct" : "bridge_json";
+
   const { data: controlsRow, error: controlsError } = await db
     .from("execution_controls")
     .select(
-      "live_execution_enabled, force_dry_run, disabled_bridges, disabled_instruments, allowed_live_hosts, execution_policy",
+      "live_execution_enabled, force_dry_run, disabled_bridges, disabled_instruments, allowed_live_hosts, execution_policy, demo_auto_enabled, live_auto_enabled",
     )
     .maybeSingle();
   if (controlsError || !controlsRow) {
@@ -172,11 +211,20 @@ export async function revalidateDelivery(
     .maybeSingle();
 
   const settings = settingsRow as SettingsRow | null;
-  if (!settings || settings.execution_enabled !== true) return reject("user_execution_disabled");
-  if (settings.webhook_enabled !== true || !settings.webhook_url?.trim()) {
-    return reject("webhook_not_configured");
+  if (!settings) return reject("user_execution_disabled");
+  // A DIRECT delivery is authorized by the ACCOUNT's armed mode, not by the
+  // customer-bridge switches: it never touches a webhook, so requiring bridge
+  // configuration for it would be meaningless. Bridge deliveries are unchanged.
+  if (destination === "bridge_json") {
+    if (settings.execution_enabled !== true) return reject("user_execution_disabled");
+    if (settings.webhook_enabled !== true || !settings.webhook_url?.trim()) {
+      return reject("webhook_not_configured");
+    }
+    if (!settings.webhook_validated_at) return reject("webhook_not_validated");
+  } else if (!delivery.connected_account_id) {
+    return reject("user_execution_disabled", "the delivery names no broker account");
   }
-  if (!settings.webhook_validated_at) return reject("webhook_not_validated");
+
 
   // ---- 2b. Configuration identity binding ----------------------------------
   // A delivery is authorized by the configuration that existed when it was
@@ -375,12 +423,61 @@ export async function revalidateDelivery(
   }
 
   const order = buildBridgeOrder(plan, quantity, policy);
+  const approvedPlan = {
+    signalId: signal.id,
+    instrument: signal.instrument,
+    direction: String(signal.direction),
+    grade: String(signal.grade),
+    detectedAt: signal.detected_at,
+    entryPrice: plan.entryPrice,
+    stopLoss: plan.stopLoss,
+    tp1: plan.tp1,
+  };
 
-  // ---- 7. Endpoint validation ---------------------------------------------
-  const syntax = inspectUrlSyntax(settings.webhook_url);
+  // ---- 7a. Direct broker destination ---------------------------------------
+  // No endpoint, no signature, no allowlist: the destination is the broker
+  // itself through MetaApi, and authorization comes from the ACCOUNT's armed
+  // mode plus the matching system-wide gate. Both default OFF.
+  if (destination === "metaapi_direct") {
+    const target = await loadDirectTarget(db, {
+      connectedAccountId: delivery.connected_account_id as string,
+      userId: delivery.user_id,
+      instrument: signal.instrument,
+      globalDemoAuto: controls.demo_auto_enabled === true,
+      globalLiveAuto: controls.live_auto_enabled === true,
+    });
+    if (!target.ok) return reject("user_execution_disabled", target.detail);
+
+    // The only dry-run levers on the direct path are the operator's global
+    // force flag and the queued row's own flag. There is no "verified quantity
+    // contract" question: we construct the order ourselves.
+    let directDryReason: string | null = null;
+    if (controls.force_dry_run === true) directDryReason = "dry-run is forced system-wide";
+    else if (delivery.dry_run === true) directDryReason = "this delivery was queued as dry-run";
+
+    return {
+      ok: true,
+      order,
+      policy,
+      destination,
+      dryRun: directDryReason !== null,
+      dryRunReason: directDryReason,
+      endpoint: null,
+      direct: target.target,
+      quantity,
+      plan: approvedPlan,
+      exposure,
+    };
+  }
+
+  // ---- 7b. Endpoint validation (customer bridge) ---------------------------
+  const webhookUrl = settings.webhook_url?.trim() ?? "";
+  if (!webhookUrl) return reject("webhook_not_configured");
+  const syntax = inspectUrlSyntax(webhookUrl);
   if (!syntax.ok) return reject("endpoint_rejected", syntax.reason);
-  const resolved = await validateOutboundUrl(settings.webhook_url);
+  const resolved = await validateOutboundUrl(webhookUrl);
   if (!resolved.ok) return reject("endpoint_rejected", resolved.reason);
+
 
   const secret = settings.webhook_secret?.trim() ?? "";
   const format = settings.webhook_format === "pineconnector" ? "pineconnector" : "json";
@@ -415,9 +512,14 @@ export async function revalidateDelivery(
     ok: true,
     order,
     policy,
+    destination,
     dryRun,
     dryRunReason,
     endpoint: { url: resolved.url, host: resolved.host, secret, format },
+    direct: null,
+    quantity,
+    plan: approvedPlan,
     exposure,
   };
 }
+

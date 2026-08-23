@@ -153,7 +153,38 @@ export async function processNextDelivery(
     return { deliveryId: delivery.id, state: "rejected", reason, dryRun: delivery.dry_run };
   }
 
-  const { order, endpoint, dryRun } = approved;
+  // ---- Direct broker destination (Prompt 14 Stage 3) -----------------------
+  // Constructed and submitted by us, so there is no endpoint, no signature and
+  // no outbound POST. The submission path settles the row itself.
+  if (approved.destination === "metaapi_direct" && approved.direct) {
+    const { submitDirectOrder } = await import("@/lib/execution/direct.server");
+    const result = await submitDirectOrder(
+      db,
+      { id: delivery.id, dry_run: approved.dryRun },
+      {
+        signalId: approved.plan.signalId,
+        direction: approved.plan.direction,
+        entryPrice: approved.plan.entryPrice,
+        stopLoss: approved.plan.stopLoss,
+        tp1: approved.plan.tp1,
+        grade: approved.plan.grade,
+        detectedAt: approved.plan.detectedAt,
+      },
+      approved.quantity,
+      approved.direct,
+    );
+    return {
+      deliveryId: delivery.id,
+      state: result.state,
+      reason: result.reason,
+      dryRun: approved.dryRun,
+    };
+  }
+
+  const { order, endpoint, dryRun } = approved as typeof approved & {
+    endpoint: NonNullable<typeof approved.endpoint>;
+  };
+
   const isPine = endpoint.format === "pineconnector";
   const body = isPine
     ? pineBody(order, endpoint.secret)

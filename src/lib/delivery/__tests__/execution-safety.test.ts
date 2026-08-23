@@ -206,7 +206,9 @@ describe("A. global disable forces dry-run instead of disabling validation", () 
     // "Complete" means the whole contract was actually established, not skipped.
     expect(result.order.quantity.lots).toBe(0.24);
     expect(result.order.policy).toBe("single_exit_first_target");
-    expect(result.endpoint.host).toBe("bridge.example.com");
+    expect(result.destination).toBe("bridge_json");
+    expect(result.endpoint?.host).toBe("bridge.example.com");
+
   });
 
   it("[INVARIANT] the default dry-run settles with zero outbound POSTs", async () => {

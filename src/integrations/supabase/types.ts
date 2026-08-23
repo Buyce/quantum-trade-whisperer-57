@@ -182,6 +182,148 @@ export type Database = {
         }
         Relationships: []
       }
+      broker_trade_evidence: {
+        Row: {
+          account_id: string | null
+          actual_initial_stop: number | null
+          association_basis: string
+          broker_order_id: string | null
+          broker_position_id: string | null
+          broker_symbol: string
+          client_id: string | null
+          commission: number | null
+          deals: Json
+          delivery_id: number | null
+          direction: string | null
+          entry_at: string | null
+          entry_price: number | null
+          evidence_class: string
+          exit_at: string | null
+          exit_price: number | null
+          first_observed_at: string
+          gross_profit: number | null
+          id: string
+          magic: number | null
+          metaapi_account_id: string | null
+          planned_entry: number | null
+          planned_stop: number | null
+          planned_target: number | null
+          profit_currency: string | null
+          r_availability: string | null
+          r_math_version: number | null
+          r_vs_actual_risk: number | null
+          r_vs_plan: number | null
+          resolved_at: string | null
+          signal_id: string | null
+          state: string
+          stop_provenance: string | null
+          swap: number | null
+          updated_at: string
+          user_id: string
+          volume: number | null
+        }
+        Insert: {
+          account_id?: string | null
+          actual_initial_stop?: number | null
+          association_basis: string
+          broker_order_id?: string | null
+          broker_position_id?: string | null
+          broker_symbol: string
+          client_id?: string | null
+          commission?: number | null
+          deals?: Json
+          delivery_id?: number | null
+          direction?: string | null
+          entry_at?: string | null
+          entry_price?: number | null
+          evidence_class: string
+          exit_at?: string | null
+          exit_price?: number | null
+          first_observed_at?: string
+          gross_profit?: number | null
+          id?: string
+          magic?: number | null
+          metaapi_account_id?: string | null
+          planned_entry?: number | null
+          planned_stop?: number | null
+          planned_target?: number | null
+          profit_currency?: string | null
+          r_availability?: string | null
+          r_math_version?: number | null
+          r_vs_actual_risk?: number | null
+          r_vs_plan?: number | null
+          resolved_at?: string | null
+          signal_id?: string | null
+          state?: string
+          stop_provenance?: string | null
+          swap?: number | null
+          updated_at?: string
+          user_id: string
+          volume?: number | null
+        }
+        Update: {
+          account_id?: string | null
+          actual_initial_stop?: number | null
+          association_basis?: string
+          broker_order_id?: string | null
+          broker_position_id?: string | null
+          broker_symbol?: string
+          client_id?: string | null
+          commission?: number | null
+          deals?: Json
+          delivery_id?: number | null
+          direction?: string | null
+          entry_at?: string | null
+          entry_price?: number | null
+          evidence_class?: string
+          exit_at?: string | null
+          exit_price?: number | null
+          first_observed_at?: string
+          gross_profit?: number | null
+          id?: string
+          magic?: number | null
+          metaapi_account_id?: string | null
+          planned_entry?: number | null
+          planned_stop?: number | null
+          planned_target?: number | null
+          profit_currency?: string | null
+          r_availability?: string | null
+          r_math_version?: number | null
+          r_vs_actual_risk?: number | null
+          r_vs_plan?: number | null
+          resolved_at?: string | null
+          signal_id?: string | null
+          state?: string
+          stop_provenance?: string | null
+          swap?: number | null
+          updated_at?: string
+          user_id?: string
+          volume?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "broker_trade_evidence_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "connected_trading_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "broker_trade_evidence_delivery_id_fkey"
+            columns: ["delivery_id"]
+            isOneToOne: false
+            referencedRelation: "execution_deliveries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "broker_trade_evidence_signal_id_fkey"
+            columns: ["signal_id"]
+            isOneToOne: false
+            referencedRelation: "scanned_signals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       connected_account_features: {
         Row: {
           account_id: string
@@ -619,33 +761,42 @@ export type Database = {
       execution_controls: {
         Row: {
           allowed_live_hosts: string[]
+          demo_auto_enabled: boolean
           disabled_bridges: string[]
           disabled_instruments: string[]
           execution_policy: string
           force_dry_run: boolean
           id: boolean
+          live_auto_enabled: boolean
+          live_confirm_enabled: boolean
           live_execution_enabled: boolean
           note: string | null
           updated_at: string
         }
         Insert: {
           allowed_live_hosts?: string[]
+          demo_auto_enabled?: boolean
           disabled_bridges?: string[]
           disabled_instruments?: string[]
           execution_policy?: string
           force_dry_run?: boolean
           id?: boolean
+          live_auto_enabled?: boolean
+          live_confirm_enabled?: boolean
           live_execution_enabled?: boolean
           note?: string | null
           updated_at?: string
         }
         Update: {
           allowed_live_hosts?: string[]
+          demo_auto_enabled?: boolean
           disabled_bridges?: string[]
           disabled_instruments?: string[]
           execution_policy?: string
           force_dry_run?: boolean
           id?: boolean
+          live_auto_enabled?: boolean
+          live_confirm_enabled?: boolean
           live_execution_enabled?: boolean
           note?: string | null
           updated_at?: string
@@ -654,10 +805,18 @@ export type Database = {
       }
       execution_deliveries: {
         Row: {
+          account_mode: string | null
           attempts: number
           bridge_profile: string
           broker_order_id: string | null
+          broker_position_id: string | null
+          broker_retcode: number | null
+          broker_retcode_string: string | null
+          broker_symbol: string | null
           claimed_at: string | null
+          client_id: string | null
+          connected_account_id: string | null
+          destination_type: string
           dry_run: boolean
           endpoint_host: string | null
           enqueued_at: string
@@ -667,6 +826,9 @@ export type Database = {
           id: number
           latency_ms: number | null
           lease_expires_at: string | null
+          magic: number | null
+          margin_currency: string | null
+          margin_estimate: number | null
           payload_version: number
           reason: string | null
           request_fingerprint: string | null
@@ -674,13 +836,26 @@ export type Database = {
           settled_at: string | null
           signal_id: string
           state: string
+          submitted_at: string | null
+          submitted_entry: number | null
+          submitted_stop: number | null
+          submitted_target: number | null
+          submitted_volume: number | null
           user_id: string
         }
         Insert: {
+          account_mode?: string | null
           attempts?: number
           bridge_profile?: string
           broker_order_id?: string | null
+          broker_position_id?: string | null
+          broker_retcode?: number | null
+          broker_retcode_string?: string | null
+          broker_symbol?: string | null
           claimed_at?: string | null
+          client_id?: string | null
+          connected_account_id?: string | null
+          destination_type?: string
           dry_run?: boolean
           endpoint_host?: string | null
           enqueued_at?: string
@@ -690,6 +865,9 @@ export type Database = {
           id?: number
           latency_ms?: number | null
           lease_expires_at?: string | null
+          magic?: number | null
+          margin_currency?: string | null
+          margin_estimate?: number | null
           payload_version?: number
           reason?: string | null
           request_fingerprint?: string | null
@@ -697,13 +875,26 @@ export type Database = {
           settled_at?: string | null
           signal_id: string
           state?: string
+          submitted_at?: string | null
+          submitted_entry?: number | null
+          submitted_stop?: number | null
+          submitted_target?: number | null
+          submitted_volume?: number | null
           user_id: string
         }
         Update: {
+          account_mode?: string | null
           attempts?: number
           bridge_profile?: string
           broker_order_id?: string | null
+          broker_position_id?: string | null
+          broker_retcode?: number | null
+          broker_retcode_string?: string | null
+          broker_symbol?: string | null
           claimed_at?: string | null
+          client_id?: string | null
+          connected_account_id?: string | null
+          destination_type?: string
           dry_run?: boolean
           endpoint_host?: string | null
           enqueued_at?: string
@@ -713,6 +904,9 @@ export type Database = {
           id?: number
           latency_ms?: number | null
           lease_expires_at?: string | null
+          magic?: number | null
+          margin_currency?: string | null
+          margin_estimate?: number | null
           payload_version?: number
           reason?: string | null
           request_fingerprint?: string | null
@@ -720,9 +914,21 @@ export type Database = {
           settled_at?: string | null
           signal_id?: string
           state?: string
+          submitted_at?: string | null
+          submitted_entry?: number | null
+          submitted_stop?: number | null
+          submitted_target?: number | null
+          submitted_volume?: number | null
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "execution_deliveries_connected_account_id_fkey"
+            columns: ["connected_account_id"]
+            isOneToOne: false
+            referencedRelation: "connected_trading_accounts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "execution_deliveries_signal_id_fkey"
             columns: ["signal_id"]
@@ -2833,8 +3039,11 @@ export type Database = {
       claim_execution_delivery: {
         Args: { lease_seconds?: number }
         Returns: {
+          account_mode: string
           attempts: number
           bridge_profile: string
+          connected_account_id: string
+          destination_type: string
           dry_run: boolean
           enqueued_at: string
           execution_config_version: number
