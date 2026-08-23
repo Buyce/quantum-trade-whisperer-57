@@ -168,13 +168,17 @@ export const getExecutionStatus = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data } = await supabaseAdmin
       .from("execution_controls")
-      .select("live_execution_enabled, force_dry_run, execution_policy, disabled_instruments")
+      .select(
+        "live_execution_enabled, force_dry_run, execution_policy, disabled_instruments, demo_auto_enabled, live_auto_enabled",
+      )
       .maybeSingle();
     const row = data as {
       live_execution_enabled?: boolean;
       force_dry_run?: boolean;
       execution_policy?: string;
       disabled_instruments?: string[];
+      demo_auto_enabled?: boolean;
+      live_auto_enabled?: boolean;
     } | null;
     return {
       liveEnabled: row?.live_execution_enabled === true,
@@ -182,5 +186,9 @@ export const getExecutionStatus = createServerFn({ method: "GET" })
       policy: row?.execution_policy ?? DEFAULT_EXECUTION_POLICY,
       policyNote: EXECUTION_POLICY_NOTE,
       disabledInstruments: row?.disabled_instruments ?? [],
+      // Automatic-order capabilities are separate switches and default to OFF, so
+      // the UI can only offer arming when the capability genuinely exists now.
+      demoAutoEnabled: row?.demo_auto_enabled === true,
+      liveAutoEnabled: row?.live_auto_enabled === true,
     };
   });

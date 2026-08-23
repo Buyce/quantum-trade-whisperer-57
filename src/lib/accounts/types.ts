@@ -40,6 +40,8 @@ export interface ConnectedAccountRow {
   broker_margin_level: number | null;
   broker_observed_at: string | null;
   mode: AccountMode;
+  max_account_open_positions: number | null;
+  is_benchmark: boolean | null;
   intent_conflict: boolean;
   intent_conflict_reason: string | null;
   last_error: string | null;
@@ -111,6 +113,38 @@ export interface ConnectedAccountView {
     observedAt: string | null;
   };
   features: AccountFeatureRow | null;
+  /**
+   * Account-wide boundary on simultaneous BROKER positions/orders, opted into by
+   * the owner. `null` means no boundary is configured, and P-Trades then makes no
+   * claim about how many positions the broker holds.
+   */
+  maxAccountOpenPositions: number | null;
+  /** Operator-owned benchmark account: executes under the benchmark policy. */
+  isBenchmark: boolean;
+  /**
+   * Modes this account may be moved into RIGHT NOW, derived from what the broker
+   * reports. Always contains `observe`: standing down is never blocked.
+   */
+  offerableModes: AccountMode[];
+  /** Why an automatic mode is not offerable, when it is not. */
+  armRefusal: string | null;
+  /**
+   * Most recent broker-statistics answer, exactly as the vendor gave it.
+   * `processing` and `unavailable` carry NO metrics — never read as zeros.
+   */
+  telemetry: {
+    status: string;
+    reason: string | null;
+    observedAt: string | null;
+    /** Numeric vendor metrics only; a missing figure stays absent, never zero. */
+    metrics: Record<string, number> | null;
+  } | null;
+  /** Drawdown-tracker breaches the broker-side Risk Guardian reported. */
+  riskBreaches: {
+    eventAt: string;
+    relativeDrawdown: number | null;
+    absoluteDrawdown: number | null;
+  }[];
   symbols: AccountSymbolRow[];
   specs: AccountSpecRow[];
   lastError: string | null;

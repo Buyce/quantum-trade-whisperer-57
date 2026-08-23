@@ -16,12 +16,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { isMappingUsable, mapSymbol } from "@/lib/accounts/symbol-map";
-import { fetchAccountFacts } from "@/lib/metaapi/accounts.server";
+import { fetchAccountFacts, fetchOrders, fetchPositions } from "@/lib/metaapi/accounts.server";
 import { estimateMargin } from "@/lib/metaapi/margin.server";
 import { submitPendingOrder } from "@/lib/metaapi/trade.server";
 import type { AccountMode } from "@/lib/accounts/types";
 import type { AccountType } from "@/lib/metaapi/classify";
 import type { OrderQuantity } from "@/lib/delivery/execution";
+import { materialEquityChange } from "./equity-freshness";
+import { evaluateAccountExposure } from "./exposure-account";
 import {
   buildDirectOrder,
   deliveryStateForVerdict,
@@ -30,6 +32,7 @@ import {
   marginAcceptable,
   type DirectOrderPlan,
 } from "./direct";
+
 
 type Db = Pick<SupabaseClient, "from" | "rpc">;
 
@@ -48,10 +51,17 @@ export interface DirectTarget {
   currency: string | null;
   /** When the broker reported the figures above. */
   observedAt: string | null;
+  /**
+   * Operator/trader-configured ACCOUNT-WIDE broker exposure boundary: the maximum
+   * number of broker-side positions + pending orders this account may carry,
+   * counting the one about to be submitted. Null ⇒ no boundary configured.
+   */
+  maxAccountOpenPositions?: number | null;
   /** System-wide mode gates, carried so the pre-submit refresh can re-apply them. */
   globalDemoAuto: boolean;
   globalLiveAuto: boolean;
 }
+
 
 export type DirectTargetResult =
   | { ok: true; target: DirectTarget }
@@ -72,8 +82,10 @@ interface AccountRow {
   broker_equity: number | null;
   account_currency: string | null;
   broker_observed_at: string | null;
+  max_account_open_positions: number | null;
   disconnected_at: string | null;
 }
+
 
 /**
  * Resolve the destination account and prove it may be traded right now.
@@ -95,7 +107,7 @@ export async function loadDirectTarget(
   const { data } = await db
     .from("connected_trading_accounts")
     .select(
-      "id, metaapi_account_id, region, magic, mode, phase, intent_conflict, trade_allowed, investor_mode, broker_account_type, broker_free_margin, broker_equity, account_currency, broker_observed_at, disconnected_at",
+      "id, metaapi_account_id, region, magic, mode, phase, intent_conflict, trade_allowed, investor_mode, broker_account_type, broker_free_margin, broker_equity, account_currency, broker_observed_at, max_account_open_positions, disconnected_at",
     )
     .eq("id", input.connectedAccountId)
     .eq("user_id", input.userId)
@@ -164,6 +176,11 @@ export async function loadDirectTarget(
       equity: account.broker_equity === null ? null : Number(account.broker_equity),
       currency: account.account_currency,
       observedAt: account.broker_observed_at,
+      maxAccountOpenPositions:
+        account.max_account_open_positions === null
+          ? null
+          : Number(account.max_account_open_positions),
+
       globalDemoAuto: input.globalDemoAuto,
       globalLiveAuto: input.globalLiveAuto,
     },
@@ -225,7 +242,23 @@ export async function submitDirectOrder(
       return { state: "rejected", reason: resized.detail, brokerOrderId: null };
     }
     finalQuantity = resized.quantity;
+  } else {
+    // No resizer: the quantity was authorized from an EARLIER equity figure, so
+    // it may only be submitted while that figure still describes the account.
+    // A material move refuses rather than sending a size the trader never chose.
+    const moved = materialEquityChange(target.equity, refreshed.equity);
+    if (moved.material) {
+      await settle(db, delivery.id, {
+        destination_type: "metaapi_direct",
+        account_mode: target.mode,
+        state: "rejected",
+        reason: `pre_submit_sizing: equity_moved: ${moved.detail}`,
+        settled_at: new Date().toISOString(),
+      });
+      return { state: "rejected", reason: moved.detail, brokerOrderId: null };
+    }
   }
+
 
   let order;
   try {
@@ -434,14 +467,67 @@ export async function refreshAccountSafety(
   if (freeMargin === null) {
     return { ok: false, detail: "your broker did not report free margin for this account" };
   }
-  return {
-    ok: true,
-    freeMargin,
-    equity: typeof info.equity === "number" && Number.isFinite(info.equity) ? info.equity : null,
-    currency: typeof info.currency === "string" && info.currency.trim() ? info.currency.trim() : null,
-    observedAt: facts.observedAt ?? null,
-  };
+
+  const equity =
+    typeof info.equity === "number" && Number.isFinite(info.equity) ? info.equity : null;
+  const observedAt = facts.observedAt ?? null;
+
+  // Equity freshness is enforced where the equity is actually CONSUMED, in
+  // `resolveSizingForAccount`, which owns the injected clock and the
+  // `equityAsOf` provenance. Re-checking it here against wall-clock time would
+  // only re-measure our own receipt instant.
+
+
+
+  // ---- Account-wide BROKER exposure boundary --------------------------------
+  // This is broker-derived, not the journal advisory, and it counts everything on
+  // the account including the trader's own manual trades. Fail-closed: if the
+  // broker's positions or orders cannot be read, no order is added.
+  const exposure = await evaluateBrokerExposure(target);
+  if (!exposure.allowed) return { ok: false, detail: exposure.detail };
+
+  return { ok: true, freeMargin, equity, currency: typeof info.currency === "string" && info.currency.trim() ? info.currency.trim() : null, observedAt };
 }
+
+/**
+ * Read what the broker currently carries on this account and apply the
+ * configured boundary. Separated so the pure rules in `./exposure-account` stay
+ * testable without any network.
+ */
+async function evaluateBrokerExposure(
+  target: DirectTarget,
+): Promise<{ allowed: true } | { allowed: false; detail: string }> {
+  // No boundary configured is a legitimate configuration, and reading the broker
+  // for it would spend a request to reach a decision that cannot change.
+  const limit = target.maxAccountOpenPositions ?? null;
+  if (limit === null) return { allowed: true };
+
+  let openPositions = 0;
+  let pendingOrders = 0;
+  let unreadableReason: string | null = null;
+  try {
+    const [positions, orders] = await Promise.all([
+      fetchPositions(target.metaapiAccountId, target.region),
+      fetchOrders(target.metaapiAccountId, target.region),
+    ]);
+    openPositions = positions.length;
+    pendingOrders = orders.length;
+  } catch (err) {
+    unreadableReason = `your broker's open positions could not be read (${err instanceof Error ? err.message : String(err)}), so P-Trades will not add another order`;
+  }
+
+  const verdict = evaluateAccountExposure(
+    {
+      readable: unreadableReason === null,
+      unreadableReason,
+      openPositions,
+      pendingOrders,
+    },
+    { maxAccountOpenPositions: limit },
+  );
+  return verdict.allowed ? { allowed: true } : { allowed: false, detail: verdict.detail };
+}
+
 
 async function settle(db: Db, id: number, patch: Record<string, unknown>): Promise<void> {
   const { error } = await db.from("execution_deliveries").update(patch as never).eq("id", id);

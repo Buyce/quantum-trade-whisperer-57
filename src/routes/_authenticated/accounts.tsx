@@ -62,7 +62,8 @@ import {
   HELP_TOPICS,
   STAGE_CAPABILITY_NOTE,
 } from "@/lib/accounts/guidance";
-import type { ConnectedAccountView } from "@/lib/accounts/types";
+import type { AccountMode, ConnectedAccountView } from "@/lib/accounts/types";
+import { getExecutionStatus } from "@/lib/execution.functions";
 import {
   disconnectBrokerConnection,
   getAccountQuota,
@@ -70,6 +71,8 @@ import {
   refreshBrokerConnection,
   reissueBrokerConfigurationLink,
   resolveAmbiguousSymbol,
+  setAccountExposureBoundary,
+  setBrokerAccountMode,
   startBrokerConnection,
 } from "@/lib/accounts.functions";
 
@@ -390,6 +393,25 @@ function ConnectWizard({
   );
 }
 
+const MODE_LABELS: Record<AccountMode, string> = {
+  observe: "Observe",
+  demo_auto: "Demo auto",
+  live_confirm: "Live on confirmation",
+  live_auto: "Live auto",
+};
+
+/** What arming each mode actually authorises, in the trader's own terms. */
+const MODE_NOTES: Record<AccountMode, string> = {
+  observe:
+    "P-Trades never places an order on this account. It only shows what your broker reports.",
+  demo_auto:
+    "P-Trades will place orders on this DEMO account automatically when a setup passes every alert and execution check. Demo money only — but it is still your account, and you are authorising it now.",
+  live_confirm:
+    "P-Trades will prepare real-money orders on this account and send nothing until you confirm each one.",
+  live_auto:
+    "P-Trades will place REAL-MONEY orders on this account automatically. Only arm this if you accept losses without any further prompt.",
+};
+
 function AccountCard({
   account,
   onChanged,
@@ -451,7 +473,10 @@ function AccountCard({
               <Badge variant="secondary">Not verified yet</Badge>
             )}
             {account.readOnly ? <Badge variant="outline">Read-only</Badge> : null}
-            <Badge variant="outline">Observe</Badge>
+            <Badge variant={account.mode === "observe" ? "outline" : "default"}>
+              {MODE_LABELS[account.mode]}
+            </Badge>
+            {account.isBenchmark ? <Badge variant="secondary">Benchmark</Badge> : null}
           </div>
           <p className={cn("mt-1 text-xs font-medium", toneClass)}>{phase.label}</p>
           <p className="mt-0.5 max-w-xl text-xs text-muted-foreground">{phase.detail}</p>
@@ -537,22 +562,50 @@ function AccountCard({
           : "No broker figures yet — your broker has not reported this account."}
       </p>
 
-      {account.features ? (
+      <ArmingSection account={account} onChanged={onChanged} />
+      <ExposureSection account={account} onChanged={onChanged} />
+
+      {account.features || account.telemetry || account.riskBreaches.length > 0 ? (
         <div className="border-t border-border p-3 text-xs">
-          <p className="font-medium">Account features</p>
+          <p className="font-medium">Broker monitoring</p>
           <ul className="mt-1 space-y-1 text-muted-foreground">
             <li>
-              Broker statistics API: {account.features.metastats_api_enabled ? "enabled" : "not enabled"}
+              Broker statistics:{" "}
+              {account.features?.metastats_api_enabled
+                ? account.telemetry
+                  ? account.telemetry.status === "ok"
+                    ? `read from your broker at ${new Date(account.telemetry.observedAt ?? "").toUTCString()}`
+                    : account.telemetry.status === "processing"
+                      ? "your broker's statistics service is still preparing this account — no figures yet"
+                      : (account.telemetry.reason ?? "the statistics service refused the request")
+                  : "enabled — no reading collected yet"
+                : "not enabled for this account, so no broker statistics are collected"}
             </li>
             <li>
-              Risk Guardian:{" "}
-              {account.features.risk_guardian_available
-                ? "available"
-                : (account.features.risk_guardian_reason ?? "unavailable")}
+              Drawdown watch:{" "}
+              {account.features?.risk_guardian_available
+                ? account.riskBreaches.length === 0
+                  ? "watching — no drawdown breach reported"
+                  : `${account.riskBreaches.length} drawdown breach${account.riskBreaches.length === 1 ? "" : "es"} reported by your broker`
+                : (account.features?.risk_guardian_reason ??
+                  "not available on this account, so nothing is being watched")}
             </li>
           </ul>
+          {account.riskBreaches.length > 0 ? (
+            <ul className="mt-2 space-y-1">
+              {account.riskBreaches.map((breach) => (
+                <li key={breach.eventAt} className="num">
+                  {new Date(breach.eventAt).toUTCString()} —{" "}
+                  {breach.relativeDrawdown === null
+                    ? "drawdown figure unavailable"
+                    : `${(breach.relativeDrawdown * 100).toFixed(2)}% relative drawdown`}
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </div>
       ) : null}
+
 
       {account.symbols.length > 0 ? (
         <div className="border-t border-border p-3 text-xs">
@@ -627,6 +680,192 @@ function Fact({ label, value }: { label: string; value: React.ReactNode }) {
     <div>
       <dt className="text-muted-foreground">{label}</dt>
       <dd className="mt-0.5 truncate font-medium">{value}</dd>
+    </div>
+  );
+}
+
+/**
+ * Automatic orders for ONE account.
+ *
+ * Two independent gates are shown honestly and separately: what the BROKER
+ * permits on this account (`offerableModes`, derived server-side from the
+ * broker's own facts) and whether the matching capability is switched on
+ * system-wide right now. Arming needs both, and the confirmation dialog states
+ * exactly what the trader is authorising before anything is saved.
+ */
+function ArmingSection({
+  account,
+  onChanged,
+}: {
+  account: ConnectedAccountView;
+  onChanged: () => void;
+}) {
+  const setMode = useServerFn(setBrokerAccountMode);
+  const controls = useQuery({ queryKey: ["execution-status"], queryFn: () => getExecutionStatus() });
+  const [pending, setPending] = useState<AccountMode | null>(null);
+
+  const mutation = useMutation({
+    mutationFn: (mode: AccountMode) => setMode({ data: { accountId: account.id, mode } }),
+    onSuccess: (_result, mode) => {
+      setPending(null);
+      toast.success(
+        mode === "observe"
+          ? "This account is back in observe mode. P-Trades will not place orders on it."
+          : `${MODE_LABELS[mode]} is armed for this account.`,
+      );
+      onChanged();
+    },
+    onError: (err: Error) => {
+      setPending(null);
+      toast.error(err.message);
+    },
+  });
+
+  const capabilityFor = (mode: AccountMode): string | null => {
+    if (mode === "observe" || !controls.data) return null;
+    if (mode === "demo_auto" && !controls.data.demoAutoEnabled) {
+      return "Demo auto-execution is switched off system-wide right now.";
+    }
+    if ((mode === "live_auto" || mode === "live_confirm") && !controls.data.liveEnabled) {
+      return "Live execution is switched off system-wide.";
+    }
+    if (mode === "live_auto" && !controls.data.liveAutoEnabled) {
+      return "Live auto-execution is switched off system-wide.";
+    }
+    return null;
+  };
+
+  const options = account.offerableModes;
+
+  return (
+    <div className="border-t border-border p-3 text-xs">
+      <p className="font-medium">Automatic orders</p>
+      <p className="mt-1 text-muted-foreground">{MODE_NOTES[account.mode]}</p>
+
+      {options.length === 1 ? (
+        <p className="mt-2 text-muted-foreground">
+          {account.armRefusal
+            ? `Automatic orders are not available on this account: ${account.armRefusal}.`
+            : "Automatic orders are not available on this account."}
+        </p>
+      ) : (
+        <div className="mt-2 flex flex-wrap gap-2">
+          {options.map((mode) => {
+            const blocked = capabilityFor(mode);
+            const current = account.mode === mode;
+            return (
+              <Button
+                key={mode}
+                size="sm"
+                variant={current ? "default" : "outline"}
+                disabled={current || mutation.isPending || blocked !== null}
+                title={blocked ?? undefined}
+                onClick={() => setPending(mode)}
+              >
+                {current ? <CheckCircle2 className="size-4" /> : null}
+                {MODE_LABELS[mode]}
+              </Button>
+            );
+          })}
+        </div>
+      )}
+
+      {options
+        .map((mode) => ({ mode, blocked: capabilityFor(mode) }))
+        .filter((entry) => entry.blocked !== null)
+        .map((entry) => (
+          <p key={entry.mode} className="mt-1 text-muted-foreground">
+            {MODE_LABELS[entry.mode]}: {entry.blocked}
+          </p>
+        ))}
+
+      <AlertDialog open={pending !== null} onOpenChange={(open) => !open && setPending(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {pending === "observe"
+                ? `Return ${account.label} to observe mode?`
+                : `Arm ${pending ? MODE_LABELS[pending] : ""} on ${account.label}?`}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pending ? MODE_NOTES[pending] : null}
+              {pending && pending !== "observe"
+                ? " Every order is still sized from your broker's own equity and specification at the moment it is sent, and is abandoned rather than resized if any of that is missing."
+                : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={mutation.isPending}
+              onClick={() => pending && mutation.mutate(pending)}
+            >
+              {pending === "observe" ? "Stand down" : "I authorise this"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
+/**
+ * The owner's account-wide boundary on how many broker positions/orders may be
+ * open at once. It is checked against the BROKER at submission time and fails
+ * closed if the broker cannot be read, so it never becomes a claim about broker
+ * state here.
+ */
+function ExposureSection({
+  account,
+  onChanged,
+}: {
+  account: ConnectedAccountView;
+  onChanged: () => void;
+}) {
+  const save = useServerFn(setAccountExposureBoundary);
+  const [value, setValue] = useState(
+    account.maxAccountOpenPositions === null ? "" : String(account.maxAccountOpenPositions),
+  );
+
+  const mutation = useMutation({
+    mutationFn: () => {
+      const trimmed = value.trim();
+      const parsed = trimmed === "" ? null : Number(trimmed);
+      return save({ data: { accountId: account.id, maxOpenPositions: parsed } });
+    },
+    onSuccess: () => {
+      toast.success("Exposure boundary saved.");
+      onChanged();
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  return (
+    <div className="border-t border-border p-3 text-xs">
+      <p className="font-medium">Account exposure boundary</p>
+      <p className="mt-1 text-muted-foreground">
+        The most simultaneous positions and pending orders P-Trades may leave open on this broker
+        account. Leave it empty for no boundary. Before each order P-Trades reads your broker&rsquo;s
+        own open positions — if your broker cannot be read, the order is abandoned rather than sent
+        on an assumption.
+      </p>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <Label htmlFor={`exposure-${account.id}`} className="sr-only">
+          Maximum simultaneous broker positions
+        </Label>
+        <Input
+          id={`exposure-${account.id}`}
+          inputMode="numeric"
+          className="num h-8 w-24"
+          placeholder="no limit"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+        />
+        <Button size="sm" variant="outline" disabled={mutation.isPending} onClick={() => mutation.mutate()}>
+          {mutation.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+          Save boundary
+        </Button>
+      </div>
     </div>
   );
 }

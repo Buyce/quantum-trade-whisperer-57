@@ -68,11 +68,12 @@ interface Candidate {
 async function candidates(limit: number): Promise<Candidate[]> {
   const { data, error } = await supabaseAdmin
     .from("connected_trading_accounts")
-    .select("id, user_id, metaapi_account_id, connected_account_features!inner(metastats_enabled)")
+    .select("id, user_id, metaapi_account_id, connected_account_features!inner(metastats_api_enabled)")
     .is("disconnected_at", null)
     .eq("phase", "ready")
     .not("metaapi_account_id", "is", null)
-    .eq("connected_account_features.metastats_enabled", true)
+    .eq("connected_account_features.metastats_api_enabled", true)
+
     .limit(limit * 4);
   if (error) throw new Error(error.message);
   return ((data ?? []) as unknown as Candidate[]).filter((row) => Boolean(row.metaapi_account_id));
