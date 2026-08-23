@@ -7,7 +7,7 @@ import {
   planDisconnect,
   type AccountPhase,
 } from "../lifecycle";
-import { HELP_TOPICS, STAGE_CAPABILITY_NOTE, isOfferedRegion } from "../guidance";
+import { HELP_TOPICS, STAGE_CAPABILITY_NOTE, capabilityNote, isOfferedRegion } from "../guidance";
 
 describe("connected-account intent vs broker truth", () => {
   it("[INVARIANT] a Demo intent connected to a REAL account is stopped and warned", () => {
@@ -122,9 +122,20 @@ describe("onboarding guidance", () => {
     expect(HELP_TOPICS.some((t) => t.id === "server" && t.whereToLook.length > 0)).toBe(true);
   });
 
-  it("[INVARIANT] Stage 2 promises observation only, never execution", () => {
+  it("[INVARIANT] with nothing armed the page promises observation only", () => {
+    expect(capabilityNote([])).toBe(STAGE_CAPABILITY_NOTE);
     expect(STAGE_CAPABILITY_NOTE).toMatch(/Observe mode/);
     expect(STAGE_CAPABILITY_NOTE).toMatch(/does not place, change or close any order/);
+  });
+
+  it("[INVARIANT] an armed account is never described as observe-only", () => {
+    const note = capabilityNote([
+      { label: "Demo 1", mode: "demo_auto" },
+      { label: "Watch", mode: "observe" },
+    ]);
+    expect(note).not.toMatch(/does not place, change or close any order/);
+    expect(note).toMatch(/Demo 1/);
+    expect(note).toMatch(/pending orders/);
   });
 
   it("[UNIT] only offered regions are accepted", () => {
