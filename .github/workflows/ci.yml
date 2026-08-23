@@ -27,7 +27,9 @@ concurrency:
 
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    # Pin the hosted image: its documented PostgreSQL 16 binaries are installed
+    # under /usr/lib/postgresql/16/bin but are not exposed on PATH by default.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -39,6 +41,9 @@ jobs:
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
+      - name: Expose PostgreSQL 16 test tools
+        run: echo "/usr/lib/postgresql/16/bin" >> "$GITHUB_PATH"
 
       - name: Verify (lint blocking sources, typecheck, blocking tests, build)
         run: bun run verify
