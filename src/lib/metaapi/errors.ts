@@ -29,6 +29,24 @@ export class MetaApiNotConfiguredError extends Error {
   }
 }
 
+/**
+ * The provider host could not be reached at all: DNS failure, TLS failure, or
+ * the vendor edge answering with its own "origin unavailable" page (HTTP 530,
+ * error code 1016). No request reached the provider, so nothing was created.
+ */
+export class MetaApiUnreachableError extends Error {
+  readonly label: string;
+  readonly detail: string;
+  constructor(label: string, detail: string) {
+    super(
+      `P-Trades could not reach your broker-connection provider for ${label}, so nothing was created or changed. Technical detail: ${detail.slice(0, 200)}`,
+    );
+    this.name = "MetaApiUnreachableError";
+    this.label = label;
+    this.detail = detail.slice(0, 200);
+  }
+}
+
 /** A non-2xx MetaApi response. `body` is truncated and never logged wholesale. */
 export class MetaApiHttpError extends Error {
   readonly status: number;
@@ -54,6 +72,7 @@ export class MetaApiHttpError extends Error {
 export type MetaApiFailureKind =
   | "timeout"
   | "not_configured"
+  | "unreachable"
   | "auth"
   | "not_found"
   | "feature_not_enabled"
@@ -96,6 +115,15 @@ export function classifyMetaApiFailure(err: unknown): MetaApiFailure {
       status: null,
       retryAfterSeconds: null,
       retryable: false,
+    };
+  }
+  if (err instanceof MetaApiUnreachableError) {
+    return {
+      kind: "unreachable",
+      message: err.message,
+      status: null,
+      retryAfterSeconds: null,
+      retryable: true,
     };
   }
   if (err instanceof MetaApiHttpError) {
