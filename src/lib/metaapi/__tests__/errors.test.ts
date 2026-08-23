@@ -29,6 +29,16 @@ describe("metaapi failure classification", () => {
     ).toBe("provider_billing");
   });
 
+  it("[INVARIANT] a token-scope refusal is a permission gap, not a credential or broker rejection", () => {
+    const body =
+      '{"id":13932,"error":"ForbiddenError","message":"You do not have access to trading-account-management-api:rest:public:account-management:createAccount method","details":{"methodId":["trading-account-management-api:rest:public:account-management:createAccount"]}}';
+    const failure = classifyMetaApiFailure(new MetaApiHttpError(403, "create account", body));
+    expect(failure.kind).toBe("permission");
+    expect(failure.retryable).toBe(false);
+    expect(failure.message).toContain("not allowed to perform it");
+    expect(failure.message).toContain("Nothing was created");
+  });
+
   it("[UNIT] maps auth, feature, not-found, validation and server statuses", () => {
     expect(classifyMetaApiFailure(new MetaApiHttpError(403, "x", "forbidden")).kind).toBe("auth");
     expect(
