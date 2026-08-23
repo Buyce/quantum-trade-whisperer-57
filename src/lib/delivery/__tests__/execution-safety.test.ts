@@ -36,6 +36,9 @@ vi.mock("@/lib/scanner/metaapi.server", () => ({
 }));
 vi.mock("@/lib/sizing/service.server", () => ({
   resolveSizingForUser: (...a: unknown[]) => sizing.fn(...a),
+  resolveSizingForAccount: (...a: unknown[]) => sizing.fn(...a),
+  isAccountSizingRefusal: (r: { available?: boolean; accountReason?: string }) =>
+    r.available === false && typeof r.accountReason === "string",
 }));
 vi.mock("@/lib/broker/specs.server", () => ({
   loadBrokerSpec: (...a: unknown[]) => spec.fn(...a),
