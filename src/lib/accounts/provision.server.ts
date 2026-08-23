@@ -17,7 +17,7 @@ import { randomUUID } from "node:crypto";
 
 import { classifyAccountType, isMt5Netting, riskGuardianAvailability } from "@/lib/metaapi/classify";
 import { hasBenchmarkAccount, readBenchmarkAccount } from "@/lib/metaapi/config.server";
-import { classifyFailure } from "@/lib/metaapi/errors";
+import { classifyMetaApiFailure } from "@/lib/metaapi/errors";
 import { fetchAccountInformation } from "@/lib/metaapi/accounts.server";
 import {
   createAccount,
@@ -43,15 +43,11 @@ import type { ConnectedAccountRow } from "./types";
 
 const TABLE = "connected_trading_accounts";
 
-type Admin = Awaited<
-  ReturnType<typeof import("@/integrations/supabase/client.server")["supabaseAdmin"]["auth"]["getUser"]>
-> extends never
-  ? never
-  : typeof import("@/integrations/supabase/client.server")["supabaseAdmin"];
+type Admin = (typeof import("@/integrations/supabase/client.server"))["supabaseAdmin"];
 
 async function admin(): Promise<Admin> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  return supabaseAdmin as Admin;
+  return supabaseAdmin;
 }
 
 /** Never let a customer operation address the benchmark account. */
@@ -173,7 +169,7 @@ export async function startConnection(
       configurationExpiresAt: link?.expiresAt ?? null,
     };
   } catch (err) {
-    const failure = classifyFailure(err);
+    const failure = classifyMetaApiFailure(err);
     await db
       .from(TABLE as never)
       .update({ phase: "failed" satisfies AccountPhase, last_error: failure.message } as never)
@@ -298,7 +294,7 @@ export async function reconcileConnection(
 
     return await writeAndReturn(db, row.id, patch);
   } catch (err) {
-    const failure = classifyFailure(err);
+    const failure = classifyMetaApiFailure(err);
     patch["last_error"] = failure.message;
     if (failure.kind === "timeout" || failure.kind === "rate_limited") {
       // Transient: keep the phase, record why the refresh could not complete.
@@ -466,7 +462,7 @@ export async function disconnectConnection(
     try {
       await deleteAccount(row.metaapi_account_id);
     } catch (err) {
-      const failure = classifyFailure(err);
+      const failure = classifyMetaApiFailure(err);
       await db
         .from(TABLE as never)
         .update({ last_error: failure.message } as never)
