@@ -1045,6 +1045,17 @@ function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="account" className="space-y-4">
+          <section className="space-y-2 rounded-md border border-border bg-card p-4">
+            <h2 className="label-xs">Broker accounts</h2>
+            <p className="text-xs text-muted-foreground">
+              Link a MetaTrader demo or live account in observe mode. Your broker reports the
+              balance, equity and its own symbol names; P-Trades never receives your MetaTrader
+              password and places no orders.
+            </p>
+            <Button asChild variant="outline" size="sm">
+              <Link to="/accounts">Manage broker accounts</Link>
+            </Button>
+          </section>
           <FeedbackSection defaultEmail={user?.email ?? ""} />
           <DangerZoneSection />
         </TabsContent>
