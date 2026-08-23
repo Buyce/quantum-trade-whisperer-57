@@ -331,7 +331,7 @@ export const getAdminExecutionSwitches = createServerFn({ method: "GET" })
  * Only `demo_auto_enabled` and `force_dry_run` are writable here on purpose:
  * arming REAL money remains a separate, deliberate act outside this panel, so
  * this control can never turn live execution on by accident. Turning a switch
- * off is always accepted; every change bumps `config_version` through the
+ * off is always accepted. Live switches are untouched by this control.
  * existing trigger, so in-flight deliveries stay bound to the configuration
  * they were validated under.
  */
