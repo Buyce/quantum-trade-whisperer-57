@@ -274,3 +274,114 @@ export const resetShadowBreaker = createServerFn({ method: "POST" })
     return { ok: Boolean((data as { ok?: boolean } | null)?.ok) };
   });
 
+
+export interface AdminExecutionSwitches {
+  demoAutoEnabled: boolean;
+  forceDryRun: boolean;
+  liveExecutionEnabled: boolean;
+  liveAutoEnabled: boolean;
+  executionPolicy: string;
+  configVersion: number | null;
+  updatedAt: string | null;
+}
+
+/**
+ * Owner-only read of the system-wide execution capabilities.
+ *
+ * These are the switches that decide whether an armed account may actually
+ * submit orders. They are read straight from `execution_controls` — no defaults
+ * are invented, an unreadable row reports the SAFE value (off / dry-run).
+ */
+export const getAdminExecutionSwitches = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<AdminExecutionSwitches> => {
+    const email = String(context.claims["email"] ?? "").toLowerCase();
+    if (email !== OWNER_EMAIL) throw new Error("Forbidden");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await supabaseAdmin
+      .from("execution_controls")
+      .select(
+        "demo_auto_enabled, force_dry_run, live_execution_enabled, live_auto_enabled, execution_policy, config_version, updated_at",
+      )
+      .eq("id", true)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    const row = data as {
+      demo_auto_enabled?: boolean;
+      force_dry_run?: boolean;
+      live_execution_enabled?: boolean;
+      live_auto_enabled?: boolean;
+      execution_policy?: string;
+      config_version?: number;
+      updated_at?: string;
+    } | null;
+
+    return {
+      demoAutoEnabled: row?.demo_auto_enabled === true,
+      forceDryRun: row?.force_dry_run !== false,
+      liveExecutionEnabled: row?.live_execution_enabled === true,
+      liveAutoEnabled: row?.live_auto_enabled === true,
+      executionPolicy: row?.execution_policy ?? "single_exit_first_target",
+      configVersion: row?.config_version ?? null,
+      updatedAt: row?.updated_at ?? null,
+    };
+  });
+
+/**
+ * Owner-only write of the DEMO-side execution capabilities.
+ *
+ * Only `demo_auto_enabled` and `force_dry_run` are writable here on purpose:
+ * arming REAL money remains a separate, deliberate act outside this panel, so
+ * this control can never turn live execution on by accident. Turning a switch
+ * off is always accepted; every change bumps `config_version` through the
+ * existing trigger, so in-flight deliveries stay bound to the configuration
+ * they were validated under.
+ */
+export const setAdminExecutionSwitches = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { demoAutoEnabled?: boolean; forceDryRun?: boolean }) => input)
+  .handler(async ({ data, context }): Promise<AdminExecutionSwitches> => {
+    const email = String(context.claims["email"] ?? "").toLowerCase();
+    if (email !== OWNER_EMAIL) throw new Error("Forbidden");
+
+    const patch: Record<string, boolean> = {};
+    if (typeof data.demoAutoEnabled === "boolean") patch["demo_auto_enabled"] = data.demoAutoEnabled;
+    if (typeof data.forceDryRun === "boolean") patch["force_dry_run"] = data.forceDryRun;
+    if (Object.keys(patch).length === 0) throw new Error("Nothing to change.");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin
+      .from("execution_controls")
+      .update(patch as never)
+      .eq("id", true);
+    if (error) throw new Error(error.message);
+
+    const { data: fresh, error: readError } = await supabaseAdmin
+      .from("execution_controls")
+      .select(
+        "demo_auto_enabled, force_dry_run, live_execution_enabled, live_auto_enabled, execution_policy, config_version, updated_at",
+      )
+      .eq("id", true)
+      .maybeSingle();
+    if (readError) throw new Error(readError.message);
+    const row = fresh as {
+      demo_auto_enabled?: boolean;
+      force_dry_run?: boolean;
+      live_execution_enabled?: boolean;
+      live_auto_enabled?: boolean;
+      execution_policy?: string;
+      config_version?: number;
+      updated_at?: string;
+    } | null;
+
+    return {
+      demoAutoEnabled: row?.demo_auto_enabled === true,
+      forceDryRun: row?.force_dry_run !== false,
+      liveExecutionEnabled: row?.live_execution_enabled === true,
+      liveAutoEnabled: row?.live_auto_enabled === true,
+      executionPolicy: row?.execution_policy ?? "single_exit_first_target",
+      configVersion: row?.config_version ?? null,
+      updatedAt: row?.updated_at ?? null,
+    };
+  });
