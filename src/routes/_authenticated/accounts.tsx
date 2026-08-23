@@ -1,0 +1,633 @@
+/**
+ * /accounts — connect and observe your own broker account.
+ *
+ * Presentation rules baked in:
+ *  - Every broker figure is labelled BROKER-REPORTED with the instant it was
+ *    observed. Nothing is shown as broker-confirmed before the broker answered.
+ *  - The demo/live choice is labelled as intent, and a contradiction from the
+ *    broker is a full-width stop, not a footnote.
+ *  - The secure credential page URL is opened once and never rendered as text
+ *    that could be copied into a log or a screenshot archive.
+ */
+import { useState } from "react";
+import { createFileRoute } from "@tanstack/react-router";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import {
+  AlertTriangle,
+  Building2,
+  CheckCircle2,
+  ExternalLink,
+  Eye,
+  HelpCircle,
+  Loader2,
+  Plus,
+  RefreshCw,
+  Unplug,
+} from "lucide-react";
+import { toast } from "sonner";
+
+import { AppShell } from "@/components/AppShell";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
+import { describePhase } from "@/lib/accounts/lifecycle";
+import {
+  CONNECTION_REGIONS,
+  HELP_TOPICS,
+  STAGE_CAPABILITY_NOTE,
+} from "@/lib/accounts/guidance";
+import type { ConnectedAccountView } from "@/lib/accounts/types";
+import {
+  disconnectBrokerConnection,
+  getAccountQuota,
+  listConnectedAccounts,
+  refreshBrokerConnection,
+  reissueBrokerConfigurationLink,
+  resolveAmbiguousSymbol,
+  startBrokerConnection,
+} from "@/lib/accounts.functions";
+
+export const Route = createFileRoute("/_authenticated/accounts")({
+  head: () => ({
+    meta: [
+      { title: "Broker Accounts — P-Trades Hub" },
+      {
+        name: "description",
+        content:
+          "Connect your MetaTrader account to P-Trades Hub in observe mode. Your broker reports the account facts; P-Trades never stores your password.",
+      },
+      { property: "og:title", content: "Broker Accounts — P-Trades Hub" },
+      {
+        property: "og:description",
+        content:
+          "Link a demo or live MetaTrader account and see broker-reported balance, equity and symbol mapping.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
+  component: AccountsPage,
+});
+
+function Money({ value, currency }: { value: number | null; currency: string | null }) {
+  if (value === null) return <span className="text-muted-foreground">unavailable</span>;
+  return (
+    <span className="num">
+      {value.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+      {currency ? ` ${currency}` : ""}
+    </span>
+  );
+}
+
+function AccountsPage() {
+  const queryClient = useQueryClient();
+  const [wizardOpen, setWizardOpen] = useState(false);
+
+  const accounts = useQuery({
+    queryKey: ["connected-accounts"],
+    queryFn: () => listConnectedAccounts(),
+  });
+  const quota = useQuery({ queryKey: ["account-quota"], queryFn: () => getAccountQuota() });
+
+  const invalidate = () => {
+    void queryClient.invalidateQueries({ queryKey: ["connected-accounts"] });
+    void queryClient.invalidateQueries({ queryKey: ["account-quota"] });
+  };
+
+  const list = accounts.data ?? [];
+  const canAddDemo = (quota.data?.usedDemo ?? 0) < (quota.data?.maxDemo ?? 0);
+  const canAddLive = (quota.data?.usedLive ?? 0) < (quota.data?.maxLive ?? 0);
+
+  return (
+    <AppShell>
+      <div className="mx-auto max-w-[1100px] px-3 py-5 sm:px-4">
+        <header className="mb-5">
+          <h1 className="text-lg font-semibold tracking-tight sm:text-xl">Broker Accounts</h1>
+          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{STAGE_CAPABILITY_NOTE}</p>
+        </header>
+
+        <div className="mb-4 rounded-sm border border-border bg-surface p-3 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2 font-medium text-foreground">
+            <Eye className="size-4" /> Observe mode
+          </div>
+          <p className="mt-1">
+            P-Trades never receives or stores your MetaTrader password. You enter it on your
+            broker-connection provider&rsquo;s own secure page.
+          </p>
+        </div>
+
+        {accounts.isLoading ? (
+          <p className="text-sm text-muted-foreground">Loading your connections…</p>
+        ) : list.length === 0 ? (
+          <div className="rounded-sm border border-dashed border-border p-6 text-center">
+            <Building2 className="mx-auto size-6 text-muted-foreground" />
+            <p className="mt-2 text-sm font-medium">No broker account connected yet</p>
+            <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
+              Connecting one lets P-Trades show your broker&rsquo;s own balance, equity and symbol
+              names beside each signal. It cannot trade for you.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {list.map((account) => (
+              <AccountCard key={account.id} account={account} onChanged={invalidate} />
+            ))}
+          </div>
+        )}
+
+        <div className="mt-5 flex flex-wrap items-center gap-3">
+          <Button onClick={() => setWizardOpen(true)} disabled={!canAddDemo && !canAddLive}>
+            <Plus className="size-4" /> Connect a broker account
+          </Button>
+          {quota.data ? (
+            <span className="num text-xs text-muted-foreground">
+              {quota.data.usedDemo}/{quota.data.maxDemo} demo · {quota.data.usedLive}/
+              {quota.data.maxLive} live
+            </span>
+          ) : null}
+        </div>
+
+        {wizardOpen ? (
+          <ConnectWizard
+            canAddDemo={canAddDemo}
+            canAddLive={canAddLive}
+            onClose={() => setWizardOpen(false)}
+            onDone={invalidate}
+          />
+        ) : null}
+
+        <section className="mt-8">
+          <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold">
+            <HelpCircle className="size-4" /> Where do I find this?
+          </h2>
+          <Accordion type="single" collapsible className="rounded-sm border border-border">
+            {HELP_TOPICS.map((topic) => (
+              <AccordionItem key={topic.id} value={topic.id} className="px-3">
+                <AccordionTrigger className="text-left text-sm">{topic.question}</AccordionTrigger>
+                <AccordionContent className="text-xs text-muted-foreground">
+                  <p>{topic.answer}</p>
+                  {topic.whereToLook.length > 0 ? (
+                    <ul className="mt-2 list-disc space-y-1 pl-4">
+                      {topic.whereToLook.map((where) => (
+                        <li key={where}>{where}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        </section>
+      </div>
+    </AppShell>
+  );
+}
+
+function ConnectWizard({
+  canAddDemo,
+  canAddLive,
+  onClose,
+  onDone,
+}: {
+  canAddDemo: boolean;
+  canAddLive: boolean;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const start = useServerFn(startBrokerConnection);
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [intent, setIntent] = useState<"demo" | "live">(canAddDemo ? "demo" : "live");
+  const [platform, setPlatform] = useState<"mt4" | "mt5">("mt5");
+  const [label, setLabel] = useState("");
+  const [brokerServer, setBrokerServer] = useState("");
+  const [region, setRegion] = useState<string>("london");
+
+  const mutation = useMutation({
+    mutationFn: () =>
+      start({ data: { label, platform, brokerServer, region, intent } }),
+    onSuccess: (result) => {
+      onDone();
+      setStep(4);
+      if (result.configurationUrl) {
+        // Opened, never rendered or stored: the URL grants credential entry.
+        window.open(result.configurationUrl, "_blank", "noopener,noreferrer");
+      } else {
+        toast.error("Your broker-connection provider did not return a secure page. Refresh the connection to retry.");
+      }
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  return (
+    <div className="mt-5 rounded-sm border border-border bg-surface p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-sm font-semibold">Connect a broker account — step {step} of 4</h2>
+        <Button variant="ghost" size="sm" onClick={onClose}>
+          Close
+        </Button>
+      </div>
+
+      {step === 1 ? (
+        <div className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            Which account are you connecting? This is your starting point only — once connected,
+            your broker tells P-Trades what the account really is, and P-Trades stops if the two
+            disagree.
+          </p>
+          <div className="flex gap-2">
+            <Button
+              variant={intent === "demo" ? "default" : "outline"}
+              disabled={!canAddDemo}
+              onClick={() => setIntent("demo")}
+            >
+              Demo account
+            </Button>
+            <Button
+              variant={intent === "live" ? "default" : "outline"}
+              disabled={!canAddLive}
+              onClick={() => setIntent("live")}
+            >
+              Live account (observe only)
+            </Button>
+          </div>
+          <Button size="sm" onClick={() => setStep(2)}>
+            Continue
+          </Button>
+        </div>
+      ) : null}
+
+      {step === 2 ? (
+        <div className="space-y-3">
+          <div>
+            <Label htmlFor="platform">Which app did your broker give you?</Label>
+            <Select value={platform} onValueChange={(v) => setPlatform(v as "mt4" | "mt5")}>
+              <SelectTrigger id="platform" className="mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="mt5">MetaTrader 5 (MT5)</SelectItem>
+                <SelectItem value="mt4">MetaTrader 4 (MT4)</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Check the title bar of your MetaTrader app, or your broker&rsquo;s welcome email.
+            </p>
+          </div>
+          <div>
+            <Label htmlFor="server">Broker server name</Label>
+            <Input
+              id="server"
+              className="mt-1"
+              placeholder="MetaQuotes-Demo"
+              value={brokerServer}
+              onChange={(e) => setBrokerServer(e.target.value)}
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Copy it exactly as MetaTrader shows it in File → Login to Trade Account, including any
+              dash and number.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setStep(1)}>
+              Back
+            </Button>
+            <Button size="sm" disabled={brokerServer.trim().length < 3} onClick={() => setStep(3)}>
+              Continue
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      {step === 3 ? (
+        <div className="space-y-3">
+          <div>
+            <Label htmlFor="label">Name this connection</Label>
+            <Input
+              id="label"
+              className="mt-1"
+              placeholder="My demo account"
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+            />
+          </div>
+          <div>
+            <Label htmlFor="region">Connection region</Label>
+            <Select value={region} onValueChange={setRegion}>
+              <SelectTrigger id="region" className="mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CONNECTION_REGIONS.map((r) => (
+                  <SelectItem key={r.id} value={r.id}>
+                    {r.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <p className="rounded-sm border border-border p-2 text-xs text-muted-foreground">
+            Next, a secure page from your broker-connection provider opens in a new tab. Your
+            MetaTrader login and password are entered there. P-Trades never sees them.
+          </p>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setStep(2)}>
+              Back
+            </Button>
+            <Button
+              size="sm"
+              disabled={label.trim().length < 2 || mutation.isPending}
+              onClick={() => mutation.mutate()}
+            >
+              {mutation.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+              Create connection &amp; open secure page
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      {step === 4 ? (
+        <div className="space-y-3 text-sm">
+          <p className="flex items-center gap-2 font-medium">
+            <CheckCircle2 className="size-4 text-success" /> Connection created
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Enter your MetaTrader login on the secure page that just opened. Then come back and press
+            <strong> Refresh</strong> on the connection below. P-Trades will show it as Ready only
+            once your broker itself confirms the account.
+          </p>
+          <Button size="sm" onClick={onClose}>
+            Done
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function AccountCard({
+  account,
+  onChanged,
+}: {
+  account: ConnectedAccountView;
+  onChanged: () => void;
+}) {
+  const refresh = useServerFn(refreshBrokerConnection);
+  const reissue = useServerFn(reissueBrokerConfigurationLink);
+  const disconnect = useServerFn(disconnectBrokerConnection);
+  const chooseSymbol = useServerFn(resolveAmbiguousSymbol);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  const phase = describePhase(account.phase);
+  const toneClass =
+    phase.tone === "ok"
+      ? "text-success"
+      : phase.tone === "error"
+        ? "text-destructive"
+        : "text-muted-foreground";
+
+  const refreshMutation = useMutation({
+    mutationFn: () => refresh({ data: { accountId: account.id } }),
+    onSuccess: () => onChanged(),
+    onError: (err: Error) => toast.error(err.message),
+  });
+  const reissueMutation = useMutation({
+    mutationFn: () => reissue({ data: { accountId: account.id } }),
+    onSuccess: (result) => window.open(result.configurationUrl, "_blank", "noopener,noreferrer"),
+    onError: (err: Error) => toast.error(err.message),
+  });
+  const disconnectMutation = useMutation({
+    mutationFn: () => disconnect({ data: { accountId: account.id } }),
+    onSuccess: (result) => {
+      toast.success(result.summary);
+      onChanged();
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+  const symbolMutation = useMutation({
+    mutationFn: (vars: { canonicalSymbol: string; brokerSymbol: string }) =>
+      chooseSymbol({ data: { accountId: account.id, ...vars } }),
+    onSuccess: () => onChanged(),
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  return (
+    <article className="rounded-sm border border-border bg-surface">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border p-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="truncate text-sm font-semibold">{account.label}</h3>
+            <Badge variant="outline" className="num uppercase">
+              {account.platform}
+            </Badge>
+            {account.ready ? (
+              <Badge className="uppercase">{account.broker.accountType}</Badge>
+            ) : (
+              <Badge variant="secondary">Not verified yet</Badge>
+            )}
+            {account.readOnly ? <Badge variant="outline">Read-only</Badge> : null}
+            <Badge variant="outline">Observe</Badge>
+          </div>
+          <p className={cn("mt-1 text-xs font-medium", toneClass)}>{phase.label}</p>
+          <p className="mt-0.5 max-w-xl text-xs text-muted-foreground">{phase.detail}</p>
+          {phase.nextAction ? (
+            <p className="mt-1 text-xs text-foreground">Next: {phase.nextAction}</p>
+          ) : null}
+        </div>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={refreshMutation.isPending}
+            onClick={() => refreshMutation.mutate()}
+          >
+            {refreshMutation.isPending ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <RefreshCw className="size-4" />
+            )}
+            Refresh
+          </Button>
+          {!account.credentials_configured_hidden && !account.ready ? (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={reissueMutation.isPending}
+              onClick={() => reissueMutation.mutate()}
+            >
+              <ExternalLink className="size-4" /> Secure login page
+            </Button>
+          ) : null}
+          <Button size="sm" variant="ghost" onClick={() => setConfirmOpen(true)}>
+            <Unplug className="size-4" /> Disconnect
+          </Button>
+        </div>
+      </div>
+
+      {account.intentConflict && account.intentConflictReason ? (
+        <div className="flex gap-2 border-b border-destructive/40 bg-destructive/10 p-3 text-xs">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-destructive" />
+          <div>
+            <p className="font-semibold text-destructive">Stopped: this is not the account you chose</p>
+            <p className="mt-1">{account.intentConflictReason}</p>
+          </div>
+        </div>
+      ) : null}
+
+      {account.lastError ? (
+        <p className="border-b border-border p-3 text-xs text-muted-foreground">
+          Last problem reported: {account.lastError}
+        </p>
+      ) : null}
+
+      <dl className="grid grid-cols-2 gap-3 p-3 text-xs sm:grid-cols-4">
+        <Fact label="Broker" value={account.broker.name ?? "unavailable"} />
+        <Fact label="Login" value={account.broker.loginMasked ?? "unavailable"} />
+        <Fact label="Server" value={account.brokerServer ?? "unavailable"} />
+        <Fact
+          label="Your onboarding choice"
+          value={account.intent === "demo" ? "Demo (intent)" : "Live (intent)"}
+        />
+        <Fact
+          label="Balance"
+          value={<Money value={account.broker.balance} currency={account.broker.currency} />}
+        />
+        <Fact
+          label="Equity"
+          value={<Money value={account.broker.equity} currency={account.broker.currency} />}
+        />
+        <Fact
+          label="Free margin"
+          value={<Money value={account.broker.freeMargin} currency={account.broker.currency} />}
+        />
+        <Fact
+          label="Leverage"
+          value={account.broker.leverage === null ? "unavailable" : `1:${account.broker.leverage}`}
+        />
+      </dl>
+
+      <p className="px-3 pb-3 text-[11px] text-muted-foreground">
+        {account.broker.observedAt
+          ? `Broker-reported — read from your broker at ${new Date(account.broker.observedAt).toUTCString()}. Your risk equity in Settings is your own figure and is never overwritten by this.`
+          : "No broker figures yet — your broker has not reported this account."}
+      </p>
+
+      {account.features ? (
+        <div className="border-t border-border p-3 text-xs">
+          <p className="font-medium">Account features</p>
+          <ul className="mt-1 space-y-1 text-muted-foreground">
+            <li>
+              Broker statistics API: {account.features.metastats_api_enabled ? "enabled" : "not enabled"}
+            </li>
+            <li>
+              Risk Guardian:{" "}
+              {account.features.risk_guardian_available
+                ? "available"
+                : (account.features.risk_guardian_reason ?? "unavailable")}
+            </li>
+          </ul>
+        </div>
+      ) : null}
+
+      {account.symbols.length > 0 ? (
+        <div className="border-t border-border p-3 text-xs">
+          <p className="font-medium">Your broker&rsquo;s symbol names</p>
+          <ul className="mt-1 space-y-2">
+            {account.symbols.map((s) => (
+              <li key={s.canonical_symbol} className="flex flex-wrap items-center gap-2">
+                <span className="num font-medium">{s.canonical_symbol}</span>
+                <span className="text-muted-foreground">→</span>
+                {s.broker_symbol ? (
+                  <span className="num">{s.broker_symbol}</span>
+                ) : s.mapping_kind === "ambiguous" ? (
+                  <>
+                    <span className="text-destructive">
+                      several possible matches — choose one
+                    </span>
+                    {s.candidates.map((candidate) => (
+                      <Button
+                        key={candidate}
+                        size="sm"
+                        variant="outline"
+                        disabled={symbolMutation.isPending}
+                        onClick={() =>
+                          symbolMutation.mutate({
+                            canonicalSymbol: s.canonical_symbol,
+                            brokerSymbol: candidate,
+                          })
+                        }
+                      >
+                        {candidate}
+                      </Button>
+                    ))}
+                  </>
+                ) : (
+                  <span className="text-muted-foreground">
+                    not offered on this account
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Disconnect {account.label}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              P-Trades will stop this connection and remove it from your broker-connection provider.
+              Your broker account itself is untouched, and everything already recorded in P-Trades is
+              kept.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep connected</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => disconnectMutation.mutate()}
+              disabled={disconnectMutation.isPending}
+            >
+              Disconnect
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </article>
+  );
+}
+
+function Fact({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div>
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="mt-0.5 truncate font-medium">{value}</dd>
+    </div>
+  );
+}
