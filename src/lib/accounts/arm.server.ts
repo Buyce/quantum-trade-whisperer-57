@@ -11,7 +11,6 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { canArm, isAccountMode } from "./mode";
 import type { AccountMode } from "./types";
-import { isReadyPhase } from "./lifecycle";
 
 const TABLE = "connected_trading_accounts";
 
@@ -50,7 +49,7 @@ export async function setAccountMode(
   const verdict = canArm(
     {
       brokerAccountType: row.broker_account_type ?? "unknown",
-      ready: isReadyPhase(row.phase),
+      ready: row.phase === "ready",
       intentConflict: row.intent_conflict === true,
       tradeAllowed: row.trade_allowed,
       investorMode: row.investor_mode,
