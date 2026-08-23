@@ -124,6 +124,15 @@ export function classifyMetaApiFailure(err: unknown): MetaApiFailure {
       retryable: false,
     };
   }
+  if (err instanceof MetaApiTokenScopeError) {
+    return {
+      kind: "permission",
+      message: err.message,
+      status: null,
+      retryAfterSeconds: null,
+      retryable: false,
+    };
+  }
   if (err instanceof MetaApiNotConfiguredError) {
     return {
       kind: "not_configured",
