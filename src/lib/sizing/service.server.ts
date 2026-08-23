@@ -22,7 +22,9 @@ import {
 import { isSpecStale, staticSpec, type SizingSpec } from "@/lib/broker/specs";
 import { loadBrokerSpec } from "@/lib/broker/specs.server";
 import { resolveSizing } from "@/lib/broker/sizing.server";
+import { equityFresh } from "@/lib/execution/equity-freshness";
 import { resolveConversion, QUOTE_MAX_AGE_MS } from "./conversion.server";
+
 import { portfolioAdvisory, type AdvisoryTradeRow, type PortfolioAdvisory } from "./portfolio";
 
 type Db = Pick<SupabaseClient, "from" | "rpc">;
@@ -398,8 +400,10 @@ export async function resolveSizingForUser(
  */
 export type AccountSizingRefusalReason =
   | "account_equity_unavailable"
+  | "account_equity_stale"
   | "account_currency_unavailable"
   | "account_spec_unavailable";
+
 
 export interface AccountSizingRefusal {
   available: false;
@@ -465,6 +469,23 @@ export async function resolveSizingForAccount(
       detail: `this account's ${request.instrument} specification (as of ${spec.asOf ?? "unknown"}) is too old to size an order`,
     };
   }
+
+  // ---- Equity freshness HARD gate ------------------------------------------
+  // Checked last so a missing broker input is reported as the missing input it
+  // is, but checked unconditionally: a quantity is only ever authorised from an
+  // equity observation recent enough to still describe the account. A missing or
+  // unreadable observation time is never treated as fresh, so the order is
+  // abandoned rather than sized from a figure whose age is unknown.
+  const freshness = equityFresh(account.equityAsOf, now);
+  if (!freshness.fresh) {
+    return {
+      available: false,
+      accountReason: "account_equity_stale",
+      detail: freshness.detail,
+    };
+  }
+
+
 
   return await resolveSizingForUser(db, userId, request, now, {
     accountId: account.id,

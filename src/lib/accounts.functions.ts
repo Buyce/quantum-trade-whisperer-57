@@ -91,3 +91,14 @@ export const setBrokerAccountMode = createServerFn({ method: "POST" })
     const views = await loadAccountViews(context.supabase, context.userId);
     return views.find((v) => v.id === data.accountId) ?? null;
   });
+
+export const setAccountExposureBoundary = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { accountId: string; maxOpenPositions: number | null }) => input)
+  .handler(async ({ data, context }): Promise<ConnectedAccountView | null> => {
+    const { setAccountExposureBoundary: save } = await import("@/lib/accounts/exposure.server");
+    const { loadAccountViews } = await import("@/lib/accounts/read.server");
+    await save(context.userId, data.accountId, data.maxOpenPositions);
+    const views = await loadAccountViews(context.supabase, context.userId);
+    return views.find((v) => v.id === data.accountId) ?? null;
+  });

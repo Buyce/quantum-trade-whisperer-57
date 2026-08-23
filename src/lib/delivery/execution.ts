@@ -66,6 +66,7 @@ export type RejectReason =
   | "live_authorization_stale"
   | "account_spec_unavailable"
   | "account_equity_unavailable"
+  | "account_equity_stale"
   | "account_currency_unavailable"
   | "account_not_armed";
 
@@ -103,6 +104,8 @@ export const REJECT_COPY: Record<RejectReason, string> = {
     "Your broker has not published a usable contract specification for this symbol on this account, so no quantity could be established.",
   account_equity_unavailable:
     "Your broker did not report equity for this account, so the order could not be sized from the account it would land in.",
+  account_equity_stale:
+    "Your broker's equity reading for this account was too old to size an order from, so nothing was sent. A quantity is only ever authorised from a recent broker observation.",
   account_currency_unavailable:
     "Your broker did not report the deposit currency of this account, so the order could not be sized. A currency is never assumed.",
   account_not_armed:

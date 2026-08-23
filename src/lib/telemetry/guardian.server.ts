@@ -53,13 +53,17 @@ export async function syncAccountGuardian(input: {
   const availability = riskGuardianAvailability(input.info, input.riskFeatureEnabled);
 
   if (!availability.available) {
+    // Availability is per-account CAPABILITY state, so it belongs on the feature
+    // row the /accounts screen actually reads — not on the account row, which
+    // has no such column.
     await supabaseAdmin
-      .from("connected_trading_accounts")
+      .from("connected_account_features")
       .update({
         risk_guardian_available: false,
         risk_guardian_reason: availability.reason,
+        observed_at: new Date().toISOString(),
       } as never)
-      .eq("id", input.accountId);
+      .eq("account_id", input.accountId);
     // Record the unsupported state against any tracker rows that already exist,
     // so a stale row cannot keep reading as "watching".
     await supabaseAdmin
@@ -70,9 +74,14 @@ export async function syncAccountGuardian(input: {
   }
 
   await supabaseAdmin
-    .from("connected_trading_accounts")
-    .update({ risk_guardian_available: true, risk_guardian_reason: null } as never)
-    .eq("id", input.accountId);
+    .from("connected_account_features")
+    .update({
+      risk_guardian_available: true,
+      risk_guardian_reason: null,
+      observed_at: new Date().toISOString(),
+    } as never)
+    .eq("account_id", input.accountId);
+
 
   const plans = input.plans ?? DEFAULT_TRACKER_PLANS;
   const result: GuardianSyncResult = {

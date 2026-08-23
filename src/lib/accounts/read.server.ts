@@ -10,6 +10,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { isReadOnly } from "@/lib/metaapi/classify";
 import { isConnectionReady } from "./lifecycle";
+import { canArm, offerableModes, type ModeContext } from "./mode";
 import type {
   AccountFeatureRow,
   AccountQuotaView,
@@ -26,12 +27,25 @@ function num(value: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/**
+ * Keep only finite numeric vendor metrics. A figure the vendor did not report
+ * stays ABSENT rather than becoming a zero the UI could present as a fact.
+ */
+function numericMetrics(raw: unknown): Record<string, number> | null {
+  if (!raw || typeof raw !== "object") return null;
+  const out: Record<string, number> = {};
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof value === "number" && Number.isFinite(value)) out[key] = value;
+  }
+  return Object.keys(out).length > 0 ? out : null;
+}
+
 export async function toAccountView(
   supabase: unknown,
   row: ConnectedAccountRow,
 ): Promise<ConnectedAccountView> {
   const db = supabase as Client;
-  const [symbols, specs, features] = await Promise.all([
+  const [symbols, specs, features, telemetry, breaches] = await Promise.all([
     db
       .from("connected_account_symbols" as never)
       .select("canonical_symbol, broker_symbol, mapping_kind, candidates, resolved_at")
@@ -51,7 +65,43 @@ export async function toAccountView(
       )
       .eq("account_id", row.id)
       .maybeSingle(),
+    // The most recent vendor answer only. A `processing` or `unavailable` answer
+    // carries no metrics object, so nothing here can be rounded to "zero trades".
+    db
+      .from("account_telemetry_snapshots" as never)
+      .select("status, reason, metrics, observed_at")
+      .eq("account_id", row.id)
+      .eq("source", "metastats")
+      .order("observed_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    db
+      .from("account_risk_events" as never)
+      .select("event_at, relative_drawdown, absolute_drawdown")
+      .eq("account_id", row.id)
+      .order("event_at", { ascending: false })
+      .limit(5),
   ]);
+
+  const modeContext: ModeContext = {
+    brokerAccountType: row.broker_account_type,
+    ready: isConnectionReady({
+      phase: row.phase,
+      brokerAccountType: row.broker_account_type,
+      intentConflict: row.intent_conflict,
+    }),
+    intentConflict: row.intent_conflict,
+    tradeAllowed: row.trade_allowed,
+    investorMode: row.investor_mode,
+    hasBrokerConnection: Boolean(row.metaapi_account_id),
+    hasMagic: typeof row.magic === "number" && row.magic > 0,
+  };
+  // The refusal sentence is taken from the mode matching the BROKER's own account
+  // type, so the explanation never describes a mode this account could not have.
+  const armVerdict = canArm(
+    modeContext,
+    row.broker_account_type === "real" ? "live_confirm" : "demo_auto",
+  );
 
   const readOnly = isReadOnly({
     investorMode: row.investor_mode,
@@ -92,6 +142,29 @@ export async function toAccountView(
       observedAt: row.broker_observed_at,
     },
     features: (features.data as AccountFeatureRow | null) ?? null,
+    maxAccountOpenPositions: num(row.max_account_open_positions),
+    isBenchmark: row.is_benchmark === true,
+    offerableModes: offerableModes(modeContext),
+    armRefusal: armVerdict.ok ? null : armVerdict.detail,
+    telemetry: telemetry.data
+      ? {
+          status: (telemetry.data as { status: string }).status,
+          reason: (telemetry.data as { reason: string | null }).reason ?? null,
+          observedAt: (telemetry.data as { observed_at: string | null }).observed_at ?? null,
+          metrics: numericMetrics(
+            (telemetry.data as { metrics: unknown }).metrics,
+          ),
+        }
+      : null,
+    riskBreaches: ((breaches.data ?? []) as {
+      event_at: string;
+      relative_drawdown: number | null;
+      absolute_drawdown: number | null;
+    }[]).map((e) => ({
+      eventAt: e.event_at,
+      relativeDrawdown: num(e.relative_drawdown),
+      absoluteDrawdown: num(e.absolute_drawdown),
+    })),
     symbols: ((symbols.data ?? []) as AccountSymbolRow[]).map((s) => ({
       ...s,
       candidates: Array.isArray(s.candidates) ? s.candidates : [],
