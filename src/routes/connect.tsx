@@ -262,39 +262,63 @@ function ConnectPage() {
               className="rounded-md border border-border bg-card p-4 sm:p-5"
             >
               <h3 className="text-sm font-semibold text-foreground">ChatGPT</h3>
+              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                Custom MCP servers are connected through{" "}
+                <Ext href="https://developers.openai.com/api/docs/guides/developer-mode">
+                  ChatGPT developer mode
+                </Ext>
+                , which OpenAI documents as available to Pro, Plus, Business, Enterprise and
+                Education accounts on the web. Read-only connector use (search/fetch style tools) is
+                broadly available; OpenAI describes full MCP support{" "}
+                <em>including modify/write actions</em> as a beta rolling out to Business,
+                Enterprise and Edu plans (see the{" "}
+                <Ext href="https://help.openai.com/en/articles/12584461-developer-mode-and-mcp-apps-in-chatgpt">
+                  developer mode help article
+                </Ext>
+                ). P-Trades Hub does expose write tools —{" "}
+                <code className="num">update_my_settings</code>,{" "}
+                <code className="num">log_trade_decision</code>,{" "}
+                <code className="num">update_trade_outcome</code> — but whether ChatGPT may invoke
+                them depends on your current plan and workspace permissions, not on this app.
+                Reading setups, status, sizing and your journal works wherever developer mode is
+                available.
+              </p>
               <Steps
                 items={[
                   <>
-                    Open{" "}
-                    <Ext href="https://chatgpt.com/#settings/Connectors/Advanced">
-                      Settings → Apps &amp; Connectors → Advanced
-                    </Ext>{" "}
-                    and turn on <strong className="text-foreground">Developer mode</strong> (read
-                    the risk notice shown there). If it isn't available, ask a ChatGPT admin to
-                    enable it.
+                    In ChatGPT, open <strong className="text-foreground">Settings</strong> →{" "}
+                    <strong className="text-foreground">Security and login</strong> and turn on{" "}
+                    <strong className="text-foreground">Developer mode</strong>, reading the
+                    elevated-risk notice shown there. On Business/Enterprise/Edu a workspace admin
+                    may have to enable it first in workspace settings.
                   </>,
                   <>
-                    Still in{" "}
-                    <Ext href="https://chatgpt.com/#settings/Connectors">Apps &amp; Connectors</Ext>
-                    , choose <strong className="text-foreground">Create</strong> to open the custom
-                    connector dialog.
+                    Go to <Ext href="https://chatgpt.com/plugins">chatgpt.com/plugins</Ext>, press
+                    the “+” button and create a developer-mode app for a remote MCP server.
                   </>,
                   <>
-                    Enter <strong className="text-foreground">P-Trades Hub</strong> as the name,
-                    paste the server URL above into the MCP server URL field, and leave the
-                    authentication set to OAuth.
+                    Name it <strong className="text-foreground">P-Trades Hub</strong>, paste the
+                    server URL above, and choose <strong className="text-foreground">OAuth</strong>{" "}
+                    authentication — P-Trades Hub signs you in with your own account, so no static
+                    key is needed.
                   </>,
                   <>
-                    Review the details, tick the “I trust this application” confirmation (ChatGPT
-                    shows this for every custom MCP server, not just this one), then click{" "}
-                    <strong className="text-foreground">Create</strong>.
+                    Confirm the trust/risk acknowledgement ChatGPT shows for every custom MCP
+                    server, then create the app. ChatGPT scans the server and lists its tools; you
+                    can toggle individual tools on the app's details page.
                   </>,
                   <>
-                    Enable P-Trades Hub from the chat composer, sign in when prompted, then ask
-                    ChatGPT to use it.
+                    In a chat, pick <strong className="text-foreground">Developer mode</strong> from
+                    the “+” menu, enable P-Trades Hub, sign in when prompted, then ask ChatGPT to
+                    use it. Write actions ask for confirmation each time unless you choose to
+                    remember the approval for that conversation.
                   </>,
                 ]}
               />
+              <p className="mt-3 text-xs text-muted-foreground">
+                Vendor availability, plan tiers and menu names change; if a step does not match what
+                you see, trust OpenAI's documentation linked above over this page.
+              </p>
             </TabsContent>
 
             <TabsContent
@@ -302,23 +326,65 @@ function ConnectPage() {
               className="rounded-md border border-border bg-card p-4 sm:p-5"
             >
               <h3 className="text-sm font-semibold text-foreground">Claude</h3>
+              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                Anthropic documents two different paths in{" "}
+                <Ext href="https://support.anthropic.com/en/articles/11175166-about-custom-connectors-remote-mcp">
+                  its custom connector guide
+                </Ext>
+                : individual Pro/Max users add the connector themselves, while on Team and
+                Enterprise only an Owner or Primary Owner can add it to the organisation — members
+                then connect to it individually with their own P-Trades sign-in.
+              </p>
+              <h4 className="mt-4 text-xs font-semibold text-foreground">
+                Individual Pro or Max plan
+              </h4>
               <Steps
                 items={[
                   <>
-                    Open the <Ext href={claudeAdd}>prefilled custom connector dialog</Ext> in
-                    Claude.
+                    Open the <Ext href={claudeAdd}>prefilled custom connector dialog</Ext>, or go to{" "}
+                    <strong className="text-foreground">Customize → Connectors</strong> and choose
+                    “+” → “Add custom connector”.
+                  </>,
+                  <>
+                    Paste the server URL above as the remote MCP server URL. Leave “Advanced
+                    settings” alone — P-Trades Hub needs no OAuth client ID or secret from you.
                   </>,
                   <>
                     Review the name and URL, then click{" "}
                     <strong className="text-foreground">Add</strong>.
                   </>,
                   <>
-                    If the prefilled form doesn't open, go to Claude's Connectors page, choose “Add
-                    custom connector”, name it P-Trades Hub and paste the server URL above.
+                    Enable the connector from the “+” button in the chat composer, sign in when
+                    prompted, then ask Claude to use it.
                   </>,
-                  <>Enable the connector from the chat composer, then ask Claude to use it.</>,
                 ]}
               />
+              <h4 className="mt-4 text-xs font-semibold text-foreground">
+                Team or Enterprise plan
+              </h4>
+              <Steps
+                items={[
+                  <>
+                    An Owner or Primary Owner opens{" "}
+                    <strong className="text-foreground">Organization settings → Connectors</strong>,
+                    clicks “Add”, hovers “Custom” and selects “Web”.
+                  </>,
+                  <>
+                    They paste the server URL above and finish with{" "}
+                    <strong className="text-foreground">Add</strong>.
+                  </>,
+                  <>
+                    Each member then opens{" "}
+                    <strong className="text-foreground">Customize → Connectors</strong>, connects to
+                    P-Trades Hub and signs in — so every member only ever sees their own data.
+                  </>,
+                  <>Enable it from the chat composer and ask Claude to use it.</>,
+                ]}
+              />
+              <p className="mt-3 text-xs text-muted-foreground">
+                Vendor UI, plan availability and role names can change; Anthropic's guide above is
+                authoritative if this page and Claude disagree.
+              </p>
             </TabsContent>
 
             <TabsContent
@@ -383,18 +449,16 @@ function ConnectPage() {
               <Steps
                 items={[
                   <>
-                    Open{" "}
-                    <Ext href="https://chatgpt.com/#settings/Connectors">Apps &amp; Connectors</Ext>{" "}
-                    and select P-Trades Hub.
+                    Open <Ext href="https://chatgpt.com/plugins">chatgpt.com/plugins</Ext> and open
+                    the P-Trades Hub app's details page.
                   </>,
                   <>
-                    Scroll to its details and click{" "}
-                    <strong className="text-foreground">Refresh</strong> to reload what the
-                    connector can do.
+                    Click <strong className="text-foreground">Refresh</strong> to pull the latest
+                    tools, descriptions and server instructions, then check the tool toggles.
                   </>,
                   <>
-                    ChatGPT can't change an existing connector's URL — if the URL above changed,
-                    delete the connector and connect again.
+                    ChatGPT can't change an existing app's URL — if the URL above changed, delete
+                    the app and connect again.
                   </>,
                   <>Start a new chat and ask ChatGPT to use P-Trades Hub.</>,
                 ]}
@@ -407,7 +471,13 @@ function ConnectPage() {
             >
               <Steps
                 items={[
-                  <>Open Claude's Connectors page and select P-Trades Hub.</>,
+                  <>
+                    Open <strong className="text-foreground">Customize → Connectors</strong> (Team
+                    and Enterprise Owners:{" "}
+                    <strong className="text-foreground">Organization settings → Connectors</strong>)
+                    and select P-Trades Hub.
+                  </>,
+
                   <>Refresh or update the connector.</>,
                   <>
                     Claude can't change an existing connector's URL — if the URL above changed,

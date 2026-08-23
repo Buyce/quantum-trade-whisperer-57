@@ -40,17 +40,23 @@ canonical documentation.
 
 | Client            | What the page tells the user                                                                                                                                                | Audit note                                                                                       |
 | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| ChatGPT           | Enable Developer mode under Settings → Apps & Connectors → Advanced, create a custom connector, paste the MCP URL, accept the trust confirmation, enable it in the composer | Rewritten to current Apps/Connectors terminology. The older "Plugins" phrasing has been removed. |
-| Claude            | Open the Connectors page, add a custom connector with the app name and MCP URL, confirm, then enable it in the composer                                                     | Prefilled connector deep link, with a written fallback if the prefilled dialog does not open.    |
-| Claude Code       | One `claude mcp add --scope user --transport http` command with the runtime URL single-quoted, then `/mcp` to confirm                                                       | The command is the client's whole install step; no config-file editing is documented.            |
+| ChatGPT           | Turn on Developer mode under Settings → Security and login (workspace admin may gate it), create a developer-mode app at `chatgpt.com/plugins` with OAuth, accept the elevated-risk confirmation, let ChatGPT scan the tools, then enable it from the "+" → Developer mode menu | Re-read against OpenAI's ChatGPT developer mode guide and the developer-mode help article. Eligibility is documented as Pro, Plus, Business, Enterprise and Education on web; full MCP support **including modify/write actions** is documented as a beta on Business/Enterprise/Edu, so `/connect` states plainly that P-Trades exposes write tools (`update_my_settings`, `log_trade_decision`, `update_trade_outcome`) but that invocation depends on the user's plan and workspace permissions, while read tools work wherever developer mode exists. Both stable doc URLs are linked, not only settings deep links. |
+| Claude            | Pro/Max: Customize → Connectors → "+" → Add custom connector (prefilled deep link offered), paste the MCP URL, Add, enable in the composer. Team/Enterprise: an Owner or Primary Owner adds it under Organization settings → Connectors → Add → Custom → Web, then each member connects individually under Customize → Connectors | Re-read against Anthropic's custom connectors (remote MCP) guide, which documents the Owner-only organisation path separately from individual Pro/Max setup. No OAuth client ID/secret is required for this server.                                                                                                                                                                                                                                                                        |
+| Claude Code       | One `claude mcp add --scope user --transport http` command with the runtime URL single-quoted, then `/mcp` to confirm                                                       | Re-verified against Claude Code's current MCP documentation: `--transport http` and user scope are still the documented remote-server install. The command is the client's whole install step; no config-file editing is documented.            |
+
 | Other MCP clients | Generic remote-MCP steps: open connector settings, add a remote server, paste the URL, finish sign-in, enable                                                               | Vendor-neutral so it does not go stale.                                                          |
 
 ## Refresh guidance audited
 
 Each client's "after the app changes" path is stated separately, because a
-connected assistant caches the tool list. ChatGPT and Claude cannot edit an
-existing connector's URL, so both paths say to remove and re-add if the URL
-changes; Claude Code re-reads tools on a new session.
+connected assistant caches the tool list. In ChatGPT the app's details page at
+`chatgpt.com/plugins` has the Refresh action that re-pulls tools, descriptions
+and server instructions. ChatGPT and Claude cannot edit an existing
+connector's URL, so both paths say to remove and re-add if the URL changes;
+Claude Code re-reads tools on a new session. Vendor availability, plan tiers and
+menu labels can change without notice, and `/connect` says so on both vendor
+tabs, pointing the reader at the vendor's own documentation as authoritative.
+
 
 ## Deliberate exclusions
 

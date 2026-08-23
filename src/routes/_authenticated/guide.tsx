@@ -84,7 +84,7 @@ const SECTIONS: Section[] = [
         id: "tour",
         q: "What is each screen for?",
         a: [
-          "Feed: setups currently published and eligible under your settings, newest first. History: your own trade journal, including trades you skipped. Performance: expectancy and R statistics computed from your journal, behind evidence gates. Settings: risk inputs, filters, alerts, execution controls and the scanner heartbeat. Connect AI: how to attach ChatGPT, Claude or Claude Code to your own data.",
+          "Feed: setups currently published and eligible under your settings, newest first. History: your trade journal of setups you logged as Taken — skipped decisions are recorded for statistics but do not appear on that screen. Performance: expectancy and R statistics computed from your journal, behind evidence gates. Settings: risk inputs, filters, alerts, execution controls and the scanner heartbeat. Connect AI: how to attach ChatGPT, Claude or Claude Code to your own data.",
         ],
         means: "Four working surfaces plus one integration page.",
         matters:
@@ -196,8 +196,6 @@ const SECTIONS: Section[] = [
           "A delayed heartbeat in Settings is the signal for this. If the provider refuses market data outright — for example an account or billing limit at the data vendor — the engine keeps recording the refusal verbatim rather than reporting a quiet market, and a repeated whole-cycle data failure also trips a safety pause on the separate replay/statistics engine so it stops retrying a dead source. Live scanning is not paused by that safety switch; statistics simply stop advancing until data returns.",
         ],
       },
-
-
 
       {
         id: "entry-window",
