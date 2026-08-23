@@ -70,3 +70,61 @@ export function cooldownRemaining(pausedUntil: string | null, now = Date.now()):
   if (mins < 60) return `${mins}m`;
   return `${Math.floor(mins / 60)}h ${mins % 60}m`;
 }
+
+/**
+ * Health of the live 15-minute scanner over its rolling window.
+ *
+ * The window is rolling, so a failure inside it is NOT evidence that the
+ * scanner is failing now. When the newest failure is older than the newest
+ * success the incident has healed: we say RECOVERED and mark the stored error
+ * as no longer current. Nothing is invented — every state is read off the
+ * counters and timestamps the engine already recorded.
+ */
+export type ScanHealthState = "no_cycles" | "failing" | "degraded" | "recovered" | "running";
+
+export interface ScanWindowInput {
+  total: number;
+  failed: number;
+  succeeded: number;
+  last_success_at?: string | null;
+  last_failure_at?: string | null;
+}
+
+export interface ScanHealth {
+  state: ScanHealthState;
+  /** Label for the status tile. */
+  value: string;
+  tone: "good" | "warn" | "bad";
+  /**
+   * True when the stored failure text still describes the scanner's current
+   * state. False once a successful cycle finished after the last failure.
+   */
+  errorIsCurrent: boolean;
+}
+
+function parseTime(value: string | null | undefined): number | null {
+  if (!value) return null;
+  const at = Date.parse(value);
+  return Number.isFinite(at) ? at : null;
+}
+
+export function classifyScanHealth(scan: ScanWindowInput): ScanHealth {
+  if (scan.total === 0) {
+    return { state: "no_cycles", value: "NO CYCLES", tone: "warn", errorIsCurrent: false };
+  }
+  if (scan.failed === 0) {
+    return { state: "running", value: "RUNNING", tone: "good", errorIsCurrent: false };
+  }
+  if (scan.failed === scan.total) {
+    return { state: "failing", value: "FAILING", tone: "bad", errorIsCurrent: true };
+  }
+
+  const lastFailure = parseTime(scan.last_failure_at);
+  const lastSuccess = parseTime(scan.last_success_at);
+  const healed = lastSuccess !== null && (lastFailure === null || lastSuccess > lastFailure);
+
+  return healed
+    ? { state: "recovered", value: "RECOVERED", tone: "warn", errorIsCurrent: false }
+    : { state: "degraded", value: "DEGRADED", tone: "warn", errorIsCurrent: true };
+}
+
