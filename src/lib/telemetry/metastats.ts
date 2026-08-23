@@ -168,3 +168,28 @@ export function snapshotStale(observedAt: string | null, now: number): boolean {
   if (!Number.isFinite(ms)) return true;
   return now - ms > TELEMETRY_STALE_AFTER_MS;
 }
+
+/**
+ * Should an `unavailable` reason park the account instead of being retried on the
+ * ordinary interval?
+ *
+ * An `unavailable` snapshot only carries a sentence, so the decision is made on
+ * that sentence. Billing, subscription and feature refusals will not clear on
+ * their own: retrying hourly keeps failing and, in the billing case, keeps
+ * costing. A transient network or server problem is NOT parked.
+ */
+const PARK_PATTERNS = [
+  /billing/i,
+  /subscription/i,
+  /payment/i,
+  /not enabled/i,
+  /not authori[sz]ed/i,
+  /forbidden/i,
+  /unauthori[sz]ed/i,
+  /not found/i,
+];
+
+export function reasonShouldPark(reason: string | null | undefined): boolean {
+  if (!reason) return false;
+  return PARK_PATTERNS.some((pattern) => pattern.test(reason));
+}
