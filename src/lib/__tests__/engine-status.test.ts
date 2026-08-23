@@ -43,21 +43,21 @@ describe("cooldownRemaining", () => {
 });
 
 describe("classifyScanHealth", () => {
-  it("reports RUNNING when the window has no failures", () => {
+  it("[UNIT] reports RUNNING when the window has no failures", () => {
     const h = classifyScanHealth({ total: 12, failed: 0, succeeded: 12 });
     expect(h.state).toBe("running");
     expect(h.value).toBe("RUNNING");
     expect(h.errorIsCurrent).toBe(false);
   });
 
-  it("reports NO CYCLES for an empty window", () => {
+  it("[UNIT] reports NO CYCLES for an empty window", () => {
     const h = classifyScanHealth({ total: 0, failed: 0, succeeded: 0 });
     expect(h.state).toBe("no_cycles");
     expect(h.value).toBe("NO CYCLES");
     expect(h.errorIsCurrent).toBe(false);
   });
 
-  it("reports FAILING when every cycle in the window failed", () => {
+  it("[UNIT] reports FAILING when every cycle in the window failed", () => {
     const h = classifyScanHealth({
       total: 9,
       failed: 9,
@@ -70,7 +70,7 @@ describe("classifyScanHealth", () => {
     expect(h.errorIsCurrent).toBe(true);
   });
 
-  it("reports RECOVERED when the newest cycle succeeded after the last failure", () => {
+  it("[UNIT] reports RECOVERED when the newest cycle succeeded after the last failure", () => {
     const h = classifyScanHealth({
       total: 18,
       failed: 3,
@@ -84,7 +84,7 @@ describe("classifyScanHealth", () => {
     expect(h.errorIsCurrent).toBe(false);
   });
 
-  it("stays DEGRADED while the newest failure is more recent than the newest success", () => {
+  it("[UNIT] stays DEGRADED while the newest failure is more recent than the newest success", () => {
     const h = classifyScanHealth({
       total: 18,
       failed: 3,
@@ -96,7 +96,7 @@ describe("classifyScanHealth", () => {
     expect(h.errorIsCurrent).toBe(true);
   });
 
-  it("treats a failure with no recorded success in the window as still current", () => {
+  it("[UNIT] treats a failure with no recorded success in the window as still current", () => {
     const h = classifyScanHealth({
       total: 4,
       failed: 1,
