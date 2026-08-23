@@ -182,6 +182,37 @@ export interface AdminIntelligence {
   author_split: AdminAuthorSplit | null;
 }
 
+/**
+ * Replay-engine circuit breaker. This is the SHADOW REPLAY / statistics engine,
+ * not the 15-minute scanner: the two were previously rendered under one
+ * "Scan engine" tile, which read as if live scanning had stopped.
+ */
+export interface AdminBreaker {
+  paused: boolean;
+  paused_until: string | null;
+  consecutive_failures: number;
+  last_error: string | null;
+  last_run_at: string | null;
+}
+
+/** Live scanner outcomes in the last 60 minutes, straight from `scan_queue`. */
+export interface AdminScanWindow {
+  window_minutes: number;
+  total: number;
+  failed: number;
+  succeeded: number;
+  last_finished_at: string | null;
+  last_success_at: string | null;
+  last_failure_at: string | null;
+  last_error: string | null;
+}
+
+export interface AdminEngineStatus {
+  generated_at: string;
+  breaker: AdminBreaker | null;
+  scan: AdminScanWindow;
+}
+
 export const getAdminIntelligence = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<AdminIntelligence> => {
@@ -206,3 +237,40 @@ export const getAdminIntelligence = createServerFn({ method: "GET" })
       author_split: (split.data as AdminAuthorSplit) ?? null,
     };
   });
+
+/** Owner-only engine status: scanner window + replay breaker, read separately. */
+export const getAdminEngineStatus = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<AdminEngineStatus> => {
+    const email = String(context.claims["email"] ?? "").toLowerCase();
+    if (email !== OWNER_EMAIL) throw new Error("Forbidden");
+
+    const rpc = context.supabase.rpc.bind(context.supabase) as unknown as (
+      name: string,
+    ) => Promise<{ data: unknown; error: { message: string } | null }>;
+
+    const { data, error } = await rpc("get_admin_engine_status");
+    if (error) throw new Error(error.message);
+    return data as AdminEngineStatus;
+  });
+
+/**
+ * Owner-only breaker reset. Clears `paused`, the failure counter and the
+ * cooldown so the next hourly resolve pass runs immediately. Purely an
+ * operational control: it changes no replay maths and fabricates no rows.
+ */
+export const resetShadowBreaker = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<{ ok: boolean }> => {
+    const email = String(context.claims["email"] ?? "").toLowerCase();
+    if (email !== OWNER_EMAIL) throw new Error("Forbidden");
+
+    const rpc = context.supabase.rpc.bind(context.supabase) as unknown as (
+      name: string,
+    ) => Promise<{ data: unknown; error: { message: string } | null }>;
+
+    const { data, error } = await rpc("admin_reset_shadow_breaker");
+    if (error) throw new Error(error.message);
+    return { ok: Boolean((data as { ok?: boolean } | null)?.ok) };
+  });
+
