@@ -1,53 +1,79 @@
-# Prompt 14 — Broker accounts, demo auto-execution, broker evidence
+# Prompt 14 — Stage 1: MetaApi Access Layer
 
-Status: **READY FOR APPROVAL**. No directly evidenced material blocker. Delivered as one audited architecture, landed in five verifiable stages (your choice).
+Foundation only. No new user-facing behaviour, no schema changes, no execution.
+Everything after this stage (account provisioning, demo auto-execution, broker
+evidence, MetaStats/Risk telemetry) is built on top of it.
 
-## Audited head
+## What this stage delivers
 
-Verified by reading the repository, not assumed:
+A single, well-guarded place where all MetaApi traffic happens, replacing the
+hardcoded benchmark-account constants that currently sit inside the scanner.
 
-- `src/lib/scanner/metaapi.server.ts` hardcodes the benchmark `accountId`, `login`, `server`, `region`, `userId` in source, and builds hosts from that constant. Only candles + current quote are implemented; no trade, positions, history, margin, provisioning or symbol calls exist anywhere.
-- Execution plane already exists and is reused unchanged in shape: `execution_controls`, `execution_deliveries` (states `pending → claimed → sent → acknowledged | rejected | unknown | failed`, one attempt, `execution_config_version` binding), `claim_execution_delivery`, `expire_execution_leases`, `src/lib/delivery/{execution,revalidate.server,dispatch.server,eligibility,exposure,hmac,outbound-url.server,day-frame}.ts`.
-- Sizing/specs already exist: `src/lib/sizing/service.server.ts`, `src/lib/broker/{specs.ts,specs.server.ts,sizing.server.ts}`, `broker_symbol_specs` (benchmark-scoped), `sizing_divergence_log`, Model 1 static authoritative.
-- Canonical R lives in `src/lib/journal/r-math.ts`; cluster bootstrap in `src/lib/stats/bootstrap.ts`; 12 MCP tools in `src/lib/mcp/tools/`.
-- Settings has tabs filters/risk/notifications/agents/diagnostics/account. Mobile nav is already 5 items.
+- Benchmark account id, region and magic number move out of source code into
+  server configuration.
+- One request path with the existing 8-second timeout, one error vocabulary, one
+  region-to-host resolver so no hostname can ever come from user input.
+- Broker account classification (demo / real / contest, read-only, MT5 netting)
+  becomes pure, testable logic derived from the broker's own reported fields —
+  never from what a user claims their account is.
+- The scanner keeps working exactly as it does today; its MetaApi module becomes
+  a thin pass-through to the new layer.
 
-## Verified MetaApi facts (FACT = documented, link in docs/BROKER-ACCOUNTS.md)
+## Safety rules baked in at this stage
 
-- FACT create account `POST /users/current/accounts` requires a `transaction-id` header (32-char random), reused to poll a 202 → gives us idempotency for Scenario A.
-- FACT accounts can be created without login/password (draft) and configured later.
-- FACT `PUT /users/current/accounts/:id/configuration-link` issues the user-facing secure link, `ttlInDays` (default 7). We will request the shortest supported TTL and never persist the URL.
-- FACT `state` = CREATED/DEPLOYING/DEPLOYED/DEPLOY_FAILED/UNDEPLOY*/DELETE*; `connectionStatus` = CONNECTED/DISCONNECTED/DISCONNECTED_FROM_BROKER; deploy/undeploy/redeploy documented; `region` from `/users/current/regions`.
-- FACT account flags `metastatsApiEnabled`, `riskManagementApiEnabled`, `reliability`.
-- FACT account information exposes `tradeAllowed`, `investorMode` (g2 only), `marginMode` (…RETAIL_NETTING/HEDGING/EXCHANGE), `type` (ACCOUNT_TRADE_MODE_DEMO/REAL/CONTEST) — this is the authoritative demo/live source.
-- FACT `POST …/trade` and `POST …/calculate-margin`; `MetatraderTrade` carries `symbol, volume, openPrice, stopLoss, takeProfit, expiration, clientId, magic, comment`, `actionType` includes ORDER_TYPE_BUY_LIMIT/SELL_LIMIT.
-- FACT `clientId` must be `strategyId_positionId_orderId`, and `clientId` alone is limited to 31 chars (30 if a comment is also sent).
-- FACT success is `numericCode` ∈ {0, 10008–10010, 10025}; everything else is an error. We treat HTTP 200 alone as nothing.
-- FACT MetaStats `…/metrics` (billable, `includeOpenPositions`, 202 + `retry-after`, 403 when feature off) and `…/historical-trades/:start/:end` (`limit` ≤ 1000, `offset`).
-- FACT Risk Management requires header `api-version: 1`; periods include `day` and `lifetime`; `TrackerEvent.sequenceNumber` gives idempotent ingestion.
-- ASSUMPTION / NEEDS LIVE DEMO VERIFICATION: exact Client-API path slugs for symbols, symbol specification, positions, orders, history orders/deals (docs index confirmed, individual slugs not renderable); exact `TRADE_RETCODE_*` string mnemonics; exact Tracker drawdown/profit threshold field names. Each is verified against the dedicated P-Trades demo account during Stage 1 before dependent code ships, and the mnemonics are treated as opaque strings — success is decided by `numericCode` only.
-- UNVERIFIED: no official statement of the MT5-netting Risk Management limitation was found. We still detect `ACCOUNT_MARGIN_MODE_RETAIL_NETTING` and mark Risk Guardian "unsupported/unverified for this account" rather than claiming support.
+- Unknown or unreadable broker fields resolve to the restrictive answer, never
+  the permissive one.
+- MT5 netting accounts are detected and reported as unsupported for Risk
+  Guardian (documented vendor limitation), instead of implying protection.
+- Live automatic execution is representable but gated OFF; only observation and
+  demo automation can ever be eligible after this stage.
+- A provider billing refusal is classified as "data unavailable", never as a
+  negative trading answer.
 
-## Stages
+## Technical detail
 
-**Stage 1 — configuration, MetaApi layer, live-demo fact check.** Move benchmark identifiers to server config (`METAAPI_TOKEN`, `PTRADES_BENCHMARK_METAAPI_ACCOUNT_ID`, `…_REGION`, `…_MAGIC`); delete `login`/`userId` from source. New `src/lib/metaapi/` (config, hosts, errors, types, accounts, market, specs, trade, history, margin, provision, metastats, risk-management — all `*.server.ts`) with one token reader, one 8s timeout, one error mapper, one region→trusted-host resolver. Region only ever from MetaApi account metadata. Scanner keeps its current call budget and behaviour.
+New module set under `src/lib/metaapi/`:
 
-**Stage 2 — connected accounts + wizard.** `connected_trading_accounts` (owner RLS, `UNIQUE(user_id, metaapi_account_id)`, service-role writes for provisioning/reconciliation, configurable quota ≥ 1 demo + 1 live), `connected_account_symbol_map`, `connected_account_symbol_specs`, `account_feature_state`. New `/accounts` route with the 7-step wizard (intent → platform → server name + "where do I find this" → secure MetaApi configuration link → poll → verify → mode). Broker account information decides DEMO/REAL/CONTEST; a REAL account under a "Demo" intent hard-stops with no auto trading. Every failure case from section 40 gets a named state answering what happened / is my broker affected / what to do / can P-Trades trade. Account dashboard labels values BROKER-DERIVED vs the existing USER-ENTERED EQUITY, which is never overwritten. Symbol mapping: exact → single safe candidate → ambiguous fails closed. Safe disconnect: stop execution, list P-Trades-owned pendings/positions, optional cancel of positively identified P-Trades orders only, never closes positions.
+```text
+errors.ts        timeout / not-configured / http errors + failure classifier
+hosts.ts         region -> trusted host (provisioning, client, market-data,
+                 metastats, risk-management); strict region shape, fail closed
+types.ts         narrow wire shapes actually read by P-Trades
+classify.ts      account type, read-only, MT5 netting, mode eligibility,
+                 provisioning lifecycle phase (all pure)
+client-id.ts     clientId builder: strategyId_positionId_orderId, <= 31 chars
+trade-result.ts  numericCode -> accepted / rejected / unknown
+config.server.ts token + benchmark account id/region/magic from env
+request.server.ts single fetch wrapper: 8s AbortController, token injection,
+                 retry-after capture, no credential logging
+market.server.ts candles + current price
+specs.server.ts  symbol specification / symbol list
+accounts.server.ts account information, positions, orders
+provision.server.ts create (idempotency transaction-id), configuration link,
+                 read, deploy / undeploy / redeploy, delete
+trade.server.ts  pending-order submission (Stage 3 uses it)
+margin.server.ts margin estimate endpoint
+history.server.ts historical orders / deals by time range (Stage 4)
+metastats.server.ts metrics + open trades, 202/Retry-After aware (Stage 5)
+risk-management.server.ts trackers + equity chart (Stage 5)
+```
 
-**Stage 3 — execution.** Extend the existing delivery machine with `destination_type` ∈ `bridge_json | metaapi_direct`, plus `connected_account_id`, `broker_client_id`, `metaapi_order_id`, `metaapi_position_id`. Modes: OBSERVE, DEMO AUTO (demo + tradeAllowed + not investor + user opt-in + global flag, Prompt-10 alert eligibility, user filters/cap/risk), LIVE CONFIRM and LIVE AUTO fully architected behind `customer_live_confirm_enabled` / `customer_live_auto_enabled` / `regulatory_live_execution_approved_at`, production default OFF, mock-tested only, and a global enable can never activate a stale user authorization. Benchmark policy table (enabled, dry-run, min grade, instruments, risk %, concurrent-risk, daily cap, policy version) drives B/A/A+ on the dedicated demo; no risk % configured ⇒ unavailable. Long → BUY_LIMIT, short → SELL_LIMIT, absolute prices, TP1 only (`single_exit_first_target`). Broker-authoritative `calculate-margin` gate — unavailable ⇒ fail closed. Collision-resistant short `clientId` within 31 chars, never encoding user id. Ambiguous submit ⇒ `unknown`, never a second order. Execution endpoints accept only `signal_id` + `connected_account_id`; symbol, side, prices and volume come from server-owned state.
+Server configuration keys read inside handlers only:
+`METAAPI_TOKEN`, `PTRADES_BENCHMARK_METAAPI_ACCOUNT_ID`,
+`PTRADES_BENCHMARK_METAAPI_REGION`, `PTRADES_BENCHMARK_MAGIC`.
 
-**Stage 4 — reconciliation + evidence + research.** Standalone reconciliation worker (never on the scanner cron) matching by account + clientId + magic + orderId + positionId; only positively associated orders become evidence. `broker_trade_evidence` with planned vs actual prices, commission/swap kept separate from price-based canonical R (`r_vs_plan`, `r_vs_actual_risk` reused verbatim), immutable once closed except via an audited correction. Shadow-vs-broker admin research (fill disagreement, median/p90 slippage, R delta, unresolved, rejection, spread cost) measures the gap and never retunes replay. Three separate labels: CONTROLLED BENCHMARK / CUSTOMER BROKER EVIDENCE / SELF-REPORTED JOURNAL. Pseudonymous research account ids, consent default false with version + timestamp, opt-out stops future pooling. Statistical rule enforced in code and tests: signal-edge estimands cluster by signal_id and whole UTC day — 100 customer copies of one signal remain N = 1 for edge, 100 observations for slippage. Evidence phase (`development | validation | forward_holdout`) assigned prospectively; `HOLDOUT_AVAILABLE` stays false. `news_context = unknown` recorded on all evidence, plus a written provider comparison (cost/licensing/latency) with no integration this release.
+`src/lib/scanner/metaapi.server.ts` is rewritten as a facade re-exporting
+`fetchCandles`, `fetchQuote`, `fetchSymbolSpecification`,
+`MetaApiTimeoutError`, `MetaApiNotConfiguredError` with unchanged signatures and
+message shapes, so `pipeline.server.ts`, `specs.server.ts`,
+`revalidate.server.ts`, `shadow_resolve.server.ts` and `fx.ts` are untouched.
 
-**Stage 5 — MetaStats, Risk Guardian, MCP, docs, admin.** `metastats_account_snapshots` on the benchmark only, daily + after material closed-trade change, budgeted, 202/`retry-after`/pagination/403 handled; MetaStats can never touch grade or confidence. Risk trackers (`day`, `lifetime`) with operator-configured thresholds, `api-version: 1` pinned, idempotent `risk_tracker_events` by sequence number, states NORMAL/CAUTION/DEFENSIVE/EXECUTION_BLOCKED affecting execution only. Paid features (MetaStats, Risk API, reliability) never auto-enabled per customer; admin cost/feature surface plus API-health telemetry (calls, latency p50/p95/p99, timeouts, 4xx/5xx, submission/rejection/unknown/fill rates, reconciliation lag). Three read-only MCP tools: `list_my_broker_accounts`, `get_my_broker_account_status`, `get_my_broker_positions` — no connect, no configuration links, no execution control. Performance gains separate "Broker Account" and "P-Trades Benchmark" views alongside My Journal. Guide gets a "Connect MetaTrader" section in the existing progressive-disclosure style. Docs updated across README and docs/, adding BROKER-ACCOUNTS, BROKER-EVIDENCE, METASTATS, RISK-GUARDIAN.
+New blocking tests (`src/lib/metaapi/__tests__/`), all taxonomy-tagged:
+host resolution and rejection of malformed/untrusted regions; account
+classification and unknown-field fail-closed; MT5 netting risk unavailability;
+mode eligibility matrix (observe/demo_auto/live off); clientId length and
+format; trade-result mapping; failure classification incl. billing and
+202/429 retry-after; timeout abort path with a stubbed fetch.
 
-## Rejected alternatives
-
-Long-lived WebSocket (in-memory terminal state desynchronises in short-lived workers; pending LIMIT orders don't need millisecond latency); CopyFactory (second control plane, own sizing/netting semantics, bypasses the audited Prompt-13 machine); MT Manager API (broker/server-manager scope, wrong use case); reusing benchmark contract specs for customer brokers (silently wrong lot maths).
-
-## Untouched production behaviour
-
-Scanner maths, ABC detection, structural gates, H4/H1/M15 interpretation, grade and confidence definitions, production model version, entry / max acceptable entry / stop / TP1–TP3 / R:R, replay V1, candidate enrolment, bootstrap and evidence gates, Prompt-9 canonical R, Prompt-10 eligibility and cap semantics, Prompt-11 MCP retrieval semantics, Prompt-12 sizing for users with no connected account, Prompt-13 bridge behaviour, `single_exit_first_target`, RLS/auth isolation, and the scanner's MetaApi candle-call budget. An import-guard test proves the scanner pipeline cannot import any broker-execution, evidence, MetaStats, Risk or connected-account module.
-
-## Tests
-
-Deterministic suites per section 46–54 (provisioning + transaction-id idempotency + ownership isolation; symbol exact/suffix/ambiguous/missing; per-account specs with no cross-account leakage; broker margin sufficient/insufficient/unavailable; stale equity and stale quote; direct execution mapping, rejection, timeout, partial, missing order id, exactly one request per delivery identity; reconciliation including unrelated manual trades; benchmark grade gates and caps; customer demo-auto gates; live gates OFF by default with no pre-arming; pseudoreplication; consent/privacy) plus the ten red-team scenarios A–J. Then `bun run typecheck`, `bun run test`, `bun run verify`, `bun run build` and the DB integration suite. Any real MetaApi order smoke test is demo-only, behind an explicit admin/test flag, at minimum configured volume.
+Exit criteria: full suite green (720 existing + new), build OK, scanner
+behaviour and heartbeat unchanged.
