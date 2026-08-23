@@ -70,7 +70,11 @@ export function EngineStatusPanel() {
   return (
     <PanelShell
       title="Engine status"
-      note="Two independent engines. The replay breaker never pauses live scanning."
+      right={
+        <span className="text-[10px] text-muted-foreground">
+          two independent engines · the replay breaker never pauses live scanning
+        </span>
+      }
     >
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <StatCard
