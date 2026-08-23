@@ -47,6 +47,21 @@ export class MetaApiUnreachableError extends Error {
   }
 }
 
+/**
+ * The configured access token's own claims show it cannot perform the requested
+ * operation — typically a token generated for ONE trading account being asked to
+ * provision a new one. Raised before any request leaves P-Trades, so nothing was
+ * created, changed or charged.
+ */
+export class MetaApiTokenScopeError extends Error {
+  readonly label: string;
+  constructor(label: string, message: string) {
+    super(message);
+    this.name = "MetaApiTokenScopeError";
+    this.label = label;
+  }
+}
+
 /** A non-2xx MetaApi response. `body` is truncated and never logged wholesale. */
 export class MetaApiHttpError extends Error {
   readonly status: number;
@@ -109,6 +124,15 @@ export function classifyMetaApiFailure(err: unknown): MetaApiFailure {
       retryable: false,
     };
   }
+  if (err instanceof MetaApiTokenScopeError) {
+    return {
+      kind: "permission",
+      message: err.message,
+      status: null,
+      retryAfterSeconds: null,
+      retryable: false,
+    };
+  }
   if (err instanceof MetaApiNotConfiguredError) {
     return {
       kind: "not_configured",
@@ -138,9 +162,16 @@ export function classifyMetaApiFailure(err: unknown): MetaApiFailure {
       // it gets its own kind and a plain sentence instead of vendor JSON.
       const scoped = /forbiddenerror|methodid|do not have access to/.test(body);
       if (!billing && !disabled && scoped) {
+        // A refusal that names `createAccount` is almost always a token generated
+        // for ONE trading account: it has the account-management API but every
+        // rule is pinned to an existing account id, and creation is not an
+        // operation on an existing account.
+        const creation = /createaccount/.test(body);
         return {
           kind: "permission",
-          message: `Your broker-connection provider refused ${err.label} because the access token P-Trades is configured with is not allowed to perform it. Nothing was created, changed or charged — the token needs the matching permission. Technical detail: ${err.body}`,
+          message: creation
+            ? `Your broker-connection provider refused ${err.label} because the access token P-Trades is configured with is not allowed to create trading accounts. This is what happens when the token was generated for one specific trading account: it can read and trade that account, but it cannot provision a new one. Generate a token that includes the trading account management API with read-write access and no resource restriction, or link an account you already have instead. Nothing was created, changed or charged. Technical detail: ${err.body}`
+            : `Your broker-connection provider refused ${err.label} because the access token P-Trades is configured with is not allowed to perform it. Nothing was created, changed or charged — the token needs the matching permission. Technical detail: ${err.body}`,
           status: err.status,
           retryAfterSeconds: err.retryAfterSeconds,
           retryable: false,

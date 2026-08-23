@@ -9,10 +9,25 @@
  *     a configuration link, the broker login/password are entered on MetaApi's
  *     own hosted page; we only ever store the returned account id.
  */
+import { readMetaApiToken } from "./config.server";
+import { MetaApiTokenScopeError } from "./errors";
 import { metaApiRequest } from "./request.server";
+import { describeCreateAccountScope, inspectCreateAccountScope } from "./token-scope";
 import type { MetaApiPlatform, ProvisionedAccount } from "./types";
 
 const PROVISIONING = { service: "provisioning" as const, region: null };
+
+/**
+ * Refuse a creation attempt the configured token demonstrably cannot perform,
+ * BEFORE any request leaves P-Trades. An unreadable token is never blocked here:
+ * the provider stays the authority, this only turns a knowable configuration gap
+ * into a sentence the account owner can act on.
+ */
+function assertCanCreateAccounts(): void {
+  const scope = inspectCreateAccountScope(readMetaApiToken());
+  if (scope.allowed || scope.reason === "unreadable") return;
+  throw new MetaApiTokenScopeError("create account", describeCreateAccountScope(scope.reason));
+}
 
 export interface CreateAccountInput {
   name: string;
@@ -41,6 +56,7 @@ export async function createAccount(
   input: CreateAccountInput,
   transactionId: string,
 ): Promise<{ id: string; state: string | null }> {
+  assertCanCreateAccounts();
   const body: Record<string, unknown> = {
     name: input.name,
     type: "cloud-g2",

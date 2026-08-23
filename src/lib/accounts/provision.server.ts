@@ -186,6 +186,131 @@ export async function startConnection(
   }
 }
 
+export interface AdoptConnectionInput {
+  userId: string;
+  label: string;
+  /** Provider account id the owner already has provisioned. */
+  metaapiAccountId: string;
+  intent: ConnectionIntent;
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Link a trading account that ALREADY exists at the provider, without calling
+ * creation at all. This is the only path available when the configured access
+ * token is scoped to specific accounts.
+ *
+ * Order of refusals matters: the benchmark guard and the duplicate check run
+ * before any database write, and the provider's own record — not the caller — is
+ * the authority on platform, server and region.
+ */
+export async function adoptConnection(
+  input: AdoptConnectionInput,
+): Promise<{ accountId: string }> {
+  const db = await admin();
+  const label = cleanLabel(input.label);
+  const metaapiAccountId = input.metaapiAccountId.trim().toLowerCase();
+  if (!UUID_RE.test(metaapiAccountId)) {
+    throw new Error(
+      "That does not look like a trading account id. Copy the account id from your broker-connection provider's MT Accounts page.",
+    );
+  }
+  if (input.intent !== "demo" && input.intent !== "live") {
+    throw new Error("Choose whether this is a demo or a live account.");
+  }
+  // Reserved engine account: linking it would pool research results into a
+  // customer journal and corrupt performance statistics.
+  assertNotBenchmark(metaapiAccountId);
+
+  const { data: existing, error: existingError } = await db
+    .from(TABLE as never)
+    .select("id, disconnected_at")
+    .eq("metaapi_account_id", metaapiAccountId)
+    .is("disconnected_at", null)
+    .limit(1);
+  if (existingError) throw new Error(existingError.message);
+  if (existing && existing.length > 0) {
+    throw new Error("That trading account is already linked to a P-Trades connection.");
+  }
+
+  let remote: Awaited<ReturnType<typeof fetchProvisionedAccount>>;
+  try {
+    remote = await fetchProvisionedAccount(metaapiAccountId);
+  } catch (err) {
+    throw new Error(classifyMetaApiFailure(err).message);
+  }
+  if (!remote) {
+    throw new Error(
+      "Your broker-connection provider has no account with that id, or your access token cannot read it.",
+    );
+  }
+
+  const platform = remote.platform === "mt4" || remote.platform === "mt5" ? remote.platform : null;
+  if (!platform) {
+    throw new Error(
+      "Your broker-connection provider did not report whether that account is MT4 or MT5, so it cannot be linked yet.",
+    );
+  }
+  const region = (remote.region ?? "").toString();
+  if (!isOfferedRegion(region)) {
+    throw new Error(
+      `That account runs in the ${region || "unknown"} region, which P-Trades does not offer. Link an account provisioned in one of the offered regions.`,
+    );
+  }
+  const server = remote.server ? cleanServer(remote.server.toString()) : null;
+  if (!server) {
+    throw new Error(
+      "Your broker-connection provider did not report a broker server for that account, so it cannot be linked yet.",
+    );
+  }
+
+  const { data: inserted, error: insertError } = await db
+    .from(TABLE as never)
+    .insert({
+      user_id: input.userId,
+      provision_transaction_id: randomUUID(),
+      label,
+      platform,
+      broker_server: server,
+      region,
+      intent: input.intent,
+      metaapi_account_id: metaapiAccountId,
+      provisioning_state: remote.state ?? null,
+      connection_status: remote.connectionStatus ?? null,
+      credentials_configured: remote.login !== null && remote.login !== undefined,
+      // Adoption never shortcuts verification: the normal reconcile ladder
+      // decides DEPLOYED → CONNECTED → verified → READY, and the mode stays in
+      // observe until the owner arms it.
+      phase: "awaiting_credentials" satisfies AccountPhase,
+      mode: "observe",
+    } as never)
+    .select("id")
+    .single();
+
+  if (insertError) {
+    if (insertError.message.includes("account_quota_exceeded")) {
+      throw new Error(
+        `You have reached your limit of connected ${input.intent} accounts. Disconnect the existing one first.`,
+      );
+    }
+    if (insertError.message.includes("duplicate")) {
+      throw new Error("That trading account is already linked to a P-Trades connection.");
+    }
+    throw new Error(insertError.message);
+  }
+
+  const rowId = (inserted as { id: string }).id;
+  // Push it forward once so the card does not open on a stale phase.
+  try {
+    await reconcileConnection(input.userId, rowId);
+  } catch {
+    // Reconcile records its own failure on the row; linking itself succeeded.
+  }
+  return { accountId: rowId };
+}
+
+
 async function ownedRow(userId: string, accountId: string): Promise<ConnectedAccountRow> {
   const db = await admin();
   const { data, error } = await db

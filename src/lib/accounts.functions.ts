@@ -42,6 +42,21 @@ export const startBrokerConnection = createServerFn({ method: "POST" })
     return await startConnection({ ...data, userId: context.userId });
   });
 
+/**
+ * Link a trading account that already exists at the provider. Works with an
+ * account-scoped access token, which cannot provision new accounts.
+ */
+export const adoptBrokerConnection = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (input: { label: string; metaapiAccountId: string; intent: "demo" | "live" }) => input,
+  )
+  .handler(async ({ data, context }) => {
+    const { adoptConnection } = await import("@/lib/accounts/provision.server");
+    return await adoptConnection({ ...data, userId: context.userId });
+  });
+
+
 export const reissueBrokerConfigurationLink = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { accountId: string }) => input)
