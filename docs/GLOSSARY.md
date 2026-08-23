@@ -44,11 +44,10 @@ means that barrier, not the 1:3 default, set the final target.
 qualified. It is a claim about the scanner, so it may only be made from an
 unfiltered, current-cycle source.
 
-**Zero rows in a view** — a *different* statement. A filtered, capped, paged or
+**Zero rows in a view** — a _different_ statement. A filtered, capped, paged or
 settings-scoped empty result means only that nothing matched that view. It is never
 evidence of No Trade, and never evidence of an outage; the scanner heartbeat is the
 authority on engine health.
-
 
 ## Delivery
 
@@ -115,7 +114,7 @@ because same-day trades are correlated. Deterministic under a fixed seed.
 `single_exit_first_target`. Adverse intrabar ordering is assumed when M15 OHLC
 cannot resolve sequence.
 
-**Research candidate** — a structure enrolled *before* the publication decision, so
+**Research candidate** — a structure enrolled _before_ the publication decision, so
 rejected structures are forward-testable too.
 
 **Cohort** — the isolated group a candidate belongs to; production reads never see
@@ -129,7 +128,7 @@ research ladder. Admin-only.
 **Broker-derived**, **engine-derived**, **self-reported**, **replay-derived**,
 **estimate** — see [DATA-PROVENANCE.md](DATA-PROVENANCE.md).
 
-**Verified** — never used alone. A value is verified *against a named source*, or
+**Verified** — never used alone. A value is verified _against a named source_, or
 it is self-reported.
 
 **Agent-entered** — written by a connected AI assistant. Permanently stamped.

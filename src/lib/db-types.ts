@@ -139,7 +139,6 @@ export interface TradeRow {
   trade_state?: "logged" | "open" | "resolved" | null;
 }
 
-
 export interface TradeHistoryRow extends TradeRow {
   scanned_signals: SignalRow | SignalRow[] | null;
 }

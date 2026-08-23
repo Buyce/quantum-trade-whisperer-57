@@ -34,12 +34,19 @@ export function AccountRestoreBanner() {
     <div className="mb-4 flex items-start gap-3 rounded-md border border-primary/40 bg-primary/10 p-3">
       <RotateCcw className="mt-0.5 size-4 text-primary" />
       <div className="flex-1">
-        <p className="text-sm font-medium text-foreground">Your account cancellation was reversed</p>
+        <p className="text-sm font-medium text-foreground">
+          Your account cancellation was reversed
+        </p>
         <p className="mt-0.5 text-xs text-muted-foreground">
           Welcome back — your scanner preferences, trade journal and performance history are intact.
         </p>
       </div>
-      <Button variant="ghost" size="sm" aria-label="Dismiss notice" onClick={() => setDismissed(true)}>
+      <Button
+        variant="ghost"
+        size="sm"
+        aria-label="Dismiss notice"
+        onClick={() => setDismissed(true)}
+      >
         <X className="size-4" />
       </Button>
     </div>

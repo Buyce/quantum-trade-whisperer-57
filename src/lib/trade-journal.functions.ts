@@ -107,7 +107,8 @@ export const recordTradeOutcome = createServerFn({ method: "POST" })
         actualInitialStop: data.outcome === "open" ? null : data.actualInitialStop,
       });
     } catch (err) {
-      if (err instanceof RMathInputError) throw new Error(`Invalid execution prices: ${err.message}`);
+      if (err instanceof RMathInputError)
+        throw new Error(`Invalid execution prices: ${err.message}`);
       throw err;
     }
 

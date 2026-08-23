@@ -1,4 +1,4 @@
-import * as React from 'react'
+import * as React from "react";
 
 import {
   Body,
@@ -11,32 +11,18 @@ import {
   Link,
   Preview,
   Text,
-} from '@react-email/components'
+} from "@react-email/components";
 
-import {
-  brandBar,
-  button,
-  container,
-  footer,
-  h1,
-  hr,
-  link,
-  main,
-  text,
-} from './brand'
+import { brandBar, button, container, footer, h1, hr, link, main, text } from "./brand";
 
 interface SignupEmailProps {
-  siteName: string
-  siteUrl: string
-  recipient: string
-  confirmationUrl: string
+  siteName: string;
+  siteUrl: string;
+  recipient: string;
+  confirmationUrl: string;
 }
 
-export const SignupEmail = ({
-  siteUrl,
-  recipient,
-  confirmationUrl,
-}: SignupEmailProps) => (
+export const SignupEmail = ({ siteUrl, recipient, confirmationUrl }: SignupEmailProps) => (
   <Html lang="en" dir="ltr">
     <Head />
     <Preview>Confirm your email to activate your P-Trades Hub terminal</Preview>
@@ -45,14 +31,14 @@ export const SignupEmail = ({
         <Text style={brandBar}>P-Trades Hub · Market Scanner</Text>
         <Heading style={h1}>Confirm your email</Heading>
         <Text style={text}>
-          Thanks for signing up for{' '}
+          Thanks for signing up for{" "}
           <Link href={siteUrl} style={link}>
             <strong>P-Trades Hub</strong>
           </Link>
-          . Confirm{' '}
+          . Confirm{" "}
           <Link href={`mailto:${recipient}`} style={link}>
             {recipient}
-          </Link>{' '}
+          </Link>{" "}
           to unlock the signal feed, trade profiles and performance analytics.
         </Text>
         <Button style={button} href={confirmationUrl}>
@@ -65,6 +51,6 @@ export const SignupEmail = ({
       </Container>
     </Body>
   </Html>
-)
+);
 
-export default SignupEmail
+export default SignupEmail;

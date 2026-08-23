@@ -1,21 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  Activity,
-  BarChart3,
-  Bell,
-  Bot,
-  Brain,
-  Clock,
-  Crosshair,
-  ShieldCheck,
-  Smartphone,
-  Sliders,
-} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ptradesMark from "@/assets/ptrades-mark.png.asset.json";
-
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -24,88 +11,67 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "A quantitative Forex terminal: XAUUSD, GBPAUD and EURUSD scanned every 15 minutes across H4/H1/M15, setups graded A+/A/B/C, risk sized to your account, and expectancy tracked in R.",
+          "A quantitative Forex terminal: XAUUSD, GBPAUD and EURUSD scanned every 15 minutes across H4/H1/M15, setups graded A+/A/B/C, risk sized to your own settings, and expectancy tracked in R.",
       },
-      { property: "og:title", content: "P-Trades Hub — Forex Scanner, Risk Sizing & Trade Journal" },
+      {
+        property: "og:title",
+        content: "P-Trades Hub — Forex Scanner, Risk Sizing & Trade Journal",
+      },
       {
         property: "og:description",
         content:
-          "A+/A/B/C graded ABC retracement setups, per-account risk sizing, a Bayesian learning engine on shadow-replayed results, and full AI assistant access over MCP.",
+          "Graded ABC retracement setups, position sizing against your own risk settings, a trade journal measured in R, and full AI-assistant access over MCP — with an explicit No Trade default.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+      { rel: "canonical", href: "https://getptrades.com/" },
     ],
+    links: [{ rel: "canonical", href: "https://getptrades.com/" }],
   }),
   component: Landing,
 });
-
-const CORE = [
-  {
-    icon: Activity,
-    title: "Market Scanner Engine",
-    body: "XAUUSD, GBPAUD and EURUSD scanned every 15 minutes across H4, H1 and M15. Every ABC retracement structure is scored on institutional confluence — 35% trend alignment, 25% order block, 20% momentum, 20% volatility — and graded A+, A, B or C. Identical structures are de-duplicated so the same setup is never re-published.",
-  },
-  {
-    icon: Crosshair,
-    title: "Fully specified trade profiles",
-    body: "Each setup carries a limit entry with a session-aware offset during the London/New York overlap, a maximum acceptable entry so you never chase, an ATR-buffered structural stop, 1:1 and 1:2 targets plus a third target capped by the nearest unbroken H4 structure, R:R and a confidence score.",
-  },
-  {
-    icon: Sliders,
-    title: "Your risk, your rules",
-    body: "Set account equity, risk per trade, leverage and a maximum stop-loss distance once. Every signal then shows your lot size, the cash at risk and an estimated margin requirement, converted for the instrument's quote currency. When a rate or specification is stale, it refuses and says why instead of guessing.",
-  },
-  {
-    icon: BarChart3,
-    title: "Performance Engine",
-    body: "Expectancy in R, win rate, R distribution, per-instrument and per-grade breakdowns and a time-of-day heat map, generated only from your own logged decisions.",
-  },
-] as const;
-
-const SYSTEMS = [
-  {
-    icon: Brain,
-    title: "Shadow replay + evidence gates",
-    body: "Every published setup is forward-tested on real candles by a deterministic replay under one fixed policy, with adverse intrabar ordering assumed where M15 data cannot resolve it. Results are reported per market regime behind sample and distinct-day floors, with Wilson intervals and a whole-day cluster bootstrap. Research-only and descriptive — no order is placed, and no bucket is estimated below its gate.",
-  },
-  {
-    icon: ShieldCheck,
-    title: "Attributed trade journal",
-    body: "Log a setup as taken or skipped, then add your real entry and exit prices so R is recomputed server-side against the plan snapshotted at the time. Prices are self-reported and every write is permanently stamped with its author — you or an AI agent — so questionable data can be traced rather than trusted.",
-  },
-  {
-    icon: Bell,
-    title: "Alerts where you are",
-    body: "Web and Android push notifications, transactional email briefs, and an optional outbound webhook (raw JSON or PineConnector format) for high-grade setups, with a built-in payload tester.",
-  },
-  {
-    icon: Bot,
-    title: "Built for AI assistants",
-    body: "Twelve MCP tools plus an agent registration endpoint let ChatGPT, Claude or Codex read live setups, check scanner and session status, change your filters, size risk and maintain your journal on your behalf.",
-  },
-  {
-    icon: Clock,
-    title: "Live market hours",
-    body: "Sydney, Tokyo, London and New York shown as open, closed or in overlap, with the countdown to the next change and the Friday-to-Sunday weekend close.",
-  },
-  {
-    icon: Smartphone,
-    title: "Installable and resilient",
-    body: "Installs to an Android home screen as a PWA. Behind it: a decoupled job queue, REST-only market data, hard 8-second fetch timeouts, a self-chaining worker and per-instrument health flags so one stalled feed never blocks a scan cycle.",
-  },
-] as const;
 
 /** The three-step user loop the whole terminal is organised around. */
 const LOOP = [
   {
     title: "Scan",
-    body: "Three instruments, three timeframes, every 15 minutes. Structures are graded on four confluence pillars, and the default answer is No Trade — when nothing qualifies, the feed says so.",
+    body: "Three instruments, three timeframes, every 15 minutes. Each ABC retracement structure is scored on four confluence pillars and graded A+, A, B or C. The default answer is No Trade — when a scan cycle qualifies nothing, the terminal says so instead of filling the screen.",
   },
   {
     title: "Plan",
-    body: "Each survivor becomes a fully specified profile: limit entry, a maximum acceptable entry so you never chase, an ATR-buffered structural stop, structure-capped targets, and the lot size your own risk settings allow.",
+    body: "Each surviving structure becomes a fully specified profile: a limit entry, a maximum acceptable entry so you never chase, an ATR-buffered structural stop, structure-capped targets, R:R, a confidence score, and the lot size your own risk settings allow.",
   },
   {
     title: "Measure",
-    body: "Log taken or skipped, add your real fills, and see expectancy in R against an explicit basis — with evidence gates that say 'not enough data' instead of showing you a win rate built on six trades.",
+    body: "Log a setup as taken or skipped, add your real fills, and read expectancy in R against an explicit basis — behind evidence gates that say “not enough data” rather than showing a win rate built on six trades.",
+  },
+] as const;
+
+/** Compact methodology/provenance strip. Each line must be defensible in code. */
+const METHOD = [
+  {
+    k: "Deterministic rules",
+    v: "Grading, targets and stops come from fixed, versioned rules — not from a model guessing an outcome. A grade describes structure quality; the confidence score is rule satisfaction, never a win probability.",
+  },
+  {
+    k: "Explicit provenance",
+    v: "Every figure is labelled by where it came from: broker candles, engine calculation, deterministic replay, or your own reporting. Margin is shown as an estimate from the contract specification and your leverage, never as a broker quote.",
+  },
+  {
+    k: "No forced trades",
+    v: "No global daily quota. Each account sets its own daily setup cap — unlimited by default — and a filtered empty view means only that nothing matches that view.",
+  },
+  {
+    k: "Nothing invented",
+    v: "When an input is missing or stale — no equity set, no contract specification, a conversion rate too old to trust — sizing refuses and names the reason instead of guessing.",
+  },
+  {
+    k: "Notifications, not orders",
+    v: "Alerts arrive by web/Android push and email. The alert path cannot send broker instructions at all; any outbound execution bridge is disabled globally by default and dry-run first.",
+  },
+  {
+    k: "Built for AI assistants",
+    v: "Twelve MCP tools let ChatGPT, Claude or Claude Code read your setups, size a position and maintain your journal as you — using the same eligibility rules, sizing service and R mathematics as the screen.",
   },
 ] as const;
 
@@ -168,21 +134,18 @@ function Landing() {
         </div>
       </header>
 
-      <section className="mx-auto max-w-6xl px-4 py-20">
+      {/* Hero — one claim, one paragraph, two actions. */}
+      <section className="mx-auto max-w-6xl px-4 py-16 sm:py-20">
         <p className="label-xs">Autonomous forex market scanner</p>
         <h1 className="mt-3 max-w-3xl text-4xl font-bold leading-[1.1] tracking-tight text-foreground sm:text-6xl">
-          A quantitative terminal that tells you when <span className="text-primary">not</span> to trade.
+          A quantitative terminal that also tells you when <span className="text-primary">not</span>{" "}
+          to trade.
         </h1>
         <p className="mt-6 max-w-2xl text-base text-muted-foreground">
-          P-Trades Hub scans three instruments across three timeframes, grades every ABC retracement
-          structure it finds from A+ down to C, and turns the survivors into a fully specified trade
-          profile — entry, structural stop, Fibonacci and structure-capped targets, R:R, a weighted
-          confidence score and the lot size your own risk settings allow. Then it measures what your
-          decisions actually earned, in R.
-        </p>
-        <p className="mt-4 max-w-2xl text-sm text-muted-foreground">
-          Everything shown is derived from live broker data. When there is no valid setup, the feed
-          says so — it never fills the screen with examples.
+          P-Trades Hub scans XAUUSD, GBPAUD and EURUSD across H4, H1 and M15, grades the ABC
+          retracement structures it finds, turns the survivors into a fully specified trade plan
+          sized to your own risk settings — and then measures, in R, what your decisions actually
+          earned.
         </p>
         <div className="mt-8 flex flex-wrap gap-3">
           <Button asChild size="lg">
@@ -193,7 +156,7 @@ function Landing() {
           </Button>
         </div>
 
-        <dl className="mt-16 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <dl className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {STATS.map((s) => (
             <div key={s.k} className="rounded-md border border-border bg-card p-4">
               <dt className="label-xs">{s.k}</dt>
@@ -201,49 +164,9 @@ function Landing() {
             </div>
           ))}
         </dl>
-        <p className="mt-4 text-xs text-muted-foreground">
-          No global daily limit. Each account sets its own daily setup cap — unlimited by default.
-        </p>
       </section>
 
-      <section className="border-t border-border bg-surface/50">
-        <div className="mx-auto max-w-6xl px-4 py-16">
-          <p className="label-xs">The engine</p>
-          <div className="mt-6 grid gap-4 sm:grid-cols-2">
-            {CORE.map((f) => (
-              <div key={f.title} className="rounded-md border border-border bg-card p-5">
-                <f.icon className="size-5 text-primary" />
-                <h2 className="mt-3 text-base font-semibold text-foreground">{f.title}</h2>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{f.body}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="border-t border-border">
-        <div className="mx-auto max-w-6xl px-4 py-16">
-          <p className="label-xs">Systems around it</p>
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {SYSTEMS.map((f) => (
-              <div key={f.title} className="rounded-md border border-border bg-card p-5">
-                <f.icon className="size-5 text-primary" />
-                <h2 className="mt-3 text-base font-semibold text-foreground">{f.title}</h2>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{f.body}</p>
-                {f.title === "Built for AI assistants" ? (
-                  <Link
-                    to="/connect"
-                    className="mt-3 inline-block text-sm text-primary underline underline-offset-2"
-                  >
-                    Connection instructions
-                  </Link>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
+      {/* Scan · Plan · Measure — the only feature narrative on the page. */}
       <section className="border-t border-border bg-surface/50">
         <div className="mx-auto max-w-6xl px-4 py-16">
           <p className="label-xs">The loop</p>
@@ -259,23 +182,60 @@ function Landing() {
               </li>
             ))}
           </ol>
-          <p className="mt-6 max-w-3xl text-sm text-muted-foreground">
-            Nothing is estimated to fill a gap. Where an input is missing or stale, the terminal
-            refuses and names the reason — and every figure is labelled by where it came from: broker
-            data, engine calculation, deterministic replay, or your own reporting.
+        </div>
+      </section>
+
+      {/* Compact methodology / provenance strip — replaces the old feature-card wall. */}
+      <section className="border-t border-border">
+        <div className="mx-auto max-w-6xl px-4 py-16">
+          <p className="label-xs">How it behaves</p>
+          <dl className="mt-6 divide-y divide-border border-y border-border">
+            {METHOD.map((m) => (
+              <div
+                key={m.k}
+                className="grid gap-1 py-4 sm:grid-cols-[13rem_minmax(0,1fr)] sm:gap-6"
+              >
+                <dt className="text-sm font-semibold text-foreground">{m.k}</dt>
+                <dd className="text-sm leading-relaxed text-muted-foreground">{m.v}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      </section>
+
+      {/* Final CTA */}
+      <section className="border-t border-border bg-surface/50">
+        <div className="mx-auto max-w-6xl px-4 py-16">
+          <h2 className="text-2xl font-semibold tracking-tight text-foreground">
+            Open the terminal
+          </h2>
+          <p className="mt-3 max-w-2xl text-sm text-muted-foreground">
+            Set your equity, risk per trade and instruments once. From then on the feed shows only
+            what qualified — and an in-app guide explains every figure, including what it does not
+            claim.
           </p>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Button asChild size="lg">
+              <Link to="/auth">Create an account</Link>
+            </Button>
+            <Button asChild size="lg" variant="outline">
+              <Link to="/connect">Connect an AI assistant</Link>
+            </Button>
+          </div>
         </div>
       </section>
 
       <footer className="border-t border-border">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-8 text-xs text-muted-foreground">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-8 text-xs text-muted-foreground">
           <span>P-Trades Hub · Analytical tool only. Nothing here is financial advice.</span>
-          <Link to="/connect" className="ml-auto text-primary underline underline-offset-2">
+          <Link to="/connect" className="text-primary underline underline-offset-2">
             Connect an AI assistant
+          </Link>
+          <Link to="/auth" className="text-primary underline underline-offset-2">
+            Sign in
           </Link>
         </div>
       </footer>
-
     </div>
   );
 }

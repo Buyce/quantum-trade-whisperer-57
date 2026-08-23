@@ -132,12 +132,7 @@ describe("calculateRisk with broker specs", () => {
 
   it("[UNIT] applies the broker volume ceiling and flags it separately", () => {
     const spec = specFromRow(brokerRow({ volume_max: 0.05 }))!;
-    const res = calculateRisk(
-      { ...setup, stopLoss: 2399.9 },
-      profile,
-      {},
-      { spec },
-    );
+    const res = calculateRisk({ ...setup, stopLoss: 2399.9 }, profile, {}, { spec });
     expect(res.ok).toBe(true);
     if (!res.ok) return;
     expect(res.lots).toBeLessThanOrEqual(0.05);

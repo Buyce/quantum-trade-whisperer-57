@@ -21,11 +21,15 @@ const url = vi.hoisted(() => ({ fn: vi.fn() }));
 const email = vi.hoisted(() => ({ fn: vi.fn() }));
 const push = vi.hoisted(() => ({ fn: vi.fn() }));
 
-vi.mock("@/lib/scanner/metaapi.server", () => ({ fetchQuote: (...a: unknown[]) => quote.fn(...a) }));
+vi.mock("@/lib/scanner/metaapi.server", () => ({
+  fetchQuote: (...a: unknown[]) => quote.fn(...a),
+}));
 vi.mock("@/lib/sizing/service.server", () => ({
   resolveSizingForUser: (...a: unknown[]) => sizing.fn(...a),
 }));
-vi.mock("@/lib/broker/specs.server", () => ({ loadBrokerSpec: (...a: unknown[]) => spec.fn(...a) }));
+vi.mock("@/lib/broker/specs.server", () => ({
+  loadBrokerSpec: (...a: unknown[]) => spec.fn(...a),
+}));
 vi.mock("../outbound-url.server", async (orig) => {
   const actual = (await orig()) as Record<string, unknown>;
   return { ...actual, validateOutboundUrl: (...a: unknown[]) => url.fn(...a) };
@@ -38,9 +42,8 @@ vi.mock("@/lib/scanner/push.server", () => ({
 }));
 
 // The real validator, deliberately unmocked: these are SSRF regressions.
-const { validateOutboundUrl } = await vi.importActual<typeof import("../outbound-url.server")>(
-  "../outbound-url.server",
-);
+const { validateOutboundUrl } =
+  await vi.importActual<typeof import("../outbound-url.server")>("../outbound-url.server");
 const { revalidateDelivery, liveConfirmationValid } = await import("../revalidate.server");
 const { sendSignalAlerts } = await import("@/lib/scanner/alerts.server");
 
@@ -105,7 +108,10 @@ const SIZING_OK = {
   provenance: { authoritativeModel: 1 as const, specSource: "static_v1" as const, specAsOf: null },
 };
 
-function fakeDb(settings: Record<string, unknown> | null, controls: Record<string, unknown> | null) {
+function fakeDb(
+  settings: Record<string, unknown> | null,
+  controls: Record<string, unknown> | null,
+) {
   const api = (table: string) => {
     const chain: Record<string, unknown> = {};
     const self = () => chain as never;
@@ -183,7 +189,9 @@ describe("1. the scanner alert fan-out cannot place a trade", () => {
     };
     return {
       from: (t: string) => api(t),
-      auth: { admin: { getUserById: async () => ({ data: { user: { email: "t@example.com" } } }) } },
+      auth: {
+        admin: { getUserById: async () => ({ data: { user: { email: "t@example.com" } } }) },
+      },
     };
   }
 
@@ -269,10 +277,10 @@ describe("2. the bridge connectivity test", () => {
 
   it("[INVARIANT] the JSON test body is a non-execution contract", () => {
     const body = buildTestJsonPayload(null) as Record<string, unknown>;
-    expect(body['event']).toBe("test");
-    expect(body['executable']).toBe(false);
-    expect(body['action']).toBeUndefined();
-    expect(body['quantity']).toBeUndefined();
+    expect(body["event"]).toBe("test");
+    expect(body["executable"]).toBe(false);
+    expect(body["action"]).toBeUndefined();
+    expect(body["quantity"]).toBeUndefined();
   });
 
   it("[INVARIANT] it reuses canonical validation and refuses redirects", () => {
@@ -375,10 +383,7 @@ describe("4. eligibility changes invalidate queued deliveries", () => {
     it(`[INVARIANT] a ${label} change after enqueue rejects the queued delivery`, async () => {
       // The DB trigger bumps the version on any of these columns; the dispatcher
       // then refuses to send under an authorization it was not queued with.
-      const db = fakeDb(
-        { ...CONFIRMED_SETTINGS, execution_config_version: 5 },
-        LIVE_CONTROLS,
-      );
+      const db = fakeDb({ ...CONFIRMED_SETTINGS, execution_config_version: 5 }, LIVE_CONTROLS);
       const result = await revalidateDelivery(db as never, delivery, NOW);
       expect(result).toMatchObject({ ok: false, reason: "configuration_changed_since_enqueue" });
     });

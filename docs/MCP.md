@@ -14,20 +14,20 @@ Manifest: `.lovable/mcp/manifest.json`. Connection instructions for humans live 
 
 ### Tools (12)
 
-| Tool | Access | Notes |
-| --- | --- | --- |
-| `list_signals` | read | `scope=all_published` (default) or `my_scanner`. An empty result means nothing matched the requested filters and scope — it is **not** evidence about the scanner's cycle or that no valid setup exists. Grade filtering and paging happen SQL-side. |
-| `get_scanner_status` | read | scanner state; the correct tool for "is it running" |
-| `get_market_status` | read | session open/closed/overlap |
-| `get_my_settings` | read | filters and risk profile |
-| `update_my_settings` | write | sensitive risk fields require `confirm_risk_change=true` |
-| `calculate_position_size` | read | uses the shared sizing service; FX lookups are demand-driven and allow-listed |
-| `get_intelligence` | read | research-only, gated on maturity |
-| `get_shadow_comparison` | read | research-only replay comparison |
-| `log_trade_decision` | write | Taken / Skipped; snapshots the plan |
-| `update_trade_outcome` | write | outcome and actual prices; stamped as agent-entered |
-| `list_my_trades` | read | the user's journal |
-| `get_performance_summary` | read | personal performance on one explicit R basis |
+| Tool                      | Access | Notes                                                                                                                                                                                                                                                |
+| ------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `list_signals`            | read   | `scope=all_published` (default) or `my_scanner`. An empty result means nothing matched the requested filters and scope — it is **not** evidence about the scanner's cycle or that no valid setup exists. Grade filtering and paging happen SQL-side. |
+| `get_scanner_status`      | read   | scanner state; the correct tool for "is it running"                                                                                                                                                                                                  |
+| `get_market_status`       | read   | session open/closed/overlap                                                                                                                                                                                                                          |
+| `get_my_settings`         | read   | filters and risk profile                                                                                                                                                                                                                             |
+| `update_my_settings`      | write  | sensitive risk fields require `confirm_risk_change=true`                                                                                                                                                                                             |
+| `calculate_position_size` | read   | uses the shared sizing service; FX lookups are demand-driven and allow-listed                                                                                                                                                                        |
+| `get_intelligence`        | read   | research-only, gated on maturity                                                                                                                                                                                                                     |
+| `get_shadow_comparison`   | read   | research-only replay comparison                                                                                                                                                                                                                      |
+| `log_trade_decision`      | write  | Taken / Skipped; snapshots the plan                                                                                                                                                                                                                  |
+| `update_trade_outcome`    | write  | outcome and actual prices; stamped as agent-entered                                                                                                                                                                                                  |
+| `list_my_trades`          | read   | the user's journal                                                                                                                                                                                                                                   |
+| `get_performance_summary` | read   | personal performance on one explicit R basis                                                                                                                                                                                                         |
 
 ### Guarantees the tools uphold
 

@@ -210,7 +210,11 @@ describe("shared sizing service", () => {
 
   it("[UNIT] advisory exposure is derived only from the user's own logged trades", async () => {
     const fake = db(brokerRow(), [
-      { outcome: "open", actual_entry_at: new Date(NOW - 3600_000).toISOString(), signal_instrument: "XAUUSD" },
+      {
+        outcome: "open",
+        actual_entry_at: new Date(NOW - 3600_000).toISOString(),
+        signal_instrument: "XAUUSD",
+      },
       { outcome: "open", actual_entry_at: null, signal_instrument: "EURUSD" },
       {
         outcome: "loss",
@@ -229,9 +233,9 @@ describe("shared sizing service", () => {
     expect(result.advisory?.openPositions).toBe(1);
     expect(result.advisory?.pendingPositions).toBe(1);
     expect(result.advisory?.realizedLossTodayR).toBe(1);
-    expect(fake.calls.some((c) => c.table === "executed_trades" && c.eq["user_id"] === "user-1")).toBe(
-      true,
-    );
+    expect(
+      fake.calls.some((c) => c.table === "executed_trades" && c.eq["user_id"] === "user-1"),
+    ).toBe(true);
   });
 });
 

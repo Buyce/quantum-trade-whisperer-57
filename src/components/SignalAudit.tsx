@@ -80,8 +80,8 @@ export function SignalAudit() {
       <section className="rounded-md border border-border bg-card p-6 text-center">
         <h2 className="text-sm font-semibold text-foreground">No scanned setups yet</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          The audit lists real setups only. As soon as the scanner publishes a graded setup it appears here with
-          its skip and shadow-engine counts.
+          The audit lists real setups only. As soon as the scanner publishes a graded setup it
+          appears here with its skip and shadow-engine counts.
         </p>
       </section>
     );
@@ -158,19 +158,29 @@ export function SignalAudit() {
 }
 
 function Th({ children, className }: { children?: React.ReactNode; className?: string }) {
-  return <th className={cn("label-xs px-3 py-2 text-center whitespace-nowrap", className)}>{children}</th>;
+  return (
+    <th className={cn("label-xs px-3 py-2 text-center whitespace-nowrap", className)}>
+      {children}
+    </th>
+  );
 }
 
 function Row({ row }: { row: SignalAuditRow }) {
   return (
     <tr className="border-b border-border/60 last:border-0">
-      <td className="num px-3 py-2 whitespace-nowrap text-muted-foreground">{when(row.detectedAt)}</td>
+      <td className="num px-3 py-2 whitespace-nowrap text-muted-foreground">
+        {when(row.detectedAt)}
+      </td>
       <td className="px-3 py-2 whitespace-nowrap">
         <span className="font-semibold text-foreground">{row.instrument}</span>{" "}
-        <span className="text-xs text-muted-foreground">{INSTRUMENT_LABELS[row.instrument] ?? ""}</span>
+        <span className="text-xs text-muted-foreground">
+          {INSTRUMENT_LABELS[row.instrument] ?? ""}
+        </span>
       </td>
       <td className={cn("px-3 py-2 text-center font-bold", GRADE_TONE[row.grade])}>{row.grade}</td>
-      <td className="px-3 py-2 text-center text-xs uppercase text-muted-foreground">{row.direction}</td>
+      <td className="px-3 py-2 text-center text-xs uppercase text-muted-foreground">
+        {row.direction}
+      </td>
       <td className="num px-3 py-2 text-center">
         {row.confidenceScore == null ? "—" : row.confidenceScore.toFixed(0)}
       </td>

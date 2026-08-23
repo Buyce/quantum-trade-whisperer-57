@@ -7,7 +7,6 @@
 > command list or CI statement below is a point-in-time observation, not a
 > present-tense fact — read the repository for current numbers.
 
-
 The automated suite pins the behaviour of the **V1 production engine**
 (`ACTIVE_MODEL_VERSION = 1`) exactly as it runs today — including behaviour that
 is questionable. Pinning is not endorsement: it guarantees that V1's published
@@ -15,12 +14,12 @@ history stays reproducible and that any future change is deliberate and visible.
 
 ## Test classes
 
-| Class | Blocking | Meaning |
-| --- | --- | --- |
-| `[UNIT]` | yes | Deterministic behaviour of a pure helper. |
-| `[V1_CHARACTERIZATION]` | yes | Current V1 behaviour, defects included. A failure means V1 changed. |
-| `[INVARIANT]` | yes | Model-independent safety property that must hold for any engine version. |
-| `[INTENDED_V2]` | no | Desired future behaviour. Lives only in `*.v2.test.ts`, runs in the `report` project. |
+| Class                   | Blocking | Meaning                                                                               |
+| ----------------------- | -------- | ------------------------------------------------------------------------------------- |
+| `[UNIT]`                | yes      | Deterministic behaviour of a pure helper.                                             |
+| `[V1_CHARACTERIZATION]` | yes      | Current V1 behaviour, defects included. A failure means V1 changed.                   |
+| `[INVARIANT]`           | yes      | Model-independent safety property that must hold for any engine version.              |
+| `[INTENDED_V2]`         | no       | Desired future behaviour. Lives only in `*.v2.test.ts`, runs in the `report` project. |
 
 The taxonomy is enforced by `src/test/__tests__/test-taxonomy.test.ts`: an
 unlabelled test title fails the build, and an `[INTENDED_V2]` label outside a
@@ -114,7 +113,6 @@ formatting state, and `verify` still gates on `lint:blocking`.
 
 No claim is made here about any CI status check. `.github/workflows/ci.yml` is
 committed; read the CI provider for its actual result.
-
 
 ## Pinned: `model_version` defaults to 1
 

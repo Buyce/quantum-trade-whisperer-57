@@ -65,7 +65,9 @@ export function LearningHistory() {
   const iterations = useMemo(() => {
     const runs = new Map<string, RegimeSnapshotRow>();
     for (const r of rows) if (r.tier === 1 && !runs.has(r.run_id)) runs.set(r.run_id, r);
-    return [...runs.values()].sort((a, b) => b.computed_at.localeCompare(a.computed_at)).slice(0, 20);
+    return [...runs.values()]
+      .sort((a, b) => b.computed_at.localeCompare(a.computed_at))
+      .slice(0, 20);
   }, [rows]);
 
   if (isLoading) return <Skeleton className="h-64 w-full" />;
@@ -119,7 +121,11 @@ export function LearningHistory() {
           <div className="mt-4 h-64">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={series}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="var(--color-border)"
+                  vertical={false}
+                />
                 <XAxis dataKey="at" stroke="var(--color-muted-foreground)" fontSize={11} />
                 <YAxis
                   stroke="var(--color-muted-foreground)"
@@ -213,8 +219,8 @@ export function LearningHistory() {
           </table>
         </div>
         <p className="mt-3 text-xs leading-snug text-muted-foreground">
-          Table shows unsmoothed dataset-wide rates per iteration — the honest measurement behind the
-          advisory numbers on each signal. Older than 180 days is pruned.
+          Table shows unsmoothed dataset-wide rates per iteration — the honest measurement behind
+          the advisory numbers on each signal. Older than 180 days is pruned.
         </p>
       </section>
     </div>

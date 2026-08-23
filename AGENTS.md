@@ -1,4 +1,5 @@
 <!-- LOVABLE:BEGIN -->
+
 > [!IMPORTANT]
 > This project is connected to [Lovable](https://lovable.dev). Avoid rewriting
 > published git history — force pushing, or rebasing/amending/squashing commits
@@ -7,6 +8,7 @@
 >
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
+
 <!-- LOVABLE:END -->
 
 ## Zero-Hallucination Data Rule (non-negotiable)
@@ -41,4 +43,3 @@ A query returning zero rows only means **nothing matched that query**.
 
 Enforced by `src/lib/mcp/__tests__/list-signals.behavior.test.ts` and
 `src/test/__tests__/docs-contract.test.ts`.
-

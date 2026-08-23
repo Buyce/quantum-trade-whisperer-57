@@ -10,12 +10,16 @@
  * panels and the MCP tools, and every group is measured in independent UTC-day
  * clusters as well as raw rows.
  */
-import { assessEvidence, holdoutConfirmed, MIN_GROUP_SAMPLES, type EvidenceVerdict } from "@/lib/stats/evidence";
+import {
+  assessEvidence,
+  holdoutConfirmed,
+  MIN_GROUP_SAMPLES,
+  type EvidenceVerdict,
+} from "@/lib/stats/evidence";
 import {
   clusterBootstrapProportionDifference,
   type ProportionObservation,
 } from "@/lib/stats/bootstrap";
-
 
 /** Minimum resolved rows per tier before a comparison is worth reading. */
 export const MIN_TIER_SAMPLES = MIN_GROUP_SAMPLES;
@@ -95,7 +99,6 @@ export interface Comparison {
   /** The shared sufficiency verdict. Authoritative over `verdict`. */
   evidence: EvidenceVerdict;
 }
-
 
 export interface WeeklyReport {
   generatedAt: string;
@@ -374,7 +377,6 @@ function buildComparison(
   };
 }
 
-
 export function buildReport(input: {
   rows: ShadowRow[];
   windowStart: string;
@@ -404,8 +406,12 @@ export function buildReport(input: {
     high,
     low,
     comparisons: [
-      buildComparison("fill_rate", "Fill rate (filled / resolved)", highRows, lowRows, (r) =>
-        r.filled_at !== null,
+      buildComparison(
+        "fill_rate",
+        "Fill rate (filled / resolved)",
+        highRows,
+        lowRows,
+        (r) => r.filled_at !== null,
       ),
       buildComparison(
         "win_rate",
@@ -415,6 +421,5 @@ export function buildReport(input: {
         (r) => r.resolved_outcome === "win",
       ),
     ],
-
   };
 }

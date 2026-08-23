@@ -13,17 +13,22 @@ import {
   type SignalSnapshotSource,
 } from "./journal/decision";
 
-
 const SIGNAL_COLUMNS =
   "id, detected_at, instrument, grade, direction, entry_price, stop_loss, tp1, tp2, tp3, tp1_r, tp2_r, tp3_r, max_r, max_acceptable_entry, structure_key, atr, rr_ratio, confidence_score, c_alignment, c_rr, c_symmetry, c_volatility, pattern_symmetry, p_trend, p_order_block, p_momentum, p_volatility_expansion, pillars_passed, h4_bias, h1_bias, m15_bias, qualitative_breakdown, status, resolved_outcome, resolved_r_multiple, expired_at, p_fill_prior, p_win_prior, ev_prior, p_joint_prior, prior_sample_n, prior_filled_n, prior_tier, market_context(trading_session, volatility_index, time_of_day, day_of_week)";
 
 /**
  * ZERO-HALLUCINATION CONTRACT: this fetcher returns exactly what the live
- * MetaApi scanner pipeline wrote to the database — nothing more. An empty array
- * is a valid, meaningful result ("No Trade" / Capital Preservation Mode) and
- * MUST be surfaced as such. Never add mock rows, sample setups, demo fixtures,
- * or a fallback generator here or in any consumer of this query.
+ * MetaApi scanner pipeline wrote to the database — nothing more. Never add mock
+ * rows, sample setups, demo fixtures, or a fallback generator here or in any
+ * consumer of this query.
+ *
+ * An empty array is a valid result, but it only means that no retained row
+ * matched this query. It is NOT evidence of a scanner-wide "No Trade" cycle:
+ * consumers apply the user's instrument, session, grade, cap and retention
+ * filters on top of this, so empty-state copy must speak about the view, not
+ * about the market. Scanner state comes from the heartbeat instead.
  */
+
 export function signalsQuery(limit = 400) {
   return queryOptions({
     queryKey: ["signals", limit],
@@ -210,7 +215,6 @@ export async function logDecision(input: {
   if (error) throw error;
   return { ok: true, action: plan.action, alreadyResolved: false, message: plan.message };
 }
-
 
 /**
  * Outcome writes go through `recordTradeOutcome` in

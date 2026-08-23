@@ -11,17 +11,34 @@ import { getExecutionStatus, saveBridgeSettings } from "@/lib/execution.function
 
 import { useAuth } from "@/hooks/useAuth";
 import { saveSettings, settingsQuery } from "@/lib/queries";
-import { ALL_INSTRUMENTS, ALL_SESSIONS, ALL_TIMEFRAMES, SESSION_LABELS, INSTRUMENT_LABELS, ORDER_TIF_MINUTES, type Grade, type OrderStrategy, type WebhookFormat } from "@/lib/db-types";
+import {
+  ALL_INSTRUMENTS,
+  ALL_SESSIONS,
+  ALL_TIMEFRAMES,
+  SESSION_LABELS,
+  INSTRUMENT_LABELS,
+  ORDER_TIF_MINUTES,
+  type Grade,
+  type OrderStrategy,
+  type WebhookFormat,
+} from "@/lib/db-types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { FeedbackSection } from "@/components/FeedbackSection";
 import { DangerZoneSection } from "@/components/DangerZoneSection";
+import { GuideDetail } from "@/components/GuideMode";
 import { PushSection } from "@/components/PushSection";
 import { AgentConnectCard } from "@/components/AgentConnectCard";
 
@@ -31,10 +48,14 @@ export const Route = createFileRoute("/_authenticated/settings")({
       { title: "Settings — P-Trades Hub" },
       {
         name: "description",
-        content: "Configure instruments, timeframes, grade filters, notification delivery and the notify.getptrades.com sender domain.",
+        content:
+          "Configure instruments, timeframes, grade filters, notification delivery and the notify.getptrades.com sender domain.",
       },
       { property: "og:title", content: "Settings — P-Trades Hub" },
-      { property: "og:description", content: "Scanner filters, alerts and sender-domain configuration." },
+      {
+        property: "og:description",
+        content: "Scanner filters, alerts and sender-domain configuration.",
+      },
       { name: "robots", content: "noindex" },
     ],
   }),
@@ -143,7 +164,8 @@ function SettingsPage() {
     try {
       const res = await triggerTestWebhook();
       setTestPreview(res.preview ?? null);
-      if (res.ok && res.posted === false) toast.info(res.note ?? "Local preview only — nothing was sent.");
+      if (res.ok && res.posted === false)
+        toast.info(res.note ?? "Local preview only — nothing was sent.");
       else if (res.ok) toast.success(`Test request delivered (${res.status} OK)`);
       else toast.error(res.error ?? "The test request failed");
     } catch (e) {
@@ -161,7 +183,8 @@ function SettingsPage() {
       setScanReport(result);
       const failed = result.processed.filter((p) => p.status === "failed").length;
       if (failed > 0) toast.error(`Scan finished with ${failed} failed job(s)`);
-      else toast.success(`Scan cycle complete — ${result.processed.length} instrument(s) processed`);
+      else
+        toast.success(`Scan cycle complete — ${result.processed.length} instrument(s) processed`);
       await queryClient.invalidateQueries({ queryKey: ["instrument-health"] });
       await queryClient.invalidateQueries({ queryKey: ["signals"] });
     } catch (e) {
@@ -170,7 +193,6 @@ function SettingsPage() {
       setScanning(false);
     }
   }
-
 
   useEffect(() => {
     const s = settings.data;
@@ -214,7 +236,6 @@ function SettingsPage() {
     // Bridge fields are validated and written SERVER-SIDE below. There is
     // deliberately no client-side URL check standing in for that: a browser
     // regex cannot classify what a hostname resolves to.
-
 
     // Clamped to the same bounds the database enforces, so a save is never
     // rejected by a constraint the user cannot see.
@@ -276,7 +297,6 @@ function SettingsPage() {
           confirmLiveExecution: !executionDryRun && confirmLive,
           exposureLimitEnabled,
         },
-
       });
       await queryClient.invalidateQueries({ queryKey: ["scanner-settings"] });
       await queryClient.invalidateQueries({ queryKey: ["execution-deliveries"] });
@@ -300,15 +320,15 @@ function SettingsPage() {
         <p className="label-xs">Configuration</p>
         <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">Settings</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          The scanner runs centrally on every instrument and timeframe. These preferences filter what reaches your
-          feed and alerts — they never change the scan itself.
+          The scanner runs centrally on every instrument and timeframe. These preferences filter
+          what reaches your feed and alerts — they never change the scan itself.
         </p>
       </div>
 
       {settings.isError ? (
         <p className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm">
-          Could not load your preferences, so the values below may be defaults rather than your saved settings.
-          Reload before saving.
+          Could not load your preferences, so the values below may be defaults rather than your
+          saved settings. Reload before saving.
         </p>
       ) : null}
 
@@ -316,12 +336,24 @@ function SettingsPage() {
           bar stays pinned under the tabs it applies to. */}
       <Tabs defaultValue="filters" className="space-y-4">
         <TabsList className="grid h-auto w-full grid-cols-2 gap-1 sm:grid-cols-3 lg:inline-flex lg:h-9 lg:w-auto lg:gap-0">
-          <TabsTrigger className="h-10 lg:h-auto" value="filters">Filters &amp; alerts</TabsTrigger>
-          <TabsTrigger className="h-10 lg:h-auto" value="risk">Risk</TabsTrigger>
-          <TabsTrigger className="h-10 lg:h-auto" value="notifications">Notifications</TabsTrigger>
-          <TabsTrigger className="h-10 lg:h-auto" value="agents">Agents</TabsTrigger>
-          <TabsTrigger className="h-10 lg:h-auto" value="diagnostics">Diagnostics</TabsTrigger>
-          <TabsTrigger className="h-10 lg:h-auto" value="account">Account</TabsTrigger>
+          <TabsTrigger className="h-10 lg:h-auto" value="filters">
+            Filters &amp; alerts
+          </TabsTrigger>
+          <TabsTrigger className="h-10 lg:h-auto" value="risk">
+            Risk
+          </TabsTrigger>
+          <TabsTrigger className="h-10 lg:h-auto" value="notifications">
+            Notifications
+          </TabsTrigger>
+          <TabsTrigger className="h-10 lg:h-auto" value="agents">
+            Agents
+          </TabsTrigger>
+          <TabsTrigger className="h-10 lg:h-auto" value="diagnostics">
+            Diagnostics
+          </TabsTrigger>
+          <TabsTrigger className="h-10 lg:h-auto" value="account">
+            Account
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="filters" className="space-y-4">
@@ -363,7 +395,11 @@ function SettingsPage() {
               <Label className="text-xs">Active sessions</Label>
               <div className="mt-2 flex flex-wrap gap-2">
                 {ALL_SESSIONS.map((s) => (
-                  <Chip key={s} active={sessions.includes(s)} onClick={() => toggle(sessions, s, setSessions)}>
+                  <Chip
+                    key={s}
+                    active={sessions.includes(s)}
+                    onClick={() => toggle(sessions, s, setSessions)}
+                  >
                     {SESSION_LABELS[s] ?? s}
                   </Chip>
                 ))}
@@ -416,9 +452,10 @@ function SettingsPage() {
                 />
                 <p className="mt-1 text-xs text-muted-foreground">
                   Your own limit on how many graded setups (A+, A, B) reach you per UTC day —{" "}
-                  <span className="text-foreground">0 means unlimited</span>. C-Grade never counts against it.
-                  The scanner publishes every qualifying setup; this only governs your feed and alerts, and the
-                  engine still defaults to No Trade rather than filling the number.
+                  <span className="text-foreground">0 means unlimited</span>. C-Grade never counts
+                  against it. The scanner publishes every qualifying setup; this only governs your
+                  feed and alerts, and the engine still defaults to No Trade rather than filling the
+                  number.
                 </p>
               </div>
             </div>
@@ -442,8 +479,8 @@ function SettingsPage() {
                 </SelectContent>
               </Select>
               <p className="mt-1 text-xs text-muted-foreground">
-                Which tiers may trigger push and email alerts. Independent of your feed minimum grade — set it to
-                “C and above” if you want to be alerted on every tier.
+                Which tiers may trigger push and email alerts. Independent of your feed minimum
+                grade — set it to “C and above” if you want to be alerted on every tier.
               </p>
             </div>
           </section>
@@ -460,6 +497,15 @@ function SettingsPage() {
                 calculation and display only — the scanner, the grades and the alert thresholds
                 never read them, and nothing here places an order.
               </p>
+              <GuideDetail
+                className="mt-2"
+                title="How these fields change your numbers"
+                what="The self-reported inputs every lot size, cash-risk figure and margin estimate in the terminal is computed from."
+                why="Change your balance or risk percent and every size on every card changes with it. Leverage only affects the margin estimate; your risk comes from the stop distance."
+                todo="Keep the balance current — it is stamped with the date you last confirmed it — and set risk per trade to what one loss may cost you."
+                assume="Nothing here is read from or confirmed by your broker, and none of it affects grading, alert thresholds or whether a setup is published."
+                anchor="sizing"
+              />
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
@@ -636,8 +682,15 @@ function SettingsPage() {
               checked={email}
               onChange={setEmail}
             />
+            <GuideDetail
+              title="What email alerts do and do not do"
+              what="A notification channel. When a published setup is eligible under your filters, a copy of the plan is emailed to your account address."
+              why="It is the delivery path that works when a browser is closed, and it carries exactly the same plan the feed shows."
+              todo="Use it alongside push if you want redundancy, and use your minimum grade and daily cap to control the volume."
+              assume="An email is never an order and cannot reach your broker. Silence is not proof that nothing was published — your instrument, session, grade and cap filters decide what is eligible."
+              anchor="eligibility"
+            />
           </section>
-
 
           <section className="space-y-5 rounded-md border border-border bg-card p-4">
             <div>
@@ -646,6 +699,15 @@ function SettingsPage() {
                 How the terminal phrases order guidance, and where — if anywhere — a copy of each
                 alert is POSTed for your own broker bridge. We never hold broker credentials.
               </p>
+              <GuideDetail
+                className="mt-2"
+                title="What can and cannot leave the server"
+                what="Optional outbound delivery of an alert copy to a bridge you own, plus how order guidance is worded."
+                why="Live execution is disabled globally by default and dry-run first, and the scanner's alert path cannot send broker instructions at all — orders only travel through the execution ledger."
+                todo="Test with dry run first and read the delivery states: only an acknowledgement proves the receiver accepted a request."
+                assume="Sent is not acceptance, and an unacknowledged request is never retried automatically because it may already have created an order. Changing any setting that decides authorisation or quantity invalidates queued deliveries instead of sending them under new rules."
+                anchor="delivery-states"
+              />
             </div>
 
             <div className="space-y-2">
@@ -718,15 +780,17 @@ function SettingsPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="pineconnector">PineConnector (comma separated)</SelectItem>
+                        <SelectItem value="pineconnector">
+                          PineConnector (comma separated)
+                        </SelectItem>
                         <SelectItem value="json">JSON</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <p className="text-xs text-muted-foreground sm:col-span-2">
-                    Orders are always dispatched as buy/sell <span className="num">limit</span> at the
-                    structural entry with the {ORDER_TIF_MINUTES}-minute expiry attached — never a
-                    stop order, which your platform would reject once price has passed the level.
+                    Orders are always dispatched as buy/sell <span className="num">limit</span> at
+                    the structural entry with the {ORDER_TIF_MINUTES}-minute expiry attached — never
+                    a stop order, which your platform would reject once price has passed the level.
                   </p>
                   <div className="space-y-2 border-t border-border pt-3 sm:col-span-2">
                     <div className="flex flex-wrap items-center gap-3">
@@ -743,7 +807,7 @@ function SettingsPage() {
                         {canTestWebhook
                           ? webhookFormat === "pineconnector"
                             ? "Shows the payload shape locally. Nothing is sent: every PineConnector command is a real order, so it is never used as a connectivity test."
-                            : "Posts a non-executable {\"event\":\"test\"} body to your validated URL. No action, no quantity, nothing written to the database."
+                            : 'Posts a non-executable {"event":"test"} body to your validated URL. No action, no quantity, nothing written to the database.'
                           : "Save a valid https URL and your secret / licence ID to enable the test."}
                       </p>
                     </div>
@@ -798,8 +862,8 @@ function SettingsPage() {
                           without another manual click. Policy:{" "}
                           <span className="num">single_exit_first_target</span> — one pending
                           buy/sell limit exiting at the first target. Position size comes solely
-                          from your saved risk profile and your broker's contract specification;
-                          no quantity is ever invented. This confirmation applies to the current
+                          from your saved risk profile and your broker's contract specification; no
+                          quantity is ever invented. This confirmation applies to the current
                           configuration only — changing your bridge, secret, format, risk profile,
                           instruments, sessions, alert grade or daily cap returns you to dry run
                           until you confirm again. Live execution also has to be available
@@ -814,7 +878,6 @@ function SettingsPage() {
                       checked={exposureLimitEnabled}
                       onChange={setExposureLimitEnabled}
                     />
-
 
                     <p className="text-xs text-muted-foreground">
                       {executionStatus.data
@@ -860,7 +923,6 @@ function SettingsPage() {
             </div>
           </section>
 
-
           <SaveBar saving={saving} onSave={() => void onSave()} />
         </TabsContent>
 
@@ -874,10 +936,16 @@ function SettingsPage() {
               <div className="min-w-0">
                 <h2 className="label-xs">Scanner diagnostics</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  The scan runs automatically every 15 minutes. Run it on demand to verify the pipeline end to end.
+                  The scan runs automatically every 15 minutes. Run it on demand to verify the
+                  pipeline end to end.
                 </p>
               </div>
-              <Button variant="outline" onClick={onRunScanNow} disabled={scanning} className="shrink-0">
+              <Button
+                variant="outline"
+                onClick={onRunScanNow}
+                disabled={scanning}
+                className="shrink-0"
+              >
                 <RefreshCw className={cn("mr-2 h-4 w-4", scanning && "animate-spin")} />
                 {scanning ? "Scanning…" : "Run scan now"}
               </Button>
@@ -888,7 +956,9 @@ function SettingsPage() {
                 <p className="text-muted-foreground">
                   run {scanReport.runId.slice(0, 8)} · {scanReport.enqueued} enqueued
                 </p>
-                {scanReport.processed.length === 0 && <p className="text-muted-foreground">No jobs processed.</p>}
+                {scanReport.processed.length === 0 && (
+                  <p className="text-muted-foreground">No jobs processed.</p>
+                )}
                 {scanReport.processed.map((p, i) => (
                   <p key={`${p.instrument}-${i}`}>
                     <span className="text-foreground">{p.instrument}</span>{" "}
@@ -914,8 +984,9 @@ function SettingsPage() {
             <h2 className="label-xs">Sender domain · getptrades.com</h2>
             <p className="text-sm text-muted-foreground">
               <span className="num text-long">Verified</span> — alerts send from{" "}
-              <span className="num text-foreground">notify.getptrades.com</span>. The records below are the
-              delegation currently in place; keep them at your registrar so deliverability stays intact.
+              <span className="num text-foreground">notify.getptrades.com</span>. The records below
+              are the delegation currently in place; keep them at your registrar so deliverability
+              stays intact.
             </p>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[520px] text-sm">
@@ -933,7 +1004,9 @@ function SettingsPage() {
                     <tr key={i} className="border-b border-border/60 last:border-0">
                       <td className="num px-3 py-2 text-xs">{r.type}</td>
                       <td className="num px-3 py-2 text-xs">{r.name}</td>
-                      <td className="num px-3 py-2 text-xs break-all text-muted-foreground">{r.value}</td>
+                      <td className="num px-3 py-2 text-xs break-all text-muted-foreground">
+                        {r.value}
+                      </td>
                       <td className="px-3 py-2 text-right">
                         <Button
                           size="sm"
@@ -944,7 +1017,9 @@ function SettingsPage() {
                             void navigator.clipboard
                               .writeText(r.value)
                               .then(() => toast.success("Copied"))
-                              .catch(() => toast.error("Clipboard blocked — copy the value manually"));
+                              .catch(() =>
+                                toast.error("Clipboard blocked — copy the value manually"),
+                              );
                           }}
                         >
                           <Copy className="size-3.5" />
@@ -956,9 +1031,15 @@ function SettingsPage() {
               </table>
             </div>
             <ol className="list-decimal space-y-1 pl-5 text-xs text-muted-foreground">
-              <li>These NS records delegate the notify subdomain so SPF, DKIM and MX are managed for you.</li>
+              <li>
+                These NS records delegate the notify subdomain so SPF, DKIM and MX are managed for
+                you.
+              </li>
               <li>Removing them stops alert delivery from notify.getptrades.com.</li>
-              <li>New sending domains warm up over 2–4 weeks — deliverability improves as volume stays steady.</li>
+              <li>
+                New sending domains warm up over 2–4 weeks — deliverability improves as volume stays
+                steady.
+              </li>
             </ol>
           </section>
         </TabsContent>
@@ -1001,7 +1082,9 @@ function StrategyOption({
       onClick={onClick}
       className={cn(
         "rounded-md border p-3 text-left transition-colors",
-        active ? "border-primary/60 bg-primary/10" : "border-border bg-surface hover:border-border/80",
+        active
+          ? "border-primary/60 bg-primary/10"
+          : "border-border bg-surface hover:border-border/80",
       )}
     >
       <span className="flex items-center gap-2">

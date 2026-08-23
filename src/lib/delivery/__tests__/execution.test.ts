@@ -114,21 +114,17 @@ describe("execution exposure limits", () => {
   });
 
   it("[UNIT] leaves a within-limit snapshot untouched", () => {
-    const verdict = evaluateExposure(
-      { openRiskR: 1, pendingRiskR: 0, realizedLossTodayR: 0 },
-      1,
-      { enforce: true },
-    );
+    const verdict = evaluateExposure({ openRiskR: 1, pendingRiskR: 0, realizedLossTodayR: 0 }, 1, {
+      enforce: true,
+    });
     expect(verdict.exceeded).toBe(false);
     expect(verdict.allowed).toBe(true);
   });
 
   it("[UNIT] attributes the daily loss limit to trades the user logged, not the broker", () => {
-    const verdict = evaluateExposure(
-      { openRiskR: 0, pendingRiskR: 0, realizedLossTodayR: 2 },
-      1,
-      { enforce: true },
-    );
+    const verdict = evaluateExposure({ openRiskR: 0, pendingRiskR: 0, realizedLossTodayR: 2 }, 1, {
+      enforce: true,
+    });
     expect(verdict.allowed).toBe(false);
     expect(verdict.detail).toContain("trades you logged");
     expect(verdict.detail).toContain("not broker-account exposure");

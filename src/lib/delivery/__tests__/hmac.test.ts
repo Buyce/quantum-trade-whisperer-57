@@ -1,11 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  PAYLOAD_VERSION,
-  hmacSha256Hex,
-  requestFingerprint,
-  signBody,
-  signingBase,
-} from "../hmac";
+import { PAYLOAD_VERSION, hmacSha256Hex, requestFingerprint, signBody, signingBase } from "../hmac";
 import { jsonBody, pineBody, readOrderId } from "../dispatch.server";
 import { buildBridgeOrder, type BridgeSignal } from "../execution";
 

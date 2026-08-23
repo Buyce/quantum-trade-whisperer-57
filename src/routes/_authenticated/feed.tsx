@@ -48,10 +48,14 @@ export const Route = createFileRoute("/_authenticated/feed")({
       { title: "Signal Feed — P-Trades Hub" },
       {
         name: "description",
-        content: "Graded ABC retracement trade profiles with entry, stop, targets, R:R and confidence score.",
+        content:
+          "Graded ABC retracement trade profiles with entry, stop, targets, R:R and confidence score.",
       },
       { property: "og:title", content: "Signal Feed — P-Trades Hub" },
-      { property: "og:description", content: "Live graded forex trade profiles with confidence scoring." },
+      {
+        property: "og:description",
+        content: "Live graded forex trade profiles with confidence scoring.",
+      },
       { name: "robots", content: "noindex" },
     ],
   }),
@@ -109,72 +113,74 @@ function FeedPage() {
   useEffect(() => {
     const channel = supabase
       .channel("scanned-signals-feed")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "scanned_signals" }, (payload) => {
-        const row = payload.new as {
-          id?: string;
-          detected_at?: string;
-          instrument?: string;
-          grade?: Grade;
-          direction?: string;
-        };
-        const title = `New ${row.grade === "A+" ? "A+" : `${row.grade ?? ""}-`}Grade setup on ${row.instrument ?? "market"}`;
-        const cfgNow = settingsRef.current;
-        const incoming: EligibilitySignal = {
-          id: row.id ?? "",
-          detected_at: row.detected_at ?? new Date().toISOString(),
-          instrument: row.instrument ?? "",
-          grade: row.grade ?? "C",
-          // The INSERT payload has no market_context yet; session unknown never
-          // suppresses (fail open), exactly as on the server.
-          trading_session: null,
-        };
-        const frame = frameRef.current.some((s) => s.id === incoming.id)
-          ? frameRef.current
-          : [...frameRef.current, incoming];
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "scanned_signals" },
+        (payload) => {
+          const row = payload.new as {
+            id?: string;
+            detected_at?: string;
+            instrument?: string;
+            grade?: Grade;
+            direction?: string;
+          };
+          const title = `New ${row.grade === "A+" ? "A+" : `${row.grade ?? ""}-`}Grade setup on ${row.instrument ?? "market"}`;
+          const cfgNow = settingsRef.current;
+          const incoming: EligibilitySignal = {
+            id: row.id ?? "",
+            detected_at: row.detected_at ?? new Date().toISOString(),
+            instrument: row.instrument ?? "",
+            grade: row.grade ?? "C",
+            // The INSERT payload has no market_context yet; session unknown never
+            // suppresses (fail open), exactly as on the server.
+            trading_session: null,
+          };
+          const frame = frameRef.current.some((s) => s.id === incoming.id)
+            ? frameRef.current
+            : [...frameRef.current, incoming];
 
-        // Both the toast and the OS notification now answer to the SAME shared
-        // eligibility function, so neither can announce a setup this user has
-        // filtered out or already used their daily allowance on.
-        const feedVerdict = cfgNow
-          ? evaluateEligibility({
-              signal: incoming,
-              settings: cfgNow,
-              channel: "feed",
-              now: Date.now(),
-              cappedOutIds: buildCapFrame(frame, cfgNow, "feed", Date.now()),
-            })
-          : { eligible: true, reason: "eligible" as const };
-        const alertVerdict = cfgNow
-          ? evaluateEligibility({
-              signal: incoming,
-              settings: cfgNow,
-              channel: "alert",
-              now: Date.now(),
-              cappedOutIds: buildCapFrame(frame, cfgNow, "alert", Date.now()),
-            })
-          : { eligible: true, reason: "eligible" as const };
+          // Both the toast and the OS notification now answer to the SAME shared
+          // eligibility function, so neither can announce a setup this user has
+          // filtered out or already used their daily allowance on.
+          const feedVerdict = cfgNow
+            ? evaluateEligibility({
+                signal: incoming,
+                settings: cfgNow,
+                channel: "feed",
+                now: Date.now(),
+                cappedOutIds: buildCapFrame(frame, cfgNow, "feed", Date.now()),
+              })
+            : { eligible: true, reason: "eligible" as const };
+          const alertVerdict = cfgNow
+            ? evaluateEligibility({
+                signal: incoming,
+                settings: cfgNow,
+                channel: "alert",
+                now: Date.now(),
+                cappedOutIds: buildCapFrame(frame, cfgNow, "alert", Date.now()),
+              })
+            : { eligible: true, reason: "eligible" as const };
 
-        if (feedVerdict.eligible) toast.info(title);
-        if (
-          alertVerdict.eligible &&
-          typeof Notification !== "undefined" &&
-          Notification.permission === "granted"
-        ) {
-          new Notification("P-Trades Hub", {
-            body: `${title}${row.direction ? ` · ${row.direction.toUpperCase()}` : ""}`,
-            tag: "ptrades-signal",
-          });
-        }
-        void queryClient.invalidateQueries({ queryKey: ["signals"] });
-        void queryClient.invalidateQueries({ queryKey: ["signal-day-frame"] });
-      })
+          if (feedVerdict.eligible) toast.info(title);
+          if (
+            alertVerdict.eligible &&
+            typeof Notification !== "undefined" &&
+            Notification.permission === "granted"
+          ) {
+            new Notification("P-Trades Hub", {
+              body: `${title}${row.direction ? ` · ${row.direction.toUpperCase()}` : ""}`,
+              tag: "ptrades-signal",
+            });
+          }
+          void queryClient.invalidateQueries({ queryKey: ["signals"] });
+          void queryClient.invalidateQueries({ queryKey: ["signal-day-frame"] });
+        },
+      )
       .subscribe();
     return () => {
       void supabase.removeChannel(channel);
     };
   }, [queryClient]);
-
-
 
   const tradeBySignal = useMemo(() => {
     const map = new Map<string, TradeRow>();
@@ -248,7 +254,6 @@ function FeedPage() {
     return countEligibleGradedToday(dayFrame.data ?? [], eligibilitySettings, "feed", Date.now());
   }, [dayFrame.data, eligibilitySettings]);
 
-
   const unavailable = (health.data ?? []).filter((h) => !h.available);
   const lastScanAt = (health.data ?? []).find((h) => h.instrument === "XAUUSD")?.updated_at ?? null;
 
@@ -275,7 +280,6 @@ function FeedPage() {
     }
   }
 
-
   /**
    * Records the outcome only. R is derived from the real prices the user logs in
    * Trade History — never from a preset button.
@@ -285,7 +289,9 @@ function FeedPage() {
     try {
       await recordTradeOutcome({ data: { tradeId, outcome } });
       await queryClient.invalidateQueries({ queryKey: ["my-trades"] });
-      toast.success(`Recorded as ${outcome}. Add your entry/exit price in Trade History for the R.`);
+      toast.success(
+        `Recorded as ${outcome}. Add your entry/exit price in Trade History for the R.`,
+      );
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not record the result");
     } finally {
@@ -318,17 +324,18 @@ function FeedPage() {
 
       <GuideNote anchor="grades">
         Grades describe structure quality, not the odds of winning: A+ is an A-grade structure with
-        all four confluence pillars passing. The confidence score is a rule-satisfaction score, never
-        a win probability. An empty feed means no structure qualified — that is a result, not a
-        fault.
+        all four confluence pillars passing. The confidence score is a rule-satisfaction score,
+        never a win probability. An empty feed means no structure qualified — that is a result, not
+        a fault.
       </GuideNote>
 
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 sm:flex sm:flex-wrap">
         <div className="min-w-0">
           <p className="label-xs">Phase 2 · Trade assistant</p>
-          <h1 className="truncate text-xl font-bold tracking-tight text-foreground sm:text-2xl">Signal Feed</h1>
+          <h1 className="truncate text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+            Signal Feed
+          </h1>
         </div>
-
 
         <div className="flex shrink-0 items-center gap-2 sm:ml-auto">
           <Popover>
@@ -345,7 +352,11 @@ function FeedPage() {
                     Apply your instruments, minimum grade and sessions.
                   </span>
                 </Label>
-                <Switch id="apply-filters" checked={applyFilters} onCheckedChange={setApplyFilters} />
+                <Switch
+                  id="apply-filters"
+                  checked={applyFilters}
+                  onCheckedChange={setApplyFilters}
+                />
               </div>
               <div className="flex items-start justify-between gap-3">
                 <Label htmlFor="open-only" className="text-xs leading-snug text-foreground">
@@ -359,8 +370,8 @@ function FeedPage() {
               <div className="border-t border-border pt-3">
                 <p className="label-xs">Order</p>
                 <p className="mt-1 text-xs leading-snug text-muted-foreground">
-                  Win probability ranks by the estimated joint win probability (fill x win). It is
-                  a probability, not a return. Setups without enough samples on both gates stay in
+                  Win probability ranks by the estimated joint win probability (fill x win). It is a
+                  probability, not a return. Setups without enough samples on both gates stay in
                   newest-first order at the bottom.
                 </p>
                 <div className="mt-2 grid grid-cols-2 gap-1.5">
@@ -422,18 +433,22 @@ function FeedPage() {
 
       <div className="space-y-2">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted-foreground">
-          <Badge variant="secondary" className="num max-w-full whitespace-normal text-left font-normal">
+          <Badge
+            variant="secondary"
+            className="num max-w-full whitespace-normal text-left font-normal"
+          >
             {filterSummary}
           </Badge>
-          <span className="num">
-            {visible.length} shown
-          </span>
+          <span className="num">{visible.length} shown</span>
           <span className="num w-full sm:ml-auto sm:w-auto">
             Daily quota (A+/A/B){" "}
             {cap > 0 ? (
               <>
                 <span
-                  className={cn("font-semibold", todayCount >= cap ? "text-destructive" : "text-foreground")}
+                  className={cn(
+                    "font-semibold",
+                    todayCount >= cap ? "text-destructive" : "text-foreground",
+                  )}
                 >
                   {todayCount}
                 </span>
@@ -447,21 +462,23 @@ function FeedPage() {
         {cap > 0 ? (
           <div className="h-0.5 w-full overflow-hidden rounded-full bg-border">
             <div
-              className={cn("h-full rounded-full", todayCount >= cap ? "bg-destructive" : "bg-primary")}
+              className={cn(
+                "h-full rounded-full",
+                todayCount >= cap ? "bg-destructive" : "bg-primary",
+              )}
               style={{ width: `${capPct}%` }}
             />
           </div>
         ) : null}
       </div>
 
-
       {unavailable.length ? (
         <div className="flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 px-4 py-3 text-sm">
           <AlertTriangle className="mt-0.5 size-4 text-warning" />
           <p className="text-foreground/90">
             Temporarily unavailable market data:{" "}
-            <span className="num">{unavailable.map((h) => h.instrument).join(", ")}</span>. The scanner skipped
-            these instruments and will retry on the next cycle.
+            <span className="num">{unavailable.map((h) => h.instrument).join(", ")}</span>. The
+            scanner skipped these instruments and will retry on the next cycle.
           </p>
         </div>
       ) : null}
@@ -484,22 +501,22 @@ function FeedPage() {
           {guide ? (
             <div className="mx-auto mt-3 max-w-lg space-y-3 text-sm text-muted-foreground">
               <p>
-                Nothing here means nothing qualified — and that is a result, not a failure. The scanner keeps
-                your capital flat until a setup earns its place.
+                Nothing here means nothing qualified — and that is a result, not a failure. The
+                scanner keeps your capital flat until a setup earns its place.
               </p>
               <p>
-                It re-checks XAUUSD, GBPAUD and EURUSD every 15 minutes. New setups appear here automatically,
-                so you can close the tab and come back later.
+                It re-checks XAUUSD, GBPAUD and EURUSD every 15 minutes. New setups appear here
+                automatically, so you can close the tab and come back later.
               </p>
               <p className="text-xs">
-                Waiting too long? Loosen the minimum grade or add sessions in Settings, or turn off "My settings
-                filter" above to see everything the scanner published.
+                Waiting too long? Loosen the minimum grade or add sessions in Settings, or turn off
+                "My settings filter" above to see everything the scanner published.
               </p>
             </div>
           ) : (
             <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-              No setup currently satisfies your grading and session filters. This is the system default, not an
-              error — the scanner only publishes structures that pass the ABC rules.
+              No setup currently satisfies your grading and session filters. This is the system
+              default, not an error — the scanner only publishes structures that pass the ABC rules.
             </p>
           )}
           <div className="mt-6">
@@ -527,7 +544,6 @@ function FeedPage() {
           })}
         </div>
       )}
-      
     </div>
   );
 }

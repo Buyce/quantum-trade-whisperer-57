@@ -139,7 +139,6 @@ export function validateSettings(
 
   if (input.risk_ack_high !== undefined) patch["risk_ack_high"] = input.risk_ack_high;
 
-
   if (input.notify_push !== undefined) patch["notify_push"] = input.notify_push;
   if (input.notify_email !== undefined) patch["notify_email"] = input.notify_email;
 
@@ -197,8 +196,7 @@ export function validateSettings(
   // update also brings the risk down to the threshold or below.
   if (patch["risk_ack_high"] === false) {
     const effectiveRisk =
-      (patch["risk_per_trade_percent"] as number | undefined) ??
-      (options.currentRiskPercent ?? null);
+      (patch["risk_per_trade_percent"] as number | undefined) ?? options.currentRiskPercent ?? null;
     if (effectiveRisk !== null && effectiveRisk > HIGH_RISK_THRESHOLD_PERCENT) {
       delete patch["risk_ack_high"];
       warnings.push(

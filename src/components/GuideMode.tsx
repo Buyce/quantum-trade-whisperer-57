@@ -1,4 +1,12 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { Link } from "@tanstack/react-router";
 import { HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -145,6 +153,74 @@ export function GuideNote({
     >
       {children}
       {anchor ? <GuideLink anchor={anchor} className="ml-1" /> : null}
+    </div>
+  );
+}
+
+/**
+ * Guide-Mode-only progressive disclosure using the terminal's standard
+ * explanation frame: what it is / why it matters / what to do / what not to
+ * assume, plus an optional deep link into the matching `/guide` section.
+ *
+ * Collapsed by default on purpose: this is a data-dense terminal, so an
+ * explanation must be reachable in one tap without permanently occupying rows.
+ * All four fields are optional; only those provided are rendered.
+ */
+export function GuideDetail({
+  title,
+  what,
+  why,
+  todo,
+  assume,
+  anchor,
+  className,
+}: {
+  title: string;
+  what?: string;
+  why?: string;
+  todo?: string;
+  assume?: string;
+  anchor?: string;
+  className?: string;
+}) {
+  const { guide } = useGuideMode();
+  const [open, setOpen] = useState(false);
+  if (!guide) return null;
+
+  const rows: [string, string | undefined][] = [
+    ["What it is", what],
+    ["Why it matters", why],
+    ["What to do", todo],
+    ["What not to assume", assume],
+  ];
+  const present = rows.filter((r): r is [string, string] => Boolean(r[1]));
+
+  return (
+    <div className={cn("text-xs", className)}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="inline-flex min-h-8 items-center gap-1.5 text-xs text-primary underline underline-offset-2"
+      >
+        <HelpCircle className="size-3.5" aria-hidden />
+        {open ? `Hide: ${title}` : title}
+      </button>
+      {open ? (
+        <dl className="mt-2 grid gap-2 rounded-sm border border-border bg-surface/60 p-3">
+          {present.map(([k, v]) => (
+            <div key={k} className="grid gap-0.5 sm:grid-cols-[9.5rem_minmax(0,1fr)] sm:gap-3">
+              <dt className="label-xs">{k}</dt>
+              <dd className="leading-relaxed text-muted-foreground">{v}</dd>
+            </div>
+          ))}
+          {anchor ? (
+            <div>
+              <GuideLink anchor={anchor}>Learn more →</GuideLink>
+            </div>
+          ) : null}
+        </dl>
+      ) : null}
     </div>
   );
 }

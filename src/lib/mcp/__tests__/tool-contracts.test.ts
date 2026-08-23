@@ -7,11 +7,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import {
-  SENSITIVE_RISK_FIELDS,
-  sensitiveFieldsIn,
-  validateSettings,
-} from "../settings-validation";
+import { SENSITIVE_RISK_FIELDS, sensitiveFieldsIn, validateSettings } from "../settings-validation";
 
 const read = (rel: string) => readFileSync(resolve(process.cwd(), rel), "utf8");
 
@@ -86,10 +82,7 @@ describe("update_my_settings risk confirmation", () => {
     expect(fresh.patch["risk_per_trade_percent"]).toBe(5);
     expect(fresh.patch["risk_ack_high"]).toBe(true);
     // A previously stored acknowledgement also counts.
-    const stored = validateSettings(
-      { risk_per_trade_percent: 500 },
-      { currentAckHigh: true },
-    );
+    const stored = validateSettings({ risk_per_trade_percent: 500 }, { currentAckHigh: true });
     expect(stored.patch["risk_per_trade_percent"]).toBe(10);
   });
 

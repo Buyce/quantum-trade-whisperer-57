@@ -38,8 +38,7 @@ export function FeedbackSection({ defaultEmail }: { defaultEmail?: string }) {
   });
 
   const mutation = useMutation({
-    mutationFn: () =>
-      send({ data: { category, message, contactEmail: contactEmail.trim() } }),
+    mutationFn: () => send({ data: { category, message, contactEmail: contactEmail.trim() } }),
     onSuccess: async () => {
       setMessage("");
       toast.success("Feedback sent — thank you");
@@ -47,7 +46,9 @@ export function FeedbackSection({ defaultEmail }: { defaultEmail?: string }) {
     },
     onError: (e) => {
       const raw = e instanceof Error ? e.message : "Could not send feedback";
-      toast.error(raw.includes("characters") ? raw : "Could not send feedback — check the message length");
+      toast.error(
+        raw.includes("characters") ? raw : "Could not send feedback — check the message length",
+      );
     },
   });
 
@@ -60,8 +61,8 @@ export function FeedbackSection({ defaultEmail }: { defaultEmail?: string }) {
         <h2 className="label-xs">Feedback</h2>
       </div>
       <p className="text-sm text-muted-foreground">
-        Report a bug, request a feature or flag a data discrepancy. Every submission is read — you&apos;ll get a
-        confirmation email straight away.
+        Report a bug, request a feature or flag a data discrepancy. Every submission is read —
+        you&apos;ll get a confirmation email straight away.
       </p>
 
       <div className="grid gap-4 sm:grid-cols-2">

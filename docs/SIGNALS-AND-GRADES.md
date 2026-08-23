@@ -12,22 +12,22 @@ lifecycle ends.
 Structures are scored on four institutional-confluence pillars, each 0–100, each
 "passing" at 60 (`PILLAR_PASS_SCORE`):
 
-| Pillar | Weight | Meaning |
-| --- | --- | --- |
-| Trend | 35% | H4/H1/M15 moving-average stack pointing the same way |
-| Order block | 25% | Point C lands inside an H1/H4 supply/demand zone |
-| Momentum | 20% | M15 RSI extreme or divergence at Point C |
-| Volatility expansion | 20% | M15 ATR at or above its 20-period ATR average |
+| Pillar               | Weight | Meaning                                              |
+| -------------------- | ------ | ---------------------------------------------------- |
+| Trend                | 35%    | H4/H1/M15 moving-average stack pointing the same way |
+| Order block          | 25%    | Point C lands inside an H1/H4 supply/demand zone     |
+| Momentum             | 20%    | M15 RSI extreme or divergence at Point C             |
+| Volatility expansion | 20%    | M15 ATR at or above its 20-period ATR average        |
 
 R:R is **not** a fifth weight. It is applied afterwards as a cap, so a good
 structure with a poor payoff cannot score highly.
 
-| Grade | Meaning |
-| --- | --- |
-| `A+` | A-grade structure with all four pillars satisfied |
-| `A` | Full moving-average alignment across H4/H1/M15, price testing the Point-C liquidity zone |
-| `B` | H1 + M15 aligned, but H4 shows the market approaching a major barrier |
-| `C` | Aggressive M15 localised break (mean reversion) with higher timeframes conflicting |
+| Grade | Meaning                                                                                  |
+| ----- | ---------------------------------------------------------------------------------------- |
+| `A+`  | A-grade structure with all four pillars satisfied                                        |
+| `A`   | Full moving-average alignment across H4/H1/M15, price testing the Point-C liquidity zone |
+| `B`   | H1 + M15 aligned, but H4 shows the market approaching a major barrier                    |
+| `C`   | Aggressive M15 localised break (mean reversion) with higher timeframes conflicting       |
 
 ### Trade plan fields
 

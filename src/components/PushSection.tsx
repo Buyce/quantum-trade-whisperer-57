@@ -16,6 +16,7 @@ import { listPushDevices, removePushSubscription, sendTestPush } from "@/lib/pus
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { GuideDetail } from "@/components/GuideMode";
 
 function deviceLabel(userAgent: string | null) {
   if (!userAgent) return "Unknown device";
@@ -84,6 +85,14 @@ export function PushSection({
   return (
     <section className="space-y-4 rounded-md border border-border bg-card p-4">
       <h2 className="label-xs">Push alerts</h2>
+      <GuideDetail
+        title="How push alerts behave"
+        what="A browser/Android notification sent when a published setup is eligible under your filters."
+        why="It is the fastest way to see a plan while the entry is still valid — a pending order is cancelled if it has not filled within 30 minutes."
+        todo="Grant permission on each device you want alerted, and install the app to your home screen on Android for reliable delivery."
+        assume="A push is a notification, never an order. Receiving none does not mean nothing was published: your minimum grade, instruments, sessions and daily cap decide eligibility."
+        anchor="eligibility"
+      />
 
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4">
         <div className="min-w-0">
@@ -94,23 +103,30 @@ export function PushSection({
             Fires within seconds of a new signal at or above your alert minimum grade.
           </p>
         </div>
-        <Switch id="notify-push" checked={enabled} onCheckedChange={(v) => void onToggle(v)} disabled={busy} />
+        <Switch
+          id="notify-push"
+          checked={enabled}
+          onCheckedChange={(v) => void onToggle(v)}
+          disabled={busy}
+        />
       </div>
 
       {status === "denied" && (
         <p className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive-foreground">
-          This browser has blocked notifications. Re-allow them in the site permissions, then toggle again.
+          This browser has blocked notifications. Re-allow them in the site permissions, then toggle
+          again.
         </p>
       )}
       {status === "needs-install" && (
         <p className="rounded-md border border-border bg-muted/40 p-2 text-xs text-muted-foreground">
-          On iPhone and iPad, push works only after you add P-Trades Hub to the Home Screen (Share → Add to Home
-          Screen), then open it from the icon.
+          On iPhone and iPad, push works only after you add P-Trades Hub to the Home Screen (Share →
+          Add to Home Screen), then open it from the icon.
         </p>
       )}
       {status === "unsupported" && (
         <p className="rounded-md border border-border bg-muted/40 p-2 text-xs text-muted-foreground">
-          This browser does not support web push. Email alerts and the webhook dispatcher still work.
+          This browser does not support web push. Email alerts and the webhook dispatcher still
+          work.
         </p>
       )}
       {enabled && status === "off" && (
@@ -130,7 +146,11 @@ export function PushSection({
           onClick={() => void onTest()}
           disabled={testing || status !== "on"}
         >
-          {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <BellRing className="h-4 w-4" />}
+          {testing ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <BellRing className="h-4 w-4" />
+          )}
           Send test alert
         </Button>
         {status === "on" && (
@@ -139,7 +159,11 @@ export function PushSection({
             variant="ghost"
             className="h-10 w-full sm:h-9 sm:w-auto"
             disabled={busy}
-            onClick={() => void disable().then(() => queryClient.invalidateQueries({ queryKey: ["push-devices"] }))}
+            onClick={() =>
+              void disable().then(() =>
+                queryClient.invalidateQueries({ queryKey: ["push-devices"] }),
+              )
+            }
           >
             Unregister this device
           </Button>

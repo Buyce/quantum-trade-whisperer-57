@@ -30,19 +30,18 @@ passed; it says nothing about `test:report`, by design.
 CI is defined in `.github/workflows/ci.yml`. No claim about a CI status check is
 made in this documentation set — read the CI provider for that.
 
-
 ### Taxonomy
 
 `src/test/__tests__/test-taxonomy.test.ts` enforces that every test declares its
 kind, so nobody can quietly add a test that pins a defect while looking like a
 specification:
 
-| Kind | Meaning |
-| --- | --- |
-| unit | pure function behaviour |
+| Kind             | Meaning                                                                            |
+| ---------------- | ---------------------------------------------------------------------------------- |
+| unit             | pure function behaviour                                                            |
 | characterisation | **pins current V1 behaviour, including known defects** — not a statement of intent |
-| invariant | a rule that must never be violated (fail-closed, isolation, provenance) |
-| db | runs against a real Postgres cluster |
+| invariant        | a rule that must never be violated (fail-closed, isolation, provenance)            |
+| db               | runs against a real Postgres cluster                                               |
 
 `src/test/__tests__/fixture-provenance.test.ts` enforces that every fixture states
 where its data came from, so a synthetic candle set can never be mistaken for a

@@ -65,4 +65,3 @@ export function evaluateExposure(
   const exceeded = detail !== null;
   return { exceeded, allowed: !(exceeded && enforced), enforced, detail };
 }
-

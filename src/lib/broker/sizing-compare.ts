@@ -33,9 +33,9 @@ export function compareSizing(v1: RiskResult, v2: RiskResult): SizingDivergence 
   const v1Reason = reason(v1);
   const v2Reason = reason(v2);
 
-  const lotsDelta = v1Lots !== null && v2Lots !== null ? Number((v2Lots - v1Lots).toFixed(6)) : null;
-  const riskDelta =
-    v1.ok && v2.ok ? Number((v2.riskAmount - v1.riskAmount).toFixed(6)) : null;
+  const lotsDelta =
+    v1Lots !== null && v2Lots !== null ? Number((v2Lots - v1Lots).toFixed(6)) : null;
+  const riskDelta = v1.ok && v2.ok ? Number((v2.riskAmount - v1.riskAmount).toFixed(6)) : null;
 
   const availabilityChanged = v1.ok !== v2.ok || v1Reason !== v2Reason;
   const sizeChanged = lotsDelta !== null && Math.abs(lotsDelta) > 1e-9;

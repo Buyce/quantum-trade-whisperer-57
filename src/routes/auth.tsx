@@ -11,7 +11,6 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ptradesMark from "@/assets/ptrades-mark.png.asset.json";
 
-
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
@@ -21,7 +20,10 @@ export const Route = createFileRoute("/auth")({
         content: "Sign in or create an account to access the P-Trades Hub forex scanner terminal.",
       },
       { property: "og:title", content: "Sign in — P-Trades Hub" },
-      { property: "og:description", content: "Access your P-Trades Hub quantitative forex terminal." },
+      {
+        property: "og:description",
+        content: "Access your P-Trades Hub quantitative forex terminal.",
+      },
       { name: "robots", content: "noindex" },
     ],
   }),
@@ -153,10 +155,14 @@ function AuthPage() {
               <div className="space-y-3 text-sm">
                 <p className="text-foreground">Check your email to confirm your account.</p>
                 <p className="text-muted-foreground">
-                  We sent a confirmation link to <span className="num">{email}</span>. Once confirmed you
-                  can sign in and the terminal will open.
+                  We sent a confirmation link to <span className="num">{email}</span>. Once
+                  confirmed you can sign in and the terminal will open.
                 </p>
-                <Button variant="outline" className="w-full" onClick={() => setAwaitingConfirm(false)}>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => setAwaitingConfirm(false)}
+                >
                   Back to sign in
                 </Button>
               </div>
@@ -168,7 +174,13 @@ function AuthPage() {
                 </TabsList>
 
                 <TabsContent value="signin" className="mt-4 space-y-4">
-                  <Field label="Email" value={email} onChange={setEmail} type="email" autoComplete="email" />
+                  <Field
+                    label="Email"
+                    value={email}
+                    onChange={setEmail}
+                    type="email"
+                    autoComplete="email"
+                  />
                   <Field
                     label="Password"
                     value={password}
@@ -182,8 +194,19 @@ function AuthPage() {
                 </TabsContent>
 
                 <TabsContent value="signup" className="mt-4 space-y-4">
-                  <Field label="Display name" value={displayName} onChange={setDisplayName} type="text" />
-                  <Field label="Email" value={email} onChange={setEmail} type="email" autoComplete="email" />
+                  <Field
+                    label="Display name"
+                    value={displayName}
+                    onChange={setDisplayName}
+                    type="text"
+                  />
+                  <Field
+                    label="Email"
+                    value={email}
+                    onChange={setEmail}
+                    type="email"
+                    autoComplete="email"
+                  />
                   <Field
                     label="Password"
                     value={password}

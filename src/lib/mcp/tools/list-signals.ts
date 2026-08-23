@@ -196,9 +196,7 @@ async function sessionsFor(
     .select("signal_id, trading_session")
     .in("signal_id", ids);
   for (const row of data ?? []) {
-    out.set(row["signal_id"] as string, [
-      { trading_session: row["trading_session"] as string },
-    ]);
+    out.set(row["signal_id"] as string, [{ trading_session: row["trading_session"] as string }]);
   }
   return out;
 }

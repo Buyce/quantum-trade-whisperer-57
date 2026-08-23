@@ -118,7 +118,8 @@ export function portfolioAdvisory(
     openRiskR: openPositions,
     pendingRiskR: pendingPositions,
     openRiskMoney: riskBudget === null ? null : Number((openPositions * riskBudget).toFixed(2)),
-    pendingRiskMoney: riskBudget === null ? null : Number((pendingPositions * riskBudget).toFixed(2)),
+    pendingRiskMoney:
+      riskBudget === null ? null : Number((pendingPositions * riskBudget).toFixed(2)),
     realizedLossTodayR: Number(realizedLossTodayR.toFixed(4)),
     realizedLossTodayMoney:
       riskBudget === null ? null : Number((realizedLossTodayR * riskBudget).toFixed(2)),

@@ -118,7 +118,6 @@ export async function sendSignalAlerts(db: SupabaseClient, signal: AlertSignal) 
     });
     if (!verdict.eligible) continue;
 
-
     if (row.notify_push) pushUserIds.push(row.user_id);
 
     if (!row.notify_email) continue;
@@ -170,5 +169,4 @@ export async function sendSignalAlerts(db: SupabaseClient, signal: AlertSignal) 
   } catch (err) {
     console.error("signal push send failed", err);
   }
-
 }

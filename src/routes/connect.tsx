@@ -40,10 +40,7 @@ const TOOL_ROWS: [string, string][] = [
     "get_market_status",
     "Which FX sessions are open right now and per-instrument broker feed health.",
   ],
-  [
-    "get_my_settings",
-    "Your instruments, timeframes, alert grade, daily cap and risk profile.",
-  ],
+  ["get_my_settings", "Your instruments, timeframes, alert grade, daily cap and risk profile."],
   [
     "update_my_settings",
     "Change those preferences. Values are clamped to safe bounds server-side.",
@@ -72,7 +69,6 @@ const TOOL_ROWS: [string, string][] = [
   ["get_performance_summary", "Your expectancy and R-multiple performance."],
 ];
 
-
 function useMcpUrl() {
   const [url, setUrl] = useState("");
   useEffect(() => {
@@ -88,7 +84,6 @@ function useRegisterUrl() {
   }, []);
   return url;
 }
-
 
 function CopyButton({ value, label }: { value: string; label: string }) {
   const [copied, setCopied] = useState(false);
@@ -157,7 +152,13 @@ function ConnectPage() {
       <header className="border-b border-border">
         <div className="mx-auto flex h-14 max-w-4xl items-center px-4">
           <Link to="/" className="flex items-center gap-2">
-            <img src={ptradesMark.url} alt="P-Trades Hub logo" width={28} height={28} className="size-7" />
+            <img
+              src={ptradesMark.url}
+              alt="P-Trades Hub logo"
+              width={28}
+              height={28}
+              className="size-7"
+            />
             <span className="num text-sm font-semibold">P-TRADES HUB</span>
           </Link>
           <div className="ml-auto">
@@ -174,9 +175,10 @@ function ConnectPage() {
           Connect an AI assistant to P-Trades Hub
         </h1>
         <p className="mt-4 text-sm leading-relaxed text-muted-foreground sm:text-base">
-          Once connected, your assistant can read live scanner setups, check scanner and session status, size a
-          setup against your risk profile, read the learning engine's regime statistics, adjust your own settings,
-          and maintain your trade journal — all as you, using your own sign-in.
+          Once connected, your assistant can read live scanner setups, check scanner and session
+          status, size a setup against your risk profile, read the learning engine's regime
+          statistics, adjust your own settings, and maintain your trade journal — all as you, using
+          your own sign-in.
         </p>
 
         <section className="mt-8 rounded-md border border-border bg-card p-4 sm:p-5">
@@ -188,7 +190,8 @@ function ConnectPage() {
             <CopyButton value={mcpUrl} label="Copy server URL" />
           </div>
           <p className="mt-3 text-xs text-muted-foreground">
-            You'll be asked to sign in and approve the connection the first time an assistant uses it.
+            You'll be asked to sign in and approve the connection the first time an assistant uses
+            it.
           </p>
         </section>
 
@@ -199,7 +202,9 @@ function ConnectPage() {
               <tbody className="divide-y divide-border">
                 {TOOL_ROWS.map(([tool, what]) => (
                   <tr key={tool} className="bg-card align-top">
-                    <td className="num w-[42%] px-3 py-2 text-xs text-foreground sm:w-[34%] sm:text-sm">{tool}</td>
+                    <td className="num w-[42%] px-3 py-2 text-xs text-foreground sm:w-[34%] sm:text-sm">
+                      {tool}
+                    </td>
                     <td className="px-3 py-2 text-xs text-muted-foreground sm:text-sm">{what}</td>
                   </tr>
                 ))}
@@ -207,17 +212,20 @@ function ConnectPage() {
             </table>
           </div>
           <p className="mt-3 text-xs text-muted-foreground">
-            Off-limits to assistants by design: webhook credentials, other users' data, admin intelligence, and
-            deleting your account or journal.
+            Off-limits to assistants by design: webhook credentials, other users' data, admin
+            intelligence, and deleting your account or journal.
           </p>
         </section>
 
         <section className="mt-10 rounded-md border border-border bg-card p-4 sm:p-5">
-          <h2 className="text-lg font-semibold text-foreground">No account yet? Create one from your assistant</h2>
+          <h2 className="text-lg font-semibold text-foreground">
+            No account yet? Create one from your assistant
+          </h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            An assistant has no sign-in before an account exists, so registration runs over a plain HTTP endpoint
-            instead of the connector. It starts an ordinary email sign-up: the confirmation email still has to be
-            clicked by whoever owns the inbox before the account works.
+            An assistant has no sign-in before an account exists, so registration runs over a plain
+            HTTP endpoint instead of the connector. It starts an ordinary email sign-up: the
+            confirmation email still has to be clicked by whoever owns the inbox before the account
+            works.
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <code className="num min-w-0 flex-1 truncate rounded-sm bg-secondary px-3 py-2 text-xs text-foreground sm:text-sm">
@@ -232,11 +240,12 @@ function ConnectPage() {
             items={[
               <>The assistant posts an email and a password of at least 8 characters.</>,
               <>The account owner clicks the confirmation link we email them.</>,
-              <>The assistant then connects the server URL above and approves the consent screen.</>,
+              <>
+                The assistant then connects the server URL above and approves the consent screen.
+              </>,
             ]}
           />
         </section>
-
 
         <section className="mt-10">
           <h2 className="text-lg font-semibold text-foreground">Connect your assistant</h2>
@@ -248,56 +257,74 @@ function ConnectPage() {
               <TabsTrigger value="other">Other clients</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="chatgpt" className="rounded-md border border-border bg-card p-4 sm:p-5">
+            <TabsContent
+              value="chatgpt"
+              className="rounded-md border border-border bg-card p-4 sm:p-5"
+            >
               <h3 className="text-sm font-semibold text-foreground">ChatGPT</h3>
               <Steps
                 items={[
                   <>
                     Open{" "}
-                    <Ext href="https://chatgpt.com/#settings/Connectors/Advanced">ChatGPT Apps settings</Ext> and
-                    turn on Developer mode (read the risk notice shown there). If it isn't available, ask a ChatGPT
-                    admin to enable it.
+                    <Ext href="https://chatgpt.com/#settings/Connectors/Advanced">
+                      Settings → Apps &amp; Connectors → Advanced
+                    </Ext>{" "}
+                    and turn on <strong className="text-foreground">Developer mode</strong> (read
+                    the risk notice shown there). If it isn't available, ask a ChatGPT admin to
+                    enable it.
                   </>,
                   <>
-                    Open the{" "}
-                    <Ext href="https://chatgpt.com/plugins#settings/Connectors?create-connector=true&redirectAfter=%2Fplugins">
-                      New plugin dialog
-                    </Ext>
-                    .
+                    Still in{" "}
+                    <Ext href="https://chatgpt.com/#settings/Connectors">Apps &amp; Connectors</Ext>
+                    , choose <strong className="text-foreground">Create</strong> to open the custom
+                    connector dialog.
                   </>,
                   <>
-                    Enter <strong className="text-foreground">P-Trades Hub</strong> as the name and paste the server
-                    URL above into the URL field.
+                    Enter <strong className="text-foreground">P-Trades Hub</strong> as the name,
+                    paste the server URL above into the MCP server URL field, and leave the
+                    authentication set to OAuth.
                   </>,
                   <>
-                    Review the details, tick “I understand and want to continue” (ChatGPT shows this for every
-                    custom server), then click <strong className="text-foreground">Create</strong>.
+                    Review the details, tick the “I trust this application” confirmation (ChatGPT
+                    shows this for every custom MCP server, not just this one), then click{" "}
+                    <strong className="text-foreground">Create</strong>.
                   </>,
-                  <>Enable P-Trades Hub from the chat composer, then ask ChatGPT to use it.</>,
+                  <>
+                    Enable P-Trades Hub from the chat composer, sign in when prompted, then ask
+                    ChatGPT to use it.
+                  </>,
                 ]}
               />
             </TabsContent>
 
-            <TabsContent value="claude" className="rounded-md border border-border bg-card p-4 sm:p-5">
+            <TabsContent
+              value="claude"
+              className="rounded-md border border-border bg-card p-4 sm:p-5"
+            >
               <h3 className="text-sm font-semibold text-foreground">Claude</h3>
               <Steps
                 items={[
                   <>
-                    Open the <Ext href={claudeAdd}>prefilled custom connector dialog</Ext> in Claude.
+                    Open the <Ext href={claudeAdd}>prefilled custom connector dialog</Ext> in
+                    Claude.
                   </>,
                   <>
-                    Review the name and URL, then click <strong className="text-foreground">Add</strong>.
+                    Review the name and URL, then click{" "}
+                    <strong className="text-foreground">Add</strong>.
                   </>,
                   <>
-                    If the prefilled form doesn't open, go to Claude's Connectors page, choose “Add custom
-                    connector”, name it P-Trades Hub and paste the server URL above.
+                    If the prefilled form doesn't open, go to Claude's Connectors page, choose “Add
+                    custom connector”, name it P-Trades Hub and paste the server URL above.
                   </>,
                   <>Enable the connector from the chat composer, then ask Claude to use it.</>,
                 ]}
               />
             </TabsContent>
 
-            <TabsContent value="claude-code" className="rounded-md border border-border bg-card p-4 sm:p-5">
+            <TabsContent
+              value="claude-code"
+              className="rounded-md border border-border bg-card p-4 sm:p-5"
+            >
               <h3 className="text-sm font-semibold text-foreground">Claude Code</h3>
               <div className="mt-3 flex flex-wrap items-center gap-3">
                 <pre className="num min-w-0 flex-1 overflow-x-auto rounded-sm bg-secondary px-3 py-2 text-xs text-foreground">
@@ -309,15 +336,18 @@ function ConnectPage() {
                 items={[
                   <>Run the command above in a terminal.</>,
                   <>
-                    Start Claude Code and run <code className="num">/mcp</code> to confirm P-Trades Hub is
-                    connected, signing in from that menu when prompted.
+                    Start Claude Code and run <code className="num">/mcp</code> to confirm P-Trades
+                    Hub is connected, signing in from that menu when prompted.
                   </>,
                   <>Ask Claude Code to use P-Trades Hub.</>,
                 ]}
               />
             </TabsContent>
 
-            <TabsContent value="other" className="rounded-md border border-border bg-card p-4 sm:p-5">
+            <TabsContent
+              value="other"
+              className="rounded-md border border-border bg-card p-4 sm:p-5"
+            >
               <h3 className="text-sm font-semibold text-foreground">Other MCP clients</h3>
               <Steps
                 items={[
@@ -335,8 +365,8 @@ function ConnectPage() {
         <section className="mt-10">
           <h2 className="text-lg font-semibold text-foreground">Refresh after the app changes</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Assistants cache what P-Trades Hub can do. After an update, refresh the connection so it picks up the
-            latest capabilities.
+            Assistants cache what P-Trades Hub can do. After an update, refresh the connection so it
+            picks up the latest capabilities.
           </p>
           <Tabs defaultValue="r-chatgpt" className="mt-4">
             <TabsList className="flex h-auto flex-wrap justify-start gap-1">
@@ -346,50 +376,71 @@ function ConnectPage() {
               <TabsTrigger value="r-other">Other clients</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="r-chatgpt" className="rounded-md border border-border bg-card p-4 sm:p-5">
+            <TabsContent
+              value="r-chatgpt"
+              className="rounded-md border border-border bg-card p-4 sm:p-5"
+            >
               <Steps
                 items={[
-                  <>Open ChatGPT's Plugins page and select P-Trades Hub.</>,
                   <>
-                    Scroll to “Information” and click <strong className="text-foreground">Refresh</strong>.
+                    Open{" "}
+                    <Ext href="https://chatgpt.com/#settings/Connectors">Apps &amp; Connectors</Ext>{" "}
+                    and select P-Trades Hub.
                   </>,
                   <>
-                    ChatGPT can't change an existing app's URL — if the URL above changed, delete the app and
-                    connect again.
+                    Scroll to its details and click{" "}
+                    <strong className="text-foreground">Refresh</strong> to reload what the
+                    connector can do.
+                  </>,
+                  <>
+                    ChatGPT can't change an existing connector's URL — if the URL above changed,
+                    delete the connector and connect again.
                   </>,
                   <>Start a new chat and ask ChatGPT to use P-Trades Hub.</>,
                 ]}
               />
             </TabsContent>
 
-            <TabsContent value="r-claude" className="rounded-md border border-border bg-card p-4 sm:p-5">
+            <TabsContent
+              value="r-claude"
+              className="rounded-md border border-border bg-card p-4 sm:p-5"
+            >
               <Steps
                 items={[
                   <>Open Claude's Connectors page and select P-Trades Hub.</>,
                   <>Refresh or update the connector.</>,
                   <>
-                    Claude can't change an existing connector's URL — if the URL above changed, remove the
-                    connector and connect again.
+                    Claude can't change an existing connector's URL — if the URL above changed,
+                    remove the connector and connect again.
                   </>,
                   <>Ask Claude to use P-Trades Hub.</>,
                 ]}
               />
             </TabsContent>
 
-            <TabsContent value="r-claude-code" className="rounded-md border border-border bg-card p-4 sm:p-5">
+            <TabsContent
+              value="r-claude-code"
+              className="rounded-md border border-border bg-card p-4 sm:p-5"
+            >
               <Steps
                 items={[
-                  <>Start a new Claude Code session — it loads the latest capabilities on connect.</>,
                   <>
-                    If the URL above changed, run <code className="num">claude mcp remove {SERVER_SLUG}</code>,
-                    then run the install command again.
+                    Start a new Claude Code session — it loads the latest capabilities on connect.
+                  </>,
+                  <>
+                    If the URL above changed, run{" "}
+                    <code className="num">claude mcp remove {SERVER_SLUG}</code>, then run the
+                    install command again.
                   </>,
                   <>Ask Claude Code to use P-Trades Hub.</>,
                 ]}
               />
             </TabsContent>
 
-            <TabsContent value="r-other" className="rounded-md border border-border bg-card p-4 sm:p-5">
+            <TabsContent
+              value="r-other"
+              className="rounded-md border border-border bg-card p-4 sm:p-5"
+            >
               <Steps
                 items={[
                   <>Open the assistant's MCP server or connector settings.</>,

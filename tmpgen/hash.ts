@@ -1,4 +1,18 @@
-import { REPLAY_V1_CODE_HASH, REPLAY_V2_CODE_HASH, REPLAY_V1_SEMANTICS, REPLAY_V2_SEMANTICS, REPLAY_V1_LABEL, REPLAY_V2_LABEL } from "../src/lib/execution/replay-registry";
-console.log(JSON.stringify({ v1: REPLAY_V1_CODE_HASH, v2: REPLAY_V2_CODE_HASH, l1: REPLAY_V1_LABEL, l2: REPLAY_V2_LABEL }));
+import {
+  REPLAY_V1_CODE_HASH,
+  REPLAY_V2_CODE_HASH,
+  REPLAY_V1_SEMANTICS,
+  REPLAY_V2_SEMANTICS,
+  REPLAY_V1_LABEL,
+  REPLAY_V2_LABEL,
+} from "../src/lib/execution/replay-registry";
+console.log(
+  JSON.stringify({
+    v1: REPLAY_V1_CODE_HASH,
+    v2: REPLAY_V2_CODE_HASH,
+    l1: REPLAY_V1_LABEL,
+    l2: REPLAY_V2_LABEL,
+  }),
+);
 console.log(JSON.stringify(REPLAY_V1_SEMANTICS));
 console.log(JSON.stringify(REPLAY_V2_SEMANTICS));

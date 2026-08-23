@@ -23,7 +23,6 @@ export const Route = createFileRoute("/api/public/cron/scan")({
           // (/api/public/cron/refresh-specs). They are deliberately NOT touched
           // here: this endpoint must stay a lightweight enqueue-and-return.
           return Response.json({ ok: true, ...result });
-
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           console.error("[cron/scan]", message);

@@ -17,7 +17,12 @@ function fetcher(quote: unknown) {
 
 describe("conversion quote freshness", () => {
   it("[UNIT] a fresh broker timestamp is usable and reported", async () => {
-    const r = await resolveConversion("AUD", "USD", fetcher({ bid: 0.66, ask: 0.661, sourceTime: iso(NOW - 5_000) }), NOW);
+    const r = await resolveConversion(
+      "AUD",
+      "USD",
+      fetcher({ bid: 0.66, ask: 0.661, sourceTime: iso(NOW - 5_000) }),
+      NOW,
+    );
     expect(r.stale).toBe(false);
     expect(r.timestampMissing).toBe(false);
     expect(r.quoteAsOf).toBe(iso(NOW - 5_000));

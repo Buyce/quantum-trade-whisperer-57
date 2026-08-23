@@ -114,9 +114,8 @@ export const sendTestWebhook = createServerFn({ method: "POST" })
 
     // Canonical validation, immediately before the request: parse → DNS →
     // public-address classification. Fails closed.
-    const { validateOutboundUrl, URL_REJECTION_COPY } = await import(
-      "@/lib/delivery/outbound-url.server"
-    );
+    const { validateOutboundUrl, URL_REJECTION_COPY } =
+      await import("@/lib/delivery/outbound-url.server");
     const verdict = await validateOutboundUrl(url);
     if (!verdict.ok) {
       return {

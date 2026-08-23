@@ -205,14 +205,16 @@ export function calculateRisk(
   // Inlined rather than imported from ./broker/specs to keep risk.ts free of a
   // circular import (specs.ts reads CONTRACT_SPECS from here).
   const minStop =
-    brokerSpec && brokerSpec.stopsLevel !== null && brokerSpec.point !== null && brokerSpec.point > 0
+    brokerSpec &&
+    brokerSpec.stopsLevel !== null &&
+    brokerSpec.point !== null &&
+    brokerSpec.point > 0
       ? brokerSpec.stopsLevel * brokerSpec.point
       : null;
 
   if (minStop !== null && minStop > 0 && stopDistance < minStop) {
     return { ok: false, reason: "below_stops_level" };
   }
-
 
   const rate = conversionRate(spec.quote, profile.accountCurrency, rates);
   if (rate === null) return { ok: false, reason: "no_conversion_rate" };

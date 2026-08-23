@@ -18,16 +18,26 @@ import { Button } from "@/components/ui/button";
 import { GuideModeToggle } from "@/components/GuideMode";
 import ptradesMark from "@/assets/ptrades-mark.png.asset.json";
 
-
-const NAV = [
+/**
+ * Mobile navigation is capped at five items on purpose: a sixth column makes the
+ * labels truncate to unreadable stubs at ~360px. `/guide` is therefore reached
+ * from the header Guide control (visible at every width) rather than the bottom
+ * bar, and `/admin/*` stays in the header for the owner only.
+ */
+const MOBILE_NAV = [
   { to: "/feed", label: "Signal Feed", short: "Feed", icon: Activity },
   { to: "/history", label: "Trade History", short: "History", icon: History },
   { to: "/performance", label: "Performance", short: "Performance", icon: BarChart3 },
-  { to: "/settings", label: "Settings", short: "Settings", icon: SettingsIcon },
-  { to: "/guide", label: "Guide", short: "Guide", icon: BookOpen },
   // Public route, but it belongs in the terminal nav: signed-in users never see
   // the landing footer that used to be its only entry point.
   { to: "/connect", label: "Connect AI", short: "Connect", icon: Plug },
+  { to: "/settings", label: "Settings", short: "Settings", icon: SettingsIcon },
+] as const;
+
+/** From md up there is room for the Guide entry inline. */
+const DESKTOP_NAV = [
+  ...MOBILE_NAV,
+  { to: "/guide", label: "Guide", short: "Guide", icon: BookOpen },
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -43,7 +53,6 @@ export function AppShell({ children }: { children: ReactNode }) {
     },
     staleTime: Infinity,
   });
-
 
   async function signOut() {
     await queryClient.cancelQueries();
@@ -73,11 +82,13 @@ export function AppShell({ children }: { children: ReactNode }) {
                 className="size-7 shrink-0"
               />
 
-              <span className="num hidden text-sm font-semibold tracking-tight md:inline">P-TRADES HUB</span>
+              <span className="num hidden text-sm font-semibold tracking-tight md:inline">
+                P-TRADES HUB
+              </span>
             </Link>
 
             <nav className="hidden items-center gap-1 md:flex">
-              {NAV.map((item) => {
+              {DESKTOP_NAV.map((item) => {
                 const active = pathname.startsWith(item.to);
                 return (
                   <Link
@@ -107,17 +118,34 @@ export function AppShell({ children }: { children: ReactNode }) {
                   </Link>
                 </Button>
               ) : null}
+              {/* Guide is not in the five-item mobile bar; this is its entry point there. */}
+              <Button
+                variant="ghost"
+                size="sm"
+                asChild
+                aria-label="Guide and help"
+                className="md:hidden"
+              >
+                <Link to="/guide">
+                  <BookOpen className="size-4" />
+                  <span className="hidden lg:inline">Guide</span>
+                </Link>
+              </Button>
               <GuideModeToggle />
-              <Button variant="ghost" size="sm" aria-label="Sign out" onClick={() => void signOut()}>
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label="Sign out"
+                onClick={() => void signOut()}
+              >
                 <LogOut className="size-4" />
                 <span className="hidden lg:inline">Sign out</span>
               </Button>
             </div>
-
           </div>
 
-          <nav className="grid grid-cols-6 border-t border-border md:hidden">
-            {NAV.map((item) => {
+          <nav className="grid grid-cols-5 border-t border-border md:hidden">
+            {MOBILE_NAV.map((item) => {
               const active = pathname.startsWith(item.to);
               return (
                 <Link

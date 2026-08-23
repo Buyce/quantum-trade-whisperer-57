@@ -7,7 +7,6 @@
 > observation from that spike — the repository, not this page, is the authority on
 > current counts. Where this page and the code disagree, the code wins.
 
-
 ## 1. Feasibility spike (executed, not assumed)
 
 Goal: decide whether the production migrations can be replayed onto a throwaway
@@ -22,14 +21,14 @@ listens on a unix socket only (`listen_addresses=''`).
 
 Blockers, verbatim:
 
-| Blocker | Example error |
-|---|---|
-| `pg_cron` not installable in this image | `ERROR: extension "pg_cron" is not available … Could not open extension control file ".../pg_cron.control"` |
-| `pg_net` (same statement blocks) | aborted with the `pg_cron` statement in the same file |
-| Supabase realtime publication missing | `ERROR: publication "supabase_realtime" does not exist` |
-| `auth.users` / `auth.uid()` / `auth.jwt()` missing | Supabase-managed `auth` schema is not part of the migrations |
-| `private.scanner_config`, `private.kick_scan_worker`, `private.kick_shadow_worker` | cascading failures: the type/table is created in the same file that aborted on `create extension pg_cron` |
-| Downstream cascades | `function public.purge_expired_signals() does not exist`, `column "result" of relation "scan_queue" does not exist` — all consequences of the aborted files above |
+| Blocker                                                                            | Example error                                                                                                                                                     |
+| ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pg_cron` not installable in this image                                            | `ERROR: extension "pg_cron" is not available … Could not open extension control file ".../pg_cron.control"`                                                       |
+| `pg_net` (same statement blocks)                                                   | aborted with the `pg_cron` statement in the same file                                                                                                             |
+| Supabase realtime publication missing                                              | `ERROR: publication "supabase_realtime" does not exist`                                                                                                           |
+| `auth.users` / `auth.uid()` / `auth.jwt()` missing                                 | Supabase-managed `auth` schema is not part of the migrations                                                                                                      |
+| `private.scanner_config`, `private.kick_scan_worker`, `private.kick_shadow_worker` | cascading failures: the type/table is created in the same file that aborted on `create extension pg_cron`                                                         |
+| Downstream cascades                                                                | `function public.purge_expired_signals() does not exist`, `column "result" of relation "scan_queue" does not exist` — all consequences of the aborted files above |
 
 ### Verdict: full replay, with a stubbed platform layer
 
