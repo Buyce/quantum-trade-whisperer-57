@@ -86,6 +86,8 @@ describe("metaApiRequest", () => {
 
     const err = await metaApiRequest({
       service: "metastats",
+      region: "london",
+
       path: "/x",
       label: "metrics",
     }).catch((e: unknown) => e);
