@@ -474,7 +474,12 @@ function ConnectPage() {
             >
               <Steps
                 items={[
-                  <>Open Claude's Connectors page and select P-Trades Hub.</>,
+                  <>
+                    Open <strong className="text-foreground">Customize → Connectors</strong> (Team
+                    and Enterprise Owners: <strong className="text-foreground">Organization
+                    settings → Connectors</strong>) and select P-Trades Hub.
+                  </>,
+
                   <>Refresh or update the connector.</>,
                   <>
                     Claude can't change an existing connector's URL — if the URL above changed,
