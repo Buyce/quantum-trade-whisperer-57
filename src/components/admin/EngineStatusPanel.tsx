@@ -14,7 +14,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { RotateCcw } from "lucide-react";
 import { getAdminEngineStatus, resetShadowBreaker } from "@/lib/admin.functions";
-import { classifyEngineError, cooldownRemaining } from "@/lib/engine-status";
+import { classifyEngineError, classifyScanHealth, cooldownRemaining } from "@/lib/engine-status";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
