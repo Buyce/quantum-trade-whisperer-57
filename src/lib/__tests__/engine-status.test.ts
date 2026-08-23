@@ -13,7 +13,7 @@ describe("classifyEngineError", () => {
     );
     expect(c.kind).toBe("provider_access");
     expect(c.explanation).toMatch(/missing, not empty/i);
-    expect(c.explanation).not.toMatch(/no trade/i);
+    expect(c.explanation).toMatch(/not a scanner-wide No Trade/i);
   });
 
   it("labels generic provider fetch failures as missing data", () => {
