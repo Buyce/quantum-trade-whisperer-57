@@ -401,6 +401,7 @@ describe("final quantity comes from the pre-submit broker snapshot", () => {
         ),
     );
 
+    if (result.state !== "acknowledged") console.log("REASON", result.reason);
     expect(result.state).toBe("acknowledged");
     // The order actually submitted carries the volume for 10,000 equity.
     const submitted = submitPendingOrder.mock.calls[0]?.[2] as { volume: number };
