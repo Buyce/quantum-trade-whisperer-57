@@ -473,7 +473,7 @@ function AccountCard({
             )}
             Refresh
           </Button>
-          {!account.credentials_configured_hidden && !account.ready ? (
+          {!account.ready ? (
             <Button
               size="sm"
               variant="outline"
@@ -616,7 +616,6 @@ function AccountCard({
               Disconnect
             </AlertDialogAction>
           </AlertDialogFooter>
-        </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </article>
