@@ -1,120 +1,68 @@
-# Prompt 14 — Stage 5: Broker Telemetry, Risk Guardian & Prompt-14 Closure
+# Why /accounts says "Observe" — and how Demo Auto gets switched on
 
-Stages 1–4 are in place: the MetaApi access layer, connected accounts and the
-provisioning wizard, direct demo execution, and the broker-evidence
-reconciliation worker. Stage 5 adds the observation layer on top and closes the
-prompt: broker-reported account health, drawdown watching where the vendor
-actually supports it, an account-wide exposure boundary before any direct
-submission, and the evidence surfaces plus documentation that make all of it
-readable.
+## What I found
 
-## What Stage 5 delivers
+Two separate reasons, both confirmed:
 
-1. Broker account telemetry
-   - Per account, MetaStats metrics (trades, win rate, profit, expectancy,
-     max drawdown, balance/equity) are read on a schedule and stored as
-     timestamped snapshots labelled BROKER-DERIVED.
-   - "Still calculating" is shown as exactly that. MetaStats answering with a
-     retry hint is never rendered as zeros, and never as a losing account.
-   - Reads are governed by a durable server-side budget (a per-account
-     minimum interval plus a per-run cap), never by page views or polling from
-     the browser.
+1. **The page copy is hardcoded.** The header line on /accounts comes from a fixed
+   string (`STAGE_CAPABILITY_NOTE`) that always claims connected accounts are in
+   Observe mode and that P-Trades "does not place, change or close any order".
+   It never looks at what your accounts are actually armed to.
+2. **The system-wide switches are off.** The single `execution_controls` row
+   currently reads `demo_auto_enabled = false`, `live_auto_enabled = false`,
+   `live_execution_enabled = false`, `force_dry_run = true`. Arming refuses
+   `demo_auto` while that switch is off (by design — authorisation is never
+   carried over silently), and even an armed account would only ever produce
+   dry-run deliveries while `force_dry_run` is on.
 
-2. Risk Guardian (drawdown watch)
-   - Only offered where the vendor supports it. MT5 netting accounts are
-     reported as unsupported, with the reason stated in plain words, rather
-     than showing a tracker that is not watching anything.
-   - A daily and a monthly drawdown tracker are created for eligible accounts;
-     tracker events are read and stored so the account page can show what has
-     actually breached, with the observation time.
-   - Nothing here blocks or alters execution — it is observation and reporting.
+There is also no in-app control anywhere to change those switches, so today they
+can only be changed at the database level.
 
-3. Account-wide broker exposure boundary
-   - Before any direct submission, the account's real open positions and orders
-     at the broker are read. If the account already carries broker-side exposure
-     beyond the configured account-wide boundary, the delivery is refused with a
-     broker-derived reason instead of adding another order.
-   - When the broker cannot be read, the answer is refuse (data unavailable),
-     never assume flat.
+## What I will build
 
-4. Evidence and telemetry surfaces
-   - `/accounts` gains a per-account panel: broker facts, symbol mapping,
-     MetaStats snapshot with its observation time, Risk Guardian status
-     (available / unsupported + reason), and recent tracker breaches.
-   - A broker-evidence list per account: positively associated trades from
-     Stage 4 with entry/exit, costs, R vs plan and R vs actual risk, and the
-     evidence class (BENCHMARK / CUSTOMER / SELF-REPORTED).
-   - The benchmark demo account gets an admin-side summary of the same
-     evidence, kept separate from user self-reported journal statistics.
+### 1. Admin execution switches (Admin terminal)
 
-5. Prompt-14 closure
-   - Documentation updated: architecture, execution, data provenance, glossary
-     and operations gain the accounts / direct-execution / evidence /
-     telemetry story, including the netting limitation and the budget.
-   - The in-app guide gains a short "Connected broker accounts" section written
-     for a non-quant reader.
-   - Blocking tests for every new rule, then a full suite and build run.
+A new panel in the Admin area to read and toggle the system-wide execution
+capabilities: Demo Auto, forced dry-run, and (display-only, left OFF) the live
+switches. Admin-only, service-role write path, each change confirmed in a dialog
+that states exactly what it authorises. Live auto/confirm stay off and are not
+enabled by this work.
 
-## Non-negotiables carried forward
+### 2. Turn Demo Auto on now
 
-- No fabricated numbers. Absent broker data renders as unavailable with a
-  reason; nothing is estimated silently, and nothing is seeded.
-- Live automatic execution stays globally off. Stage 5 adds no path to enable it.
-- Telemetry failures cannot interrupt the scanner, the queue, statistics or
-  the evidence worker.
-- Broker-derived, engine-derived and self-reported values stay visibly separate.
+Flip `demo_auto_enabled = true` and `force_dry_run = false` so a verified DEMO
+account can actually be armed and real demo orders are submitted to the broker.
+Live execution stays disabled.
 
-## Technical detail
+### 3. Honest page copy on /accounts
 
-New migration (single file, grants before RLS before policies):
+Replace the fixed "Observe mode" claim with copy derived from real state:
 
-- `account_telemetry_snapshots` — account_id, user_id, source
-  (`metastats`), status (`ok` / `processing` / `unavailable`), reason,
-  metrics jsonb, observed_at; owner-only SELECT, service_role full.
-- `account_risk_trackers` — account_id, vendor tracker id, name, period,
-  threshold kind/value, created_at, last_error.
-- `account_risk_events` — account_id, tracker_id, broker event payload,
-  event_at, unique on (tracker_id, event fingerprint) for idempotency.
-- `telemetry_budget` — account_id + source lease row with `next_allowed_at`,
-  used by a claim function (`claim_account_telemetry`, security definer) so a
-  second run cannot double-spend the vendor budget.
-- `connected_trading_accounts`: add `max_account_open_positions` and
-  `max_account_exposure_note` for the exposure boundary.
+- No account armed → today's observe wording (accurate).
+- At least one account armed to Demo Auto → states that P-Trades submits pending
+  orders with stop loss and first target to that DEMO account, and names which.
+- The "never receives your MetaTrader password" note stays as-is — it is true in
+  every mode.
 
-New modules:
+The per-account "Automatic orders" section already shows the broker gate and the
+system-wide gate separately; once Demo Auto is on, the Demo Auto button becomes
+enabled for a broker-confirmed demo account that is READY, tradable, not
+investor-mode, and has an order tag.
 
-- `src/lib/telemetry/metastats.ts` — pure: normalise metrics, decide
-  freshness, format "still calculating".
-- `src/lib/telemetry/collect.server.ts` — bounded pass: claim budget, read
-  metrics, write snapshot, halt on billing/permission refusal by parking the
-  account rather than looping.
-- `src/lib/telemetry/guardian.server.ts` — tracker ensure/read using the
-  existing `riskGuardianAvailability` gate; unsupported accounts are skipped
-  and recorded as unsupported.
-- `src/lib/execution/exposure-account.ts` (pure) + wiring in
-  `direct.server.ts` / `revalidate.server.ts` for the broker exposure gate.
-- `src/routes/api/public/worker/telemetry.ts` — cron-authorised worker,
-  fixed item cap per run, single-flight via the budget claim, paused-state
-  guard, no chained self-invocation.
-- pg_cron entry for the telemetry worker on its own schedule, separate from
-  the scan and reconcile schedules.
+## After this, arming a demo account still requires
 
-UI: `src/routes/_authenticated/accounts.tsx` gains the telemetry, guardian and
-evidence panels via new server functions in `src/lib/accounts.functions.ts`
-(owner-scoped reads only). Admin benchmark summary is added as a panel under
-the existing admin intelligence route.
+Your broker must report the account as DEMO, the connection must be READY and
+un-conflicted, trading allowed, not an investor login, and an order tag assigned.
+Those checks are unchanged — they are what stops a demo mode landing on a real
+account.
 
-Tests (all taxonomy-tagged, blocking):
+## Technical notes
 
-- processing status never renders as zero or as loss
-- unavailable telemetry never becomes a trading claim
-- MT5 netting yields unsupported guardian with a reason
-- budget claim prevents a second concurrent run and enforces the interval
-- billing/permission refusal parks the job; the next run probes once
-- exposure gate refuses on unreadable broker positions and on boundary breach
-- evidence class separation: broker evidence never merges into self-reported
-  journal statistics
-- docs-contract additions for the new documented facts
-
-Exit criteria: full suite green (812 existing + new), build OK, scanner and
-heartbeat unchanged, live execution still globally off.
+- New server functions in a `.functions.ts` module for reading/writing
+  `execution_controls`, admin-verified via the existing `is_admin()` path before
+  any privileged write; the existing `execution_config_version` bump trigger
+  keeps in-flight deliveries bound to the config they were validated under.
+- `STAGE_CAPABILITY_NOTE` becomes a small pure helper over the account list;
+  the existing lifecycle test asserting the old string is updated to assert the
+  observe-case wording instead.
+- No change to scanner math, publication, sizing, or the live execution path.
