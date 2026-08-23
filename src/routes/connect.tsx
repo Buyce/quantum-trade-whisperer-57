@@ -268,9 +268,9 @@ function ConnectPage() {
                   OpenAI's “Developer mode and MCP apps in ChatGPT” help article
                 </Ext>
                 , which is the authoritative source for this page. OpenAI documents full MCP support{" "}
-                <em>including modify/write actions</em> as a beta on ChatGPT Business, Enterprise and
-                Edu. ChatGPT Pro custom apps are documented only for read/fetch style MCP use, so
-                write tools are not expected there. P-Trades Hub does expose write tools —{" "}
+                <em>including modify/write actions</em> as a beta on ChatGPT Business, Enterprise
+                and Edu. ChatGPT Pro custom apps are documented only for read/fetch style MCP use,
+                so write tools are not expected there. P-Trades Hub does expose write tools —{" "}
                 <code className="num">update_my_settings</code>,{" "}
                 <code className="num">log_trade_decision</code>,{" "}
                 <code className="num">update_trade_outcome</code> — but actual availability depends
@@ -321,7 +321,6 @@ function ConnectPage() {
                 iterates; if a step does not match what you see, trust OpenAI's help article linked
                 above over this page.
               </p>
-
             </TabsContent>
 
             <TabsContent
@@ -453,8 +452,8 @@ function ConnectPage() {
                 items={[
                   <>
                     Open <strong className="text-foreground">Settings</strong> →{" "}
-                    <strong className="text-foreground">Apps</strong> and open the P-Trades Hub app's
-                    details page.
+                    <strong className="text-foreground">Apps</strong> and open the P-Trades Hub
+                    app's details page.
                   </>,
 
                   <>

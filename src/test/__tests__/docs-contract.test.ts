@@ -248,7 +248,6 @@ describe("documentation contract: ChatGPT developer mode instructions", () => {
   });
 });
 
-
 describe("documentation contract: code constants", () => {
   it("[INVARIANT] the documented execution policy matches the code constant", () => {
     expect(read("docs/EXECUTION.md")).toContain(DEFAULT_EXECUTION_POLICY);
