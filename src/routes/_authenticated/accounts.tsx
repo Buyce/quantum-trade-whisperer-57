@@ -19,6 +19,7 @@ import {
   CheckCircle2,
   ExternalLink,
   Eye,
+  Zap,
   HelpCircle,
   Loader2,
   Plus,
@@ -60,7 +61,7 @@ import { describePhase } from "@/lib/accounts/lifecycle";
 import {
   CONNECTION_REGIONS,
   HELP_TOPICS,
-  STAGE_CAPABILITY_NOTE,
+  capabilityNote,
 } from "@/lib/accounts/guidance";
 import type { AccountMode, ConnectedAccountView } from "@/lib/accounts/types";
 import { getExecutionStatus } from "@/lib/execution.functions";
