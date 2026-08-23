@@ -23,13 +23,13 @@ function tokenWith(accessRules: unknown): string {
 const ACCOUNT_ID = "f6a72106-7709-4835-8022-75cad470a505";
 
 describe("decodeAccessRules", () => {
-  it("returns null for anything that is not a readable JWT with rules", () => {
+  it("[UNIT] returns null for anything that is not a readable JWT with rules", () => {
     expect(decodeAccessRules("not-a-token")).toBeNull();
     expect(decodeAccessRules("a.b.c")).toBeNull();
     expect(decodeAccessRules(tokenWith(undefined))).toBeNull();
   });
 
-  it("keeps only well-formed rules", () => {
+  it("[UNIT] keeps only well-formed rules", () => {
     const rules = decodeAccessRules(
       tokenWith([{ id: "metaapi-rest-api", methods: ["m"], roles: ["reader"], resources: [] }, 7, {}]),
     );
@@ -40,7 +40,7 @@ describe("decodeAccessRules", () => {
 });
 
 describe("inspectCreateAccountScope", () => {
-  it("refuses a token pinned to one trading account", () => {
+  it("[INVARIANT] refuses a token pinned to one trading account", () => {
     const token = tokenWith([
       {
         id: "trading-account-management-api",
@@ -56,7 +56,7 @@ describe("inspectCreateAccountScope", () => {
     expect(describeCreateAccountScope("account_restricted")).toMatch(/restricted to specific/i);
   });
 
-  it("allows an unrestricted read-write account-management rule", () => {
+  it("[UNIT] allows an unrestricted read-write account-management rule", () => {
     for (const resources of [[], ["*"], ["*:$USER_ID$:*"]]) {
       const token = tokenWith([
         { id: "trading-account-management-api", methods: [], roles: ["reader", "writer"], resources },
@@ -65,7 +65,7 @@ describe("inspectCreateAccountScope", () => {
     }
   });
 
-  it("refuses a read-only or absent account-management rule", () => {
+  it("[UNIT] refuses a read-only or absent account-management rule", () => {
     expect(
       inspectCreateAccountScope(
         tokenWith([
@@ -80,7 +80,7 @@ describe("inspectCreateAccountScope", () => {
     ).toEqual({ allowed: false, reason: "missing_rule" });
   });
 
-  it("reports an unreadable token distinctly, so callers do not fail closed on a parse gap", () => {
+  it("[INVARIANT] reports an unreadable token distinctly, so callers do not fail closed on a parse gap", () => {
     expect(inspectCreateAccountScope("opaque-key")).toEqual({
       allowed: false,
       reason: "unreadable",
@@ -89,7 +89,7 @@ describe("inspectCreateAccountScope", () => {
 });
 
 describe("classification", () => {
-  it("maps a pre-flight scope refusal to permission and never to retryable", () => {
+  it("[INVARIANT] maps a pre-flight scope refusal to permission and never to retryable", () => {
     const failure = classifyMetaApiFailure(
       new MetaApiTokenScopeError("create account", describeCreateAccountScope("account_restricted")),
     );
@@ -98,7 +98,7 @@ describe("classification", () => {
     expect(failure.message).toMatch(/nothing was created or charged/i);
   });
 
-  it("explains a provider 403 that names createAccount as a token that cannot provision", () => {
+  it("[INVARIANT] explains a provider 403 that names createAccount as a token that cannot provision", () => {
     const failure = classifyMetaApiFailure(
       new MetaApiHttpError(
         403,
