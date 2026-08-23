@@ -11,12 +11,15 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { fetchDeals } from "@/lib/metaapi/history.server";
+import { fetchPositions } from "@/lib/metaapi/accounts.server";
+import { fetchDeals, fetchHistoryOrders } from "@/lib/metaapi/history.server";
 import { computeR, R_MATH_VERSION } from "@/lib/journal/r-math";
 import {
   evidenceClassFor,
   groupOwnedDeals,
+  resolveBrokerStop,
   summariseGroup,
+  type BrokerStop,
   type DealGroup,
 } from "./associate";
 
@@ -48,6 +51,7 @@ interface AccountRow {
   metaapi_account_id: string | null;
   region: string;
   magic: number | null;
+  broker_account_type: string | null;
 }
 
 export interface ReconcileResult {
@@ -101,7 +105,7 @@ export async function reconcileBrokerEvidence(
 
   const { data: accountRows } = await db
     .from("connected_trading_accounts")
-    .select("id, user_id, metaapi_account_id, region, magic")
+    .select("id, user_id, metaapi_account_id, region, magic, broker_account_type")
     .in("id", [...accountIds]);
   const accounts = (accountRows ?? []) as unknown as AccountRow[];
 
@@ -124,6 +128,26 @@ export async function reconcileBrokerEvidence(
       continue;
     }
 
+    // Broker-held stops (F): read once per account, never derived from what we
+    // submitted. Unavailable history simply leaves the stop unknown.
+    let positions: Awaited<ReturnType<typeof fetchPositions>> = [];
+    let historyOrders: Awaited<ReturnType<typeof fetchHistoryOrders>> = [];
+    try {
+      positions = await fetchPositions(account.metaapi_account_id, account.region);
+    } catch {
+      positions = [];
+    }
+    try {
+      historyOrders = await fetchHistoryOrders(
+        account.metaapi_account_id,
+        account.region,
+        since,
+        new Date(now),
+      );
+    } catch {
+      historyOrders = [];
+    }
+
     const groups = groupOwnedDeals(deals, account.magic ?? null);
     for (const group of groups) {
       const delivery = byClientId.get(group.clientId);
@@ -135,6 +159,7 @@ export async function reconcileBrokerEvidence(
         group,
         delivery,
         account,
+        brokerStop: resolveBrokerStop(group, positions, historyOrders),
         isBenchmark:
           !!options.benchmarkAccountId &&
           options.benchmarkAccountId === account.metaapi_account_id,
@@ -153,6 +178,7 @@ async function writeEvidence(
     group: DealGroup;
     delivery: DeliveryRow;
     account: AccountRow;
+    brokerStop: BrokerStop;
     isBenchmark: boolean;
   },
 ): Promise<"written" | "skipped" | "error"> {
@@ -175,7 +201,9 @@ async function writeEvidence(
     plannedStop: delivery.submitted_stop,
     actualEntryPrice: summary.entryPrice,
     actualExitPrice: summary.exitPrice,
-    actualInitialStop: delivery.submitted_stop,
+    // Broker-held stop only. When the broker reports none, the actual-risk R is
+    // declared unavailable rather than falling back to the requested stop.
+    actualInitialStop: input.brokerStop.stop,
   });
 
   const row = {
@@ -195,7 +223,10 @@ async function writeEvidence(
     planned_entry: delivery.submitted_entry,
     planned_stop: delivery.submitted_stop,
     planned_target: delivery.submitted_target,
-    actual_initial_stop: delivery.submitted_stop,
+    actual_initial_stop: input.brokerStop.stop,
+    stop_source: input.brokerStop.source,
+    broker_account_type: account.broker_account_type,
+    last_reconciled_at: new Date().toISOString(),
     volume: summary.volume,
     entry_price: summary.entryPrice,
     exit_price: summary.exitPrice,
