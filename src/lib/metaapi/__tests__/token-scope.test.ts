@@ -5,7 +5,7 @@
  * provision new accounts BEFORE a request is sent, and an unreadable token must
  * never be treated as a definitive refusal.
  */
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { classifyMetaApiFailure, MetaApiHttpError, MetaApiTokenScopeError } from "../errors";
 import {
@@ -114,5 +114,27 @@ describe("classification", () => {
     expect(failure.kind).toBe("permission");
     expect(failure.message).toMatch(/cannot provision a new one|not allowed to create trading accounts/i);
     expect(failure.message).toMatch(/link an account you already have/i);
+  });
+});
+
+describe("token selection", () => {
+  const saved = { ...process.env };
+  afterEach(() => {
+    process.env = { ...saved };
+  });
+
+  it("[INVARIANT] account management uses the unrestricted token while trading keeps the general one", async () => {
+    const { readMetaApiToken } = await import("../config.server");
+    process.env["METAAPI_TOKEN"] = "general";
+    process.env["METAAPI_PROVISIONING_TOKEN"] = "unrestricted";
+    expect(readMetaApiToken("provisioning")).toBe("unrestricted");
+    expect(readMetaApiToken()).toBe("general");
+  });
+
+  it("[UNIT] falls back to the general token when no provisioning token is configured", async () => {
+    const { readMetaApiToken } = await import("../config.server");
+    process.env["METAAPI_TOKEN"] = "general";
+    delete process.env["METAAPI_PROVISIONING_TOKEN"];
+    expect(readMetaApiToken("provisioning")).toBe("general");
   });
 });
