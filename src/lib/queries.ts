@@ -19,11 +19,17 @@ const SIGNAL_COLUMNS =
 
 /**
  * ZERO-HALLUCINATION CONTRACT: this fetcher returns exactly what the live
- * MetaApi scanner pipeline wrote to the database — nothing more. An empty array
- * is a valid, meaningful result ("No Trade" / Capital Preservation Mode) and
- * MUST be surfaced as such. Never add mock rows, sample setups, demo fixtures,
- * or a fallback generator here or in any consumer of this query.
+ * MetaApi scanner pipeline wrote to the database — nothing more. Never add mock
+ * rows, sample setups, demo fixtures, or a fallback generator here or in any
+ * consumer of this query.
+ *
+ * An empty array is a valid result, but it only means that no retained row
+ * matched this query. It is NOT evidence of a scanner-wide "No Trade" cycle:
+ * consumers apply the user's instrument, session, grade, cap and retention
+ * filters on top of this, so empty-state copy must speak about the view, not
+ * about the market. Scanner state comes from the heartbeat instead.
  */
+
 export function signalsQuery(limit = 400) {
   return queryOptions({
     queryKey: ["signals", limit],

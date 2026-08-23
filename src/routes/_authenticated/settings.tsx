@@ -22,6 +22,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { FeedbackSection } from "@/components/FeedbackSection";
 import { DangerZoneSection } from "@/components/DangerZoneSection";
+import { GuideDetail } from "@/components/GuideMode";
 import { PushSection } from "@/components/PushSection";
 import { AgentConnectCard } from "@/components/AgentConnectCard";
 
@@ -460,6 +461,15 @@ function SettingsPage() {
                 calculation and display only — the scanner, the grades and the alert thresholds
                 never read them, and nothing here places an order.
               </p>
+              <GuideDetail
+                className="mt-2"
+                title="How these fields change your numbers"
+                what="The self-reported inputs every lot size, cash-risk figure and margin estimate in the terminal is computed from."
+                why="Change your balance or risk percent and every size on every card changes with it. Leverage only affects the margin estimate; your risk comes from the stop distance."
+                todo="Keep the balance current — it is stamped with the date you last confirmed it — and set risk per trade to what one loss may cost you."
+                assume="Nothing here is read from or confirmed by your broker, and none of it affects grading, alert thresholds or whether a setup is published."
+                anchor="sizing"
+              />
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
@@ -636,6 +646,14 @@ function SettingsPage() {
               checked={email}
               onChange={setEmail}
             />
+            <GuideDetail
+              title="What email alerts do and do not do"
+              what="A notification channel. When a published setup is eligible under your filters, a copy of the plan is emailed to your account address."
+              why="It is the delivery path that works when a browser is closed, and it carries exactly the same plan the feed shows."
+              todo="Use it alongside push if you want redundancy, and use your minimum grade and daily cap to control the volume."
+              assume="An email is never an order and cannot reach your broker. Silence is not proof that nothing was published — your instrument, session, grade and cap filters decide what is eligible."
+              anchor="eligibility"
+            />
           </section>
 
 
@@ -646,6 +664,15 @@ function SettingsPage() {
                 How the terminal phrases order guidance, and where — if anywhere — a copy of each
                 alert is POSTed for your own broker bridge. We never hold broker credentials.
               </p>
+              <GuideDetail
+                className="mt-2"
+                title="What can and cannot leave the server"
+                what="Optional outbound delivery of an alert copy to a bridge you own, plus how order guidance is worded."
+                why="Live execution is disabled globally by default and dry-run first, and the scanner's alert path cannot send broker instructions at all — orders only travel through the execution ledger."
+                todo="Test with dry run first and read the delivery states: only an acknowledgement proves the receiver accepted a request."
+                assume="Sent is not acceptance, and an unacknowledged request is never retried automatically because it may already have created an order. Changing any setting that decides authorisation or quantity invalidates queued deliveries instead of sending them under new rules."
+                anchor="delivery-states"
+              />
             </div>
 
             <div className="space-y-2">

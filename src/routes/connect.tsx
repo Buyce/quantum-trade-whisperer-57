@@ -254,28 +254,36 @@ function ConnectPage() {
                 items={[
                   <>
                     Open{" "}
-                    <Ext href="https://chatgpt.com/#settings/Connectors/Advanced">ChatGPT Apps settings</Ext> and
-                    turn on Developer mode (read the risk notice shown there). If it isn't available, ask a ChatGPT
-                    admin to enable it.
+                    <Ext href="https://chatgpt.com/#settings/Connectors/Advanced">
+                      Settings → Apps &amp; Connectors → Advanced
+                    </Ext>{" "}
+                    and turn on <strong className="text-foreground">Developer mode</strong> (read the
+                    risk notice shown there). If it isn't available, ask a ChatGPT admin to enable
+                    it.
                   </>,
                   <>
-                    Open the{" "}
-                    <Ext href="https://chatgpt.com/plugins#settings/Connectors?create-connector=true&redirectAfter=%2Fplugins">
-                      New plugin dialog
-                    </Ext>
-                    .
+                    Still in{" "}
+                    <Ext href="https://chatgpt.com/#settings/Connectors">Apps &amp; Connectors</Ext>,
+                    choose <strong className="text-foreground">Create</strong> to open the custom
+                    connector dialog.
                   </>,
                   <>
-                    Enter <strong className="text-foreground">P-Trades Hub</strong> as the name and paste the server
-                    URL above into the URL field.
+                    Enter <strong className="text-foreground">P-Trades Hub</strong> as the name,
+                    paste the server URL above into the MCP server URL field, and leave the
+                    authentication set to OAuth.
                   </>,
                   <>
-                    Review the details, tick “I understand and want to continue” (ChatGPT shows this for every
-                    custom server), then click <strong className="text-foreground">Create</strong>.
+                    Review the details, tick the “I trust this application” confirmation (ChatGPT
+                    shows this for every custom MCP server, not just this one), then click{" "}
+                    <strong className="text-foreground">Create</strong>.
                   </>,
-                  <>Enable P-Trades Hub from the chat composer, then ask ChatGPT to use it.</>,
+                  <>
+                    Enable P-Trades Hub from the chat composer, sign in when prompted, then ask
+                    ChatGPT to use it.
+                  </>,
                 ]}
               />
+
             </TabsContent>
 
             <TabsContent value="claude" className="rounded-md border border-border bg-card p-4 sm:p-5">
@@ -349,17 +357,24 @@ function ConnectPage() {
             <TabsContent value="r-chatgpt" className="rounded-md border border-border bg-card p-4 sm:p-5">
               <Steps
                 items={[
-                  <>Open ChatGPT's Plugins page and select P-Trades Hub.</>,
                   <>
-                    Scroll to “Information” and click <strong className="text-foreground">Refresh</strong>.
+                    Open{" "}
+                    <Ext href="https://chatgpt.com/#settings/Connectors">Apps &amp; Connectors</Ext>{" "}
+                    and select P-Trades Hub.
                   </>,
                   <>
-                    ChatGPT can't change an existing app's URL — if the URL above changed, delete the app and
-                    connect again.
+                    Scroll to its details and click{" "}
+                    <strong className="text-foreground">Refresh</strong> to reload what the connector
+                    can do.
+                  </>,
+                  <>
+                    ChatGPT can't change an existing connector's URL — if the URL above changed,
+                    delete the connector and connect again.
                   </>,
                   <>Start a new chat and ask ChatGPT to use P-Trades Hub.</>,
                 ]}
               />
+
             </TabsContent>
 
             <TabsContent value="r-claude" className="rounded-md border border-border bg-card p-4 sm:p-5">

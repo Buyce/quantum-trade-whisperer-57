@@ -16,6 +16,7 @@ import { listPushDevices, removePushSubscription, sendTestPush } from "@/lib/pus
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { GuideDetail } from "@/components/GuideMode";
 
 function deviceLabel(userAgent: string | null) {
   if (!userAgent) return "Unknown device";
@@ -84,6 +85,14 @@ export function PushSection({
   return (
     <section className="space-y-4 rounded-md border border-border bg-card p-4">
       <h2 className="label-xs">Push alerts</h2>
+      <GuideDetail
+        title="How push alerts behave"
+        what="A browser/Android notification sent when a published setup is eligible under your filters."
+        why="It is the fastest way to see a plan while the entry is still valid — a pending order is cancelled if it has not filled within 30 minutes."
+        todo="Grant permission on each device you want alerted, and install the app to your home screen on Android for reliable delivery."
+        assume="A push is a notification, never an order. Receiving none does not mean nothing was published: your minimum grade, instruments, sessions and daily cap decide eligibility."
+        anchor="eligibility"
+      />
 
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4">
         <div className="min-w-0">

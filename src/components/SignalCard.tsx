@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 import { formatJournalR, journalRView } from "@/lib/journal/display";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { InfoLabel, useGuideMode } from "@/components/GuideMode";
+import { GuideDetail, InfoLabel, useGuideMode } from "@/components/GuideMode";
 import { MIN_N_FILL, MIN_N_TIER3, MIN_N_WIN, tierLabel } from "@/lib/learning/regime";
 import { explainRegime, PRIOR_STRENGTH } from "@/lib/learning/explain";
 import { regimeStatsQuery } from "@/lib/queries";
@@ -476,6 +476,15 @@ function RiskPanel({ signal }: { signal: SignalRow }) {
         <p className="mt-2 text-sm text-muted-foreground">
           Position size could not be calculated right now. Nothing is estimated in its place.
         </p>
+        <GuideDetail
+          className="mt-2"
+          title="Why no size is shown"
+          what="The sizing request itself did not complete, so no lot size exists to display."
+          why="A guessed lot size would misstate the money you are risking, so nothing is substituted."
+          todo="Retry in a moment; if it persists, check the scanner heartbeat in Settings."
+          assume="This is not a statement about the setup's quality, and it does not mean your risk settings are wrong."
+          anchor="refusals"
+        />
       </div>
     );
   }
@@ -487,9 +496,19 @@ function RiskPanel({ signal }: { signal: SignalRow }) {
         <p className="mt-2 text-sm text-muted-foreground">{result.explanation}</p>
         <ProvenanceLine provenance={result.provenance} />
         <AdvisoryLine advisory={result.advisory} />
+        <GuideDetail
+          className="mt-2"
+          title="Why sizing refused"
+          what="A refusal: one of the inputs sizing needs is missing, unusable or too old to trust, and the exact reason is named above."
+          why="Equity, contract specification, conversion rate and stop distance all change the lot size directly. Filling one in with a plausible-looking value would understate or overstate your real risk."
+          todo="Fix the named input — set your equity in Settings, wait for a fresh quote or specification refresh, or skip a setup whose stop is inside your broker's minimum stop distance."
+          assume="Do not assume the setup is invalid, and do not size it by hand from a stale figure."
+          anchor="refusals"
+        />
       </div>
     );
   }
+
 
   const cur = result.currency;
   const profile = result.profile;
@@ -548,6 +567,16 @@ function RiskPanel({ signal }: { signal: SignalRow }) {
           </dd>
         </div>
       </dl>
+
+      <GuideDetail
+        className="mt-3"
+        title="How this size was worked out"
+        what="Lot size, cash risk and the margin figure, computed on the server from the risk settings you entered and this setup's own stop distance."
+        why="Sizing from a fixed cash risk is what keeps one losing trade from mattering more than another. The lot size is floored to a tradable step, so the money at risk never exceeds your limit."
+        todo="Place the size shown for this plan, and re-check it if you change your equity or risk percent."
+        assume="The margin figure is an estimate from the contract specification and the leverage you entered — not your broker's requirement, and it excludes commission and swap. Your equity and leverage are self-reported; the app cannot read your broker."
+        anchor="sizing"
+      />
 
       <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground">
         <span className="num">Stop distance: {result.stopPercent.toFixed(2)}% of entry</span>

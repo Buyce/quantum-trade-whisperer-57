@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Link } from "@tanstack/react-router";
+import { useState } from "react";
+import { Search } from "lucide-react";
 import {
   Accordion,
   AccordionContent,
@@ -7,7 +9,9 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { GuideModeToggle } from "@/components/GuideMode";
+
 
 export const Route = createFileRoute("/_authenticated/guide")({
   head: () => ({
@@ -26,18 +30,137 @@ export const Route = createFileRoute("/_authenticated/guide")({
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
+      // Authenticated help content: kept out of sitemap.xml and out of indexes.
+      { name: "robots", content: "noindex, nofollow" },
     ],
   }),
   component: GuidePage,
 });
 
-/** One question-and-answer entry. `id` is the anchor other screens link to. */
-type Entry = { id: string; q: string; a: string[] };
+/**
+ * One question-and-answer entry. `id` is the anchor other screens deep-link to
+ * (`/guide#<id>`), so ids are part of the app's internal link contract and must
+ * not be renamed casually.
+ *
+ * `a` carries free-form paragraphs. The four optional fields carry the
+ * consistent explanation frame used across the terminal's Guide Mode: what it
+ * is, why it matters, what to do, and what not to assume. `example` is always
+ * rendered with an explicit "Educational example — not live market data" label,
+ * because no illustrative number may ever be mistaken for a published setup.
+ */
+type Entry = {
+  id: string;
+  q: string;
+  a: string[];
+  means?: string;
+  matters?: string;
+  todo?: string;
+  assume?: string;
+  example?: string[];
+};
 
 type Section = { id: string; title: string; blurb: string; entries: Entry[] };
 
 const SECTIONS: Section[] = [
   {
+    id: "getting-started",
+    title: "Getting started",
+    blurb: "The five minutes of setup that make every other number meaningful.",
+    entries: [
+      {
+        id: "first-steps",
+        q: "I just signed in. What should I do first?",
+        a: [
+          "Open Settings and enter your account equity, account currency, leverage and risk per trade. Until those exist the terminal cannot size a position, and it will refuse rather than guess.",
+          "Then choose your instruments, trading sessions and the minimum grade you want to be alerted about, and decide whether you want push, email or both. Finally, come back to the feed: it shows only setups that survived both the engine's rules and your own filters.",
+        ],
+        means: "Settings are the inputs the whole terminal computes against.",
+        matters:
+          "Lot size, cash risk, margin estimates and your alert stream are all derived from what you enter here. Nothing is read from your broker.",
+        todo: "Set equity, currency, leverage, risk percent, instruments, sessions and minimum grade before you rely on a lot size.",
+        assume:
+          "Do not assume the app knows your real balance, open positions or broker costs. It knows what you told it.",
+      },
+      {
+        id: "tour",
+        q: "What is each screen for?",
+        a: [
+          "Feed: setups currently published and eligible under your settings, newest first. History: your own trade journal, including trades you skipped. Performance: expectancy and R statistics computed from your journal, behind evidence gates. Settings: risk inputs, filters, alerts, execution controls and the scanner heartbeat. Connect AI: how to attach ChatGPT, Claude or Claude Code to your own data.",
+        ],
+        means: "Four working surfaces plus one integration page.",
+        matters:
+          "Feed and Performance answer different questions: what the engine found, and what your decisions actually earned.",
+        todo: "Use the scanner heartbeat in Settings whenever you want to know whether the engine is cycling.",
+        assume:
+          "An empty Feed is not a statement about Performance, and Performance never includes replay or research rows.",
+      },
+      {
+        id: "guide-mode",
+        q: "What is Guide Mode?",
+        a: [
+          "A toggle in the header. With it on, terminal labels gain an inline explanation you can expand: what the figure is, why it matters, what to do with it, and what not to assume — plus a link into the matching section of this page.",
+          "It is progressive disclosure only. Nothing is hidden while it is off, and no permanent walls of text appear while it is on.",
+        ],
+      },
+    ],
+  },
+  {
+    id: "reading-a-signal",
+    title: "Understanding a signal",
+    blurb: "Reading a published setup card field by field.",
+    entries: [
+      {
+        id: "card-anatomy",
+        q: "What is every field on a signal card?",
+        a: [
+          "Instrument and direction: what to trade and which way. Grade: structure quality (A+/A/B/C). Confidence: how completely the engine's rules were satisfied. Entry: the limit price the plan was graded at. Max acceptable entry: the worst fill that still preserves that payoff. Stop: the structural invalidation level plus an ATR buffer. Targets 1–3: structure-capped objectives, where target 3 may be absent. R:R: reward per unit of risk to the first published target. Size: the lot size your own risk settings allow, with a cash risk figure and a margin estimate.",
+        ],
+        means:
+          "One fully specified plan: where to enter, where you are wrong, where you take profit, and how large.",
+        matters:
+          "The grade, confidence and R:R were all computed at the entry price. Filling elsewhere silently changes the trade you were shown.",
+        todo: "Check the max acceptable entry before placing anything, and size from the plan's own stop distance.",
+        assume:
+          "Do not assume a grade or confidence figure predicts the outcome, and do not treat the margin figure as your broker's requirement.",
+      },
+      {
+        id: "worked-example",
+        q: "Can I see a worked example of the maths?",
+        a: [
+          "Yes — with the numbers below invented purely to show the arithmetic. They are not a setup, not a recommendation, and no such row exists in the feed.",
+        ],
+        example: [
+          "Equity 10,000 USD, risk per trade 1% → 100 USD of risk for this trade.",
+          "Entry 1.0850, stop 1.0800 → stop distance 50 pips → 1 R = 50 pips.",
+          "At 10 USD per pip per lot, 100 USD / (50 × 10) = 0.20 lots.",
+          "First target 1.0950 → 100 pips of reward against 50 pips of risk → R:R 2.0.",
+          "If price runs to that target you gain +2R; if the stop is hit you lose −1R. Expectancy is then read across many such trades, never one.",
+        ],
+        means: "R converts every instrument onto one comparable scale.",
+        matters:
+          "Sizing from a fixed cash risk, rather than a fixed lot size, is what keeps one bad trade from mattering more than another.",
+        todo: "Use the size the terminal computes for the plan you are actually placing.",
+        assume:
+          "Do not reuse these figures: real pip values, lot steps and stop distances differ per instrument and are computed per setup.",
+      },
+      {
+        id: "empty-view",
+        q: "My feed is empty — what does that actually tell me?",
+        a: [
+          "It tells you that nothing matched this view. Your instruments, sessions, minimum grade, daily cap and the retention window all filter the feed, so an empty screen can simply mean your filters excluded everything that was published.",
+          "Only an unfiltered, current-cycle view can support a scanner-wide No Trade reading, and the scanner heartbeat in Settings is the authority on whether the engine is cycling at all. Whatever the cause, the terminal will never invent an example setup to fill the screen.",
+        ],
+        means: "Zero rows in this view, nothing more.",
+        matters:
+          "Reading a filtered empty screen as 'the market offered nothing' is how people widen their filters at exactly the wrong moment.",
+        todo: "Widen or clear your filters to see everything published, and check the heartbeat for engine health.",
+        assume:
+          "Do not assume an empty feed means No Trade, and do not assume it means something is broken.",
+      },
+    ],
+  },
+  {
+
     id: "signals",
     title: "Signals and grades",
     blurb: "What the scanner publishes, and how strong a setup actually is.",
@@ -61,12 +184,13 @@ const SECTIONS: Section[] = [
       },
       {
         id: "no-trade",
-        q: "The feed is empty. Is something broken?",
+        q: "What does the No Trade default mean?",
         a: [
-          "Almost certainly not. The system defaults to No Trade: if no structure qualifies, nothing is published and the feed shows Capital Preservation Mode Active. Quiet markets, and closed markets at the weekend, look quiet.",
-          "The scanner heartbeat in Settings is the authority on whether it is cycling. An empty feed is data, not an outage — and the terminal will never invent an example setup to fill the screen.",
+          "The engine publishes nothing unless a structure passes its rules, so a scan cycle that qualifies nothing produces no rows. Quiet markets, and closed markets at the weekend, genuinely look quiet.",
+          "That is a claim about a scan cycle, not about your screen. Your own feed is filtered by instruments, sessions, minimum grade, daily cap and the retention window, so an empty feed only tells you that nothing matched that view — see “My feed is empty” under Understanding a signal. The scanner heartbeat in Settings is the authority on whether the engine is cycling.",
         ],
       },
+
       {
         id: "entry-window",
         q: "Why did a setup disappear, and what is the maximum acceptable entry?",
@@ -285,7 +409,47 @@ const SECTIONS: Section[] = [
   },
 ];
 
+/** The consistent explanation frame, rendered only for the fields present. */
+function Frame({ entry }: { entry: Entry }) {
+  const rows: [string, string | undefined][] = [
+    ["What it is", entry.means],
+    ["Why it matters", entry.matters],
+    ["What to do", entry.todo],
+    ["What not to assume", entry.assume],
+  ];
+  const present = rows.filter((r): r is [string, string] => Boolean(r[1]));
+  if (present.length === 0) return null;
+  return (
+    <dl className="grid gap-2 rounded-sm border border-border bg-surface/60 p-3">
+      {present.map(([k, v]) => (
+        <div key={k} className="grid gap-0.5 sm:grid-cols-[11rem_minmax(0,1fr)] sm:gap-4">
+          <dt className="label-xs">{k}</dt>
+          <dd className="text-sm leading-relaxed text-muted-foreground">{v}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
 function GuidePage() {
+  const [query, setQuery] = useState("");
+
+  // Filter by heading: section titles and entry questions only. Body text is
+  // deliberately excluded so a match always corresponds to a visible heading
+  // the reader can scan, rather than a hit buried inside a collapsed answer.
+  const needle = query.trim().toLowerCase();
+  const sections = needle
+    ? SECTIONS.map((s) => {
+        const sectionHit = s.title.toLowerCase().includes(needle);
+        const entries = sectionHit
+          ? s.entries
+          : s.entries.filter((e) => e.q.toLowerCase().includes(needle));
+        return { ...s, entries };
+      }).filter((s) => s.entries.length > 0)
+    : SECTIONS;
+
+  const matchCount = sections.reduce((n, s) => n + s.entries.length, 0);
+
   return (
     <div className="space-y-6">
       <header className="space-y-3">
@@ -294,10 +458,10 @@ function GuidePage() {
           How this terminal works
         </h1>
         <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
-          Every number here is either derived from live broker data, computed by the engine from that
-          data, or reported by you. Where an input is missing, the terminal refuses and names the
-          reason instead of estimating. This page explains what each figure means — and what it does
-          not claim.
+          Every number here is either derived from broker candles, computed by the engine from that
+          data, produced by deterministic replay, or reported by you — and it is labelled with which.
+          Where an input is missing or stale, the terminal refuses and names the reason instead of
+          inventing one. This page explains what each figure means, and what it does not claim.
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs text-muted-foreground">
@@ -307,20 +471,40 @@ function GuidePage() {
         </div>
       </header>
 
-      <nav aria-label="Guide sections" className="flex flex-wrap gap-2">
-        {SECTIONS.map((s) => (
-          <a
-            key={s.id}
-            href={`#${s.id}`}
-            className="rounded-sm border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
-          >
-            {s.title}
-          </a>
-        ))}
-      </nav>
+      <div className="space-y-3">
+        <div className="relative max-w-md">
+          <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search headings — e.g. margin, R, grade, alert"
+            aria-label="Search guide headings"
+            className="pl-8"
+          />
+        </div>
+        {needle ? (
+          <p aria-live="polite" className="text-xs text-muted-foreground">
+            {matchCount === 0
+              ? "No heading matches that. Clear the search to browse every section."
+              : `${matchCount} matching ${matchCount === 1 ? "topic" : "topics"}.`}
+          </p>
+        ) : (
+          <nav aria-label="Guide sections" className="flex flex-wrap gap-2">
+            {SECTIONS.map((s) => (
+              <a
+                key={s.id}
+                href={`#${s.id}`}
+                className="rounded-sm border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+              >
+                {s.title}
+              </a>
+            ))}
+          </nav>
+        )}
+      </div>
 
       <div className="space-y-5">
-        {SECTIONS.map((section) => (
+        {sections.map((section) => (
           <Card key={section.id} id={section.id} className="scroll-mt-32">
             <CardHeader>
               <CardTitle className="text-base">{section.title}</CardTitle>
@@ -337,6 +521,21 @@ function GuidePage() {
                           {p}
                         </p>
                       ))}
+                      {entry.example ? (
+                        <div className="rounded-sm border border-dashed border-border bg-surface/60 p-3">
+                          <p className="label-xs text-warning">
+                            Educational example — not live market data
+                          </p>
+                          <ul className="mt-2 space-y-1">
+                            {entry.example.map((line, i) => (
+                              <li key={i} className="num text-sm text-muted-foreground">
+                                {line}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
+                      <Frame entry={entry} />
                     </AccordionContent>
                   </AccordionItem>
                 ))}
@@ -345,6 +544,7 @@ function GuidePage() {
           </Card>
         ))}
       </div>
+
 
       <Card>
         <CardHeader>

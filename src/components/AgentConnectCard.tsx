@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Check, Copy, ExternalLink } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { GuideDetail } from "@/components/GuideMode";
 
 /**
  * Compact in-terminal version of the /connect page: the two URLs an assistant
@@ -62,6 +63,15 @@ export function AgentConnectCard() {
     <section className="space-y-5 rounded-md border border-border bg-card p-4">
       <div>
         <h2 className="label-xs">AI assistants &amp; agents</h2>
+        <GuideDetail
+          className="mt-2"
+          title="What a connected assistant can and cannot do"
+          what="An MCP connection that lets ChatGPT, Claude or Claude Code read your setups, scanner and market status, settings, journal and performance, size a position, and log or update trades as you."
+          why="It uses the same eligibility rules, the same sizing service and the same R mathematics as this screen, so it cannot be talked into a different number."
+          todo="Connect it, then ask it questions about your own data — and check its journal writes, which are permanently stamped as agent-entered."
+          assume="It cannot reach your broker, see anyone else's data, enable live execution, change grading or published signals, or retrieve secrets. An empty signal list from it means nothing matched the filters it asked for."
+          anchor="ai"
+        />
         <p className="mt-2 text-sm text-muted-foreground">
           Paste the server URL below into ChatGPT, Claude, Claude Code or any MCP client. The assistant then acts
           as you, using your own sign-in: it can read live setups, size them against your risk profile, adjust
