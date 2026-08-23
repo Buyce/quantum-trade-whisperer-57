@@ -34,12 +34,12 @@ const DOC_FILES = [
 
 const DOCS = DOC_FILES.map((rel) => ({ rel, text: read(rel) }));
 
-describe("[INVARIANT] documentation contract: URLs", () => {
-  it("names the canonical production URL in the README", () => {
+describe("documentation contract: URLs", () => {
+  it("[INVARIANT] names the canonical production URL in the README", () => {
     expect(read("README.md")).toContain(CANONICAL_URL);
   });
 
-  it("never presents a lovable.app preview URL as the production app", () => {
+  it("[INVARIANT] never presents a lovable.app preview URL as the production app", () => {
     for (const { rel, text } of DOCS) {
       expect(text, `${rel} must not cite a preview host as production`).not.toMatch(
         /https:\/\/[a-z0-9-]*lovable\.app/i,
@@ -47,24 +47,24 @@ describe("[INVARIANT] documentation contract: URLs", () => {
     }
   });
 
-  it("uses the canonical host in robots.txt and the sitemap route", () => {
+  it("[INVARIANT] uses the canonical host in robots.txt and the sitemap route", () => {
     expect(read("public/robots.txt")).toContain(`${CANONICAL_URL}/sitemap.xml`);
     expect(read("src/routes/sitemap[.]xml.ts")).toContain(`"${CANONICAL_URL}"`);
   });
 
-  it("keeps the authenticated guide out of the sitemap", () => {
+  it("[INVARIANT] keeps the authenticated guide out of the sitemap", () => {
     expect(read("src/routes/sitemap[.]xml.ts")).not.toContain("/guide");
   });
 
-  it("marks the authenticated guide noindex", () => {
+  it("[INVARIANT] marks the authenticated guide noindex", () => {
     expect(read("src/routes/_authenticated/guide.tsx")).toContain("noindex");
   });
 });
 
-describe("[INVARIANT] documentation contract: no credentials", () => {
+describe("documentation contract: no credentials", () => {
   // The original build prompt contained a live MetaApi account id, login number
   // and user id. They must never reappear in canonical docs.
-  it("contains no UUID-shaped account identifiers or broker login numbers", () => {
+  it("[INVARIANT] contains no UUID-shaped account identifiers or broker login numbers", () => {
     const uuid = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
     for (const { rel, text } of DOCS) {
       // The Lovable editor deep link legitimately carries the project id; it is
@@ -79,8 +79,8 @@ describe("[INVARIANT] documentation contract: no credentials", () => {
   });
 });
 
-describe("[INVARIANT] documentation contract: internal links resolve", () => {
-  it("every relative markdown link points at a file that exists", () => {
+describe("documentation contract: internal links resolve", () => {
+  it("[INVARIANT] every relative markdown link points at a file that exists", () => {
     const link = /\]\((?!https?:|mailto:|#)([^)\s#]+)/g;
     for (const { rel, text } of DOCS) {
       const dir = rel.includes("/") ? rel.slice(0, rel.lastIndexOf("/")) : ".";
@@ -95,11 +95,11 @@ describe("[INVARIANT] documentation contract: internal links resolve", () => {
   });
 });
 
-describe("[INVARIANT] documentation contract: empty results", () => {
+describe("documentation contract: empty results", () => {
   const EMPTY_CLAIM =
     /(no valid setup|no trade)[^.\n]{0,80}(because|means|proves)[^.\n]{0,80}(empty|no rows|zero rows)/i;
 
-  it("never equates an empty list_signals result with 'no valid setup'", () => {
+  it("[INVARIANT] never equates an empty list_signals result with 'no valid setup'", () => {
     const sources = [
       ...DOCS,
       { rel: "src/lib/mcp/index.ts", text: read("src/lib/mcp/index.ts") },
@@ -111,12 +111,12 @@ describe("[INVARIANT] documentation contract: empty results", () => {
     }
   });
 
-  it("the list_signals description states that emptiness is filter-scoped", () => {
+  it("[INVARIANT] the list_signals description states that emptiness is filter-scoped", () => {
     const text = read(".lovable/mcp/manifest.json");
     expect(text).toMatch(/empty result means nothing matched the requested filters/i);
   });
 
-  it("no doc claims a filtered empty view proves capital preservation", () => {
+  it("[INVARIANT] no doc claims a filtered empty view proves capital preservation", () => {
     for (const { rel, text } of DOCS) {
       const lines = text.split("\n");
       const qualifier =
@@ -136,15 +136,15 @@ describe("[INVARIANT] documentation contract: empty results", () => {
   });
 });
 
-describe("[INVARIANT] documentation contract: provenance wording", () => {
-  it("never calls self-reported prices broker verified", () => {
+describe("documentation contract: provenance wording", () => {
+  it("[INVARIANT] never calls self-reported prices broker verified", () => {
     const bad = /self[- ]reported[^.\n]{0,60}broker[- ]verified/i;
     for (const { rel, text } of DOCS) {
       expect(text, `${rel} conflates self-reported with broker-verified`).not.toMatch(bad);
     }
   });
 
-  it("never calls a margin figure broker-exact", () => {
+  it("[INVARIANT] never calls a margin figure broker-exact", () => {
     for (const { rel, text } of DOCS) {
       // A prohibition ("never call margin broker-exact") is not a violation.
       const claims = text
@@ -157,31 +157,31 @@ describe("[INVARIANT] documentation contract: provenance wording", () => {
     }
   });
 
-  it("documents margin as an estimate", () => {
+  it("[INVARIANT] documents margin as an estimate", () => {
     expect(read("docs/RISK-SIZING.md")).toMatch(/margin[^.\n]{0,40}estimate/i);
   });
 });
 
-describe("[INVARIANT] documentation contract: code constants", () => {
-  it("the documented execution policy matches the code constant", () => {
+describe("documentation contract: code constants", () => {
+  it("[INVARIANT] the documented execution policy matches the code constant", () => {
     expect(read("docs/EXECUTION.md")).toContain(DEFAULT_EXECUTION_POLICY);
   });
 
-  it("the documented instruments match INSTRUMENTS", () => {
+  it("[INVARIANT] the documented instruments match INSTRUMENTS", () => {
     const scanner = read("docs/SCANNER.md");
     for (const instrument of INSTRUMENTS) {
       expect(scanner, `SCANNER.md omits ${instrument}`).toContain(instrument);
     }
   });
 
-  it("the documented timeframes match TIMEFRAMES", () => {
+  it("[INVARIANT] the documented timeframes match TIMEFRAMES", () => {
     const scanner = read("docs/SCANNER.md");
     for (const tf of TIMEFRAMES) {
       expect(scanner, `SCANNER.md omits ${tf}`).toContain(tf);
     }
   });
 
-  it("every MCP tool name in the manifest is documented in MCP.md", () => {
+  it("[INVARIANT] every MCP tool name in the manifest is documented in MCP.md", () => {
     const manifest = JSON.parse(read(".lovable/mcp/manifest.json")) as {
       mcp: { tools: { name: string }[] };
     };
@@ -193,7 +193,7 @@ describe("[INVARIANT] documentation contract: code constants", () => {
     }
   });
 
-  it("the manifest tool set matches the registered server tools", () => {
+  it("[INVARIANT] the manifest tool set matches the registered server tools", () => {
     const manifest = JSON.parse(read(".lovable/mcp/manifest.json")) as {
       mcp: { tools: { name: string }[] };
     };
