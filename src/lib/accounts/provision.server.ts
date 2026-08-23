@@ -143,7 +143,10 @@ export async function startConnection(
         server,
         region: input.region,
         magic: 0,
-        reliability: "high",
+        // Prompt 14 Stage 5 (pre-flight 3): Increased Reliability is a separately
+        // billed MetaApi option. Ordinary customer provisioning never enables it
+        // on the operator's behalf; it is an explicit product decision.
+        reliability: "regular",
         manualTrades: true,
         // Prompt 14 Stage 3 closure (E): MetaStats and the Risk Management API
         // are separately billed MetaApi features. A customer connection never
@@ -284,7 +287,23 @@ export async function reconcileConnection(
     Object.assign(patch, brokerFactsPatch(info, type));
     patch["intent_conflict"] = verdict.conflict;
     patch["intent_conflict_reason"] = verdict.reason;
-    patch["mode"] = "observe";
+
+    // Prompt 14 Stage 5 (pre-flight 1): an ordinary refresh must NOT silently
+    // disarm a valid Demo Auto account. The armed mode survives while the
+    // BROKER's own facts still support it, and stands down immediately — with
+    // the reason recorded — the moment they do not (real money, investor
+    // /read-only, trading not allowed, conflicted, or no order tag).
+    const outcome = modeAfterReconcile(isAccountMode(row.mode) ? row.mode : "observe", {
+      brokerAccountType: type,
+      ready: !verdict.conflict && type !== "unknown",
+      intentConflict: verdict.conflict,
+      tradeAllowed: info.tradeAllowed ?? null,
+      investorMode: info.investorMode ?? null,
+      hasBrokerConnection: true,
+      hasMagic: typeof row.magic === "number" && row.magic > 0,
+    });
+    patch["mode"] = outcome.mode;
+    patch["stand_down_reason"] = outcome.standDownReason;
     patch["phase"] = (
       verdict.conflict || type === "unknown" ? "connected" : "ready"
     ) satisfies AccountPhase;
