@@ -50,6 +50,7 @@ describe("metaApiRequest", () => {
 
   it("[INVARIANT] refuses to send anything when the token is not configured", async () => {
     delete process.env["METAAPI_TOKEN"];
+    delete process.env["METAAPI_PROVISIONING_TOKEN"];
     const fetchMock = vi.fn(async () => jsonResponse({}));
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
