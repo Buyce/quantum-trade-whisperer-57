@@ -7,12 +7,7 @@
  */
 import { describe, expect, it } from "vitest";
 
-import {
-  evidenceClassFor,
-  groupOwnedDeals,
-  summariseGroup,
-  weightedPrice,
-} from "../associate";
+import { evidenceClassFor, groupOwnedDeals, summariseGroup, weightedPrice } from "../associate";
 import { buildClientId, PTRADES_STRATEGY_ID } from "@/lib/metaapi/client-id";
 import type { BrokerDeal } from "@/lib/metaapi/types";
 
@@ -46,7 +41,10 @@ describe("positive association", () => {
   });
 
   it("[UNIT] groups our own deals by clientId and records the basis", () => {
-    const groups = groupOwnedDeals([deal({}), deal({ id: "d2", entryType: "DEAL_ENTRY_OUT" })], 140714);
+    const groups = groupOwnedDeals(
+      [deal({}), deal({ id: "d2", entryType: "DEAL_ENTRY_OUT" })],
+      140714,
+    );
     expect(groups).toHaveLength(1);
     expect(groups[0]!.basis).toBe("client_id_and_magic");
     expect(groups[0]!.orderRef).toBe("4821");

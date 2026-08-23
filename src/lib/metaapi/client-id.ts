@@ -2,7 +2,8 @@
  * MetaApi `clientId` construction — the PRIMARY ownership key linking a
  * P-Trades order to the broker's own order/deal records.
  *
- * MetaApi constrains clientId to at most 31 characters and to the pattern
+ * MetaApi constrains `comment` + `clientId` to at most 26 characters and the
+ * client id to the pattern
  * `strategyId_positionId_orderId`, where each part matches `[0-9A-Za-z_]*`.
  * A clientId that is truncated or malformed would silently break
  * reconciliation, so this builder fails loudly instead of guessing.
@@ -10,7 +11,9 @@
  * Pure: no fetch, no env, no clock.
  */
 
-export const CLIENT_ID_MAX_LENGTH = 31;
+// Direct orders deliberately omit the optional broker comment, leaving the
+// entire documented combined budget to the ownership key.
+export const CLIENT_ID_MAX_LENGTH = 26;
 const PART_RE = /^[0-9A-Za-z]+$/;
 
 /** P-Trades strategy tag; short on purpose to leave room for the ids. */
@@ -40,7 +43,7 @@ export interface ClientIdParts {
  * Build `strategyId_positionRef_orderRef`.
  *
  * Both refs are sanitised, then the position ref is shortened from the LEFT
- * (keeping its most-random tail) only as far as needed to fit 31 characters.
+ * (keeping its most-random tail) only as far as needed to fit 26 characters.
  * If it cannot fit while keeping both refs distinguishable, we throw.
  */
 export function buildClientId(parts: ClientIdParts): string {
@@ -69,7 +72,9 @@ export function buildClientId(parts: ClientIdParts): string {
 
   const clientId = `${strategyId}_${positionRef}_${orderRef}`;
   if (clientId.length > CLIENT_ID_MAX_LENGTH) {
-    throw new ClientIdError(`clientId ${clientId.length} characters exceeds ${CLIENT_ID_MAX_LENGTH}`);
+    throw new ClientIdError(
+      `clientId ${clientId.length} characters exceeds ${CLIENT_ID_MAX_LENGTH}`,
+    );
   }
   return clientId;
 }

@@ -112,7 +112,7 @@ const VerifyTradePricesEmail = ({
 
 export const template = {
   component: VerifyTradePricesEmail,
-  subject: (data: Record<string, any>) => {
+  subject: (data: Record<string, unknown>) => {
     const n = Number(data["missingCount"] ?? 0);
     return n === 1
       ? "P-Trades Hub — 1 logged trade is missing its fill prices"

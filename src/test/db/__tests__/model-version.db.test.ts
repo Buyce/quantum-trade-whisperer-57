@@ -236,6 +236,15 @@ describe("scan queue claim", () => {
     expect(stored?.status).toBe("processing");
     expect(stored?.run_id).toBe(runId);
   });
+
+  it("[INVARIANT] ordinary authenticated users cannot read raw scan telemetry", () => {
+    guard();
+    const err = db.expectFailureAsRole("authenticated", "select * from public.scan_queue limit 1", {
+      sub: "00000000-0000-0000-0000-000000000001",
+      role: "authenticated",
+    });
+    expect(err).toMatch(/permission denied|row-level security/i);
+  });
 });
 
 describe("regime snapshots", () => {

@@ -1,5 +1,5 @@
 export type Timeframe = "H4" | "H1" | "M15";
-/** A+ is the institutional-confluence tier: an A structure with all 4 pillars. */
+/** A+ is the four-rule-confluence tier: an A structure with all 4 pillars. */
 export type Grade = "A+" | "A" | "B" | "C";
 export type Direction = "long" | "short";
 export type Bias = "bullish" | "bearish" | "neutral";
@@ -34,15 +34,15 @@ export interface TimeframeRead {
   rangeHigh: number;
   /** Low of the recent range on this timeframe — the barrier a short runs into. */
   rangeLow: number;
-  /** True when price is reacting inside the Point C liquidity zone. */
+  /** True when price passes V1's recent-range Point-C test. */
   atPointC: boolean;
 }
 
-/** The four institutional confluence pillars, each scored 0-100. */
+/** The four deterministic confluence pillars, each scored 0-100. */
 export interface PillarScores {
   /** Pillar 1 — H4/H1/M15 moving-average stack pointing the same way. */
   trend: number;
-  /** Pillar 2 — Point C lands inside an H1/H4 institutional supply/demand zone. */
+  /** Pillar 2 — Point C proximity to an H1/H4 OHLC-derived zone heuristic. */
   orderBlock: number;
   /** Pillar 3 — M15 RSI extreme or divergence at Point C. */
   momentum: number;
@@ -98,7 +98,7 @@ export interface TradeProfile {
 }
 
 /**
- * Institutional confluence weighting: 35% trend alignment, 25% order-block
+ * Four-rule confluence weighting: 35% trend alignment, 25% OHLC-zone
  * retest, 20% momentum exhaustion, 20% volatility expansion. R:R is applied
  * afterwards as a multiplier cap rather than a fifth weight, so a great
  * structure with a poor payoff cannot score highly.

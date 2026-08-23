@@ -8,6 +8,7 @@ import {
   type EligibilitySettings,
 } from "@/lib/delivery/eligibility";
 import { RETENTION_HOURS } from "@/lib/db-types";
+import { presentSignalBreakdown } from "@/lib/scanner/copy";
 
 /** Grades at or above the requested tier — applied in SQL, before the limit. */
 const GRADE_TIERS = ["C", "B", "A", "A+"] as const;
@@ -206,6 +207,13 @@ async function sessionsFor(
  * described as the scanner having found no setup.
  */
 function respond(rows: Record<string, unknown>[], scope: string) {
+  const presented = rows.map((row) => ({
+    ...row,
+    qualitative_breakdown:
+      typeof row["qualitative_breakdown"] === "string"
+        ? presentSignalBreakdown(row["qualitative_breakdown"])
+        : row["qualitative_breakdown"],
+  }));
   const empty =
     scope === "my_scanner"
       ? "No currently eligible signals match your scanner settings, requested filters, retention window and daily cap."
@@ -214,9 +222,9 @@ function respond(rows: Record<string, unknown>[], scope: string) {
     content: [
       {
         type: "text" as const,
-        text: rows.length === 0 ? empty : JSON.stringify(rows),
+        text: presented.length === 0 ? empty : JSON.stringify(presented),
       },
     ],
-    structuredContent: { scope, count: rows.length, signals: rows },
+    structuredContent: { scope, count: presented.length, signals: presented },
   };
 }

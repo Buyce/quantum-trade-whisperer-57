@@ -190,8 +190,8 @@ export function RegimeTable({ rows }: { rows: AdminRegimeRow[] }) {
         </tbody>
       </table>
       <p className="mt-2 text-[10px] text-muted-foreground">
-        Shrunk value first, raw empirical rate in brackets. Probabilities stay advisory until a gate
-        passes.
+        Shrunk replay rate first, raw empirical rate in brackets. Reporting gates do not make these
+        in-sample summaries predictive or actionable.
       </p>
     </div>
   );
@@ -257,7 +257,7 @@ export function DisciplinePanel({ discipline }: { discipline: AdminDiscipline })
     { key: "Taken", side: discipline.taken },
     { key: "Skipped", side: discipline.skipped },
   ];
-  const edge =
+  const difference =
     discipline.skipped.win_rate != null && discipline.taken.win_rate != null
       ? discipline.skipped.win_rate - discipline.taken.win_rate
       : null;
@@ -291,11 +291,11 @@ export function DisciplinePanel({ discipline }: { discipline: AdminDiscipline })
           ))}
         </tbody>
       </table>
-      {edge != null ? (
+      {difference != null ? (
         <p className="text-[11px] text-muted-foreground">
-          {edge > 0
-            ? `Skipped setups won ${(edge * 100).toFixed(1)}pp more often — users may be filtering out the best trades.`
-            : `Taken setups won ${(Math.abs(edge) * 100).toFixed(1)}pp more often — the filtering is adding value.`}
+          {difference > 0
+            ? `In this replay sample, skipped setups won ${(difference * 100).toFixed(1)}pp more often.`
+            : `In this replay sample, taken setups won ${(Math.abs(difference) * 100).toFixed(1)}pp more often.`}
         </p>
       ) : null}
       <p className="text-[11px] text-muted-foreground">
@@ -458,7 +458,7 @@ export function IntersectionTable({ rows }: { rows: AdminFeedRow[] }) {
 export { timeAgo, num, pctOf };
 
 /**
- * Weekly A/A+ vs B/C shadow comparison with significance testing.
+ * Weekly A/A+ vs B/C shadow comparison with diagnostic uncertainty.
  * Every figure is an aggregate over live shadow rows; an under-powered
  * comparison reports "insufficient" rather than a number.
  */
@@ -507,7 +507,9 @@ export function WeeklyTierPanel({ report }: { report: WeeklyReport | undefined }
                 variant={c.verdict === "significant" ? "default" : "secondary"}
                 className="text-[10px]"
               >
-                {c.verdict.replace(/_/g, " ")}
+                {c.verdict === "significant"
+                  ? "diagnostic threshold crossed"
+                  : c.verdict.replace(/_/g, " ")}
               </Badge>
             </div>
             <p className="mt-1 font-mono text-muted-foreground">
@@ -690,8 +692,8 @@ export function UserIntegrityPanel({ report }: { report: UserAuditReport | undef
       )}
 
       <p className="text-[10px] text-muted-foreground">
-        Observational only. The Bayesian learning engine trains exclusively on deterministic shadow
-        replay labels and never reads user-reported outcomes.
+        Observational only. The learning summaries use deterministic shadow replay labels and never
+        read user-reported outcomes. They are in-sample rates, not forecasts.
       </p>
     </div>
   );

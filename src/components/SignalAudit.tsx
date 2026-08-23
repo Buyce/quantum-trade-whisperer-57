@@ -42,7 +42,7 @@ export function SignalAudit() {
   });
   const [grade, setGrade] = useState<"all" | (typeof GRADE_TIERS)[number]>("all");
 
-  const rows = data ?? [];
+  const rows = useMemo(() => data ?? [], [data]);
 
   const tiers = useMemo(
     () =>

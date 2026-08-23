@@ -5,9 +5,9 @@ import { Button } from "@/components/ui/button";
 const KEY = "ptrades.onboarding.dismissed";
 
 const STEPS = [
-  "The scanner reviews XAUUSD, GBPAUD and EURUSD every 15 minutes and only publishes setups that pass its rules — so an empty feed is normal.",
+  "The scanner reviews XAUUSD, GBPAUD and EURUSD every 15 minutes. An empty filtered feed is normal, but it is not a scanner-health verdict — use the heartbeat for that.",
   "Each card is a plan, not an instruction: it shows the pending limit order, entry, stop-loss and only the take-profit levels the structure can actually reach, plus how far price currently sits from entry.",
-  "Use Copy order details to paste the levels into your broker, then log the setup as Taken or Skipped so the Performance page can measure your edge.",
+  "Use Copy order details to paste the levels into your broker, then log the setup as Taken or Skipped so the Performance page can describe your recorded sample.",
 ];
 
 export function OnboardingBanner() {

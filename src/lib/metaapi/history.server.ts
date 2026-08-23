@@ -8,6 +8,15 @@ import { isPTradesClientId } from "./client-id";
 import { metaApiRequest } from "./request.server";
 import type { BrokerDeal, BrokerOrder } from "./types";
 
+/** MetaApi documents 1,000 as the maximum history page size. */
+export const HISTORY_PAGE_SIZE = 1_000;
+/**
+ * A reconciliation pass must be bounded, but it must never silently return a
+ * partial population. Hitting this guard throws and the evidence worker records
+ * the source as unavailable instead of publishing incomplete broker evidence.
+ */
+export const HISTORY_MAX_PAGES = 10;
+
 function range(startTime: Date, endTime: Date): string {
   return `${encodeURIComponent(startTime.toISOString())}/${encodeURIComponent(endTime.toISOString())}`;
 }
@@ -18,13 +27,14 @@ export async function fetchHistoryOrders(
   startTime: Date,
   endTime: Date,
 ): Promise<BrokerOrder[]> {
-  const raw = await metaApiRequest<BrokerOrder[]>({
-    service: "client",
+  return await fetchHistoryPages<BrokerOrder>({
+    accountId,
     region,
+    startTime,
+    endTime,
+    resource: "history-orders",
     label: "history orders",
-    path: `/users/current/accounts/${accountId}/history-orders/time/${range(startTime, endTime)}`,
   });
-  return Array.isArray(raw) ? raw : [];
 }
 
 export async function fetchDeals(
@@ -33,13 +43,43 @@ export async function fetchDeals(
   startTime: Date,
   endTime: Date,
 ): Promise<BrokerDeal[]> {
-  const raw = await metaApiRequest<BrokerDeal[]>({
-    service: "client",
+  return await fetchHistoryPages<BrokerDeal>({
+    accountId,
     region,
+    startTime,
+    endTime,
+    resource: "history-deals",
     label: "history deals",
-    path: `/users/current/accounts/${accountId}/history-deals/time/${range(startTime, endTime)}`,
   });
-  return Array.isArray(raw) ? raw : [];
+}
+
+async function fetchHistoryPages<T>(input: {
+  accountId: string;
+  region: string;
+  startTime: Date;
+  endTime: Date;
+  resource: "history-orders" | "history-deals";
+  label: string;
+}): Promise<T[]> {
+  const rows: T[] = [];
+  for (let page = 0; page < HISTORY_MAX_PAGES; page += 1) {
+    const offset = page * HISTORY_PAGE_SIZE;
+    const raw = await metaApiRequest<T[]>({
+      service: "client",
+      region: input.region,
+      label: `${input.label} page ${page + 1}`,
+      path:
+        `/users/current/accounts/${input.accountId}/${input.resource}/time/` +
+        `${range(input.startTime, input.endTime)}?offset=${offset}&limit=${HISTORY_PAGE_SIZE}`,
+    });
+    const pageRows = Array.isArray(raw) ? raw : [];
+    rows.push(...pageRows);
+    if (pageRows.length < HISTORY_PAGE_SIZE) return rows;
+  }
+
+  throw new Error(
+    `MetaApi ${input.label} exceeded ${HISTORY_MAX_PAGES * HISTORY_PAGE_SIZE} rows; refusing a partial reconciliation`,
+  );
 }
 
 /** Only the deals P-Trades itself owns, by clientId. Manual trades stay out. */

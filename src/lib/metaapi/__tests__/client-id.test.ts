@@ -15,13 +15,14 @@ describe("metaapi clientId", () => {
     ).toBe("PT_abc123_1");
   });
 
-  it("[INVARIANT] never exceeds MetaApi's 31-character limit", () => {
+  it("[INVARIANT] never exceeds MetaApi's documented 26-character combined budget", () => {
     const id = buildClientId({
       strategyId: PTRADES_STRATEGY_ID,
       positionRef: "0d4f8a2c-91b7-4c3e-9a11-77ce55aa1234",
       orderRef: "attempt7",
     });
     expect(id.length).toBeLessThanOrEqual(CLIENT_ID_MAX_LENGTH);
+    expect(CLIENT_ID_MAX_LENGTH).toBe(26);
     expect(isPTradesClientId(id)).toBe(true);
   });
 

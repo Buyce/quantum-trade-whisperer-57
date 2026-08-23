@@ -8,6 +8,7 @@ import {
   type RSample,
 } from "../performance";
 import type { Grade } from "../db-types";
+import { collectCompleteEvidencePages } from "../performance-evidence.server";
 
 const SEED = 20_260_821;
 
@@ -159,5 +160,18 @@ describe("broker Performance evidence separation", () => {
     const samples = samplesFromBrokerEvidence(evidence, "actual_risk");
     expect(samples).toHaveLength(1);
     expect(samples[0]?.r).toBe(1.25);
+  });
+
+  it("[INVARIANT] Performance reads past the first 1,000 closed broker rows", async () => {
+    const fetchPage = async (from: number) =>
+      from === 0 ? Array.from({ length: 1_000 }, (_, i) => i) : [1_000];
+    await expect(collectCompleteEvidencePages(fetchPage)).resolves.toHaveLength(1_001);
+  });
+
+  it("[INVARIANT] Performance refuses a bounded but incomplete population", async () => {
+    const fetchPage = async () => Array.from({ length: 2 }, (_, i) => i);
+    await expect(collectCompleteEvidencePages(fetchPage, 2, 2)).rejects.toThrow(
+      /refusing incomplete metrics/,
+    );
   });
 });

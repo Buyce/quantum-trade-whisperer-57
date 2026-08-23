@@ -70,7 +70,7 @@ const LearningMilestoneEmail = ({
 
 export const template = {
   component: LearningMilestoneEmail,
-  subject: (data: Record<string, any>) =>
+  subject: (data: Record<string, unknown>) =>
     data["gate"] === "win"
       ? "P-Trades Hub — win-rate gate cleared (200 filled samples)"
       : "P-Trades Hub — fill-rate gate cleared (150 resolved samples)",

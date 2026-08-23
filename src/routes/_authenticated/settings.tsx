@@ -416,7 +416,7 @@ function SettingsPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="A+">A+ only — full institutional confluence</SelectItem>
+                    <SelectItem value="A+">A+ only — all four rule pillars</SelectItem>
                     <SelectItem value="A">A and above — perfect alignment</SelectItem>
                     <SelectItem value="B">B and above</SelectItem>
                     <SelectItem value="C">C and above — everything</SelectItem>

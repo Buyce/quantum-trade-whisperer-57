@@ -204,7 +204,7 @@ const SignalAlert = ({
 
 export const template = {
   component: SignalAlert,
-  subject: (data: Record<string, any>) =>
+  subject: (data: Record<string, unknown>) =>
     `${data["grade"] ?? "New"}-grade ${String(data["direction"] ?? "setup").toUpperCase()} · ${data["instrument"] ?? "signal"}`,
   displayName: "Signal alert",
   previewData: {
@@ -225,7 +225,7 @@ export const template = {
     rrRatio: "1:3.0",
     confidence: "82",
     breakdown:
-      "H4, H1 and M15 moving averages are aligned bullish and price is testing the Point C liquidity zone with symmetric ABC legs.",
+      "H4, H1 and M15 moving averages are aligned bullish and price passes the recent-range Point-C test; pattern symmetry is diagnostic only.",
   },
 } satisfies TemplateEntry;
 

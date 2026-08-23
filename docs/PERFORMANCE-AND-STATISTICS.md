@@ -19,7 +19,9 @@ The user chooses exactly one source:
 | P-Trades Benchmark | **CONTROLLED BENCHMARK**     | Closed, associated deals from the dedicated P-Trades demo benchmark policy                |
 
 No source falls back to another when empty. Deterministic scanner replay is
-research-only and is not a Performance source.
+research-only and is not a Performance source. Source queries are paginated and
+fail closed at their explicit safety bound; a capped subset is never presented as
+the complete Performance population.
 
 ```text
 Expectancy in R = (win rate x average win in R) - (loss rate x average loss in R)

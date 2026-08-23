@@ -1,4 +1,4 @@
-import type { ComponentType } from "react";
+import type { ElementType } from "react";
 import { template as signalAlertTemplate } from "./signal-alert";
 import { template as accountCancellationTemplate } from "./account-cancellation";
 import { template as accountCancellationAdminTemplate } from "./account-cancellation-admin";
@@ -9,10 +9,10 @@ import { template as weeklyShadowReportTemplate } from "./weekly-shadow-report";
 import { template as verifyTradePricesTemplate } from "./verify-trade-prices";
 
 export interface TemplateEntry {
-  component: ComponentType<any>;
-  subject: string | ((data: Record<string, any>) => string);
+  component: ElementType;
+  subject: string | ((data: Record<string, unknown>) => string);
   displayName?: string;
-  previewData?: Record<string, any>;
+  previewData?: Record<string, unknown>;
   /** Fixed recipient — overrides caller-provided recipientEmail when set. */
   to?: string;
 }

@@ -7,6 +7,7 @@ import type { PerformanceEvidenceRow, PerformanceEvidenceSource } from "@/lib/pe
 type Db = SupabaseClient<never, never, never>;
 
 interface EvidenceDbRow {
+  id: string;
   signal_id: string | null;
   signal_instrument: string | null;
   signal_grade: string | null;
@@ -37,11 +38,41 @@ interface ContextSnapshot {
 }
 
 const GRADES = new Set<string>(["A+", "A", "B", "C"]);
+export const PERFORMANCE_EVIDENCE_PAGE_SIZE = 1_000;
+export const PERFORMANCE_EVIDENCE_MAX_PAGES = 10;
 
 function finite(value: unknown): number | null {
   if (value === null || value === undefined || value === "") return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+/**
+ * Fetch a complete, bounded population. Reaching the guard is an error rather
+ * than a plausible-looking partial metric; callers then render the existing
+ * incomplete-data warning and no source-wide empty claim is made.
+ */
+export async function collectCompleteEvidencePages<T>(
+  fetchPage: (from: number, to: number) => Promise<T[]>,
+  pageSize = PERFORMANCE_EVIDENCE_PAGE_SIZE,
+  maxPages = PERFORMANCE_EVIDENCE_MAX_PAGES,
+): Promise<T[]> {
+  const rows: T[] = [];
+  for (let page = 0; page < maxPages; page += 1) {
+    const from = page * pageSize;
+    const pageRows = await fetchPage(from, from + pageSize - 1);
+    rows.push(...pageRows);
+    if (pageRows.length < pageSize) return rows;
+  }
+  throw new Error(
+    `Performance evidence exceeded ${pageSize * maxPages} closed rows; refusing incomplete metrics`,
+  );
+}
+
+function chunks<T>(rows: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < rows.length; i += size) out.push(rows.slice(i, i + size));
+  return out;
 }
 
 export async function loadPerformanceEvidence(
@@ -57,20 +88,22 @@ export async function loadPerformanceEvidence(
       ? (requestingClient as Db)
       : ((await import("@/integrations/supabase/client.server")).supabaseAdmin as unknown as Db);
 
-  let evidenceQuery = db
-    .from("broker_trade_evidence" as never)
-    .select(
-      "signal_id, signal_instrument, signal_grade, signal_detected_at, signal_trading_session, signal_time_of_day, signal_day_of_week, broker_symbol, entry_at, resolved_at, first_observed_at, r_vs_plan, r_vs_actual_risk",
-    )
-    .eq("evidence_class", source)
-    .eq("state", "closed")
-    .order("resolved_at", { ascending: false })
-    .limit(1000);
-  if (source === "customer") evidenceQuery = evidenceQuery.eq("user_id", userId);
-
-  const { data, error } = await evidenceQuery;
-  if (error) throw new Error(error.message);
-  const evidence = (data ?? []) as unknown as EvidenceDbRow[];
+  const evidence = await collectCompleteEvidencePages<EvidenceDbRow>(async (from, to) => {
+    let evidenceQuery = db
+      .from("broker_trade_evidence" as never)
+      .select(
+        "id, signal_id, signal_instrument, signal_grade, signal_detected_at, signal_trading_session, signal_time_of_day, signal_day_of_week, broker_symbol, entry_at, resolved_at, first_observed_at, r_vs_plan, r_vs_actual_risk",
+      )
+      .eq("evidence_class", source)
+      .eq("state", "closed")
+      .order("resolved_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(from, to);
+    if (source === "customer") evidenceQuery = evidenceQuery.eq("user_id", userId);
+    const { data, error } = await evidenceQuery;
+    if (error) throw new Error(error.message);
+    return (data ?? []) as unknown as EvidenceDbRow[];
+  });
   if (evidence.length === 0) return [];
 
   const signalIds = [...new Set(evidence.map((row) => row.signal_id).filter(Boolean))] as string[];
@@ -78,23 +111,28 @@ export async function loadPerformanceEvidence(
   const contexts = new Map<string, ContextSnapshot>();
 
   if (signalIds.length > 0) {
-    const [signalResult, contextResult] = await Promise.all([
-      db
-        .from("scanned_signals" as never)
-        .select("id, instrument, grade, detected_at")
-        .in("id", signalIds),
-      db
-        .from("market_context" as never)
-        .select("signal_id, trading_session, time_of_day, day_of_week")
-        .in("signal_id", signalIds),
-    ]);
-    if (signalResult.error) throw new Error(signalResult.error.message);
-    if (contextResult.error) throw new Error(contextResult.error.message);
-    for (const row of (signalResult.data ?? []) as unknown as SignalSnapshot[]) {
-      signals.set(row.id, row);
-    }
-    for (const row of (contextResult.data ?? []) as unknown as ContextSnapshot[]) {
-      contexts.set(row.signal_id, row);
+    // PostgREST `in(...)` URLs become unreliable with thousands of UUIDs. New
+    // evidence carries snapshots, but legacy fallbacks are loaded in bounded
+    // chunks so an otherwise complete Performance population stays readable.
+    for (const ids of chunks(signalIds, 200)) {
+      const [signalResult, contextResult] = await Promise.all([
+        db
+          .from("scanned_signals" as never)
+          .select("id, instrument, grade, detected_at")
+          .in("id", ids),
+        db
+          .from("market_context" as never)
+          .select("signal_id, trading_session, time_of_day, day_of_week")
+          .in("signal_id", ids),
+      ]);
+      if (signalResult.error) throw new Error(signalResult.error.message);
+      if (contextResult.error) throw new Error(contextResult.error.message);
+      for (const row of (signalResult.data ?? []) as unknown as SignalSnapshot[]) {
+        signals.set(row.id, row);
+      }
+      for (const row of (contextResult.data ?? []) as unknown as ContextSnapshot[]) {
+        contexts.set(row.signal_id, row);
+      }
     }
   }
 

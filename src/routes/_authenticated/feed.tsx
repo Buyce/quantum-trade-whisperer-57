@@ -222,9 +222,9 @@ function FeedPage() {
     }
     if (openOnly) rows = rows.filter((s) => s.status === "active");
     if (sortBy === "winProb") {
-      // Only setups whose BOTH sample gates have cleared can be ranked on the
-      // joint win probability; everything else keeps its recency order below
-      // them rather than being scored on an unproven prior.
+      // Only setups whose BOTH reporting floors have cleared can be ranked on
+      // the descriptive replay joint rate; everything else keeps its recency
+      // order below. This is not a forecast or live-performance estimate.
       const ev = (s: SignalRow) => {
         const v = s.p_joint_prior ?? s.ev_prior;
         if (v == null) return null;
@@ -301,14 +301,14 @@ function FeedPage() {
 
   // One summary chip instead of a wall of badges: the detail lives in the popover.
   const filterSummary = !applyFilters
-    ? `All published setups${sortBy === "winProb" ? " · by win probability" : ""}`
+    ? `Published setup view${sortBy === "winProb" ? " · by replay joint rate" : ""}`
     : cfg
       ? [
           `${cfg.instruments.length || "all"} instrument${cfg.instruments.length === 1 ? "" : "s"}`,
           `min ${cfg.min_grade}`,
           `${cfg.sessions.length || "all"} session${cfg.sessions.length === 1 ? "" : "s"}`,
           openOnly ? "active only" : null,
-          sortBy === "winProb" ? "by win probability" : null,
+          sortBy === "winProb" ? "by replay joint rate" : null,
         ]
           .filter(Boolean)
           .join(" · ")
@@ -325,8 +325,8 @@ function FeedPage() {
       <GuideNote anchor="grades">
         Grades describe structure quality, not the odds of winning: A+ is an A-grade structure with
         all four confluence pillars passing. The confidence score is a rule-satisfaction score,
-        never a win probability. An empty feed means no structure qualified — that is a result, not
-        a fault.
+        never a win probability. An empty feed means only that no retained setup matched this view's
+        filters, cap and display window; use the heartbeat for scanner health.
       </GuideNote>
 
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 sm:flex sm:flex-wrap">
@@ -370,9 +370,9 @@ function FeedPage() {
               <div className="border-t border-border pt-3">
                 <p className="label-xs">Order</p>
                 <p className="mt-1 text-xs leading-snug text-muted-foreground">
-                  Win probability ranks by the estimated joint win probability (fill x win). It is a
-                  probability, not a return. Setups without enough samples on both gates stay in
-                  newest-first order at the bottom.
+                  Replay joint rate orders by the product of two smoothed historical replay rates:
+                  fill and TP1-if-filled. It is descriptive, not a forecast, expected return or live
+                  track record. Setups below either reporting floor stay newest-first at the bottom.
                 </p>
                 <div className="mt-2 grid grid-cols-2 gap-1.5">
                   <Button
@@ -387,7 +387,7 @@ function FeedPage() {
                     variant={sortBy === "winProb" ? "default" : "outline"}
                     onClick={() => setSortBy("winProb")}
                   >
-                    Win prob.
+                    Replay rate
                   </Button>
                 </div>
               </div>
@@ -495,28 +495,26 @@ function FeedPage() {
         </p>
       ) : visible.length === 0 ? (
         <div className="rounded-md border border-border bg-card px-4 py-10 text-center sm:px-6 sm:py-16">
-          <p className="num text-lg font-semibold text-foreground">
-            {guide ? "CAPITAL PRESERVATION MODE" : "NO TRADE"}
-          </p>
+          <p className="num text-lg font-semibold text-foreground">NO SETUPS IN THIS VIEW</p>
           {guide ? (
             <div className="mx-auto mt-3 max-w-lg space-y-3 text-sm text-muted-foreground">
               <p>
-                Nothing here means nothing qualified — and that is a result, not a failure. The
-                scanner keeps your capital flat until a setup earns its place.
+                No retained published setup matched this view's current filters, daily cap and
+                display window. That does not prove the current scan cycle produced no valid setup.
               </p>
               <p>
                 It re-checks XAUUSD, GBPAUD and EURUSD every 15 minutes. New setups appear here
                 automatically, so you can close the tab and come back later.
               </p>
               <p className="text-xs">
-                Waiting too long? Loosen the minimum grade or add sessions in Settings, or turn off
-                "My settings filter" above to see everything the scanner published.
+                To widen this view, adjust the minimum grade or sessions in Settings, or turn off
+                "My settings filter" above. The heartbeat below is the scanner-health authority.
               </p>
             </div>
           ) : (
             <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-              No setup currently satisfies your grading and session filters. This is the system
-              default, not an error — the scanner only publishes structures that pass the ABC rules.
+              No retained published setup matches this view's filters, cap and display window. This
+              is not a scanner-wide No Trade claim; check the heartbeat below for scanner health.
             </p>
           )}
           <div className="mt-6">

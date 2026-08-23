@@ -222,8 +222,8 @@ const SECTIONS: Section[] = [
         id: "grades",
         q: "What do A+, A, B and C mean?",
         a: [
-          "The scanner looks for an ABC retracement: a strong move, then a pull-back into a decision zone called Point C. Each structure is tested against four confluence pillars — trend alignment across H4/H1/M15, whether Point C sits inside an institutional order block, momentum exhaustion, and volatility expansion. A pillar passes at 60 out of 100.",
-          "A+ is an A-grade structure with all four pillars passing. A is strong multi-timeframe alignment at Point C. B has H1/M15 alignment but a higher-timeframe obstacle ahead. C is an aggressive M15 mean-reversion break with the higher timeframes disagreeing.",
+          "The active V1 scanner uses a deterministic OHLC heuristic called ABC: A and B are swing points, while C is the lowest/highest extreme in the latest six M15 candles. V1 does not enforce a canonical retracement band or full A→B→C chronology. Corrected V2/V3 geometry exists only in isolated research and is not the published engine.",
+          "Its four rule pillars are trend alignment, proximity to an OHLC-derived supply/demand-zone heuristic, momentum and volatility expansion. They do not measure institutional orders or order flow. A+ is an A with all four pillars passing; A requires H4/H1/M15 alignment plus the separate timeframe Point-C test; B is any remaining H1/M15 alignment; C is any remaining non-neutral M15 read, not a validated mean-reversion setup.",
           "A grade describes structure quality. It is not a forecast.",
         ],
       },
@@ -264,7 +264,7 @@ const SECTIONS: Section[] = [
         id: "targets",
         q: "Why is the third target sometimes missing?",
         a: [
-          "Targets are only published when the structure can actually reach them before the nearest unbroken H4 barrier. If it cannot, the third target is absent and the setup is marked capped. A target that price would have to walk through a wall to reach is not a target.",
+          "In active V1, target reach is capped by the high or low of the recent 60-bar H4 range. The grade's headroom test uses a different unbroken-swing measure, so the two are not one canonical barrier. If V1's range-extreme maxR is below 3, targets are compressed and TP3 may be absent. V2/V3 unify the barrier, but remain research-only.",
         ],
       },
     ],
@@ -410,8 +410,8 @@ const SECTIONS: Section[] = [
         id: "shadow",
         q: "What is shadow replay?",
         a: [
-          "Every published setup is forward-tested against real stored candles under one fixed policy: a single pending order exiting at the first target. No order is ever placed and no money is involved.",
-          "It is deliberately pessimistic. When a single M15 candle contains the entry, the stop and the target, M15 data cannot reveal which came first — so the loss is assumed.",
+          "Published setups are forward-tested against real stored candles. The frozen production Replay V1 uses the historical legacy_best_target_touched policy; corrected research Replay V2 uses a single pending order exiting at TP1. Every result names its replay version and policy. No order is placed and no money is involved.",
+          "Replay V1 is retained for historical comparability and has known optimistic defects, including deepest-target credit and fill-before-TIF ordering. Replay V2 checks TIF first, uses actual fill-to-stop risk and resolves unknowable same-bar stop/target order conservatively. Neither is a live track record or a forecast.",
         ],
       },
       {

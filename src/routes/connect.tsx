@@ -51,11 +51,11 @@ const TOOL_ROWS: [string, string][] = [
   ],
   [
     "get_intelligence",
-    "Regime statistics from the learning engine: shrunk fill and win-if-filled priors, sample sizes, gate status and feature influence. Descriptive, not predictive.",
+    "In-sample regime replay summaries: hierarchically shrunk fill, TP1-if-filled and joint rates, sample sizes, reporting-gate status and descriptive feature associations. Not a forecast, expected return or live track record.",
   ],
   [
     "get_shadow_comparison",
-    "Weekly shadow-replay comparison of A+/A against B/C, with sample sizes and significance. Replay only — no order was placed.",
+    "Weekly Replay-V1 comparison of A+/A against B/C, with sample sizes and diagnostic uncertainty. In-sample replay only — not broker performance, prediction or a placed order.",
   ],
   ["log_trade_decision", "Record that you took or skipped a signal."],
   [
@@ -264,38 +264,31 @@ function ConnectPage() {
               <h3 className="text-sm font-semibold text-foreground">ChatGPT</h3>
               <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
                 Custom MCP servers are connected through ChatGPT developer mode, documented in{" "}
-                <Ext href="https://help.openai.com/en/articles/12584461-developer-mode-and-mcp-apps-in-chatgpt">
-                  OpenAI's “Developer mode and MCP apps in ChatGPT” help article
+                <Ext href="https://developers.openai.com/api/docs/guides/developer-mode">
+                  OpenAI's “ChatGPT developer mode” guide
                 </Ext>
-                , which is the authoritative source for this page. OpenAI documents full MCP support{" "}
-                <em>including modify/write actions</em> as a beta on ChatGPT Business, Enterprise
-                and Edu. ChatGPT Pro custom apps are documented only for read/fetch style MCP use,
-                so write tools are not expected there. P-Trades Hub does expose write tools —{" "}
+                , which is the authoritative source for this page. OpenAI currently documents full
+                MCP client support for read and write tools on Pro, Plus, Business, Enterprise and
+                Education accounts on the web. P-Trades Hub exposes write tools —{" "}
                 <code className="num">update_my_settings</code>,{" "}
                 <code className="num">log_trade_decision</code>,{" "}
-                <code className="num">update_trade_outcome</code> — but actual availability depends
-                on your ChatGPT plan and workspace permissions, not on this app. Reading setups,
-                status, sizing and your journal works wherever developer mode and read tools are
-                available.
+                <code className="num">update_trade_outcome</code> — so inspect every proposed write
+                and its JSON before approving it. Availability still depends on your account and,
+                for managed workspaces, administrator policy.
               </p>
               <Steps
                 items={[
                   <>
-                    Have developer access enabled for your account by a workspace Admin or Owner. On{" "}
-                    <strong className="text-foreground">Business</strong>, Admins and Owners enable
-                    developer mode through the workspace/admin Apps flow OpenAI documents. On{" "}
-                    <strong className="text-foreground">Enterprise/Edu</strong>, an Admin grants
-                    developer access to selected members, who then use{" "}
-                    <strong className="text-foreground">Settings</strong> →{" "}
-                    <strong className="text-foreground">Apps</strong> →{" "}
-                    <strong className="text-foreground">Advanced Settings</strong>. The workspace
-                    role/RBAC prerequisite applies before any app can be created.
+                    On ChatGPT web, open <strong className="text-foreground">Settings</strong> →{" "}
+                    <strong className="text-foreground">Security and login</strong>, then turn on{" "}
+                    <strong className="text-foreground">Developer mode</strong>. A managed workspace
+                    may restrict this setting.
                   </>,
                   <>
-                    Open <strong className="text-foreground">Settings</strong> →{" "}
-                    <strong className="text-foreground">Apps</strong> →{" "}
-                    <strong className="text-foreground">Create</strong> (or the equivalent workspace
-                    Apps → Create flow) to add a developer-mode app for a remote MCP server.
+                    Open <strong className="text-foreground">ChatGPT Plugins</strong>, select the
+                    plus button and create a developer-mode app for a remote MCP server. New apps
+                    appear under <strong className="text-foreground">Drafts</strong> in app
+                    settings.
                   </>,
                   <>
                     Name it <strong className="text-foreground">P-Trades Hub</strong>, paste the
@@ -304,21 +297,19 @@ function ConnectPage() {
                     key is needed.
                   </>,
                   <>
-                    Select <strong className="text-foreground">Scan Tools</strong>, complete the
-                    P-Trades OAuth authorization, wait for the scan to finish, review the discovered
-                    tools, then select <strong className="text-foreground">Create</strong>. You can
-                    toggle individual tools on the app's details page.
+                    Complete P-Trades OAuth, review the discovered tools, then create the app. You
+                    can toggle individual tools and refresh their definitions on the app details
+                    page.
                   </>,
                   <>
-                    In a chat, enable P-Trades Hub for the conversation and ask ChatGPT to use it.
-                    ChatGPT may ask for confirmation before an action depending on permissions,
-                    action context and risk.
+                    In a chat, choose <strong className="text-foreground">Developer mode</strong>{" "}
+                    from the plus menu and select P-Trades Hub. Write actions require confirmation
+                    by default; review their inputs rather than approving them blindly.
                   </>,
                 ]}
               />
               <p className="mt-3 text-xs text-muted-foreground">
-                OpenAI states that functionality, UI and plan availability may change as this beta
-                iterates; if a step does not match what you see, trust OpenAI's help article linked
+                If a step does not match what you see, trust OpenAI's current developer guide linked
                 above over this page.
               </p>
             </TabsContent>

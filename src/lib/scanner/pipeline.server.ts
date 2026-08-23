@@ -26,6 +26,7 @@ import {
 } from "@/lib/research/enrol.server";
 
 import { atr } from "./indicators";
+import { presentSignalBreakdown } from "./copy";
 import { ACTIVE_MODEL_VERSION, observationKey } from "@/lib/versioning";
 import { fetchCandles, MetaApiNotConfiguredError, MetaApiTimeoutError } from "./metaapi.server";
 import {
@@ -528,7 +529,7 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
         h4_bias: profile.h4Bias,
         h1_bias: profile.h1Bias,
         m15_bias: profile.m15Bias,
-        qualitative_breakdown: profile.qualitativeBreakdown,
+        qualitative_breakdown: presentSignalBreakdown(profile.qualitativeBreakdown),
         detected_at: now.toISOString(),
         status: "active",
         resolved_outcome: "open",
@@ -600,7 +601,7 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
         tp3R: profile.tp3R,
         rrRatio: profile.rrRatio,
         confidence: profile.confidence.score,
-        breakdown: profile.qualitativeBreakdown,
+        breakdown: presentSignalBreakdown(profile.qualitativeBreakdown),
         session: sessionOf(now),
       });
     } catch (alertErr) {

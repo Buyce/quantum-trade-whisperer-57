@@ -15,7 +15,7 @@ export default defineTool({
   name: "get_intelligence",
   title: "Get learning intelligence",
   description:
-    "Read the Bayesian learning engine's regime statistics for a setup: shrunk fill and win-if-filled probabilities, expected value, sample sizes, which tier answered, whether the learning gates have cleared (advisory until then), plus the shrinkage ladder and the measured influence of each regime feature. Pass a signal_id, or an explicit instrument/direction/session bucket.",
+    "Read descriptive, hierarchically shrunk replay rates for a setup: fill rate, TP1-if-filled rate, their joint rate, sample sizes, which tier answered, reporting-gate status, the shrinkage ladder and descriptive feature associations. These are in-sample replay summaries, not forecasts, expected return or a live track record. Pass a signal_id, or an explicit instrument/direction/session bucket.",
   inputSchema: {
     signal_id: z.string().optional().describe("Signal id from list_signals."),
     instrument: z.string().optional().describe("XAUUSD, GBPAUD or EURUSD."),
@@ -114,11 +114,17 @@ export default defineTool({
       prior: {
         p_fill: prior.pFill,
         p_win_if_filled: prior.pWin,
-        // Deprecated key, unchanged semantics: a probability, not a return.
+        // Deprecated compatibility keys retain their numeric value. The labels
+        // below prevent clients from presenting an in-sample replay rate as a
+        // calibrated forecast or expected return.
         expected_value: prior.pJoint,
         expected_value_deprecated: true,
-        expected_value_semantics: "p_fill_times_p_win_if_filled_probability",
+        expected_value_semantics: "descriptive_p_fill_times_p_tp1_if_filled_replay_rate",
         joint_win_probability: prior.pJoint,
+        joint_win_probability_deprecated: true,
+        joint_replay_rate: prior.pJoint,
+        interpretation:
+          "descriptive_in_sample_replay_rate_not_forecast_expected_return_or_live_track_record",
         expected_r: null,
         expected_r_status: "not_available_admin_research_only",
         prior_status: prior.status,
@@ -137,7 +143,7 @@ export default defineTool({
         status:
           prior.fillGatePassed && prior.winGatePassed
             ? "active"
-            : "advisory — probabilities are displayed only and do not alter grading or alerts",
+            : "advisory — replay rates are displayed only and do not alter grading or alerts",
       },
       shrinkage_ladder: explanation?.ladder ?? [],
       feature_influence: explanation?.features ?? [],

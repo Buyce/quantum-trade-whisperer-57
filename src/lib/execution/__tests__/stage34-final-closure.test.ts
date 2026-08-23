@@ -101,10 +101,12 @@ function accountSpec(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function db(opts: {
-  accountSpecRow?: Record<string, unknown> | null;
-  settings?: Record<string, unknown> | null;
-} = {}) {
+function db(
+  opts: {
+    accountSpecRow?: Record<string, unknown> | null;
+    settings?: Record<string, unknown> | null;
+  } = {},
+) {
   const handler = (call: FakeCall) => {
     if (call.table === "scanner_settings") {
       const s = opts.settings === undefined ? customerSettings : opts.settings;
@@ -391,7 +393,9 @@ describe("final quantity comes from the pre-submit broker snapshot", () => {
       client,
       { id: 42, dry_run: false },
       plan,
-      authorised.ok ? authorised.quantity : { lots: 0, sizingModel: 1, specSource: "static_v1", specAsOf: null },
+      authorised.ok
+        ? authorised.quantity
+        : { lots: 0, sizingModel: 1, specSource: "static_v1", specAsOf: null },
       target(),
       async (snapshot) =>
         await resizeFromBrokerSnapshot(

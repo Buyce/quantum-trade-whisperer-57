@@ -5,6 +5,7 @@
  */
 import { contextOf, type SignalRow, type TradeHistoryRow } from "./db-types";
 import type { RSample } from "./performance";
+import { presentSignalBreakdown } from "./scanner/copy";
 
 /** Triggers a browser download for an in-memory blob. */
 export function downloadBlob(filename: string, blob: Blob) {
@@ -88,7 +89,7 @@ export function signalsToExportJson(signals: SignalRow[]) {
         status: s.status,
         resolved_outcome: s.resolved_outcome,
         resolved_r_multiple: s.resolved_r_multiple,
-        qualitative_breakdown: s.qualitative_breakdown,
+        qualitative_breakdown: presentSignalBreakdown(s.qualitative_breakdown),
       };
     }),
   };
@@ -235,7 +236,7 @@ export function historyToExportJson(rows: TradeHistoryRow[]) {
         note: "Costs are money, not price distance. Net R exists only with documented conversion provenance.",
       },
       notes: row.notes,
-      qualitative_breakdown: s.qualitative_breakdown,
+      qualitative_breakdown: presentSignalBreakdown(s.qualitative_breakdown),
     });
   }
   return {

@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
@@ -47,13 +47,13 @@ function AuthPage() {
   const navigate = useNavigate();
   const { next } = Route.useSearch();
   const nextPath = safeNext(next);
-  const afterAuth = () => {
+  const afterAuth = useCallback(() => {
     if (nextPath) {
       window.location.href = nextPath;
       return;
     }
     navigate({ to: "/feed", replace: true });
-  };
+  }, [navigate, nextPath]);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -64,7 +64,7 @@ function AuthPage() {
     void supabase.auth.getSession().then(({ data }) => {
       if (data.session) afterAuth();
     });
-  }, [navigate]);
+  }, [afterAuth]);
 
   async function signIn() {
     const parsed = credentials.safeParse({ email, password });

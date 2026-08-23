@@ -5,13 +5,15 @@ documentation and the MCP tools.
 
 ## Structure and grading
 
-**ABC structure** — the retracement geometry the scanner looks for: an impulse
-(A→B) and a retracement into a decision zone (C).
+**ABC structure** — in active V1, A/B are swing points and C is the latest-six-bar
+directional extreme; V1 does not enforce a canonical retracement band or full
+A→B→C chronology. Corrected V2/V3 geometry is research-only.
 
-**Point C** — the liquidity/retest zone where the setup becomes actionable.
+**Point C** — V1 has two related but non-canonical concepts: the latest-six-bar
+extreme used by the trade plan and a recent-range midpoint test used by grading.
 
-**Order block** — an H1/H4 institutional supply/demand zone. Pillar 2 asks whether
-Point C lands inside one.
+**Order-block heuristic** — an OHLC-derived H1/H4 supply/demand zone. It does not
+observe institutional orders or order flow.
 
 **Pillar** — one of four confluence tests, each scored 0-100: trend alignment,
 order block, momentum, volatility expansion. A pillar passes at
@@ -34,8 +36,9 @@ confidence and breakdown.
 **Maximum acceptable entry** — the worst fill at which entering still preserves the
 plan's intent, given the slippage tolerance.
 
-**maxR / capped** — the maximum R reachable before the nearest H4 barrier; `capped`
-means that barrier, not the 1:3 default, set the final target.
+**maxR / capped** — in active V1, the maximum R before the recent 60-bar H4 range
+extreme; `capped` means that limit, not the 1:3 default, set the final target. V1's
+grading headroom uses a different swing-based barrier.
 
 **TIF (time in force)** — an unfilled pending order is cancelled after
 `ORDER_TIF_MINUTES` (30), two M15 candles.
@@ -103,7 +106,8 @@ on one explicit basis.
 **Cluster bootstrap** — resampling whole UTC days rather than individual trades,
 because same-day trades are correlated. Deterministic under a fixed seed.
 
-**Wilson interval** — the proportion interval used for win rates.
+**Wilson interval** — a diagnostic-only proportion interval. The dependence-aware
+whole-day cluster bootstrap is the primary interval.
 
 **BH adjustment** — Benjamini–Hochberg multiple-comparison control across buckets.
 
@@ -116,9 +120,10 @@ because same-day trades are correlated. Deterministic under a fixed seed.
 
 ## Research
 
-**Shadow replay** — deterministic forward test over stored candles under
-`single_exit_first_target`. Adverse intrabar ordering is assumed when M15 OHLC
-cannot resolve sequence.
+**Shadow replay** — deterministic forward test over stored candles. Frozen Replay
+V1 uses `legacy_best_target_touched`; corrected research Replay V2 uses
+`single_exit_first_target`. Comparisons must name the replay version and policy.
+Adverse intrabar ordering is assumed when M15 OHLC cannot resolve sequence.
 
 **Research candidate** — a structure enrolled _before_ the publication decision, so
 rejected structures are forward-testable too.

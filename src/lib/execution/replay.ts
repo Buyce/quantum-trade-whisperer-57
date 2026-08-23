@@ -1,10 +1,13 @@
 /**
- * Deterministic Triple-Barrier replay (Lopez de Prado meta-labelling).
+ * Deterministic three-barrier-style replay.
  *
  * Pure functions over real M15 candles — no broker, no network, no randomness.
  * The same candles always produce the same label, so a run can be repeated or
  * backfilled safely. Nothing here invents prices: if candles are missing the
  * replay simply does not advance.
+ *
+ * This is P-Trades' project-specific OHLC adjudicator, not a claim of faithful
+ * reproduction or validation of any named researcher's methodology.
  */
 import { ORDER_TIF_MINUTES, SIGNAL_MAX_AGE_HOURS, type Candle } from "@/lib/scanner/types";
 
@@ -125,9 +128,11 @@ export function replaySetup(input: ReplayInput, candles: Candle[]): ReplayState 
     return Number((gap / atr).toFixed(4));
   };
 
-  // A limit order placed at detection is live inside the M15 bar that is
-  // already forming, so that bar must be replayed. On a resumed run the stored
-  // cursor is authoritative and only strictly-later bars are consumed.
+  // A caller with no cursor includes the M15 bar already forming at detection.
+  // Production V1 enrolment, however, initializes replay_cursor = detected_at,
+  // so stored rows take the resumed branch and exclude that forming bar. That
+  // characterized historical defect is pinned in replay-registry.ts; do not
+  // mistake this pure-function branch for production provenance.
   const fresh = state.replayCursor == null;
   const relevant = candles
     .filter((c) => (fresh ? ms(c.time) + M15_MS > detected : ms(c.time) > cursor))

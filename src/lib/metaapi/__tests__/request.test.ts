@@ -112,5 +112,4 @@ describe("metaApiRequest", () => {
       metaApiRequest({ service: "provisioning", path: "/x", label: "deploy" }),
     ).resolves.toBeNull();
   });
-
 });
