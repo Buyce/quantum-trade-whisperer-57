@@ -39,6 +39,7 @@ import { Route as ApiPublicWorkerDispatchRouteImport } from './routes/api/public
 import { Route as ApiPublicWorkerProcessRouteImport } from './routes/api/public/worker/process'
 import { Route as ApiPublicWorkerReconcileRouteImport } from './routes/api/public/worker/reconcile'
 import { Route as ApiPublicWorkerShadowRouteImport } from './routes/api/public/worker/shadow'
+import { Route as ApiPublicWorkerTelemetryRouteImport } from './routes/api/public/worker/telemetry'
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
 import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
 import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
@@ -203,6 +204,12 @@ const ApiPublicWorkerShadowRoute = ApiPublicWorkerShadowRouteImport.update({
   path: '/api/public/worker/shadow',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicWorkerTelemetryRoute =
+  ApiPublicWorkerTelemetryRouteImport.update({
+    id: '/api/public/worker/telemetry',
+    path: '/api/public/worker/telemetry',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const LovableEmailAuthPreviewRoute = LovableEmailAuthPreviewRouteImport.update({
   id: '/lovable/email/auth/preview',
   path: '/lovable/email/auth/preview',
@@ -250,6 +257,7 @@ export interface FileRoutesByFullPath {
   '/api/public/worker/process': typeof ApiPublicWorkerProcessRoute
   '/api/public/worker/reconcile': typeof ApiPublicWorkerReconcileRoute
   '/api/public/worker/shadow': typeof ApiPublicWorkerShadowRoute
+  '/api/public/worker/telemetry': typeof ApiPublicWorkerTelemetryRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
@@ -284,6 +292,7 @@ export interface FileRoutesByTo {
   '/api/public/worker/process': typeof ApiPublicWorkerProcessRoute
   '/api/public/worker/reconcile': typeof ApiPublicWorkerReconcileRoute
   '/api/public/worker/shadow': typeof ApiPublicWorkerShadowRoute
+  '/api/public/worker/telemetry': typeof ApiPublicWorkerTelemetryRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
@@ -320,6 +329,7 @@ export interface FileRoutesById {
   '/api/public/worker/process': typeof ApiPublicWorkerProcessRoute
   '/api/public/worker/reconcile': typeof ApiPublicWorkerReconcileRoute
   '/api/public/worker/shadow': typeof ApiPublicWorkerShadowRoute
+  '/api/public/worker/telemetry': typeof ApiPublicWorkerTelemetryRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
@@ -356,6 +366,7 @@ export interface FileRouteTypes {
     | '/api/public/worker/process'
     | '/api/public/worker/reconcile'
     | '/api/public/worker/shadow'
+    | '/api/public/worker/telemetry'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/transactional/preview'
@@ -390,6 +401,7 @@ export interface FileRouteTypes {
     | '/api/public/worker/process'
     | '/api/public/worker/reconcile'
     | '/api/public/worker/shadow'
+    | '/api/public/worker/telemetry'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/transactional/preview'
@@ -425,6 +437,7 @@ export interface FileRouteTypes {
     | '/api/public/worker/process'
     | '/api/public/worker/reconcile'
     | '/api/public/worker/shadow'
+    | '/api/public/worker/telemetry'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/transactional/preview'
@@ -453,6 +466,7 @@ export interface RootRouteChildren {
   ApiPublicWorkerProcessRoute: typeof ApiPublicWorkerProcessRoute
   ApiPublicWorkerReconcileRoute: typeof ApiPublicWorkerReconcileRoute
   ApiPublicWorkerShadowRoute: typeof ApiPublicWorkerShadowRoute
+  ApiPublicWorkerTelemetryRoute: typeof ApiPublicWorkerTelemetryRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
   LovableEmailAuthWebhookRoute: typeof LovableEmailAuthWebhookRoute
   LovableEmailTransactionalPreviewRoute: typeof LovableEmailTransactionalPreviewRoute
@@ -670,6 +684,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicWorkerShadowRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/worker/telemetry': {
+      id: '/api/public/worker/telemetry'
+      path: '/api/public/worker/telemetry'
+      fullPath: '/api/public/worker/telemetry'
+      preLoaderRoute: typeof ApiPublicWorkerTelemetryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/lovable/email/auth/preview': {
       id: '/lovable/email/auth/preview'
       path: '/lovable/email/auth/preview'
@@ -755,6 +776,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicWorkerProcessRoute: ApiPublicWorkerProcessRoute,
   ApiPublicWorkerReconcileRoute: ApiPublicWorkerReconcileRoute,
   ApiPublicWorkerShadowRoute: ApiPublicWorkerShadowRoute,
+  ApiPublicWorkerTelemetryRoute: ApiPublicWorkerTelemetryRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
   LovableEmailAuthWebhookRoute: LovableEmailAuthWebhookRoute,
   LovableEmailTransactionalPreviewRoute: LovableEmailTransactionalPreviewRoute,
