@@ -1,7 +1,10 @@
 /**
  * Position-size and risk calculator.
  *
- * Pure, client-side, and derived entirely from the stored setup plus the user's
+ * A pure shared calculation layer — no I/O, no state — used by both the
+ * client-facing card and the server-side sizing paths, derived entirely from the
+ * stored setup plus the user's
+
  * own risk profile. It never touches the scanner, the grade, or the alert path:
  * changing a risk setting changes only what the card tells you to size.
  *
