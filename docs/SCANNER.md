@@ -30,7 +30,10 @@ Candle depth is per timeframe: H4 300, H1 300, M15 200 — enough warm-up for a
 ## Inputs
 
 `INSTRUMENTS` × `TIMEFRAMES` from `src/lib/scanner/types.ts`, broker OHLCV, and
-the previous cycle's open signals.
+the previous cycle's open signals. At HEAD that is the instruments `XAUUSD`,
+`GBPAUD` and `EURUSD` on the timeframes `H4`, `H1` and `M15` — the code
+constants are the authority, and `src/test/__tests__/docs-contract.test.ts`
+fails if this list drifts from them.
 
 ## Outputs
 

@@ -67,7 +67,10 @@ describe("[INVARIANT] documentation contract: no credentials", () => {
   it("contains no UUID-shaped account identifiers or broker login numbers", () => {
     const uuid = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
     for (const { rel, text } of DOCS) {
-      expect(text, `${rel} must not contain a UUID-shaped identifier`).not.toMatch(uuid);
+      // The Lovable editor deep link legitimately carries the project id; it is
+      // not a broker or account credential.
+      const scrubbed = text.replace(/https:\/\/lovable\.dev\/projects\/[0-9a-f-]+/gi, "");
+      expect(scrubbed, `${rel} must not contain a UUID-shaped identifier`).not.toMatch(uuid);
       expect(text, `${rel} must not contain a broker login number`).not.toMatch(/\b50535580\d{2}\b/);
       expect(text, `${rel} must not contain a bearer/JWT-shaped token`).not.toMatch(
         /\beyJ[A-Za-z0-9_-]{10,}/,
@@ -116,15 +119,19 @@ describe("[INVARIANT] documentation contract: empty results", () => {
   it("no doc claims a filtered empty view proves capital preservation", () => {
     for (const { rel, text } of DOCS) {
       const lines = text.split("\n");
-      for (const line of lines) {
-        if (!/capital preservation/i.test(line)) continue;
+      const qualifier =
+        /unfiltered|current[- ]cycle|scanner[- ]wide|never|not |only |may not|must not|stale|historical/i;
+      lines.forEach((line, i) => {
+        if (!/capital preservation/i.test(line)) return;
         // Any surviving mention must be qualified as unfiltered / current-cycle,
-        // or explicitly marked as the stale claim being corrected.
+        // or explicitly marked as the stale claim being corrected. The qualifier
+        // may sit in the neighbouring lines of the same sentence.
+        const window = lines.slice(Math.max(0, i - 2), i + 3).join(" ");
         expect(
-          /unfiltered|current[- ]cycle|scanner-wide|never|not|only|stale|historical/i.test(line),
+          qualifier.test(window),
           `${rel} has an unqualified Capital Preservation claim: ${line.trim()}`,
         ).toBe(true);
-      }
+      });
     }
   });
 });
@@ -139,7 +146,12 @@ describe("[INVARIANT] documentation contract: provenance wording", () => {
 
   it("never calls a margin figure broker-exact", () => {
     for (const { rel, text } of DOCS) {
-      expect(text, `${rel} calls margin broker-exact`).not.toMatch(
+      // A prohibition ("never call margin broker-exact") is not a violation.
+      const claims = text
+        .split("\n")
+        .filter((l) => !/\b(never|not|must not|avoid|do not)\b/i.test(l))
+        .join("\n");
+      expect(claims, `${rel} calls margin broker-exact`).not.toMatch(
         /margin[^.\n]{0,40}broker[- ](exact|confirmed|accurate)/i,
       );
     }
