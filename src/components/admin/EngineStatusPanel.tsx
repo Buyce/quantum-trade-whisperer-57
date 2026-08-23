@@ -96,7 +96,9 @@ export function EngineStatusPanel() {
                 : `probe pass due now · ${breaker.consecutive_failures} consecutive failed passes`
               : `last run ${timeAgo(breaker?.last_run_at ?? null)} · ${breaker?.consecutive_failures ?? 0} consecutive failures`
           }
-          tone={breaker?.paused ? "bad" : (breaker?.consecutive_failures ?? 0) > 0 ? "warn" : "good"}
+          tone={
+            breaker?.paused ? "bad" : (breaker?.consecutive_failures ?? 0) > 0 ? "warn" : "good"
+          }
           hint="Statistics/replay only. Live signal scanning and delivery are unaffected by this flag."
         />
       </div>
@@ -135,7 +137,6 @@ export function EngineStatusPanel() {
           )}
         </div>
       )}
-
 
       {breaker?.paused && (
         <div className="mt-3 flex flex-wrap items-center gap-2">

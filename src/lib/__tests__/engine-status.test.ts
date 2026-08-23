@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyEngineError, cooldownRemaining } from "@/lib/engine-status";
+import { classifyEngineError, classifyScanHealth, cooldownRemaining } from "@/lib/engine-status";
 
 describe("classifyEngineError", () => {
   it("[UNIT] treats no error as no error", () => {

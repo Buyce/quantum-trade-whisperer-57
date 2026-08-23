@@ -127,4 +127,3 @@ export function classifyScanHealth(scan: ScanWindowInput): ScanHealth {
     ? { state: "recovered", value: "RECOVERED", tone: "warn", errorIsCurrent: false }
     : { state: "degraded", value: "DEGRADED", tone: "warn", errorIsCurrent: true };
 }
-
