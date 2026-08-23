@@ -37,6 +37,7 @@ import { Route as ApiPublicCronVerifyRemindersRouteImport } from './routes/api/p
 import { Route as ApiPublicCronWeeklyReportRouteImport } from './routes/api/public/cron/weekly-report'
 import { Route as ApiPublicWorkerDispatchRouteImport } from './routes/api/public/worker/dispatch'
 import { Route as ApiPublicWorkerProcessRouteImport } from './routes/api/public/worker/process'
+import { Route as ApiPublicWorkerReconcileRouteImport } from './routes/api/public/worker/reconcile'
 import { Route as ApiPublicWorkerShadowRouteImport } from './routes/api/public/worker/shadow'
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
 import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
@@ -191,6 +192,12 @@ const ApiPublicWorkerProcessRoute = ApiPublicWorkerProcessRouteImport.update({
   path: '/api/public/worker/process',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicWorkerReconcileRoute =
+  ApiPublicWorkerReconcileRouteImport.update({
+    id: '/api/public/worker/reconcile',
+    path: '/api/public/worker/reconcile',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicWorkerShadowRoute = ApiPublicWorkerShadowRouteImport.update({
   id: '/api/public/worker/shadow',
   path: '/api/public/worker/shadow',
@@ -241,6 +248,7 @@ export interface FileRoutesByFullPath {
   '/api/public/cron/weekly-report': typeof ApiPublicCronWeeklyReportRoute
   '/api/public/worker/dispatch': typeof ApiPublicWorkerDispatchRoute
   '/api/public/worker/process': typeof ApiPublicWorkerProcessRoute
+  '/api/public/worker/reconcile': typeof ApiPublicWorkerReconcileRoute
   '/api/public/worker/shadow': typeof ApiPublicWorkerShadowRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
@@ -274,6 +282,7 @@ export interface FileRoutesByTo {
   '/api/public/cron/weekly-report': typeof ApiPublicCronWeeklyReportRoute
   '/api/public/worker/dispatch': typeof ApiPublicWorkerDispatchRoute
   '/api/public/worker/process': typeof ApiPublicWorkerProcessRoute
+  '/api/public/worker/reconcile': typeof ApiPublicWorkerReconcileRoute
   '/api/public/worker/shadow': typeof ApiPublicWorkerShadowRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
@@ -309,6 +318,7 @@ export interface FileRoutesById {
   '/api/public/cron/weekly-report': typeof ApiPublicCronWeeklyReportRoute
   '/api/public/worker/dispatch': typeof ApiPublicWorkerDispatchRoute
   '/api/public/worker/process': typeof ApiPublicWorkerProcessRoute
+  '/api/public/worker/reconcile': typeof ApiPublicWorkerReconcileRoute
   '/api/public/worker/shadow': typeof ApiPublicWorkerShadowRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
@@ -344,6 +354,7 @@ export interface FileRouteTypes {
     | '/api/public/cron/weekly-report'
     | '/api/public/worker/dispatch'
     | '/api/public/worker/process'
+    | '/api/public/worker/reconcile'
     | '/api/public/worker/shadow'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
@@ -377,6 +388,7 @@ export interface FileRouteTypes {
     | '/api/public/cron/weekly-report'
     | '/api/public/worker/dispatch'
     | '/api/public/worker/process'
+    | '/api/public/worker/reconcile'
     | '/api/public/worker/shadow'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
@@ -411,6 +423,7 @@ export interface FileRouteTypes {
     | '/api/public/cron/weekly-report'
     | '/api/public/worker/dispatch'
     | '/api/public/worker/process'
+    | '/api/public/worker/reconcile'
     | '/api/public/worker/shadow'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
@@ -438,6 +451,7 @@ export interface RootRouteChildren {
   ApiPublicCronWeeklyReportRoute: typeof ApiPublicCronWeeklyReportRoute
   ApiPublicWorkerDispatchRoute: typeof ApiPublicWorkerDispatchRoute
   ApiPublicWorkerProcessRoute: typeof ApiPublicWorkerProcessRoute
+  ApiPublicWorkerReconcileRoute: typeof ApiPublicWorkerReconcileRoute
   ApiPublicWorkerShadowRoute: typeof ApiPublicWorkerShadowRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
   LovableEmailAuthWebhookRoute: typeof LovableEmailAuthWebhookRoute
@@ -642,6 +656,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicWorkerProcessRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/worker/reconcile': {
+      id: '/api/public/worker/reconcile'
+      path: '/api/public/worker/reconcile'
+      fullPath: '/api/public/worker/reconcile'
+      preLoaderRoute: typeof ApiPublicWorkerReconcileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/worker/shadow': {
       id: '/api/public/worker/shadow'
       path: '/api/public/worker/shadow'
@@ -732,6 +753,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicCronWeeklyReportRoute: ApiPublicCronWeeklyReportRoute,
   ApiPublicWorkerDispatchRoute: ApiPublicWorkerDispatchRoute,
   ApiPublicWorkerProcessRoute: ApiPublicWorkerProcessRoute,
+  ApiPublicWorkerReconcileRoute: ApiPublicWorkerReconcileRoute,
   ApiPublicWorkerShadowRoute: ApiPublicWorkerShadowRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
   LovableEmailAuthWebhookRoute: LovableEmailAuthWebhookRoute,
