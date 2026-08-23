@@ -13,7 +13,20 @@ export const METAAPI_APPLICATION = "MetaApi";
 /** Hard abort budget for every outbound MetaApi call. */
 export const REQUEST_TIMEOUT_MS = 8_000;
 
-export function readMetaApiToken(): string {
+/**
+ * The provider access token.
+ *
+ * Account management (creating and deleting trading accounts) needs a token that
+ * is NOT restricted to a single account, while market data and trading work with
+ * an account-scoped one. When a dedicated provisioning token is configured it is
+ * used for account management only; everything else keeps the general token, so
+ * a narrow token stays narrow on the trading path.
+ */
+export function readMetaApiToken(purpose: "general" | "provisioning" = "general"): string {
+  if (purpose === "provisioning") {
+    const provisioning = process.env["METAAPI_PROVISIONING_TOKEN"];
+    if (provisioning) return provisioning;
+  }
   const token = process.env["METAAPI_TOKEN"];
   if (!token) throw new MetaApiNotConfiguredError("METAAPI_TOKEN");
   return token;
