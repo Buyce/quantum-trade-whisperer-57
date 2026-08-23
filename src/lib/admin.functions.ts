@@ -333,7 +333,6 @@ export const getAdminExecutionSwitches = createServerFn({ method: "GET" })
  * this control can never turn live execution on by accident. Turning a switch
  * off is always accepted. Live switches are untouched by this control.
  */
- */
 export const setAdminExecutionSwitches = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { demoAutoEnabled?: boolean; forceDryRun?: boolean }) => input)
