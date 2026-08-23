@@ -99,10 +99,10 @@ describe("metaApiRequest", () => {
       jsonResponse({ pending: true }, 202, { "retry-after": "30" })) as unknown as typeof fetch;
 
     await expect(
-      metaApiRequest({ service: "metastats", path: "/x", label: "metrics", throwOn202: true }),
+      metaApiRequest({ service: "metastats", region: "london", path: "/x", label: "metrics", throwOn202: true }),
     ).rejects.toBeInstanceOf(MetaApiHttpError);
     await expect(
-      metaApiRequest({ service: "metastats", path: "/x", label: "metrics" }),
+      metaApiRequest({ service: "metastats", region: "london", path: "/x", label: "metrics" }),
     ).resolves.toEqual({ pending: true });
   });
 
