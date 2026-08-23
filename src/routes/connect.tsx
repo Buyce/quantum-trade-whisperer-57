@@ -452,9 +452,11 @@ function ConnectPage() {
               <Steps
                 items={[
                   <>
-                    Open <Ext href="https://chatgpt.com/plugins">chatgpt.com/plugins</Ext> and open
-                    the P-Trades Hub app's details page.
+                    Open <strong className="text-foreground">Settings</strong> →{" "}
+                    <strong className="text-foreground">Apps</strong> and open the P-Trades Hub app's
+                    details page.
                   </>,
+
                   <>
                     Click <strong className="text-foreground">Refresh</strong> to pull the latest
                     tools, descriptions and server instructions, then check the tool toggles.
