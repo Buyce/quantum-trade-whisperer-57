@@ -62,24 +62,52 @@ describe("documentation contract: URLs", () => {
 });
 
 describe("documentation contract: no credentials", () => {
-  // The original build prompt contained a live MetaApi account id, login number
-  // and user id. They must never reappear in canonical docs.
+  // The original build prompt carried live broker identifiers (account id, trading
+  // login, provider user id). They must never reappear in canonical docs, and this
+  // gate must not embed them either: the login is matched contextually and via a
+  // one-way digest, never as a literal.
+  const FORBIDDEN_LOGIN_SHA256 = "e1cbd5cff9a4dc8b39a4bcf07b6968a0a5e3aa2d8b0aeee1c8a09b41b6c76fc4";
+
   it("[INVARIANT] contains no UUID-shaped account identifiers or broker login numbers", () => {
     const uuid = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+    // Contextual detector: a long digit run presented as an account/login/server
+    // credential, in any order, is a credential leak regardless of its value.
+    const contextualLogin =
+      /\b(?:account|login|acct|mt[45])\b[^.\n]{0,40}?\b\d{6,}\b|\b\d{6,}\b[^.\n]{0,40}?\b(?:account|login)\b/i;
     for (const { rel, text } of DOCS) {
       // The Lovable editor deep link legitimately carries the project id; it is
       // not a broker or account credential.
       const scrubbed = text.replace(/https:\/\/lovable\.dev\/projects\/[0-9a-f-]+/gi, "");
       expect(scrubbed, `${rel} must not contain a UUID-shaped identifier`).not.toMatch(uuid);
-      expect(text, `${rel} must not contain a broker login number`).not.toMatch(
-        /\b50535580\d{2}\b/,
+      expect(scrubbed, `${rel} must not present a numeric account/login credential`).not.toMatch(
+        contextualLogin,
       );
+      for (const digits of scrubbed.match(/\b\d{6,}\b/g) ?? []) {
+        expect(
+          createHash("sha256").update(digits).digest("hex"),
+          `${rel} must not contain the historical broker login`,
+        ).not.toBe(FORBIDDEN_LOGIN_SHA256);
+      }
       expect(text, `${rel} must not contain a bearer/JWT-shaped token`).not.toMatch(
         /\beyJ[A-Za-z0-9_-]{10,}/,
       );
     }
   });
 });
+
+describe("documentation contract: guide matches the History route", () => {
+  it("[INVARIANT] the guide never claims Trade History shows skipped setups", () => {
+    const guide = read("src/routes/_authenticated/guide.tsx");
+    const history = read("src/routes/_authenticated/history.tsx");
+    // The route is taken-only; the guide must not contradict it.
+    expect(history).toContain("takenTradeHistoryQuery");
+    expect(guide, "guide must not say History includes skipped trades").not.toMatch(
+      /History[^.\n]{0,120}includ\w*[^.\n]{0,40}skipped/i,
+    );
+    expect(guide).toMatch(/skipped[^.\n]{0,120}do not appear/i);
+  });
+});
+
 
 describe("documentation contract: internal links resolve", () => {
   it("[INVARIANT] every relative markdown link points at a file that exists", () => {
