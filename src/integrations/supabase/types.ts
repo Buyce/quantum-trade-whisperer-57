@@ -528,6 +528,7 @@ export type Database = {
           intent_conflict: boolean
           intent_conflict_reason: string | null
           investor_mode: boolean | null
+          is_benchmark: boolean
           label: string
           last_error: string | null
           last_reconciled_at: string | null
@@ -565,6 +566,7 @@ export type Database = {
           intent_conflict?: boolean
           intent_conflict_reason?: string | null
           investor_mode?: boolean | null
+          is_benchmark?: boolean
           label: string
           last_error?: string | null
           last_reconciled_at?: string | null
@@ -602,6 +604,7 @@ export type Database = {
           intent_conflict?: boolean
           intent_conflict_reason?: string | null
           investor_mode?: boolean | null
+          is_benchmark?: boolean
           label?: string
           last_error?: string | null
           last_reconciled_at?: string | null
