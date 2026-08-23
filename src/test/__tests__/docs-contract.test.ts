@@ -11,6 +11,7 @@
  * the routes that carry user copy. `.lovable/plan/**` is a historical record and
  * is deliberately excluded.
  */
+import { createHash } from "node:crypto";
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -66,7 +67,7 @@ describe("documentation contract: no credentials", () => {
   // login, provider user id). They must never reappear in canonical docs, and this
   // gate must not embed them either: the login is matched contextually and via a
   // one-way digest, never as a literal.
-  const FORBIDDEN_LOGIN_SHA256 = "e1cbd5cff9a4dc8b39a4bcf07b6968a0a5e3aa2d8b0aeee1c8a09b41b6c76fc4";
+  const FORBIDDEN_LOGIN_SHA256 = "f3de62b01786cba93b8f1379504fa5ee9274de707643cb3e4ad1c4de7328aecf";
 
   it("[INVARIANT] contains no UUID-shaped account identifiers or broker login numbers", () => {
     const uuid = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
