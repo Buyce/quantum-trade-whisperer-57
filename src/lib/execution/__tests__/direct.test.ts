@@ -53,30 +53,30 @@ const quantity = {
 };
 
 describe("direct execution gating", () => {
-  it("only demo_auto and live_auto submit automatically", () => {
+  it("[INVARIANT] only demo_auto and live_auto submit automatically", () => {
     expect(modeIsAutomatic("observe")).toBe(false);
     expect(modeIsAutomatic("live_confirm")).toBe(false);
     expect(modeIsAutomatic("demo_auto")).toBe(true);
     expect(modeIsAutomatic("live_auto")).toBe(true);
   });
 
-  it("allows a fully proven demo account", () => {
+  it("[INVARIANT] allows a fully proven demo account", () => {
     expect(directExecutionAllowed(gate()).ok).toBe(true);
   });
 
-  it("refuses when the global demo gate is off", () => {
+  it("[INVARIANT] refuses when the global demo gate is off", () => {
     expect(directExecutionAllowed(gate({ globalDemoAuto: false })).ok).toBe(false);
   });
 
-  it("refuses an unknown broker account type", () => {
+  it("[INVARIANT] refuses an unknown broker account type", () => {
     expect(directExecutionAllowed(gate({ brokerAccountType: "unknown" })).ok).toBe(false);
   });
 
-  it("refuses a real account in demo_auto", () => {
+  it("[INVARIANT] refuses a real account in demo_auto", () => {
     expect(directExecutionAllowed(gate({ brokerAccountType: "real" })).ok).toBe(false);
   });
 
-  it("refuses live_auto unless the account is broker-confirmed real AND gated on", () => {
+  it("[INVARIANT] refuses live_auto unless the account is broker-confirmed real AND gated on", () => {
     expect(
       directExecutionAllowed(gate({ mode: "live_auto", brokerAccountType: "demo" })).ok,
     ).toBe(false);
@@ -92,19 +92,19 @@ describe("direct execution gating", () => {
     ).toBe(true);
   });
 
-  it("refuses investor-only and non-tradable connections", () => {
+  it("[INVARIANT] refuses investor-only and non-tradable connections", () => {
     expect(directExecutionAllowed(gate({ investorMode: true })).ok).toBe(false);
     expect(directExecutionAllowed(gate({ tradeAllowed: null })).ok).toBe(false);
   });
 
-  it("refuses an account that is not broker-confirmed or is conflicted", () => {
+  it("[INVARIANT] refuses an account that is not broker-confirmed or is conflicted", () => {
     expect(directExecutionAllowed(gate({ ready: false })).ok).toBe(false);
     expect(directExecutionAllowed(gate({ intentConflict: true })).ok).toBe(false);
   });
 });
 
 describe("server-side order construction", () => {
-  it("builds a protected pending limit order with our own clientId", () => {
+  it("[INVARIANT] builds a protected pending limit order with our own clientId", () => {
     const order = buildDirectOrder(plan, {
       brokerSymbol: "EURUSD.r",
       magic: 140714,
@@ -120,18 +120,18 @@ describe("server-side order construction", () => {
     expect(order.clientId).toContain("4821");
   });
 
-  it("expires at the plan's time-in-force measured from detection", () => {
+  it("[INVARIANT] expires at the plan's time-in-force measured from detection", () => {
     expect(orderExpiry(plan.detectedAt)).toBe(
       new Date(Date.parse(plan.detectedAt) + ORDER_TIF_MINUTES * 60_000).toISOString(),
     );
   });
 
-  it("maps direction to a limit action and refuses anything else", () => {
+  it("[INVARIANT] maps direction to a limit action and refuses anything else", () => {
     expect(actionTypeFor("short")).toBe("ORDER_TYPE_SELL_LIMIT");
     expect(() => actionTypeFor("sideways")).toThrow(DirectOrderError);
   });
 
-  it("refuses contradictory geometry instead of correcting it", () => {
+  it("[INVARIANT] refuses contradictory geometry instead of correcting it", () => {
     expect(() =>
       buildDirectOrder(
         { ...plan, stopLoss: 1.09 },
@@ -140,7 +140,7 @@ describe("server-side order construction", () => {
     ).toThrow(DirectOrderError);
   });
 
-  it("refuses when there is no quantity, symbol or magic", () => {
+  it("[INVARIANT] refuses when there is no quantity, symbol or magic", () => {
     const ctx = { brokerSymbol: "EURUSD", magic: 1, quantity, deliveryId: 1 };
     expect(() =>
       buildDirectOrder(plan, { ...ctx, quantity: { ...quantity, lots: 0 } }),
@@ -151,33 +151,33 @@ describe("server-side order construction", () => {
 });
 
 describe("broker-authoritative margin gate", () => {
-  it("refuses when the broker gave no margin answer", () => {
+  it("[INVARIANT] refuses when the broker gave no margin answer", () => {
     expect(marginAcceptable(null, 10_000).ok).toBe(false);
   });
 
-  it("refuses when free margin is unknown", () => {
+  it("[INVARIANT] refuses when free margin is unknown", () => {
     expect(marginAcceptable(100, null).ok).toBe(false);
   });
 
-  it("refuses when the broker margin is too large a share of free margin", () => {
+  it("[INVARIANT] refuses when the broker margin is too large a share of free margin", () => {
     expect(marginAcceptable(6_000, 10_000).ok).toBe(false);
     expect(marginAcceptable(1_000, 10_000).ok).toBe(true);
   });
 });
 
 describe("broker verdict → delivery state", () => {
-  it("accepts only documented success codes", () => {
+  it("[INVARIANT] accepts only documented success codes", () => {
     expect(deliveryStateForVerdict(interpretTradeResponse({ numericCode: 10009 }))).toBe(
       "acknowledged",
     );
   });
 
-  it("keeps an unmapped or absent code as unknown, never rejected", () => {
+  it("[INVARIANT] keeps an unmapped or absent code as unknown, never rejected", () => {
     expect(deliveryStateForVerdict(interpretTradeResponse({ numericCode: 99999 }))).toBe("unknown");
     expect(deliveryStateForVerdict(interpretTradeResponse(null))).toBe("unknown");
   });
 
-  it("rejects only definitive broker refusals", () => {
+  it("[INVARIANT] rejects only definitive broker refusals", () => {
     expect(deliveryStateForVerdict(interpretTradeResponse({ numericCode: 10019 }))).toBe(
       "rejected",
     );

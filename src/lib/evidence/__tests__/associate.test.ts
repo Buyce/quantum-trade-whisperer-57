@@ -37,7 +37,7 @@ const deal = (over: Partial<BrokerDeal>): BrokerDeal => ({
 });
 
 describe("positive association", () => {
-  it("ignores deals that P-Trades did not create", () => {
+  it("[INVARIANT] ignores deals that P-Trades did not create", () => {
     const groups = groupOwnedDeals(
       [deal({ clientId: "manual-trade" }), deal({ clientId: null })],
       140714,
@@ -45,7 +45,7 @@ describe("positive association", () => {
     expect(groups).toHaveLength(0);
   });
 
-  it("groups our own deals by clientId and records the basis", () => {
+  it("[UNIT] groups our own deals by clientId and records the basis", () => {
     const groups = groupOwnedDeals([deal({}), deal({ id: "d2", entryType: "DEAL_ENTRY_OUT" })], 140714);
     expect(groups).toHaveLength(1);
     expect(groups[0]!.basis).toBe("client_id_and_magic");
@@ -53,18 +53,18 @@ describe("positive association", () => {
     expect(groups[0]!.deals).toHaveLength(2);
   });
 
-  it("excludes a deal whose magic contradicts the account's magic", () => {
+  it("[INVARIANT] excludes a deal whose magic contradicts the account's magic", () => {
     expect(groupOwnedDeals([deal({ magic: 999 })], 140714)).toHaveLength(0);
   });
 
-  it("still associates by clientId alone when the broker reports no magic", () => {
+  it("[UNIT] still associates by clientId alone when the broker reports no magic", () => {
     const groups = groupOwnedDeals([deal({ magic: null })], 140714);
     expect(groups[0]!.basis).toBe("client_id");
   });
 });
 
 describe("deal summarisation", () => {
-  it("reports an entry-only position as open with no exit price", () => {
+  it("[INVARIANT] reports an entry-only position as open with no exit price", () => {
     const [group] = groupOwnedDeals([deal({})], 140714);
     const summary = summariseGroup(group!);
     expect(summary.state).toBe("open");
@@ -73,7 +73,7 @@ describe("deal summarisation", () => {
     expect(summary.grossProfit).toBeNull();
   });
 
-  it("closes only when the closing volume matches the opening volume", () => {
+  it("[INVARIANT] closes only when the closing volume matches the opening volume", () => {
     const partial = groupOwnedDeals(
       [deal({}), deal({ id: "d2", entryType: "DEAL_ENTRY_OUT", volume: 0.1, price: 1.09 })],
       140714,
@@ -101,12 +101,12 @@ describe("deal summarisation", () => {
     expect(summary.exitAt).toBe("2026-08-24T11:00:00.000Z");
   });
 
-  it("returns null rather than a guess when a leg has no usable price", () => {
+  it("[UNIT] returns null rather than a guess when a leg has no usable price", () => {
     expect(weightedPrice([deal({ price: null })]).price).toBeNull();
     expect(weightedPrice([deal({ volume: 0 })]).volume).toBeNull();
   });
 
-  it("volume-weights multiple entry fills", () => {
+  it("[UNIT] volume-weights multiple entry fills", () => {
     const { price, volume } = weightedPrice([
       deal({ volume: 1, price: 1.1 }),
       deal({ volume: 1, price: 1.2 }),
@@ -117,7 +117,7 @@ describe("deal summarisation", () => {
 });
 
 describe("evidence classes stay separate", () => {
-  it("labels the benchmark account and customer accounts distinctly", () => {
+  it("[UNIT] labels the benchmark account and customer accounts distinctly", () => {
     expect(evidenceClassFor(true)).toBe("benchmark");
     expect(evidenceClassFor(false)).toBe("customer");
   });
