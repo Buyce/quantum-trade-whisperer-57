@@ -4,7 +4,7 @@
   "dir": "ltr",
   "name": "P-Trades Hub",
   "short_name": "P-Trades",
-  "description": "Autonomous Forex market scanner and trade assistant terminal.",
+  "description": "A selective FX scanner and trade assistant: graded setups from broker candles, position sizing from your own risk profile, and an R-based journal — including the days it tells you there is nothing to take.",
   "categories": ["finance", "productivity", "utilities"],
   "start_url": "/feed",
   "scope": "/",

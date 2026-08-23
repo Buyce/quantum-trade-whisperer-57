@@ -36,6 +36,8 @@ and is never updated retroactively.
 14. [SECURITY.md](SECURITY.md)
 15. [OPERATIONS.md](OPERATIONS.md)
 16. [TESTING.md](TESTING.md)
+17. [LINK-AUDIT.md](LINK-AUDIT.md) — canonical URLs, internal link results and the
+    vendor-guide audit behind the `/connect` steps.
 
 **Historical**
 
