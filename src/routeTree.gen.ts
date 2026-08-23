@@ -17,6 +17,7 @@ import { Route as McpRouteImport } from './routes/mcp'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
+import { Route as AuthenticatedAccountsRouteImport } from './routes/_authenticated/accounts'
 import { Route as AuthenticatedAdminRouteRouteImport } from './routes/_authenticated/admin/route'
 import { Route as AuthenticatedFeedRouteImport } from './routes/_authenticated/feed'
 import { Route as AuthenticatedGuideRouteImport } from './routes/_authenticated/guide'
@@ -82,6 +83,11 @@ const Char91DotwellKnownChar93OauthProtectedResourceRoute =
     path: '/.well-known/oauth-protected-resource',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AuthenticatedAccountsRoute = AuthenticatedAccountsRouteImport.update({
+  id: '/accounts',
+  path: '/accounts',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedAdminRouteRoute = AuthenticatedAdminRouteRouteImport.update({
   id: '/admin',
   path: '/admin',
@@ -216,6 +222,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AuthenticatedAdminRouteRouteWithChildren
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/accounts': typeof AuthenticatedAccountsRoute
   '/feed': typeof AuthenticatedFeedRoute
   '/guide': typeof AuthenticatedGuideRoute
   '/history': typeof AuthenticatedHistoryRoute
@@ -248,6 +255,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AuthenticatedAdminRouteRouteWithChildren
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/accounts': typeof AuthenticatedAccountsRoute
   '/feed': typeof AuthenticatedFeedRoute
   '/guide': typeof AuthenticatedGuideRoute
   '/history': typeof AuthenticatedHistoryRoute
@@ -282,6 +290,7 @@ export interface FileRoutesById {
   '/_authenticated/admin': typeof AuthenticatedAdminRouteRouteWithChildren
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/_authenticated/accounts': typeof AuthenticatedAccountsRoute
   '/_authenticated/feed': typeof AuthenticatedFeedRoute
   '/_authenticated/guide': typeof AuthenticatedGuideRoute
   '/_authenticated/history': typeof AuthenticatedHistoryRoute
@@ -316,6 +325,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
+    | '/accounts'
     | '/feed'
     | '/guide'
     | '/history'
@@ -348,6 +358,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
+    | '/accounts'
     | '/feed'
     | '/guide'
     | '/history'
@@ -381,6 +392,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
+    | '/_authenticated/accounts'
     | '/_authenticated/feed'
     | '/_authenticated/guide'
     | '/_authenticated/history'
@@ -489,6 +501,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/.well-known/oauth-protected-resource'
       preLoaderRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/accounts': {
+      id: '/_authenticated/accounts'
+      path: '/accounts'
+      fullPath: '/accounts'
+      preLoaderRoute: typeof AuthenticatedAccountsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/admin': {
       id: '/_authenticated/admin'
@@ -670,6 +689,7 @@ const AuthenticatedAdminRouteRouteWithChildren =
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminRouteRoute: typeof AuthenticatedAdminRouteRouteWithChildren
+  AuthenticatedAccountsRoute: typeof AuthenticatedAccountsRoute
   AuthenticatedFeedRoute: typeof AuthenticatedFeedRoute
   AuthenticatedGuideRoute: typeof AuthenticatedGuideRoute
   AuthenticatedHistoryRoute: typeof AuthenticatedHistoryRoute
@@ -679,6 +699,7 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminRouteRoute: AuthenticatedAdminRouteRouteWithChildren,
+  AuthenticatedAccountsRoute: AuthenticatedAccountsRoute,
   AuthenticatedFeedRoute: AuthenticatedFeedRoute,
   AuthenticatedGuideRoute: AuthenticatedGuideRoute,
   AuthenticatedHistoryRoute: AuthenticatedHistoryRoute,
