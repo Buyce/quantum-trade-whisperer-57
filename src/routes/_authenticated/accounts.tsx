@@ -21,6 +21,7 @@ import {
   Eye,
   Zap,
   HelpCircle,
+  Link2,
   Loader2,
   Plus,
   RefreshCw,
@@ -111,6 +112,7 @@ function Money({ value, currency }: { value: number | null; currency: string | n
 function AccountsPage() {
   const queryClient = useQueryClient();
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [linkOpen, setLinkOpen] = useState(false);
 
   const accounts = useQuery({
     queryKey: ["connected-accounts"],
