@@ -35,8 +35,16 @@ describe("metaapi failure classification", () => {
     const failure = classifyMetaApiFailure(new MetaApiHttpError(403, "create account", body));
     expect(failure.kind).toBe("permission");
     expect(failure.retryable).toBe(false);
-    expect(failure.message).toContain("not allowed to perform it");
+    expect(failure.message).toContain("not allowed to create trading accounts");
     expect(failure.message).toContain("Nothing was created");
+  });
+
+  it("[INVARIANT] a non-creation permission refusal keeps the generic wording", () => {
+    const body =
+      '{"error":"ForbiddenError","message":"You do not have access to metastats-api:rest:public:metrics:getMetrics method"}';
+    const failure = classifyMetaApiFailure(new MetaApiHttpError(403, "metastats metrics", body));
+    expect(failure.kind).toBe("permission");
+    expect(failure.message).toContain("not allowed to perform it");
   });
 
   it("[UNIT] maps auth, feature, not-found, validation and server statuses", () => {
