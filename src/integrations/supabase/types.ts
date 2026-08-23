@@ -187,6 +187,7 @@ export type Database = {
           account_id: string | null
           actual_initial_stop: number | null
           association_basis: string
+          broker_account_type: string | null
           broker_order_id: string | null
           broker_position_id: string | null
           broker_symbol: string
@@ -203,6 +204,7 @@ export type Database = {
           first_observed_at: string
           gross_profit: number | null
           id: string
+          last_reconciled_at: string | null
           magic: number | null
           metaapi_account_id: string | null
           planned_entry: number | null
@@ -217,15 +219,17 @@ export type Database = {
           signal_id: string | null
           state: string
           stop_provenance: string | null
+          stop_source: string | null
           swap: number | null
           updated_at: string
-          user_id: string
+          user_id: string | null
           volume: number | null
         }
         Insert: {
           account_id?: string | null
           actual_initial_stop?: number | null
           association_basis: string
+          broker_account_type?: string | null
           broker_order_id?: string | null
           broker_position_id?: string | null
           broker_symbol: string
@@ -242,6 +246,7 @@ export type Database = {
           first_observed_at?: string
           gross_profit?: number | null
           id?: string
+          last_reconciled_at?: string | null
           magic?: number | null
           metaapi_account_id?: string | null
           planned_entry?: number | null
@@ -256,15 +261,17 @@ export type Database = {
           signal_id?: string | null
           state?: string
           stop_provenance?: string | null
+          stop_source?: string | null
           swap?: number | null
           updated_at?: string
-          user_id: string
+          user_id?: string | null
           volume?: number | null
         }
         Update: {
           account_id?: string | null
           actual_initial_stop?: number | null
           association_basis?: string
+          broker_account_type?: string | null
           broker_order_id?: string | null
           broker_position_id?: string | null
           broker_symbol?: string
@@ -281,6 +288,7 @@ export type Database = {
           first_observed_at?: string
           gross_profit?: number | null
           id?: string
+          last_reconciled_at?: string | null
           magic?: number | null
           metaapi_account_id?: string | null
           planned_entry?: number | null
@@ -295,9 +303,10 @@ export type Database = {
           signal_id?: string | null
           state?: string
           stop_provenance?: string | null
+          stop_source?: string | null
           swap?: number | null
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
           volume?: number | null
         }
         Relationships: [
@@ -761,6 +770,7 @@ export type Database = {
       execution_controls: {
         Row: {
           allowed_live_hosts: string[]
+          benchmark_auto_enabled: boolean
           demo_auto_enabled: boolean
           disabled_bridges: string[]
           disabled_instruments: string[]
@@ -775,6 +785,7 @@ export type Database = {
         }
         Insert: {
           allowed_live_hosts?: string[]
+          benchmark_auto_enabled?: boolean
           demo_auto_enabled?: boolean
           disabled_bridges?: string[]
           disabled_instruments?: string[]
@@ -789,6 +800,7 @@ export type Database = {
         }
         Update: {
           allowed_live_hosts?: string[]
+          benchmark_auto_enabled?: boolean
           demo_auto_enabled?: boolean
           disabled_bridges?: string[]
           disabled_instruments?: string[]
@@ -841,7 +853,7 @@ export type Database = {
           submitted_stop: number | null
           submitted_target: number | null
           submitted_volume: number | null
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           account_mode?: string | null
@@ -880,7 +892,7 @@ export type Database = {
           submitted_stop?: number | null
           submitted_target?: number | null
           submitted_volume?: number | null
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           account_mode?: string | null
@@ -919,7 +931,7 @@ export type Database = {
           submitted_stop?: number | null
           submitted_target?: number | null
           submitted_volume?: number | null
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {

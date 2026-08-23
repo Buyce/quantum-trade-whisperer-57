@@ -56,8 +56,15 @@ export interface SizingProvenance {
   conversionRequests: number;
   marginBasis: "notional_over_leverage";
   marginNote: string;
-  equityBasis: "user_entered";
+  /**
+   * `user_entered` = the equity the trader typed into settings.
+   * `broker_reported` = equity read from the destination broker account
+   * (connected-account execution sizing).
+   */
+  equityBasis: "user_entered" | "broker_reported";
   equityAsOf: string | null;
+  /** Present only for connected-account sizing. */
+  accountId?: string | null;
 }
 
 export interface SizingUnavailable {
@@ -175,6 +182,24 @@ function guardrailsFor(
 }
 
 /**
+ * Overrides used by connected-account (direct broker) sizing.
+ *
+ * The trader's own risk PERCENT still applies — it is their limit — but the
+ * equity, the account currency and the contract specification all come from the
+ * destination broker account, because that is the account the order lands in.
+ */
+export interface AccountSizingOverride {
+  accountId: string;
+  /** Broker-reported equity. Null is not accepted by the caller. */
+  equity: number;
+  currency: string;
+  /** When the broker reported that equity. */
+  equityAsOf: string | null;
+  /** The account's own contract specification, or null when unavailable. */
+  spec: SizingSpec | null;
+}
+
+/**
  * Resolve sizing for one setup for one user. `db` must be an authenticated,
  * user-scoped client: settings and journal rows are read under RLS as the user.
  */
@@ -183,6 +208,7 @@ export async function resolveSizingForUser(
   userId: string,
   request: SizingRequest,
   now = Date.now(),
+  override?: AccountSizingOverride,
 ): Promise<SizingResponse> {
   const { data: settings } = await db
     .from("scanner_settings")
@@ -191,9 +217,15 @@ export async function resolveSizingForUser(
     )
     .eq("user_id", userId)
     .maybeSingle();
-  const profile = riskProfileFromSettings(settings as Record<string, unknown> | null);
-  const equityAsOf = ((settings as { equity_as_of?: string | null } | null)?.equity_as_of ??
-    null) as string | null;
+  const baseProfile = riskProfileFromSettings(settings as Record<string, unknown> | null);
+  const profile: RiskProfile = override
+    ? { ...baseProfile, accountEquity: override.equity, accountCurrency: override.currency }
+    : baseProfile;
+  const equityAsOf = override
+    ? override.equityAsOf
+    : (((settings as { equity_as_of?: string | null } | null)?.equity_as_of ?? null) as
+        | string
+        | null);
 
   // Advisory exposure from the user's own journal. Never blocks sizing.
   let advisory: PortfolioAdvisory | null = null;
@@ -211,7 +243,12 @@ export async function resolveSizingForUser(
     advisory = null;
   }
 
-  const brokerSpec: SizingSpec | null = await loadBrokerSpec(db, request.instrument);
+  // Connected-account sizing uses THAT account's specification; nothing else
+  // may substitute for it, so an absent account spec is not backfilled from the
+  // benchmark table.
+  const brokerSpec: SizingSpec | null = override
+    ? override.spec
+    : await loadBrokerSpec(db, request.instrument);
   const specStale = brokerSpec ? isSpecStale(brokerSpec, now) : false;
 
   const quoteCurrency =
@@ -277,8 +314,9 @@ export async function resolveSizingForUser(
     marginBasis: "notional_over_leverage",
     marginNote:
       "Estimate only: notional ÷ leverage. Real MT5 margin depends on the symbol calc mode and broker margin rates.",
-    equityBasis: "user_entered",
+    equityBasis: override ? "broker_reported" : "user_entered",
     equityAsOf,
+    accountId: override?.accountId ?? null,
   };
 
   if (!authoritative.ok) {
@@ -325,4 +363,39 @@ export async function resolveSizingForUser(
     profile,
     advisory,
   };
+}
+
+/**
+ * Prompt 14 Stage 3 closure (B/C) — AUTHORITATIVE sizing for a direct broker
+ * destination.
+ *
+ * The order that reaches a broker must be sized from that broker's own numbers:
+ * equity it reports and the contract specification it published for the symbol.
+ * When either is missing we refuse (`no_equity` / `no_spec`) rather than sizing
+ * from the trader's typed-in equity or from the benchmark broker's contract
+ * table.
+ */
+export async function resolveSizingForAccount(
+  db: Db,
+  userId: string,
+  account: { id: string; equity: number | null; currency: string | null; equityAsOf: string | null },
+  request: SizingRequest,
+  now = Date.now(),
+): Promise<SizingResponse> {
+  const { loadAccountSizingSpec, accountSpecStale } = await import("@/lib/accounts/specs.server");
+  const spec = await loadAccountSizingSpec(db, account.id, request.instrument);
+  const usableSpec = spec && !accountSpecStale(spec, now) ? spec : null;
+
+  const equity =
+    account.equity !== null && Number.isFinite(account.equity) && account.equity > 0
+      ? account.equity
+      : null;
+
+  return await resolveSizingForUser(db, userId, request, now, {
+    accountId: account.id,
+    equity: equity ?? 0,
+    currency: account.currency || "USD",
+    equityAsOf: account.equityAsOf,
+    spec: usableSpec,
+  });
 }
