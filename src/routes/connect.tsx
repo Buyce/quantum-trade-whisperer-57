@@ -263,38 +263,39 @@ function ConnectPage() {
             >
               <h3 className="text-sm font-semibold text-foreground">ChatGPT</h3>
               <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-                Custom MCP servers are connected through{" "}
-                <Ext href="https://developers.openai.com/api/docs/guides/developer-mode">
-                  ChatGPT developer mode
-                </Ext>
-                , which OpenAI documents as available to Pro, Plus, Business, Enterprise and
-                Education accounts on the web. Read-only connector use (search/fetch style tools) is
-                broadly available; OpenAI describes full MCP support{" "}
-                <em>including modify/write actions</em> as a beta rolling out to Business,
-                Enterprise and Edu plans (see the{" "}
+                Custom MCP servers are connected through ChatGPT developer mode, documented in{" "}
                 <Ext href="https://help.openai.com/en/articles/12584461-developer-mode-and-mcp-apps-in-chatgpt">
-                  developer mode help article
+                  OpenAI's “Developer mode and MCP apps in ChatGPT” help article
                 </Ext>
-                ). P-Trades Hub does expose write tools —{" "}
+                , which is the authoritative source for this page. OpenAI documents full MCP support{" "}
+                <em>including modify/write actions</em> as a beta on ChatGPT Business, Enterprise and
+                Edu. ChatGPT Pro custom apps are documented only for read/fetch style MCP use, so
+                write tools are not expected there. P-Trades Hub does expose write tools —{" "}
                 <code className="num">update_my_settings</code>,{" "}
                 <code className="num">log_trade_decision</code>,{" "}
-                <code className="num">update_trade_outcome</code> — but whether ChatGPT may invoke
-                them depends on your current plan and workspace permissions, not on this app.
-                Reading setups, status, sizing and your journal works wherever developer mode is
+                <code className="num">update_trade_outcome</code> — but actual availability depends
+                on your ChatGPT plan and workspace permissions, not on this app. Reading setups,
+                status, sizing and your journal works wherever developer mode and read tools are
                 available.
               </p>
               <Steps
                 items={[
                   <>
-                    In ChatGPT, open <strong className="text-foreground">Settings</strong> →{" "}
-                    <strong className="text-foreground">Security and login</strong> and turn on{" "}
-                    <strong className="text-foreground">Developer mode</strong>, reading the
-                    elevated-risk notice shown there. On Business/Enterprise/Edu a workspace admin
-                    may have to enable it first in workspace settings.
+                    Have developer access enabled for your account by a workspace Admin or Owner. On{" "}
+                    <strong className="text-foreground">Business</strong>, Admins and Owners enable
+                    developer mode through the workspace/admin Apps flow OpenAI documents. On{" "}
+                    <strong className="text-foreground">Enterprise/Edu</strong>, an Admin grants
+                    developer access to selected members, who then use{" "}
+                    <strong className="text-foreground">Settings</strong> →{" "}
+                    <strong className="text-foreground">Apps</strong> →{" "}
+                    <strong className="text-foreground">Advanced Settings</strong>. The workspace
+                    role/RBAC prerequisite applies before any app can be created.
                   </>,
                   <>
-                    Go to <Ext href="https://chatgpt.com/plugins">chatgpt.com/plugins</Ext>, press
-                    the “+” button and create a developer-mode app for a remote MCP server.
+                    Open <strong className="text-foreground">Settings</strong> →{" "}
+                    <strong className="text-foreground">Apps</strong> →{" "}
+                    <strong className="text-foreground">Create</strong> (or the equivalent workspace
+                    Apps → Create flow) to add a developer-mode app for a remote MCP server.
                   </>,
                   <>
                     Name it <strong className="text-foreground">P-Trades Hub</strong>, paste the
@@ -303,22 +304,24 @@ function ConnectPage() {
                     key is needed.
                   </>,
                   <>
-                    Confirm the trust/risk acknowledgement ChatGPT shows for every custom MCP
-                    server, then create the app. ChatGPT scans the server and lists its tools; you
-                    can toggle individual tools on the app's details page.
+                    Select <strong className="text-foreground">Scan Tools</strong>, complete the
+                    P-Trades OAuth authorization, wait for the scan to finish, review the discovered
+                    tools, then select <strong className="text-foreground">Create</strong>. You can
+                    toggle individual tools on the app's details page.
                   </>,
                   <>
-                    In a chat, pick <strong className="text-foreground">Developer mode</strong> from
-                    the “+” menu, enable P-Trades Hub, sign in when prompted, then ask ChatGPT to
-                    use it. Write actions ask for confirmation each time unless you choose to
-                    remember the approval for that conversation.
+                    In a chat, enable P-Trades Hub for the conversation and ask ChatGPT to use it.
+                    ChatGPT may ask for confirmation before an action depending on permissions,
+                    action context and risk.
                   </>,
                 ]}
               />
               <p className="mt-3 text-xs text-muted-foreground">
-                Vendor availability, plan tiers and menu names change; if a step does not match what
-                you see, trust OpenAI's documentation linked above over this page.
+                OpenAI states that functionality, UI and plan availability may change as this beta
+                iterates; if a step does not match what you see, trust OpenAI's help article linked
+                above over this page.
               </p>
+
             </TabsContent>
 
             <TabsContent
