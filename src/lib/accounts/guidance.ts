@@ -96,6 +96,30 @@ export function isOfferedRegion(region: string): region is ConnectionRegionId {
   return CONNECTION_REGIONS.some((r) => r.id === region);
 }
 
-/** Plain-language statement of what this stage can and cannot do. */
+/**
+ * Plain-language statement of what P-Trades does with connected accounts when
+ * NOTHING is armed. It is only accurate for that case, so the page must derive
+ * its header from real account state via `capabilityNote` below.
+ */
 export const STAGE_CAPABILITY_NOTE =
   "Connected accounts are in Observe mode: P-Trades reads what your broker reports and shows it back to you. It does not place, change or close any order on your account.";
+
+/**
+ * Honest header copy for /accounts, derived from what the accounts are ACTUALLY
+ * armed to. No arming → the observe statement above. Anything armed is named
+ * explicitly, because claiming "observe only" while an account can submit orders
+ * would be a false statement about the trader's own money.
+ */
+export function capabilityNote(
+  accounts: { label: string; mode: string }[],
+): string {
+  const armed = accounts.filter((a) => a.mode !== "observe");
+  if (armed.length === 0) return STAGE_CAPABILITY_NOTE;
+
+  const names = armed.map((a) => a.label).join(", ");
+  const demoOnly = armed.every((a) => a.mode === "demo_auto");
+  if (demoOnly) {
+    return `Automatic orders are armed on ${names}. For that account P-Trades submits eligible setups as pending orders with a stop loss and the first target attached, on the DEMO account your broker confirmed. Every other connected account stays in Observe mode.`;
+  }
+  return `Automatic orders are armed on ${names}. P-Trades submits eligible setups to those accounts under the mode each one is armed to. Every other connected account stays in Observe mode.`;
+}
