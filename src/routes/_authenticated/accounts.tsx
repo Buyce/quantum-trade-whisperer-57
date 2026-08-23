@@ -283,7 +283,7 @@ function ConnectWizard({
               disabled={!canAddDemo}
               onClick={() => setIntent("demo")}
             >
-              Demo account
+              Demo account (automatic orders optional)
             </Button>
             <Button
               variant={intent === "live" ? "default" : "outline"}
