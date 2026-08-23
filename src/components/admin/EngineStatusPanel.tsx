@@ -61,11 +61,13 @@ export function EngineStatusPanel() {
   const breaker = data.breaker;
   const scanClass = classifyEngineError(scan.last_error);
   const breakerClass = classifyEngineError(breaker?.last_error ?? null);
-  const allScanFailed = scan.total > 0 && scan.failed === scan.total;
-  const scanTone = scan.total === 0 ? "warn" : allScanFailed ? "bad" : scan.failed > 0 ? "warn" : "good";
-  const scanValue =
-    scan.total === 0 ? "NO CYCLES" : allScanFailed ? "FAILING" : scan.failed > 0 ? "DEGRADED" : "RUNNING";
+  const health = classifyScanHealth(scan);
   const cooldown = cooldownRemaining(breaker?.paused_until ?? null);
+
+  const scanSub =
+    health.state === "recovered"
+      ? `${scan.succeeded}/${scan.total} jobs ok in the rolling ${scan.window_minutes}m window · recovered: last failure ${timeAgo(scan.last_failure_at)}, last cycle ok ${timeAgo(scan.last_success_at)}`
+      : `${scan.succeeded}/${scan.total} jobs ok in the rolling ${scan.window_minutes}m window · last cycle ${timeAgo(scan.last_finished_at)}`;
 
   return (
     <PanelShell
@@ -79,10 +81,10 @@ export function EngineStatusPanel() {
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <StatCard
           label="Scan engine (15-min cycles)"
-          value={scanValue}
-          sub={`${scan.succeeded}/${scan.total} jobs ok in last ${scan.window_minutes}m · last cycle ${timeAgo(scan.last_finished_at)}`}
-          tone={scanTone}
-          hint="Derived from scan_queue outcomes only — not from the replay engine's pause flag."
+          value={health.value}
+          sub={scanSub}
+          tone={health.tone}
+          hint="Derived from scan_queue outcomes in a rolling window only — a failure inside the window is not evidence of a failure now, and this never reads the replay engine's pause flag."
         />
         <StatCard
           label="Shadow replay engine"
@@ -101,15 +103,27 @@ export function EngineStatusPanel() {
 
       {(scanClass.kind !== "none" || breakerClass.kind !== "none") && (
         <div className="mt-3 space-y-2 text-[11px]">
-          {scanClass.kind !== "none" && (
-            <p className="text-muted-foreground">
-              <span className="font-medium text-amber-400">Scanner: {scanClass.label}.</span>{" "}
-              {scanClass.explanation}
-              <span className="mt-1 block break-all font-mono text-[10px] text-muted-foreground/80">
-                {scan.last_error}
-              </span>
-            </p>
-          )}
+          {scanClass.kind !== "none" &&
+            (health.errorIsCurrent ? (
+              <p className="text-muted-foreground">
+                <span className="font-medium text-amber-400">Scanner: {scanClass.label}.</span>{" "}
+                {scanClass.explanation}
+                <span className="mt-1 block break-all font-mono text-[10px] text-muted-foreground/80">
+                  {scan.last_error}
+                </span>
+              </p>
+            ) : (
+              <p className="text-muted-foreground/80">
+                <span className="font-medium">
+                  Last failure in this window (since recovered): {scanClass.label}.
+                </span>{" "}
+                {scanClass.explanation} Cycles after it completed normally, so this no longer
+                describes the scanner&apos;s current state.
+                <span className="mt-1 block break-all font-mono text-[10px] text-muted-foreground/70">
+                  {scan.last_error}
+                </span>
+              </p>
+            ))}
           {breakerClass.kind !== "none" && (
             <p className="text-muted-foreground">
               <span className="font-medium text-amber-400">Replay: {breakerClass.label}.</span>{" "}
@@ -121,6 +135,7 @@ export function EngineStatusPanel() {
           )}
         </div>
       )}
+
 
       {breaker?.paused && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
