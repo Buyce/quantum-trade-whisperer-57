@@ -488,3 +488,43 @@ export async function disconnectConnection(
 
   return { summary: plan.summary };
 }
+
+/**
+ * Resolve an `ambiguous` instrument by letting the owner pick the broker symbol.
+ *
+ * The choice is validated against the candidate list WE recorded from the
+ * broker's own symbol list, so a client cannot introduce an arbitrary symbol.
+ */
+export async function chooseBrokerSymbol(
+  userId: string,
+  input: { accountId: string; canonicalSymbol: string; brokerSymbol: string },
+): Promise<{ brokerSymbol: string }> {
+  const db = await admin();
+  const row = await ownedRow(userId, input.accountId);
+  if (row.disconnected_at) throw new Error("This connection has been disconnected.");
+
+  const { data, error } = await db
+    .from("connected_account_symbols" as never)
+    .select("candidates")
+    .eq("account_id", row.id)
+    .eq("canonical_symbol", input.canonicalSymbol)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  const candidates = ((data as { candidates?: string[] } | null)?.candidates ?? []) as string[];
+  if (!candidates.includes(input.brokerSymbol)) {
+    throw new Error("That symbol is not one of the options your broker reported.");
+  }
+
+  const { error: updateError } = await db
+    .from("connected_account_symbols" as never)
+    .update({
+      broker_symbol: input.brokerSymbol,
+      mapping_kind: "suffix",
+      resolved_at: new Date().toISOString(),
+    } as never)
+    .eq("account_id", row.id)
+    .eq("canonical_symbol", input.canonicalSymbol);
+  if (updateError) throw new Error(updateError.message);
+
+  return { brokerSymbol: input.brokerSymbol };
+}
