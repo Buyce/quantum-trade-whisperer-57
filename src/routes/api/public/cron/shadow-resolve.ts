@@ -92,6 +92,8 @@ export const Route = createFileRoute("/api/public/cron/shadow-resolve")({
 
           return Response.json({
             ok: true,
+            probe,
+            breaker_cleared: probe && !allFailed,
             maintenance,
             stats,
             statsError,
@@ -99,6 +101,7 @@ export const Route = createFileRoute("/api/public/cron/shadow-resolve")({
             candidateEnrolment,
             ...summary,
           });
+
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           console.error("[cron/shadow-resolve]", message);
