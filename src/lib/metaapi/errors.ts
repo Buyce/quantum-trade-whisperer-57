@@ -47,6 +47,21 @@ export class MetaApiUnreachableError extends Error {
   }
 }
 
+/**
+ * The configured access token's own claims show it cannot perform the requested
+ * operation — typically a token generated for ONE trading account being asked to
+ * provision a new one. Raised before any request leaves P-Trades, so nothing was
+ * created, changed or charged.
+ */
+export class MetaApiTokenScopeError extends Error {
+  readonly label: string;
+  constructor(label: string, message: string) {
+    super(message);
+    this.name = "MetaApiTokenScopeError";
+    this.label = label;
+  }
+}
+
 /** A non-2xx MetaApi response. `body` is truncated and never logged wholesale. */
 export class MetaApiHttpError extends Error {
   readonly status: number;
