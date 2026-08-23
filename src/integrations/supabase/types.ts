@@ -431,12 +431,6 @@ export type Database = {
           research_consent: boolean
           resolved_at: string | null
           signal_id: string | null
-          signal_day_of_week: number | null
-          signal_detected_at: string | null
-          signal_grade: string | null
-          signal_instrument: string | null
-          signal_time_of_day: number | null
-          signal_trading_session: string | null
           state: string
           stop_provenance: string | null
           stop_source: string | null
@@ -483,12 +477,6 @@ export type Database = {
           research_consent?: boolean
           resolved_at?: string | null
           signal_id?: string | null
-          signal_day_of_week?: number | null
-          signal_detected_at?: string | null
-          signal_grade?: string | null
-          signal_instrument?: string | null
-          signal_time_of_day?: number | null
-          signal_trading_session?: string | null
           state?: string
           stop_provenance?: string | null
           stop_source?: string | null
@@ -535,12 +523,6 @@ export type Database = {
           research_consent?: boolean
           resolved_at?: string | null
           signal_id?: string | null
-          signal_day_of_week?: number | null
-          signal_detected_at?: string | null
-          signal_grade?: string | null
-          signal_instrument?: string | null
-          signal_time_of_day?: number | null
-          signal_trading_session?: string | null
           state?: string
           stop_provenance?: string | null
           stop_source?: string | null
