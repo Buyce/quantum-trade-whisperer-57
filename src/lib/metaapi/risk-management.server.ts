@@ -7,7 +7,7 @@
  */
 import { metaApiRequest } from "./request.server";
 
-const RISK = { service: "risk-management" as const, region: null };
+const RISK = { service: "risk-management" as const };
 
 export interface TrackerInput {
   name: string;
@@ -19,10 +19,12 @@ export interface TrackerInput {
 
 export async function createTracker(
   accountId: string,
+  region: string | null,
   tracker: TrackerInput,
 ): Promise<{ id: string } | null> {
   return await metaApiRequest<{ id: string }>({
     ...RISK,
+    region,
     method: "POST",
     label: "create tracker",
     path: `/users/current/accounts/${accountId}/trackers`,
@@ -30,18 +32,27 @@ export async function createTracker(
   });
 }
 
-export async function listTrackers(accountId: string): Promise<Record<string, unknown>[]> {
+export async function listTrackers(
+  accountId: string,
+  region: string | null,
+): Promise<Record<string, unknown>[]> {
   const raw = await metaApiRequest<Record<string, unknown>[]>({
     ...RISK,
+    region,
     label: "list trackers",
     path: `/users/current/accounts/${accountId}/trackers`,
   });
   return Array.isArray(raw) ? raw : [];
 }
 
-export async function deleteTracker(accountId: string, trackerId: string): Promise<void> {
+export async function deleteTracker(
+  accountId: string,
+  region: string | null,
+  trackerId: string,
+): Promise<void> {
   await metaApiRequest({
     ...RISK,
+    region,
     method: "DELETE",
     label: "delete tracker",
     path: `/users/current/accounts/${accountId}/trackers/${trackerId}`,
@@ -50,11 +61,13 @@ export async function deleteTracker(accountId: string, trackerId: string): Promi
 
 export async function fetchTrackerEvents(
   accountId: string,
+  region: string | null,
   trackerId: string,
   limit = 100,
 ): Promise<Record<string, unknown>[]> {
   const raw = await metaApiRequest<Record<string, unknown>[]>({
     ...RISK,
+    region,
     label: "tracker events",
     path: `/users/current/accounts/${accountId}/trackers/${trackerId}/tracker-events?limit=${limit}`,
   });
@@ -63,6 +76,7 @@ export async function fetchTrackerEvents(
 
 export async function fetchEquityChart(
   accountId: string,
+  region: string | null,
   startTime?: Date,
   endTime?: Date,
 ): Promise<Record<string, unknown>[]> {
@@ -72,6 +86,7 @@ export async function fetchEquityChart(
   const query = params.toString();
   const raw = await metaApiRequest<Record<string, unknown>[]>({
     ...RISK,
+    region,
     label: "equity chart",
     path: `/users/current/accounts/${accountId}/equity-chart${query ? `?${query}` : ""}`,
   });

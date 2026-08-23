@@ -23,21 +23,34 @@ const MAX_REGION_LENGTH = 32;
 
 const ROOT = "agiliumtrade.ai";
 
-type RegionalService = Extract<MetaApiService, "client" | "market-data">;
-type GlobalService = Exclude<MetaApiService, RegionalService>;
+/**
+ * Provisioning is served from the vendor's own double-suffix domain. Verified
+ * against the live service: `mt-provisioning-api-v1.agiliumtrade.ai` does not
+ * resolve at all (the edge answers 530 / 1016), while
+ * `mt-provisioning-api-v1.agiliumtrade.agiliumtrade.ai` answers normally.
+ */
+const PROVISIONING_ROOT = `agiliumtrade.${ROOT}`;
 
-/** Regional service prefixes, per MetaApi's documented API-access hosts. */
+type RegionalService = Exclude<MetaApiService, "provisioning">;
+type GlobalService = Extract<MetaApiService, "provisioning">;
+
+/**
+ * Regional service prefixes, per MetaApi's documented API-access hosts.
+ * MetaStats and Risk Management are region-scoped exactly like the trading
+ * hosts; their non-regional forms do not resolve.
+ */
 const REGIONAL_PREFIX: Record<RegionalService, string> = {
   client: "mt-client-api-v1",
   "market-data": "mt-market-data-client-api-v1",
+  metastats: "metastats-api-v1",
+  "risk-management": "risk-management-api-v1",
 };
 
 /** Global (non-regional) services. */
 const GLOBAL_PREFIX: Record<GlobalService, string> = {
   provisioning: "mt-provisioning-api-v1",
-  metastats: "metastats-api-v1",
-  "risk-management": "risk-management-api-v1",
 };
+
 
 export function isValidRegion(region: unknown): region is string {
   return (
@@ -49,7 +62,7 @@ export function isValidRegion(region: unknown): region is string {
 }
 
 function isRegional(service: MetaApiService): service is RegionalService {
-  return service === "client" || service === "market-data";
+  return service !== "provisioning";
 }
 
 /**
@@ -62,7 +75,7 @@ export function resolveHost(service: MetaApiService, region?: string | null): st
     if (!isValidRegion(region)) return null;
     return `https://${REGIONAL_PREFIX[service]}.${region}.${ROOT}`;
   }
-  return `https://${GLOBAL_PREFIX[service]}.${ROOT}`;
+  return `https://${GLOBAL_PREFIX[service]}.${PROVISIONING_ROOT}`;
 }
 
 /** TRUE only for hosts this resolver itself can produce. */
@@ -70,12 +83,16 @@ export function isTrustedMetaApiHost(host: string): boolean {
   try {
     const url = new URL(host);
     if (url.protocol !== "https:") return false;
+
+    const globalSuffix = `.${PROVISIONING_ROOT}`;
+    if (url.hostname.endsWith(globalSuffix)) {
+      const label = url.hostname.slice(0, -globalSuffix.length);
+      return (Object.values(GLOBAL_PREFIX) as string[]).includes(label);
+    }
+
     const suffix = `.${ROOT}`;
     if (!url.hostname.endsWith(suffix)) return false;
     const labels = url.hostname.slice(0, -suffix.length).split(".");
-    if (labels.length === 1) {
-      return (Object.values(GLOBAL_PREFIX) as string[]).includes(labels[0]!);
-    }
     if (labels.length === 2) {
       return (
         (Object.values(REGIONAL_PREFIX) as string[]).includes(labels[0]!) &&
@@ -86,4 +103,5 @@ export function isTrustedMetaApiHost(host: string): boolean {
   } catch {
     return false;
   }
+
 }

@@ -46,6 +46,8 @@ export async function syncAccountGuardian(input: {
   accountId: string;
   userId: string;
   metaapiAccountId: string;
+  /** Region for the vendor host; comes from MetaApi's own account metadata. */
+  region: string | null;
   info: BrokerAccountInformation;
   riskFeatureEnabled: boolean;
   plans?: TrackerPlan[];
@@ -94,7 +96,7 @@ export async function syncAccountGuardian(input: {
 
   let existing: Record<string, unknown>[] = [];
   try {
-    existing = await listTrackers(input.metaapiAccountId);
+    existing = await listTrackers(input.metaapiAccountId, input.region);
   } catch (err) {
     result.reason = classifyMetaApiFailure(err).message;
     return result;
@@ -107,7 +109,7 @@ export async function syncAccountGuardian(input: {
       try {
         vendorId =
           (
-            await createTracker(input.metaapiAccountId, {
+            await createTracker(input.metaapiAccountId, input.region, {
               name: plan.name,
               period: plan.period,
               relativeDrawdownThreshold: plan.relativeDrawdownThreshold,
@@ -144,7 +146,7 @@ export async function syncAccountGuardian(input: {
     if (!vendorId || !trackerId) continue;
 
     try {
-      for (const raw of await fetchTrackerEvents(input.metaapiAccountId, vendorId)) {
+      for (const raw of await fetchTrackerEvents(input.metaapiAccountId, input.region, vendorId)) {
         const event = normaliseTrackerEvent(raw);
         // No fingerprint and no time means we cannot store it idempotently, and a
         // duplicate breach would misrepresent the account. Skip it.

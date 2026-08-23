@@ -121,6 +121,7 @@ export async function collectRiskGuardian(
         accountId: row.id,
         userId: row.user_id,
         metaapiAccountId: row.metaapi_account_id,
+        region: row.region,
         info: facts.info,
         riskFeatureEnabled: true,
       });

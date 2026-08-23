@@ -9,7 +9,12 @@
  *  - preserve `retry-after` so 202/429 handling can be honest about waiting
  */
 import { METAAPI_APPLICATION, REQUEST_TIMEOUT_MS, readMetaApiToken } from "./config.server";
-import { MetaApiHttpError, MetaApiNotConfiguredError, MetaApiTimeoutError } from "./errors";
+import {
+  MetaApiHttpError,
+  MetaApiNotConfiguredError,
+  MetaApiTimeoutError,
+  MetaApiUnreachableError,
+} from "./errors";
 import { resolveHost, type MetaApiService } from "./hosts";
 
 export interface MetaApiRequestOptions {
@@ -75,6 +80,11 @@ export async function metaApiRequest<T = unknown>(options: MetaApiRequestOptions
     }
     if (!res.ok) {
       const body = await res.text().catch(() => "");
+      // 520-530 come from the vendor's own edge, not from the API: the origin
+      // (or its DNS name) is unavailable, so no request was ever processed.
+      if (res.status >= 520 && res.status <= 530) {
+        throw new MetaApiUnreachableError(options.label, `HTTP ${res.status} ${body.slice(0, 120)}`);
+      }
       throw new MetaApiHttpError(res.status, options.label, body, retryAfterSeconds(res));
     }
 
@@ -88,6 +98,11 @@ export async function metaApiRequest<T = unknown>(options: MetaApiRequestOptions
   } catch (err) {
     if (err instanceof Error && err.name === "AbortError") {
       throw new MetaApiTimeoutError(options.label);
+    }
+    // A DNS/TLS/socket failure surfaces as a TypeError from fetch. Nothing was
+    // sent, so it is reported as unreachable rather than as vendor prose.
+    if (err instanceof TypeError) {
+      throw new MetaApiUnreachableError(options.label, err.message);
     }
     throw err;
   } finally {
