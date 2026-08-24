@@ -4,6 +4,13 @@ import { ACTIVE_MODEL_VERSION } from "./versioning";
 import type { RegimeStatRow } from "./learning/regime";
 import type { ScannerSettingsRow, SignalRow, TradeHistoryRow, TradeRow } from "./db-types";
 import { R_MATH_VERSION } from "./journal/r-math";
+import {
+  toBrokerOrderView,
+  type BrokerOrderDeliveryRow,
+  type BrokerOrderEvidenceRow,
+  type BrokerOrderSignalRow,
+  type BrokerOrderView,
+} from "./history/broker-orders";
 import { collectCompletePages } from "./pagination";
 import { fetchDayFrame, type FrameClient } from "./delivery/day-frame";
 import type { EligibilitySignal } from "./delivery/eligibility";
@@ -114,6 +121,51 @@ export function takenTradeHistoryQuery(userId: string | undefined) {
       return (data ?? []) as unknown as TradeHistoryRow[];
     },
   });
+}
+
+/** Bounded like the journal: the newest automatic orders, never everything. */
+export const BROKER_ORDER_PAGE_SIZE = 200;
+
+/**
+ * Orders P-Trades submitted for the user, joined to the broker's own record of
+ * them and to the originating setup.
+ *
+ * Strictly broker/engine-derived: `execution_deliveries` is the submission
+ * ledger and `broker_trade_evidence` only exists when the reconciler matched
+ * real broker deals. No estimated outcome is ever synthesized here — an order
+ * without evidence stays an order.
+ */
+export function brokerOrdersQuery(userId: string | undefined) {
+  return queryOptions({
+    queryKey: ["broker-orders", userId],
+    enabled: !!userId,
+    queryFn: async (): Promise<BrokerOrderView[]> => {
+      const { data, error } = await supabase
+        .from("execution_deliveries" as never)
+        .select(
+          `id, signal_id, state, reason, dry_run, account_mode, destination_type, broker_symbol, broker_order_id, broker_retcode_string, submitted_volume, submitted_entry, submitted_stop, submitted_target, submitted_at, enqueued_at,
+           broker_trade_evidence(state, broker_account_type, direction, volume, entry_price, exit_price, entry_at, exit_at, gross_profit, commission, swap, profit_currency, r_vs_plan, r_vs_actual_risk, r_availability, stop_provenance),
+           scanned_signals(instrument, grade, direction, detected_at, entry_price, stop_loss, tp1, rr_ratio)`,
+        )
+        .order("enqueued_at", { ascending: false })
+        .limit(BROKER_ORDER_PAGE_SIZE);
+      if (error) throw error;
+      const rows = (data ?? []) as unknown as Array<
+        BrokerOrderDeliveryRow & {
+          broker_trade_evidence?: BrokerOrderEvidenceRow[] | BrokerOrderEvidenceRow | null;
+          scanned_signals?: BrokerOrderSignalRow[] | BrokerOrderSignalRow | null;
+        }
+      >;
+      return rows.map((row) =>
+        toBrokerOrderView(row, one(row.broker_trade_evidence), one(row.scanned_signals)),
+      );
+    },
+  });
+}
+
+function one<T>(value: T[] | T | null | undefined): T | null {
+  if (!value) return null;
+  return Array.isArray(value) ? (value[0] ?? null) : value;
 }
 
 export function settingsQuery(userId: string | undefined) {

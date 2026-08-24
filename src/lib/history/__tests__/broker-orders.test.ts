@@ -1,0 +1,105 @@
+import { describe, expect, it } from "vitest";
+import {
+  brokerOrderPending,
+  brokerOrderStatus,
+  toBrokerOrderView,
+  type BrokerOrderDeliveryRow,
+  type BrokerOrderEvidenceRow,
+} from "../broker-orders";
+
+const delivery = (over: Partial<BrokerOrderDeliveryRow> = {}): BrokerOrderDeliveryRow => ({
+  id: 1,
+  signal_id: "sig",
+  state: "sent",
+  reason: null,
+  dry_run: false,
+  account_mode: "demo_auto",
+  destination_type: "metaapi_direct",
+  broker_symbol: "XAUUSD",
+  broker_order_id: null,
+  broker_retcode_string: null,
+  submitted_volume: 0.1,
+  submitted_entry: 2400,
+  submitted_stop: 2390,
+  submitted_target: 2420,
+  submitted_at: "2026-08-24T10:00:00Z",
+  enqueued_at: "2026-08-24T09:59:00Z",
+  ...over,
+});
+
+const evidence = (over: Partial<BrokerOrderEvidenceRow> = {}): BrokerOrderEvidenceRow => ({
+  state: "closed",
+  broker_account_type: "demo",
+  direction: "long",
+  volume: 0.1,
+  entry_price: 2400.5,
+  exit_price: 2420.5,
+  entry_at: "2026-08-24T10:00:05Z",
+  exit_at: "2026-08-24T14:00:00Z",
+  gross_profit: 200,
+  commission: -1,
+  swap: 0,
+  profit_currency: "USD",
+  r_vs_plan: 1.9,
+  r_vs_actual_risk: 1.85,
+  r_availability: null,
+  stop_provenance: "broker_stop",
+  ...over,
+});
+
+describe("automatic broker orders", () => {
+  it("never claims an outcome for a submitted-but-unconfirmed order", () => {
+    const view = toBrokerOrderView(delivery({ state: "sent" }), null, null);
+    expect(view.status.kind).toBe("awaiting_confirmation");
+    expect(view.broker).toBeNull();
+    expect(view.r.value).toBeNull();
+    expect(brokerOrderPending(view)).toBe(true);
+  });
+
+  it("reports a rejection with the broker's own reason and no result", () => {
+    const view = toBrokerOrderView(
+      delivery({ state: "rejected", broker_retcode_string: "TRADE_RETCODE_NO_MONEY" }),
+      null,
+      null,
+    );
+    expect(view.status.kind).toBe("rejected");
+    expect(view.status.detail).toBe("TRADE_RETCODE_NO_MONEY");
+    expect(view.r.value).toBeNull();
+    expect(brokerOrderPending(view)).toBe(false);
+  });
+
+  it("uses broker evidence for closed orders and exposes broker prices only", () => {
+    const view = toBrokerOrderView(delivery({ state: "acknowledged" }), evidence(), null);
+    expect(view.status.kind).toBe("closed_at_broker");
+    expect(view.broker?.entryPrice).toBe(2400.5);
+    expect(view.r.value).toBe(1.85);
+    expect(view.r.provenance).toBe("canonical");
+    expect(view.accountType).toBe("demo");
+  });
+
+  it("keeps an open broker position outcome-free", () => {
+    const view = toBrokerOrderView(
+      delivery({ state: "acknowledged" }),
+      evidence({ state: "open", exit_price: null, exit_at: null, gross_profit: null }),
+      null,
+    );
+    expect(view.status.kind).toBe("open_at_broker");
+    expect(view.r.value).toBeNull();
+    expect(brokerOrderPending(view)).toBe(true);
+  });
+
+  it("does not invent an R when the broker never supplied one", () => {
+    const view = toBrokerOrderView(
+      delivery(),
+      evidence({ r_vs_plan: null, r_vs_actual_risk: null, r_availability: "unavailable_no_prices" }),
+      null,
+    );
+    expect(view.r.value).toBeNull();
+    expect(view.r.reason).toBe("No actual entry/exit prices recorded.");
+  });
+
+  it("treats an unknown delivery state as an explicit non-claim", () => {
+    expect(brokerOrderStatus({ state: "weird", reason: null, broker_retcode_string: null }, null))
+      .toMatchObject({ kind: "unknown" });
+  });
+});
