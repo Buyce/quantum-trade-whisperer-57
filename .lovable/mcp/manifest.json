@@ -232,7 +232,7 @@
       {
         "name": "get_intelligence",
         "title": "Get learning intelligence",
-        "description": "Read the Bayesian learning engine's regime statistics for a setup: shrunk fill and win-if-filled probabilities, expected value, sample sizes, which tier answered, whether the learning gates have cleared (advisory until then), plus the shrinkage ladder and the measured influence of each regime feature. Pass a signal_id, or an explicit instrument/direction/session bucket.",
+        "description": "Read descriptive, hierarchically shrunk replay rates for a setup: fill rate, TP1-if-filled rate, their joint rate, sample sizes, which tier answered, reporting-gate status, the shrinkage ladder and descriptive feature associations. These are in-sample replay summaries, not forecasts, expected return or a live track record. Pass a signal_id, or an explicit instrument/direction/session bucket.",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": true,
@@ -269,7 +269,7 @@
       {
         "name": "get_shadow_comparison",
         "title": "Get shadow engine comparison",
-        "description": "Compare the deterministic shadow-replay performance of high-grade setups (A+/A) against lower grades (B/C) over the last 7 days: fill rate, win rate, mean and total R, expectancy, sample sizes, and the statistical significance of each difference. Empty tiers report zeroes rather than estimates.",
+        "description": "Compare deterministic shadow-replay summaries for high-grade setups (A+/A) and lower grades (B/C) over the last 7 days: fill rate, win rate, mean and total R, expectancy, sample sizes and diagnostic uncertainty output. Replay V1 is in-sample and has known adjudication defects; this comparison is not causal, predictive or a live track record. Empty tiers report zeroes rather than estimates.",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": false,
