@@ -186,14 +186,22 @@ export function classifyMetaApiFailure(err: unknown): MetaApiFailure {
       };
     }
     if (err.status === 400) {
+      // A ValidationError names the exact field it objected to. Surfacing that
+      // field turns raw vendor JSON into a sentence an operator can act on, and
+      // makes "we sent something the provider does not accept" unmistakable.
+      const parameter = /"parameter"\s*:\s*"([a-z0-9_]+)"/i.exec(err.body)?.[1] ?? null;
       return {
         kind: billing ? "provider_billing" : "validation",
-        message: err.message,
+        message:
+          !billing && parameter
+            ? `Your broker-connection provider rejected ${err.label} because P-Trades sent a value it does not accept for "${parameter}". Nothing was created, changed or charged. Technical detail: ${err.body}`
+            : err.message,
         status: 400,
         retryAfterSeconds: null,
         retryable: false,
       };
     }
+
     if (err.status === 404) {
       return {
         kind: "not_found",
