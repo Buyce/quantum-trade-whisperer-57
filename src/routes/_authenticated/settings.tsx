@@ -699,16 +699,7 @@ function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="notifications" className="space-y-4">
-          <AutoTradingSummary
-            instruments={instruments}
-            sessions={sessions}
-            alertMinGrade={alertMinGrade}
-            cap={cap}
-            equity={equity}
-            currency={currency}
-            riskPercent={riskPercent}
-            maxLots={maxLots}
-          />
+
 
           <PushSection enabled={push} onEnabledChange={setPush} />
 
