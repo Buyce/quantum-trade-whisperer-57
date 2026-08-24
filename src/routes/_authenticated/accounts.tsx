@@ -247,7 +247,7 @@ function AccountsPage() {
           </Accordion>
         </section>
       </div>
-    </AppShell>
+
   );
 }
 
