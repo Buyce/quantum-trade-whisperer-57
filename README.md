@@ -161,7 +161,9 @@ login number or secret value belongs in this repository.
 | Variable                                                                         | Purpose                                            |
 | -------------------------------------------------------------------------------- | -------------------------------------------------- |
 | `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_SUPABASE_PROJECT_ID` | Browser backend client (publishable, safe to ship) |
-| `METAAPI_TOKEN`, `METAAPI_ACCOUNT_ID`                                            | Broker market-data access (server only)            |
+| `METAAPI_TOKEN`                                                                  | Primary market-data/trading token (server only)    |
+| `METAAPI_PROVISIONING_TOKEN`                                                     | Unrestricted account-management reader/writer      |
+| `PTRADES_BENCHMARK_METAAPI_ACCOUNT_ID`, `PTRADES_BENCHMARK_METAAPI_REGION`       | Reserved benchmark connection                      |
 | `CRON_SECRET`                                                                    | Authorises `/api/public/cron/*` callers            |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`                                          | Web push signing                                   |
 | Operator `WEBHOOK_*` values                                                      | Platform secret store; server handlers only        |
@@ -171,6 +173,14 @@ Operator secrets are managed through the platform secret store. Per-user bridge
 secrets are persisted for later dispatch, but database column privileges make the
 value server-only: browsers can replace one through the authenticated validation
 function and receive only configured/not-configured status.
+
+MetaApi account-management calls prefer `METAAPI_PROVISIONING_TOKEN`; market-data
+and trading calls prefer `METAAPI_TOKEN`. After an explicit 401/403 only, the
+server tries the other configured token once. Safe GET requests retry one
+502/503/504 with the same token; mutations are never retried after a timeout or
+5xx response. The provisioning token must include unrestricted **reader and
+writer** roles for the trading account management API, otherwise it may create an
+account that the app cannot subsequently read.
 
 ## 7. Deployment
 

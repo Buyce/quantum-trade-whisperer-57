@@ -18,18 +18,24 @@ export const REQUEST_TIMEOUT_MS = 8_000;
  *
  * Account management (creating and deleting trading accounts) needs a token that
  * is NOT restricted to a single account, while market data and trading work with
- * an account-scoped one. When a dedicated provisioning token is configured it is
- * used for account management only; everything else keeps the general token, so
- * a narrow token stays narrow on the trading path.
+ * an account-scoped one. The ordered candidate list lets the request boundary
+ * try the other configured token only after an explicit 401/403. It is never a
+ * general network/5xx failover and duplicate values are removed.
  */
+export function readMetaApiTokens(purpose: "general" | "provisioning" = "general"): string[] {
+  const general = process.env["METAAPI_TOKEN"];
+  const provisioning = process.env["METAAPI_PROVISIONING_TOKEN"];
+  const ordered = purpose === "provisioning" ? [provisioning, general] : [general, provisioning];
+  const tokens = ordered.filter(
+    (token, index, all): token is string => Boolean(token) && all.indexOf(token) === index,
+  );
+  if (tokens.length === 0) throw new MetaApiNotConfiguredError("METAAPI_TOKEN");
+  return tokens;
+}
+
+/** Primary token retained for pre-flight inspection and existing callers. */
 export function readMetaApiToken(purpose: "general" | "provisioning" = "general"): string {
-  if (purpose === "provisioning") {
-    const provisioning = process.env["METAAPI_PROVISIONING_TOKEN"];
-    if (provisioning) return provisioning;
-  }
-  const token = process.env["METAAPI_TOKEN"];
-  if (!token) throw new MetaApiNotConfiguredError("METAAPI_TOKEN");
-  return token;
+  return readMetaApiTokens(purpose)[0]!;
 }
 
 export interface BenchmarkAccountConfig {

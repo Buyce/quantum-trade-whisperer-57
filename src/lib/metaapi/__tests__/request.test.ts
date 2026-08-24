@@ -11,6 +11,7 @@ function jsonResponse(body: unknown, status = 200, headers: Record<string, strin
 describe("metaApiRequest", () => {
   beforeEach(() => {
     process.env["METAAPI_TOKEN"] = "test-token";
+    delete process.env["METAAPI_PROVISIONING_TOKEN"];
   });
 
   afterEach(() => {
@@ -127,5 +128,71 @@ describe("metaApiRequest", () => {
     await expect(
       metaApiRequest({ service: "provisioning", path: "/x", label: "deploy" }),
     ).resolves.toBeNull();
+  });
+
+  it("[INVARIANT] a general read falls back to the provisioning token only after 403", async () => {
+    process.env["METAAPI_TOKEN"] = "general-token";
+    process.env["METAAPI_PROVISIONING_TOKEN"] = "provisioning-token";
+    const seen: string[] = [];
+    globalThis.fetch = (async (_url: string, init?: RequestInit) => {
+      const token = (init?.headers as Record<string, string>)["auth-token"]!;
+      seen.push(token);
+      return token === "general-token"
+        ? jsonResponse({ error: "ForbiddenError" }, 403)
+        : jsonResponse({ ok: true });
+    }) as unknown as typeof fetch;
+
+    await expect(
+      metaApiRequest({ service: "client", region: "london", path: "/x", label: "read" }),
+    ).resolves.toEqual({ ok: true });
+    expect(seen).toEqual(["general-token", "provisioning-token"]);
+  });
+
+  it("[INVARIANT] provisioning prefers its token and can fall back to the general token", async () => {
+    process.env["METAAPI_TOKEN"] = "general-token";
+    process.env["METAAPI_PROVISIONING_TOKEN"] = "provisioning-token";
+    const seen: string[] = [];
+    globalThis.fetch = (async (_url: string, init?: RequestInit) => {
+      const token = (init?.headers as Record<string, string>)["auth-token"]!;
+      seen.push(token);
+      return token === "provisioning-token"
+        ? jsonResponse({ error: "ForbiddenError" }, 403)
+        : jsonResponse({ id: "account-id" });
+    }) as unknown as typeof fetch;
+
+    await expect(
+      metaApiRequest({ service: "provisioning", path: "/x", label: "read account" }),
+    ).resolves.toEqual({ id: "account-id" });
+    expect(seen).toEqual(["provisioning-token", "general-token"]);
+  });
+
+  it("[INVARIANT] retries a transient 504 once for GET with the same token", async () => {
+    process.env["METAAPI_PROVISIONING_TOKEN"] = "alternate-token";
+    const seen: string[] = [];
+    globalThis.fetch = (async (_url: string, init?: RequestInit) => {
+      seen.push((init?.headers as Record<string, string>)["auth-token"]!);
+      return seen.length === 1 ? jsonResponse("gateway timeout", 504) : jsonResponse({ ok: true });
+    }) as unknown as typeof fetch;
+
+    await expect(
+      metaApiRequest({ service: "client", region: "london", path: "/x", label: "candles" }),
+    ).resolves.toEqual({ ok: true });
+    expect(seen).toEqual(["test-token", "test-token"]);
+  });
+
+  it("[INVARIANT] never retries or swaps tokens for a mutation after a 504", async () => {
+    process.env["METAAPI_PROVISIONING_TOKEN"] = "alternate-token";
+    const fetchMock = vi.fn(async () => jsonResponse("gateway timeout", 504));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    await expect(
+      metaApiRequest({
+        service: "provisioning",
+        method: "POST",
+        path: "/x",
+        label: "deploy account",
+      }),
+    ).rejects.toMatchObject({ status: 504 });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

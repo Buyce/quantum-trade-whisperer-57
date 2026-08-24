@@ -7,24 +7,38 @@
 DO $$
 BEGIN
   -- PostgreSQL roles are cluster-wide, while each Vitest database file
-  -- provisions its own database in parallel. Serialise the check/create
-  -- block so two workers cannot both observe a missing role and race on the
-  -- pg_authid unique index. The transaction-scoped lock is released when this
-  -- DO statement commits and never affects the production schema.
-  PERFORM pg_advisory_xact_lock(hashtext('ptrades-test-bootstrap-roles'));
+  -- provisions its own database in parallel. Advisory locks are scoped to a
+  -- database, so they cannot serialise these cluster-wide role writes. Catch
+  -- the shared-catalog uniqueness race for EACH role: the competing CREATE has
+  -- committed before PostgreSQL raises the conflict, and the next statement can
+  -- safely use the existing role.
+  BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+      CREATE ROLE anon NOLOGIN NOINHERIT;
+    END IF;
+  EXCEPTION WHEN duplicate_object OR unique_violation THEN NULL;
+  END;
 
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
-    CREATE ROLE anon NOLOGIN NOINHERIT;
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
-    CREATE ROLE authenticated NOLOGIN NOINHERIT;
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
-    CREATE ROLE service_role NOLOGIN NOINHERIT BYPASSRLS;
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'supabase_admin') THEN
-    CREATE ROLE supabase_admin NOLOGIN;
-  END IF;
+  BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+      CREATE ROLE authenticated NOLOGIN NOINHERIT;
+    END IF;
+  EXCEPTION WHEN duplicate_object OR unique_violation THEN NULL;
+  END;
+
+  BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
+      CREATE ROLE service_role NOLOGIN NOINHERIT BYPASSRLS;
+    END IF;
+  EXCEPTION WHEN duplicate_object OR unique_violation THEN NULL;
+  END;
+
+  BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'supabase_admin') THEN
+      CREATE ROLE supabase_admin NOLOGIN;
+    END IF;
+  EXCEPTION WHEN duplicate_object OR unique_violation THEN NULL;
+  END;
 END $$;
 
 GRANT anon, authenticated, service_role TO postgres;

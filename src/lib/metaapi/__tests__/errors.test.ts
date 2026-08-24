@@ -4,6 +4,7 @@ import {
   MetaApiHttpError,
   MetaApiNotConfiguredError,
   MetaApiTimeoutError,
+  isTransientMetaApiReadFailure,
 } from "../errors";
 
 describe("metaapi failure classification", () => {
@@ -44,7 +45,17 @@ describe("metaapi failure classification", () => {
       '{"error":"ForbiddenError","message":"You do not have access to metastats-api:rest:public:metrics:getMetrics method"}';
     const failure = classifyMetaApiFailure(new MetaApiHttpError(403, "metastats metrics", body));
     expect(failure.kind).toBe("permission");
-    expect(failure.message).toContain("not allowed to perform it");
+    expect(failure.message).toContain("do not have the matching permission");
+  });
+
+  it("[INVARIANT] an account-read refusal gives recovery guidance without exposing resource ids", () => {
+    const resourceId = "account:private-provider-resource-id";
+    const body = `{"error":"ForbiddenError","message":"You do not have access to ${resourceId} resources"}`;
+    const failure = classifyMetaApiFailure(new MetaApiHttpError(403, "read account", body));
+    expect(failure.kind).toBe("permission");
+    expect(failure.message).toMatch(/reader-and-writer token/i);
+    expect(failure.message).toMatch(/do not create another connection/i);
+    expect(failure.message).not.toContain(resourceId);
   });
 
   it("[INVARIANT] a validation refusal names the rejected parameter instead of dumping vendor JSON", () => {
@@ -89,5 +100,15 @@ describe("metaapi failure classification", () => {
   it("[INVARIANT] error bodies are truncated so vendor payloads cannot flood logs", () => {
     const err = new MetaApiHttpError(500, "x", "y".repeat(5000));
     expect(err.body.length).toBe(300);
+  });
+
+  it("[UNIT] distinguishes transient read outages from permanent provider responses", () => {
+    expect(isTransientMetaApiReadFailure(new MetaApiTimeoutError("candles"))).toBe(true);
+    expect(isTransientMetaApiReadFailure(new MetaApiHttpError(504, "candles", "timeout"))).toBe(
+      true,
+    );
+    expect(isTransientMetaApiReadFailure(new MetaApiHttpError(403, "candles", "forbidden"))).toBe(
+      false,
+    );
   });
 });

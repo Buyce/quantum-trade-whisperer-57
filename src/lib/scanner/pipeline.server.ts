@@ -28,7 +28,8 @@ import {
 import { atr } from "./indicators";
 import { presentSignalBreakdown } from "./copy";
 import { ACTIVE_MODEL_VERSION, observationKey } from "@/lib/versioning";
-import { fetchCandles, MetaApiNotConfiguredError, MetaApiTimeoutError } from "./metaapi.server";
+import { isTransientMetaApiReadFailure } from "@/lib/metaapi/errors";
+import { fetchCandles, MetaApiNotConfiguredError } from "./metaapi.server";
 import {
   CANDLE_LIMITS,
   ENTRY_PRICE_DECIMALS,
@@ -618,10 +619,14 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
       return await finish("duplicate", "An identical active setup is already published");
     }
 
-    if (err instanceof MetaApiTimeoutError || err instanceof MetaApiNotConfiguredError) {
-      // Graceful abort: flag the instrument, skip it, let the next job run.
-      // Retry is deliberately deferred to the next 15-minute cycle rather than
-      // hammering the broker inside a known timeout window.
+    if (isTransientMetaApiReadFailure(err)) {
+      // A gateway/transport outage says nothing about symbol availability.
+      // The request boundary has already made its one safe GET retry; leave
+      // health unchanged and let the next 15-minute cycle try again.
+      return await finish("skipped", message);
+    }
+    if (err instanceof MetaApiNotConfiguredError) {
+      // Missing configuration is persistent and should stay visible in health.
       await flagInstrument(db, job.instrument, message);
       return await finish("skipped", message);
     }

@@ -9,7 +9,7 @@
  *     a configuration link, the broker login/password are entered on MetaApi's
  *     own hosted page; we only ever store the returned account id.
  */
-import { readMetaApiToken } from "./config.server";
+import { readMetaApiTokens } from "./config.server";
 import { MetaApiHttpError, MetaApiTokenScopeError } from "./errors";
 import { metaApiRequest } from "./request.server";
 import { describeCreateAccountScope, inspectCreateAccountScope } from "./token-scope";
@@ -41,8 +41,10 @@ export function canonicalTransactionId(raw: string): string {
  * into a sentence the account owner can act on.
  */
 export function assertCanCreateAccounts(): void {
-  const scope = inspectCreateAccountScope(readMetaApiToken("provisioning"));
-  if (scope.allowed || scope.reason === "unreadable") return;
+  const scopes = readMetaApiTokens("provisioning").map(inspectCreateAccountScope);
+  if (scopes.some((scope) => scope.allowed || scope.reason === "unreadable")) return;
+  const scope = scopes[0]!;
+  if (scope.allowed) return;
   throw new MetaApiTokenScopeError("create account", describeCreateAccountScope(scope.reason));
 }
 

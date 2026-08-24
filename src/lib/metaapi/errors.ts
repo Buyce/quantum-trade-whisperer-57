@@ -167,11 +167,14 @@ export function classifyMetaApiFailure(err: unknown): MetaApiFailure {
         // rule is pinned to an existing account id, and creation is not an
         // operation on an existing account.
         const creation = /createaccount/.test(body);
+        const accountRead = err.label === "read account";
         return {
           kind: "permission",
-          message: creation
-            ? `Your broker-connection provider refused ${err.label} because the access token P-Trades is configured with is not allowed to create trading accounts. This is what happens when the token was generated for one specific trading account: it can read and trade that account, but it cannot provision a new one. Generate a token that includes the trading account management API with read-write access and no resource restriction, or link an account you already have instead. Nothing was created, changed or charged. Technical detail: ${err.body}`
-            : `Your broker-connection provider refused ${err.label} because the access token P-Trades is configured with is not allowed to perform it. Nothing was created, changed or charged — the token needs the matching permission. Technical detail: ${err.body}`,
+          message: accountRead
+            ? "P-Trades has a broker-connection account id, but neither usable server token is allowed to read that account. The provider account may already exist and may consume provider resources. Configure an unrestricted reader-and-writer token for the trading account management API, publish the secret change, then Refresh this connection; do not create another connection."
+            : creation
+              ? `Your broker-connection provider refused ${err.label} because the server token is not allowed to create trading accounts. Generate a token that includes the trading account management API with reader and writer roles and no resource restriction, or link an account you already have instead. Nothing was created, changed or charged.`
+              : `Your broker-connection provider refused ${err.label} because the configured server token(s) do not have the matching permission. No successful change was confirmed.`,
           status: err.status,
           retryAfterSeconds: err.retryAfterSeconds,
           retryable: false,
@@ -179,7 +182,10 @@ export function classifyMetaApiFailure(err: unknown): MetaApiFailure {
       }
       return {
         kind: billing ? "provider_billing" : disabled ? "feature_not_enabled" : "auth",
-        message: err.message,
+        message:
+          billing || disabled
+            ? err.message
+            : `Your broker-connection provider rejected P-Trades authentication for ${err.label}. Check that the applicable server token is valid, published to the live app and permitted to access this account.`,
         status: err.status,
         retryAfterSeconds: err.retryAfterSeconds,
         retryable: false,
@@ -253,4 +259,16 @@ export function classifyMetaApiFailure(err: unknown): MetaApiFailure {
     retryAfterSeconds: null,
     retryable: false,
   };
+}
+
+/**
+ * A scanner GET can safely defer these failures to its next cycle. They are
+ * provider/network availability failures, not evidence that a symbol is absent.
+ */
+export function isTransientMetaApiReadFailure(err: unknown): boolean {
+  return (
+    err instanceof MetaApiTimeoutError ||
+    err instanceof MetaApiUnreachableError ||
+    (err instanceof MetaApiHttpError && [502, 503, 504].includes(err.status))
+  );
 }
