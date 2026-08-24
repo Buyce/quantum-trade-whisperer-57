@@ -114,6 +114,9 @@ describe("connected-account order tags", () => {
     guard();
     const userId = "8dbf027a-6f0d-435c-a100-7d2f29636f96";
     db.exec(`
+      insert into public.account_quota_overrides (user_id, max_demo, max_live, note)
+      values ('${userId}', 3, 1, 'database invariant fixture');
+
       insert into public.connected_trading_accounts
         (user_id, provision_transaction_id, label, platform, region, intent, magic)
       values
@@ -201,13 +204,15 @@ describe("model_version cohort isolation", () => {
     // closed there by design. The payoff estimand tables, the frozen volatility
     // definitions and the cohort-scoped production view are excluded for the same
     // reason: every writer is a recompute RPC that names the model version, and
-    // the view simply inherits the base column with no default of its own.
+    // the view simply inherits the base column with no default of its own. The
+    // retention archive is also excluded: its service-only purge RPC copies the
+    // source signal's explicit version and the archive must not invent one.
     const defaults = db.rows<{ table_name: string; column_default: string | null }>(
       `select table_name, column_default from information_schema.columns
         where table_schema = 'public' and column_name = 'model_version'
           and table_name not in ('model_observations', 'v2_structure_claims',
                                  'payoff_stats', 'payoff_snapshots', 'vol_definitions',
-                                 'shadow_executions_production')
+                                 'shadow_executions_production', 'signal_retention_archive')
         order by table_name`,
     );
 
@@ -615,17 +620,18 @@ describe("server-only execution credentials and authorisation", () => {
   it("[INVARIANT] ordinary owner settings remain writable under RLS", () => {
     guard();
     ensureCredentialRow();
-    const changed = db.asRole<{ risk_per_trade_percent: number }>(
+    db.execAsRole(
       "authenticated",
-      `with changed as (
-         update public.scanner_settings
-            set risk_per_trade_percent = 1.5
-          where user_id = '${userId}'
-        returning risk_per_trade_percent
-       )
-       select risk_per_trade_percent from changed`,
+      `update public.scanner_settings
+          set risk_per_trade_percent = 1.5
+        where user_id = '${userId}'`,
       claims,
     );
-    expect(changed).toEqual([{ risk_per_trade_percent: 1.5 }]);
+    const [changed] = db.rows<{ risk_per_trade_percent: number }>(
+      `select risk_per_trade_percent
+         from public.scanner_settings
+        where user_id = '${userId}'`,
+    );
+    expect(changed).toEqual({ risk_per_trade_percent: 1.5 });
   });
 });

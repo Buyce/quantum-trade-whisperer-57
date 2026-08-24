@@ -116,6 +116,8 @@ export interface Db {
     sql: string,
     claims?: Record<string, unknown>,
   ): T[];
+  /** Runs a statement as the given role, optionally with JWT claims. */
+  execAsRole(role: string, sql: string, claims?: Record<string, unknown>): void;
   /** Runs SQL expecting it to fail as the owner; returns the error text. */
   expectFailure(sql: string): string;
   /** Same as asRole but expects a failure; returns the error text. */
@@ -160,6 +162,9 @@ export function provisionDatabase(c: Cluster, label: string): Db {
       const lines = out.trim().split("\n").filter(Boolean);
       return JSON.parse(lines[lines.length - 1] ?? "[]") as T[];
     },
+    execAsRole(role, sql, claims) {
+      psql(c, name, ["-c", `${prelude(role, claims)} ${sql}`]);
+    },
     expectFailure(sql) {
       try {
         psql(c, name, ["-v", "ON_ERROR_STOP=1", "-c", sql]);
@@ -171,7 +176,10 @@ export function provisionDatabase(c: Cluster, label: string): Db {
     },
     expectFailureAsRole(role, sql, claims) {
       try {
-        psql(c, name, ["-t", "-A", "-c", `${prelude(role, claims)} ${jsonQuery(sql)}`]);
+        // Execute the statement directly. Wrapping an UPDATE/INSERT in the
+        // read-query JSON adapter would fail on SQL syntax before PostgreSQL
+        // reaches the permission boundary this helper is meant to test.
+        psql(c, name, ["-c", `${prelude(role, claims)} ${sql}`]);
       } catch (err) {
         const e = err as { stderr?: string; message?: string };
         return `${e.stderr ?? ""}${e.message ?? ""}`;
