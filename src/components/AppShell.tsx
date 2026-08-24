@@ -3,12 +3,14 @@ import {
   Activity,
   BarChart3,
   BookOpen,
+  Building2,
   History,
   LogOut,
   Plug,
   Settings as SettingsIcon,
   ShieldCheck,
 } from "lucide-react";
+
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 
