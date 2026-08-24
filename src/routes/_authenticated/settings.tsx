@@ -342,8 +342,9 @@ function SettingsPage() {
       <Tabs defaultValue="filters" className="space-y-4">
         <TabsList className="grid h-auto w-full grid-cols-2 gap-1 sm:grid-cols-3 lg:inline-flex lg:h-9 lg:w-auto lg:gap-0">
           <TabsTrigger className="h-10 lg:h-auto" value="filters">
-            Filters &amp; alerts
+            Rules, alerts &amp; automatic orders
           </TabsTrigger>
+
           <TabsTrigger className="h-10 lg:h-auto" value="risk">
             Risk
           </TabsTrigger>
@@ -362,8 +363,22 @@ function SettingsPage() {
         </TabsList>
 
         <TabsContent value="filters" className="space-y-4">
+          {/* The automation summary lives here, at the top of the tab that owns the
+              rules it reports on: these same rules decide alerts and automatic orders. */}
+          <AutoTradingSummary
+            instruments={instruments}
+            sessions={sessions}
+            alertMinGrade={alertMinGrade}
+            cap={cap}
+            equity={equity}
+            currency={currency}
+            riskPercent={riskPercent}
+            maxLots={maxLots}
+          />
+
           <section className="space-y-5 rounded-md border border-border bg-card p-4">
-            <h2 className="label-xs">Feed filters</h2>
+            <h2 className="label-xs">Feed filters — what you see</h2>
+
 
             <div>
               <Label className="text-xs">Instruments</Label>
@@ -467,7 +482,8 @@ function SettingsPage() {
           </section>
 
           <section className="space-y-4 rounded-md border border-border bg-card p-4">
-            <h2 className="label-xs">Alert threshold</h2>
+            <h2 className="label-xs">Alert &amp; automatic-order tier</h2>
+
             <div>
               <Label className="text-xs" htmlFor="alert-min-grade">
                 Alert minimum grade
@@ -484,9 +500,12 @@ function SettingsPage() {
                 </SelectContent>
               </Select>
               <p className="mt-1 text-xs text-muted-foreground">
-                Which tiers may trigger push and email alerts. Independent of your feed minimum
-                grade — set it to “C and above” if you want to be alerted on every tier.
+                Which tiers may trigger push and email alerts — and, on an account you have armed,
+                which tiers may become automatic orders. Independent of your feed minimum grade —
+                set it to “C and above” if you want to be alerted on every tier. C-Grade is never
+                executed automatically.
               </p>
+
             </div>
           </section>
 
@@ -681,16 +700,7 @@ function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="notifications" className="space-y-4">
-          <AutoTradingSummary
-            instruments={instruments}
-            sessions={sessions}
-            alertMinGrade={alertMinGrade}
-            cap={cap}
-            equity={equity}
-            currency={currency}
-            riskPercent={riskPercent}
-            maxLots={maxLots}
-          />
+
 
           <PushSection enabled={push} onEnabledChange={setPush} />
 

@@ -29,8 +29,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
+
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -131,9 +131,13 @@ function AccountsPage() {
 
   const armed = list.filter((account) => account.mode !== "observe");
 
+  // The signed-in layout (src/routes/_authenticated/route.tsx) already supplies
+  // AppShell and the page container, so this route must not wrap itself again —
+  // doing so rendered the header and navigation twice on this screen only.
   return (
-    <AppShell>
-      <div className="mx-auto max-w-[1100px] px-3 py-5 sm:px-4">
+    <>
+      <div className="mx-auto max-w-[1100px]">
+
         <header className="mb-5">
           <h1 className="text-lg font-semibold tracking-tight sm:text-xl">Broker Accounts</h1>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{capabilityNote(list)}</p>
@@ -247,8 +251,9 @@ function AccountsPage() {
           </Accordion>
         </section>
       </div>
-    </AppShell>
+    </>
   );
+
 }
 
 /**
