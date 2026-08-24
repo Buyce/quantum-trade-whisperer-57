@@ -44,8 +44,13 @@ export interface CreateAccountInput {
   manualTrades?: boolean;
   metastatsApiEnabled?: boolean;
   riskManagementApiEnabled?: boolean;
-  /** Create without credentials, to be completed via a configuration link. */
+  /**
+   * Create WITHOUT broker credentials, to be completed via a configuration link.
+   * The provider derives the DRAFT state from the absent login/password; `state`
+   * is not a create parameter and must never be sent.
+   */
   draft?: boolean;
+
 }
 
 /**
