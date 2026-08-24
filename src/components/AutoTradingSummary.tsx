@@ -98,8 +98,13 @@ export function AutoTradingSummary(props: AutoTradingSummaryProps) {
       ) : armed.length === 0 ? (
         <p className="text-xs text-muted-foreground">
           No account is armed for automatic orders, so these rules currently affect your feed and
-          alerts only. Arming happens on the Broker accounts screen.
+          alerts only. Arming happens on{" "}
+          <Link to="/accounts" className="underline underline-offset-2 hover:text-foreground">
+            Broker accounts
+          </Link>
+          .
         </p>
+
       ) : (
         <p className="text-xs text-foreground">
           Armed:{" "}
