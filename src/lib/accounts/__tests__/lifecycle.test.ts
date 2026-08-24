@@ -98,6 +98,21 @@ describe("safe disconnect", () => {
   it("[UNIT] a connection that never reached the provider needs no remote removal", () => {
     expect(planDisconnect({ hasRemoteAccount: false }).removeRemote).toBe(false);
   });
+
+  it("[INVARIANT] a reserved provider account is released locally and never mutated remotely", () => {
+    const plan = planDisconnect({ hasRemoteAccount: true, reservedRemote: true });
+    expect(plan.removeRemote).toBe(false);
+    expect(plan.keepsHistory).toBe(true);
+    expect(plan.summary).toMatch(/reserved by P-Trades/i);
+    expect(plan.summary).toMatch(/nothing was changed at your broker-connection provider/i);
+  });
+
+  it("[INVARIANT] a forced release frees the slot and states the provider account may remain", () => {
+    const plan = planDisconnect({ hasRemoteAccount: true, force: true });
+    expect(plan.removeRemote).toBe(false);
+    expect(plan.summary).toMatch(/slot is free again/i);
+    expect(plan.summary).toMatch(/may still exist/i);
+  });
 });
 
 describe("broker login masking", () => {

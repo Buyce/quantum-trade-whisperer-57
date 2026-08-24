@@ -56,13 +56,29 @@ async function admin(): Promise<Admin> {
   return supabaseAdmin;
 }
 
-/** Never let a customer operation address the benchmark account. */
-export function assertNotBenchmarkAccount(metaapiAccountId: string): void {
+/**
+ * True when a stored provider account id is the reserved P-Trades engine
+ * account. Used for rows that ALREADY exist: they must never trigger a provider
+ * mutation, but they must stay removable from the owner's profile.
+ */
+export function isReservedRemoteAccount(metaapiAccountId: string | null | undefined): boolean {
+  if (!metaapiAccountId) return false;
   const benchmarkAccountId = readBenchmarkAccountId();
-  if (benchmarkAccountId?.toLowerCase() === metaapiAccountId.trim().toLowerCase()) {
+  return benchmarkAccountId?.toLowerCase() === metaapiAccountId.trim().toLowerCase();
+}
+
+/**
+ * Never let a customer LINK or CREATE against the benchmark account.
+ * This is an absolute refusal at the linking boundary only — removal of an
+ * already-stored row is handled by `isReservedRemoteAccount`, so an owner can
+ * never be trapped with an unusable connection slot.
+ */
+export function assertNotBenchmarkAccount(metaapiAccountId: string): void {
+  if (isReservedRemoteAccount(metaapiAccountId)) {
     throw new Error("This account is reserved by P-Trades and cannot be managed here.");
   }
 }
+
 
 export interface StartConnectionInput {
   userId: string;
@@ -375,9 +391,10 @@ async function ownedRow(userId: string, accountId: string): Promise<ConnectedAcc
     .maybeSingle();
   if (error) throw new Error(error.message);
   if (!data) throw new Error("Connection not found.");
-  const row = data as unknown as ConnectedAccountRow;
-  if (row.metaapi_account_id) assertNotBenchmarkAccount(row.metaapi_account_id);
-  return row;
+  // NOTE: a stored reserved id is deliberately NOT refused here. Callers that
+  // would mutate the provider check `isReservedRemoteAccount` themselves, so
+  // the owner can always disconnect and free the slot.
+  return data as unknown as ConnectedAccountRow;
 }
 
 /** Re-issue the hosted credential page for a connection that is still waiting. */
@@ -387,6 +404,11 @@ export async function reissueConfigurationLink(
 ): Promise<{ configurationUrl: string; expiresAt: string }> {
   const row = await ownedRow(userId, accountId);
   if (row.disconnected_at) throw new Error("This connection has been disconnected.");
+  if (isReservedRemoteAccount(row.metaapi_account_id)) {
+    throw new Error(
+      "This connection points at a trading account reserved by P-Trades, so no secure login page can be issued for it. Disconnect it and connect your own account instead.",
+    );
+  }
   if (!row.metaapi_account_id) {
     throw new Error("This connection was never created with your broker-connection provider.");
   }
@@ -409,6 +431,14 @@ export async function reconcileConnection(
   const db = await admin();
   const row = await ownedRow(userId, accountId);
   if (row.disconnected_at) return row;
+  if (isReservedRemoteAccount(row.metaapi_account_id)) {
+    return await writeAndReturn(db, row.id, {
+      phase: "failed" satisfies AccountPhase,
+      last_error:
+        "This connection points at a trading account reserved by P-Trades, so it can never be used for your own trading. Disconnect it and connect your own account instead.",
+      last_reconciled_at: new Date().toISOString(),
+    });
+  }
   if (!row.metaapi_account_id) {
     if (row.phase !== "created" || !row.broker_server) return row;
     if (!Number.isInteger(row.magic) || (row.magic ?? 0) <= 0) {
@@ -689,10 +719,16 @@ export async function refreshSymbolMap(
 export async function disconnectConnection(
   userId: string,
   accountId: string,
+  force = false,
 ): Promise<{ summary: string }> {
   const db = await admin();
   const row = await ownedRow(userId, accountId);
-  const plan = planDisconnect({ hasRemoteAccount: Boolean(row.metaapi_account_id) });
+  const reservedRemote = isReservedRemoteAccount(row.metaapi_account_id);
+  const plan = planDisconnect({
+    hasRemoteAccount: Boolean(row.metaapi_account_id),
+    reservedRemote,
+    force,
+  });
 
   if (plan.removeRemote && row.metaapi_account_id) {
     try {
@@ -709,7 +745,7 @@ export async function disconnectConnection(
         .update({ last_error: failure.message } as never)
         .eq("id", row.id);
       throw new Error(
-        `P-Trades could not remove this connection yet: ${failure.message} Nothing was changed.`,
+        `P-Trades could not remove this connection at your broker-connection provider: ${failure.message} Nothing was changed yet — you can disconnect anyway to free the slot on the P-Trades side.`,
       );
     }
   }

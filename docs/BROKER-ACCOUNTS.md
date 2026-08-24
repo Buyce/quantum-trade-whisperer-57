@@ -41,6 +41,12 @@ Disconnecting removes the provider connection and stops future observation and
 execution. It does not alter the broker account and does not delete existing
 journal, delivery or evidence history.
 
+Disconnect can never be blocked. If the provider refuses removal, the owner can
+release the connection on the P-Trades side, which frees the account slot and
+states that the provider-side account may still exist. A connection pointing at
+the reserved P-Trades engine account can never be armed, refreshed or issued a
+login page, and is removed locally without any provider mutation.
+
 ## Implementation
 
 `src/lib/accounts/*`, `src/lib/metaapi/*`,

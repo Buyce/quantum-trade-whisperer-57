@@ -585,6 +585,7 @@ function AccountCard({
   const disconnect = useServerFn(disconnectBrokerConnection);
   const chooseSymbol = useServerFn(resolveAmbiguousSymbol);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [disconnectError, setDisconnectError] = useState<string | null>(null);
 
   const phase = describePhase(account.phase);
   const toneClass =
@@ -605,12 +606,17 @@ function AccountCard({
     onError: (err: Error) => toast.error(err.message),
   });
   const disconnectMutation = useMutation({
-    mutationFn: () => disconnect({ data: { accountId: account.id } }),
+    mutationFn: (vars: { force: boolean }) =>
+      disconnect({ data: { accountId: account.id, force: vars.force } }),
     onSuccess: (result) => {
+      setDisconnectError(null);
+      setConfirmOpen(false);
       toast.success(result.summary);
       onChanged();
     },
-    onError: (err: Error) => toast.error(err.message),
+    // The provider refused removal. Keep the dialog open and offer an explicit
+    // release so a failed provider call can never trap the connection slot.
+    onError: (err: Error) => setDisconnectError(err.message),
   });
   const symbolMutation = useMutation({
     mutationFn: (vars: { canonicalSymbol: string; brokerSymbol: string }) =>
@@ -821,13 +827,23 @@ function AccountCard({
               is kept.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {disconnectError ? (
+            <p className="rounded-sm border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+              {disconnectError}
+            </p>
+          ) : null}
           <AlertDialogFooter>
-            <AlertDialogCancel>Keep connected</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setDisconnectError(null)}>
+              Keep connected
+            </AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => disconnectMutation.mutate()}
+              onClick={(event) => {
+                event.preventDefault();
+                disconnectMutation.mutate({ force: disconnectError !== null });
+              }}
               disabled={disconnectMutation.isPending}
             >
-              Disconnect
+              {disconnectError ? "Disconnect anyway" : "Disconnect"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

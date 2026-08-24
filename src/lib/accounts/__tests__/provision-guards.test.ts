@@ -4,9 +4,11 @@ import {
   adoptConnection,
   assertNotBenchmarkAccount,
   newAccountOrderTag,
+  isReservedRemoteAccount,
   newProvisionTransactionId,
   startConnection,
 } from "../provision.server";
+import { planDisconnect } from "../lifecycle";
 
 const savedEnv = { ...process.env };
 const savedFetch = globalThis.fetch;
@@ -116,6 +118,20 @@ describe("broker provisioning guards", () => {
       /reserved by P-Trades/i,
     );
     expect(() => assertNotBenchmarkAccount("e3e72106-7709-4835-8022-75cad470a999")).not.toThrow();
+  });
+
+  it("[INVARIANT] recognises a stored reserved account without blocking its removal", () => {
+    const benchmarkId = "f6a72106-7709-4835-8022-75cad470a505";
+    process.env["PTRADES_BENCHMARK_METAAPI_ACCOUNT_ID"] = benchmarkId.toUpperCase();
+
+    expect(isReservedRemoteAccount(benchmarkId)).toBe(true);
+    expect(isReservedRemoteAccount(" F6A72106-7709-4835-8022-75CAD470A505 ")).toBe(true);
+    expect(isReservedRemoteAccount("e3e72106-7709-4835-8022-75cad470a999")).toBe(false);
+    expect(isReservedRemoteAccount(null)).toBe(false);
+
+    // Removal of such a row must stay possible, with no provider mutation.
+    const plan = planDisconnect({ hasRemoteAccount: true, reservedRemote: true });
+    expect(plan.removeRemote).toBe(false);
   });
 
   it("[INVARIANT] refuses adoption of the benchmark before reading the database or provider", async () => {

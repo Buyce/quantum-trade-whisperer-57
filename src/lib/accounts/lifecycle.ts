@@ -164,12 +164,46 @@ export interface DisconnectPlan {
   summary: string;
 }
 
+export interface DisconnectInput {
+  hasRemoteAccount: boolean;
+  /**
+   * The stored provider account is the reserved P-Trades engine account. It must
+   * never be undeployed or deleted on a customer's behalf, but the customer
+   * connection pointing at it must still be removable.
+   */
+  reservedRemote?: boolean;
+  /**
+   * The owner explicitly accepted releasing the P-Trades side after the provider
+   * refused removal. The provider-side account may still exist.
+   */
+  force?: boolean;
+}
+
 /**
  * Disconnecting is deliberately conservative: the connection is marked
  * disconnected, the remote account is removed so it cannot keep trading or
  * accruing cost, and everything already recorded stays exactly as recorded.
+ *
+ * Two cases never touch the provider: a reserved engine account, and a forced
+ * release after the provider already refused removal.
  */
-export function planDisconnect(input: { hasRemoteAccount: boolean }): DisconnectPlan {
+export function planDisconnect(input: DisconnectInput): DisconnectPlan {
+  if (input.hasRemoteAccount && input.reservedRemote) {
+    return {
+      removeRemote: false,
+      keepsHistory: true,
+      summary:
+        "P-Trades removed this connection from your profile. The trading account it pointed at is reserved by P-Trades, so nothing was changed at your broker-connection provider. Everything already recorded in P-Trades is kept.",
+    };
+  }
+  if (input.hasRemoteAccount && input.force) {
+    return {
+      removeRemote: false,
+      keepsHistory: true,
+      summary:
+        "P-Trades released this connection on its side, so the slot is free again. Your broker-connection provider still refused removal, so the account may still exist there and can be removed in your provider console. Everything already recorded in P-Trades is kept.",
+    };
+  }
   return {
     removeRemote: input.hasRemoteAccount,
     keepsHistory: true,
@@ -178,6 +212,7 @@ export function planDisconnect(input: { hasRemoteAccount: boolean }): Disconnect
       : "P-Trades will mark this connection as disconnected. Nothing was ever created at your broker-connection provider for it.",
   };
 }
+
 
 /** Never show a full broker login. */
 export function maskLogin(login: string | number | null | undefined): string | null {

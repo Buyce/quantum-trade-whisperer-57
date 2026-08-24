@@ -47,6 +47,13 @@ export async function setAccountMode(
     broker_account_type: AccountType | null;
   };
 
+  const { isReservedRemoteAccount } = await import("./provision.server");
+  if (isReservedRemoteAccount(row.metaapi_account_id)) {
+    throw new Error(
+      "This connection points at a trading account reserved by P-Trades, so it can never be armed. Disconnect it and connect your own account instead.",
+    );
+  }
+
   const verdict = canArm(
     {
       brokerAccountType: row.broker_account_type ?? "unknown",
