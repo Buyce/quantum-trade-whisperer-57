@@ -41,6 +41,7 @@ import { DangerZoneSection } from "@/components/DangerZoneSection";
 import { GuideDetail } from "@/components/GuideMode";
 import { PushSection } from "@/components/PushSection";
 import { AgentConnectCard } from "@/components/AgentConnectCard";
+import { AutoTradingSummary } from "@/components/AutoTradingSummary";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
@@ -637,8 +638,11 @@ function SettingsPage() {
                   onChange={(e) => setLeverage(e.target.value)}
                 />
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Used only to show the margin a size needs. Leverage does not change your risk —
-                  the stop distance does.
+                  Self-entered fallback, used only to estimate the margin a size needs when no
+                  broker figure exists. P-Trades cannot change your leverage: for a connected
+                  account the broker-reported leverage is what applies, and it is shown read-only
+                  under Automatic trading. Leverage does not change your risk — the stop distance
+                  does.
                 </p>
               </div>
               <div>
@@ -677,6 +681,17 @@ function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="notifications" className="space-y-4">
+          <AutoTradingSummary
+            instruments={instruments}
+            sessions={sessions}
+            alertMinGrade={alertMinGrade}
+            cap={cap}
+            equity={equity}
+            currency={currency}
+            riskPercent={riskPercent}
+            maxLots={maxLots}
+          />
+
           <PushSection enabled={push} onEnabledChange={setPush} />
 
           <section className="space-y-4 rounded-md border border-border bg-card p-4">

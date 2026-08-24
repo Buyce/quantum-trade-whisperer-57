@@ -15,6 +15,9 @@ export interface FakeCall {
   is: Record<string, unknown>;
   notIs: string[];
   in: Record<string, unknown[]>;
+  or: string[];
+  gte: Record<string, unknown>;
+  range: { from: number; to: number } | null;
   order: { column: string; ascending: boolean } | null;
   limit: number | null;
   payload: Record<string, unknown> | null;
@@ -51,6 +54,9 @@ export function createFakeSupabase(
       is: {},
       notIs: [],
       in: {},
+      or: [],
+      gte: {},
+      range: null,
       order: null,
       limit: null,
       payload,
@@ -79,6 +85,19 @@ export function createFakeSupabase(
       not(column: string, op2: string, _value: unknown) {
         if (op2 === "is") call.notIs.push(column);
         return api;
+      },
+      or(expression: string) {
+        call.or.push(expression);
+        return api;
+      },
+      gte(column: string, value: unknown) {
+        call.gte[column] = value;
+        return api;
+      },
+      range(from: number, to: number) {
+        call.range = { from, to };
+        const r = settle();
+        return Promise.resolve({ data: r.data, error: r.error });
       },
       in(column: string, values: unknown[]) {
         call.in[column] = values;
