@@ -74,6 +74,22 @@ describe("inspectCreateAccountScope", () => {
     }
   });
 
+  it("[INVARIANT] refuses a writer-only token that could create but not read the new account", () => {
+    const token = tokenWith([
+      {
+        id: "trading-account-management-api",
+        methods: [],
+        roles: ["writer"],
+        resources: [],
+      },
+    ]);
+    expect(inspectCreateAccountScope(token)).toEqual({
+      allowed: false,
+      reason: "missing_reader",
+    });
+    expect(describeCreateAccountScope("missing_reader")).toMatch(/reader and writer/i);
+  });
+
   it("[INVARIANT] evaluates all matching rules instead of rejecting on the first restricted one", () => {
     const token = tokenWith([
       {
@@ -156,11 +172,13 @@ describe("token selection", () => {
   });
 
   it("[INVARIANT] account management uses the unrestricted token while trading keeps the general one", async () => {
-    const { readMetaApiToken } = await import("../config.server");
+    const { readMetaApiToken, readMetaApiTokens } = await import("../config.server");
     process.env["METAAPI_TOKEN"] = "general";
     process.env["METAAPI_PROVISIONING_TOKEN"] = "unrestricted";
     expect(readMetaApiToken("provisioning")).toBe("unrestricted");
     expect(readMetaApiToken()).toBe("general");
+    expect(readMetaApiTokens("provisioning")).toEqual(["unrestricted", "general"]);
+    expect(readMetaApiTokens()).toEqual(["general", "unrestricted"]);
   });
 
   it("[UNIT] falls back to the general token when no provisioning token is configured", async () => {
@@ -168,5 +186,12 @@ describe("token selection", () => {
     process.env["METAAPI_TOKEN"] = "general";
     delete process.env["METAAPI_PROVISIONING_TOKEN"];
     expect(readMetaApiToken("provisioning")).toBe("general");
+  });
+
+  it("[INVARIANT] removes duplicate token candidates instead of sending twice", async () => {
+    const { readMetaApiTokens } = await import("../config.server");
+    process.env["METAAPI_TOKEN"] = "same";
+    process.env["METAAPI_PROVISIONING_TOKEN"] = "same";
+    expect(readMetaApiTokens("provisioning")).toEqual(["same"]);
   });
 });

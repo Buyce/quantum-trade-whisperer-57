@@ -89,7 +89,10 @@ function restrictsResources(resources: string[]): boolean {
 
 export type CreateAccountScope =
   | { allowed: true }
-  | { allowed: false; reason: "unreadable" | "missing_rule" | "read_only" | "account_restricted" };
+  | {
+      allowed: false;
+      reason: "unreadable" | "missing_rule" | "read_only" | "account_restricted" | "missing_reader";
+    };
 
 /**
  * Can the configured token provision a NEW trading account?
@@ -112,6 +115,10 @@ export function inspectCreateAccountScope(token: string): CreateAccountScope {
   if (writerRules.every((rule) => restrictsResources(rule.resources))) {
     return { allowed: false, reason: "account_restricted" };
   }
+  const hasUnrestrictedReader = managementRules.some(
+    (rule) => rule.roles.includes("reader") && !restrictsResources(rule.resources),
+  );
+  if (!hasUnrestrictedReader) return { allowed: false, reason: "missing_reader" };
   return { allowed: true };
 }
 
@@ -126,6 +133,8 @@ export function describeCreateAccountScope(
       return "The access token P-Trades is configured with has read-only access to the trading account management API, so it cannot create a new broker connection. Generate a token with read-write access. Nothing was created or charged.";
     case "account_restricted":
       return "The access token P-Trades is configured with is restricted to specific trading accounts, so it cannot provision a new one. Generate a token without a resource restriction, or link an account you already have instead. Nothing was created or charged.";
+    case "missing_reader":
+      return "The access token P-Trades is configured with can create a broker connection but cannot read or manage the new connection afterward. Generate an unrestricted token with both reader and writer roles for the trading account management API. Nothing was created or charged.";
     case "unreadable":
       return "The access token P-Trades is configured with could not be read.";
   }

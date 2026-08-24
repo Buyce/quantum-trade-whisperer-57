@@ -8,7 +8,7 @@
  *  - map every failure into the single error vocabulary in `errors.ts`
  *  - preserve `retry-after` so 202/429 handling can be honest about waiting
  */
-import { METAAPI_APPLICATION, REQUEST_TIMEOUT_MS, readMetaApiToken } from "./config.server";
+import { METAAPI_APPLICATION, REQUEST_TIMEOUT_MS, readMetaApiTokens } from "./config.server";
 import {
   MetaApiHttpError,
   MetaApiNotConfiguredError,
@@ -33,6 +33,10 @@ export interface MetaApiRequestOptions {
   throwOn202?: boolean;
 }
 
+/** One bounded retry for idempotent reads after a transient vendor gateway response. */
+export const SAFE_GET_RETRY_DELAY_MS = 250;
+const TRANSIENT_READ_STATUSES = new Set([502, 503, 504]);
+
 export function parseRetryAfterSeconds(raw: string | null, nowMs = Date.now()): number | null {
   if (!raw) return null;
   const numeric = Number(raw);
@@ -54,17 +58,11 @@ function retryAfterSeconds(res: Response): number | null {
  * empty body). Throws `MetaApiTimeoutError`, `MetaApiNotConfiguredError` or
  * `MetaApiHttpError` — nothing else escapes.
  */
-export async function metaApiRequest<T = unknown>(
+async function requestOnce<T>(
   options: MetaApiRequestOptions,
+  host: string,
+  token: string,
 ): Promise<T | null> {
-  const token = readMetaApiToken(options.service === "provisioning" ? "provisioning" : "general");
-  const host = resolveHost(options.service, options.region ?? null);
-  if (!host) {
-    throw new MetaApiNotConfiguredError(
-      `a trusted MetaApi ${options.service} host for region "${options.region ?? ""}"`,
-    );
-  }
-
   const controller = new AbortController();
   const timeout = options.timeoutMs ?? REQUEST_TIMEOUT_MS;
   const timer = setTimeout(() => controller.abort(), timeout);
@@ -124,4 +122,62 @@ export async function metaApiRequest<T = unknown>(
   } finally {
     clearTimeout(timer);
   }
+}
+
+/**
+ * Perform a MetaApi call through the ordered server-token candidates.
+ *
+ * Safety invariants:
+ *  - an alternate token is tried only after an explicit 401/403 rejection;
+ *  - a transient 502/503/504 is retried only for GET, once, with the same token;
+ *  - mutations are never retried after an ambiguous timeout or 5xx response.
+ */
+export async function metaApiRequest<T = unknown>(
+  options: MetaApiRequestOptions,
+): Promise<T | null> {
+  const purpose = options.service === "provisioning" ? "provisioning" : "general";
+  const tokens = readMetaApiTokens(purpose);
+  const host = resolveHost(options.service, options.region ?? null);
+  if (!host) {
+    throw new MetaApiNotConfiguredError(
+      `a trusted MetaApi ${options.service} host for region "${options.region ?? ""}"`,
+    );
+  }
+
+  const method = options.method ?? "GET";
+  let lastAuthError: MetaApiHttpError | null = null;
+
+  for (let tokenIndex = 0; tokenIndex < tokens.length; tokenIndex += 1) {
+    const token = tokens[tokenIndex]!;
+    const attempts = method === "GET" ? 2 : 1;
+
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      try {
+        return await requestOnce<T>(options, host, token);
+      } catch (err) {
+        const transientRead =
+          method === "GET" &&
+          err instanceof MetaApiHttpError &&
+          TRANSIENT_READ_STATUSES.has(err.status);
+        if (transientRead && attempt + 1 < attempts) {
+          await new Promise((resolve) => setTimeout(resolve, SAFE_GET_RETRY_DELAY_MS));
+          continue;
+        }
+
+        const rejectedToken =
+          err instanceof MetaApiHttpError && (err.status === 401 || err.status === 403);
+        if (rejectedToken && tokenIndex + 1 < tokens.length) {
+          // An authorization rejection confirms this credential did not permit
+          // the operation. Trying the alternate token cannot duplicate it.
+          lastAuthError = err;
+          break;
+        }
+        throw err;
+      }
+    }
+  }
+
+  // Every successful branch returned and every terminal failure threw. This is
+  // only reachable when the first token was rejected and no candidate remained.
+  throw lastAuthError ?? new MetaApiNotConfiguredError("a usable MetaApi access token");
 }
