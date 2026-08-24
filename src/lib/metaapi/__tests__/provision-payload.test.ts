@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MetaApiHttpError } from "../errors";
-import { createAccount } from "../provision.server";
+import { canonicalTransactionId, createAccount } from "../provision.server";
 
 const ORIGINAL_FETCH = globalThis.fetch;
 const ORIGINAL_TOKEN = process.env["METAAPI_TOKEN"];
 const ORIGINAL_PROVISIONING = process.env["METAAPI_PROVISIONING_TOKEN"];
+const TXN_ONE = "1234567890abcdef1234567890abcdef";
+const TXN_TWO = "abcdef1234567890abcdef1234567890";
 
 describe("createAccount payload", () => {
   beforeEach(() => {
@@ -40,7 +42,7 @@ describe("createAccount payload", () => {
         riskManagementApiEnabled: false,
         draft,
       },
-      "txn-1",
+      TXN_ONE,
     );
 
     const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
@@ -69,7 +71,7 @@ describe("createAccount payload", () => {
 
     const created = await createAccount(
       { name: "n", platform: "mt4", region: "london", magic: 0, draft: true },
-      "txn-2",
+      TXN_TWO,
     );
     expect(created).toEqual({ id: "acc-2", state: "UNDEPLOYED" });
   });
@@ -93,5 +95,62 @@ describe("createAccount payload", () => {
     expect(err).toMatchObject({ status: 202, retryAfterSeconds: 30 });
     const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     expect((init.headers as Record<string, string>)["transaction-id"]).toBe(transactionId);
+  });
+
+  it("[INVARIANT] canonicalises a persisted UUID at the final HTTP boundary", async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(JSON.stringify({ id: "acc-3", state: "DRAFT" }), { status: 200 }),
+    );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    await createAccount(
+      { name: "n", platform: "mt5", server: "MetaQuotes-Demo", region: "london", magic: 1 },
+      "d149c96b-3f66-48e6-99a2-ef0943a12503",
+    );
+
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect((init.headers as Record<string, string>)["transaction-id"]).toBe(
+      "d149c96b3f6648e699a2ef0943a12503",
+    );
+  });
+
+  it("[INVARIANT] refuses malformed ids before an HTTP request can leave P-Trades", async () => {
+    const fetchMock = vi.fn();
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    await expect(
+      createAccount(
+        { name: "n", platform: "mt5", server: "MetaQuotes-Demo", region: "london", magic: 1 },
+        "too-short",
+      ),
+    ).rejects.toThrow(/exactly 32 hexadecimal characters/i);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("[UNIT] canonical transaction ids contain exactly 32 hexadecimal characters", () => {
+    expect(canonicalTransactionId(" D149C96B-3F66-48E6-99A2-EF0943A12503 ")).toBe(
+      "d149c96b3f6648e699a2ef0943a12503",
+    );
+  });
+
+  it("[INVARIANT] attests the local invariant if MetaApi still rejects the header", async () => {
+    globalThis.fetch = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            id: 5566,
+            error: "ValidationError",
+            message: "Transaction-id header must be 32 characters long",
+          }),
+          { status: 400 },
+        ),
+    ) as unknown as typeof fetch;
+
+    await expect(
+      createAccount(
+        { name: "n", platform: "mt5", server: "MetaQuotes-Demo", region: "london", magic: 1 },
+        TXN_ONE,
+      ),
+    ).rejects.toThrow(/locally validated a 32-character transaction-id/i);
   });
 });
