@@ -65,7 +65,7 @@ function inserts(calls: FakeCall[]) {
 }
 
 describe("enqueueDirectDeliveries", () => {
-  it("enqueues one delivery for an armed account whose rules accept the setup", async () => {
+  it("[INVARIANT] enqueues one delivery for an armed account whose rules accept the setup", async () => {
     const f = fake();
     const out = await enqueueDirectDeliveries(f.client as SupabaseClient, SIGNAL, NOW);
     expect(out).toMatchObject({ enqueued: 1, filtered: 0, reason: null });
@@ -81,7 +81,7 @@ describe("enqueueDirectDeliveries", () => {
     });
   });
 
-  it("never enqueues a C-Grade setup", async () => {
+  it("[INVARIANT] never enqueues a C-Grade setup", async () => {
     const f = fake();
     const out = await enqueueDirectDeliveries(
       f.client as SupabaseClient,
@@ -93,40 +93,40 @@ describe("enqueueDirectDeliveries", () => {
     expect(inserts(f.calls)).toHaveLength(0);
   });
 
-  it("refuses when the system-wide automatic switches are off", async () => {
+  it("[INVARIANT] refuses when the system-wide automatic switches are off", async () => {
     const f = fake({ controls: { demo_auto_enabled: false, live_auto_enabled: false } });
     const out = await enqueueDirectDeliveries(f.client as SupabaseClient, SIGNAL, NOW);
     expect(out.reason).toBe("automatic_execution_disabled");
     expect(inserts(f.calls)).toHaveLength(0);
   });
 
-  it("refuses when no account is armed", async () => {
+  it("[INVARIANT] refuses when no account is armed", async () => {
     const f = fake({ accounts: [] });
     const out = await enqueueDirectDeliveries(f.client as SupabaseClient, SIGNAL, NOW);
     expect(out.reason).toBe("no_armed_account");
   });
 
-  it("filters an instrument the owner did not select", async () => {
+  it("[INVARIANT] filters an instrument the owner did not select", async () => {
     const f = fake({ settings: { instruments: ["EURUSD"] } });
     const out = await enqueueDirectDeliveries(f.client as SupabaseClient, SIGNAL, NOW);
     expect(out).toMatchObject({ enqueued: 0, filtered: 1, reason: "filtered_by_user_rules" });
     expect(inserts(f.calls)).toHaveLength(0);
   });
 
-  it("filters a session the owner did not select", async () => {
+  it("[INVARIANT] filters a session the owner did not select", async () => {
     const f = fake({ settings: { sessions: ["tokyo"] } });
     const out = await enqueueDirectDeliveries(f.client as SupabaseClient, SIGNAL, NOW);
     expect(out.filtered).toBe(1);
     expect(inserts(f.calls)).toHaveLength(0);
   });
 
-  it("filters a grade below the owner's alert threshold", async () => {
+  it("[INVARIANT] filters a grade below the owner's alert threshold", async () => {
     const f = fake({ settings: { alert_min_grade: "A+" } });
     const out = await enqueueDirectDeliveries(f.client as SupabaseClient, SIGNAL, NOW);
     expect(out.filtered).toBe(1);
   });
 
-  it("applies the owner's daily cap using the whole UTC-day frame", async () => {
+  it("[INVARIANT] applies the owner's daily cap using the whole UTC-day frame", async () => {
     // Two earlier eligible A-Grade setups already consumed a cap of 2.
     const frame = [
       {
@@ -154,7 +154,7 @@ describe("enqueueDirectDeliveries", () => {
     expect(out2.enqueued).toBe(1);
   });
 
-  it("does not guess when the owner has no settings row", async () => {
+  it("[INVARIANT] does not guess when the owner has no settings row", async () => {
     const f = createFakeSupabase((call: FakeCall) => {
       if (call.table === "execution_controls") {
         return { data: [{ demo_auto_enabled: true, live_auto_enabled: false }], error: null };
@@ -166,7 +166,7 @@ describe("enqueueDirectDeliveries", () => {
     expect(out).toMatchObject({ enqueued: 0, filtered: 1 });
   });
 
-  it("does not enqueue a live-auto account while live auto is off", async () => {
+  it("[INVARIANT] does not enqueue a live-auto account while live auto is off", async () => {
     const f = fake({
       accounts: [{ ...ACCOUNT, mode: "live_auto", broker_account_type: "real" }],
     });
