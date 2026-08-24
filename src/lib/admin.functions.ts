@@ -334,7 +334,7 @@ export const getAdminExecutionSwitches = createServerFn({ method: "GET" })
  */
 export const setAdminExecutionSwitches = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { demoAutoEnabled?: boolean; forceDryRun?: boolean }) => input)
+  .validator((input: { demoAutoEnabled?: boolean; forceDryRun?: boolean }) => input)
   .handler(async ({ data, context }): Promise<AdminExecutionSwitches> => {
     const email = String(context.claims["email"] ?? "").toLowerCase();
     if (email !== OWNER_EMAIL) throw new Error("Forbidden");

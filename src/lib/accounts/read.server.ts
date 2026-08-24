@@ -129,6 +129,7 @@ export async function toAccountView(
       brokerAccountType: row.broker_account_type,
       intentConflict: row.intent_conflict,
     }),
+    configurationPageAvailable: Boolean(row.metaapi_account_id),
     intentConflict: row.intent_conflict,
     intentConflictReason: row.intent_conflict_reason,
     // Only meaningful once the broker answered; before that it is not a claim.

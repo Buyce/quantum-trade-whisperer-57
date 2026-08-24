@@ -33,7 +33,7 @@ export const getPushConfig = createServerFn({ method: "GET" }).handler(
 
 export const savePushSubscription = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => subscriptionSchema.parse(input))
+  .validator((input: unknown) => subscriptionSchema.parse(input))
   .handler(async ({ data, context }): Promise<{ ok: true }> => {
     const { error } = await context.supabase.from("push_subscriptions" as never).upsert(
       {
@@ -52,7 +52,7 @@ export const savePushSubscription = createServerFn({ method: "POST" })
 
 export const removePushSubscription = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => z.object({ endpoint: z.string().max(2000) }).parse(input))
+  .validator((input: unknown) => z.object({ endpoint: z.string().max(2000) }).parse(input))
   .handler(async ({ data, context }): Promise<{ ok: true }> => {
     const { error } = await context.supabase
       .from("push_subscriptions" as never)

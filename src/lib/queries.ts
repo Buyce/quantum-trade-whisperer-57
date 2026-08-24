@@ -4,6 +4,7 @@ import { ACTIVE_MODEL_VERSION } from "./versioning";
 import type { RegimeStatRow } from "./learning/regime";
 import type { ScannerSettingsRow, SignalRow, TradeHistoryRow, TradeRow } from "./db-types";
 import { R_MATH_VERSION } from "./journal/r-math";
+import { collectCompletePages } from "./pagination";
 import { fetchDayFrame, type FrameClient } from "./delivery/day-frame";
 import type { EligibilitySignal } from "./delivery/eligibility";
 import {
@@ -62,22 +63,32 @@ export function dayFrameQuery() {
 }
 
 /** Bounded on purpose: an unlimited personal history grows without ceiling. */
-const TRADE_PAGE_SIZE = 500;
+export const TRADE_HISTORY_PAGE_SIZE = 500;
+const TRADE_PAGE_SIZE = TRADE_HISTORY_PAGE_SIZE;
+const TRADE_MAX_PAGES = 20;
+const TRADE_COLUMNS =
+  "id, user_id, signal_id, user_decision, outcome, realized_r_multiple, actual_entry_price, actual_exit_price, derived_r, price_source, price_source_client, price_recorded_at, decision_source, decision_source_client, notes, created_at, planned_entry, planned_stop, planned_direction, signal_detected_at, signal_instrument, signal_grade, signal_trading_session, signal_time_of_day, signal_day_of_week, actual_initial_stop, stop_provenance, r_vs_plan, r_vs_actual_risk, r_availability, r_math_version, net_r, commission, swap, cost_currency, cost_unit, verification_level, trade_state";
 
 export function myTradesQuery(userId: string | undefined) {
   return queryOptions({
     queryKey: ["my-trades", userId],
     enabled: !!userId,
     queryFn: async (): Promise<TradeRow[]> => {
-      const { data, error } = await supabase
-        .from("executed_trades" as never)
-        .select(
-          "id, user_id, signal_id, user_decision, outcome, realized_r_multiple, actual_entry_price, actual_exit_price, derived_r, price_source, price_source_client, price_recorded_at, decision_source, decision_source_client, notes, created_at, planned_entry, planned_stop, planned_direction, signal_detected_at, signal_instrument, signal_grade, signal_trading_session, signal_time_of_day, signal_day_of_week, actual_initial_stop, stop_provenance, r_vs_plan, r_vs_actual_risk, r_availability, r_math_version, net_r, commission, swap, cost_currency, cost_unit, verification_level, trade_state",
-        )
-        .order("created_at", { ascending: false })
-        .limit(TRADE_PAGE_SIZE);
-      if (error) throw error;
-      return (data ?? []) as unknown as TradeRow[];
+      return await collectCompletePages<TradeRow>({
+        pageSize: TRADE_PAGE_SIZE,
+        maxPages: TRADE_MAX_PAGES,
+        overflowMessage: `Journal exceeded ${TRADE_PAGE_SIZE * TRADE_MAX_PAGES} rows; refusing incomplete Performance metrics`,
+        fetchPage: async (from, to) => {
+          const { data, error } = await supabase
+            .from("executed_trades" as never)
+            .select(TRADE_COLUMNS)
+            .order("created_at", { ascending: false })
+            .order("id", { ascending: false })
+            .range(from, to);
+          if (error) throw error;
+          return (data ?? []) as unknown as TradeRow[];
+        },
+      });
     },
   });
 }

@@ -35,7 +35,7 @@ const bridgeInput = z.object({
 
 export const saveBridgeSettings = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => bridgeInput.parse(input))
+  .validator((input: unknown) => bridgeInput.parse(input))
   .handler(async ({ data, context }) => {
     const { validateOutboundUrl, URL_REJECTION_COPY } =
       await import("@/lib/delivery/outbound-url.server");

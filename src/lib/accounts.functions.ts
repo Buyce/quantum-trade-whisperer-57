@@ -28,7 +28,7 @@ export const getAccountQuota = createServerFn({ method: "GET" })
 
 export const startBrokerConnection = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator(
+  .validator(
     (input: {
       label: string;
       platform: "mt4" | "mt5";
@@ -42,9 +42,21 @@ export const startBrokerConnection = createServerFn({ method: "POST" })
     return await startConnection({ ...data, userId: context.userId });
   });
 
+/**
+ * Link a trading account that already exists at the provider. Works with an
+ * account-scoped access token, which cannot provision new accounts.
+ */
+export const adoptBrokerConnection = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: { label: string; metaapiAccountId: string; intent: "demo" | "live" }) => input)
+  .handler(async ({ data, context }) => {
+    const { adoptConnection } = await import("@/lib/accounts/provision.server");
+    return await adoptConnection({ ...data, userId: context.userId });
+  });
+
 export const reissueBrokerConfigurationLink = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { accountId: string }) => input)
+  .validator((input: { accountId: string }) => input)
   .handler(async ({ data, context }) => {
     const { reissueConfigurationLink } = await import("@/lib/accounts/provision.server");
     return await reissueConfigurationLink(context.userId, data.accountId);
@@ -52,7 +64,7 @@ export const reissueBrokerConfigurationLink = createServerFn({ method: "POST" })
 
 export const refreshBrokerConnection = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { accountId: string }) => input)
+  .validator((input: { accountId: string }) => input)
   .handler(async ({ data, context }): Promise<ConnectedAccountView | null> => {
     const { reconcileConnection } = await import("@/lib/accounts/provision.server");
     const { toAccountView } = await import("@/lib/accounts/read.server");
@@ -62,7 +74,7 @@ export const refreshBrokerConnection = createServerFn({ method: "POST" })
 
 export const disconnectBrokerConnection = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { accountId: string }) => input)
+  .validator((input: { accountId: string }) => input)
   .handler(async ({ data, context }) => {
     const { disconnectConnection } = await import("@/lib/accounts/provision.server");
     return await disconnectConnection(context.userId, data.accountId);
@@ -70,9 +82,7 @@ export const disconnectBrokerConnection = createServerFn({ method: "POST" })
 
 export const resolveAmbiguousSymbol = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator(
-    (input: { accountId: string; canonicalSymbol: string; brokerSymbol: string }) => input,
-  )
+  .validator((input: { accountId: string; canonicalSymbol: string; brokerSymbol: string }) => input)
   .handler(async ({ data, context }) => {
     const { chooseBrokerSymbol } = await import("@/lib/accounts/provision.server");
     return await chooseBrokerSymbol(context.userId, data);
@@ -80,7 +90,7 @@ export const resolveAmbiguousSymbol = createServerFn({ method: "POST" })
 
 export const setBrokerAccountMode = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { accountId: string; mode: string }) => input)
+  .validator((input: { accountId: string; mode: string }) => input)
   .handler(async ({ data, context }): Promise<ConnectedAccountView | null> => {
     const { setAccountMode } = await import("@/lib/accounts/arm.server");
     const { loadAccountViews } = await import("@/lib/accounts/read.server");
@@ -91,7 +101,7 @@ export const setBrokerAccountMode = createServerFn({ method: "POST" })
 
 export const setAccountExposureBoundary = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { accountId: string; maxOpenPositions: number | null }) => input)
+  .validator((input: { accountId: string; maxOpenPositions: number | null }) => input)
   .handler(async ({ data, context }): Promise<ConnectedAccountView | null> => {
     const { setAccountExposureBoundary: save } = await import("@/lib/accounts/exposure.server");
     const { loadAccountViews } = await import("@/lib/accounts/read.server");
@@ -102,7 +112,7 @@ export const setAccountExposureBoundary = createServerFn({ method: "POST" })
 
 export const setAccountResearchConsent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { accountId: string; enabled: boolean }) => input)
+  .validator((input: { accountId: string; enabled: boolean }) => input)
   .handler(async ({ data, context }) => {
     const { setResearchConsent } = await import("@/lib/accounts/research-consent.server");
     return await setResearchConsent(context.userId, data.accountId, data.enabled);

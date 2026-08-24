@@ -97,6 +97,8 @@ export interface ConnectedAccountView {
   phase: AccountPhase;
   mode: AccountMode;
   ready: boolean;
+  /** A provider account id exists, so a secure credential page can be requested. */
+  configurationPageAvailable: boolean;
   intentConflict: boolean;
   intentConflictReason: string | null;
   readOnly: boolean;

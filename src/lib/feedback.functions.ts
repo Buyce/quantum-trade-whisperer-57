@@ -43,7 +43,7 @@ const feedbackSchema = z.object({
 
 export const submitFeedback = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => feedbackSchema.parse(input))
+  .validator((input: unknown) => feedbackSchema.parse(input))
   .handler(async ({ data, context }): Promise<{ id: string }> => {
     const claimEmail =
       typeof context.claims["email"] === "string" ? (context.claims["email"] as string) : null;

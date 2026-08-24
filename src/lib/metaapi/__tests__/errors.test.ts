@@ -29,6 +29,34 @@ describe("metaapi failure classification", () => {
     ).toBe("provider_billing");
   });
 
+  it("[INVARIANT] a token-scope refusal is a permission gap, not a credential or broker rejection", () => {
+    const body =
+      '{"id":13932,"error":"ForbiddenError","message":"You do not have access to trading-account-management-api:rest:public:account-management:createAccount method","details":{"methodId":["trading-account-management-api:rest:public:account-management:createAccount"]}}';
+    const failure = classifyMetaApiFailure(new MetaApiHttpError(403, "create account", body));
+    expect(failure.kind).toBe("permission");
+    expect(failure.retryable).toBe(false);
+    expect(failure.message).toContain("not allowed to create trading accounts");
+    expect(failure.message).toContain("Nothing was created");
+  });
+
+  it("[INVARIANT] a non-creation permission refusal keeps the generic wording", () => {
+    const body =
+      '{"error":"ForbiddenError","message":"You do not have access to metastats-api:rest:public:metrics:getMetrics method"}';
+    const failure = classifyMetaApiFailure(new MetaApiHttpError(403, "metastats metrics", body));
+    expect(failure.kind).toBe("permission");
+    expect(failure.message).toContain("not allowed to perform it");
+  });
+
+  it("[INVARIANT] a validation refusal names the rejected parameter instead of dumping vendor JSON", () => {
+    const body =
+      '{"id":19335,"error":"ValidationError","message":"Validation failed","details":[{"parameter":"state","value":"DRAFT","message":"Unexpected value."}]}';
+    const failure = classifyMetaApiFailure(new MetaApiHttpError(400, "create account", body));
+    expect(failure.kind).toBe("validation");
+    expect(failure.retryable).toBe(false);
+    expect(failure.message).toContain('does not accept for "state"');
+    expect(failure.message).toContain("Nothing was created");
+  });
+
   it("[UNIT] maps auth, feature, not-found, validation and server statuses", () => {
     expect(classifyMetaApiFailure(new MetaApiHttpError(403, "x", "forbidden")).kind).toBe("auth");
     expect(

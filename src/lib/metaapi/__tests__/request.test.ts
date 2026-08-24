@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MetaApiHttpError, MetaApiNotConfiguredError, MetaApiTimeoutError } from "../errors";
-import { metaApiRequest } from "../request.server";
+import { metaApiRequest, parseRetryAfterSeconds } from "../request.server";
 
 const ORIGINAL_FETCH = globalThis.fetch;
 
@@ -50,6 +50,7 @@ describe("metaApiRequest", () => {
 
   it("[INVARIANT] refuses to send anything when the token is not configured", async () => {
     delete process.env["METAAPI_TOKEN"];
+    delete process.env["METAAPI_PROVISIONING_TOKEN"];
     const fetchMock = vi.fn(async () => jsonResponse({}));
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
@@ -86,6 +87,8 @@ describe("metaApiRequest", () => {
 
     const err = await metaApiRequest({
       service: "metastats",
+      region: "london",
+
       path: "/x",
       label: "metrics",
     }).catch((e: unknown) => e);
@@ -94,15 +97,28 @@ describe("metaApiRequest", () => {
     expect((err as MetaApiHttpError).retryAfterSeconds).toBe(12);
   });
 
+  it("[UNIT] preserves both Retry-After encodings used by the provider", () => {
+    const now = Date.parse("2026-08-24T00:00:00Z");
+    expect(parseRetryAfterSeconds("12", now)).toBe(12);
+    expect(parseRetryAfterSeconds("Mon, 24 Aug 2026 00:00:12 GMT", now)).toBe(12);
+    expect(parseRetryAfterSeconds("not-a-date", now)).toBeNull();
+  });
+
   it("[UNIT] treats 202 as an error only when the caller opts in", async () => {
     globalThis.fetch = (async () =>
       jsonResponse({ pending: true }, 202, { "retry-after": "30" })) as unknown as typeof fetch;
 
     await expect(
-      metaApiRequest({ service: "metastats", path: "/x", label: "metrics", throwOn202: true }),
+      metaApiRequest({
+        service: "metastats",
+        region: "london",
+        path: "/x",
+        label: "metrics",
+        throwOn202: true,
+      }),
     ).rejects.toBeInstanceOf(MetaApiHttpError);
     await expect(
-      metaApiRequest({ service: "metastats", path: "/x", label: "metrics" }),
+      metaApiRequest({ service: "metastats", region: "london", path: "/x", label: "metrics" }),
     ).resolves.toEqual({ pending: true });
   });
 

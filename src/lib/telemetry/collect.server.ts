@@ -41,6 +41,7 @@ const PARK_KINDS: MetaApiFailureKind[] = [
   "provider_billing",
   "feature_not_enabled",
   "auth",
+  "permission",
   "not_found",
 ];
 
@@ -58,6 +59,8 @@ interface Candidate {
   id: string;
   user_id: string;
   metaapi_account_id: string;
+  /** Region comes from MetaApi's own account metadata; the host needs it. */
+  region: string | null;
 }
 
 /**
@@ -69,7 +72,7 @@ async function candidates(limit: number): Promise<Candidate[]> {
   const { data, error } = await supabaseAdmin
     .from("connected_trading_accounts")
     .select(
-      "id, user_id, metaapi_account_id, connected_account_features!inner(metastats_api_enabled)",
+      "id, user_id, metaapi_account_id, region, connected_account_features!inner(metastats_api_enabled)",
     )
     .is("disconnected_at", null)
     .eq("phase", "ready")
@@ -153,7 +156,7 @@ export async function collectAccountTelemetry(
     summary.claimed += 1;
 
     try {
-      const snapshot = toSnapshot(await fetchMetrics(row.metaapi_account_id));
+      const snapshot = toSnapshot(await fetchMetrics(row.metaapi_account_id, row.region));
       await storeSnapshot(row, snapshot);
 
       if (snapshot.status === "ok") {

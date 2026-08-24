@@ -21,6 +21,7 @@ import {
   Eye,
   Zap,
   HelpCircle,
+  Link2,
   Loader2,
   Plus,
   RefreshCw,
@@ -63,6 +64,7 @@ import { CONNECTION_REGIONS, HELP_TOPICS, capabilityNote } from "@/lib/accounts/
 import type { AccountMode, ConnectedAccountView } from "@/lib/accounts/types";
 import { getExecutionStatus } from "@/lib/execution.functions";
 import {
+  adoptBrokerConnection,
   disconnectBrokerConnection,
   getAccountQuota,
   listConnectedAccounts,
@@ -110,6 +112,7 @@ function Money({ value, currency }: { value: number | null; currency: string | n
 function AccountsPage() {
   const queryClient = useQueryClient();
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [linkOpen, setLinkOpen] = useState(false);
 
   const accounts = useQuery({
     queryKey: ["connected-accounts"],
@@ -176,8 +179,24 @@ function AccountsPage() {
         )}
 
         <div className="mt-5 flex flex-wrap items-center gap-3">
-          <Button onClick={() => setWizardOpen(true)} disabled={!canAddDemo && !canAddLive}>
+          <Button
+            onClick={() => {
+              setLinkOpen(false);
+              setWizardOpen(true);
+            }}
+            disabled={!canAddDemo && !canAddLive}
+          >
             <Plus className="size-4" /> Connect a broker account
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setWizardOpen(false);
+              setLinkOpen(true);
+            }}
+            disabled={!canAddDemo && !canAddLive}
+          >
+            <Link2 className="size-4" /> Link an account I already have
           </Button>
           {quota.data ? (
             <span className="num text-xs text-muted-foreground">
@@ -192,6 +211,15 @@ function AccountsPage() {
             canAddDemo={canAddDemo}
             canAddLive={canAddLive}
             onClose={() => setWizardOpen(false)}
+            onDone={invalidate}
+          />
+        ) : null}
+
+        {linkOpen ? (
+          <LinkExistingAccount
+            canAddDemo={canAddDemo}
+            canAddLive={canAddLive}
+            onClose={() => setLinkOpen(false)}
             onDone={invalidate}
           />
         ) : null}
@@ -223,6 +251,109 @@ function AccountsPage() {
   );
 }
 
+/**
+ * Link a trading account the owner already provisioned with the provider. No
+ * account is created and no credentials are entered here: the provider already
+ * holds them, so this only attaches the existing account to this P-Trades user.
+ */
+function LinkExistingAccount({
+  canAddDemo,
+  canAddLive,
+  onClose,
+  onDone,
+}: {
+  canAddDemo: boolean;
+  canAddLive: boolean;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const adopt = useServerFn(adoptBrokerConnection);
+  const [intent, setIntent] = useState<"demo" | "live">(canAddDemo ? "demo" : "live");
+  const [label, setLabel] = useState("");
+  const [metaapiAccountId, setMetaapiAccountId] = useState("");
+
+  const mutation = useMutation({
+    mutationFn: () => adopt({ data: { label, metaapiAccountId, intent } }),
+    onSuccess: () => {
+      onDone();
+      toast.success(
+        "Account linked. Press Refresh on the connection to check it with your broker.",
+      );
+      onClose();
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  return (
+    <div className="mt-5 rounded-sm border border-border bg-surface p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-sm font-semibold">Link an account you already have</h2>
+        <Button variant="ghost" size="sm" onClick={onClose}>
+          Close
+        </Button>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Use this when the account already exists with your broker-connection provider. P-Trades
+        reads the platform, broker server and region from the provider&rsquo;s own record — you do
+        not enter credentials, and nothing new is created or charged.
+      </p>
+
+      <div className="mt-3 space-y-3">
+        <div className="flex gap-2">
+          <Button
+            variant={intent === "demo" ? "default" : "outline"}
+            disabled={!canAddDemo}
+            onClick={() => setIntent("demo")}
+          >
+            Demo account (automatic orders optional)
+          </Button>
+          <Button
+            variant={intent === "live" ? "default" : "outline"}
+            disabled={!canAddLive}
+            onClick={() => setIntent("live")}
+          >
+            Live account (observe only)
+          </Button>
+        </div>
+        <div>
+          <Label htmlFor="existing-id">Trading account id</Label>
+          <Input
+            id="existing-id"
+            className="num mt-1"
+            placeholder="00000000-0000-0000-0000-000000000000"
+            value={metaapiAccountId}
+            onChange={(e) => setMetaapiAccountId(e.target.value)}
+          />
+          <p className="mt-1 text-xs text-muted-foreground">
+            Copy it from your broker-connection provider&rsquo;s MT Accounts page. Accounts reserved
+            by P-Trades itself cannot be linked.
+          </p>
+        </div>
+        <div>
+          <Label htmlFor="existing-label">Name this connection</Label>
+          <Input
+            id="existing-label"
+            className="mt-1"
+            placeholder="My demo account"
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+          />
+        </div>
+        <Button
+          size="sm"
+          disabled={
+            label.trim().length < 2 || metaapiAccountId.trim().length < 36 || mutation.isPending
+          }
+          onClick={() => mutation.mutate()}
+        >
+          {mutation.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+          Link this account
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function ConnectWizard({
   canAddDemo,
   canAddLive,
@@ -241,16 +372,18 @@ function ConnectWizard({
   const [label, setLabel] = useState("");
   const [brokerServer, setBrokerServer] = useState("");
   const [region, setRegion] = useState<string>("london");
+  const [provisioningPending, setProvisioningPending] = useState(false);
 
   const mutation = useMutation({
     mutationFn: () => start({ data: { label, platform, brokerServer, region, intent } }),
     onSuccess: (result) => {
       onDone();
       setStep(4);
+      setProvisioningPending(result.provisioningPending);
       if (result.configurationUrl) {
         // Opened, never rendered or stored: the URL grants credential entry.
         window.open(result.configurationUrl, "_blank", "noopener,noreferrer");
-      } else {
+      } else if (!result.provisioningPending) {
         toast.error(
           "Your broker-connection provider did not return a secure page. Refresh the connection to retry.",
         );
@@ -389,14 +522,29 @@ function ConnectWizard({
       {step === 4 ? (
         <div className="space-y-3 text-sm">
           <p className="flex items-center gap-2 font-medium">
-            <CheckCircle2 className="size-4 text-success" /> Connection created
+            {provisioningPending ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <CheckCircle2 className="size-4 text-success" />
+            )}
+            {provisioningPending
+              ? "Provider is still creating the connection"
+              : "Connection created"}
           </p>
-          <p className="text-xs text-muted-foreground">
-            Enter your MetaTrader login on the secure page that just opened. Then come back and
-            press
-            <strong> Refresh</strong> on the connection below. P-Trades will show it as Ready only
-            once your broker itself confirms the account.
-          </p>
+          {provisioningPending ? (
+            <p className="text-xs text-muted-foreground">
+              This attempt is still processing. Wait for the provider, close this panel, then press
+              <strong> Refresh</strong> on the connection. P-Trades will reuse the same transaction
+              id so it does not create a duplicate.
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Enter your MetaTrader login on the secure page that just opened. Then come back and
+              press
+              <strong> Refresh</strong> on the connection below. P-Trades will show it as Ready only
+              once your broker itself confirms the account.
+            </p>
+          )}
           <Button size="sm" onClick={onClose}>
             Done
           </Button>
@@ -511,7 +659,7 @@ function AccountCard({
             )}
             Refresh
           </Button>
-          {!account.ready ? (
+          {!account.ready && account.configurationPageAvailable ? (
             <Button
               size="sm"
               variant="outline"

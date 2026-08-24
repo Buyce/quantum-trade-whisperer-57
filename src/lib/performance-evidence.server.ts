@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Grade } from "@/lib/db-types";
 import type { PerformanceEvidenceRow, PerformanceEvidenceSource } from "@/lib/performance-evidence";
+import { collectCompletePages } from "@/lib/pagination";
 
 type Db = SupabaseClient<never, never, never>;
 
@@ -57,16 +58,12 @@ export async function collectCompleteEvidencePages<T>(
   pageSize = PERFORMANCE_EVIDENCE_PAGE_SIZE,
   maxPages = PERFORMANCE_EVIDENCE_MAX_PAGES,
 ): Promise<T[]> {
-  const rows: T[] = [];
-  for (let page = 0; page < maxPages; page += 1) {
-    const from = page * pageSize;
-    const pageRows = await fetchPage(from, from + pageSize - 1);
-    rows.push(...pageRows);
-    if (pageRows.length < pageSize) return rows;
-  }
-  throw new Error(
-    `Performance evidence exceeded ${pageSize * maxPages} closed rows; refusing incomplete metrics`,
-  );
+  return await collectCompletePages({
+    fetchPage,
+    pageSize,
+    maxPages,
+    overflowMessage: `Performance evidence exceeded ${pageSize * maxPages} closed rows; refusing incomplete metrics`,
+  });
 }
 
 function chunks<T>(rows: T[], size: number): T[][] {

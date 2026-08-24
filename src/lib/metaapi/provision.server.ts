@@ -9,10 +9,25 @@
  *     a configuration link, the broker login/password are entered on MetaApi's
  *     own hosted page; we only ever store the returned account id.
  */
+import { readMetaApiToken } from "./config.server";
+import { MetaApiTokenScopeError } from "./errors";
 import { metaApiRequest } from "./request.server";
+import { describeCreateAccountScope, inspectCreateAccountScope } from "./token-scope";
 import type { MetaApiPlatform, ProvisionedAccount } from "./types";
 
 const PROVISIONING = { service: "provisioning" as const, region: null };
+
+/**
+ * Refuse a creation attempt the configured token demonstrably cannot perform,
+ * BEFORE any request leaves P-Trades. An unreadable token is never blocked here:
+ * the provider stays the authority, this only turns a knowable configuration gap
+ * into a sentence the account owner can act on.
+ */
+export function assertCanCreateAccounts(): void {
+  const scope = inspectCreateAccountScope(readMetaApiToken("provisioning"));
+  if (scope.allowed || scope.reason === "unreadable") return;
+  throw new MetaApiTokenScopeError("create account", describeCreateAccountScope(scope.reason));
+}
 
 export interface CreateAccountInput {
   name: string;
@@ -29,7 +44,11 @@ export interface CreateAccountInput {
   manualTrades?: boolean;
   metastatsApiEnabled?: boolean;
   riskManagementApiEnabled?: boolean;
-  /** Create without credentials, to be completed via a configuration link. */
+  /**
+   * Create WITHOUT broker credentials, to be completed via a configuration link.
+   * The provider derives the DRAFT state from the absent login/password; `state`
+   * is not a create parameter and must never be sent.
+   */
   draft?: boolean;
 }
 
@@ -41,6 +60,7 @@ export async function createAccount(
   input: CreateAccountInput,
   transactionId: string,
 ): Promise<{ id: string; state: string | null }> {
+  assertCanCreateAccounts();
   const body: Record<string, unknown> = {
     name: input.name,
     type: "cloud-g2",
@@ -54,7 +74,9 @@ export async function createAccount(
     ...(input.server ? { server: input.server } : {}),
     ...(input.login ? { login: input.login } : {}),
     ...(input.password ? { password: input.password } : {}),
-    ...(input.draft ? { state: "DRAFT" } : {}),
+    // NOTE: `state` is NOT a create-account parameter — sending it is rejected
+    // with a 400 ValidationError. A draft is produced by omitting the broker
+    // credentials; the provider then returns state DRAFT itself.
   };
 
   const res = await metaApiRequest<{ id?: string; state?: string }>({
@@ -64,6 +86,10 @@ export async function createAccount(
     path: "/users/current/accounts",
     headers: { "transaction-id": transactionId },
     body,
+    // A 202 means asynchronous discovery is still running. The account
+    // orchestrator persists this transaction id and continues the same request
+    // on Refresh; treating 202 as a successful response would lose that state.
+    throwOn202: true,
   });
   if (!res?.id) throw new Error("MetaApi did not return an account id for this creation attempt");
   return { id: res.id, state: res.state ?? null };

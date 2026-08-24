@@ -9,7 +9,12 @@
  *  - preserve `retry-after` so 202/429 handling can be honest about waiting
  */
 import { METAAPI_APPLICATION, REQUEST_TIMEOUT_MS, readMetaApiToken } from "./config.server";
-import { MetaApiHttpError, MetaApiNotConfiguredError, MetaApiTimeoutError } from "./errors";
+import {
+  MetaApiHttpError,
+  MetaApiNotConfiguredError,
+  MetaApiTimeoutError,
+  MetaApiUnreachableError,
+} from "./errors";
 import { resolveHost, type MetaApiService } from "./hosts";
 
 export interface MetaApiRequestOptions {
@@ -28,11 +33,20 @@ export interface MetaApiRequestOptions {
   throwOn202?: boolean;
 }
 
-function retryAfterSeconds(res: Response): number | null {
-  const raw = res.headers.get("retry-after");
+export function parseRetryAfterSeconds(raw: string | null, nowMs = Date.now()): number | null {
   if (!raw) return null;
-  const n = Number(raw);
-  return Number.isFinite(n) && n >= 0 ? n : null;
+  const numeric = Number(raw);
+  if (Number.isFinite(numeric) && numeric >= 0) return numeric;
+
+  // MetaApi also sends the HTTP-date form. Preserve it as a delay instead of
+  // silently discarding the provider's polling instruction.
+  const at = Date.parse(raw);
+  if (!Number.isFinite(at)) return null;
+  return Math.max(0, Math.ceil((at - nowMs) / 1_000));
+}
+
+function retryAfterSeconds(res: Response): number | null {
+  return parseRetryAfterSeconds(res.headers.get("retry-after"));
 }
 
 /**
@@ -43,7 +57,7 @@ function retryAfterSeconds(res: Response): number | null {
 export async function metaApiRequest<T = unknown>(
   options: MetaApiRequestOptions,
 ): Promise<T | null> {
-  const token = readMetaApiToken();
+  const token = readMetaApiToken(options.service === "provisioning" ? "provisioning" : "general");
   const host = resolveHost(options.service, options.region ?? null);
   if (!host) {
     throw new MetaApiNotConfiguredError(
@@ -77,6 +91,16 @@ export async function metaApiRequest<T = unknown>(
     }
     if (!res.ok) {
       const body = await res.text().catch(() => "");
+      // 520-530 come from the vendor's edge rather than a normal API response.
+      // The edge did not confirm application-level processing. Callers must
+      // preserve their idempotency key because an ambiguous failure must never
+      // be treated as proof that a mutation did not reach the origin.
+      if (res.status >= 520 && res.status <= 530) {
+        throw new MetaApiUnreachableError(
+          options.label,
+          `HTTP ${res.status} ${body.slice(0, 120)}`,
+        );
+      }
       throw new MetaApiHttpError(res.status, options.label, body, retryAfterSeconds(res));
     }
 
@@ -90,6 +114,11 @@ export async function metaApiRequest<T = unknown>(
   } catch (err) {
     if (err instanceof Error && err.name === "AbortError") {
       throw new MetaApiTimeoutError(options.label);
+    }
+    // A DNS/TLS/socket failure surfaces as a TypeError from fetch. Nothing was
+    // sent, so it is reported as unreachable rather than as vendor prose.
+    if (err instanceof TypeError) {
+      throw new MetaApiUnreachableError(options.label, err.message);
     }
     throw err;
   } finally {

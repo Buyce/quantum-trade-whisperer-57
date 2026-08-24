@@ -17,7 +17,7 @@ const input = z.object({
 
 export const resolveSizingForSetup = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: unknown) => input.parse(data))
+  .validator((data: unknown) => input.parse(data))
   .handler(async ({ data, context }) => {
     const { resolveSizingForUser } = await import("./sizing/service.server");
     return resolveSizingForUser(context.supabase, context.userId, {

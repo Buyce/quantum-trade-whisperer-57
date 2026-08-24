@@ -65,7 +65,7 @@ export interface RecordOutcomeResult {
 
 export const recordTradeOutcome = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: unknown) => schema.parse(data))
+  .validator((data: unknown) => schema.parse(data))
   .handler(async ({ data, context }): Promise<RecordOutcomeResult> => {
     // RLS scopes this read to the caller's own trade.
     const { data: trade, error: readError } = await context.supabase

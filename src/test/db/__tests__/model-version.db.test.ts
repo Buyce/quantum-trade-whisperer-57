@@ -109,6 +109,35 @@ describe("migration replay feasibility", () => {
   });
 });
 
+describe("connected-account order tags", () => {
+  it("[INVARIANT] requires a unique positive magic number for broker evidence attribution", () => {
+    guard();
+    const userId = "8dbf027a-6f0d-435c-a100-7d2f29636f96";
+    db.exec(`
+      insert into public.connected_trading_accounts
+        (user_id, provision_transaction_id, label, platform, region, intent, magic)
+      values
+        ('${userId}', 'order-tag-a', 'Demo A', 'mt5', 'london', 'demo', 700001234);
+    `);
+
+    const duplicate = db.expectFailure(`
+      insert into public.connected_trading_accounts
+        (user_id, provision_transaction_id, label, platform, region, intent, magic)
+      values
+        ('${userId}', 'order-tag-b', 'Demo B', 'mt5', 'london', 'demo', 700001234);
+    `);
+    expect(duplicate).toMatch(/unique|duplicate/i);
+
+    const nonPositive = db.expectFailure(`
+      insert into public.connected_trading_accounts
+        (user_id, provision_transaction_id, label, platform, region, intent, magic)
+      values
+        ('${userId}', 'order-tag-c', 'Demo C', 'mt5', 'london', 'demo', 0);
+    `);
+    expect(nonPositive).toMatch(/check constraint|violates/i);
+  });
+});
+
 describe("model_version cohort isolation", () => {
   it("[INVARIANT] V1 and V2 regime_stats rows coexist under the composite key", () => {
     guard();

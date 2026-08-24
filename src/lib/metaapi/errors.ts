@@ -29,6 +29,39 @@ export class MetaApiNotConfiguredError extends Error {
   }
 }
 
+/**
+ * The provider host could not be reached at all: DNS failure, TLS failure, or
+ * the vendor edge answering with its own "origin unavailable" page (HTTP 530,
+ * error code 1016). There is no application-level confirmation either way.
+ */
+export class MetaApiUnreachableError extends Error {
+  readonly label: string;
+  readonly detail: string;
+  constructor(label: string, detail: string) {
+    super(
+      `P-Trades could not reach your broker-connection provider for ${label}, so it could not confirm whether the request was processed. P-Trades will reuse the same idempotency key for a safe retry when that operation supports one. Technical detail: ${detail.slice(0, 200)}`,
+    );
+    this.name = "MetaApiUnreachableError";
+    this.label = label;
+    this.detail = detail.slice(0, 200);
+  }
+}
+
+/**
+ * The configured access token's own claims show it cannot perform the requested
+ * operation — typically a token generated for ONE trading account being asked to
+ * provision a new one. Raised before any request leaves P-Trades, so nothing was
+ * created, changed or charged.
+ */
+export class MetaApiTokenScopeError extends Error {
+  readonly label: string;
+  constructor(label: string, message: string) {
+    super(message);
+    this.name = "MetaApiTokenScopeError";
+    this.label = label;
+  }
+}
+
 /** A non-2xx MetaApi response. `body` is truncated and never logged wholesale. */
 export class MetaApiHttpError extends Error {
   readonly status: number;
@@ -54,7 +87,9 @@ export class MetaApiHttpError extends Error {
 export type MetaApiFailureKind =
   | "timeout"
   | "not_configured"
+  | "unreachable"
   | "auth"
+  | "permission"
   | "not_found"
   | "feature_not_enabled"
   | "provider_billing"
@@ -89,6 +124,15 @@ export function classifyMetaApiFailure(err: unknown): MetaApiFailure {
       retryable: false,
     };
   }
+  if (err instanceof MetaApiTokenScopeError) {
+    return {
+      kind: "permission",
+      message: err.message,
+      status: null,
+      retryAfterSeconds: null,
+      retryable: false,
+    };
+  }
   if (err instanceof MetaApiNotConfiguredError) {
     return {
       kind: "not_configured",
@@ -98,11 +142,41 @@ export function classifyMetaApiFailure(err: unknown): MetaApiFailure {
       retryable: false,
     };
   }
+  if (err instanceof MetaApiUnreachableError) {
+    return {
+      kind: "unreachable",
+      message: err.message,
+      status: null,
+      retryAfterSeconds: null,
+      retryable: true,
+    };
+  }
   if (err instanceof MetaApiHttpError) {
     const body = err.body.toLowerCase();
     const billing = /top up|topup|payment|billing|insufficient funds/.test(body);
     const disabled = /not enabled|not activated/.test(body);
     if (err.status === 401 || err.status === 403) {
+      // A 403 that names a `methodId` / ForbiddenError is the provider saying the
+      // configured access token is not permitted to call that method at all. It is
+      // a configuration gap, not a bad credential and not a broker rejection, so
+      // it gets its own kind and a plain sentence instead of vendor JSON.
+      const scoped = /forbiddenerror|methodid|do not have access to/.test(body);
+      if (!billing && !disabled && scoped) {
+        // A refusal that names `createAccount` is almost always a token generated
+        // for ONE trading account: it has the account-management API but every
+        // rule is pinned to an existing account id, and creation is not an
+        // operation on an existing account.
+        const creation = /createaccount/.test(body);
+        return {
+          kind: "permission",
+          message: creation
+            ? `Your broker-connection provider refused ${err.label} because the access token P-Trades is configured with is not allowed to create trading accounts. This is what happens when the token was generated for one specific trading account: it can read and trade that account, but it cannot provision a new one. Generate a token that includes the trading account management API with read-write access and no resource restriction, or link an account you already have instead. Nothing was created, changed or charged. Technical detail: ${err.body}`
+            : `Your broker-connection provider refused ${err.label} because the access token P-Trades is configured with is not allowed to perform it. Nothing was created, changed or charged — the token needs the matching permission. Technical detail: ${err.body}`,
+          status: err.status,
+          retryAfterSeconds: err.retryAfterSeconds,
+          retryable: false,
+        };
+      }
       return {
         kind: billing ? "provider_billing" : disabled ? "feature_not_enabled" : "auth",
         message: err.message,
@@ -112,14 +186,22 @@ export function classifyMetaApiFailure(err: unknown): MetaApiFailure {
       };
     }
     if (err.status === 400) {
+      // A ValidationError names the exact field it objected to. Surfacing that
+      // field turns raw vendor JSON into a sentence an operator can act on, and
+      // makes "we sent something the provider does not accept" unmistakable.
+      const parameter = /"parameter"\s*:\s*"([a-z0-9_]+)"/i.exec(err.body)?.[1] ?? null;
       return {
         kind: billing ? "provider_billing" : "validation",
-        message: err.message,
+        message:
+          !billing && parameter
+            ? `Your broker-connection provider rejected ${err.label} because P-Trades sent a value it does not accept for "${parameter}". Nothing was created, changed or charged. Technical detail: ${err.body}`
+            : err.message,
         status: 400,
         retryAfterSeconds: null,
         retryable: false,
       };
     }
+
     if (err.status === 404) {
       return {
         kind: "not_found",

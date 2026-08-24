@@ -16,7 +16,7 @@ const schema = z.object({
 
 export const recordSignalEvent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: unknown) => schema.parse(data))
+  .validator((data: unknown) => schema.parse(data))
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase.from("signal_user_telemetry").insert({
       user_id: context.userId,
