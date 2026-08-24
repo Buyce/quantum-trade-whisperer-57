@@ -485,9 +485,12 @@ function SettingsPage() {
                 </SelectContent>
               </Select>
               <p className="mt-1 text-xs text-muted-foreground">
-                Which tiers may trigger push and email alerts. Independent of your feed minimum
-                grade — set it to “C and above” if you want to be alerted on every tier.
+                Which tiers may trigger push and email alerts — and, on an account you have armed,
+                which tiers may become automatic orders. Independent of your feed minimum grade —
+                set it to “C and above” if you want to be alerted on every tier. C-Grade is never
+                executed automatically.
               </p>
+
             </div>
           </section>
 
