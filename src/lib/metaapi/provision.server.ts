@@ -70,7 +70,10 @@ export async function createAccount(
     ...(input.server ? { server: input.server } : {}),
     ...(input.login ? { login: input.login } : {}),
     ...(input.password ? { password: input.password } : {}),
-    ...(input.draft ? { state: "DRAFT" } : {}),
+    // NOTE: `state` is NOT a create-account parameter — sending it is rejected
+    // with a 400 ValidationError. A draft is produced by omitting the broker
+    // credentials; the provider then returns state DRAFT itself.
+
   };
 
   const res = await metaApiRequest<{ id?: string; state?: string }>({
