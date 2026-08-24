@@ -609,6 +609,26 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
       console.error(`[pipeline] ${job.instrument} alert fan-out failed:`, describeError(alertErr));
     }
 
+    // Automatic broker orders for armed accounts, gated by each owner's own
+    // rules. Contained exactly like alerts: an enqueue failure never re-labels a
+    // successful publish and never touches a statistic.
+    try {
+      const { enqueueDirectDeliveries } = await import("@/lib/delivery/direct-enqueue.server");
+      const outcome = await enqueueDirectDeliveries(db, {
+        id: signalId,
+        instrument: profile.instrument,
+        grade: profile.grade,
+        session: sessionOf(now),
+        detectedAt: now.toISOString(),
+      });
+      if (outcome.reason && outcome.reason.includes("failed")) {
+        console.error(`[pipeline] ${job.instrument} direct enqueue: ${outcome.reason}`);
+      }
+    } catch (execErr) {
+      console.error(`[pipeline] ${job.instrument} direct enqueue failed:`, describeError(execErr));
+    }
+
+
     return await finish("published", `${profile.grade}-grade ${profile.direction}`);
   } catch (err) {
     const message = describeError(err);

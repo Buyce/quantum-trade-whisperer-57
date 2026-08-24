@@ -37,6 +37,16 @@ then uses the connected account's broker-reported classification, symbol map,
 equity and volume specification. It does not bypass the queue because it is a
 broker connection.
 
+### Which setups reach an armed account
+
+Enqueue for an armed broker account happens in the publication path
+(`src/lib/delivery/direct-enqueue.server.ts`), not in a database trigger, so it
+uses the same `evaluateEligibility` rules as alerts: the owner's instruments,
+sessions, `alert_min_grade` and daily cap, counted over the whole UTC-day frame.
+C-Grade is never executed, and an owner with no settings row gets no order rather
+than a guessed default. Automatic orders therefore never reach an instrument,
+session or grade the owner did not select.
+
 ### States
 
 `pending` → `claimed` → one of `sent`, `acknowledged`, `rejected`, `unknown`,
