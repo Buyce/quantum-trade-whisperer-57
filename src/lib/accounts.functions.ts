@@ -74,10 +74,10 @@ export const refreshBrokerConnection = createServerFn({ method: "POST" })
 
 export const disconnectBrokerConnection = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((input: { accountId: string }) => input)
+  .validator((input: { accountId: string; force?: boolean }) => input)
   .handler(async ({ data, context }) => {
     const { disconnectConnection } = await import("@/lib/accounts/provision.server");
-    return await disconnectConnection(context.userId, data.accountId);
+    return await disconnectConnection(context.userId, data.accountId, data.force === true);
   });
 
 export const resolveAmbiguousSymbol = createServerFn({ method: "POST" })
