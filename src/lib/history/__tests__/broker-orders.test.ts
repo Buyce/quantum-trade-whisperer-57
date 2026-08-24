@@ -48,7 +48,7 @@ const evidence = (over: Partial<BrokerOrderEvidenceRow> = {}): BrokerOrderEviden
 });
 
 describe("automatic broker orders", () => {
-  it("never claims an outcome for a submitted-but-unconfirmed order", () => {
+  it("[INVARIANT] never claims an outcome for a submitted-but-unconfirmed order", () => {
     const view = toBrokerOrderView(delivery({ state: "sent" }), null, null);
     expect(view.status.kind).toBe("awaiting_confirmation");
     expect(view.broker).toBeNull();
@@ -56,7 +56,7 @@ describe("automatic broker orders", () => {
     expect(brokerOrderPending(view)).toBe(true);
   });
 
-  it("reports a rejection with the broker's own reason and no result", () => {
+  it("[INVARIANT] reports a rejection with the broker's own reason and no result", () => {
     const view = toBrokerOrderView(
       delivery({ state: "rejected", broker_retcode_string: "TRADE_RETCODE_NO_MONEY" }),
       null,
@@ -68,7 +68,7 @@ describe("automatic broker orders", () => {
     expect(brokerOrderPending(view)).toBe(false);
   });
 
-  it("uses broker evidence for closed orders and exposes broker prices only", () => {
+  it("[UNIT] uses broker evidence for closed orders and exposes broker prices only", () => {
     const view = toBrokerOrderView(delivery({ state: "acknowledged" }), evidence(), null);
     expect(view.status.kind).toBe("closed_at_broker");
     expect(view.broker?.entryPrice).toBe(2400.5);
@@ -77,7 +77,7 @@ describe("automatic broker orders", () => {
     expect(view.accountType).toBe("demo");
   });
 
-  it("keeps an open broker position outcome-free", () => {
+  it("[INVARIANT] keeps an open broker position outcome-free", () => {
     const view = toBrokerOrderView(
       delivery({ state: "acknowledged" }),
       evidence({ state: "open", exit_price: null, exit_at: null, gross_profit: null }),
@@ -88,7 +88,7 @@ describe("automatic broker orders", () => {
     expect(brokerOrderPending(view)).toBe(true);
   });
 
-  it("does not invent an R when the broker never supplied one", () => {
+  it("[INVARIANT] does not invent an R when the broker never supplied one", () => {
     const view = toBrokerOrderView(
       delivery(),
       evidence({ r_vs_plan: null, r_vs_actual_risk: null, r_availability: "unavailable_no_prices" }),
@@ -98,7 +98,7 @@ describe("automatic broker orders", () => {
     expect(view.r.reason).toBe("No actual entry/exit prices recorded.");
   });
 
-  it("treats an unknown delivery state as an explicit non-claim", () => {
+  it("[INVARIANT] treats an unknown delivery state as an explicit non-claim", () => {
     expect(brokerOrderStatus({ state: "weird", reason: null, broker_retcode_string: null }, null))
       .toMatchObject({ kind: "unknown" });
   });
