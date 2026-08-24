@@ -167,6 +167,16 @@ export function AutoTradingSummary(props: AutoTradingSummaryProps) {
         re-checked immediately before it is sent — broker account type, connection health, symbol,
         fresh equity, margin and your account exposure boundary — and refused if any check fails.
       </p>
+
+      <p className="text-xs text-muted-foreground">
+        Change the instruments, sessions, tier and daily cap below on this tab. Balance, risk per
+        trade and the lot ceiling live on the Risk tab. Arming an account happens on{" "}
+        <Link to="/accounts" className="underline underline-offset-2 hover:text-foreground">
+          Broker accounts
+        </Link>
+        .
+      </p>
     </section>
+
   );
 }
