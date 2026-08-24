@@ -467,7 +467,8 @@ function SettingsPage() {
           </section>
 
           <section className="space-y-4 rounded-md border border-border bg-card p-4">
-            <h2 className="label-xs">Alert threshold</h2>
+            <h2 className="label-xs">Alert &amp; automatic-order tier</h2>
+
             <div>
               <Label className="text-xs" htmlFor="alert-min-grade">
                 Alert minimum grade
