@@ -69,7 +69,9 @@ export async function createAccount(
   return { id: res.id, state: res.state ?? null };
 }
 
-export async function fetchProvisionedAccount(accountId: string): Promise<ProvisionedAccount | null> {
+export async function fetchProvisionedAccount(
+  accountId: string,
+): Promise<ProvisionedAccount | null> {
   return await metaApiRequest<ProvisionedAccount>({
     ...PROVISIONING,
     label: "read account",
@@ -108,7 +110,6 @@ export async function createConfigurationLink(
     expiresAt: new Date(Date.now() + ttlDays * 86_400_000).toISOString(),
   };
 }
-
 
 export async function deployAccount(accountId: string): Promise<void> {
   await metaApiRequest({

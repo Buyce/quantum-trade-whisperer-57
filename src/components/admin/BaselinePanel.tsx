@@ -157,9 +157,7 @@ export function BaselinePanel() {
               <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
                 Mean R (resolved)
               </div>
-              <div className="font-mono text-sm">
-                {num(shadow?.mean_r_all_resolved ?? null)}
-              </div>
+              <div className="font-mono text-sm">{num(shadow?.mean_r_all_resolved ?? null)}</div>
               <div className="text-[10px] text-muted-foreground">
                 n={shadow?.resolved ?? 0} resolved · {shadow?.never_filled ?? 0} never filled
               </div>

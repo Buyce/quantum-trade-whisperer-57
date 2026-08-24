@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildClientId,
   CLIENT_ID_MAX_LENGTH,
+  CLIENT_ID_RECOGNITION_MAX_LENGTH,
   ClientIdError,
   isPTradesClientId,
   parseClientId,
@@ -59,5 +60,25 @@ describe("metaapi clientId", () => {
       positionRef: "abc",
       orderRef: "9",
     });
+  });
+
+  it("[INVARIANT] recognises legacy P-Trades ids without emitting new long ids", () => {
+    const legacy = `PT_${"a".repeat(23)}_1234`;
+    expect(legacy).toHaveLength(CLIENT_ID_RECOGNITION_MAX_LENGTH);
+    expect(CLIENT_ID_RECOGNITION_MAX_LENGTH).toBe(31);
+    expect(isPTradesClientId(legacy)).toBe(true);
+    expect(parseClientId(legacy)).toEqual({
+      strategyId: "PT",
+      positionRef: "a".repeat(23),
+      orderRef: "1234",
+    });
+    expect(isPTradesClientId(`${legacy}x`)).toBe(false);
+
+    const generated = buildClientId({
+      strategyId: PTRADES_STRATEGY_ID,
+      positionRef: "a".repeat(50),
+      orderRef: "1234",
+    });
+    expect(generated.length).toBeLessThanOrEqual(CLIENT_ID_MAX_LENGTH);
   });
 });

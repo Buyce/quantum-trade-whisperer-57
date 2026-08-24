@@ -84,15 +84,12 @@ export async function noteShadowRun(
     .update({
       consecutive_failures: failures,
       paused,
-      paused_until: paused
-        ? new Date(Date.now() + SHADOW_BREAKER_COOLDOWN_MS).toISOString()
-        : null,
+      paused_until: paused ? new Date(Date.now() + SHADOW_BREAKER_COOLDOWN_MS).toISOString() : null,
       last_error: patch.error ?? null,
       last_run_at: new Date().toISOString(),
     })
     .eq("id", true);
 }
-
 
 /** Claim and enrol exactly one queued signal. Returns null when the queue is empty. */
 export async function processNextShadowJob(db: SupabaseClient): Promise<ShadowJobResult | null> {

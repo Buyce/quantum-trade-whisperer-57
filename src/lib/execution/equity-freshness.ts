@@ -33,8 +33,7 @@ export const BROKER_EQUITY_MAX_AGE_MS = 15 * 60_000;
 export const EQUITY_MATERIAL_CHANGE_FRACTION = 0.005;
 
 export type FreshnessVerdict =
-  | { fresh: true; ageMs: number }
-  | { fresh: false; ageMs: number | null; detail: string };
+  { fresh: true; ageMs: number } | { fresh: false; ageMs: number | null; detail: string };
 
 /** Is this broker equity observation recent enough to size an order from? */
 export function equityFresh(
@@ -90,11 +89,7 @@ export function materialEquityChange(
   refreshedEquity: number | null,
   fractionLimit: number = EQUITY_MATERIAL_CHANGE_FRACTION,
 ): EquityChangeVerdict {
-  if (
-    authorizedEquity === null ||
-    !Number.isFinite(authorizedEquity) ||
-    authorizedEquity <= 0
-  ) {
+  if (authorizedEquity === null || !Number.isFinite(authorizedEquity) || authorizedEquity <= 0) {
     return {
       material: true,
       fraction: null,

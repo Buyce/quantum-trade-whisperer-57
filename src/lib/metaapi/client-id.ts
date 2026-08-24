@@ -14,6 +14,15 @@
 // Direct orders deliberately omit the optional broker comment, leaving the
 // entire documented combined budget to the ownership key.
 export const CLIENT_ID_MAX_LENGTH = 26;
+/**
+ * Recognition is deliberately wider than generation.
+ *
+ * Orders created before the 26-character budget was enforced used valid
+ * P-Trades identifiers up to 31 characters.  Refusing those broker-reported
+ * ids would orphan their deals during reconciliation, so new ids stay at 26
+ * while the reader remains backwards compatible with the historical format.
+ */
+export const CLIENT_ID_RECOGNITION_MAX_LENGTH = 31;
 const PART_RE = /^[0-9A-Za-z]+$/;
 
 /** P-Trades strategy tag; short on purpose to leave room for the ids. */
@@ -82,7 +91,7 @@ export function buildClientId(parts: ClientIdParts): string {
 /** TRUE when a broker-reported clientId was produced by this builder's shape. */
 export function isPTradesClientId(clientId: string | null | undefined): boolean {
   if (!clientId) return false;
-  if (clientId.length > CLIENT_ID_MAX_LENGTH) return false;
+  if (clientId.length > CLIENT_ID_RECOGNITION_MAX_LENGTH) return false;
   const parts = clientId.split("_");
   if (parts.length !== 3) return false;
   if (parts[0] !== PTRADES_STRATEGY_ID) return false;

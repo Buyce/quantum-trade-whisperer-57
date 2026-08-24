@@ -13,6 +13,7 @@ export interface RSample {
   key: string;
   instrument: string;
   grade: Grade | "Unknown";
+  /** Classification implied by the selected signed R, never a free-text/user label. */
   outcome: "win" | "loss" | "breakeven";
   r: number;
   /** ISO timestamp of when the setup was detected (used by CSV export). */
@@ -49,11 +50,19 @@ export const EMPTY_EXPECTANCY: Expectancy = {
   totalR: 0,
 };
 
+/** Canonical Performance classification: the sign of the selected R basis. */
+export function outcomeFromR(r: number): RSample["outcome"] {
+  return r > 0 ? "win" : r < 0 ? "loss" : "breakeven";
+}
+
 export function computeExpectancy(samples: RSample[]): Expectancy {
   if (samples.length === 0) return EMPTY_EXPECTANCY;
-  const wins = samples.filter((s) => s.outcome === "win");
-  const losses = samples.filter((s) => s.outcome === "loss");
-  const breakeven = samples.filter((s) => s.outcome === "breakeven");
+  // R is the mathematical source of truth. A self-reported outcome label can
+  // contradict the entry/exit geometry; using that label for win rate while
+  // summing signed R produces an internally impossible metric set.
+  const wins = samples.filter((s) => s.r > 0);
+  const losses = samples.filter((s) => s.r < 0);
+  const breakeven = samples.filter((s) => s.r === 0);
 
   const winRate = wins.length / samples.length;
   const lossRate = losses.length / samples.length;
@@ -87,7 +96,7 @@ export function samplesFromSignals(signals: SignalRow[]): RSample[] {
       key: s.id,
       instrument: s.instrument,
       grade: s.grade,
-      outcome: s.resolved_outcome,
+      outcome: outcomeFromR(Number(s.resolved_r_multiple)),
       r: Number(s.resolved_r_multiple),
       detectedAt: s.detected_at,
       hour: ctx?.time_of_day ?? d.getUTCHours(),
@@ -143,7 +152,7 @@ export function samplesFromBrokerEvidence(
       key: row.key,
       instrument: row.instrument,
       grade: row.grade,
-      outcome: r > 0 ? "win" : r < 0 ? "loss" : "breakeven",
+      outcome: outcomeFromR(r),
       r,
       detectedAt: row.detectedAt,
       hour: row.hour,
@@ -184,7 +193,7 @@ function buildTradeSample(t: TradeRow, signal: SignalRow | undefined, r: number)
     key: t.id,
     instrument,
     grade,
-    outcome: t.outcome as "win" | "loss" | "breakeven",
+    outcome: outcomeFromR(r),
     r,
     detectedAt,
     hour: t.signal_time_of_day ?? ctx?.time_of_day ?? d.getUTCHours(),

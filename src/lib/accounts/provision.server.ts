@@ -15,7 +15,11 @@
  */
 import { randomUUID } from "node:crypto";
 
-import { classifyAccountType, isMt5Netting, riskGuardianAvailability } from "@/lib/metaapi/classify";
+import {
+  classifyAccountType,
+  isMt5Netting,
+  riskGuardianAvailability,
+} from "@/lib/metaapi/classify";
 import { hasBenchmarkAccount, readBenchmarkAccount } from "@/lib/metaapi/config.server";
 import { classifyMetaApiFailure } from "@/lib/metaapi/errors";
 import { fetchAccountInformation } from "@/lib/metaapi/accounts.server";
@@ -96,9 +100,7 @@ function cleanServer(raw: string): string {
  * with NO credentials, and hand back a one-time hosted page where the owner
  * enters their broker login.
  */
-export async function startConnection(
-  input: StartConnectionInput,
-): Promise<StartConnectionResult> {
+export async function startConnection(input: StartConnectionInput): Promise<StartConnectionResult> {
   const db = await admin();
   const label = cleanLabel(input.label);
   const server = cleanServer(input.brokerServer);
@@ -236,7 +238,8 @@ export async function reconcileConnection(
 
   try {
     const remote = await fetchProvisionedAccount(row.metaapi_account_id);
-    if (!remote) throw new Error("Your broker-connection provider has no record of this connection.");
+    if (!remote)
+      throw new Error("Your broker-connection provider has no record of this connection.");
 
     const state = (remote.state ?? "").toString().toUpperCase();
     const status = (remote.connectionStatus ?? "").toString().toUpperCase();
@@ -371,7 +374,11 @@ async function writeFeatures(
   db: Admin,
   row: ConnectedAccountRow,
   info: BrokerAccountInformation,
-  remote: { metastatsApiEnabled?: boolean | null; riskManagementApiEnabled?: boolean | null; reliability?: string | null },
+  remote: {
+    metastatsApiEnabled?: boolean | null;
+    riskManagementApiEnabled?: boolean | null;
+    reliability?: string | null;
+  },
 ): Promise<void> {
   const netting = isMt5Netting(info);
   const guardian = riskGuardianAvailability(info, remote.riskManagementApiEnabled === true);

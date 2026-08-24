@@ -113,7 +113,7 @@ export function settingsQuery(userId: string | undefined) {
       const { data, error } = await supabase
         .from("scanner_settings" as never)
         .select(
-          "user_id, instruments, timeframes, sessions, min_grade, alert_min_grade, daily_setup_cap, notify_push, notify_email, order_strategy, webhook_enabled, webhook_url, webhook_secret, webhook_format, account_equity, account_currency, risk_per_trade_percent, max_position_size, leverage, max_stop_loss_percent, equity_as_of, risk_ack_high",
+          "user_id, instruments, timeframes, sessions, min_grade, alert_min_grade, daily_setup_cap, notify_push, notify_email, order_strategy, webhook_enabled, webhook_url, webhook_format, execution_enabled, execution_dry_run, exposure_limit_enabled, webhook_validated_at, webhook_validation_reason, account_equity, account_currency, risk_per_trade_percent, max_position_size, leverage, max_stop_loss_percent, equity_as_of, risk_ack_high",
         )
         .maybeSingle();
       if (error) throw error;
@@ -243,10 +243,24 @@ export async function deleteAllTrades(input: { userId: string }) {
 }
 
 export async function saveSettings(input: Partial<ScannerSettingsRow> & { user_id: string }) {
-  const { error } = await supabase
+  // Do not use PostgREST upsert here: ON CONFLICT would also require UPDATE
+  // privilege on the immutable user_id identity column. New auth users receive
+  // a settings row from the database trigger, while the insert fallback safely
+  // covers a genuinely missing legacy row under the same owner RLS policy.
+  const { user_id, ...patch } = input;
+  const { data, error } = await supabase
     .from("scanner_settings" as never)
-    .upsert(input as never, { onConflict: "user_id" });
+    .update(patch as never)
+    .eq("user_id", user_id)
+    .select("user_id")
+    .maybeSingle();
   if (error) throw error;
+  if (data) return;
+
+  const { error: insertError } = await supabase
+    .from("scanner_settings" as never)
+    .insert(input as never);
+  if (insertError) throw insertError;
 }
 
 /**

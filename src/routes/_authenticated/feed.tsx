@@ -268,8 +268,8 @@ function FeedPage() {
     setBusyId(signalId);
     try {
       await logDecision({ signalId, userId: user.id, decision });
-      // Behavioural telemetry for the shadow ML dataset. Fire-and-forget: it
-      // must never delay the button or surface an error to the trader.
+      // Short-lived interaction telemetry for diagnostics. It is not a market
+      // outcome label or an automatically promoted model feature.
       void recordSignalEvent({ data: { signalId, event: decision } }).catch(() => {});
       await queryClient.invalidateQueries({ queryKey: ["my-trades"] });
       toast.success(decision === "taken" ? "Logged as taken" : "Logged as skipped");

@@ -248,6 +248,30 @@ describe("connected-account sizing fails closed", () => {
     }
   });
 
+  it("[INVARIANT] a 40-hour account spec cannot pass the account gate then fall back", async () => {
+    const fake = db({
+      accountSpecRow: accountSpec({
+        fetched_at: new Date(NOW - 40 * 3_600_000).toISOString(),
+      }),
+    });
+    const result = await resolveSizingForAccount(
+      fake.client as never,
+      "user-1",
+      {
+        id: "acct-1",
+        equity: 10_000,
+        currency: "USD",
+        equityAsOf: new Date(NOW).toISOString(),
+      },
+      request,
+      NOW,
+    );
+    expect(isAccountSizingRefusal(result)).toBe(true);
+    if (isAccountSizingRefusal(result)) {
+      expect(result.accountReason).toBe("account_spec_unavailable");
+    }
+  });
+
   it("[UNIT] a complete broker snapshot sizes from broker equity, not the typed-in equity", async () => {
     const fake = db();
     const result = await resolveSizingForAccount(

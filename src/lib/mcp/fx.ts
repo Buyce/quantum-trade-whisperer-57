@@ -105,7 +105,9 @@ export async function fetchMids(
     seen.add(symbol);
     try {
       const q = await fetchQuote(symbol);
-      if (q && q.bid > 0 && q.ask > 0) mids[symbol] = (q.bid + q.ask) / 2;
+      if (q && Number.isFinite(q.bid) && Number.isFinite(q.ask) && q.bid > 0 && q.ask >= q.bid) {
+        mids[symbol] = (q.bid + q.ask) / 2;
+      }
     } catch {
       // Absent rate → explicit unavailable downstream, never a guessed number.
     }

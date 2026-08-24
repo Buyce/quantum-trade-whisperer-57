@@ -68,7 +68,9 @@ interface Candidate {
 async function candidates(limit: number): Promise<Candidate[]> {
   const { data, error } = await supabaseAdmin
     .from("connected_trading_accounts")
-    .select("id, user_id, metaapi_account_id, connected_account_features!inner(metastats_api_enabled)")
+    .select(
+      "id, user_id, metaapi_account_id, connected_account_features!inner(metastats_api_enabled)",
+    )
     .is("disconnected_at", null)
     .eq("phase", "ready")
     .not("metaapi_account_id", "is", null)
@@ -179,7 +181,6 @@ export async function collectAccountTelemetry(
           summary.parked += 1;
         }
       }
-
     } catch (err) {
       const failure = classifyMetaApiFailure(err);
       summary.errors.push(`${row.id}: ${failure.message}`);

@@ -46,11 +46,11 @@ import { loadBrokerSpec } from "@/lib/broker/specs.server";
 import { accountSpecStale, loadAccountSizingSpec } from "@/lib/accounts/specs.server";
 import { resolveSizingForAccount, resolveSizingForUser } from "@/lib/sizing/service.server";
 import { fetchQuote } from "@/lib/scanner/metaapi.server";
+import { quoteSourceAgeMs, quoteSourceFresh, validQuoteGeometry } from "@/lib/metaapi/quote";
 import type { DeliveryDestination } from "@/lib/execution/direct";
 import { loadDirectTarget, type DirectTarget } from "@/lib/execution/direct.server";
 import { resolveBenchmarkDesignation } from "@/lib/benchmark/policy.server";
 import { isAccountSizingRefusal } from "@/lib/sizing/service.server";
-
 
 type Db = Pick<SupabaseClient, "from" | "rpc">;
 
@@ -93,9 +93,7 @@ export interface RevalidationApproved {
   /** Why the effective mode is dry-run, for honest settlement copy. */
   dryRunReason: string | null;
   /** Present for bridge deliveries only. */
-  endpoint:
-    | { url: string; host: string; secret: string; format: "json" | "pineconnector" }
-    | null;
+  endpoint: { url: string; host: string; secret: string; format: "json" | "pineconnector" } | null;
   /** Present for direct broker deliveries only. */
   direct: DirectTarget | null;
   /** The authoritative quantity actually authorized, with its provenance. */
@@ -120,7 +118,6 @@ export interface RevalidationApproved {
    */
   riskPercentOverride: number | null;
 }
-
 
 export type Revalidation = RevalidationApproved | RevalidationRejected;
 
@@ -158,7 +155,6 @@ interface ControlsRow {
   demo_auto_enabled?: boolean | null;
   live_auto_enabled?: boolean | null;
 }
-
 
 interface SettingsRow {
   instruments: string[] | null;
@@ -244,10 +240,7 @@ export async function revalidateDelivery(
         "the benchmark policy has no risk percentage, so benchmark execution is unavailable",
       );
     }
-    if (
-      !delivery.connected_account_id ||
-      delivery.connected_account_id !== designation.accountId
-    ) {
+    if (!delivery.connected_account_id || delivery.connected_account_id !== designation.accountId) {
       return reject(
         "account_not_armed",
         "this delivery does not name the designated benchmark account",
@@ -288,7 +281,6 @@ export async function revalidateDelivery(
   } else if (!delivery.connected_account_id) {
     return reject("user_execution_disabled", "the delivery names no broker account");
   }
-
 
   // ---- 2b. Configuration identity binding ----------------------------------
   // A delivery is authorized by the configuration that existed when it was
@@ -396,12 +388,20 @@ export async function revalidateDelivery(
     quote = null;
   }
   if (!quote) return reject("quote_unavailable");
+  if (!validQuoteGeometry(quote.bid, quote.ask)) {
+    return reject("quote_unavailable", "invalid or crossed broker quote");
+  }
   // Fail closed on a missing or unparseable broker timestamp: receipt time is
   // not source time, and a fabricated age could back a live order.
-  const sourceMs = quote.sourceTime ? Date.parse(quote.sourceTime) : Number.NaN;
-  if (!Number.isFinite(sourceMs)) return reject("quote_stale", "no broker source timestamp");
-  if (now - sourceMs > REVALIDATION_QUOTE_MAX_AGE_MS) {
-    return reject("quote_stale", `${Math.round((now - sourceMs) / 1000)}s old`);
+  const sourceAgeMs = quoteSourceAgeMs(quote.sourceTime, now);
+  if (sourceAgeMs === null) return reject("quote_stale", "no broker source timestamp");
+  if (!quoteSourceFresh(quote.sourceTime, REVALIDATION_QUOTE_MAX_AGE_MS, now)) {
+    return reject(
+      "quote_stale",
+      sourceAgeMs < 0
+        ? `${Math.round(Math.abs(sourceAgeMs) / 1000)}s ahead of server clock`
+        : `${Math.round(sourceAgeMs / 1000)}s old`,
+    );
   }
   if (
     !spreadAcceptable({ entry: plan.entryPrice, stopLoss: plan.stopLoss }, quote.bid, quote.ask)
@@ -595,7 +595,6 @@ export async function revalidateDelivery(
   const resolved = await validateOutboundUrl(webhookUrl);
   if (!resolved.ok) return reject("endpoint_rejected", resolved.reason);
 
-
   const secret = settings.webhook_secret?.trim() ?? "";
   const format = settings.webhook_format === "pineconnector" ? "pineconnector" : "json";
   if (!secret) return reject("webhook_not_configured", "no bridge secret / licence id");
@@ -640,4 +639,3 @@ export async function revalidateDelivery(
     riskPercentOverride: null,
   };
 }
-

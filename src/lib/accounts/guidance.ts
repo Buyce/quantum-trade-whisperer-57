@@ -111,9 +111,7 @@ export const STAGE_CAPABILITY_NOTE =
  * explicitly, because claiming "observe only" while an account can submit orders
  * would be a false statement about the trader's own money.
  */
-export function capabilityNote(
-  accounts: { label: string; mode: string }[],
-): string {
+export function capabilityNote(accounts: { label: string; mode: string }[]): string {
   const armed = accounts.filter((a) => a.mode !== "observe");
   if (armed.length === 0) return STAGE_CAPABILITY_NOTE;
 

@@ -390,3 +390,213 @@ describe("V2 shadow enrolment (Prompt 3F)", () => {
     expect(signals?.n).toBe(0);
   });
 });
+
+describe("short feed, durable system evidence", () => {
+  const insertExpiredSignal = (id: string, instrument = "EURUSD") => {
+    db.exec(`
+      insert into public.scanned_signals
+        (id, detected_at, instrument, grade, direction, entry_price, stop_loss, tp1, tp2,
+         tp3, atr, rr_ratio, confidence_score, c_alignment, c_rr, c_symmetry,
+         c_volatility, pattern_symmetry, qualitative_breakdown, status)
+      values
+        ('${id}', now() - interval '4 days', '${instrument}', 'A', 'long',
+         1.1000, 1.0980, 1.1040, 1.1060, 1.1080, 0.0040, 2, 80,
+         40, 30, 20, 10, 0.9, 'retention db test', 'expired');
+    `);
+  };
+
+  const enrolShadow = (signalId: string, instrument = "EURUSD") => {
+    db.exec(`
+      insert into public.shadow_executions
+        (signal_id, instrument, grade, direction, detected_at, entry_price, stop_loss,
+         tp1, tp2, tp3, risk_price, status, model_version)
+      values
+        ('${signalId}', '${instrument}', 'A', 'long', now() - interval '4 days',
+         1.1000, 1.0980, 1.1040, 1.1060, 1.1080, 0.0020, 'open', 1);
+    `);
+  };
+
+  it("[INVARIANT] never purges before shadow geometry has been copied", () => {
+    guard();
+    const id = "10000000-0000-4000-8000-000000000001";
+    insertExpiredSignal(id);
+
+    const [result] = db.rows<{ n: number }>(`select public.purge_expired_signals()::int as n`);
+    const [remaining] = db.rows<{ n: number }>(
+      `select count(*)::int as n from public.scanned_signals where id = '${id}'`,
+    );
+    expect(result?.n).toBe(0);
+    expect(remaining?.n).toBe(1);
+  });
+
+  it("[INVARIANT] archives system evidence atomically, then removes only the feed row", () => {
+    guard();
+    const id = "10000000-0000-4000-8000-000000000002";
+    insertExpiredSignal(id, "XAUUSD");
+    db.exec(`
+      insert into public.market_context
+        (signal_id, trading_session, volatility_index, time_of_day, day_of_week)
+      values ('${id}', 'london', 1.25, 10, 1);
+    `);
+    enrolShadow(id, "XAUUSD");
+
+    const [result] = db.rows<{ n: number }>(`select public.purge_expired_signals()::int as n`);
+    expect(result?.n).toBe(1);
+
+    const [row] = db.rows<{
+      instrument: string;
+      session: string;
+      has_user_id: boolean;
+      model_version: number;
+    }>(`
+      select signal_snapshot->>'instrument' as instrument,
+             market_context_snapshot->>'trading_session' as session,
+             signal_snapshot ? 'user_id' as has_user_id,
+             model_version
+        from public.signal_retention_archive
+       where signal_id = '${id}'
+    `);
+    expect(row).toEqual({
+      instrument: "XAUUSD",
+      session: "london",
+      has_user_id: false,
+      model_version: 1,
+    });
+
+    const [state] = db.rows<{ feed: number; shadow_orphaned: number }>(`
+      select
+        (select count(*)::int from public.scanned_signals where id = '${id}') as feed,
+        (select count(*)::int from public.shadow_executions
+          where instrument = 'XAUUSD' and signal_id is null) as shadow_orphaned
+    `);
+    expect(state?.feed).toBe(0);
+    expect(state?.shadow_orphaned).toBeGreaterThan(0);
+  });
+
+  it("[INVARIANT] an unsettled delivery blocks retention deletion", () => {
+    guard();
+    const id = "10000000-0000-4000-8000-000000000003";
+    insertExpiredSignal(id);
+    enrolShadow(id);
+    db.exec(`
+      insert into public.execution_deliveries
+        (signal_id, destination_type, state, dry_run)
+      values ('${id}', 'metaapi_benchmark', 'pending', true);
+    `);
+
+    const [blocked] = db.rows<{ n: number }>(`select public.purge_expired_signals()::int as n`);
+    expect(blocked?.n).toBe(0);
+
+    db.exec(`update public.execution_deliveries set state = 'failed' where signal_id = '${id}'`);
+    const [settled] = db.rows<{ n: number }>(`select public.purge_expired_signals()::int as n`);
+    expect(settled?.n).toBe(1);
+  });
+
+  it("[INVARIANT] archive is service-only and immutable", () => {
+    guard();
+    const id = "10000000-0000-4000-8000-000000000004";
+    insertExpiredSignal(id);
+    enrolShadow(id);
+    db.exec(`select public.purge_expired_signals()`);
+
+    const readError = db.expectFailureAsRole(
+      "authenticated",
+      `select signal_id from public.signal_retention_archive`,
+      { sub: crypto.randomUUID(), role: "authenticated" },
+    );
+    expect(readError).toMatch(/permission denied|row-level security/i);
+
+    const mutationError = db.expectFailure(`
+      update public.signal_retention_archive
+         set archive_reason = 'feed_retention'
+       where signal_id = '${id}';
+    `);
+    expect(mutationError).toMatch(/immutable/i);
+  });
+});
+
+describe("server-only execution credentials and authorisation", () => {
+  const userId = "20000000-0000-4000-8000-000000000001";
+  const claims = { sub: userId, role: "authenticated" };
+
+  const ensureCredentialRow = () => {
+    db.exec(`
+      insert into auth.users (id, email)
+      values ('${userId}', 'credential-test@example.invalid')
+      on conflict (id) do nothing;
+
+      insert into public.scanner_settings (user_id, webhook_secret, webhook_enabled)
+      values ('${userId}', 'existing-secret-must-survive', false)
+      on conflict (user_id) do update
+        set webhook_secret = excluded.webhook_secret,
+            live_execution_confirmed_global_live = false;
+    `);
+  };
+
+  it("[INVARIANT] owners read ordinary settings but cannot read their saved secret", () => {
+    guard();
+    ensureCredentialRow();
+
+    const visible = db.asRole<{ user_id: string; webhook_enabled: boolean }>(
+      "authenticated",
+      `select user_id, webhook_enabled
+         from public.scanner_settings
+        where user_id = '${userId}'`,
+      claims,
+    );
+    expect(visible).toEqual([{ user_id: userId, webhook_enabled: false }]);
+
+    const secretRead = db.expectFailureAsRole(
+      "authenticated",
+      `select webhook_secret
+         from public.scanner_settings
+        where user_id = '${userId}'`,
+      claims,
+    );
+    expect(secretRead).toMatch(/permission denied/i);
+  });
+
+  it("[INVARIANT] direct clients cannot forge credentials or live-confirmation state", () => {
+    guard();
+    ensureCredentialRow();
+    for (const sql of [
+      `update public.scanner_settings
+          set webhook_secret = 'replaced-outside-server'
+        where user_id = '${userId}'`,
+      `update public.scanner_settings
+          set webhook_validated_at = now()
+        where user_id = '${userId}'`,
+      `update public.scanner_settings
+          set live_execution_confirmed_global_live = true,
+              live_execution_confirmed_at = now()
+        where user_id = '${userId}'`,
+    ]) {
+      expect(db.expectFailureAsRole("authenticated", sql, claims)).toMatch(/permission denied/i);
+    }
+
+    const [stored] = db.rows<{ secret: string; confirmed: boolean }>(`
+      select webhook_secret as secret,
+             live_execution_confirmed_global_live as confirmed
+        from public.scanner_settings
+       where user_id = '${userId}'
+    `);
+    expect(stored).toEqual({ secret: "existing-secret-must-survive", confirmed: false });
+  });
+
+  it("[INVARIANT] ordinary owner settings remain writable under RLS", () => {
+    guard();
+    ensureCredentialRow();
+    const changed = db.asRole<{ risk_per_trade_percent: number }>(
+      "authenticated",
+      `with changed as (
+         update public.scanner_settings
+            set risk_per_trade_percent = 1.5
+          where user_id = '${userId}'
+        returning risk_per_trade_percent
+       )
+       select risk_per_trade_percent from changed`,
+      claims,
+    );
+    expect(changed).toEqual([{ risk_per_trade_percent: 1.5 }]);
+  });
+});

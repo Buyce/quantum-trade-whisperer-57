@@ -122,19 +122,18 @@ function SettingsPage() {
   const [testingWebhook, setTestingWebhook] = useState(false);
   const [testPreview, setTestPreview] = useState<string | null>(null);
 
-  const savedWebhookUrl = settings.data?.webhook_url?.trim() ?? "";
-  const savedWebhookSecret = settings.data?.webhook_secret?.trim() ?? "";
-  const canTestWebhook = /^https:\/\//i.test(savedWebhookUrl) && savedWebhookSecret.length > 0;
-  const savedValidatedAt =
-    (settings.data as { webhook_validated_at?: string | null } | undefined)?.webhook_validated_at ??
-    null;
-
   const persistBridge = useServerFn(saveBridgeSettings);
   const executionStatus = useQuery({
     queryKey: ["execution-status"],
     queryFn: () => getExecutionStatus(),
     staleTime: 60_000,
   });
+  const savedWebhookUrl = settings.data?.webhook_url?.trim() ?? "";
+  const hasSavedWebhookSecret = executionStatus.data?.webhookSecretConfigured === true;
+  const canTestWebhook = /^https:\/\//i.test(savedWebhookUrl) && hasSavedWebhookSecret;
+  const savedValidatedAt =
+    (settings.data as { webhook_validated_at?: string | null } | undefined)?.webhook_validated_at ??
+    null;
   // Owner-only read: RLS scopes the ledger to the signed-in user, and endpoint
   // URLs are never exposed here — only the host we actually posted to.
   const deliveries = useQuery({
@@ -208,14 +207,13 @@ function SettingsPage() {
     setOrderStrategy(s.order_strategy ?? "smart_adaptive");
     setWebhookEnabled(s.webhook_enabled ?? false);
     setWebhookUrl(s.webhook_url ?? "");
-    setWebhookSecret(s.webhook_secret ?? "");
+    // Write-only credential: never hydrate the saved secret into browser state.
+    setWebhookSecret("");
     setWebhookFormat(s.webhook_format ?? "json");
-    setExecutionEnabled((s as { execution_enabled?: boolean }).execution_enabled ?? false);
-    setExecutionDryRun((s as { execution_dry_run?: boolean }).execution_dry_run !== false);
+    setExecutionEnabled(s.execution_enabled ?? false);
+    setExecutionDryRun(s.execution_dry_run !== false);
     setConfirmLive(false);
-    setExposureLimitEnabled(
-      (s as { exposure_limit_enabled?: boolean }).exposure_limit_enabled === true,
-    );
+    setExposureLimitEnabled(s.exposure_limit_enabled === true);
 
     setEquity(String(Number(s.account_equity ?? 0)));
     setCurrency(s.account_currency ?? "USD");
@@ -233,6 +231,10 @@ function SettingsPage() {
 
   async function onSave() {
     if (!user) return;
+    if (settings.isError) {
+      toast.error("Reload your saved settings before making changes.");
+      return;
+    }
     // Bridge fields are validated and written SERVER-SIDE below. There is
     // deliberately no client-side URL check standing in for that: a browser
     // regex cannot classify what a hostname resolves to.
@@ -300,10 +302,12 @@ function SettingsPage() {
       });
       await queryClient.invalidateQueries({ queryKey: ["scanner-settings"] });
       await queryClient.invalidateQueries({ queryKey: ["execution-deliveries"] });
+      await queryClient.invalidateQueries({ queryKey: ["execution-status"] });
       if (!bridge.ok) {
         toast.error(bridge.error ?? "The bridge URL could not be validated");
         return;
       }
+      setWebhookSecret("");
       toast.success("Settings saved");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not save settings");
@@ -485,7 +489,7 @@ function SettingsPage() {
             </div>
           </section>
 
-          <SaveBar saving={saving} onSave={() => void onSave()} />
+          <SaveBar saving={saving} loadFailed={settings.isError} onSave={() => void onSave()} />
         </TabsContent>
 
         <TabsContent value="risk" className="space-y-4">
@@ -494,8 +498,9 @@ function SettingsPage() {
               <h2 className="label-xs">Risk profile</h2>
               <p className="mt-1 text-sm text-muted-foreground">
                 Every setup in your feed is sized against these numbers. They are used for
-                calculation and display only — the scanner, the grades and the alert thresholds
-                never read them, and nothing here places an order.
+                calculation and display; the scanner, grades and alert thresholds never read them.
+                If you separately enable an automated execution destination, its pre-submit sizing
+                and risk guardrails also use this saved profile.
               </p>
               <GuideDetail
                 className="mt-2"
@@ -503,7 +508,7 @@ function SettingsPage() {
                 what="The self-reported inputs every lot size, cash-risk figure and margin estimate in the terminal is computed from."
                 why="Change your balance or risk percent and every size on every card changes with it. Leverage only affects the margin estimate; your risk comes from the stop distance."
                 todo="Keep the balance current — it is stamped with the date you last confirmed it — and set risk per trade to what one loss may cost you."
-                assume="Nothing here is read from or confirmed by your broker, and none of it affects grading, alert thresholds or whether a setup is published."
+                assume="These fields are self-reported and are not broker-confirmed. They do not affect grading, alert thresholds or publication, but an execution mode you separately arm can use them as order risk inputs."
                 anchor="sizing"
               />
             </div>
@@ -526,8 +531,9 @@ function SettingsPage() {
                 <p className="mt-1 text-xs text-muted-foreground">
                   Required: without a balance there is nothing to take a percentage of, so cards
                   show no lot size rather than a guess. This is the balance{" "}
-                  <span className="font-medium">you entered</span> — P-Trades cannot read your
-                  broker account, so it is never broker-confirmed.
+                  <span className="font-medium">you entered</span>, so this field is never
+                  broker-confirmed. Connected accounts are read separately and their reported equity
+                  is used only for that account's direct-order sizing.
                 </p>
                 <p className="num mt-1 text-xs text-muted-foreground">
                   {equityAsOf
@@ -667,7 +673,7 @@ function SettingsPage() {
             maxStopPercent={maxStopPercent}
           />
 
-          <SaveBar saving={saving} onSave={() => void onSave()} />
+          <SaveBar saving={saving} loadFailed={settings.isError} onSave={() => void onSave()} />
         </TabsContent>
 
         <TabsContent value="notifications" className="space-y-4">
@@ -763,10 +769,19 @@ function SettingsPage() {
                       id="webhook-secret"
                       type="password"
                       autoComplete="off"
-                      placeholder="PineConnector licence or shared secret"
+                      placeholder={
+                        hasSavedWebhookSecret
+                          ? "Saved — leave blank to keep it"
+                          : "PineConnector licence or shared secret"
+                      }
                       value={webhookSecret}
                       onChange={(e) => setWebhookSecret(e.target.value)}
                     />
+                    <p className="text-[11px] text-muted-foreground">
+                      {hasSavedWebhookSecret
+                        ? "A secret is saved server-side. Its value is never returned to this browser; entering a new one replaces it."
+                        : "No saved secret is available yet."}
+                    </p>
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="webhook-format" className="text-sm text-foreground">
@@ -923,7 +938,7 @@ function SettingsPage() {
             </div>
           </section>
 
-          <SaveBar saving={saving} onSave={() => void onSave()} />
+          <SaveBar saving={saving} loadFailed={settings.isError} onSave={() => void onSave()} />
         </TabsContent>
 
         <TabsContent value="agents" className="space-y-4">
@@ -1048,9 +1063,10 @@ function SettingsPage() {
           <section className="space-y-2 rounded-md border border-border bg-card p-4">
             <h2 className="label-xs">Broker accounts</h2>
             <p className="text-xs text-muted-foreground">
-              Link a MetaTrader demo or live account in observe mode. Your broker reports the
-              balance, equity and its own symbol names; P-Trades never receives your MetaTrader
-              password and places no orders.
+              Link a MetaTrader demo or live account. Every account starts in observe mode; other
+              modes remain separately gated and must be explicitly armed. Your broker reports the
+              balance, equity and symbol names, while P-Trades never receives your MetaTrader
+              password.
             </p>
             <Button asChild variant="outline" size="sm">
               <Link to="/accounts">Manage broker accounts</Link>
@@ -1064,10 +1080,18 @@ function SettingsPage() {
   );
 }
 
-function SaveBar({ saving, onSave }: { saving: boolean; onSave: () => void }) {
+function SaveBar({
+  saving,
+  loadFailed,
+  onSave,
+}: {
+  saving: boolean;
+  loadFailed: boolean;
+  onSave: () => void;
+}) {
   return (
     <div className="flex justify-end">
-      <Button onClick={onSave} disabled={saving}>
+      <Button onClick={onSave} disabled={saving || loadFailed}>
         <Save className="size-4" /> {saving ? "Saving…" : "Save settings"}
       </Button>
     </div>

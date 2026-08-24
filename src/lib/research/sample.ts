@@ -65,7 +65,9 @@ function median(values: number[]): number | null {
   const sorted = values.filter((v) => Number.isFinite(v)).sort((a, b) => a - b);
   if (!sorted.length) return null;
   const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 ? (sorted[mid] as number) : (((sorted[mid - 1] as number) + (sorted[mid] as number)) / 2);
+  return sorted.length % 2
+    ? (sorted[mid] as number)
+    : ((sorted[mid - 1] as number) + (sorted[mid] as number)) / 2;
 }
 
 /**
@@ -135,7 +137,13 @@ export function compareShadowToBroker(
   rows: readonly ShadowVsBrokerRow[],
 ): ShadowVsBrokerComparison {
   if (!rows.length) {
-    return { compared: 0, fillAgreement: null, meanSlippage: null, meanRDifference: null, unusable: 0 };
+    return {
+      compared: 0,
+      fillAgreement: null,
+      meanSlippage: null,
+      meanRDifference: null,
+      unusable: 0,
+    };
   }
   let agreements = 0;
   const slippages: number[] = [];

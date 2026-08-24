@@ -1,7 +1,9 @@
 /**
- * Behavioural alpha telemetry. Records that a user took, skipped or viewed a
- * setup — a categorical feature for the meta-labelling model. Fire-and-forget:
- * callers must never await it on the interaction path.
+ * Short-lived interaction telemetry. Records that a user took, skipped or
+ * viewed a setup for product/research diagnostics. It is not a market-outcome
+ * label and is not automatically promoted into a predictive model. The row
+ * follows the feed signal's retention lifecycle. Fire-and-forget: callers must
+ * never await it on the interaction path.
  */
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";

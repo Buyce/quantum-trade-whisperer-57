@@ -90,6 +90,7 @@ describe("price gates", () => {
     const order = buildBridgeOrder(long, qty); // risk = 0.001
     expect(spreadAcceptable(order, 1.156, 1.15612)).toBe(true);
     expect(spreadAcceptable(order, 1.156, 1.1562)).toBe(false);
+    expect(spreadAcceptable(order, 1.1562, 1.156)).toBe(false);
   });
 
   it("[UNIT] treats a zero-risk setup as unacceptable rather than dividing by zero", () => {

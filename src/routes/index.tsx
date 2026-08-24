@@ -43,7 +43,7 @@ const LOOP = [
   },
   {
     title: "Measure",
-    body: "Log a setup as taken or skipped, add your real fills, and read expectancy in R against an explicit basis — behind evidence gates that say “not enough data” rather than showing a win rate built on six trades.",
+    body: "Log a setup as taken or skipped, add your real fills, and read expectancy in R against an explicit basis. Small samples remain visible as a record, but row/day gates label them immature rather than treating them as evidence.",
   },
 ] as const;
 

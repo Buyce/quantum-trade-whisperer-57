@@ -64,6 +64,16 @@ describe("computeExpectancy", () => {
     expect(e.expectancyR).toBe(0);
   });
 
+  it("[INVARIANT] signed R, not a contradictory journal label, determines win/loss", () => {
+    const e = computeExpectancy([sample("win", -1), sample("loss", 2), sample("win", 0)]);
+    expect(e).toMatchObject({ wins: 1, losses: 1, breakeven: 1 });
+    expect(e.winRate).toBeCloseTo(1 / 3, 12);
+    expect(e.lossRate).toBeCloseTo(1 / 3, 12);
+    expect(e.avgWinR).toBe(2);
+    expect(e.avgLossR).toBe(1);
+    expect(e.expectancyR).toBeCloseTo(1 / 3, 12);
+  });
+
   it("[INVARIANT] rates stay in [0,1], every field is finite, and totalR is the plain sum", () => {
     fc.assert(
       fc.property(

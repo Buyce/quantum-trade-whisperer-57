@@ -6,6 +6,7 @@ pnpm-lock.yaml
 package-lock.json
 bun.lock
 routeTree.gen.ts
+src/integrations/supabase/types.ts
 
 # Frozen pre-Prompt-7 scanner sources, vendored verbatim from commit
 # ab44ff687df4892745a47ffa1f3b737f04b478e0. Reformatting them would break the

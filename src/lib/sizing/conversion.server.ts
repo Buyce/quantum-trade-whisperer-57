@@ -13,6 +13,7 @@
  * `stale_quote` rather than a lot size.
  */
 import { buildRates, planConversion, type FxPlan } from "@/lib/mcp/fx";
+import { quoteSourceFresh, validQuoteGeometry } from "@/lib/metaapi/quote";
 import { ACCOUNT_CURRENCIES, CONTRACT_SPECS } from "@/lib/risk";
 import { INSTRUMENTS } from "@/lib/scanner/types";
 
@@ -90,6 +91,7 @@ export async function resolveConversion(
   let oldest: number | null = null;
   let oldestIso: string | null = null;
   let timestampMissing = false;
+  let timestampOutsideWindow = false;
 
   for (const symbol of plan.symbols) {
     if (seen.has(symbol)) continue;
@@ -98,7 +100,7 @@ export async function resolveConversion(
     try {
       requests += 1;
       const q = await fetchQuote(symbol);
-      if (!q || !(q.bid > 0) || !(q.ask > 0)) continue;
+      if (!q || !validQuoteGeometry(q.bid, q.ask)) continue;
       mids[symbol] = (q.bid + q.ask) / 2;
       const iso = q.sourceTime ?? null;
       const at = iso ? Date.parse(iso) : Number.NaN;
@@ -106,6 +108,12 @@ export async function resolveConversion(
         // Missing or malformed broker timestamp: unusable for sizing.
         timestampMissing = true;
         continue;
+      }
+      if (!quoteSourceFresh(new Date(at).toISOString(), QUOTE_MAX_AGE_MS, now)) {
+        // Track every required leg. Looking only at the oldest time would catch
+        // stale history but could miss a different leg implausibly ahead of the
+        // server clock.
+        timestampOutsideWindow = true;
       }
       if (oldest === null || at < oldest) {
         oldest = at;
@@ -117,7 +125,12 @@ export async function resolveConversion(
   }
 
   const used = Object.keys(mids).length > 0;
-  const stale = used && (timestampMissing || oldest === null || now - oldest > QUOTE_MAX_AGE_MS);
+  const stale =
+    used &&
+    (timestampMissing ||
+      timestampOutsideWindow ||
+      oldest === null ||
+      !quoteSourceFresh(oldestIso, QUOTE_MAX_AGE_MS, now));
 
   return {
     rates: buildRates(quoteCurrency, accountCurrency, plan, mids),

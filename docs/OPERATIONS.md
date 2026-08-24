@@ -38,8 +38,14 @@ budget with the scanner is how a scan cycle starves.
 
 Active setups older than `SIGNAL_MAX_AGE_HOURS` (24) are swept to `expired` at the
 start of each scan cycle. Retention for hard deletion is tiered by grade: A+/A 48h,
-B 36h, C 24h. Beyond retention, rows are removed, so a "missing" old signal is
-expected behaviour.
+B 36h, C 24h. Beyond retention, rows leave the interactive feed, so a "missing"
+old signal is expected behaviour. Deletion is blocked until shadow replay has
+copied the signal geometry and while any delivery is pending, claimed, sent or
+ambiguous. The system-generated signal and market-context row is then copied in
+the same transaction to the immutable, service-only `signal_retention_archive`.
+The archive contains no user identifiers and is evidence storage, not automatic
+permission to train or promote a model. User decisions and interaction telemetry
+are deliberately not copied into it.
 
 ### Health signals
 
@@ -69,7 +75,8 @@ data. Re-run `cron/refresh-specs`.
 
 **Delivery stuck.** `sent` and `unknown` are terminal for automation by design —
 an unacknowledged POST may already have created a broker order. Resolve manually;
-never bulk-retry.
+never bulk-retry. These states also block signal retention deletion so the
+operational parent evidence remains available until resolution.
 
 **Never** seed, backfill or synthesise `scanned_signals`, `market_context` or
 `executed_trades` to make a screen look populated.

@@ -2895,6 +2895,36 @@ export type Database = {
           },
         ]
       }
+      signal_retention_archive: {
+        Row: {
+          archive_reason: string
+          archived_at: string
+          market_context_snapshot: Json | null
+          model_version: number
+          shadow_execution_id: string | null
+          signal_id: string
+          signal_snapshot: Json
+        }
+        Insert: {
+          archive_reason?: string
+          archived_at?: string
+          market_context_snapshot?: Json | null
+          model_version: number
+          shadow_execution_id?: string | null
+          signal_id: string
+          signal_snapshot: Json
+        }
+        Update: {
+          archive_reason?: string
+          archived_at?: string
+          market_context_snapshot?: Json | null
+          model_version?: number
+          shadow_execution_id?: string | null
+          signal_id?: string
+          signal_snapshot?: Json
+        }
+        Relationships: []
+      }
       signal_user_telemetry: {
         Row: {
           created_at: string

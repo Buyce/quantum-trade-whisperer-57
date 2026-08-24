@@ -6,6 +6,7 @@
  */
 import type { Candle, Timeframe } from "@/lib/scanner/types";
 import { readBenchmarkAccount } from "./config.server";
+import { validQuoteGeometry } from "./quote";
 import { metaApiRequest } from "./request.server";
 
 const TF_MAP: Record<Timeframe, string> = { H4: "4h", H1: "1h", M15: "15m" };
@@ -99,7 +100,7 @@ export async function fetchQuoteFor(
 
   const bid = Number(raw?.bid);
   const ask = Number(raw?.ask);
-  if (!Number.isFinite(bid) || !Number.isFinite(ask)) return null;
+  if (!validQuoteGeometry(bid, ask)) return null;
   const parsed = raw?.time ? Date.parse(raw.time) : Number.NaN;
   return {
     bid,

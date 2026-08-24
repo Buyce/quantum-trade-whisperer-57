@@ -6,9 +6,11 @@
  * specific append-only `regime_snapshots.run_id`.
  *
  * WHY PINNED: `regime_stats` is deleted and rebuilt every hour, and
- * `purge_expired_signals()` hard-deletes expired signals, so a "live baseline"
- * silently changes underneath the reader. The pinned run id is also the
- * idempotency key — capturing twice against the same run is a no-op.
+ * `purge_expired_signals()` removes expired rows from the interactive feed, so
+ * a "live baseline" silently changes underneath the reader even though the
+ * system-only source snapshot is now retained in `signal_retention_archive`.
+ * The pinned run id is also the idempotency key — capturing twice against the
+ * same run is a no-op.
  *
  * ZERO-HALLUCINATION: every number is an aggregate over rows that exist. Where
  * the data cannot support a statistic, the field is null and the reason is
@@ -263,7 +265,7 @@ export async function captureBaseline(
   const retentionGap = publishedJobs - signalRows.length;
   if (retentionGap > 0) {
     caveats.push(
-      `${retentionGap} published signals have already been hard-deleted by tiered retention; their grade, direction and session distribution is unrecoverable, so signal-level distributions are reconstructed from the shadow cohort, not from scanned_signals.`,
+      `${retentionGap} published signals are no longer in the short feed window. New removals are preserved in the service-only signal retention archive after shadow enrolment; this baseline still reconstructs one consistent analysis cohort from shadow_executions rather than mixing feed and archive populations.`,
     );
   }
 
@@ -290,14 +292,16 @@ export async function captureBaseline(
   const calibration = {
     method:
       "Priors are compared against outcomes exactly as they were stamped on the signal at detection time. No join to current statistics — that would score each outcome against a statistic containing it.",
+    interpretation:
+      "Descriptive point-in-time replay diagnostic only; no holdout population, predictive calibration or future-performance claim.",
     stamped_signals: stamped.length,
     resolved_pairs: calibrationPairs.length,
-    mean_predicted_fill: mean(calibrationPairs.map((p) => p.pFill)),
+    mean_stamped_replay_fill_rate: mean(calibrationPairs.map((p) => p.pFill)),
     observed_fill: wilson(
       calibrationPairs.filter((p) => p.filled === 1).length,
       calibrationPairs.length,
     ),
-    mean_predicted_win_if_filled: mean(
+    mean_stamped_replay_win_if_filled: mean(
       calibrationPairs.filter((p) => p.filled === 1 && p.pWin != null).map((p) => p.pWin as number),
     ),
     observed_win_if_filled: wilson(
@@ -345,58 +349,73 @@ export async function captureBaseline(
 
   // 5b. Source coverage: what window each source can actually speak for, and
   //     the retention rule that bounds it. Empty sources report null bounds.
-  const [covQueue, covSignals, covShadow, covHooks, covTrades, covTelemetry, covSnapshots] =
-    await Promise.all([
-      coverage(
-        db,
-        "scan_queue",
-        "enqueued_at",
-        dataAsOf,
-        "maintain_scan_queue() deletes jobs older than 7 days; cycles before that window are unobservable.",
-      ),
-      coverage(
-        db,
-        "scanned_signals",
-        "detected_at",
-        dataAsOf,
-        "purge_expired_signals() hard-deletes expired signals (C 24h, B 36h, A/A+ 48h) unless a trade was taken; deleted rows are unrecoverable.",
-      ),
-      coverage(
-        db,
-        "shadow_executions",
-        "detected_at",
-        dataAsOf,
-        "No retention rule: full enrollment history. Rows resolved after data_as_of are counted as unresolved here by design.",
-      ),
-      coverage(
-        db,
-        "webhook_dispatch_log",
-        "created_at",
-        dataAsOf,
-        "maintain_scan_queue() deletes dispatch rows older than 14 days.",
-      ),
-      coverage(
-        db,
-        "executed_trades",
-        "created_at",
-        dataAsOf,
-        "Users can delete journal rows individually or in bulk from Trade History; counts are a lower bound.",
-      ),
-      coverage(
-        db,
-        "signal_user_telemetry",
-        "created_at",
-        dataAsOf,
-        "Append-only, but tied to signals that retention may already have deleted; counts are a lower bound.",
-      ),
-      coverage(
-        db,
-        "regime_snapshots",
-        "computed_at",
-        dataAsOf,
-        "180-day retention. Tier-0 volatility boundaries are preserved only from the migration that added them onward; earlier runs have none.",
-      ),
-    ]);
+  const [
+    covQueue,
+    covSignals,
+    covArchive,
+    covShadow,
+    covHooks,
+    covTrades,
+    covTelemetry,
+    covSnapshots,
+  ] = await Promise.all([
+    coverage(
+      db,
+      "scan_queue",
+      "enqueued_at",
+      dataAsOf,
+      "maintain_scan_queue() deletes jobs older than 7 days; cycles before that window are unobservable.",
+    ),
+    coverage(
+      db,
+      "scanned_signals",
+      "detected_at",
+      dataAsOf,
+      "Short feed window: C 24h, B 36h, A/A+ 48h unless a trade was taken. Eligible removals require shadow enrolment and are snapshotted in the service-only archive.",
+    ),
+    coverage(
+      db,
+      "signal_retention_archive",
+      "archived_at",
+      dataAsOf,
+      "Append-only system-generated signal/context snapshots. No user identifiers; not automatically a promoted model cohort.",
+    ),
+    coverage(
+      db,
+      "shadow_executions",
+      "detected_at",
+      dataAsOf,
+      "No retention rule: full enrollment history. Rows resolved after data_as_of are counted as unresolved here by design.",
+    ),
+    coverage(
+      db,
+      "webhook_dispatch_log",
+      "created_at",
+      dataAsOf,
+      "maintain_scan_queue() deletes dispatch rows older than 14 days.",
+    ),
+    coverage(
+      db,
+      "executed_trades",
+      "created_at",
+      dataAsOf,
+      "Users can delete journal rows individually or in bulk from Trade History; counts are a lower bound.",
+    ),
+    coverage(
+      db,
+      "signal_user_telemetry",
+      "created_at",
+      dataAsOf,
+      "Short-lived interaction telemetry cascades with the feed signal and is not copied into the system-evidence archive; counts are a lower bound.",
+    ),
+    coverage(
+      db,
+      "regime_snapshots",
+      "computed_at",
+      dataAsOf,
+      "180-day retention. Tier-0 volatility boundaries are preserved only from the migration that added them onward; earlier runs have none.",
+    ),
+  ]);
 
   const cell = (rows: ShadowRow[], key: (r: ShadowRow) => string) => {
     const groups = new Map<string, ShadowRow[]>();
@@ -424,9 +443,9 @@ export async function captureBaseline(
   const metrics: Record<string, unknown> = {
     // Bumped whenever the document's shape changes, so two snapshots are only
     // compared field-by-field when they share a schema version.
-    schema_version: 2,
+    schema_version: 3,
     schema_version_note:
-      "v2: statistically undefined probabilities are null (never a fabricated 0.5); signals carry p_joint_prior alongside the legacy ev_prior.",
+      "v3: archived source coverage is explicit and stamped in-sample replay rates are no longer labelled predictions. Undefined probabilities remain null; signals carry p_joint_prior alongside the legacy ev_prior.",
     model_version: ACTIVE_MODEL_VERSION,
     model_label: ACTIVE_MODEL_LABEL,
 
@@ -443,6 +462,7 @@ export async function captureBaseline(
     source_coverage: {
       scan_queue: covQueue,
       scanned_signals: covSignals,
+      signal_retention_archive: covArchive,
       shadow_executions: covShadow,
       webhook_dispatch_log: covHooks,
       executed_trades: covTrades,
@@ -521,7 +541,8 @@ export async function captureBaseline(
       by_instrument: tally(signalRows.map((s) => String(s["instrument"]))),
       mean_confidence: mean(signalRows.map((s) => Number(s["confidence_score"]))),
       published_jobs_all_time: publishedJobs,
-      hard_deleted_by_retention: Math.max(0, retentionGap),
+      removed_from_interactive_feed_by_retention: Math.max(0, retentionGap),
+      archived_system_evidence: covArchive.rows,
     },
     queue_health: {
       jobs: queueRows.length,

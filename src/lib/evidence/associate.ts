@@ -14,14 +14,11 @@ import type { BrokerDeal } from "@/lib/metaapi/types";
 
 /** How the association was proven. Recorded on every evidence row. */
 export type AssociationBasis =
-  | "client_id"
-  | "client_id_and_magic"
-  | "position_id"
-  | "self_reported";
+  "client_id" | "client_id_and_magic" | "position_id" | "self_reported";
 
 /**
  * Where the evidence came from:
- *  - `benchmark`  — the P-Trades benchmark demo account (our own track record)
+ *  - `benchmark`  — positively associated P-Trades benchmark demo evidence
  *  - `customer`   — a trader's connected broker account
  *  - `self_reported` — the trader typed it into the journal
  * These are separate populations and must never be pooled.
@@ -72,8 +69,8 @@ export function groupOwnedDeals(
     const existing = groups.get(key);
     if (existing) {
       existing.deals.push(deal);
-      existing.brokerPositionId = existing.brokerPositionId ?? (deal.positionId ?? null);
-      existing.brokerOrderId = existing.brokerOrderId ?? (deal.orderId ?? null);
+      existing.brokerPositionId = existing.brokerPositionId ?? deal.positionId ?? null;
+      existing.brokerOrderId = existing.brokerOrderId ?? deal.orderId ?? null;
       continue;
     }
     groups.set(key, {

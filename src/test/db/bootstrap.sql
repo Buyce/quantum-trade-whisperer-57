@@ -6,6 +6,13 @@
 
 DO $$
 BEGIN
+  -- PostgreSQL roles are cluster-wide, while each Vitest database file
+  -- provisions its own database in parallel. Serialise the check/create
+  -- block so two workers cannot both observe a missing role and race on the
+  -- pg_authid unique index. The transaction-scoped lock is released when this
+  -- DO statement commits and never affects the production schema.
+  PERFORM pg_advisory_xact_lock(hashtext('ptrades-test-bootstrap-roles'));
+
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
     CREATE ROLE anon NOLOGIN NOINHERIT;
   END IF;

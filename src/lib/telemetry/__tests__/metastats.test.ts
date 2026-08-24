@@ -94,9 +94,9 @@ describe("Risk Guardian rules", () => {
   });
 
   it("[INVARIANT] an available guardian with no created tracker says so plainly", () => {
-    expect(
-      describeGuardian({ available: true, reason: null, trackers: [] }),
-    ).toContain("no drawdown tracker exists yet");
+    expect(describeGuardian({ available: true, reason: null, trackers: [] })).toContain(
+      "no drawdown tracker exists yet",
+    );
     expect(
       describeGuardian({
         available: true,

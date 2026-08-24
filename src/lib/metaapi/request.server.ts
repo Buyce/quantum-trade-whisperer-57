@@ -40,7 +40,9 @@ function retryAfterSeconds(res: Response): number | null {
  * empty body). Throws `MetaApiTimeoutError`, `MetaApiNotConfiguredError` or
  * `MetaApiHttpError` — nothing else escapes.
  */
-export async function metaApiRequest<T = unknown>(options: MetaApiRequestOptions): Promise<T | null> {
+export async function metaApiRequest<T = unknown>(
+  options: MetaApiRequestOptions,
+): Promise<T | null> {
   const token = readMetaApiToken();
   const host = resolveHost(options.service, options.region ?? null);
   if (!host) {

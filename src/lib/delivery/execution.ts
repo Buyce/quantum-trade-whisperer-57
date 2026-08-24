@@ -8,6 +8,7 @@
  * never influence publication, eligibility, shadow enrolment or any statistic.
  */
 import { ORDER_TIF_MINUTES, type Direction, type Grade } from "@/lib/db-types";
+import { validQuoteGeometry } from "@/lib/metaapi/quote";
 
 export type DeliveryState =
   "pending" | "claimed" | "sent" | "acknowledged" | "rejected" | "unknown" | "failed";
@@ -286,7 +287,7 @@ export function spreadAcceptable(
   ask: number,
 ): boolean {
   const risk = Math.abs(order.entry - order.stopLoss);
-  if (!(risk > 0)) return false;
-  const spread = Math.abs(ask - bid);
+  if (!(risk > 0) || !validQuoteGeometry(bid, ask)) return false;
+  const spread = ask - bid;
   return spread <= risk * MAX_SPREAD_FRACTION_OF_RISK;
 }

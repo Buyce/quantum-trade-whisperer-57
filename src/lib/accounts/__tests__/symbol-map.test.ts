@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { describeMapping, isBrokerSuffix, isMappingUsable, mapSymbol, mapSymbols } from "../symbol-map";
+import {
+  describeMapping,
+  isBrokerSuffix,
+  isMappingUsable,
+  mapSymbol,
+  mapSymbols,
+} from "../symbol-map";
 
 describe("connected-account symbol mapping", () => {
   it("[UNIT] prefers an exact broker symbol name", () => {

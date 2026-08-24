@@ -46,7 +46,8 @@ export interface ConsentState {
   researchConsentAt: string | null | undefined;
 }
 
-export type ConsentVerdict = { included: true; version: number } | { included: false; reason: string };
+export type ConsentVerdict =
+  { included: true; version: number } | { included: false; reason: string };
 
 /**
  * May this account's FUTURE broker evidence be pooled for research?

@@ -56,4 +56,3 @@ export const Route = createFileRoute("/api/public/worker/telemetry")({
     },
   },
 });
-

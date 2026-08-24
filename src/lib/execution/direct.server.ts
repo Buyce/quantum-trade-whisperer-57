@@ -33,7 +33,6 @@ import {
   type DirectOrderPlan,
 } from "./direct";
 
-
 type Db = Pick<SupabaseClient, "from" | "rpc">;
 
 export interface DirectTarget {
@@ -62,10 +61,7 @@ export interface DirectTarget {
   globalLiveAuto: boolean;
 }
 
-
-export type DirectTargetResult =
-  | { ok: true; target: DirectTarget }
-  | { ok: false; detail: string };
+export type DirectTargetResult = { ok: true; target: DirectTarget } | { ok: false; detail: string };
 
 interface AccountRow {
   id: string;
@@ -85,7 +81,6 @@ interface AccountRow {
   max_account_open_positions: number | null;
   disconnected_at: string | null;
 }
-
 
 /**
  * Resolve the destination account and prove it may be traded right now.
@@ -141,9 +136,11 @@ export async function loadDirectTarget(
     .eq("account_id", account.id)
     .eq("canonical_symbol", input.instrument)
     .maybeSingle();
-  const mapped = mapRow as
-    | { broker_symbol: string | null; mapping_kind: string; candidates: string[] | null }
-    | null;
+  const mapped = mapRow as {
+    broker_symbol: string | null;
+    mapping_kind: string;
+    candidates: string[] | null;
+  } | null;
 
   let brokerSymbol: string | null = null;
   if (mapped && mapped.mapping_kind !== "ambiguous" && mapped.broker_symbol) {
@@ -170,8 +167,7 @@ export async function loadDirectTarget(
       magic: account.magic as number,
       mode: account.mode,
       brokerSymbol,
-      freeMargin:
-        account.broker_free_margin === null ? null : Number(account.broker_free_margin),
+      freeMargin: account.broker_free_margin === null ? null : Number(account.broker_free_margin),
       accountType: account.broker_account_type,
       equity: account.broker_equity === null ? null : Number(account.broker_equity),
       currency: account.account_currency,
@@ -259,7 +255,6 @@ export async function submitDirectOrder(
     }
   }
 
-
   let order;
   try {
     order = buildDirectOrder(plan, {
@@ -270,7 +265,11 @@ export async function submitDirectOrder(
     });
   } catch (err) {
     const detail =
-      err instanceof DirectOrderError ? err.message : err instanceof Error ? err.message : String(err);
+      err instanceof DirectOrderError
+        ? err.message
+        : err instanceof Error
+          ? err.message
+          : String(err);
     await settle(db, delivery.id, {
       state: "rejected",
       reason: `order_not_constructible: ${detail}`,
@@ -477,8 +476,6 @@ export async function refreshAccountSafety(
   // `equityAsOf` provenance. Re-checking it here against wall-clock time would
   // only re-measure our own receipt instant.
 
-
-
   // ---- Account-wide BROKER exposure boundary --------------------------------
   // This is broker-derived, not the journal advisory, and it counts everything on
   // the account including the trader's own manual trades. Fail-closed: if the
@@ -486,7 +483,14 @@ export async function refreshAccountSafety(
   const exposure = await evaluateBrokerExposure(target);
   if (!exposure.allowed) return { ok: false, detail: exposure.detail };
 
-  return { ok: true, freeMargin, equity, currency: typeof info.currency === "string" && info.currency.trim() ? info.currency.trim() : null, observedAt };
+  return {
+    ok: true,
+    freeMargin,
+    equity,
+    currency:
+      typeof info.currency === "string" && info.currency.trim() ? info.currency.trim() : null,
+    observedAt,
+  };
 }
 
 /**
@@ -528,8 +532,10 @@ async function evaluateBrokerExposure(
   return verdict.allowed ? { allowed: true } : { allowed: false, detail: verdict.detail };
 }
 
-
 async function settle(db: Db, id: number, patch: Record<string, unknown>): Promise<void> {
-  const { error } = await db.from("execution_deliveries").update(patch as never).eq("id", id);
+  const { error } = await db
+    .from("execution_deliveries")
+    .update(patch as never)
+    .eq("id", id);
   if (error) console.error("[direct] settle failed", { id, error: error.message });
 }

@@ -40,10 +40,7 @@ export async function fetchAccountFacts(
   return { info, type: classifyAccountType(info), observedAt: new Date().toISOString() };
 }
 
-export async function fetchPositions(
-  accountId: string,
-  region: string,
-): Promise<BrokerPosition[]> {
+export async function fetchPositions(accountId: string, region: string): Promise<BrokerPosition[]> {
   const raw = await metaApiRequest<BrokerPosition[]>({
     service: "client",
     region,

@@ -11,11 +11,7 @@
  */
 
 export type MetaApiService =
-  | "provisioning"
-  | "client"
-  | "market-data"
-  | "metastats"
-  | "risk-management";
+  "provisioning" | "client" | "market-data" | "metastats" | "risk-management";
 
 /** Region ids are lowercase alphanumerics joined by single dashes: `new-york`. */
 const REGION_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
