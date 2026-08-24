@@ -47,6 +47,17 @@ describe("metaapi failure classification", () => {
     expect(failure.message).toContain("not allowed to perform it");
   });
 
+  it("[INVARIANT] a validation refusal names the rejected parameter instead of dumping vendor JSON", () => {
+    const body =
+      '{"id":19335,"error":"ValidationError","message":"Validation failed","details":[{"parameter":"state","value":"DRAFT","message":"Unexpected value."}]}';
+    const failure = classifyMetaApiFailure(new MetaApiHttpError(400, "create account", body));
+    expect(failure.kind).toBe("validation");
+    expect(failure.retryable).toBe(false);
+    expect(failure.message).toContain('does not accept for "state"');
+    expect(failure.message).toContain("Nothing was created");
+  });
+
+
   it("[UNIT] maps auth, feature, not-found, validation and server statuses", () => {
     expect(classifyMetaApiFailure(new MetaApiHttpError(403, "x", "forbidden")).kind).toBe("auth");
     expect(

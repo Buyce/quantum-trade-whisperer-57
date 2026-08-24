@@ -44,8 +44,13 @@ export interface CreateAccountInput {
   manualTrades?: boolean;
   metastatsApiEnabled?: boolean;
   riskManagementApiEnabled?: boolean;
-  /** Create without credentials, to be completed via a configuration link. */
+  /**
+   * Create WITHOUT broker credentials, to be completed via a configuration link.
+   * The provider derives the DRAFT state from the absent login/password; `state`
+   * is not a create parameter and must never be sent.
+   */
   draft?: boolean;
+
 }
 
 /**
@@ -70,7 +75,10 @@ export async function createAccount(
     ...(input.server ? { server: input.server } : {}),
     ...(input.login ? { login: input.login } : {}),
     ...(input.password ? { password: input.password } : {}),
-    ...(input.draft ? { state: "DRAFT" } : {}),
+    // NOTE: `state` is NOT a create-account parameter — sending it is rejected
+    // with a 400 ValidationError. A draft is produced by omitting the broker
+    // credentials; the provider then returns state DRAFT itself.
+
   };
 
   const res = await metaApiRequest<{ id?: string; state?: string }>({
