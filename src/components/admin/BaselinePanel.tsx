@@ -27,6 +27,20 @@ interface Wilson {
   hi: number | null;
 }
 
+interface ShadowBaselineMetrics {
+  fill_rate?: Wilson | null;
+  win_if_filled?: Wilson | null;
+  unconditional_win_per_signal?: number | null;
+  mean_r_all_resolved?: number | null;
+  resolved?: number;
+  never_filled?: number;
+}
+
+interface BaselineMetrics {
+  shadow_cohort?: ShadowBaselineMetrics;
+  caveats?: string[];
+}
+
 function CI({ label, ci }: { label: string; ci?: Wilson | null }) {
   if (!ci || ci.n === 0) {
     return (
@@ -92,9 +106,9 @@ export function BaselinePanel() {
   }
 
   const latest = status.data?.latest ?? null;
-  const m = (latest?.metrics ?? {}) as Record<string, any>;
-  const shadow = m["shadow_cohort"] as Record<string, any> | undefined;
-  const caveats = (m["caveats"] as string[] | undefined) ?? [];
+  const metrics = (latest?.metrics ?? {}) as BaselineMetrics;
+  const shadow = metrics.shadow_cohort;
+  const caveats = metrics.caveats ?? [];
 
   return (
     <div className="space-y-3">
@@ -128,14 +142,14 @@ export function BaselinePanel() {
       ) : (
         <>
           <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-            <CI label="Fill rate" ci={shadow?.["fill_rate"]} />
-            <CI label="Win if filled" ci={shadow?.["win_if_filled"]} />
+            <CI label="Fill rate" ci={shadow?.fill_rate ?? null} />
+            <CI label="Win if filled" ci={shadow?.win_if_filled ?? null} />
             <div className="rounded border border-border/60 p-2">
               <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
                 Win per signal
               </div>
               <div className="font-mono text-sm">
-                {pctOf(shadow?.["unconditional_win_per_signal"] ?? null)}
+                {pctOf(shadow?.unconditional_win_per_signal ?? null)}
               </div>
               <div className="text-[10px] text-muted-foreground">fill × win, unconditional</div>
             </div>
@@ -143,12 +157,9 @@ export function BaselinePanel() {
               <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
                 Mean R (resolved)
               </div>
-              <div className="font-mono text-sm">
-                {num(shadow?.["mean_r_all_resolved"] ?? null)}
-              </div>
+              <div className="font-mono text-sm">{num(shadow?.mean_r_all_resolved ?? null)}</div>
               <div className="text-[10px] text-muted-foreground">
-                n={shadow?.["resolved"] ?? 0} resolved · {shadow?.["never_filled"] ?? 0} never
-                filled
+                n={shadow?.resolved ?? 0} resolved · {shadow?.never_filled ?? 0} never filled
               </div>
             </div>
           </div>
@@ -180,7 +191,7 @@ export function BaselinePanel() {
               Full baseline document (JSON)
             </summary>
             <pre className="mt-2 max-h-80 overflow-auto text-[10px] leading-tight">
-              {JSON.stringify(m, null, 2)}
+              {JSON.stringify(metrics, null, 2)}
             </pre>
           </details>
         </>

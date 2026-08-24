@@ -10,21 +10,19 @@ or what their personal statistics say.
 
 ### Shadow replay
 
-Every published setup is forward-tested against real stored candles by a
-deterministic replay (`src/lib/execution/replay.ts`), under the named policy
-`single_exit_first_target`: one pending order, single exit at the first target.
-TP2/TP3 are shown to the trader but are not part of the measured object — measuring
-a different strategy from the one the bridge can place would make the two numbers
-incomparable.
+Every published setup is forward-tested against real stored candles. The currently
+frozen production labeller is Replay V1 (`src/lib/execution/replay.ts`) under
+`legacy_best_target_touched`: if one bar touches several targets it credits the
+deepest, even though direct/bridge execution uses a single exit at TP1. V1 also
+tests fill before its TIF deadline, keeps planned-risk normalisation after a gap
+fill and fixes every stop loss at `-1R`. Those are characterised historical
+semantics, not endorsements (see [CHARACTERISATION.md](CHARACTERISATION.md)).
 
-Replay is intentionally conservative: when one M15 candle contains the entry, the
-stop and a target, **the adverse ordering is assumed** and the setup resolves as a
-loss, because M15 OHLC cannot reveal intrabar sequence. This is pinned V1
-behaviour (see [CHARACTERISATION.md](CHARACTERISATION.md)).
-
-A replay registry pins which replay implementation produced each stored outcome,
-and `replay-v2.ts` exists as a non-blocking intended-future variant that never
-writes production rows.
+Replay V2 (`src/lib/execution/replay-v2.ts`) is the corrected research labeller
+under `single_exit_first_target`. It checks TIF before fill, uses actual fill-to-stop
+risk, records adverse gaps and treats unresolved M15 intrabar order conservatively.
+It has a distinct replay version and never overwrites or masquerades as V1. The
+replay registry pins the implementation, policy and hash for every stored outcome.
 
 ### Research candidates
 
@@ -66,7 +64,8 @@ snapshots and stats, candidate cohorts, and admin-only filter-lift reports.
 ## Provenance
 
 Deterministic replay over broker candles. No user input, no live broker
-execution, no live money.
+execution, no live money. Every comparison must name both replay version and
+execution policy; V1 and V2 results are never one population.
 
 ## Failure behaviour
 

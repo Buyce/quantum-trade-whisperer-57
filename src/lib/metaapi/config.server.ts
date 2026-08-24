@@ -42,11 +42,23 @@ export interface BenchmarkAccountConfig {
 const DEFAULT_BENCHMARK_MAGIC = 140714;
 
 /**
+ * Read only the reserved provider account id.
+ *
+ * Customer-account guards use this narrower reader so they still protect the
+ * reserved account when an unrelated benchmark setting (region or magic) is
+ * temporarily missing or malformed.
+ */
+export function readBenchmarkAccountId(): string | null {
+  const accountId = process.env["PTRADES_BENCHMARK_METAAPI_ACCOUNT_ID"]?.trim();
+  return accountId || null;
+}
+
+/**
  * The P-Trades benchmark demo account. Previously hardcoded in the scanner;
  * now configuration, so the account can be rotated without a code change.
  */
 export function readBenchmarkAccount(): BenchmarkAccountConfig {
-  const accountId = process.env["PTRADES_BENCHMARK_METAAPI_ACCOUNT_ID"];
+  const accountId = readBenchmarkAccountId();
   if (!accountId) throw new MetaApiNotConfiguredError("PTRADES_BENCHMARK_METAAPI_ACCOUNT_ID");
 
   const region = process.env["PTRADES_BENCHMARK_METAAPI_REGION"];

@@ -92,10 +92,11 @@ export function describePhase(phase: AccountPhase): PhaseCopy {
       };
     case "created":
       return {
-        label: "Connection created",
-        detail: "The connection exists but has not been started yet.",
-        tone: "pending",
-        nextAction: "Refresh the connection to continue.",
+        label: "Provider is still creating the connection",
+        detail:
+          "The provider accepted this attempt but has not returned the account yet. P-Trades kept the same transaction id, so Refresh continues that attempt instead of creating a duplicate.",
+        tone: "working",
+        nextAction: "Wait for the provider's retry window, then press Refresh.",
       };
     case "deploying":
       return {

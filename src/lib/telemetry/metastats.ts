@@ -29,7 +29,7 @@ export interface NormalisedMetrics {
   equity: number | null;
   /** Broker-reported maximum drawdown, as the vendor expresses it. */
   maxDrawdownPercent: number | null;
-  expectancy: number | null
+  expectancy: number | null;
   averageWin: number | null;
   averageLoss: number | null;
 }
@@ -64,7 +64,9 @@ function num(value: unknown): number | null {
 }
 
 /** Map the vendor's metric object into our field names. Absent stays null. */
-export function normaliseMetrics(raw: Record<string, unknown> | null | undefined): NormalisedMetrics {
+export function normaliseMetrics(
+  raw: Record<string, unknown> | null | undefined,
+): NormalisedMetrics {
   if (!raw || typeof raw !== "object") return { ...EMPTY };
   return {
     trades: num(raw["trades"]),

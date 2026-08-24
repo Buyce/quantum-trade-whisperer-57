@@ -193,7 +193,7 @@ const WeeklyShadowReportEmail = ({
 
 export const template = {
   component: WeeklyShadowReportEmail,
-  subject: (data: Record<string, any>) =>
+  subject: (data: Record<string, unknown>) =>
     `P-Trades Hub — weekly shadow report ${data["isoWeek"] ?? ""} (A/A+ vs B/C)`,
   displayName: "Weekly shadow report (admin)",
   to: "boatengampomah@gmail.com",

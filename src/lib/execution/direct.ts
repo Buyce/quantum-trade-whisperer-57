@@ -187,7 +187,9 @@ export function buildDirectOrder(
       orderRef: String(ctx.deliveryId),
     }),
     magic: ctx.magic,
-    comment: `PT ${plan.grade}`,
+    // MetaApi documents a combined 26-character budget for comment + clientId.
+    // The clientId is the reconciliation/ownership key, so it receives the
+    // whole budget and the optional cosmetic comment is intentionally omitted.
   };
 }
 

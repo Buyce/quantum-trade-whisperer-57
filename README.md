@@ -138,7 +138,8 @@ Four planes, deliberately isolated:
   `src/test/__tests__/test-taxonomy.test.ts`. See [docs/TESTING.md](docs/TESTING.md).
 - A database regression layer runs real SQL against an ephemeral cluster — see
   [docs/DB-TESTS.md](docs/DB-TESTS.md).
-- Local gate: `bun run verify` = blocking lint + typecheck + tests + build.
+- Local gate: `bun run verify` = full-repository lint + typecheck + blocking
+  tests + production build.
 - Local verification is not an independent attestation. GitHub Actions
   (`.github/workflows/ci.yml`) is the only externally attested signal; this
   README makes no claim about the current CI colour.
@@ -151,22 +152,25 @@ the number at your checkout rather than trusting a figure written in prose.
 ```sh
 bun install
 bun run dev        # http://localhost:8080
-bun run verify     # lint:blocking + typecheck + test + build
+bun run verify     # lint + typecheck + test + build
 ```
 
 Configuration is by environment variable. No credential, account identifier,
 login number or secret value belongs in this repository.
 
-| Variable                                                                         | Purpose                                             |
-| -------------------------------------------------------------------------------- | --------------------------------------------------- |
-| `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_SUPABASE_PROJECT_ID` | Browser backend client (publishable, safe to ship)  |
-| `METAAPI_TOKEN`, `METAAPI_ACCOUNT_ID`                                            | Broker market-data access (server only)             |
-| `CRON_SECRET`                                                                    | Authorises `/api/public/cron/*` callers             |
-| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`                                          | Web push signing                                    |
-| `WEBHOOK_*` / per-user bridge secrets                                            | Stored per account in the database, never in source |
+| Variable                                                                         | Purpose                                            |
+| -------------------------------------------------------------------------------- | -------------------------------------------------- |
+| `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_SUPABASE_PROJECT_ID` | Browser backend client (publishable, safe to ship) |
+| `METAAPI_TOKEN`, `METAAPI_ACCOUNT_ID`                                            | Broker market-data access (server only)            |
+| `CRON_SECRET`                                                                    | Authorises `/api/public/cron/*` callers            |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`                                          | Web push signing                                   |
+| Operator `WEBHOOK_*` values                                                      | Platform secret store; server handlers only        |
+| Per-user bridge secret                                                           | Database; write-only to authenticated clients      |
 
-Secrets are managed through the platform's secret store and read inside server
-handlers only.
+Operator secrets are managed through the platform secret store. Per-user bridge
+secrets are persisted for later dispatch, but database column privileges make the
+value server-only: browsers can replace one through the authenticated validation
+function and receive only configured/not-configured status.
 
 ## 7. Deployment
 

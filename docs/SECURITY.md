@@ -49,11 +49,20 @@ own caller:
 
 ### Secrets
 
-Read from the environment **inside** server handlers only, never at module scope
-and never in client-reachable modules. Publishable keys may ship to the browser;
-service-role keys and database passwords are not accessible to the application
-code paths that render UI, and are never logged, echoed or returned. No credential,
-account identifier or login number belongs in the repository or in documentation.
+Operator credentials are read from the environment **inside** server handlers,
+never at module scope or in client-reachable modules. Publishable keys may ship
+to the browser; service-role keys and database passwords do not.
+
+A per-user bridge secret is stored on that user's database settings row because
+the dispatcher needs it later. It is a write-only field at the application
+boundary: the `authenticated` role has no SELECT, INSERT or UPDATE privilege on
+that column. The browser submits a replacement only to the authenticated server
+function, which writes through the service-role client; an ordinary settings save
+leaves the existing value untouched. The UI receives only a configured/not-
+configured boolean. Secret values are never logged, echoed or returned.
+
+No credential value, account identifier or login number belongs in the repository
+or documentation.
 
 ### Data integrity
 
@@ -76,8 +85,9 @@ missing secrets all fail **closed**.
 
 ## User-facing meaning
 
-Your data is scoped to your account. The app cannot reach your broker. Nothing is
-sent outbound until you configure it and, for live orders, confirm it explicitly.
+Your data is scoped to your account. The app reaches a broker only through an
+explicitly connected destination and its independent mode gates. Nothing is sent
+outbound until you configure it and, for live orders, confirm it explicitly.
 
 ## What is not claimed
 

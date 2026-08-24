@@ -29,6 +29,7 @@ import { GuideNote, InfoLabel } from "@/components/GuideMode";
 import { LearningHistory } from "@/components/LearningHistory";
 import { SignalAudit } from "@/components/SignalAudit";
 import { cn } from "@/lib/utils";
+import { MIN_GROUP_CLUSTERS, MIN_GROUP_SAMPLES } from "@/lib/stats/evidence";
 
 export const Route = createFileRoute("/_authenticated/performance")({
   head: () => ({
@@ -128,14 +129,20 @@ function PerformancePage() {
   const sourceMeta = SOURCE_META[scope];
   const scopeLabel = sourceMeta.scopeLabel;
 
-  // Global math reflects the core edge: C-Grade is excluded from the top-row KPIs,
-  // insights, distribution and heat map, but kept in the per-tier tables.
+  // The headline population follows the configured B-or-better reporting scope:
+  // C is excluded from KPIs, insights, distribution and heat map, but remains in
+  // the explicitly tiered table. This filter is not a claim that an edge exists.
   const coreSamples = useMemo(
     () => samples.filter((s) => s.grade !== "C" && s.grade !== "Unknown"),
     [samples],
   );
 
   const stats = useMemo(() => computeExpectancy(coreSamples), [coreSamples]);
+  const distinctDays = useMemo(
+    () => new Set(coreSamples.map((sample) => sample.detectedAt.slice(0, 10))).size,
+    [coreSamples],
+  );
+  const mature = stats.count >= MIN_GROUP_SAMPLES && distinctDays >= MIN_GROUP_CLUSTERS;
   const dist = useMemo(() => rDistribution(coreSamples), [coreSamples]);
   const cells = useMemo(() => heatMap(coreSamples), [coreSamples]);
   const byInstrument = useMemo(() => groupBy(samples, (s) => s.instrument), [samples]);
@@ -240,6 +247,15 @@ function PerformancePage() {
           Only rows with {rBasis === "plan" ? "r_vs_plan" : "r_vs_actual_risk"} are included. The
           two R bases are never averaged or filled from one another.
         </p>
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+          <Badge variant="outline" className="font-mono text-[10px]">
+            {mature ? "DESCRIPTIVE GATE MET" : "IMMATURE SAMPLE"}
+          </Badge>
+          <span>
+            {stats.count}/{MIN_GROUP_SAMPLES} closed rows · {distinctDays}/{MIN_GROUP_CLUSTERS} UTC
+            days. Point estimates describe this sample; the gate does not make them predictive.
+          </span>
+        </div>
       </section>
 
       {samples.length === 0 ? (
@@ -251,13 +267,13 @@ function PerformancePage() {
       <div className="grid grid-cols-2 gap-px overflow-hidden rounded-md border border-border bg-border sm:grid-cols-3 lg:grid-cols-6">
         <Kpi
           label="Expectancy / trade"
-          hint="What one average setup is worth in R. +0.30R means every trade adds 0.3× your risk over the long run."
+          hint="Arithmetic mean R in this selected sample. +0.30R means its total R divided by its closed-row count was +0.30; it is not a future-return estimate."
           value={fmtR(stats.expectancyR)}
           tone={stats.expectancyR > 0 ? "pos" : stats.expectancyR < 0 ? "neg" : undefined}
         />
         <Kpi
           label="Win rate"
-          hint="Share of closed setups that finished profitable. A low win rate can still be profitable if wins are large."
+          hint="Share of selected canonical R values above zero. The sign of R is authoritative even if a self-reported journal label disagrees."
           value={pct(stats.winRate)}
         />
         <Kpi
@@ -268,19 +284,19 @@ function PerformancePage() {
         />
         <Kpi
           label="Avg loss"
-          hint="Average size of a losing trade in R. Respecting the stop-loss keeps this near −1R."
+          hint="Average absolute magnitude of negative-R rows. It is shown as a positive loss size and subtracted in the expectancy formula."
           value={fmtR(stats.avgLossR)}
           tone="neg"
         />
         <Kpi
           label="Total R"
-          hint="All closed results added up, in R. Multiply by your risk per trade to get currency."
+          hint="Signed R values added across this selected basis. It cannot be converted to currency from one current risk setting when per-trade risk amounts differed."
           value={fmtR(stats.totalR)}
           tone={stats.totalR >= 0 ? "pos" : "neg"}
         />
         <Kpi
           label="Closed setups"
-          hint="How many trades have a recorded result. Below ~30, treat these numbers as early signals only."
+          hint={`Rows with a recorded result and the selected R basis. Maturity requires at least ${MIN_GROUP_SAMPLES} rows across ${MIN_GROUP_CLUSTERS} UTC days.`}
           value={String(stats.count)}
         />
       </div>

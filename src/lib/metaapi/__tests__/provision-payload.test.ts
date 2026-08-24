@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { MetaApiHttpError } from "../errors";
 import { createAccount } from "../provision.server";
 
 const ORIGINAL_FETCH = globalThis.fetch;
@@ -71,5 +72,26 @@ describe("createAccount payload", () => {
       "txn-2",
     );
     expect(created).toEqual({ id: "acc-2", state: "UNDEPLOYED" });
+  });
+
+  it("[INVARIANT] surfaces 202 as pending so callers can poll with the same transaction id", async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ message: "still processing" }), {
+          status: 202,
+          headers: { "retry-after": "30" },
+        }),
+    );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const transactionId = "1234567890abcdef1234567890abcdef";
+    const err = await createAccount(
+      { name: "n", platform: "mt5", server: "MetaQuotes-Demo", region: "london", magic: 0 },
+      transactionId,
+    ).catch((value: unknown) => value);
+    expect(err).toBeInstanceOf(MetaApiHttpError);
+    expect(err).toMatchObject({ status: 202, retryAfterSeconds: 30 });
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect((init.headers as Record<string, string>)["transaction-id"]).toBe(transactionId);
   });
 });

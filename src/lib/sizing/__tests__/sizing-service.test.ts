@@ -37,7 +37,7 @@ vi.mock("@/integrations/supabase/client.server", () => ({
   },
 }));
 
-import { resolveSizingForUser } from "../service.server";
+import { resolveSizingForAccount, resolveSizingForUser } from "../service.server";
 
 const NOW = Date.parse("2026-08-23T12:00:00.000Z");
 
@@ -81,6 +81,16 @@ function db(spec: Record<string, unknown> | null, trades: unknown[] = []) {
     if (call.table === "scanner_settings") return { data: [settingsRow], error: null };
     if (call.table === "broker_symbol_specs") return { data: spec ? [spec] : [], error: null };
     if (call.table === "executed_trades") return { data: trades, error: null };
+    return { data: [], error: null };
+  };
+  return createFakeSupabase(handler);
+}
+
+function accountDb(spec: Record<string, unknown>) {
+  const handler = (call: FakeCall) => {
+    if (call.table === "scanner_settings") return { data: [settingsRow], error: null };
+    if (call.table === "connected_account_specs") return { data: [spec], error: null };
+    if (call.table === "executed_trades") return { data: [], error: null };
     return { data: [], error: null };
   };
   return createFakeSupabase(handler);
@@ -206,6 +216,36 @@ describe("shared sizing service", () => {
     );
     expect(result.provenance.equityBasis).toBe("user_entered");
     expect(result.provenance.equityAsOf).toBe(settingsRow.equity_as_of);
+  });
+
+  it("[INVARIANT] direct-account sizing always uses that account's broker specification", async () => {
+    const spec = {
+      ...brokerRow({ volume_max: 0.05 }),
+      broker_symbol: "XAUUSD.raw",
+      canonical_symbol: "XAUUSD",
+    };
+    const fake = accountDb(spec);
+    const result = await resolveSizingForAccount(
+      fake.client as Parameters<typeof resolveSizingForAccount>[0],
+      "user-1",
+      {
+        id: "account-1",
+        equity: 10_000,
+        currency: "USD",
+        equityAsOf: new Date(NOW - 1_000).toISOString(),
+      },
+      setup,
+      NOW,
+    );
+
+    expect(result.available).toBe(true);
+    if (!result.available) throw new Error(`unexpected sizing refusal: ${JSON.stringify(result)}`);
+    expect(result.provenance.authoritativeModel).toBe(2);
+    expect(result.provenance.specSource).toBe("broker");
+    // The destination broker's 0.05-lot ceiling must bind even while the
+    // global advisory promotion switch remains off.
+    expect(result.lots).toBe(0.05);
+    expect(result.cappedByBrokerVolume).toBe(true);
   });
 
   it("[UNIT] advisory exposure is derived only from the user's own logged trades", async () => {

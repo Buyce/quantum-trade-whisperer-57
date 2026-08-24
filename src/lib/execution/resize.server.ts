@@ -18,10 +18,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { validateQuantity, type OrderQuantity } from "@/lib/delivery/execution";
-import {
-  isAccountSizingRefusal,
-  resolveSizingForAccount,
-} from "@/lib/sizing/service.server";
+import { isAccountSizingRefusal, resolveSizingForAccount } from "@/lib/sizing/service.server";
 
 type Db = Pick<SupabaseClient, "from" | "rpc">;
 

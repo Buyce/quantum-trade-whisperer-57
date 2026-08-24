@@ -12,11 +12,7 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import {
-  benchmarkPolicyReadiness,
-  type BenchmarkGrade,
-  type BenchmarkPolicy,
-} from "./policy";
+import { benchmarkPolicyReadiness, type BenchmarkGrade, type BenchmarkPolicy } from "./policy";
 
 type Db = Pick<SupabaseClient, "from" | "rpc">;
 

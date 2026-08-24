@@ -88,7 +88,11 @@ describe("mode eligibility", () => {
   });
 
   it("[INVARIANT] demo auto is refused on real, contest and unknown accounts", () => {
-    for (const info of [real, { ...demo, type: "ACCOUNT_TRADE_MODE_CONTEST" }, { ...demo, type: null }]) {
+    for (const info of [
+      real,
+      { ...demo, type: "ACCOUNT_TRADE_MODE_CONTEST" },
+      { ...demo, type: null },
+    ]) {
       expect(modeEligibility("demo_auto", { info, userEnabled: true, ...gates }).allowed).toBe(
         false,
       );
@@ -148,7 +152,11 @@ describe("provisioning lifecycle", () => {
       }),
     ).toBe("broker_rejected");
     expect(
-      connectionPhase({ state: "DEPLOY_FAILED", connectionStatus: null, credentialsConfigured: true }),
+      connectionPhase({
+        state: "DEPLOY_FAILED",
+        connectionStatus: null,
+        credentialsConfigured: true,
+      }),
     ).toBe("failed");
   });
 

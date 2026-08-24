@@ -61,7 +61,8 @@ const FeedbackReceivedEmail = ({
 
 export const template = {
   component: FeedbackReceivedEmail,
-  subject: (data: Record<string, any>) => `P-Trades Hub feedback — ${data["category"] ?? "other"}`,
+  subject: (data: Record<string, unknown>) =>
+    `P-Trades Hub feedback — ${data["category"] ?? "other"}`,
   displayName: "Feedback received (admin)",
   to: "boatengampomah@gmail.com",
   previewData: {

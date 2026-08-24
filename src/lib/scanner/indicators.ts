@@ -237,7 +237,8 @@ export function atrMovingAverage(candles: Candle[], atrPeriod = 14, maPeriod = 2
 }
 
 /**
- * Institutional order block (supply/demand zone).
+ * OHLC-derived supply/demand-zone heuristic. This does not observe orders,
+ * order flow or institutional activity.
  *
  * Definition used here, documented so future tuning stays unambiguous:
  * the last opposing-close candle immediately preceding an impulsive

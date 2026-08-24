@@ -16,12 +16,7 @@
 import type { AccountType } from "@/lib/metaapi/classify";
 import type { AccountMode } from "./types";
 
-export const ACCOUNT_MODES: AccountMode[] = [
-  "observe",
-  "demo_auto",
-  "live_confirm",
-  "live_auto",
-];
+export const ACCOUNT_MODES: AccountMode[] = ["observe", "demo_auto", "live_confirm", "live_auto"];
 
 export function isAccountMode(value: unknown): value is AccountMode {
   return typeof value === "string" && (ACCOUNT_MODES as string[]).includes(value);
@@ -74,7 +69,10 @@ export function canArm(ctx: ModeContext, mode: AccountMode): ModeVerdict {
     return { ok: false, detail: "your broker reports that trading is not allowed on this account" };
   }
   if (ctx.investorMode === true) {
-    return { ok: false, detail: "this is an investor (read-only) login, so it cannot place orders" };
+    return {
+      ok: false,
+      detail: "this is an investor (read-only) login, so it cannot place orders",
+    };
   }
   if (!ctx.hasMagic) {
     return { ok: false, detail: "this account has no order tag assigned yet — refresh it first" };

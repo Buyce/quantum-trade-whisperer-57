@@ -36,7 +36,7 @@ export interface SignalAuditRow {
 
 export const getSignalAudit = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: unknown) => schema.parse(data ?? {}))
+  .validator((data: unknown) => schema.parse(data ?? {}))
   .handler(async ({ data }): Promise<SignalAuditRow[]> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 

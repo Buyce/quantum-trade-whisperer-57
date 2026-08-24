@@ -162,6 +162,14 @@ describe("documentation contract: empty results", () => {
       });
     }
   });
+
+  it("[INVARIANT] the capped Feed empty state is view-scoped and points to health", () => {
+    const feed = read("src/routes/_authenticated/feed.tsx");
+    expect(feed).toContain("NO SETUPS IN THIS VIEW");
+    expect(feed).toMatch(/not a scanner-wide No Trade claim/i);
+    expect(feed).toMatch(/heartbeat[^.]{0,80}scanner-health authority/i);
+    expect(feed).not.toContain("CAPITAL PRESERVATION MODE");
+  });
 });
 
 describe("documentation contract: provenance wording", () => {
@@ -190,61 +198,116 @@ describe("documentation contract: provenance wording", () => {
   });
 });
 
+describe("documentation contract: replay and learning claims", () => {
+  it("[INVARIANT] names frozen Replay V1 and corrected research Replay V2 separately", () => {
+    const research = read("docs/RESEARCH-AND-SHADOW.md");
+    expect(research).toContain("legacy_best_target_touched");
+    expect(research).toContain("single_exit_first_target");
+    expect(research).toMatch(/credits the[^.]{0,40}deepest/i);
+    expect(research).toContain("is the corrected research labeller");
+  });
+
+  it("[INVARIANT] presents the replay joint statistic as descriptive, not a forecast", () => {
+    const signalCard = read("src/components/SignalCard.tsx");
+    const feed = read("src/routes/_authenticated/feed.tsx");
+    expect(signalCard).toContain("Replay joint rate");
+    expect(signalCard).toMatch(/not a forecast/i);
+    expect(feed).toContain("replay joint rate");
+    expect(feed).toMatch(/descriptive, not a forecast/i);
+    expect(signalCard).not.toContain("Est. joint win prob.");
+  });
+});
+
+describe("documentation contract: active V1 scanner claims", () => {
+  it("[INVARIANT] discloses V1 Point-C, grade and barrier limitations", () => {
+    const guide = read("src/routes/_authenticated/guide.tsx");
+    const signals = read("docs/SIGNALS-AND-GRADES.md");
+    expect(guide).toMatch(/active V1 scanner/i);
+    expect(guide).toMatch(/latest six M15 candles/i);
+    expect(guide).toMatch(/not a validated mean-reversion setup/i);
+    expect(signals).toMatch(/two Point-C concepts/i);
+    expect(signals).toMatch(/does not require the H4 barrier condition/i);
+    expect(signals).toMatch(/unbroken-swing measure[^.]{0,160}different barriers/i);
+  });
+
+  it("[INVARIANT] does not relabel an OHLC zone heuristic as institutional order flow", () => {
+    expect(read("docs/SIGNALS-AND-GRADES.md")).toMatch(
+      /not evidence of institutional orders or order\s+flow/i,
+    );
+    expect(read("src/routes/_authenticated/settings.tsx")).not.toMatch(
+      /full institutional confluence/i,
+    );
+  });
+});
+
+describe("documentation contract: learning and MCP claims", () => {
+  it("[INVARIANT] presents replay rates as descriptive rather than predictive", () => {
+    const intelligenceTool = read("src/lib/mcp/tools/get-intelligence.ts");
+    const mcp = read("src/lib/mcp/index.ts");
+    const admin = read("src/routes/_authenticated/admin/intelligence.tsx");
+
+    expect(intelligenceTool).toContain("joint_replay_rate");
+    expect(intelligenceTool).toMatch(/not forecasts, expected return or a live track record/i);
+    expect(mcp).toMatch(/descriptive in-sample replay rates/i);
+    expect(mcp).not.toMatch(/Everything is live broker-derived/i);
+    expect(admin).not.toMatch(/Bayesian learning monitor/i);
+  });
+});
+
 describe("documentation contract: ChatGPT developer mode instructions", () => {
   const CONNECT = "src/routes/connect.tsx";
   /** Collapse JSX line wrapping so prose assertions are not layout-sensitive. */
   const flat = (text: string) => text.replace(/\s+/g, " ");
 
-  it("[INVARIANT] does not use the stale Settings → Security and login path", () => {
-    expect(read(CONNECT)).not.toMatch(/Security and login/i);
+  it("[INVARIANT] uses OpenAI's current Settings → Security and login path", () => {
+    expect(read(CONNECT)).toMatch(/Security and login/i);
   });
 
-  it("[INVARIANT] does not claim Plus supports custom MCP developer mode", () => {
-    expect(read(CONNECT)).not.toMatch(/\bPlus\b/);
+  it("[INVARIANT] documents every currently supported web plan family", () => {
+    const text = flat(read(CONNECT));
+    expect(text).toMatch(/Pro, Plus, Business, Enterprise and Education/i);
   });
 
-  it("[INVARIANT] does not imply full write MCP on Pro", () => {
+  it("[INVARIANT] accurately states that current developer mode supports read and write tools", () => {
+    const text = flat(read(CONNECT));
+    expect(text).toMatch(/full MCP client support for read and write tools/i);
+    expect(text).toMatch(/Pro, Plus/i);
+  });
+
+  it("[INVARIANT] documents the current developer-mode app access path", () => {
     const text = read(CONNECT);
-    expect(text).toMatch(/Pro[^.\n]{0,80}read\/fetch/i);
-    expect(text).not.toMatch(/Pro,\s*Plus/i);
+    expect(text).toMatch(/Security and login/i);
+    expect(text).toMatch(/ChatGPT Plugins/i);
+    expect(text).toMatch(/Drafts/i);
   });
 
-  it("[INVARIANT] documents the plan-specific developer-access paths", () => {
-    const text = read(CONNECT);
-    expect(text).toMatch(/Advanced Settings/);
-    expect(text).toMatch(/Enterprise\/Edu/);
-    expect(text).toMatch(/Business/);
-  });
-
-  it("[INVARIANT] documents the Scan Tools → authorization → Create sequence", () => {
-    const text = read(CONNECT);
-    expect(text).toMatch(/Scan Tools/);
-    expect(text).toMatch(/OAuth authorization/i);
-    expect(text).toMatch(/wait for the scan/i);
+  it("[INVARIANT] documents OAuth, tool review and app creation", () => {
+    const text = flat(read(CONNECT));
+    expect(text).toMatch(/OAuth/i);
+    expect(text).toMatch(/authentication/i);
+    expect(text).toMatch(/review the discovered tools/i);
+    expect(text).toMatch(/create the app/i);
   });
 
   it("[INVARIANT] does not use chatgpt.com/plugins as the setup path", () => {
     expect(read(CONNECT)).not.toContain("chatgpt.com/plugins");
   });
 
-  it("[INVARIANT] states confirmation depends on permissions, context and risk", () => {
-    expect(flat(read(CONNECT))).toMatch(
-      /may ask for confirmation before an action depending on permissions, action context and risk/i,
-    );
+  it("[INVARIANT] states that write actions require confirmation by default", () => {
+    expect(flat(read(CONNECT))).toMatch(/write actions require confirmation by default/i);
   });
 
-  it("[INVARIANT] keeps the OpenAI Help Center article authoritative and notes change", () => {
+  it("[INVARIANT] keeps the official OpenAI developer guide authoritative and notes change", () => {
     const text = read(CONNECT);
-    expect(text).toContain(
-      "help.openai.com/en/articles/12584461-developer-mode-and-mcp-apps-in-chatgpt",
-    );
-    expect(text).toMatch(/plan availability may change/i);
+    expect(text).toContain("developers.openai.com/api/docs/guides/developer-mode");
+    expect(text).toMatch(/If a step does not match what you see/i);
   });
 
   it("[INVARIANT] keeps the write-tool availability caveat", () => {
     const text = read(CONNECT);
     expect(text).toMatch(/update_my_settings/);
-    expect(flat(text)).toMatch(/availability depends[^.]{0,80}plan and workspace permissions/i);
+    expect(flat(text)).toMatch(/availability still depends on your account/i);
+    expect(flat(text)).toMatch(/managed workspaces[^.]{0,80}administrator policy/i);
   });
 });
 

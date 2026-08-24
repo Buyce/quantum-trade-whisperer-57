@@ -100,15 +100,25 @@ export type CreateAccountScope =
 export function inspectCreateAccountScope(token: string): CreateAccountScope {
   const rules = decodeAccessRules(token);
   if (!rules) return { allowed: false, reason: "unreadable" };
-  const rule = rules.find((r) => r.id === ACCOUNT_MANAGEMENT_RULE_ID);
-  if (!rule) return { allowed: false, reason: "missing_rule" };
-  if (!rule.roles.includes("writer")) return { allowed: false, reason: "read_only" };
-  if (restrictsResources(rule.resources)) return { allowed: false, reason: "account_restricted" };
+  const managementRules = rules.filter((r) => r.id === ACCOUNT_MANAGEMENT_RULE_ID);
+  if (managementRules.length === 0) return { allowed: false, reason: "missing_rule" };
+
+  // A token can contain more than one rule for the same API. Access is the
+  // union of those rules: one unrestricted writer is sufficient even when an
+  // earlier rule is read-only or account-scoped. Looking at only the first rule
+  // would falsely reject a valid operator token.
+  const writerRules = managementRules.filter((rule) => rule.roles.includes("writer"));
+  if (writerRules.length === 0) return { allowed: false, reason: "read_only" };
+  if (writerRules.every((rule) => restrictsResources(rule.resources))) {
+    return { allowed: false, reason: "account_restricted" };
+  }
   return { allowed: true };
 }
 
 /** Operator-facing sentence for each refusal reason. Never includes the token. */
-export function describeCreateAccountScope(reason: Exclude<CreateAccountScope, { allowed: true }>["reason"]): string {
+export function describeCreateAccountScope(
+  reason: Exclude<CreateAccountScope, { allowed: true }>["reason"],
+): string {
   switch (reason) {
     case "missing_rule":
       return "The access token P-Trades is configured with does not include the trading account management API, so it cannot create a new broker connection. Generate a token with that API enabled. Nothing was created or charged.";

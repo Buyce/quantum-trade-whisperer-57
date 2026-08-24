@@ -31,7 +31,11 @@ describe("decodeAccessRules", () => {
 
   it("[UNIT] keeps only well-formed rules", () => {
     const rules = decodeAccessRules(
-      tokenWith([{ id: "metaapi-rest-api", methods: ["m"], roles: ["reader"], resources: [] }, 7, {}]),
+      tokenWith([
+        { id: "metaapi-rest-api", methods: ["m"], roles: ["reader"], resources: [] },
+        7,
+        {},
+      ]),
     );
     expect(rules).toEqual([
       { id: "metaapi-rest-api", methods: ["m"], roles: ["reader"], resources: [] },
@@ -59,10 +63,33 @@ describe("inspectCreateAccountScope", () => {
   it("[UNIT] allows an unrestricted read-write account-management rule", () => {
     for (const resources of [[], ["*"], ["*:$USER_ID$:*"]]) {
       const token = tokenWith([
-        { id: "trading-account-management-api", methods: [], roles: ["reader", "writer"], resources },
+        {
+          id: "trading-account-management-api",
+          methods: [],
+          roles: ["reader", "writer"],
+          resources,
+        },
       ]);
       expect(inspectCreateAccountScope(token)).toEqual({ allowed: true });
     }
+  });
+
+  it("[INVARIANT] evaluates all matching rules instead of rejecting on the first restricted one", () => {
+    const token = tokenWith([
+      {
+        id: "trading-account-management-api",
+        methods: [],
+        roles: ["reader", "writer"],
+        resources: [`*:$USER_ID$:${ACCOUNT_ID}`],
+      },
+      {
+        id: "trading-account-management-api",
+        methods: [],
+        roles: ["reader", "writer"],
+        resources: ["*:$USER_ID$:*"],
+      },
+    ]);
+    expect(inspectCreateAccountScope(token)).toEqual({ allowed: true });
   });
 
   it("[UNIT] refuses a read-only or absent account-management rule", () => {
@@ -91,7 +118,10 @@ describe("inspectCreateAccountScope", () => {
 describe("classification", () => {
   it("[INVARIANT] maps a pre-flight scope refusal to permission and never to retryable", () => {
     const failure = classifyMetaApiFailure(
-      new MetaApiTokenScopeError("create account", describeCreateAccountScope("account_restricted")),
+      new MetaApiTokenScopeError(
+        "create account",
+        describeCreateAccountScope("account_restricted"),
+      ),
     );
     expect(failure.kind).toBe("permission");
     expect(failure.retryable).toBe(false);
@@ -112,7 +142,9 @@ describe("classification", () => {
       ),
     );
     expect(failure.kind).toBe("permission");
-    expect(failure.message).toMatch(/cannot provision a new one|not allowed to create trading accounts/i);
+    expect(failure.message).toMatch(
+      /cannot provision a new one|not allowed to create trading accounts/i,
+    );
     expect(failure.message).toMatch(/link an account you already have/i);
   });
 });

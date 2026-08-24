@@ -39,7 +39,11 @@ export async function fetchTypedSymbolSpecification(
   region: string,
   symbol: string,
 ): Promise<SymbolSpecification | null> {
-  return (await fetchSymbolSpecificationFor(accountId, region, symbol)) as SymbolSpecification | null;
+  return (await fetchSymbolSpecificationFor(
+    accountId,
+    region,
+    symbol,
+  )) as SymbolSpecification | null;
 }
 
 /** Symbols the broker exposes on this account. */

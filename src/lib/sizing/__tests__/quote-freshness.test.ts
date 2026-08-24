@@ -56,6 +56,41 @@ describe("conversion quote freshness", () => {
     expect(r.stale).toBe(true);
   });
 
+  it("[INVARIANT] a crossed quote cannot become a conversion rate", async () => {
+    const r = await resolveConversion(
+      "AUD",
+      "USD",
+      fetcher({ bid: 0.67, ask: 0.66, sourceTime: iso(NOW - 5_000) }),
+      NOW,
+    );
+    expect(r.rates).toEqual({});
+  });
+
+  it("[INVARIANT] an implausibly future broker timestamp is stale", async () => {
+    const r = await resolveConversion(
+      "AUD",
+      "USD",
+      fetcher({ bid: 0.66, ask: 0.661, sourceTime: iso(NOW + 31_000) }),
+      NOW,
+    );
+    expect(r.stale).toBe(true);
+  });
+
+  it("[INVARIANT] a future-dated leg cannot hide behind an older fresh cross leg", async () => {
+    const r = await resolveConversion(
+      "AUD",
+      "EUR",
+      vi.fn(async (symbol: string) =>
+        symbol === "AUDUSD"
+          ? { bid: 0.66, ask: 0.661, sourceTime: iso(NOW + 31_000) }
+          : { bid: 1.1, ask: 1.101, sourceTime: iso(NOW - 5_000) },
+      ),
+      NOW,
+    );
+    expect(r.route).toBe("cross");
+    expect(r.stale).toBe(true);
+  });
+
   it("[UNIT] parity needs no leg, so nothing can be stale", async () => {
     const fetch = fetcher(null);
     const r = await resolveConversion("USD", "USD", fetch, NOW);

@@ -13,7 +13,12 @@ import {
   UserRound,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { deleteAllTrades, deleteTrade, takenTradeHistoryQuery } from "@/lib/queries";
+import {
+  deleteAllTrades,
+  deleteTrade,
+  takenTradeHistoryQuery,
+  TRADE_HISTORY_PAGE_SIZE,
+} from "@/lib/queries";
 import { recordTradeOutcome } from "@/lib/trade-journal.functions";
 import {
   INSTRUMENT_LABELS,
@@ -240,10 +245,10 @@ function HistoryPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
           <Button size="sm" variant="ghost" disabled={allRows.length === 0} onClick={exportCsv}>
-            <Download className="size-4" /> Export History (CSV)
+            <Download className="size-4" /> Export visible rows (CSV)
           </Button>
           <Button size="sm" variant="ghost" disabled={allRows.length === 0} onClick={exportJson}>
-            <Download className="size-4" /> Export History (JSON)
+            <Download className="size-4" /> Export visible rows (JSON)
           </Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>
@@ -260,9 +265,9 @@ function HistoryPage() {
               <AlertDialogHeader>
                 <AlertDialogTitle>Delete your entire trade history?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  This permanently removes {allRows.length} logged{" "}
-                  {allRows.length === 1 ? "trade" : "trades"} from your personal log. Scanner
-                  signals and learning data are not affected. This cannot be undone.
+                  This permanently removes every logged trade from your personal log, including
+                  older rows not visible on this page. Scanner signals and learning data are not
+                  affected. This cannot be undone.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -275,6 +280,15 @@ function HistoryPage() {
           </AlertDialog>
         </div>
       </div>
+
+      {(history.data?.length ?? 0) >= TRADE_HISTORY_PAGE_SIZE ? (
+        <p className="rounded-md border border-warning/40 bg-warning/10 px-4 py-3 text-xs text-muted-foreground">
+          This screen currently shows the newest {TRADE_HISTORY_PAGE_SIZE} taken trades. Older rows
+          remain stored, but are not included in the visible-row exports or counts on this page.
+          Journal Performance pages through the complete population separately and refuses partial
+          metrics.
+        </p>
+      ) : null}
 
       {missingPricesCount > 0 ? (
         <div className="rounded-md border border-warning/40 bg-warning/10 px-3 py-3 sm:px-4">

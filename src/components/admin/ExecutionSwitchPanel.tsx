@@ -28,9 +28,7 @@ import {
 import { PanelShell, timeAgo } from "@/components/admin/AdminPanels";
 
 type Pending =
-  | { field: "demoAutoEnabled"; next: boolean }
-  | { field: "forceDryRun"; next: boolean }
-  | null;
+  { field: "demoAutoEnabled"; next: boolean } | { field: "forceDryRun"; next: boolean } | null;
 
 function confirmCopy(pending: NonNullable<Pending>): { title: string; detail: string } {
   if (pending.field === "demoAutoEnabled") {
@@ -159,7 +157,8 @@ export function ExecutionSwitchPanel() {
             {data.liveExecutionEnabled ? "ON" : "OFF"}
           </span>
           , live auto{" "}
-          <span className="font-medium text-foreground">{data.liveAutoEnabled ? "ON" : "OFF"}</span>.
+          <span className="font-medium text-foreground">{data.liveAutoEnabled ? "ON" : "OFF"}</span>
+          .
         </div>
       </div>
 

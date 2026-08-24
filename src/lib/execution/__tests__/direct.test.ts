@@ -77,9 +77,9 @@ describe("direct execution gating", () => {
   });
 
   it("[INVARIANT] refuses live_auto unless the account is broker-confirmed real AND gated on", () => {
-    expect(
-      directExecutionAllowed(gate({ mode: "live_auto", brokerAccountType: "demo" })).ok,
-    ).toBe(false);
+    expect(directExecutionAllowed(gate({ mode: "live_auto", brokerAccountType: "demo" })).ok).toBe(
+      false,
+    );
     expect(
       directExecutionAllowed(
         gate({ mode: "live_auto", brokerAccountType: "real", globalLiveAuto: false }),
@@ -118,6 +118,7 @@ describe("server-side order construction", () => {
     expect(order.takeProfit).toBe(plan.tp1);
     expect(isPTradesClientId(order.clientId)).toBe(true);
     expect(order.clientId).toContain("4821");
+    expect(order.comment).toBeUndefined();
   });
 
   it("[INVARIANT] expires at the plan's time-in-force measured from detection", () => {
@@ -142,9 +143,9 @@ describe("server-side order construction", () => {
 
   it("[INVARIANT] refuses when there is no quantity, symbol or magic", () => {
     const ctx = { brokerSymbol: "EURUSD", magic: 1, quantity, deliveryId: 1 };
-    expect(() =>
-      buildDirectOrder(plan, { ...ctx, quantity: { ...quantity, lots: 0 } }),
-    ).toThrow(DirectOrderError);
+    expect(() => buildDirectOrder(plan, { ...ctx, quantity: { ...quantity, lots: 0 } })).toThrow(
+      DirectOrderError,
+    );
     expect(() => buildDirectOrder(plan, { ...ctx, brokerSymbol: "  " })).toThrow(DirectOrderError);
     expect(() => buildDirectOrder(plan, { ...ctx, magic: 0 })).toThrow(DirectOrderError);
   });

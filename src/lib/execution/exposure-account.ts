@@ -60,7 +60,9 @@ export function evaluateAccountExposure(
   }
 
   const open = Number.isFinite(reading.openPositions) ? Math.max(0, reading.openPositions) : null;
-  const pending = Number.isFinite(reading.pendingOrders) ? Math.max(0, reading.pendingOrders) : null;
+  const pending = Number.isFinite(reading.pendingOrders)
+    ? Math.max(0, reading.pendingOrders)
+    : null;
   if (open === null || pending === null) {
     return {
       allowed: false,

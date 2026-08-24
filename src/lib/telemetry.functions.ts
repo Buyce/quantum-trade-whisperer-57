@@ -1,7 +1,9 @@
 /**
- * Behavioural alpha telemetry. Records that a user took, skipped or viewed a
- * setup — a categorical feature for the meta-labelling model. Fire-and-forget:
- * callers must never await it on the interaction path.
+ * Short-lived interaction telemetry. Records that a user took, skipped or
+ * viewed a setup for product/research diagnostics. It is not a market-outcome
+ * label and is not automatically promoted into a predictive model. The row
+ * follows the feed signal's retention lifecycle. Fire-and-forget: callers must
+ * never await it on the interaction path.
  */
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
@@ -14,7 +16,7 @@ const schema = z.object({
 
 export const recordSignalEvent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: unknown) => schema.parse(data))
+  .validator((data: unknown) => schema.parse(data))
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase.from("signal_user_telemetry").insert({
       user_id: context.userId,

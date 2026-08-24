@@ -276,7 +276,9 @@ function LinkExistingAccount({
     mutationFn: () => adopt({ data: { label, metaapiAccountId, intent } }),
     onSuccess: () => {
       onDone();
-      toast.success("Account linked. Press Refresh on the connection to check it with your broker.");
+      toast.success(
+        "Account linked. Press Refresh on the connection to check it with your broker.",
+      );
       onClose();
     },
     onError: (err: Error) => toast.error(err.message),
@@ -370,16 +372,18 @@ function ConnectWizard({
   const [label, setLabel] = useState("");
   const [brokerServer, setBrokerServer] = useState("");
   const [region, setRegion] = useState<string>("london");
+  const [provisioningPending, setProvisioningPending] = useState(false);
 
   const mutation = useMutation({
     mutationFn: () => start({ data: { label, platform, brokerServer, region, intent } }),
     onSuccess: (result) => {
       onDone();
       setStep(4);
+      setProvisioningPending(result.provisioningPending);
       if (result.configurationUrl) {
         // Opened, never rendered or stored: the URL grants credential entry.
         window.open(result.configurationUrl, "_blank", "noopener,noreferrer");
-      } else {
+      } else if (!result.provisioningPending) {
         toast.error(
           "Your broker-connection provider did not return a secure page. Refresh the connection to retry.",
         );
@@ -518,14 +522,29 @@ function ConnectWizard({
       {step === 4 ? (
         <div className="space-y-3 text-sm">
           <p className="flex items-center gap-2 font-medium">
-            <CheckCircle2 className="size-4 text-success" /> Connection created
+            {provisioningPending ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <CheckCircle2 className="size-4 text-success" />
+            )}
+            {provisioningPending
+              ? "Provider is still creating the connection"
+              : "Connection created"}
           </p>
-          <p className="text-xs text-muted-foreground">
-            Enter your MetaTrader login on the secure page that just opened. Then come back and
-            press
-            <strong> Refresh</strong> on the connection below. P-Trades will show it as Ready only
-            once your broker itself confirms the account.
-          </p>
+          {provisioningPending ? (
+            <p className="text-xs text-muted-foreground">
+              This attempt is still processing. Wait for the provider, close this panel, then press
+              <strong> Refresh</strong> on the connection. P-Trades will reuse the same transaction
+              id so it does not create a duplicate.
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Enter your MetaTrader login on the secure page that just opened. Then come back and
+              press
+              <strong> Refresh</strong> on the connection below. P-Trades will show it as Ready only
+              once your broker itself confirms the account.
+            </p>
+          )}
           <Button size="sm" onClick={onClose}>
             Done
           </Button>
@@ -640,7 +659,7 @@ function AccountCard({
             )}
             Refresh
           </Button>
-          {!account.ready ? (
+          {!account.ready && account.configurationPageAvailable ? (
             <Button
               size="sm"
               variant="outline"

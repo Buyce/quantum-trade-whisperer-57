@@ -1,14 +1,14 @@
 /**
- * Hierarchical Beta-Binomial regime lookup — pure, browser-safe maths.
+ * Hierarchically shrunk regime-rate lookup — pure, browser-safe maths.
  *
  * `regime_stats` is rebuilt in one transaction by the shadow-resolve cron. Every
  * tier is already shrunk toward its parent in SQL (prior strength k = 30), so
  * this module only has to pick the most specific tier that exists and report the
  * sample size behind it honestly.
  *
- * ACTIVATION GATES: the returned probabilities are ADVISORY ONLY until the
- * sample thresholds below are met. Nothing in the live pipeline may branch on
- * them — grading, alert fan-out and the daily cap are untouched by design.
+ * REPORTING GATES: the returned values are descriptive in-sample replay rates,
+ * not calibrated forecasts. Nothing in the live pipeline may branch on them —
+ * grading, alert fan-out and the daily cap are untouched by design.
  */
 
 /** Resolved shadow samples required before P(fill) may influence entry guidance. */
@@ -56,21 +56,21 @@ export interface RegimeQuery {
 }
 
 /**
- * How much of the prior is statistically defined.
- * - `active`: both probabilities exist and both sample gates are clear.
- * - `learning`: probabilities exist but at least one gate is still open.
- * - `unavailable`: at least one probability has no data behind it (null).
+ * How much of the descriptive rate summary is statistically defined.
+ * - `active`: both rates exist and both reporting floors are clear.
+ * - `learning`: rates exist but at least one reporting floor is still open.
+ * - `unavailable`: at least one rate has no data behind it (null).
  */
 export type RegimePriorStatus = "active" | "learning" | "unavailable";
 
 export interface RegimePrior {
-  /** P(the limit entry is reached inside the time-in-force window), null when undefined. */
+  /** Shrunk historical fill rate inside TIF, null when undefined. */
   pFill: number | null;
-  /** P(TP1+ | filled), null when no filled samples exist. */
+  /** Shrunk historical TP1-or-better rate among fills, null when undefined. */
   pWin: number | null;
   /**
-   * Joint win probability: pFill x pWin. A PROBABILITY, not an expected return
-   * and not an expected R. Null whenever either factor is null.
+   * Joint replay rate: pFill x pWin. Descriptive of this replay sample only;
+   * not a forecast, expected return or expected R. Null if either factor is null.
    */
   pJoint: number | null;
   /** Resolved samples behind pFill at the matched tier. */

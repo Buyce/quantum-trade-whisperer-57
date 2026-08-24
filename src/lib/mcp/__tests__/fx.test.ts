@@ -52,6 +52,11 @@ describe("fetchMids", () => {
     });
     expect(await fetchMids(["AUDUSD"], fetchQuote)).toEqual({});
   });
+
+  it("[INVARIANT] omits a crossed quote rather than manufacturing a midpoint", async () => {
+    const fetchQuote = vi.fn(async () => ({ bid: 0.67, ask: 0.66 }));
+    expect(await fetchMids(["AUDUSD"], fetchQuote)).toEqual({});
+  });
 });
 
 const profile = (accountCurrency: string): RiskProfile => ({

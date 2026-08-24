@@ -184,7 +184,6 @@ export async function collectAccountTelemetry(
           summary.parked += 1;
         }
       }
-
     } catch (err) {
       const failure = classifyMetaApiFailure(err);
       summary.errors.push(`${row.id}: ${failure.message}`);

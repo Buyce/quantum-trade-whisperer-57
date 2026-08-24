@@ -19,7 +19,14 @@ describe("trade response interpretation", () => {
   });
 
   it("[INVARIANT] an absent or unmapped code is unknown and never resubmitted blindly", () => {
-    for (const res of [null, undefined, {}, { numericCode: null }, { numericCode: 99999 }, { numericCode: 10004 }]) {
+    for (const res of [
+      null,
+      undefined,
+      {},
+      { numericCode: null },
+      { numericCode: 99999 },
+      { numericCode: 10004 },
+    ]) {
       const verdict = interpretTradeResponse(res);
       expect(verdict.outcome).toBe("unknown");
       expect(verdict.safeToResubmit).toBe(false);

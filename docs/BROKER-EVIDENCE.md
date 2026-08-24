@@ -8,7 +8,11 @@ well. Price proximity, time proximity, symbol similarity and human guesswork are
 never association rules. Manual trades and other EAs are excluded.
 
 Closed evidence is immutable. An unreadable broker history produces an explicit
-error and no new row.
+error and no new row. MetaApi deal and order history is read in 1,000-row pages;
+the worker refuses to publish a partial population if its 10,000-row safety bound
+is reached. Open evidence remains in the reconciliation scope after the normal
+72-hour recent-delivery window and extends the history start to the original
+submission/entry, so a long-running position can later become closed evidence.
 
 Instrument, grade, detection time and market-context fields are snapshotted when
 evidence is first observed. Performance therefore does not invent metadata or

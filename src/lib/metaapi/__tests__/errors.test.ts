@@ -57,7 +57,6 @@ describe("metaapi failure classification", () => {
     expect(failure.message).toContain("Nothing was created");
   });
 
-
   it("[UNIT] maps auth, feature, not-found, validation and server statuses", () => {
     expect(classifyMetaApiFailure(new MetaApiHttpError(403, "x", "forbidden")).kind).toBe("auth");
     expect(
@@ -78,9 +77,9 @@ describe("metaapi failure classification", () => {
       retryAfterSeconds: 30,
       retryable: true,
     });
-    expect(classifyMetaApiFailure(new MetaApiHttpError(429, "metrics", "slow down", 5))).toMatchObject(
-      { kind: "rate_limited", retryAfterSeconds: 5, retryable: true },
-    );
+    expect(
+      classifyMetaApiFailure(new MetaApiHttpError(429, "metrics", "slow down", 5)),
+    ).toMatchObject({ kind: "rate_limited", retryAfterSeconds: 5, retryable: true });
   });
 
   it("[INVARIANT] an unexpected thrown value is unknown and never retryable", () => {

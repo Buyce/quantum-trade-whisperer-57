@@ -33,11 +33,20 @@ export interface MetaApiRequestOptions {
   throwOn202?: boolean;
 }
 
-function retryAfterSeconds(res: Response): number | null {
-  const raw = res.headers.get("retry-after");
+export function parseRetryAfterSeconds(raw: string | null, nowMs = Date.now()): number | null {
   if (!raw) return null;
-  const n = Number(raw);
-  return Number.isFinite(n) && n >= 0 ? n : null;
+  const numeric = Number(raw);
+  if (Number.isFinite(numeric) && numeric >= 0) return numeric;
+
+  // MetaApi also sends the HTTP-date form. Preserve it as a delay instead of
+  // silently discarding the provider's polling instruction.
+  const at = Date.parse(raw);
+  if (!Number.isFinite(at)) return null;
+  return Math.max(0, Math.ceil((at - nowMs) / 1_000));
+}
+
+function retryAfterSeconds(res: Response): number | null {
+  return parseRetryAfterSeconds(res.headers.get("retry-after"));
 }
 
 /**
@@ -45,7 +54,9 @@ function retryAfterSeconds(res: Response): number | null {
  * empty body). Throws `MetaApiTimeoutError`, `MetaApiNotConfiguredError` or
  * `MetaApiHttpError` — nothing else escapes.
  */
-export async function metaApiRequest<T = unknown>(options: MetaApiRequestOptions): Promise<T | null> {
+export async function metaApiRequest<T = unknown>(
+  options: MetaApiRequestOptions,
+): Promise<T | null> {
   const token = readMetaApiToken(options.service === "provisioning" ? "provisioning" : "general");
   const host = resolveHost(options.service, options.region ?? null);
   if (!host) {
@@ -80,10 +91,15 @@ export async function metaApiRequest<T = unknown>(options: MetaApiRequestOptions
     }
     if (!res.ok) {
       const body = await res.text().catch(() => "");
-      // 520-530 come from the vendor's own edge, not from the API: the origin
-      // (or its DNS name) is unavailable, so no request was ever processed.
+      // 520-530 come from the vendor's edge rather than a normal API response.
+      // The edge did not confirm application-level processing. Callers must
+      // preserve their idempotency key because an ambiguous failure must never
+      // be treated as proof that a mutation did not reach the origin.
       if (res.status >= 520 && res.status <= 530) {
-        throw new MetaApiUnreachableError(options.label, `HTTP ${res.status} ${body.slice(0, 120)}`);
+        throw new MetaApiUnreachableError(
+          options.label,
+          `HTTP ${res.status} ${body.slice(0, 120)}`,
+        );
       }
       throw new MetaApiHttpError(res.status, options.label, body, retryAfterSeconds(res));
     }

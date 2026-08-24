@@ -66,7 +66,8 @@ export function buildTestJsonPayload(secret: string | null) {
 export const sendTestWebhook = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { data: settings, error } = await context.supabase
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: settings, error } = await supabaseAdmin
       .from("scanner_settings")
       .select("webhook_enabled, webhook_url, webhook_secret, webhook_format, webhook_validated_at")
       .eq("user_id", context.userId)

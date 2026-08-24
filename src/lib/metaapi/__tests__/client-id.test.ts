@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildClientId,
   CLIENT_ID_MAX_LENGTH,
+  CLIENT_ID_RECOGNITION_MAX_LENGTH,
   ClientIdError,
   isPTradesClientId,
   parseClientId,
@@ -15,13 +16,14 @@ describe("metaapi clientId", () => {
     ).toBe("PT_abc123_1");
   });
 
-  it("[INVARIANT] never exceeds MetaApi's 31-character limit", () => {
+  it("[INVARIANT] never exceeds MetaApi's documented 26-character combined budget", () => {
     const id = buildClientId({
       strategyId: PTRADES_STRATEGY_ID,
       positionRef: "0d4f8a2c-91b7-4c3e-9a11-77ce55aa1234",
       orderRef: "attempt7",
     });
     expect(id.length).toBeLessThanOrEqual(CLIENT_ID_MAX_LENGTH);
+    expect(CLIENT_ID_MAX_LENGTH).toBe(26);
     expect(isPTradesClientId(id)).toBe(true);
   });
 
@@ -58,5 +60,25 @@ describe("metaapi clientId", () => {
       positionRef: "abc",
       orderRef: "9",
     });
+  });
+
+  it("[INVARIANT] recognises legacy P-Trades ids without emitting new long ids", () => {
+    const legacy = `PT_${"a".repeat(23)}_1234`;
+    expect(legacy).toHaveLength(CLIENT_ID_RECOGNITION_MAX_LENGTH);
+    expect(CLIENT_ID_RECOGNITION_MAX_LENGTH).toBe(31);
+    expect(isPTradesClientId(legacy)).toBe(true);
+    expect(parseClientId(legacy)).toEqual({
+      strategyId: "PT",
+      positionRef: "a".repeat(23),
+      orderRef: "1234",
+    });
+    expect(isPTradesClientId(`${legacy}x`)).toBe(false);
+
+    const generated = buildClientId({
+      strategyId: PTRADES_STRATEGY_ID,
+      positionRef: "a".repeat(50),
+      orderRef: "1234",
+    });
+    expect(generated.length).toBeLessThanOrEqual(CLIENT_ID_MAX_LENGTH);
   });
 });

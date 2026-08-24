@@ -80,13 +80,19 @@ describe("arming against the global capability", () => {
   it("[INVARIANT] live modes stay refused while live execution is disabled", async () => {
     accountRow = { ...readyDemo, broker_account_type: "real" };
     for (const mode of ["live_confirm", "live_auto"]) {
-      await expect(setAccountMode("user-1", "acct-1", mode)).rejects.toThrow(/disabled system-wide/i);
+      await expect(setAccountMode("user-1", "acct-1", mode)).rejects.toThrow(
+        /disabled system-wide/i,
+      );
     }
     expect(updates).toHaveLength(0);
   });
 
   it("[UNIT] standing down to observe is never blocked by a global switch", async () => {
-    controls = { live_execution_enabled: false, demo_auto_enabled: false, live_auto_enabled: false };
+    controls = {
+      live_execution_enabled: false,
+      demo_auto_enabled: false,
+      live_auto_enabled: false,
+    };
     await expect(setAccountMode("user-1", "acct-1", "observe")).resolves.toEqual({
       mode: "observe",
     });

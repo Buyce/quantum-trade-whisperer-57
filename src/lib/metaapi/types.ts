@@ -9,9 +9,7 @@
 export type MetaApiPlatform = "mt4" | "mt5";
 
 export type AccountTradeMode =
-  | "ACCOUNT_TRADE_MODE_DEMO"
-  | "ACCOUNT_TRADE_MODE_REAL"
-  | "ACCOUNT_TRADE_MODE_CONTEST";
+  "ACCOUNT_TRADE_MODE_DEMO" | "ACCOUNT_TRADE_MODE_REAL" | "ACCOUNT_TRADE_MODE_CONTEST";
 
 export type AccountMarginMode =
   | "ACCOUNT_MARGIN_MODE_RETAIL_NETTING"

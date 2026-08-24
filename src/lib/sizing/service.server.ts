@@ -238,8 +238,7 @@ export async function resolveSizingForUser(
   const equityAsOf = override
     ? override.equityAsOf
     : (((settings as { equity_as_of?: string | null } | null)?.equity_as_of ?? null) as
-        | string
-        | null);
+        string | null);
 
   // Advisory exposure from the user's own journal. Never blocks sizing.
   let advisory: PortfolioAdvisory | null = null;
@@ -286,7 +285,13 @@ export async function resolveSizingForUser(
     conversion.rates,
     {
       spec: brokerSpec,
-      v2Promoted: await sizingV2Enabled(),
+      // A connected-account order is a different safety contract from the
+      // ordinary SignalCard dual run. Its specification came from the exact
+      // destination account and was already required/freshness-checked by
+      // `resolveSizingForAccount`; falling back to the static model here would
+      // silently size a broker order from the wrong contract. The promotion
+      // switch continues to govern advisory terminal/MCP sizing only.
+      v2Promoted: override ? true : await sizingV2Enabled(),
       quoteStale: conversion.stale,
       now,
     },
@@ -404,7 +409,6 @@ export type AccountSizingRefusalReason =
   | "account_currency_unavailable"
   | "account_spec_unavailable";
 
-
 export interface AccountSizingRefusal {
   available: false;
   /** Which mandatory broker input was missing. */
@@ -424,7 +428,12 @@ export function isAccountSizingRefusal(
 export async function resolveSizingForAccount(
   db: Db,
   userId: string,
-  account: { id: string; equity: number | null; currency: string | null; equityAsOf: string | null },
+  account: {
+    id: string;
+    equity: number | null;
+    currency: string | null;
+    equityAsOf: string | null;
+  },
   request: SizingRequest,
   now = Date.now(),
   options?: { riskPercent?: number | null },
@@ -484,8 +493,6 @@ export async function resolveSizingForAccount(
       detail: freshness.detail,
     };
   }
-
-
 
   return await resolveSizingForUser(db, userId, request, now, {
     accountId: account.id,

@@ -37,7 +37,7 @@ export function LearningHistory() {
   const { data, isLoading } = useQuery(regimeSnapshotsQuery());
   const [regime, setRegime] = useState("global");
 
-  const rows = data ?? [];
+  const rows = useMemo(() => data ?? [], [data]);
 
   /** Every regime that has ever been logged, most-sampled first. */
   const options = useMemo(() => {

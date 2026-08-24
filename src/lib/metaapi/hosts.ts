@@ -11,11 +11,7 @@
  */
 
 export type MetaApiService =
-  | "provisioning"
-  | "client"
-  | "market-data"
-  | "metastats"
-  | "risk-management";
+  "provisioning" | "client" | "market-data" | "metastats" | "risk-management";
 
 /** Region ids are lowercase alphanumerics joined by single dashes: `new-york`. */
 const REGION_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -50,7 +46,6 @@ const REGIONAL_PREFIX: Record<RegionalService, string> = {
 const GLOBAL_PREFIX: Record<GlobalService, string> = {
   provisioning: "mt-provisioning-api-v1",
 };
-
 
 export function isValidRegion(region: unknown): region is string {
   return (
@@ -103,5 +98,4 @@ export function isTrustedMetaApiHost(host: string): boolean {
   } catch {
     return false;
   }
-
 }

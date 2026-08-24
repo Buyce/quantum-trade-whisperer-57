@@ -3,9 +3,7 @@ import { isTrustedMetaApiHost, isValidRegion, resolveHost } from "../hosts";
 
 describe("metaapi host resolution", () => {
   it("[UNIT] resolves regional client and market-data hosts", () => {
-    expect(resolveHost("client", "london")).toBe(
-      "https://mt-client-api-v1.london.agiliumtrade.ai",
-    );
+    expect(resolveHost("client", "london")).toBe("https://mt-client-api-v1.london.agiliumtrade.ai");
     expect(resolveHost("market-data", "new-york")).toBe(
       "https://mt-market-data-client-api-v1.new-york.agiliumtrade.ai",
     );

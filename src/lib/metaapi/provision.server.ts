@@ -23,7 +23,7 @@ const PROVISIONING = { service: "provisioning" as const, region: null };
  * the provider stays the authority, this only turns a knowable configuration gap
  * into a sentence the account owner can act on.
  */
-function assertCanCreateAccounts(): void {
+export function assertCanCreateAccounts(): void {
   const scope = inspectCreateAccountScope(readMetaApiToken("provisioning"));
   if (scope.allowed || scope.reason === "unreadable") return;
   throw new MetaApiTokenScopeError("create account", describeCreateAccountScope(scope.reason));
@@ -50,7 +50,6 @@ export interface CreateAccountInput {
    * is not a create parameter and must never be sent.
    */
   draft?: boolean;
-
 }
 
 /**
@@ -78,7 +77,6 @@ export async function createAccount(
     // NOTE: `state` is NOT a create-account parameter — sending it is rejected
     // with a 400 ValidationError. A draft is produced by omitting the broker
     // credentials; the provider then returns state DRAFT itself.
-
   };
 
   const res = await metaApiRequest<{ id?: string; state?: string }>({
@@ -88,12 +86,18 @@ export async function createAccount(
     path: "/users/current/accounts",
     headers: { "transaction-id": transactionId },
     body,
+    // A 202 means asynchronous discovery is still running. The account
+    // orchestrator persists this transaction id and continues the same request
+    // on Refresh; treating 202 as a successful response would lose that state.
+    throwOn202: true,
   });
   if (!res?.id) throw new Error("MetaApi did not return an account id for this creation attempt");
   return { id: res.id, state: res.state ?? null };
 }
 
-export async function fetchProvisionedAccount(accountId: string): Promise<ProvisionedAccount | null> {
+export async function fetchProvisionedAccount(
+  accountId: string,
+): Promise<ProvisionedAccount | null> {
   return await metaApiRequest<ProvisionedAccount>({
     ...PROVISIONING,
     label: "read account",
@@ -132,7 +136,6 @@ export async function createConfigurationLink(
     expiresAt: new Date(Date.now() + ttlDays * 86_400_000).toISOString(),
   };
 }
-
 
 export async function deployAccount(accountId: string): Promise<void> {
   await metaApiRequest({

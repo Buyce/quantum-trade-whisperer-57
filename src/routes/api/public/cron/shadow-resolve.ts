@@ -34,7 +34,6 @@ export const Route = createFileRoute("/api/public/cron/shadow-resolve")({
           // clears it, a failed one extends the cooldown (see noteShadowRun).
           probe = gate.probe;
 
-
           const { data: maintenance } = await db.rpc("maintain_shadow_queue");
           const summary = await resolveShadowExecutions(db);
 
@@ -101,7 +100,6 @@ export const Route = createFileRoute("/api/public/cron/shadow-resolve")({
             candidateEnrolment,
             ...summary,
           });
-
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           console.error("[cron/shadow-resolve]", message);

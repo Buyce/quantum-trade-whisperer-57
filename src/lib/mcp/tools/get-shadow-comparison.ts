@@ -12,7 +12,7 @@ export default defineTool({
   name: "get_shadow_comparison",
   title: "Get shadow engine comparison",
   description:
-    "Compare the deterministic shadow-replay performance of high-grade setups (A+/A) against lower grades (B/C) over the last 7 days: fill rate, win rate, mean and total R, expectancy, sample sizes, and the statistical significance of each difference. Empty tiers report zeroes rather than estimates.",
+    "Compare deterministic shadow-replay summaries for high-grade setups (A+/A) and lower grades (B/C) over the last 7 days: fill rate, win rate, mean and total R, expectancy, sample sizes and diagnostic uncertainty output. Replay V1 is in-sample and has known adjudication defects; this comparison is not causal, predictive or a live track record. Empty tiers report zeroes rather than estimates.",
   inputSchema: {},
   annotations: { readOnlyHint: true, idempotentHint: false, openWorldHint: false },
   handler: async (_input, ctx) => {
@@ -42,7 +42,7 @@ export default defineTool({
       note:
         report.totalResolved === 0
           ? "No shadow samples resolved in this window — the comparison is genuinely empty."
-          : "Shadow replay outcomes are deterministic barrier replays, not user-reported results.",
+          : "Shadow replay outcomes are deterministic in-sample barrier replays, not user-reported results, broker performance, causal evidence or a forecast.",
     };
 
     return {

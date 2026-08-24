@@ -15,11 +15,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { createFakeSupabase, type FakeCall } from "@/test/fakes/supabase";
-import {
-  BROKER_EQUITY_MAX_AGE_MS,
-  equityFresh,
-  materialEquityChange,
-} from "../equity-freshness";
+import { BROKER_EQUITY_MAX_AGE_MS, equityFresh, materialEquityChange } from "../equity-freshness";
 import { evaluateAccountExposure } from "../exposure-account";
 
 const NOW = Date.parse("2026-08-23T12:00:00.000Z");
@@ -267,19 +263,28 @@ describe("material equity movement without a resizer", () => {
 describe("account-wide broker exposure boundary", () => {
   it("[UNIT] the pure rule counts the order about to be sent and fails closed", () => {
     expect(
-      evaluateAccountExposure({ readable: true, openPositions: 0, pendingOrders: 0 }, {
-        maxAccountOpenPositions: 1,
-      }).allowed,
+      evaluateAccountExposure(
+        { readable: true, openPositions: 0, pendingOrders: 0 },
+        {
+          maxAccountOpenPositions: 1,
+        },
+      ).allowed,
     ).toBe(true);
     expect(
-      evaluateAccountExposure({ readable: true, openPositions: 1, pendingOrders: 0 }, {
-        maxAccountOpenPositions: 1,
-      }).allowed,
+      evaluateAccountExposure(
+        { readable: true, openPositions: 1, pendingOrders: 0 },
+        {
+          maxAccountOpenPositions: 1,
+        },
+      ).allowed,
     ).toBe(false);
     expect(
-      evaluateAccountExposure({ readable: false, openPositions: 0, pendingOrders: 0 }, {
-        maxAccountOpenPositions: 5,
-      }).allowed,
+      evaluateAccountExposure(
+        { readable: false, openPositions: 0, pendingOrders: 0 },
+        {
+          maxAccountOpenPositions: 5,
+        },
+      ).allowed,
     ).toBe(false);
   });
 

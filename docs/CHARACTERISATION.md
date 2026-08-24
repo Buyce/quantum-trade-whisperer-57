@@ -96,8 +96,8 @@ produced by calling MetaApi or any broker endpoint — `sourceType` is limited t
 ```
 bun run test          # blocking project: UNIT + V1_CHARACTERIZATION + INVARIANT
 bun run test:report   # non-blocking INTENDED_V2 project
-bun run lint:blocking # eslint/prettier over the test sources only
-bun run verify        # lint:blocking -> typecheck -> blocking tests -> build (canonical CI command)
+bun run lint:blocking # narrower eslint/prettier check over test sources only
+bun run verify        # full lint -> typecheck -> blocking tests -> build (canonical CI command)
 ```
 
 Property tests use fixed seeds (`20260821`) so any failure is reproducible.
@@ -108,8 +108,8 @@ When this ledger was written, repo-wide `bun run lint` reported thousands of
 pre-existing Prettier formatting errors across application sources, so `verify`
 linted only the test sources (`lint:blocking`) and the repo-wide lint ran as a
 separate non-blocking step. That formatting debt was subsequently cleared in the
-documentation/source-quality release; `bun run lint` is the current authority on
-formatting state, and `verify` still gates on `lint:blocking`.
+documentation/source-quality release. `bun run lint` is now a blocking part of
+`bun run verify`; `lint:blocking` remains only a narrower developer convenience.
 
 No claim is made here about any CI status check. `.github/workflows/ci.yml` is
 committed; read the CI provider for its actual result.

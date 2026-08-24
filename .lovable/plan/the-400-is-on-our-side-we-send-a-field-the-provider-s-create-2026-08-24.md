@@ -13,7 +13,7 @@ provisioning service. The remaining refusal is purely our request body.
 When the wizard creates a credential-less connection we add `state: "DRAFT"` to
 the create payload. The provider's create endpoint does not take a `state`
 parameter at all — a draft account is produced simply by creating the account
-*without* broker login/password, and the provider then returns `state: "DRAFT"`
+_without_ broker login/password, and the provider then returns `state: "DRAFT"`
 itself. So we are sending an unexpected parameter, and validation rejects the
 whole call. Nothing is wrong on your side, and nothing was created or charged.
 
@@ -23,7 +23,7 @@ whole call. Nothing is wrong on your side, and nothing was created or charged.
    keeps everything else it sends today (name, platform, server, region, magic,
    reliability, manual trades) and simply omits login/password, which is what
    makes it a draft.
-2. Keep reading the state the provider *returns* and storing it as the
+2. Keep reading the state the provider _returns_ and storing it as the
    provisioning state, so the existing lifecycle (draft -> credentials entered ->
    deploy -> connected -> verified -> ready) is unchanged.
 3. If the provider instead refuses a create with no credentials, fall back to the

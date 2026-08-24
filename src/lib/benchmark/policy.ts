@@ -163,7 +163,8 @@ export function benchmarkShouldTake(ctx: BenchmarkContext): BenchmarkVerdict {
     if (ctx.openRiskR === null) {
       return {
         take: false,
-        reason: "benchmark open risk is unknown, so the concurrent-risk ceiling cannot be respected",
+        reason:
+          "benchmark open risk is unknown, so the concurrent-risk ceiling cannot be respected",
       };
     }
     if (ctx.openRiskR + 1 > policy.maxConcurrentRisk) {

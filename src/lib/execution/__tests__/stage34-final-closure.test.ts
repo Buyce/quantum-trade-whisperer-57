@@ -101,10 +101,12 @@ function accountSpec(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function db(opts: {
-  accountSpecRow?: Record<string, unknown> | null;
-  settings?: Record<string, unknown> | null;
-} = {}) {
+function db(
+  opts: {
+    accountSpecRow?: Record<string, unknown> | null;
+    settings?: Record<string, unknown> | null;
+  } = {},
+) {
   const handler = (call: FakeCall) => {
     if (call.table === "scanner_settings") {
       const s = opts.settings === undefined ? customerSettings : opts.settings;
@@ -237,6 +239,30 @@ describe("connected-account sizing fails closed", () => {
       fake.client as never,
       "user-1",
       { id: "acct-1", equity: 10_000, currency: "USD", equityAsOf: null },
+      request,
+      NOW,
+    );
+    expect(isAccountSizingRefusal(result)).toBe(true);
+    if (isAccountSizingRefusal(result)) {
+      expect(result.accountReason).toBe("account_spec_unavailable");
+    }
+  });
+
+  it("[INVARIANT] a 40-hour account spec cannot pass the account gate then fall back", async () => {
+    const fake = db({
+      accountSpecRow: accountSpec({
+        fetched_at: new Date(NOW - 40 * 3_600_000).toISOString(),
+      }),
+    });
+    const result = await resolveSizingForAccount(
+      fake.client as never,
+      "user-1",
+      {
+        id: "acct-1",
+        equity: 10_000,
+        currency: "USD",
+        equityAsOf: new Date(NOW).toISOString(),
+      },
       request,
       NOW,
     );
@@ -391,7 +417,9 @@ describe("final quantity comes from the pre-submit broker snapshot", () => {
       client,
       { id: 42, dry_run: false },
       plan,
-      authorised.ok ? authorised.quantity : { lots: 0, sizingModel: 1, specSource: "static_v1", specAsOf: null },
+      authorised.ok
+        ? authorised.quantity
+        : { lots: 0, sizingModel: 1, specSource: "static_v1", specAsOf: null },
       target(),
       async (snapshot) =>
         await resizeFromBrokerSnapshot(

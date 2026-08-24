@@ -84,7 +84,6 @@ export async function syncAccountGuardian(input: {
     } as never)
     .eq("account_id", input.accountId);
 
-
   const plans = input.plans ?? DEFAULT_TRACKER_PLANS;
   const result: GuardianSyncResult = {
     available: true,

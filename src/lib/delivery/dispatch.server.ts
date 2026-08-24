@@ -13,6 +13,7 @@
  * a bridge double-fires. Those rows are resolved by a human or a dry-run replay.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { submitDirectOrder } from "@/lib/execution/direct.server";
 import { PAYLOAD_VERSION, requestFingerprint, signBody } from "./hmac";
 import { revalidateDelivery, type DeliveryRow } from "./revalidate.server";
 import {
@@ -157,7 +158,6 @@ export async function processNextDelivery(
   // Constructed and submitted by us, so there is no endpoint, no signature and
   // no outbound POST. The submission path settles the row itself.
   if (approved.destination === "metaapi_direct" && approved.direct) {
-    const { submitDirectOrder } = await import("@/lib/execution/direct.server");
     const result = await submitDirectOrder(
       db,
       { id: delivery.id, dry_run: approved.dryRun },

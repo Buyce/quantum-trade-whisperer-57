@@ -2,7 +2,8 @@
  * MetaApi `clientId` construction — the PRIMARY ownership key linking a
  * P-Trades order to the broker's own order/deal records.
  *
- * MetaApi constrains clientId to at most 31 characters and to the pattern
+ * MetaApi constrains `comment` + `clientId` to at most 26 characters and the
+ * client id to the pattern
  * `strategyId_positionId_orderId`, where each part matches `[0-9A-Za-z_]*`.
  * A clientId that is truncated or malformed would silently break
  * reconciliation, so this builder fails loudly instead of guessing.
@@ -10,7 +11,18 @@
  * Pure: no fetch, no env, no clock.
  */
 
-export const CLIENT_ID_MAX_LENGTH = 31;
+// Direct orders deliberately omit the optional broker comment, leaving the
+// entire documented combined budget to the ownership key.
+export const CLIENT_ID_MAX_LENGTH = 26;
+/**
+ * Recognition is deliberately wider than generation.
+ *
+ * Orders created before the 26-character budget was enforced used valid
+ * P-Trades identifiers up to 31 characters.  Refusing those broker-reported
+ * ids would orphan their deals during reconciliation, so new ids stay at 26
+ * while the reader remains backwards compatible with the historical format.
+ */
+export const CLIENT_ID_RECOGNITION_MAX_LENGTH = 31;
 const PART_RE = /^[0-9A-Za-z]+$/;
 
 /** P-Trades strategy tag; short on purpose to leave room for the ids. */
@@ -40,7 +52,7 @@ export interface ClientIdParts {
  * Build `strategyId_positionRef_orderRef`.
  *
  * Both refs are sanitised, then the position ref is shortened from the LEFT
- * (keeping its most-random tail) only as far as needed to fit 31 characters.
+ * (keeping its most-random tail) only as far as needed to fit 26 characters.
  * If it cannot fit while keeping both refs distinguishable, we throw.
  */
 export function buildClientId(parts: ClientIdParts): string {
@@ -69,7 +81,9 @@ export function buildClientId(parts: ClientIdParts): string {
 
   const clientId = `${strategyId}_${positionRef}_${orderRef}`;
   if (clientId.length > CLIENT_ID_MAX_LENGTH) {
-    throw new ClientIdError(`clientId ${clientId.length} characters exceeds ${CLIENT_ID_MAX_LENGTH}`);
+    throw new ClientIdError(
+      `clientId ${clientId.length} characters exceeds ${CLIENT_ID_MAX_LENGTH}`,
+    );
   }
   return clientId;
 }
@@ -77,7 +91,7 @@ export function buildClientId(parts: ClientIdParts): string {
 /** TRUE when a broker-reported clientId was produced by this builder's shape. */
 export function isPTradesClientId(clientId: string | null | undefined): boolean {
   if (!clientId) return false;
-  if (clientId.length > CLIENT_ID_MAX_LENGTH) return false;
+  if (clientId.length > CLIENT_ID_RECOGNITION_MAX_LENGTH) return false;
   const parts = clientId.split("_");
   if (parts.length !== 3) return false;
   if (parts[0] !== PTRADES_STRATEGY_ID) return false;

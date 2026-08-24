@@ -4,6 +4,7 @@ import { ACTIVE_MODEL_VERSION } from "./versioning";
 import type { RegimeStatRow } from "./learning/regime";
 import type { ScannerSettingsRow, SignalRow, TradeHistoryRow, TradeRow } from "./db-types";
 import { R_MATH_VERSION } from "./journal/r-math";
+import { collectCompletePages } from "./pagination";
 import { fetchDayFrame, type FrameClient } from "./delivery/day-frame";
 import type { EligibilitySignal } from "./delivery/eligibility";
 import {
@@ -62,22 +63,32 @@ export function dayFrameQuery() {
 }
 
 /** Bounded on purpose: an unlimited personal history grows without ceiling. */
-const TRADE_PAGE_SIZE = 500;
+export const TRADE_HISTORY_PAGE_SIZE = 500;
+const TRADE_PAGE_SIZE = TRADE_HISTORY_PAGE_SIZE;
+const TRADE_MAX_PAGES = 20;
+const TRADE_COLUMNS =
+  "id, user_id, signal_id, user_decision, outcome, realized_r_multiple, actual_entry_price, actual_exit_price, derived_r, price_source, price_source_client, price_recorded_at, decision_source, decision_source_client, notes, created_at, planned_entry, planned_stop, planned_direction, signal_detected_at, signal_instrument, signal_grade, signal_trading_session, signal_time_of_day, signal_day_of_week, actual_initial_stop, stop_provenance, r_vs_plan, r_vs_actual_risk, r_availability, r_math_version, net_r, commission, swap, cost_currency, cost_unit, verification_level, trade_state";
 
 export function myTradesQuery(userId: string | undefined) {
   return queryOptions({
     queryKey: ["my-trades", userId],
     enabled: !!userId,
     queryFn: async (): Promise<TradeRow[]> => {
-      const { data, error } = await supabase
-        .from("executed_trades" as never)
-        .select(
-          "id, user_id, signal_id, user_decision, outcome, realized_r_multiple, actual_entry_price, actual_exit_price, derived_r, price_source, price_source_client, price_recorded_at, decision_source, decision_source_client, notes, created_at, planned_entry, planned_stop, planned_direction, signal_detected_at, signal_instrument, signal_grade, signal_trading_session, signal_time_of_day, signal_day_of_week, actual_initial_stop, stop_provenance, r_vs_plan, r_vs_actual_risk, r_availability, r_math_version, net_r, commission, swap, cost_currency, cost_unit, verification_level, trade_state",
-        )
-        .order("created_at", { ascending: false })
-        .limit(TRADE_PAGE_SIZE);
-      if (error) throw error;
-      return (data ?? []) as unknown as TradeRow[];
+      return await collectCompletePages<TradeRow>({
+        pageSize: TRADE_PAGE_SIZE,
+        maxPages: TRADE_MAX_PAGES,
+        overflowMessage: `Journal exceeded ${TRADE_PAGE_SIZE * TRADE_MAX_PAGES} rows; refusing incomplete Performance metrics`,
+        fetchPage: async (from, to) => {
+          const { data, error } = await supabase
+            .from("executed_trades" as never)
+            .select(TRADE_COLUMNS)
+            .order("created_at", { ascending: false })
+            .order("id", { ascending: false })
+            .range(from, to);
+          if (error) throw error;
+          return (data ?? []) as unknown as TradeRow[];
+        },
+      });
     },
   });
 }
@@ -113,7 +124,7 @@ export function settingsQuery(userId: string | undefined) {
       const { data, error } = await supabase
         .from("scanner_settings" as never)
         .select(
-          "user_id, instruments, timeframes, sessions, min_grade, alert_min_grade, daily_setup_cap, notify_push, notify_email, order_strategy, webhook_enabled, webhook_url, webhook_secret, webhook_format, account_equity, account_currency, risk_per_trade_percent, max_position_size, leverage, max_stop_loss_percent, equity_as_of, risk_ack_high",
+          "user_id, instruments, timeframes, sessions, min_grade, alert_min_grade, daily_setup_cap, notify_push, notify_email, order_strategy, webhook_enabled, webhook_url, webhook_format, execution_enabled, execution_dry_run, exposure_limit_enabled, webhook_validated_at, webhook_validation_reason, account_equity, account_currency, risk_per_trade_percent, max_position_size, leverage, max_stop_loss_percent, equity_as_of, risk_ack_high",
         )
         .maybeSingle();
       if (error) throw error;
@@ -243,10 +254,24 @@ export async function deleteAllTrades(input: { userId: string }) {
 }
 
 export async function saveSettings(input: Partial<ScannerSettingsRow> & { user_id: string }) {
-  const { error } = await supabase
+  // Do not use PostgREST upsert here: ON CONFLICT would also require UPDATE
+  // privilege on the immutable user_id identity column. New auth users receive
+  // a settings row from the database trigger, while the insert fallback safely
+  // covers a genuinely missing legacy row under the same owner RLS policy.
+  const { user_id, ...patch } = input;
+  const { data, error } = await supabase
     .from("scanner_settings" as never)
-    .upsert(input as never, { onConflict: "user_id" });
+    .update(patch as never)
+    .eq("user_id", user_id)
+    .select("user_id")
+    .maybeSingle();
   if (error) throw error;
+  if (data) return;
+
+  const { error: insertError } = await supabase
+    .from("scanner_settings" as never)
+    .insert(input as never);
+  if (insertError) throw insertError;
 }
 
 /**

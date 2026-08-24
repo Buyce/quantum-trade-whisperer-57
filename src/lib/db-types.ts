@@ -158,11 +158,17 @@ export interface ScannerSettingsRow {
   order_strategy: OrderStrategy;
   webhook_enabled: boolean;
   webhook_url: string | null;
-  webhook_secret: string | null;
   webhook_format: WebhookFormat;
+  /** Per-user execution switches. They are server-written after validation. */
+  execution_enabled: boolean;
+  execution_dry_run: boolean;
+  exposure_limit_enabled: boolean;
+  webhook_validated_at: string | null;
+  webhook_validation_reason: string | null;
   /**
-   * Personal risk profile. Advisory input to the client-side position-size
-   * calculator only — the scanner and grading engine never read these.
+   * Personal risk profile. The scanner and grading engine never read it. The
+   * terminal sizing service uses it for advisory cards, and a separately armed
+   * execution destination may use it during server-side pre-submit sizing.
    */
   account_equity: number;
   account_currency: string;

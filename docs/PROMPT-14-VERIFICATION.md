@@ -34,18 +34,31 @@ added. A future real smoke may be marked RUN only when an administrator can prov
 ## Local code gate
 
 The canonical command is `bun run verify`; Bun is not installed in this
-workspace, so the equivalent committed scripts were run with npm after an
-install that did not rewrite either lockfile.
+workspace, so the exact local binaries behind the committed scripts were run
+without changing the Bun lockfile.
 
 | Check                                            | Result on 2026-08-23 UTC                                                                                                            |
 | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `npm run typecheck`                              | PASS                                                                                                                                |
-| Production `npm run build`                       | PASS                                                                                                                                |
-| Prompt 14 provenance/consent/docs targeted tests | PASS — 53 tests                                                                                                                     |
-| Changed TypeScript/TSX ESLint set                | PASS                                                                                                                                |
-| Full blocking test command                       | NOT PASS — 858 tests passed, but three database suites could not start because PostgreSQL `initdb` is unavailable in this workspace |
-| Repository `lint:blocking` command               | NOT PASS — pre-existing Prettier findings remain in three Prompt 14 execution test files outside this change                        |
+| TypeScript `tsc --noEmit`                        | PASS                                                                                                                                |
+| Production Vite/Cloudflare build                 | PASS, with documented dependency/deprecation warnings                                                                               |
+| Prompt 14 provenance/consent/docs targeted tests | PASS — 138 tests                                                                                                                    |
+| Quantitative/model targeted tests                | PASS — 319 tests                                                                                                                    |
+| Repository `lint:blocking` equivalent            | PASS; the gate now includes evidence, MetaApi and sizing tests                                                                      |
+| Full blocking test command                       | NOT PASS — 872 non-database tests passed; 39 database tests in three suites were NOT RUN because PostgreSQL `initdb` is unavailable |
+| Full repository ESLint                           | NOT PASS — 3,337 findings remain (3,317 Prettier errors and 20 Fast Refresh warnings); no semantic/type-safety lint errors remain    |
 
-The database and repository-wide lint results are explicit infrastructure/
-baseline blocks, not passes and not failures attributed to the new Performance or
-consent code.
+The database and repository-wide lint results are explicit infrastructure or
+baseline blocks, not passes. A green production release still requires the three
+database suites on PostgreSQL, a mechanical formatting pass, and a documented
+decision on the remaining Fast Refresh file-boundary warnings.
+
+## Public production smoke
+
+| Surface                                              | Result                                                                                                   |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `https://getptrades.com/`                            | PASS — landing page rendered                                                                             |
+| `/auth`                                              | PASS — signed-out authentication route rendered                                                          |
+| `/connect`                                           | PASS — guide and MCP URL rendered                                                                        |
+| `/.well-known/oauth-protected-resource`              | PASS — OAuth resource metadata returned                                                                  |
+| Unauthenticated MCP initialization                   | PASS — `401` with a Bearer challenge and protected-resource metadata                                     |
+| Authenticated terminal, MCP tools and broker actions | NOT RUN — no test account, OAuth grant, service-role credential or isolated broker-verified demo context |

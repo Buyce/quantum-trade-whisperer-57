@@ -32,14 +32,14 @@ export class MetaApiNotConfiguredError extends Error {
 /**
  * The provider host could not be reached at all: DNS failure, TLS failure, or
  * the vendor edge answering with its own "origin unavailable" page (HTTP 530,
- * error code 1016). No request reached the provider, so nothing was created.
+ * error code 1016). There is no application-level confirmation either way.
  */
 export class MetaApiUnreachableError extends Error {
   readonly label: string;
   readonly detail: string;
   constructor(label: string, detail: string) {
     super(
-      `P-Trades could not reach your broker-connection provider for ${label}, so nothing was created or changed. Technical detail: ${detail.slice(0, 200)}`,
+      `P-Trades could not reach your broker-connection provider for ${label}, so it could not confirm whether the request was processed. P-Trades will reuse the same idempotency key for a safe retry when that operation supports one. Technical detail: ${detail.slice(0, 200)}`,
     );
     this.name = "MetaApiUnreachableError";
     this.label = label;

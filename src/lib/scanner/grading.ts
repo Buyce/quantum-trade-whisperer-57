@@ -175,10 +175,10 @@ export function gradeSetup(
 }
 
 /**
- * Institutional Confluence Scoring — the four pillars, each scored 0-100.
+ * Four-rule confluence scoring — the four pillars, each scored 0-100.
  *
  * Pillar 1 Trend alignment      — H4/H1/M15 moving-average stacks agree.
- * Pillar 2 Order block retest   — Point C sits inside an H1/H4 institutional zone.
+ * Pillar 2 OHLC-zone proximity — Point C sits near an H1/H4 OHLC-derived zone.
  * Pillar 3 Momentum exhaustion  — M15 RSI extreme or divergence at Point C.
  * Pillar 4 Volatility expansion — M15 ATR at/above its 20-period ATR average.
  */

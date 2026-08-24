@@ -9,6 +9,7 @@
  */
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { resolveWriteOnlySecret } from "@/lib/delivery/write-only-secret";
 import { z } from "zod";
 
 const bridgeInput = z.object({
@@ -34,10 +35,27 @@ const bridgeInput = z.object({
 
 export const saveBridgeSettings = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => bridgeInput.parse(input))
+  .validator((input: unknown) => bridgeInput.parse(input))
   .handler(async ({ data, context }) => {
     const { validateOutboundUrl, URL_REJECTION_COPY } =
       await import("@/lib/delivery/outbound-url.server");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Credential reads and every execution-authorisation write are server-only.
+    // An empty input means "keep the saved secret"; the browser never receives
+    // the existing value merely so it can echo it back on an ordinary save.
+    const { data: currentRow, error: credentialError } = await supabaseAdmin
+      .from("scanner_settings")
+      .select("webhook_secret")
+      .eq("user_id", context.userId)
+      .maybeSingle();
+    if (credentialError) return { ok: false as const, error: credentialError.message };
+    const existingSecret =
+      (currentRow as { webhook_secret?: string | null } | null)?.webhook_secret?.trim() ?? "";
+    const { effective: effectiveSecret, replacement: submittedSecret } = resolveWriteOnlySecret(
+      data.webhookSecret,
+      existingSecret,
+    );
 
     let validatedAt: string | null = null;
     const validationReason: string | null = null;
@@ -47,7 +65,7 @@ export const saveBridgeSettings = createServerFn({ method: "POST" })
       if (!data.webhookUrl) {
         return { ok: false as const, error: "A bridge URL is required." };
       }
-      if (!data.webhookSecret) {
+      if (!effectiveSecret) {
         return { ok: false as const, error: "A bridge secret / licence ID is required." };
       }
       const verdict = await validateOutboundUrl(data.webhookUrl);
@@ -80,7 +98,6 @@ export const saveBridgeSettings = createServerFn({ method: "POST" })
             "Live execution needs its own confirmation. Tick the live-execution confirmation box to arm it; saving settings is not enough.",
         };
       }
-      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
       const { data: controls } = await supabaseAdmin
         .from("execution_controls")
         .select("live_execution_enabled, force_dry_run")
@@ -98,25 +115,29 @@ export const saveBridgeSettings = createServerFn({ method: "POST" })
 
     const confirmedAt = liveRequested ? new Date().toISOString() : null;
 
-    const { error } = await context.supabase
+    const settingsPatch: Record<string, unknown> = {
+      webhook_enabled: data.webhookEnabled,
+      webhook_url: data.webhookUrl || null,
+      webhook_format: data.webhookFormat,
+      execution_enabled: executionEnabled,
+      execution_dry_run: !liveRequested,
+      exposure_limit_enabled: data.exposureLimitEnabled === true,
+      webhook_validated_at: validatedAt,
+      webhook_validation_reason: validationReason,
+      // Confirmation state is part of the execution configuration identity and
+      // is cleared whenever the user is not explicitly arming live execution.
+      live_execution_confirmed_at: confirmedAt,
+      live_execution_confirmed_host: liveRequested ? host : null,
+      live_execution_confirmed_global_live: liveRequested,
+      live_execution_confirmed_version: null,
+    };
+    // Blank is preservation, not deletion. This avoids breaking an existing
+    // bridge merely because a write-only field is empty on an unrelated save.
+    if (submittedSecret) settingsPatch["webhook_secret"] = submittedSecret;
+
+    const { error } = await supabaseAdmin
       .from("scanner_settings")
-      .update({
-        webhook_enabled: data.webhookEnabled,
-        webhook_url: data.webhookUrl || null,
-        webhook_secret: data.webhookSecret || null,
-        webhook_format: data.webhookFormat,
-        execution_enabled: executionEnabled,
-        execution_dry_run: !liveRequested,
-        exposure_limit_enabled: data.exposureLimitEnabled === true,
-        webhook_validated_at: validatedAt,
-        webhook_validation_reason: validationReason,
-        // Confirmation state is part of the execution configuration identity and
-        // is cleared whenever the user is not explicitly arming live execution.
-        live_execution_confirmed_at: confirmedAt,
-        live_execution_confirmed_host: liveRequested ? host : null,
-        live_execution_confirmed_global_live: liveRequested,
-        live_execution_confirmed_version: null,
-      } as never)
+      .update(settingsPatch as never)
       .eq("user_id", context.userId);
 
     if (error) return { ok: false as const, error: error.message };
@@ -124,7 +145,7 @@ export const saveBridgeSettings = createServerFn({ method: "POST" })
     // The configuration version is bumped by a DB trigger on the columns that
     // authorize a delivery. Report it back so the UI can show that queued
     // orders from the previous configuration will no longer be sent.
-    const { data: after } = await context.supabase
+    const { data: after } = await supabaseAdmin
       .from("scanner_settings")
       .select("execution_config_version")
       .eq("user_id", context.userId)
@@ -136,7 +157,7 @@ export const saveBridgeSettings = createServerFn({ method: "POST" })
     // later configuration change bumps the version, so the stale confirmation
     // stops authorizing live orders until it is given again.
     if (liveRequested && configVersion !== null) {
-      const { error: pinError } = await context.supabase
+      const { error: pinError } = await supabaseAdmin
         .from("scanner_settings")
         .update({ live_execution_confirmed_version: configVersion } as never)
         .eq("user_id", context.userId);
@@ -153,6 +174,7 @@ export const saveBridgeSettings = createServerFn({ method: "POST" })
       executionEnabled,
       liveArmed: liveRequested,
       configVersion,
+      webhookSecretConfigured: effectiveSecret.length > 0,
     };
   });
 
@@ -162,16 +184,24 @@ export const saveBridgeSettings = createServerFn({ method: "POST" })
  */
 export const getExecutionStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async () => {
+  .handler(async ({ context }) => {
     const { EXECUTION_POLICY_NOTE, DEFAULT_EXECUTION_POLICY } =
       await import("@/lib/delivery/execution");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data } = await supabaseAdmin
-      .from("execution_controls")
-      .select(
-        "live_execution_enabled, force_dry_run, execution_policy, disabled_instruments, demo_auto_enabled, live_auto_enabled",
-      )
-      .maybeSingle();
+    const [controlsResult, credentialResult] = await Promise.all([
+      supabaseAdmin
+        .from("execution_controls")
+        .select(
+          "live_execution_enabled, force_dry_run, execution_policy, disabled_instruments, demo_auto_enabled, live_auto_enabled",
+        )
+        .maybeSingle(),
+      supabaseAdmin
+        .from("scanner_settings")
+        .select("webhook_secret")
+        .eq("user_id", context.userId)
+        .maybeSingle(),
+    ]);
+    const data = controlsResult.data;
     const row = data as {
       live_execution_enabled?: boolean;
       force_dry_run?: boolean;
@@ -190,5 +220,12 @@ export const getExecutionStatus = createServerFn({ method: "GET" })
       // the UI can only offer arming when the capability genuinely exists now.
       demoAutoEnabled: row?.demo_auto_enabled === true,
       liveAutoEnabled: row?.live_auto_enabled === true,
+      webhookSecretConfigured:
+        !credentialResult.error &&
+        Boolean(
+          (
+            credentialResult.data as { webhook_secret?: string | null } | null
+          )?.webhook_secret?.trim(),
+        ),
     };
   });

@@ -43,8 +43,19 @@ interface DeliveryRow {
   submitted_entry: number | null;
   submitted_stop: number | null;
   submitted_target: number | null;
+  submitted_at: string | null;
   account_mode: string | null;
 }
+
+interface OpenEvidenceRow {
+  id: string;
+  delivery_id: number | null;
+  first_observed_at: string;
+  entry_at: string | null;
+}
+
+const OPEN_EVIDENCE_PAGE_SIZE = 1_000;
+const OPEN_EVIDENCE_MAX_PAGES = 10;
 
 interface AccountRow {
   id: string;
@@ -84,10 +95,44 @@ export async function reconcileBrokerEvidence(
 
   const since = new Date(now - RECONCILE_WINDOW_HOURS * 3_600_000);
 
+  // The normal scan is intentionally recent, but an open broker position can
+  // outlive that window. Recover its delivery and extend the history range to
+  // the original entry/submission so a later exit is not stranded forever as
+  // "open" evidence.
+  const openEvidence: OpenEvidenceRow[] = [];
+  let openEvidenceComplete = false;
+  for (let page = 0; page < OPEN_EVIDENCE_MAX_PAGES; page += 1) {
+    const start = page * OPEN_EVIDENCE_PAGE_SIZE;
+    const { data, error } = await db
+      .from("broker_trade_evidence")
+      .select("id, delivery_id, first_observed_at, entry_at")
+      .eq("state", "open")
+      .not("delivery_id", "is", null)
+      .order("first_observed_at", { ascending: true })
+      .order("id", { ascending: true })
+      .range(start, start + OPEN_EVIDENCE_PAGE_SIZE - 1);
+    if (error) {
+      result.errors.push(`open evidence unreadable: ${error.message}`);
+      break;
+    }
+    const rows = (data ?? []) as unknown as OpenEvidenceRow[];
+    openEvidence.push(...rows);
+    if (rows.length < OPEN_EVIDENCE_PAGE_SIZE) {
+      openEvidenceComplete = true;
+      break;
+    }
+  }
+  if (!openEvidenceComplete && openEvidence.length) {
+    result.errors.push(
+      `open evidence exceeded ${OPEN_EVIDENCE_MAX_PAGES * OPEN_EVIDENCE_PAGE_SIZE} rows; older positions were not reconciled from a partial population`,
+    );
+    openEvidence.length = 0;
+  }
+
   const { data: deliveryRows, error: deliveryError } = await db
     .from("execution_deliveries")
     .select(
-      "id, user_id, signal_id, connected_account_id, client_id, magic, broker_symbol, submitted_entry, submitted_stop, submitted_target, account_mode",
+      "id, user_id, signal_id, connected_account_id, client_id, magic, broker_symbol, submitted_entry, submitted_stop, submitted_target, submitted_at, account_mode",
     )
     .eq("destination_type", "metaapi_direct")
     .in("state", SUBMITTED_STATES as unknown as string[])
@@ -96,10 +141,47 @@ export async function reconcileBrokerEvidence(
     result.errors.push(`deliveries unreadable: ${deliveryError.message}`);
     return result;
   }
-  const deliveries = ((deliveryRows ?? []) as unknown as DeliveryRow[]).filter(
-    (d) => d.client_id && d.connected_account_id,
-  );
+  const deliveryById = new Map<number, DeliveryRow>();
+  for (const delivery of (deliveryRows ?? []) as unknown as DeliveryRow[]) {
+    if (delivery.client_id && delivery.connected_account_id)
+      deliveryById.set(delivery.id, delivery);
+  }
+
+  const unresolvedDeliveryIds = [
+    ...new Set(
+      openEvidence
+        .map((row) => row.delivery_id)
+        .filter((id): id is number => typeof id === "number" && !deliveryById.has(id)),
+    ),
+  ];
+  for (let start = 0; start < unresolvedDeliveryIds.length; start += 200) {
+    const ids = unresolvedDeliveryIds.slice(start, start + 200);
+    const { data, error } = await db
+      .from("execution_deliveries")
+      .select(
+        "id, user_id, signal_id, connected_account_id, client_id, magic, broker_symbol, submitted_entry, submitted_stop, submitted_target, submitted_at, account_mode",
+      )
+      .eq("destination_type", "metaapi_direct")
+      .in("state", SUBMITTED_STATES as unknown as string[])
+      .in("id", ids);
+    if (error) {
+      result.errors.push(`older open deliveries unreadable: ${error.message}`);
+      continue;
+    }
+    for (const delivery of (data ?? []) as unknown as DeliveryRow[]) {
+      if (delivery.client_id && delivery.connected_account_id)
+        deliveryById.set(delivery.id, delivery);
+    }
+  }
+
+  const deliveries = [...deliveryById.values()];
   if (!deliveries.length) return result;
+
+  const openEvidenceByDelivery = new Map(
+    openEvidence
+      .filter((row): row is OpenEvidenceRow & { delivery_id: number } => row.delivery_id !== null)
+      .map((row) => [row.delivery_id, row]),
+  );
 
   const byClientId = new Map<string, DeliveryRow>();
   const accountIds = new Set<string>();
@@ -121,8 +203,24 @@ export async function reconcileBrokerEvidence(
     result.accountsChecked += 1;
 
     let deals;
+    const accountSince = deliveries
+      .filter((delivery) => delivery.connected_account_id === account.id)
+      .reduce((earliest, delivery) => {
+        const evidence = openEvidenceByDelivery.get(delivery.id);
+        if (!evidence) return earliest;
+        const candidates = [delivery.submitted_at, evidence.entry_at, evidence.first_observed_at]
+          .map((value) => (value ? Date.parse(value) : Number.NaN))
+          .filter(Number.isFinite);
+        return candidates.length ? Math.min(earliest, ...candidates) : earliest;
+      }, since.getTime());
+    const historyStart = new Date(accountSince);
     try {
-      deals = await fetchDeals(account.metaapi_account_id, account.region, since, new Date(now));
+      deals = await fetchDeals(
+        account.metaapi_account_id,
+        account.region,
+        historyStart,
+        new Date(now),
+      );
     } catch (err) {
       result.errors.push(
         `${account.id}: broker history unavailable — ${err instanceof Error ? err.message : String(err)}`,
@@ -143,7 +241,7 @@ export async function reconcileBrokerEvidence(
       historyOrders = await fetchHistoryOrders(
         account.metaapi_account_id,
         account.region,
-        since,
+        historyStart,
         new Date(now),
       );
     } catch {

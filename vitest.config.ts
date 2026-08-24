@@ -8,14 +8,13 @@
  *                  Never blocking: V1 differing from V2 intent is not a
  *                  regression, it is the characterised present.
  *
- * Aliases are resolved with vite-tsconfig-paths so test resolution can never
+ * Aliases use Vite's native tsconfig-path resolver so test resolution cannot
  * drift from the app's own `@/` resolution.
  */
 import { defineConfig } from "vitest/config";
-import tsconfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig({
-  plugins: [tsconfigPaths()],
+  resolve: { tsconfigPaths: true },
   test: {
     environment: "node",
     include: ["src/**/__tests__/**/*.test.ts"],
@@ -27,7 +26,7 @@ export default defineConfig({
     ],
     projects: [
       {
-        plugins: [tsconfigPaths()],
+        resolve: { tsconfigPaths: true },
         test: {
           name: "blocking",
           environment: "node",
@@ -41,7 +40,7 @@ export default defineConfig({
         },
       },
       {
-        plugins: [tsconfigPaths()],
+        resolve: { tsconfigPaths: true },
         test: {
           name: "report",
           environment: "node",

@@ -7,6 +7,7 @@
  */
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import type { Json } from "@/integrations/supabase/types";
 import { ACTIVE_MODEL_LABEL, ACTIVE_MODEL_VERSION } from "@/lib/versioning";
 
 const OWNER_EMAIL = "boatengampomah@gmail.com";
@@ -19,9 +20,9 @@ export interface BaselineStatus {
     kind: string;
     captured_at: string;
     pinned_run_id: string | null;
-    // `any` here is deliberate: the document is arbitrary JSON and the RPC
-    // serializer rejects `unknown` index signatures.
-    metrics: Record<string, any>;
+    // Runtime JSON is intentionally open-ended; consumers narrow the fields
+    // they use instead of disabling type checking for the whole document.
+    metrics: Json;
   } | null;
   total: number;
 }

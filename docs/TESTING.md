@@ -17,10 +17,10 @@ bun run test:report   # the NON-BLOCKING `report` project: [INTENDED_V2] tests i
 bun run test:watch    # blocking project in watch mode
 bunx vitest run path  # one file
 bun run lint          # eslint + prettier over the repository
-bun run lint:blocking # eslint + prettier over the test sources (part of verify)
+bun run lint:blocking # narrower developer convenience check for test sources
 bun run typecheck
 bun run build
-bun run verify        # lint:blocking -> typecheck -> blocking tests -> build
+bun run verify        # full lint -> typecheck -> blocking tests -> build
 ```
 
 `bun run test` and `bun run test:report` are two different vitest projects, not a

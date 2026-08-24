@@ -50,7 +50,7 @@ export const Route = createFileRoute("/_authenticated/admin/intelligence")({
       {
         name: "description",
         content:
-          "Owner-only telemetry terminal: scanner heartbeat, Bayesian learning gates, fill diagnostics and per-signal user intersection data.",
+          "Owner-only telemetry terminal: scanner heartbeat, descriptive replay-rate gates, fill diagnostics and per-signal user intersection data.",
       },
       { name: "robots", content: "noindex, nofollow" },
       { property: "og:title", content: "Admin Intelligence Terminal | P-Trades Hub" },
@@ -150,7 +150,6 @@ function AdminIntelligencePage() {
       <ExecutionSwitchPanel />
 
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
-
         <StatCard
           label="Cycle latency p50 / p95"
           value={`${num(health.p50_ms, 0)} / ${num(health.p95_ms, 0)} ms`}
@@ -341,7 +340,7 @@ function AdminIntelligencePage() {
         )}
       </PanelShell>
 
-      <PanelShell title="Bayesian learning monitor">
+      <PanelShell title="Replay-rate learning monitor">
         <RegimeTable rows={learning_matrix} />
       </PanelShell>
 

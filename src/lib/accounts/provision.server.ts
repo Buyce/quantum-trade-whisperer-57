@@ -13,14 +13,19 @@
  *    information. Nothing here trusts the trader's demo/live choice.
  *  - Stage 2 keeps `mode` at `observe`; no execution is possible.
  */
-import { randomUUID } from "node:crypto";
+import { randomInt, randomUUID } from "node:crypto";
 
-import { classifyAccountType, isMt5Netting, riskGuardianAvailability } from "@/lib/metaapi/classify";
-import { hasBenchmarkAccount, readBenchmarkAccount } from "@/lib/metaapi/config.server";
+import {
+  classifyAccountType,
+  isMt5Netting,
+  riskGuardianAvailability,
+} from "@/lib/metaapi/classify";
+import { readBenchmarkAccountId } from "@/lib/metaapi/config.server";
 import { classifyMetaApiFailure } from "@/lib/metaapi/errors";
 import { fetchAccountInformation } from "@/lib/metaapi/accounts.server";
 import {
   createAccount,
+  assertCanCreateAccounts,
   createConfigurationLink,
   deleteAccount,
   deployAccount,
@@ -52,9 +57,9 @@ async function admin(): Promise<Admin> {
 }
 
 /** Never let a customer operation address the benchmark account. */
-function assertNotBenchmark(metaapiAccountId: string): void {
-  if (!hasBenchmarkAccount()) return;
-  if (readBenchmarkAccount().accountId === metaapiAccountId) {
+export function assertNotBenchmarkAccount(metaapiAccountId: string): void {
+  const benchmarkAccountId = readBenchmarkAccountId();
+  if (benchmarkAccountId?.toLowerCase() === metaapiAccountId.trim().toLowerCase()) {
     throw new Error("This account is reserved by P-Trades and cannot be managed here.");
   }
 }
@@ -73,6 +78,44 @@ export interface StartConnectionResult {
   /** MetaApi's hosted credential page. Shown once; never stored. */
   configurationUrl: string | null;
   configurationExpiresAt: string | null;
+  /** TRUE when MetaApi accepted creation but has not returned the account yet. */
+  provisioningPending: boolean;
+}
+
+function createInput(
+  label: string,
+  platform: MetaApiPlatform,
+  server: string,
+  region: string,
+  magic: number,
+): Parameters<typeof createAccount>[0] {
+  return {
+    name: `P-Trades ${label}`,
+    platform,
+    server,
+    region,
+    magic,
+    // Increased Reliability, MetaStats and Risk Management are separately
+    // billed. Ordinary provisioning never opts the operator into them.
+    reliability: "regular",
+    manualTrades: true,
+    metastatsApiEnabled: false,
+    riskManagementApiEnabled: false,
+    draft: true,
+  };
+}
+
+function creationMayBePending(kind: ReturnType<typeof classifyMetaApiFailure>["kind"]): boolean {
+  return ["processing", "timeout", "unreachable", "rate_limited", "server"].includes(kind);
+}
+
+/**
+ * Positive MT order tag assigned once per connection. The database unique index
+ * is the final collision guard; the two-billion-value space makes a collision
+ * vanishingly unlikely before that guard is reached.
+ */
+export function newAccountOrderTag(): number {
+  return randomInt(1_000_000, 2_000_000_000);
 }
 
 function cleanLabel(raw: string): string {
@@ -96,10 +139,7 @@ function cleanServer(raw: string): string {
  * with NO credentials, and hand back a one-time hosted page where the owner
  * enters their broker login.
  */
-export async function startConnection(
-  input: StartConnectionInput,
-): Promise<StartConnectionResult> {
-  const db = await admin();
+export async function startConnection(input: StartConnectionInput): Promise<StartConnectionResult> {
   const label = cleanLabel(input.label);
   const server = cleanServer(input.brokerServer);
   if (!isOfferedRegion(input.region)) throw new Error("Choose one of the offered regions.");
@@ -107,7 +147,16 @@ export async function startConnection(
     throw new Error("Choose MT4 or MT5.");
   }
 
-  const transactionId = randomUUID();
+  // Run the deterministic token-scope check before reserving quota. Otherwise
+  // a token which can never create accounts leaves behind a FAILED local row
+  // and consumes a connection slot without contacting the provider.
+  assertCanCreateAccounts();
+  const db = await admin();
+
+  // MetaApi documents a random 32-character transaction id. Persist it before
+  // the request and reuse it for every continuation of this one attempt.
+  const transactionId = randomUUID().replaceAll("-", "");
+  const magic = newAccountOrderTag();
 
   // The quota is enforced by a database trigger, so this insert is the gate.
   const { data: inserted, error: insertError } = await db
@@ -120,6 +169,7 @@ export async function startConnection(
       broker_server: server,
       region: input.region,
       intent: input.intent,
+      magic,
       phase: "awaiting_credentials" satisfies AccountPhase,
       mode: "observe",
     } as never)
@@ -138,28 +188,10 @@ export async function startConnection(
 
   try {
     const created = await createAccount(
-      {
-        name: `P-Trades ${label}`,
-        platform: input.platform,
-        server,
-        region: input.region,
-        magic: 0,
-        // Prompt 14 Stage 5 (pre-flight 3): Increased Reliability is a separately
-        // billed MetaApi option. Ordinary customer provisioning never enables it
-        // on the operator's behalf; it is an explicit product decision.
-        reliability: "regular",
-        manualTrades: true,
-        // Prompt 14 Stage 3 closure (E): MetaStats and the Risk Management API
-        // are separately billed MetaApi features. A customer connection never
-        // silently opts the operator into them; Stage 5 enables them explicitly
-        // per account when telemetry is requested.
-        metastatsApiEnabled: false,
-        riskManagementApiEnabled: false,
-        draft: true,
-      },
+      createInput(label, input.platform, server, input.region, magic),
       transactionId,
     );
-    assertNotBenchmark(created.id);
+    assertNotBenchmarkAccount(created.id);
 
     await db
       .from(TABLE as never)
@@ -175,9 +207,22 @@ export async function startConnection(
       accountId: rowId,
       configurationUrl: link?.url ?? null,
       configurationExpiresAt: link?.expiresAt ?? null,
+      provisioningPending: false,
     };
   } catch (err) {
     const failure = classifyMetaApiFailure(err);
+    if (creationMayBePending(failure.kind)) {
+      await db
+        .from(TABLE as never)
+        .update({ phase: "created" satisfies AccountPhase, last_error: failure.message } as never)
+        .eq("id", rowId);
+      return {
+        accountId: rowId,
+        configurationUrl: null,
+        configurationExpiresAt: null,
+        provisioningPending: true,
+      };
+    }
     await db
       .from(TABLE as never)
       .update({ phase: "failed" satisfies AccountPhase, last_error: failure.message } as never)
@@ -205,10 +250,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  * before any database write, and the provider's own record — not the caller — is
  * the authority on platform, server and region.
  */
-export async function adoptConnection(
-  input: AdoptConnectionInput,
-): Promise<{ accountId: string }> {
-  const db = await admin();
+export async function adoptConnection(input: AdoptConnectionInput): Promise<{ accountId: string }> {
   const label = cleanLabel(input.label);
   const metaapiAccountId = input.metaapiAccountId.trim().toLowerCase();
   if (!UUID_RE.test(metaapiAccountId)) {
@@ -221,7 +263,8 @@ export async function adoptConnection(
   }
   // Reserved engine account: linking it would pool research results into a
   // customer journal and corrupt performance statistics.
-  assertNotBenchmark(metaapiAccountId);
+  assertNotBenchmarkAccount(metaapiAccountId);
+  const db = await admin();
 
   const { data: existing, error: existingError } = await db
     .from(TABLE as never)
@@ -275,6 +318,7 @@ export async function adoptConnection(
       broker_server: server,
       region,
       intent: input.intent,
+      magic: newAccountOrderTag(),
       metaapi_account_id: metaapiAccountId,
       provisioning_state: remote.state ?? null,
       connection_status: remote.connectionStatus ?? null,
@@ -310,7 +354,6 @@ export async function adoptConnection(
   return { accountId: rowId };
 }
 
-
 async function ownedRow(userId: string, accountId: string): Promise<ConnectedAccountRow> {
   const db = await admin();
   const { data, error } = await db
@@ -322,7 +365,7 @@ async function ownedRow(userId: string, accountId: string): Promise<ConnectedAcc
   if (error) throw new Error(error.message);
   if (!data) throw new Error("Connection not found.");
   const row = data as unknown as ConnectedAccountRow;
-  if (row.metaapi_account_id) assertNotBenchmark(row.metaapi_account_id);
+  if (row.metaapi_account_id) assertNotBenchmarkAccount(row.metaapi_account_id);
   return row;
 }
 
@@ -355,13 +398,47 @@ export async function reconcileConnection(
   const db = await admin();
   const row = await ownedRow(userId, accountId);
   if (row.disconnected_at) return row;
-  if (!row.metaapi_account_id) return row;
+  if (!row.metaapi_account_id) {
+    if (row.phase !== "created" || !row.broker_server) return row;
+    if (!Number.isInteger(row.magic) || (row.magic ?? 0) <= 0) {
+      return await writeAndReturn(db, row.id, {
+        phase: "failed" satisfies AccountPhase,
+        last_error:
+          "This connection has no order tag, so P-Trades stopped before continuing. Disconnect it and create it again.",
+        last_reconciled_at: new Date().toISOString(),
+      });
+    }
+    try {
+      const created = await createAccount(
+        createInput(row.label, row.platform, row.broker_server, row.region, row.magic as number),
+        row.provision_transaction_id,
+      );
+      assertNotBenchmarkAccount(created.id);
+      return await writeAndReturn(db, row.id, {
+        metaapi_account_id: created.id,
+        provisioning_state: created.state,
+        phase: "awaiting_credentials" satisfies AccountPhase,
+        last_error: null,
+        last_reconciled_at: new Date().toISOString(),
+      });
+    } catch (err) {
+      const failure = classifyMetaApiFailure(err);
+      return await writeAndReturn(db, row.id, {
+        phase: creationMayBePending(failure.kind)
+          ? ("created" satisfies AccountPhase)
+          : ("failed" satisfies AccountPhase),
+        last_error: failure.message,
+        last_reconciled_at: new Date().toISOString(),
+      });
+    }
+  }
 
   const patch: Record<string, unknown> = { last_reconciled_at: new Date().toISOString() };
 
   try {
     const remote = await fetchProvisionedAccount(row.metaapi_account_id);
-    if (!remote) throw new Error("Your broker-connection provider has no record of this connection.");
+    if (!remote)
+      throw new Error("Your broker-connection provider has no record of this connection.");
 
     const state = (remote.state ?? "").toString().toUpperCase();
     const status = (remote.connectionStatus ?? "").toString().toUpperCase();
@@ -496,7 +573,11 @@ async function writeFeatures(
   db: Admin,
   row: ConnectedAccountRow,
   info: BrokerAccountInformation,
-  remote: { metastatsApiEnabled?: boolean | null; riskManagementApiEnabled?: boolean | null; reliability?: string | null },
+  remote: {
+    metastatsApiEnabled?: boolean | null;
+    riskManagementApiEnabled?: boolean | null;
+    reliability?: string | null;
+  },
 ): Promise<void> {
   const netting = isMt5Netting(info);
   const guardian = riskGuardianAvailability(info, remote.riskManagementApiEnabled === true);

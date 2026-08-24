@@ -25,6 +25,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { money } from "@/lib/risk";
 import { resolveSizingForSetup } from "@/lib/sizing.functions";
+import { presentSignalBreakdown } from "@/lib/scanner/copy";
 
 const GRADE_STYLES: Record<string, string> = {
   "A+": "bg-grade-aplus/15 text-grade-aplus border-grade-aplus/50",
@@ -199,9 +200,9 @@ function ExecutionChip({
 }
 
 /**
- * Read-only Intelligence Panel. Shows the Bayesian priors the scanner recorded
- * from shadow telemetry, always alongside the sample size behind them and the
- * regime tier that produced them.
+ * Read-only Intelligence Panel. Shows hierarchically shrunk descriptive replay
+ * rates, always alongside the sample size behind them and the regime tier that
+ * produced them.
  *
  * ZERO-HALLUCINATION: renders nothing at all when the signal has no priors.
  * Each metric carries its own gate status — the fill rate can be active while
@@ -249,7 +250,7 @@ function IntelligencePanel({ signal }: { signal: SignalRow }) {
               fillGate ? "text-success" : "text-muted-foreground",
             )}
           >
-            {fillGate ? "Active" : `Learning ${n}/${MIN_N_FILL}`}
+            {fillGate ? "Reporting floor met" : `Learning ${n}/${MIN_N_FILL}`}
           </p>
         </div>
         <div className="min-w-0">
@@ -261,26 +262,26 @@ function IntelligencePanel({ signal }: { signal: SignalRow }) {
             {filledN == null
               ? "Sample not recorded"
               : winGate
-                ? "Active"
+                ? "Reporting floor met"
                 : `Learning ${filledN}/${MIN_N_WIN} filled`}
           </p>
         </div>
         <div className="min-w-0">
           <dt className="label-xs">
-            <InfoLabel hint="P(fill) x P(TP1+ | filled) — a model estimate of the chance this setup both fills and reaches its first target. It is a probability, not a return and not an expected R.">
-              Est. joint win prob.
+            <InfoLabel hint="P(fill) x P(TP1+ | filled) from smoothed historical replay rates. Descriptive of that replay sample only — not a forecast, expected return or live track record.">
+              Replay joint rate
             </InfoLabel>
           </dt>
           <dd className="num text-base font-semibold text-foreground">
             {pJoint == null ? "—" : pct(pJoint)}
           </dd>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">fill x win — probability</p>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">fill x TP1-if-filled</p>
         </div>
       </dl>
 
       <p className="mt-3 text-xs leading-snug text-muted-foreground">
         {fillGate
-          ? "Fill rate has cleared its sample threshold and is shown as a measured rate. It still does not place, block or reprice trades — grading, alerts and the daily limit ignore these numbers entirely."
+          ? "Fill rate has cleared its reporting floor and is shown as a descriptive replay rate. It still does not place, block or reprice trades — grading, alerts and the daily limit ignore these numbers entirely."
           : "Shown for observation only: grading, alerts and the daily limit ignore these numbers entirely."}
       </p>
 
@@ -294,7 +295,7 @@ const SIGNED = (v: number | null) => (v == null ? "—" : `${v > 0 ? "+" : ""}${
 
 /**
  * Model-explain drawer: shows WHICH regimes and features drive this signal's
- * win/fill estimate, and how much of the estimate is its own evidence versus
+ * win/fill replay rate, and how much of the smoothed rate is its own evidence versus
  * borrowed from a broader regime.
  *
  * HONESTY: the engine is hierarchical Beta-Binomial shrinkage, not a weighted
@@ -346,15 +347,15 @@ function ModelExplain({ signal }: { signal: SignalRow }) {
             <div>
               <p className="label-xs">Regime ladder</p>
               <p className="mt-1 text-xs leading-snug text-muted-foreground">
-                The estimate starts from the widest pool and is pulled toward this setup&apos;s own
-                bucket only as fast as that bucket earns samples (prior strength k ={" "}
-                {PRIOR_STRENGTH}).
+                The replay read-out starts from the widest pool and is pulled toward this
+                setup&apos;s own bucket only as fast as that bucket earns samples (prior strength k
+                = {PRIOR_STRENGTH}).
               </p>
               {explanation.tier3SkippedN != null ? (
                 <p className="mt-2 rounded border border-warning/40 bg-warning/10 px-2.5 py-2 text-xs leading-snug text-foreground">
                   This exact regime has only {explanation.tier3SkippedN} resolved{" "}
                   {explanation.tier3SkippedN === 1 ? "sample" : "samples"} — below the {MIN_N_TIER3}
-                  -sample floor — so the estimate falls back to the broader tier below rather than
+                  -sample floor — so the read-out falls back to the broader tier below rather than
                   presenting a thin bucket as a specific read.
                 </p>
               ) : null}
@@ -383,7 +384,9 @@ function ModelExplain({ signal }: { signal: SignalRow }) {
                       <span>
                         win {PCT(s.pWinRaw)} raw → {PCT(s.pWinShrunk)} smoothed
                       </span>
-                      <span>own evidence {Math.round(s.ownWeightWin * 100)}% of win estimate</span>
+                      <span>
+                        own evidence {Math.round(s.ownWeightWin * 100)}% of smoothed win rate
+                      </span>
                     </div>
                   </li>
                 ))}
@@ -419,7 +422,7 @@ function ModelExplain({ signal }: { signal: SignalRow }) {
 
             <p className="text-[11px] leading-snug text-muted-foreground">
               Differences are raw, unsmoothed percentage points from the shadow replay dataset —
-              associations, not proven causes, and thin slices move easily. This estimate currently
+              associations, not proven causes, and thin slices move easily. This read-out currently
               leans on{" "}
               {explanation.leansOn === "own-bucket"
                 ? "its own bucket's evidence"
@@ -577,8 +580,8 @@ function RiskPanel({ signal }: { signal: SignalRow }) {
         title="How this size was worked out"
         what="Lot size, cash risk and the margin figure, computed on the server from the risk settings you entered and this setup's own stop distance."
         why="Sizing from a fixed cash risk is what keeps one losing trade from mattering more than another. The lot size is floored to a tradable step, so the money at risk never exceeds your limit."
-        todo="Place the size shown for this plan, and re-check it if you change your equity or risk percent."
-        assume="The margin figure is an estimate from the contract specification and the leverage you entered — not your broker's requirement, and it excludes commission and swap. Your equity and leverage are self-reported; the app cannot read your broker."
+        todo="If you decide to use this plan, re-check the size whenever your equity or risk percent changes."
+        assume="The margin figure is an estimate from the contract specification and the leverage you entered — not your broker's requirement, and it excludes commission and swap. This card uses your self-reported equity and leverage; connected-account broker sizing is a separate execution path."
         anchor="sizing"
       />
 
@@ -871,13 +874,14 @@ export function SignalCard({
                 {conf.toFixed(0)}%
               </span>
             </span>
-            {/* The joint win probability only appears once its sample gate is clear,
-                so the summary row never implies a measured rate that does not exist. */}
+            {/* The descriptive replay joint rate appears only once BOTH reporting
+                floors clear, so the summary never promotes a thin denominator. */}
             {(signal.p_joint_prior ?? signal.ev_prior) != null &&
-            (signal.prior_sample_n ?? 0) >= MIN_N_FILL ? (
+            (signal.prior_sample_n ?? 0) >= MIN_N_FILL &&
+            (signal.prior_filled_n ?? 0) >= MIN_N_WIN ? (
               <span className="num flex min-w-0 flex-col sm:block">
-                <span className="label-xs sm:hidden">Win prob.</span>
-                <span className="hidden sm:inline">WIN-P </span>
+                <span className="label-xs sm:hidden">Replay joint</span>
+                <span className="hidden sm:inline">REPLAY-J </span>
                 <span className="text-sm font-semibold text-foreground sm:text-xs">
                   {(Number(signal.p_joint_prior ?? signal.ev_prior) * 100).toFixed(1)}%
                 </span>
@@ -988,7 +992,7 @@ export function SignalCard({
             <div className="min-w-0">
               <p className="label-xs">Qualitative breakdown</p>
               <p className="mt-2 text-sm leading-relaxed text-foreground/90">
-                {signal.qualitative_breakdown}
+                {presentSignalBreakdown(signal.qualitative_breakdown)}
               </p>
               <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted-foreground">
                 <span className="num">H4: {signal.h4_bias ?? "—"}</span>

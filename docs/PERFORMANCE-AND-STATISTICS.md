@@ -2,9 +2,10 @@
 
 ## Purpose
 
-Report what a sample of trades produced, with an evidence standard strong enough
-that the terminal will say "not enough evidence" rather than show a number that
-cannot support a decision.
+Report what a sample of trades produced while separating raw descriptive point
+estimates from evidence maturity. Small-sample figures remain visible as an
+audit of what was recorded, but the terminal labels the population immature and
+does not treat the numbers as decision-support evidence.
 
 ## Current behaviour
 
@@ -19,7 +20,9 @@ The user chooses exactly one source:
 | P-Trades Benchmark | **CONTROLLED BENCHMARK**     | Closed, associated deals from the dedicated P-Trades demo benchmark policy                |
 
 No source falls back to another when empty. Deterministic scanner replay is
-research-only and is not a Performance source.
+research-only and is not a Performance source. Source queries are paginated and
+fail closed at their explicit safety bound; a capped subset is never presented as
+the complete Performance population.
 
 ```text
 Expectancy in R = (win rate x average win in R) - (loss rate x average loss in R)
@@ -28,7 +31,10 @@ Expectancy in R = (win rate x average win in R) - (loss rate x average loss in R
 plus win rate, average win, average loss, total R, R distribution, per-grade and
 per-instrument breakdowns and a time-of-day view. Values are computed on **one
 explicitly chosen R basis** at a time; `r_vs_plan` and `r_vs_actual_risk` are
-never mixed into one average.
+never mixed into one average. Win/loss/breakeven classification follows the sign
+of that selected canonical R value. A contradictory self-reported outcome label
+remains visible in the journal as provenance but cannot alter Performance win
+rate or expectancy.
 
 ### Statistical standard (research)
 
@@ -40,7 +46,9 @@ never mixed into one average.
 
 Maturity gates: `MIN_GROUP_SAMPLES = 30`, `MIN_GROUP_CLUSTERS = 10` (equal to
 `MIN_CLUSTERS`), practical-effect threshold `PRACTICAL_EFFECT_THRESHOLD = 0.05`.
-Below a gate the group is reported as immature, not estimated.
+Below a gate the group is reported as immature. Its raw point estimate may still
+be shown as a description of the selected rows, never as an inferential or
+forward-looking estimate.
 
 `HOLDOUT_AVAILABLE = false`. There is currently **no** holdout or out-of-sample
 validation layer, so every statistic in the app is **descriptive of its sample**,
@@ -68,7 +76,8 @@ averaged, filled from one another or silently substituted.
 
 ## Failure behaviour
 
-An empty or immature sample renders a zeroed/absent metric plus the reason. It
+An empty sample renders zeroed/absent metrics plus the reason. An immature sample
+renders its raw descriptive arithmetic with an explicit row/day gate status. It
 never renders a synthesised row or an example trade.
 
 ## User-facing meaning

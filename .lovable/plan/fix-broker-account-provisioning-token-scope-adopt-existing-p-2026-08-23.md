@@ -8,7 +8,7 @@ The 403 is a token-scope refusal, not a broker or billing problem. The token you
 resources: ["*:$USER_ID$:f6a72106-7709-4835-8022-75cad470a505"]
 ```
 
-`createAccount` is not an operation *on an existing account*, so a token restricted to a single account ID can never authorise it. The same 403 will repeat with this token.
+`createAccount` is not an operation _on an existing account_, so a token restricted to a single account ID can never authorise it. The same 403 will repeat with this token.
 
 Two things are needed: an account-unrestricted token, and a way to link an account that already exists at the provider without calling create at all.
 

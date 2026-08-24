@@ -18,14 +18,17 @@ USD account needs an AUDUSD rate to convert the risk.
 
 ### Two sizing models, one authority
 
-| Model   | Spec source                                | Status                             |
-| ------- | ------------------------------------------ | ---------------------------------- |
-| Model 1 | `static_v1` static contract specifications | **Authoritative**                  |
-| Model 2 | Broker symbol specs refreshed daily        | Shadow only, logged for divergence |
+| Model   | Spec source                                | Manual terminal/MCP status         | Direct MetaApi status           |
+| ------- | ------------------------------------------ | ---------------------------------- | ------------------------------- |
+| Model 1 | `static_v1` static contract specifications | **Authoritative**                  | Never an execution fallback     |
+| Model 2 | Destination broker's symbol specification  | Shadow only, logged for divergence | **Authoritative and mandatory** |
 
-Both run; disagreements are recorded in the sizing divergence log. The
-authoritative `specSource` remains `static_v1` while Model 1 is active. Promotion
-is service-role only and has not occurred.
+Both run for manual guidance; disagreements are recorded in the sizing divergence
+log. The manual authoritative `specSource` remains `static_v1` while Model 1 is
+active, and its promotion is service-role only. Direct connected-account orders
+are a stricter boundary: the destination account's fresh broker specification is
+always authoritative even while the global manual-guidance promotion switch is
+off.
 
 Broker specs, when present, contribute the stops-level check: a stop closer to
 entry than `stopsLevel × point` is refused with `below_stops_level`.

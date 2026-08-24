@@ -133,6 +133,7 @@ export function describeMapping(mapping: SymbolMapping): string {
 /** A mapping is usable downstream only when the broker's own name is known. */
 export function isMappingUsable(mapping: SymbolMapping): boolean {
   return (
-    (mapping.kind === "exact" || mapping.kind === "suffix") && typeof mapping.brokerSymbol === "string"
+    (mapping.kind === "exact" || mapping.kind === "suffix") &&
+    typeof mapping.brokerSymbol === "string"
   );
 }

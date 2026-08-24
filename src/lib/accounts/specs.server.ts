@@ -11,12 +11,17 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { specFromRow, type BrokerSpecRow, type SizingSpec } from "@/lib/broker/specs";
+import {
+  SPEC_MAX_AGE_MS,
+  specFromRow,
+  type BrokerSpecRow,
+  type SizingSpec,
+} from "@/lib/broker/specs";
 
 type Db = Pick<SupabaseClient, "from">;
 
 /** Age at which an account specification is no longer trusted for execution. */
-export const ACCOUNT_SPEC_MAX_AGE_MS = 7 * 24 * 3_600_000;
+export const ACCOUNT_SPEC_MAX_AGE_MS = SPEC_MAX_AGE_MS;
 
 const COLUMNS =
   "broker_symbol, canonical_symbol, contract_size, tick_size, tick_value, point, point_source, digits, volume_min, volume_max, volume_step, volume_limit, stops_level, freeze_level, base_currency, profit_currency, margin_currency, trade_mode, calc_mode, fetched_at";

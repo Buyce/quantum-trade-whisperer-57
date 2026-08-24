@@ -274,7 +274,6 @@ export const resetShadowBreaker = createServerFn({ method: "POST" })
     return { ok: Boolean((data as { ok?: boolean } | null)?.ok) };
   });
 
-
 export interface AdminExecutionSwitches {
   demoAutoEnabled: boolean;
   forceDryRun: boolean;
@@ -335,13 +334,14 @@ export const getAdminExecutionSwitches = createServerFn({ method: "GET" })
  */
 export const setAdminExecutionSwitches = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { demoAutoEnabled?: boolean; forceDryRun?: boolean }) => input)
+  .validator((input: { demoAutoEnabled?: boolean; forceDryRun?: boolean }) => input)
   .handler(async ({ data, context }): Promise<AdminExecutionSwitches> => {
     const email = String(context.claims["email"] ?? "").toLowerCase();
     if (email !== OWNER_EMAIL) throw new Error("Forbidden");
 
     const patch: Record<string, boolean> = {};
-    if (typeof data.demoAutoEnabled === "boolean") patch["demo_auto_enabled"] = data.demoAutoEnabled;
+    if (typeof data.demoAutoEnabled === "boolean")
+      patch["demo_auto_enabled"] = data.demoAutoEnabled;
     if (typeof data.forceDryRun === "boolean") patch["force_dry_run"] = data.forceDryRun;
     if (Object.keys(patch).length === 0) throw new Error("Nothing to change.");
 

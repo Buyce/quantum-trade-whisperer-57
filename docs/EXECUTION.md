@@ -69,6 +69,11 @@ Resolution of those states is manual or dry-run.
   version is snapshotted at enqueue; at dispatch a mismatch is rejected with
   `configuration_changed_since_enqueue`. An old signal is never silently sent under
   new authorisation.
+- **Server-only authorisation writes.** Database column privileges prevent an
+  authenticated browser/REST client from reading or replacing the bridge secret
+  or writing URL-validation, dry/live, configuration-version and live-confirmation
+  fields directly. Those fields are changed only by the authenticated server
+  function after its validation and confirmation checks.
 - **Named policy.** `single_exit_first_target` — one pending order exiting at the
   first target. Any other policy value is rejected as `policy_unsupported`.
 - **Authoritative quantity.** Bridge orders carry the authoritative sizing result.

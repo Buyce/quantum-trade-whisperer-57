@@ -32,7 +32,11 @@ describe("connected-account intent vs broker truth", () => {
   it("[INVARIANT] an unknown broker type is an absent answer, not a conflict, and never READY", () => {
     expect(evaluateIntent("demo", "unknown").conflict).toBe(false);
     expect(
-      isConnectionReady({ phase: "connected", brokerAccountType: "unknown", intentConflict: false }),
+      isConnectionReady({
+        phase: "connected",
+        brokerAccountType: "unknown",
+        intentConflict: false,
+      }),
     ).toBe(false);
   });
 
