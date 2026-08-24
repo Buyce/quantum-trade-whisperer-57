@@ -5,7 +5,7 @@
  * memory and silently desynchronises inside short-lived serverless invocations.
  */
 import type { Candle, Timeframe } from "@/lib/scanner/types";
-import { readBenchmarkAccount } from "./config.server";
+import { withBenchmarkAccount } from "./benchmark.server";
 import { validQuoteGeometry } from "./quote";
 import { metaApiRequest } from "./request.server";
 
@@ -74,8 +74,9 @@ export async function fetchCandles(
   timeframe: Timeframe,
   limit = 200,
 ): Promise<Candle[]> {
-  const { accountId, region } = readBenchmarkAccount();
-  return await fetchCandlesFor(accountId, region, symbol, timeframe, limit);
+  return await withBenchmarkAccount(({ accountId, region }) =>
+    fetchCandlesFor(accountId, region, symbol, timeframe, limit),
+  );
 }
 
 interface RawPrice {
@@ -115,6 +116,7 @@ export async function fetchQuoteFor(
  * quotes endpoint — never per client, never inside the scanner.
  */
 export async function fetchQuote(symbol: string): Promise<BrokerQuote | null> {
-  const { accountId, region } = readBenchmarkAccount();
-  return await fetchQuoteFor(accountId, region, symbol);
+  return await withBenchmarkAccount(({ accountId, region }) =>
+    fetchQuoteFor(accountId, region, symbol),
+  );
 }
