@@ -35,9 +35,9 @@ describe("createAccount payload", () => {
         platform: "mt5",
         server: "MetaQuotes-Demo",
         region: "london",
-        magic: 0,
+        magic: 771234,
         reliability: "regular",
-        manualTrades: true,
+        manualTrades: false,
         metastatsApiEnabled: false,
         riskManagementApiEnabled: false,
         draft,
@@ -60,6 +60,28 @@ describe("createAccount payload", () => {
     expect(body).not.toHaveProperty("password");
     expect(body["server"]).toBe("MetaQuotes-Demo");
     expect(body["type"]).toBe("cloud-g2");
+    expect(body["manualTrades"]).toBe(false);
+    expect(body["magic"]).toBe(771234);
+  });
+
+  it("[INVARIANT] refuses manual MetaApi trades with a non-zero magic before HTTP", async () => {
+    const fetchMock = vi.fn();
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    await expect(
+      createAccount(
+        {
+          name: "n",
+          platform: "mt5",
+          server: "MetaQuotes-Demo",
+          region: "london",
+          magic: 771234,
+          manualTrades: true,
+        },
+        TXN_ONE,
+      ),
+    ).rejects.toThrow(/manual MetaApi trades require magic 0/i);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("[UNIT] returns the provider-reported state rather than assuming one", async () => {
