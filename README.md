@@ -169,6 +169,10 @@ login number or secret value belongs in this repository.
 | Operator `WEBHOOK_*` values                                                      | Platform secret store; server handlers only        |
 | Per-user bridge secret                                                           | Database; write-only to authenticated clients      |
 
+If the configured benchmark region becomes stale, a regional 404 causes
+P-Trades to verify the account's authoritative region through MetaApi account
+metadata and retry that read once. A missing account id is never guessed.
+
 Operator secrets are managed through the platform secret store. Per-user bridge
 secrets are persisted for later dispatch, but database column privileges make the
 value server-only: browsers can replace one through the authenticated validation

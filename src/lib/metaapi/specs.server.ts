@@ -4,7 +4,7 @@
  * Called at most once per symbol per 24h by the spec refresher — never per
  * render and never inside the grading path.
  */
-import { readBenchmarkAccount } from "./config.server";
+import { withBenchmarkAccount } from "./benchmark.server";
 import { metaApiRequest } from "./request.server";
 import type { SymbolSpecification } from "./types";
 
@@ -29,8 +29,9 @@ export async function fetchSymbolSpecificationFor(
 export async function fetchSymbolSpecification(
   symbol: string,
 ): Promise<Record<string, unknown> | null> {
-  const { accountId, region } = readBenchmarkAccount();
-  return await fetchSymbolSpecificationFor(accountId, region, symbol);
+  return await withBenchmarkAccount(({ accountId, region }) =>
+    fetchSymbolSpecificationFor(accountId, region, symbol),
+  );
 }
 
 /** Typed view of the same payload, for call sites that want named fields. */
