@@ -98,7 +98,11 @@ function createInput(
     // Increased Reliability, MetaStats and Risk Management are separately
     // billed. Ordinary provisioning never opts the operator into them.
     reliability: "regular",
-    manualTrades: true,
+    // MetaApi's `manualTrades` describes orders placed THROUGH MetaApi. It does
+    // not disable the owner's own MT terminal trading. Keep it false so broker
+    // orders carry this connection's positive magic tag; MetaApi requires
+    // magic=0 when `manualTrades` is true.
+    manualTrades: false,
     metastatsApiEnabled: false,
     riskManagementApiEnabled: false,
     draft: true,

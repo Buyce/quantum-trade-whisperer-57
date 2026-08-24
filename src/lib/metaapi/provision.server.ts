@@ -57,7 +57,10 @@ export interface CreateAccountInput {
   /** `high` keeps a hot standby; used for accounts that place orders. */
   reliability?: "regular" | "high";
   magic: number;
-  /** Allow the human account owner to trade manually alongside P-Trades. */
+  /**
+   * Mark orders placed through this MetaApi account as manual (magic 0).
+   * This does not control whether the owner may trade in their MT terminal.
+   */
   manualTrades?: boolean;
   metastatsApiEnabled?: boolean;
   riskManagementApiEnabled?: boolean;
@@ -78,6 +81,11 @@ export async function createAccount(
   transactionId: string,
 ): Promise<{ id: string; state: string | null }> {
   const canonicalId = canonicalTransactionId(transactionId);
+  if (input.manualTrades === true && input.magic !== 0) {
+    throw new Error(
+      "P-Trades stopped account creation before contacting MetaApi because manual MetaApi trades require magic 0.",
+    );
+  }
   assertCanCreateAccounts();
   const body: Record<string, unknown> = {
     name: input.name,
@@ -86,7 +94,7 @@ export async function createAccount(
     region: input.region,
     magic: input.magic,
     reliability: input.reliability ?? "high",
-    manualTrades: input.manualTrades ?? true,
+    manualTrades: input.manualTrades ?? false,
     metastatsApiEnabled: input.metastatsApiEnabled ?? true,
     riskManagementApiEnabled: input.riskManagementApiEnabled ?? true,
     ...(input.server ? { server: input.server } : {}),

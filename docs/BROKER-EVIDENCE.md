@@ -7,6 +7,12 @@ one created by P-Trades. Where the broker reports a magic number, it must match 
 well. Price proximity, time proximity, symbol similarity and human guesswork are
 never association rules. Manual trades and other EAs are excluded.
 
+New P-Trades MetaApi connections therefore use `manualTrades: false` with a
+unique positive magic number. In MetaApi, `manualTrades` describes orders placed
+through the API; it does not disable the owner's own manual MT4/MT5 trading.
+MetaApi requires magic `0` when that API flag is `true`, which would make
+P-Trades orders indistinguishable from manual trades and is not used here.
+
 Closed evidence is immutable. An unreadable broker history produces an explicit
 error and no new row. MetaApi deal and order history is read in 1,000-row pages;
 the worker refuses to publish a partial population if its 10,000-row safety bound
