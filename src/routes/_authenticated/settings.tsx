@@ -362,8 +362,22 @@ function SettingsPage() {
         </TabsList>
 
         <TabsContent value="filters" className="space-y-4">
+          {/* The automation summary lives here, at the top of the tab that owns the
+              rules it reports on: these same rules decide alerts and automatic orders. */}
+          <AutoTradingSummary
+            instruments={instruments}
+            sessions={sessions}
+            alertMinGrade={alertMinGrade}
+            cap={cap}
+            equity={equity}
+            currency={currency}
+            riskPercent={riskPercent}
+            maxLots={maxLots}
+          />
+
           <section className="space-y-5 rounded-md border border-border bg-card p-4">
-            <h2 className="label-xs">Feed filters</h2>
+            <h2 className="label-xs">Feed filters — what you see</h2>
+
 
             <div>
               <Label className="text-xs">Instruments</Label>
