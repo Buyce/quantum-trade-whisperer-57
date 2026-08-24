@@ -34,11 +34,21 @@ const MOBILE_NAV = [
   { to: "/settings", label: "Settings", short: "Settings", icon: SettingsIcon },
 ] as const;
 
-/** From md up there is room for the Guide entry inline. */
+/**
+ * From md up there is room for Broker accounts and the Guide entry inline. On
+ * phones Accounts stays reachable from Settings → Account, because a sixth
+ * bottom-bar column truncates every label at ~360px.
+ */
 const DESKTOP_NAV = [
-  ...MOBILE_NAV,
+  { to: "/feed", label: "Signal Feed", short: "Feed", icon: Activity },
+  { to: "/history", label: "Trade History", short: "History", icon: History },
+  { to: "/performance", label: "Performance", short: "Performance", icon: BarChart3 },
+  { to: "/accounts", label: "Broker Accounts", short: "Accounts", icon: Building2 },
+  { to: "/connect", label: "Connect AI", short: "Connect", icon: Plug },
+  { to: "/settings", label: "Settings", short: "Settings", icon: SettingsIcon },
   { to: "/guide", label: "Guide", short: "Guide", icon: BookOpen },
 ] as const;
+
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
