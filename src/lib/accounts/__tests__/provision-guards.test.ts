@@ -4,6 +4,7 @@ import {
   adoptConnection,
   assertNotBenchmarkAccount,
   newAccountOrderTag,
+  newProvisionTransactionId,
   startConnection,
 } from "../provision.server";
 
@@ -77,6 +78,12 @@ afterEach(() => {
   process.env = { ...savedEnv };
   globalThis.fetch = savedFetch;
   vi.restoreAllMocks();
+});
+
+describe("provider transaction ids", () => {
+  it("[INVARIANT] generates exactly 32 hexadecimal characters", () => {
+    expect(newProvisionTransactionId()).toMatch(/^[0-9a-f]{32}$/);
+  });
 });
 
 beforeEach(() => {

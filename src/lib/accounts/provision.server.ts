@@ -13,7 +13,7 @@
  *    information. Nothing here trusts the trader's demo/live choice.
  *  - Stage 2 keeps `mode` at `observe`; no execution is possible.
  */
-import { randomInt, randomUUID } from "node:crypto";
+import { randomBytes, randomInt } from "node:crypto";
 
 import {
   classifyAccountType,
@@ -118,6 +118,11 @@ export function newAccountOrderTag(): number {
   return randomInt(1_000_000, 2_000_000_000);
 }
 
+/** 128 bits of entropy encoded directly as MetaApi's required 32 hex characters. */
+export function newProvisionTransactionId(): string {
+  return randomBytes(16).toString("hex");
+}
+
 function cleanLabel(raw: string): string {
   const label = raw.trim().replace(/\s+/g, " ").slice(0, 60);
   if (label.length < 2) throw new Error("Give this connection a name of at least 2 characters.");
@@ -155,7 +160,7 @@ export async function startConnection(input: StartConnectionInput): Promise<Star
 
   // MetaApi documents a random 32-character transaction id. Persist it before
   // the request and reuse it for every continuation of this one attempt.
-  const transactionId = randomUUID().replaceAll("-", "");
+  const transactionId = newProvisionTransactionId();
   const magic = newAccountOrderTag();
 
   // The quota is enforced by a database trigger, so this insert is the gate.
@@ -312,7 +317,9 @@ export async function adoptConnection(input: AdoptConnectionInput): Promise<{ ac
     .from(TABLE as never)
     .insert({
       user_id: input.userId,
-      provision_transaction_id: randomUUID(),
+      // This id is not sent during adoption, but keep the persisted invariant
+      // identical for every connected-account row.
+      provision_transaction_id: newProvisionTransactionId(),
       label,
       platform,
       broker_server: server,

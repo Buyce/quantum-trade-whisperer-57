@@ -10,12 +10,29 @@
  *     own hosted page; we only ever store the returned account id.
  */
 import { readMetaApiToken } from "./config.server";
-import { MetaApiTokenScopeError } from "./errors";
+import { MetaApiHttpError, MetaApiTokenScopeError } from "./errors";
 import { metaApiRequest } from "./request.server";
 import { describeCreateAccountScope, inspectCreateAccountScope } from "./token-scope";
 import type { MetaApiPlatform, ProvisionedAccount } from "./types";
 
 const PROVISIONING = { service: "provisioning" as const, region: null };
+const TRANSACTION_ID_RE = /^[0-9a-f]{32}$/i;
+
+/**
+ * MetaApi requires exactly 32 random characters. UUIDs are a convenient source
+ * of entropy, but their printable form contains four hyphens (36 characters).
+ * Canonicalise again at the final HTTP boundary so neither a legacy persisted
+ * UUID nor a future caller can bypass the provider contract.
+ */
+export function canonicalTransactionId(raw: string): string {
+  const canonical = raw.trim().replaceAll("-", "").toLowerCase();
+  if (!TRANSACTION_ID_RE.test(canonical)) {
+    throw new Error(
+      "P-Trades stopped account creation before contacting MetaApi because its transaction id was not exactly 32 hexadecimal characters.",
+    );
+  }
+  return canonical;
+}
 
 /**
  * Refuse a creation attempt the configured token demonstrably cannot perform,
@@ -60,6 +77,7 @@ export async function createAccount(
   input: CreateAccountInput,
   transactionId: string,
 ): Promise<{ id: string; state: string | null }> {
+  const canonicalId = canonicalTransactionId(transactionId);
   assertCanCreateAccounts();
   const body: Record<string, unknown> = {
     name: input.name,
@@ -79,18 +97,31 @@ export async function createAccount(
     // credentials; the provider then returns state DRAFT itself.
   };
 
-  const res = await metaApiRequest<{ id?: string; state?: string }>({
-    ...PROVISIONING,
-    method: "POST",
-    label: "create account",
-    path: "/users/current/accounts",
-    headers: { "transaction-id": transactionId },
-    body,
-    // A 202 means asynchronous discovery is still running. The account
-    // orchestrator persists this transaction id and continues the same request
-    // on Refresh; treating 202 as a successful response would lose that state.
-    throwOn202: true,
-  });
+  let res: { id?: string; state?: string } | null;
+  try {
+    res = await metaApiRequest<{ id?: string; state?: string }>({
+      ...PROVISIONING,
+      method: "POST",
+      label: "create account",
+      path: "/users/current/accounts",
+      headers: { "transaction-id": canonicalId },
+      body,
+      // A 202 means asynchronous discovery is still running. The account
+      // orchestrator persists this transaction id and continues the same request
+      // on Refresh; treating 202 as a successful response would lose that state.
+      throwOn202: true,
+    });
+  } catch (err) {
+    if (err instanceof MetaApiHttpError && err.status === 400 && /transaction-id/i.test(err.body)) {
+      throw new MetaApiHttpError(
+        err.status,
+        err.label,
+        `${err.body} [P-Trades prepared and locally validated a 32-character transaction-id.]`,
+        err.retryAfterSeconds,
+      );
+    }
+    throw err;
+  }
   if (!res?.id) throw new Error("MetaApi did not return an account id for this creation attempt");
   return { id: res.id, state: res.state ?? null };
 }
