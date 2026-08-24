@@ -56,13 +56,29 @@ async function admin(): Promise<Admin> {
   return supabaseAdmin;
 }
 
-/** Never let a customer operation address the benchmark account. */
-export function assertNotBenchmarkAccount(metaapiAccountId: string): void {
+/**
+ * True when a stored provider account id is the reserved P-Trades engine
+ * account. Used for rows that ALREADY exist: they must never trigger a provider
+ * mutation, but they must stay removable from the owner's profile.
+ */
+export function isReservedRemoteAccount(metaapiAccountId: string | null | undefined): boolean {
+  if (!metaapiAccountId) return false;
   const benchmarkAccountId = readBenchmarkAccountId();
-  if (benchmarkAccountId?.toLowerCase() === metaapiAccountId.trim().toLowerCase()) {
+  return benchmarkAccountId?.toLowerCase() === metaapiAccountId.trim().toLowerCase();
+}
+
+/**
+ * Never let a customer LINK or CREATE against the benchmark account.
+ * This is an absolute refusal at the linking boundary only — removal of an
+ * already-stored row is handled by `isReservedRemoteAccount`, so an owner can
+ * never be trapped with an unusable connection slot.
+ */
+export function assertNotBenchmarkAccount(metaapiAccountId: string): void {
+  if (isReservedRemoteAccount(metaapiAccountId)) {
     throw new Error("This account is reserved by P-Trades and cannot be managed here.");
   }
 }
+
 
 export interface StartConnectionInput {
   userId: string;
