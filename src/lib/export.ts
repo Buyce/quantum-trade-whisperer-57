@@ -5,6 +5,7 @@
  */
 import { contextOf, type SignalRow, type TradeHistoryRow } from "./db-types";
 import type { RSample } from "./performance";
+import type { BrokerOrderView } from "./history/broker-orders";
 import { presentSignalBreakdown } from "./scanner/copy";
 
 /** Triggers a browser download for an in-memory blob. */
@@ -246,5 +247,107 @@ export function historyToExportJson(rows: TradeHistoryRow[]) {
     notes:
       "Every trade logged as taken. r_yield is the realized result in multiples of risk; outcome 'open' means no result recorded yet.",
     trades,
+  };
+}
+
+/* --------------------------- automatic broker orders --------------------------- */
+
+const BROKER_ORDER_HEADERS = [
+  "Enqueued_At",
+  "Detected_At",
+  "Instrument",
+  "Grade",
+  "Direction",
+  "Order_Status",
+  "Status_Detail",
+  "Dry_Run",
+  "Broker_Account_Type",
+  "Submitted_Volume",
+  "Submitted_Entry",
+  "Submitted_Stop",
+  "Submitted_Target",
+  "Submitted_At",
+  "Broker_State",
+  "Broker_Entry_Price",
+  "Broker_Exit_Price",
+  "Broker_Entry_At",
+  "Broker_Exit_At",
+  "Broker_Gross_Profit",
+  "Broker_Commission",
+  "Broker_Swap",
+  "Profit_Currency",
+  "R_vs_Plan",
+  "R_vs_Actual_Risk",
+  "R_Availability",
+  "Stop_Provenance",
+];
+
+/**
+ * Broker-derived export. Every column is either what P-Trades submitted or what
+ * the broker reported back; nothing here is self-reported or estimated, so
+ * blanks mean the broker has not supplied that value yet.
+ */
+export function brokerOrdersToCsv(rows: BrokerOrderView[]): string {
+  return toCsv(
+    BROKER_ORDER_HEADERS,
+    rows.map((row) => [
+      row.enqueuedAt,
+      row.detectedAt ?? "",
+      row.instrument,
+      row.grade,
+      row.direction ? row.direction.toUpperCase() : "",
+      row.status.label,
+      row.status.detail ?? "",
+      row.dryRun ? "yes" : "no",
+      row.accountType ?? "",
+      row.submitted.volume ?? "",
+      row.submitted.entry ?? "",
+      row.submitted.stop ?? "",
+      row.submitted.target ?? "",
+      row.submitted.at ?? "",
+      row.broker?.state ?? "",
+      row.broker?.entryPrice ?? "",
+      row.broker?.exitPrice ?? "",
+      row.broker?.entryAt ?? "",
+      row.broker?.exitAt ?? "",
+      row.broker?.grossProfit ?? "",
+      row.broker?.commission ?? "",
+      row.broker?.swap ?? "",
+      row.broker?.currency ?? "",
+      row.r.basis === "plan" ? (row.r.value ?? "") : "",
+      row.r.basis === "actual_risk" ? (row.r.value ?? "") : "",
+      row.r.provenance === "unavailable" ? (row.r.reason ?? "unavailable") : "",
+      "",
+    ]),
+  );
+}
+
+export function brokerOrdersToExportJson(rows: BrokerOrderView[]) {
+  return {
+    export_type: "ptrades_automatic_orders",
+    generated_at: new Date().toISOString(),
+    count: rows.length,
+    notes:
+      "Broker-derived only. Submitted_* fields are what P-Trades sent to the broker; broker.* fields exist only when real broker deals were matched to the order. Missing values are genuinely unavailable and are never estimated. These rows are valued separately from the self-reported journal.",
+    orders: rows.map((row) => ({
+      delivery_id: row.deliveryId,
+      enqueued_at: row.enqueuedAt,
+      detected_at: row.detectedAt,
+      instrument: row.instrument,
+      grade: row.grade,
+      action: row.direction ? row.direction.toUpperCase() : null,
+      dry_run: row.dryRun,
+      broker_account_type: row.accountType,
+      status: row.status,
+      submitted: row.submitted,
+      plan: row.plan,
+      broker: row.broker,
+      r: {
+        value: row.r.value,
+        basis: row.r.basis,
+        provenance: row.r.provenance,
+        unavailable_reason: row.r.reason,
+      },
+    })),
   };
 }

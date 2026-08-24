@@ -35,6 +35,8 @@ import {
 } from "@/lib/export";
 import { GradeBadge } from "@/components/SignalCard";
 import { GuideNote } from "@/components/GuideMode";
+import { AutomaticOrders } from "@/components/history/AutomaticOrders";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -124,7 +126,42 @@ function PriceProvenanceBadge({ row }: { row: TradeHistoryRow }) {
   );
 }
 
+/**
+ * Two populations, never mixed: trades the user logged themselves (self-reported
+ * prices) and orders P-Trades submitted to their broker (broker-reported). They
+ * are shown side by side but verified — and valued — separately.
+ */
 function HistoryPage() {
+  const { user } = useAuth();
+  return (
+    <div className="space-y-5">
+      <div className="min-w-0">
+        <p className="label-xs">Permanent record</p>
+        <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+          Trade History
+        </h1>
+        <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+          Trades you logged yourself and orders P-Trades submitted for you are kept apart, because
+          one is self-reported and the other is broker-reported.
+        </p>
+      </div>
+      <Tabs defaultValue="logged" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="logged">Logged by me</TabsTrigger>
+          <TabsTrigger value="automatic">Automatic orders</TabsTrigger>
+        </TabsList>
+        <TabsContent value="logged" className="mt-0">
+          <LoggedTrades />
+        </TabsContent>
+        <TabsContent value="automatic" className="mt-0">
+          <AutomaticOrders userId={user?.id} />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+function LoggedTrades() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const history = useQuery(takenTradeHistoryQuery(user?.id));
@@ -228,11 +265,7 @@ function HistoryPage() {
     <div className="space-y-5">
       <div className="grid gap-4 sm:flex sm:flex-wrap sm:items-start">
         <div className="min-w-0">
-          <p className="label-xs">Permanent record</p>
-          <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
-            Trade History
-          </h1>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+          <p className="max-w-2xl text-sm text-muted-foreground">
             Every setup you logged as taken is kept here for good, even after it leaves the signal
             feed. Skipped setups are not retained.
           </p>
