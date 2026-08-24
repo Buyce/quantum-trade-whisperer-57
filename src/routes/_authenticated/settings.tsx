@@ -342,8 +342,9 @@ function SettingsPage() {
       <Tabs defaultValue="filters" className="space-y-4">
         <TabsList className="grid h-auto w-full grid-cols-2 gap-1 sm:grid-cols-3 lg:inline-flex lg:h-9 lg:w-auto lg:gap-0">
           <TabsTrigger className="h-10 lg:h-auto" value="filters">
-            Filters &amp; alerts
+            Rules, alerts &amp; automatic orders
           </TabsTrigger>
+
           <TabsTrigger className="h-10 lg:h-auto" value="risk">
             Risk
           </TabsTrigger>
