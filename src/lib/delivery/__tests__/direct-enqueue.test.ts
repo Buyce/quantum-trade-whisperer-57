@@ -204,9 +204,9 @@ describe("enqueueDirectDeliveries", () => {
           recorded.push(call);
           return { data: [], error: null };
         }
-        if (call.table === "instrument_lifecycle") {
-          // Any throw inside the attempt: an unreadable lifecycle view here.
-          throw new Error("lifecycle view unavailable");
+        if (call.table === "execution_controls") {
+          // Any throw inside the attempt: a transport failure on a gate read.
+          throw new Error("control read unavailable");
         }
         return { data: [], error: null };
       });
@@ -225,7 +225,7 @@ describe("enqueueDirectDeliveries", () => {
         decision: "enqueue_attempt_failed",
         enqueued: 0,
       });
-      expect(String(rows[0]?.detail)).toContain("lifecycle view unavailable");
+      expect(String(rows[0]?.detail)).toContain("control read unavailable");
     },
   );
 });
