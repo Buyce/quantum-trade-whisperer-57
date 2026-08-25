@@ -134,6 +134,16 @@ const SECTIONS: Section[] = [
           "A Ready connection is not the same as an armed account, and an armed account is not enough when the matching system-wide gate is off.",
       },
       {
+        id: "c-grade-automatic-orders",
+        q: "Can C-Grade setups become automatic orders?",
+        a: [
+          "Only if you switch it on yourself. “Allow C-Grade automatic orders” in Rules, alerts & automatic orders is off by default, and while it is off a C-Grade setup can alert you but is never sent to an armed account.",
+          "Switching it on authorises nothing on its own. Your alert tier must already include C, and a C-Grade order still passes your instruments, sessions, risk per trade, lot ceiling, exposure limit, the intelligence gate if you use it, and the pre-send broker re-check. C-Grade still never consumes your daily setup cap, so that tier is bounded by those rules rather than by the cap.",
+        ],
+        assume:
+          "C-Grade is the lowest-confluence tier: an opted-in C-Grade order is your explicit choice, recorded in the automatic-order decision log.",
+      },
+      {
         id: "broker-performance",
         q: "Where do connected-account results appear?",
         a: [
