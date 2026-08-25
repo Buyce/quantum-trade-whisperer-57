@@ -74,6 +74,21 @@ function setup(opts: { production: unknown[]; candidates: unknown[]; budget?: nu
         error: null,
       };
     }
+    // Provider-symbol authority (R8): the resolver resolves the broker symbol
+    // before fetching, proven by a fresh scanner-scope specification row.
+    if (call.table === "broker_symbol_specs" && call.op === "select") {
+      return {
+        data: [
+          {
+            symbol: call.eq["symbol"] ?? "EURUSD",
+            digits: 5,
+            point: 0.00001,
+            fetched_at: new Date().toISOString(),
+          },
+        ],
+        error: null,
+      };
+    }
     if (call.table === "shadow_executions" && call.op === "select") {
       if (call.eq["cohort"] === "research_candidate") return { data: opts.candidates, error: null };
       if (call.eq["cohort"] === "production" && call.eq["model_version"] === 1) {

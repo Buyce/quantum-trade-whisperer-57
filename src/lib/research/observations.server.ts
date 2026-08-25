@@ -13,6 +13,11 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { assertCapability } from "@/lib/instruments/lifecycle.server";
+import {
+  provenanceColumns,
+  type DetectionProvenance,
+  type ProvenanceColumns,
+} from "@/lib/instruments/provenance";
 import type { SetupEvaluation } from "@/lib/scanner/profile";
 import { MODEL_V2_CODE_HASH, MODEL_V2_VERSION } from "@/lib/scanner/v2/manifest";
 import type { V2Evaluation } from "@/lib/scanner/v2/profile.v2";
@@ -85,7 +90,7 @@ export function isStrategyNoTrade(row: { decision: string; disposition: Disposit
   );
 }
 
-export interface ObservationRow {
+export interface ObservationRow extends Partial<ProvenanceColumns> {
   run_id: string | null;
   observation_key: string | null;
   model_version: number;
@@ -308,9 +313,12 @@ export function v2ObservationRow(args: {
   evaluation: V2Evaluation;
   disposition: Disposition;
   latencyMs: number | null;
+  /** Detection provenance (R7/R8). Omitted means "not recorded". */
+  provenance?: DetectionProvenance | null;
 }): ObservationRow {
   const p = args.evaluation.profile;
   return {
+    ...provenanceColumns(args.provenance),
     run_id: args.runId,
     observation_key: args.observationKey,
     model_version: MODEL_V2_VERSION,
@@ -386,6 +394,8 @@ export function v1ObservationRow(args: {
   disposition: Disposition;
   reason: string;
   latencyMs: number | null;
+  /** Detection provenance (R7/R8). Omitted means "not recorded". */
+  provenance?: DetectionProvenance | null;
   signalId?: string | null;
   evaluation?: SetupEvaluation | null;
   /** Provenance (Phase A1). All optional; omitted means "not recorded". */
@@ -395,6 +405,7 @@ export function v1ObservationRow(args: {
 }): ObservationRow {
   const ev = args.evaluation ?? null;
   return {
+    ...provenanceColumns(args.provenance),
     run_id: args.runId,
     observation_key: args.observationKey,
     model_version: 1,
@@ -437,8 +448,11 @@ export function v2ErrorObservationRow(args: {
   instrument: string;
   reason: string;
   latencyMs: number | null;
+  /** Detection provenance (R7/R8). Omitted means "not recorded". */
+  provenance?: DetectionProvenance | null;
 }): ObservationRow {
   return {
+    ...provenanceColumns(args.provenance),
     run_id: args.runId,
     observation_key: args.observationKey,
     model_version: MODEL_V2_VERSION,
@@ -464,9 +478,12 @@ export function v3ObservationRow(args: {
   evaluation: V3Evaluation;
   disposition: Disposition;
   latencyMs: number | null;
+  /** Detection provenance (R7/R8). Omitted means "not recorded". */
+  provenance?: DetectionProvenance | null;
 }): ObservationRow {
   const p = args.evaluation.profile;
   return {
+    ...provenanceColumns(args.provenance),
     run_id: args.runId,
     observation_key: args.observationKey,
     model_version: MODEL_V3_VERSION,
@@ -527,8 +544,11 @@ export function v3ErrorObservationRow(args: {
   instrument: string;
   reason: string;
   latencyMs: number | null;
+  /** Detection provenance (R7/R8). Omitted means "not recorded". */
+  provenance?: DetectionProvenance | null;
 }): ObservationRow {
   return {
+    ...provenanceColumns(args.provenance),
     run_id: args.runId,
     observation_key: args.observationKey,
     model_version: MODEL_V3_VERSION,

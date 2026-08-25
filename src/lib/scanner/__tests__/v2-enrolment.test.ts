@@ -132,6 +132,21 @@ function fakeDb(opts: FakeOptions) {
     if (table === "instrument_lifecycle" && op === "select") {
       return { data: [{ symbol: "EURUSD", stage: opts.lifecycleStage ?? "shadow" }], error: null };
     }
+    // Provider-symbol authority (R8): the scanner scope proves a mapping from a
+    // fresh broker specification row, exactly as production does.
+    if (table === "broker_symbol_specs" && op === "select") {
+      return {
+        data: [
+          {
+            symbol: "EURUSD",
+            digits: 5,
+            point: 0.00001,
+            fetched_at: new Date().toISOString(),
+          },
+        ],
+        error: null,
+      };
+    }
     if (table === "scanned_signals" && op === "select") {
       return { data: opts.duplicate ? [{ id: "existing" }] : [], error: null };
     }

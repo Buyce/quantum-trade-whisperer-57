@@ -8,6 +8,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { assertCapability } from "@/lib/instruments/lifecycle.server";
 import { fetchCandles } from "@/lib/scanner/metaapi.server";
+import { resolveFetchSymbol } from "@/lib/instruments/fetch-authority.server";
 import { describeError } from "@/lib/scanner/pipeline.server";
 import { ACTIVE_MODEL_VERSION } from "@/lib/versioning";
 import { replaySetup, type ReplayInput } from "./replay";
@@ -423,9 +424,26 @@ export async function resolveShadowExecutions(db: SupabaseClient): Promise<Resol
       continue;
     }
 
+    /**
+     * Symbol authority (R8). The resolver stores forward outcomes as evidence, so
+     * it must fetch under the SAME verified provider symbol readiness proved —
+     * never the canonical name. An unusable mapping means the replay has no
+     * honest input, so it is skipped and the cursor is preserved.
+     */
+    const authority = await resolveFetchSymbol(db, instrument);
+    if (!authority.usable || !authority.providerSymbol) {
+      summary.instruments.push({
+        instrument,
+        candles: 0,
+        error: authority.refusal ?? "no verified broker symbol",
+      });
+      summary.candidateBacklogNoCandles += (candidateByInstrument.get(instrument) ?? []).length;
+      continue;
+    }
+
     let candles;
     try {
-      candles = await fetchCandles(instrument, "M15", CANDLE_DEPTH);
+      candles = await fetchCandles(authority.providerSymbol, "M15", CANDLE_DEPTH);
     } catch (err) {
       // Timeouts, 504s and closed-market responses are expected. Skip the
       // instrument; the next hourly pass replays from the same cursor.

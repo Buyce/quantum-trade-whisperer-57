@@ -42,6 +42,11 @@ import {
 import { REGISTRY_SYMBOLS } from "@/lib/instruments/registry";
 import { describeStage, lifecycleAllows, stageOf } from "@/lib/instruments/lifecycle";
 import { readLifecycleView } from "@/lib/instruments/lifecycle.server";
+import { resolveFetchSymbol } from "@/lib/instruments/fetch-authority.server";
+import {
+  buildDetectionProvenance,
+  type DetectionProvenance,
+} from "@/lib/instruments/provenance";
 // The session ALGORITHM version, stamped on every research row so a later change
 // to session boundaries cannot silently redefine older measurements.
 import { SESSION_VERSION } from "./session";
@@ -299,6 +304,14 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
   let publishedSignalId: string | null = null;
 
   /**
+   * Detection provenance (R7/R8): which candle policy produced the numbers, the
+   * as-of bar time per timeframe, and the provider symbol the candles were
+   * actually fetched under. Stays null until a real fetch has happened, so an
+   * unfetched job can never claim provenance it does not have.
+   */
+  let provenance: DetectionProvenance | null = null;
+
+  /**
    * Why a qualifying V1 structure was withheld, set at the exact branch that
    * withheld it (Phase A1, Finding 2).
    *
@@ -370,6 +383,7 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
           suppressionReason: v1Suppression?.reason ?? null,
           lifecycleStage: instrumentStage,
           sessionVersion: SESSION_VERSION,
+          provenance,
         }),
       ];
 
@@ -382,6 +396,7 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
             evaluation: v2,
             disposition: v2Disposition,
             latencyMs: v2LatencyMs,
+            provenance,
           }),
         );
       } else if (v2Error) {
@@ -392,6 +407,7 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
             instrument: job.instrument,
             reason: v2Error,
             latencyMs: v2LatencyMs,
+            provenance,
           }),
         );
       }
@@ -404,6 +420,7 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
             evaluation: v3,
             disposition: v3Disposition,
             latencyMs: v3LatencyMs,
+            provenance,
           }),
         );
       } else if (v3Error) {
@@ -414,6 +431,7 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
             instrument: job.instrument,
             reason: v3Error,
             latencyMs: v3LatencyMs,
+            provenance,
           }),
         );
       }
@@ -438,6 +456,7 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
               evaluation: v1Evaluation,
               v1Decision: status,
               publishedSignalId,
+              provenance,
             });
           }
         } catch {
@@ -460,11 +479,47 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
   }
 
   try {
+    /**
+     * Symbol authority (R8). A canonical P-Trades name is NOT a broker symbol, so
+     * the read resolves the provider symbol FIRST and refuses when the mapping is
+     * ambiguous, unverified, unavailable or stale. Passing the canonical name
+     * straight to the provider is how every historical mis-measurement in this
+     * area happened: the provider answered for *something* and nobody noticed.
+     *
+     * Refusing is the correct outcome — an unmapped symbol has no honest
+     * measurement, and a defaulted one is a fabricated measurement.
+     */
+    const authority = await resolveFetchSymbol(db, job.instrument);
+    if (!authority.usable || !authority.providerSymbol) {
+      return await finish(
+        "skipped",
+        `No verified broker symbol for ${job.instrument} (${authority.refusal ?? "unusable_mapping"}); no candles were fetched`,
+      );
+    }
+    const providerSymbol = authority.providerSymbol;
+
     // Sequential per-timeframe fetch keeps peak memory to one candle series.
     const candles = {} as Record<Timeframe, Candle[]>;
     for (const tf of TIMEFRAMES) {
-      candles[tf] = await fetchCandles(job.instrument, tf, CANDLE_LIMITS[tf]);
+      candles[tf] = await fetchCandles(providerSymbol, tf, CANDLE_LIMITS[tf]);
     }
+
+    /**
+     * Provenance is assembled from the series in hand, under the LIVE Wave 0
+     * forming-candle policy. The as-of value is the open time of the last bar
+     * read, because that bar is still incomplete — calling it a close time would
+     * be a false statement about the data.
+     */
+    provenance = buildDetectionProvenance({
+      candles: TIMEFRAMES.map((tf) => {
+        const series = candles[tf] ?? [];
+        const last = series[series.length - 1];
+        return { timeframe: tf, lastBarTime: last?.time ?? null, bars: series.length };
+      }),
+      providerSymbol,
+      mappingVerifiedAt: authority.mapping.verifiedAt,
+      specAsOf: authority.mapping.verifiedAt,
+    });
     await clearInstrument(db, job.instrument);
     observed = true;
 
