@@ -109,7 +109,10 @@ export function replayCandleDepthForRows(rows: ReplayFetchRow[], nowMs = Date.no
     const elapsedBars = Math.max(1, Math.ceil((nowMs - start) / M15_MS));
     return Math.max(max, elapsedBars + REPLAY_FETCH_OVERLAP_BARS);
   }, tifBars + REPLAY_FETCH_OVERLAP_BARS);
-  return Math.max(1, Math.min(REPLAY_MAX_CANDLE_DEPTH, Math.max(required, verticalBars + REPLAY_FETCH_OVERLAP_BARS)));
+  return Math.max(
+    1,
+    Math.min(REPLAY_MAX_CANDLE_DEPTH, Math.max(required, verticalBars + REPLAY_FETCH_OVERLAP_BARS)),
+  );
 }
 
 function summarizeInstrumentFailures(instruments: ResolveSummary["instruments"]): string {
@@ -124,7 +127,9 @@ function summarizeInstrumentFailures(instruments: ResolveSummary["instruments"])
 export function allFetchesFailedMessage(summary: ResolveSummary): string | null {
   const fetchAttempts = summary.instruments.filter((item) => item.requested !== undefined);
   if (fetchAttempts.length === 0) return null;
-  const allAttemptsFailed = fetchAttempts.every((item) => item.candles === 0 && Boolean(item.error));
+  const allAttemptsFailed = fetchAttempts.every(
+    (item) => item.candles === 0 && Boolean(item.error),
+  );
   return allAttemptsFailed ? summarizeInstrumentFailures(fetchAttempts) : null;
 }
 
@@ -454,7 +459,11 @@ export async function resolveShadowExecutions(db: SupabaseClient): Promise<Resol
      */
     const dataGate = await assertCapability(db, instrument, "collect_data");
     if (!dataGate.allowed) {
-      summary.instruments.push({ instrument, candles: 0, error: dataGate.reason ?? "not in service" });
+      summary.instruments.push({
+        instrument,
+        candles: 0,
+        error: dataGate.reason ?? "not in service",
+      });
       summary.candidateBacklogNoCandles += (candidateByInstrument.get(instrument) ?? []).length;
       continue;
     }
@@ -467,7 +476,11 @@ export async function resolveShadowExecutions(db: SupabaseClient): Promise<Resol
      */
     const authority = await resolveFetchSymbol(db, instrument);
     if (!authority.usable || !authority.providerSymbol) {
-      summary.instruments.push({ instrument, candles: 0, error: authority.refusal ?? "no verified broker symbol" });
+      summary.instruments.push({
+        instrument,
+        candles: 0,
+        error: authority.refusal ?? "no verified broker symbol",
+      });
       summary.candidateBacklogNoCandles += (candidateByInstrument.get(instrument) ?? []).length;
       continue;
     }
