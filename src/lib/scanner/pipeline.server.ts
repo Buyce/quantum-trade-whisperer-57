@@ -32,7 +32,7 @@ import { isTransientMetaApiReadFailure } from "@/lib/metaapi/errors";
 import { fetchCandles, MetaApiNotConfiguredError } from "./metaapi.server";
 import {
   CANDLE_LIMITS,
-  ENTRY_PRICE_DECIMALS,
+  
   INSTRUMENTS,
   SIGNAL_MAX_AGE_HOURS,
   STRUCTURE_COOLDOWN_MINUTES,
