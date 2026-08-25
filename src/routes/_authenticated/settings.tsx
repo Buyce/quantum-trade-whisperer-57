@@ -376,6 +376,19 @@ function SettingsPage() {
             maxLots={maxLots}
           />
 
+          <AutoIntelGate
+            enabled={intelGate}
+            minWinPct={intelMinWin}
+            minSample={intelMinSample}
+            onEnabledChange={setIntelGate}
+            onMinWinPctChange={setIntelMinWin}
+            onMinSampleChange={setIntelMinSample}
+          />
+
+          <AutoOrderDecisions />
+
+
+
           <section className="space-y-5 rounded-md border border-border bg-card p-4">
             <h2 className="label-xs">Feed filters — what you see</h2>
 
