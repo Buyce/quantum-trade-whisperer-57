@@ -1202,6 +1202,45 @@ export type Database = {
           },
         ]
       }
+      execution_enqueue_decisions: {
+        Row: {
+          created_at: string
+          decision: string
+          detail: string | null
+          enqueued: number
+          filtered: number
+          grade: string | null
+          id: number
+          instrument: string | null
+          signal_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          decision: string
+          detail?: string | null
+          enqueued?: number
+          filtered?: number
+          grade?: string | null
+          id?: number
+          instrument?: string | null
+          signal_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          decision?: string
+          detail?: string | null
+          enqueued?: number
+          filtered?: number
+          grade?: string | null
+          id?: number
+          instrument?: string | null
+          signal_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       experiment_arms: {
         Row: {
           arm_label: string
@@ -2436,6 +2475,9 @@ export type Database = {
           account_currency: string
           account_equity: number
           alert_min_grade: Database["public"]["Enums"]["signal_grade"]
+          auto_intel_gate_enabled: boolean
+          auto_intel_min_sample: number
+          auto_intel_min_win_pct: number | null
           created_at: string
           daily_setup_cap: number
           equity_as_of: string | null
@@ -2472,6 +2514,9 @@ export type Database = {
           account_currency?: string
           account_equity?: number
           alert_min_grade?: Database["public"]["Enums"]["signal_grade"]
+          auto_intel_gate_enabled?: boolean
+          auto_intel_min_sample?: number
+          auto_intel_min_win_pct?: number | null
           created_at?: string
           daily_setup_cap?: number
           equity_as_of?: string | null
@@ -2508,6 +2553,9 @@ export type Database = {
           account_currency?: string
           account_equity?: number
           alert_min_grade?: Database["public"]["Enums"]["signal_grade"]
+          auto_intel_gate_enabled?: boolean
+          auto_intel_min_sample?: number
+          auto_intel_min_win_pct?: number | null
           created_at?: string
           daily_setup_cap?: number
           equity_as_of?: string | null
