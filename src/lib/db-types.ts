@@ -182,6 +182,14 @@ export interface ScannerSettingsRow {
   equity_as_of: string | null;
   /** Persisted acknowledgement required to risk more than 2% per trade. */
   risk_ack_high: boolean;
+  /**
+   * Optional intelligence gate on AUTOMATIC ORDERS ONLY. Off by default, and
+   * reduce-only: it can refuse an order, never authorise one. A NULL threshold
+   * means unconfigured, and an unconfigured gate refuses nothing.
+   */
+  auto_intel_gate_enabled: boolean;
+  auto_intel_min_win_pct: number | null;
+  auto_intel_min_sample: number;
 }
 
 export type OrderStrategy = "smart_adaptive" | "strict_retest";

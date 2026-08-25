@@ -47,6 +47,24 @@ C-Grade is never executed, and an owner with no settings row gets no order rathe
 than a guessed default. Automatic orders therefore never reach an instrument,
 session or grade the owner did not select.
 
+On top of eligibility there is one optional, off-by-default, reduce-only rule:
+the **intelligence gate** (`src/lib/delivery/intel-gate.ts`). When an owner sets a
+minimum win-if-filled rate, an eligible setup only becomes an order if the
+replay-derived `regime_stats` rate for its own regime meets that threshold with at
+least the configured number of filled samples behind it. A regime with too few
+resolved samples — or unreadable statistics — is **refused, not passed**: the gate
+fails closed and its refusal is recorded as a missing measurement, never as a
+forecast. The gate governs automatic orders only; it never touches the feed,
+alerts, grading, replay or any statistic.
+
+Every enqueue decision, including each refusal and each system-wide refusal, is
+recorded in `execution_enqueue_decisions` (`enqueue-log.server.ts`, best-effort so
+a diagnostic write can never affect a publish). This is why an empty delivery
+ledger is unambiguous: either a decision exists and says why, or the engine
+published nothing. The owner sees their own decisions in Settings; the admin
+terminal sees the recent decisions pseudonymously.
+
+
 ### States
 
 `pending` → `claimed` → one of `sent`, `acknowledged`, `rejected`, `unknown`,
@@ -77,7 +95,8 @@ Resolution of those states is manual or dry-run.
   dry/live authorisation, risk inputs that determine quantity, and the eligibility
   settings `instruments`, `sessions`, `alert_min_grade`, `daily_setup_cap`. The
   version is snapshotted at enqueue; at dispatch a mismatch is rejected with
-  `configuration_changed_since_enqueue`. An old signal is never silently sent under
+  `configuration_changed_since_enqueue`, `intelligence_gate_below_threshold`,
+`intelligence_gate_sample_insufficient`. An old signal is never silently sent under
   new authorisation.
 - **Server-only authorisation writes.** Database column privileges prevent an
   authenticated browser/REST client from reading or replacing the bridge secret
@@ -94,6 +113,12 @@ Resolution of those states is manual or dry-run.
   explicit quantity, so it is eligible for automatic live execution.
   **PineConnector remains dry-run only** for automatic execution because its
   quantity/risk field contract is not verified; its sizing syntax is not guessed.
+- **Live-host allow-list is owner-managed and fails closed.** A live POST may only
+  go to a host on `execution_controls.allowed_live_hosts`. Live execution cannot be
+  enabled while `force_dry_run` is on or while the list is empty, automatic live
+  orders cannot be armed unless live execution is already on, and removing the last
+  allowed host disarms both. Hosts must be plain lowercase hostnames — a URL, path,
+  port or wildcard is rejected on save.
 - **Live-host allow-list** plus server-side URL validation at both save and
   dispatch, and `redirect: "manual"` everywhere.
 - **Connectivity test.** The test webhook validates the URL immediately before the
@@ -131,7 +156,8 @@ Every refusal has a named reason, including
 `instrument_disabled`, `webhook_not_configured`, `webhook_not_validated`,
 `endpoint_rejected`, `not_alert_eligible`, `signal_missing`, `signal_not_active`,
 `tif_expired`, `quote_unavailable`, `policy_unsupported`,
-`configuration_changed_since_enqueue`.
+`configuration_changed_since_enqueue`, `intelligence_gate_below_threshold`,
+`intelligence_gate_sample_insufficient`.
 
 ## User-facing meaning
 
@@ -151,6 +177,7 @@ read only the facts the provider returns, and missing facts remain unavailable.
 ## Implementation
 
 `src/lib/delivery/execution.ts`, `revalidate.server.ts`, `dispatch.server.ts`,
+`direct-enqueue.server.ts`, `intel-gate.ts`, `enqueue-log.ts`,
 `hmac.ts`, `outbound-url.server.ts`, `exposure.ts`, `eligibility.ts`,
 `src/lib/execution/direct.server.ts`, `src/lib/evidence/reconcile.server.ts`,
 `src/lib/execution.functions.ts`, `src/lib/webhook-test.functions.ts`,
@@ -159,4 +186,6 @@ read only the facts the provider returns, and missing facts remain unavailable.
 ## Tests
 
 `src/lib/delivery/__tests__/execution-safety.test.ts`,
-`src/lib/delivery/__tests__/control-plane.test.ts`.
+`src/lib/delivery/__tests__/control-plane.test.ts`,
+`src/lib/delivery/__tests__/direct-enqueue.test.ts`,
+`src/lib/delivery/__tests__/intel-gate.test.ts`.

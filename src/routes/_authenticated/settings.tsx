@@ -42,6 +42,8 @@ import { GuideDetail } from "@/components/GuideMode";
 import { PushSection } from "@/components/PushSection";
 import { AgentConnectCard } from "@/components/AgentConnectCard";
 import { AutoTradingSummary } from "@/components/AutoTradingSummary";
+import { AutoIntelGate } from "@/components/AutoIntelGate";
+import { AutoOrderDecisions } from "@/components/AutoOrderDecisions";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
@@ -111,6 +113,10 @@ function SettingsPage() {
   const [riskPercent, setRiskPercent] = useState("1");
   // Persisted high-risk acknowledgement + entered-balance provenance.
   const [riskAckHigh, setRiskAckHigh] = useState(false);
+  // Optional intelligence gate on automatic orders. Off unless the user says so.
+  const [intelGate, setIntelGate] = useState(false);
+  const [intelMinWin, setIntelMinWin] = useState("");
+  const [intelMinSample, setIntelMinSample] = useState("30");
   const [equityAsOf, setEquityAsOf] = useState<string | null>(null);
   const [maxLots, setMaxLots] = useState("0");
   const [leverage, setLeverage] = useState("100");
@@ -220,6 +226,9 @@ function SettingsPage() {
     setCurrency(s.account_currency ?? "USD");
     setRiskPercent(String(Number(s.risk_per_trade_percent ?? 1)));
     setRiskAckHigh(s.risk_ack_high === true);
+    setIntelGate(s.auto_intel_gate_enabled === true);
+    setIntelMinWin(s.auto_intel_min_win_pct == null ? "" : String(Number(s.auto_intel_min_win_pct)));
+    setIntelMinSample(String(Number(s.auto_intel_min_sample ?? 30)));
     setEquityAsOf(s.equity_as_of ?? null);
     setMaxLots(String(Number(s.max_position_size ?? 0)));
     setLeverage(String(Number(s.leverage ?? 100)));
@@ -283,6 +292,13 @@ function SettingsPage() {
         // Never fabricate the acknowledgement: above-2% saves are blocked above
         // unless the box is ticked, so this only persists the user's own choice.
         risk_ack_high: riskAckHigh,
+        // Gate inputs: an empty or non-numeric threshold is stored as NULL so the
+        // gate stays unconfigured rather than silently blocking every order.
+        auto_intel_gate_enabled: intelGate,
+        auto_intel_min_win_pct: Number.isFinite(Number(intelMinWin)) && intelMinWin.trim() !== ""
+          ? clamp(Number(intelMinWin), 0, 100)
+          : null,
+        auto_intel_min_sample: Math.round(clamp(num(intelMinSample, 30), 1, 100000)),
         // Provenance: user-entered balance, timestamped when it changes.
         ...(equityChanged || !equityAsOf ? { equity_as_of: new Date().toISOString() } : {}),
       });
@@ -375,6 +391,19 @@ function SettingsPage() {
             riskPercent={riskPercent}
             maxLots={maxLots}
           />
+
+          <AutoIntelGate
+            enabled={intelGate}
+            minWinPct={intelMinWin}
+            minSample={intelMinSample}
+            onEnabledChange={setIntelGate}
+            onMinWinPctChange={setIntelMinWin}
+            onMinSampleChange={setIntelMinSample}
+          />
+
+          <AutoOrderDecisions />
+
+
 
           <section className="space-y-5 rounded-md border border-border bg-card p-4">
             <h2 className="label-xs">Feed filters — what you see</h2>

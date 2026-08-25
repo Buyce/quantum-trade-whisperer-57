@@ -1,0 +1,35 @@
+/**
+ * Plain-language rendering of automatic-order decisions (browser-safe).
+ *
+ * The wording is deliberately literal: each string says what the engine did and
+ * why, and never converts a refusal into a claim about the market or a forecast.
+ * An unknown decision code is shown verbatim rather than guessed at.
+ */
+export const ENQUEUE_DECISION_COPY: Record<string, string> = {
+  enqueued: "Queued for your armed account.",
+  c_grade_never_executes: "C-Grade setups are never executed automatically.",
+  automatic_execution_disabled: "Automatic execution is currently switched off system-wide.",
+  no_armed_account: "No account is armed for automatic orders.",
+  no_settings_row: "Your rules could not be read, so no order was placed.",
+  filtered_by_user_rules: "Your own rules excluded this setup.",
+  instrument_filtered: "This instrument is not in your selected instruments.",
+  session_filtered: "This setup's session is not in your selected sessions.",
+  below_alert_grade: "This setup's grade is below your minimum tier.",
+  below_min_grade: "This setup's grade is below your minimum tier.",
+  expired_retention: "The setup had already expired.",
+  daily_cap_reached: "Your trades-per-day limit was already used up.",
+  intelligence_gate_below_threshold:
+    "The historical win-if-filled rate for this regime is below your intelligence-gate threshold.",
+  intelligence_gate_sample_insufficient:
+    "Too few resolved replay samples behind this regime to satisfy your intelligence gate. This is a missing measurement, not a prediction.",
+};
+
+export function describeEnqueueDecision(decision: string): string {
+  const known = ENQUEUE_DECISION_COPY[decision];
+  if (known) return known;
+  if (decision.startsWith("enqueue_failed"))
+    return "The order could not be queued because of a database error.";
+  if (decision.endsWith("unreadable"))
+    return "A required record could not be read, so nothing was queued.";
+  return decision;
+}
