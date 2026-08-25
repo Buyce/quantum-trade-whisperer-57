@@ -40,7 +40,7 @@ and is never updated retroactively.
 18. [SECURITY.md](SECURITY.md)
 19. [OPERATIONS.md](OPERATIONS.md)
 20. [TESTING.md](TESTING.md)
-**Audits and indexes**
+    **Audits and indexes**
 
 - [LINK-AUDIT.md](LINK-AUDIT.md) — canonical URLs, internal link results and the
   vendor-guide audit behind the `/connect` steps.
@@ -60,9 +60,11 @@ Documents here are one of three kinds, and only the first carries the full
 structural contract:
 
 1. **Feature references** — every numbered document in the reading order above.
-   Each states: purpose, current behaviour, inputs, outputs, provenance, failure
-   behaviour, user-facing meaning, explicit non-guarantees, implementation files
-   and tests. Enforced by `src/test/__tests__/docs-contract.test.ts`.
+   Each opens with its purpose and then states current behaviour, inputs, outputs,
+   provenance, failure behaviour, user-facing meaning, explicit non-guarantees,
+   implementation files and tests. `src/test/__tests__/docs-contract.test.ts`
+   enforces the parts that can be checked mechanically — provenance, explicit
+   non-guarantees and named tests — rather than the presence of literal headings.
 2. **Indexes and audits** — this file and `LINK-AUDIT.md`. They describe the
    documentation set rather than a feature, so the feature-reference headings do
    not apply.

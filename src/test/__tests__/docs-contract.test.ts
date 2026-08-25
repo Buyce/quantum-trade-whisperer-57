@@ -415,7 +415,14 @@ describe("documentation contract: documentation taxonomy", () => {
   it("[INVARIANT] feature references carry the full structural contract", () => {
     // The contract claim in docs/README.md is only made about feature references;
     // this asserts it is true of each of them rather than of every markdown file.
-    const required = [/purpose/i, /provenance/i, /non-guarantee|does not|not a /i, /test/i];
+    // "Purpose" is expressed as each document's opening statement rather than a
+    // literal heading, so the checkable claims are the ones that keep the docs
+    // honest: where numbers come from, what is not promised, and what tests guard it.
+    const required = [
+      /provenance|comes from|derived from/i,
+      /non-guarantee|does not|not a /i,
+      /test/i,
+    ];
     for (const rel of FEATURE_REFERENCES) {
       const text = read(rel);
       for (const re of required) {

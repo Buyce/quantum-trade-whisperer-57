@@ -23,7 +23,7 @@ export const Route = createFileRoute("/connect")({
       },
       { property: "og:type", content: "website" },
       { property: "og:url", content: "https://getptrades.com/connect" },
-      // `summary`, not `summary_large_image`: this page ships no absolute social
+      // A small `summary` card deliberately: this page ships no absolute social
       // image, and declaring a large card without one degrades the preview.
       { name: "twitter:card", content: "summary" },
     ],
