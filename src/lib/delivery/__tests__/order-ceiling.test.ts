@@ -51,9 +51,9 @@ describe("occupiedOrderCounts", () => {
     const out = await occupiedOrderCounts(c.client, ["u1"], NOW);
     expect(out.readable).toBe(true);
     expect(out.counts.get("u1")).toBe(1);
-    expect(c.filters.some((f) => f.op === "neq" && f.column === "dry_run" && f.value === true)).toBe(
-      true,
-    );
+    expect(
+      c.filters.some((f) => f.op === "neq" && f.column === "dry_run" && f.value === true),
+    ).toBe(true);
   });
 
   it("[INVARIANT] real occupying orders are still counted", async () => {
