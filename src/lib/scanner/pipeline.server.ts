@@ -41,8 +41,19 @@ import {
   type Timeframe,
 } from "./types";
 import { REGISTRY_SYMBOLS } from "@/lib/instruments/registry";
-import { describeStage, mayPublish, mayScan, stageOf } from "@/lib/instruments/lifecycle";
+import {
+  describeStage,
+  mayCaptureResearch,
+  mayEvaluateStrategy,
+  mayPublish,
+  mayScan,
+  stageOf,
+} from "@/lib/instruments/lifecycle";
 import { readLifecycleView } from "@/lib/instruments/lifecycle.server";
+// The session ALGORITHM version, stamped on every research row so a later change
+// to session boundaries cannot silently redefine older measurements.
+import { SESSION_VERSION } from "./session";
+
 
 const TIMEFRAMES: Timeframe[] = ["H4", "H1", "M15"];
 
