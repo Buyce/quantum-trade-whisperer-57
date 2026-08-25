@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { type InstrumentCapability, instrumentCapability } from "@/lib/db-types";
 import { formatDuration, marketStatus } from "@/lib/market-hours";
 import { cn } from "@/lib/utils";
 
@@ -6,6 +7,23 @@ export interface MarketStatusHealth {
   instrument: string;
   available: boolean;
   unavailable_until: string | null;
+}
+
+export interface InstrumentStageRow {
+  symbol: string;
+  stage: string;
+}
+
+/**
+ * What the chip says. Feed reachability alone is NOT a claim of availability: a
+ * pair in measurement has a reachable broker feed while still being forbidden
+ * from publishing, alerting or executing.
+ */
+export function feedChipLabel(available: boolean, capability: InstrumentCapability): string {
+  if (!available) return "feed down";
+  if (capability === "publishable") return "live feed";
+  if (capability === "measuring") return "measuring — not published yet";
+  return "not in service";
 }
 
 /**
