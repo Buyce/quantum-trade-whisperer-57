@@ -3135,6 +3135,7 @@ export type Database = {
           account_currency: string
           account_equity: number
           alert_min_grade: Database["public"]["Enums"]["signal_grade"]
+          auto_execute_c_grade: boolean
           auto_intel_gate_enabled: boolean
           auto_intel_min_sample: number
           auto_intel_min_win_pct: number | null
@@ -3174,6 +3175,7 @@ export type Database = {
           account_currency?: string
           account_equity?: number
           alert_min_grade?: Database["public"]["Enums"]["signal_grade"]
+          auto_execute_c_grade?: boolean
           auto_intel_gate_enabled?: boolean
           auto_intel_min_sample?: number
           auto_intel_min_win_pct?: number | null
@@ -3213,6 +3215,7 @@ export type Database = {
           account_currency?: string
           account_equity?: number
           alert_min_grade?: Database["public"]["Enums"]["signal_grade"]
+          auto_execute_c_grade?: boolean
           auto_intel_gate_enabled?: boolean
           auto_intel_min_sample?: number
           auto_intel_min_win_pct?: number | null

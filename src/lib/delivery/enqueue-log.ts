@@ -8,6 +8,10 @@
 export const ENQUEUE_DECISION_COPY: Record<string, string> = {
   enqueued: "Queued for your armed account.",
   c_grade_never_executes: "C-Grade setups are never executed automatically.",
+  c_grade_blocked_by_user_setting:
+    "This is a C-Grade setup and you have not allowed C-Grade automatic orders.",
+  c_grade_allowed_by_user_setting:
+    "Queued for your armed account as a C-Grade setup, which you have explicitly allowed.",
   automatic_execution_disabled: "Automatic execution is currently switched off system-wide.",
   no_armed_account: "No account is armed for automatic orders.",
   no_settings_row: "Your rules could not be read, so no order was placed.",

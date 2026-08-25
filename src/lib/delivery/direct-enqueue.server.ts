@@ -68,6 +68,7 @@ interface SettingsRow {
   auto_intel_gate_enabled: boolean | null;
   auto_intel_min_win_pct: number | string | null;
   auto_intel_min_sample: number | null;
+  auto_execute_c_grade: boolean | null;
 }
 
 export interface DirectEnqueueOutcome {
@@ -109,8 +110,10 @@ export async function enqueueDirectDeliveries(
     return { enqueued: 0, filtered: 0, reason };
   };
 
-  // C-Grade is never automatically executed. Unchanged rule.
-  if (signal.grade === "C") return await empty("c_grade_never_executes");
+  // C-Grade is refused unless the owner has explicitly opted in
+  // (`scanner_settings.auto_execute_c_grade`, default false). The decision is
+  // per-owner, so it is made inside the per-account loop below rather than here;
+  // an opted-in C-Grade setup still faces every other gate unchanged.
 
   // Lifecycle: only an instrument approved for execution may be enqueued at all.
   // The pre-send gate repeats this check, because a suspension can land after a
@@ -164,7 +167,7 @@ export async function enqueueDirectDeliveries(
   const { data: settingsRows, error: settingsError } = await db
     .from("scanner_settings")
     .select(
-      "user_id, instruments, sessions, alert_min_grade, daily_setup_cap, execution_config_version, auto_intel_gate_enabled, auto_intel_min_win_pct, auto_intel_min_sample",
+      "user_id, instruments, sessions, alert_min_grade, daily_setup_cap, execution_config_version, auto_intel_gate_enabled, auto_intel_min_win_pct, auto_intel_min_sample, auto_execute_c_grade",
     )
     .in("user_id", userIds);
   if (settingsError) return await empty("settings_unreadable", settingsError.message);
@@ -239,6 +242,23 @@ export async function enqueueDirectDeliveries(
       });
       continue;
     }
+    // Owner opt-in for C-Grade. Absent or false means the historical refusal.
+    const cGradeAllowed = row.auto_execute_c_grade === true;
+    if (signal.grade === "C" && !cGradeAllowed) {
+      filtered += 1;
+      decisions.push({
+        user_id: account.user_id,
+        signal_id: signal.id,
+        instrument: signal.instrument,
+        grade: signal.grade,
+        decision: "c_grade_blocked_by_user_setting",
+        detail: null,
+        enqueued: 0,
+        filtered: 1,
+      });
+      continue;
+    }
+
     const grade = (row.alert_min_grade ?? "B") as Grade;
     const settings: EligibilitySettings = {
       instruments: row.instruments ?? [],
@@ -313,7 +333,7 @@ export async function enqueueDirectDeliveries(
       signal_id: signal.id,
       instrument: signal.instrument,
       grade: signal.grade,
-      decision: "enqueued",
+      decision: signal.grade === "C" ? "c_grade_allowed_by_user_setting" : "enqueued",
       detail: account.mode,
       enqueued: 1,
       filtered: 0,
@@ -330,7 +350,7 @@ export async function enqueueDirectDeliveries(
     .upsert(rows, { onConflict: "user_id,signal_id,bridge_profile", ignoreDuplicates: true });
   if (insertError) {
     const failed = decisions.map((d) =>
-      d.decision === "enqueued"
+      d.enqueued === 1
         ? { ...d, decision: "enqueue_failed", detail: insertError.message, enqueued: 0 }
         : d,
     );
