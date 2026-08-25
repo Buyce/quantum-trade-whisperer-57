@@ -119,9 +119,9 @@ Also replace LINK-AUDIT's "all 18 documents" with "every document listed in the 
 
 ## 9. Readiness verdict
 
-- **Mechanical:** W1 formatting + `prefer-const`, W7 SEO fixes, W6 count/typo fixes, W9 `.gitignore`, W10.
-- **Product decisions needed:** timeframes removal, homepage execution prominence, `/connect` registration guidance, MetaStats/Guardian placement.
-- **Security review:** W8 guidance change; W9 untracking decision (no rotation required).
+- **Mechanical:** W1 formatting + `prefer-const`, W7 SEO fixes, W6 doc-count and taxonomy fixes, W10 pinning.
+- **Product decisions needed:** timeframe deprecation, homepage execution prominence, `/connect` registration guidance, MetaStats/Guardian placement, tool-count wording.
+- **Security review:** W8 guidance change; W9 untracking after env-injection verification (no rotation, no history rewrite required).
 - **Migrations:** none.
 - **Authenticated testing:** W2 Settings round-trip, W5 Guide rendering.
 - **Broker-authorised smoke:** still out of scope; demo-order smoke stays `NOT RUN`.
