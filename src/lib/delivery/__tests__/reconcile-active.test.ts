@@ -34,9 +34,9 @@ describe("reconcilable signal state", () => {
   });
 
   it("[INVARIANT] an expired signal is never reconciled, however it is displayed", () => {
-    expect(
-      isReconcilable(signal({ id: "a", expired_at: "2026-08-25T11:00:00.000Z" }), NOW),
-    ).toBe(false);
+    expect(isReconcilable(signal({ id: "a", expired_at: "2026-08-25T11:00:00.000Z" }), NOW)).toBe(
+      false,
+    );
   });
 
   it("[INVARIANT] a non-active status is never reconciled", () => {
@@ -46,9 +46,9 @@ describe("reconcilable signal state", () => {
   });
 
   it("[UNIT] an expiry exactly at now is already past", () => {
-    expect(
-      isReconcilable(signal({ id: "a", expired_at: new Date(NOW).toISOString() }), NOW),
-    ).toBe(false);
+    expect(isReconcilable(signal({ id: "a", expired_at: new Date(NOW).toISOString() }), NOW)).toBe(
+      false,
+    );
   });
 });
 

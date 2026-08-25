@@ -99,4 +99,3 @@ describe("FRED adapter", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 });
-
