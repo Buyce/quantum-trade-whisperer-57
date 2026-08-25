@@ -456,11 +456,16 @@ export async function revalidateDelivery(
     return reject("spread_too_wide");
   }
 
+  // A pending limit is validated on its own terms: the market must still be on
+  // the far side of the planned entry. The do-not-chase ceiling is the rule for a
+  // MARKET entry (and is what the feed and alerts state); applying it here would
+  // refuse exactly the case where a limit cannot slip at all. The broker's
+  // minimum distance is not known until the destination specification is loaded
+  // in section 6, so this first pass asserts the side only and section 6a-bis
+  // re-asks with the broker's own distance.
   const marketPrice = action === "buy_limit" ? quote.ask : quote.bid;
-  if (
-    !withinMaxAcceptableEntry({ action, maxAcceptableEntry: plan.maxAcceptableEntry }, marketPrice)
-  ) {
-    return reject("price_beyond_max_acceptable_entry", String(marketPrice));
+  if (!pendingLimitSideValid({ action, entry: plan.entryPrice }, marketPrice)) {
+    return reject("limit_price_not_on_pending_side", `market ${marketPrice} vs ${plan.entryPrice}`);
   }
 
   // ---- 5b. Direct destination: resolve and gate the ACCOUNT first ----------
