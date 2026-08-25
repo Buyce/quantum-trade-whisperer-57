@@ -82,6 +82,12 @@ export type BrokerOrderStatusKind =
   | "failed"
   | "unknown";
 
+export interface BrokerOrderDestination {
+  kind: "broker_account" | "webhook_bridge" | "unknown";
+  /** Short user-facing label naming the destination. */
+  label: string;
+}
+
 export interface BrokerOrderStatus {
   kind: BrokerOrderStatusKind;
   /** Short user-facing label. Never claims an outcome the broker did not give. */
