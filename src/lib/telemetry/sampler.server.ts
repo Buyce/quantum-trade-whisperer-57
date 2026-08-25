@@ -31,6 +31,9 @@ import { withBenchmarkAccount } from "@/lib/metaapi/benchmark.server";
 import { scannerSessionOf } from "@/lib/market-hours";
 import { SESSION_VERSION } from "@/lib/scanner/session";
 
+import { assetClassOf } from "@/lib/instruments/registry";
+import { calendarForAssetClass, calendarUsable } from "@/lib/instruments/calendars";
+
 import { readTelemetryControls } from "./controls.server";
 import {
   ATR_SNAPSHOT_MAX_AGE_MS,
