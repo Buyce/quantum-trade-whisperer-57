@@ -140,7 +140,7 @@ const GRADES = new Set(["A+", "A", "B", "C"]);
 function engineRefusalCopy(reason: string | null): string | null {
   if (!reason) return "P-Trades did not submit this order and recorded no reason.";
   const [name, ...rest] = reason.split(":");
-  const key = name.trim() as RejectReason;
+  const key = (name ?? "").trim() as RejectReason;
   const copy = REJECT_COPY[key];
   const detail = rest.join(":").trim();
   if (!copy) return reason;
