@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { feedChipLabel } from "@/components/MarketStatus";
+import { feedChipLabel } from "@/lib/instruments/feed-labels";
 import { ALL_INSTRUMENTS, instrumentCapability, publishableInstruments } from "@/lib/db-types";
 
 const DEPLOYED = [
