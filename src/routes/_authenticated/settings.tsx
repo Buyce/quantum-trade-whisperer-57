@@ -10,10 +10,11 @@ import { sendTestWebhook } from "@/lib/webhook-test.functions";
 import { getExecutionStatus, saveBridgeSettings } from "@/lib/execution.functions";
 
 import { useAuth } from "@/hooks/useAuth";
-import { saveSettings, settingsQuery } from "@/lib/queries";
+import { instrumentStagesQuery, saveSettings, settingsQuery } from "@/lib/queries";
 import {
   ALL_INSTRUMENTS,
   ALL_SESSIONS,
+  publishableInstruments,
   SESSION_LABELS,
   INSTRUMENT_LABELS,
   ORDER_TIF_MINUTES,
@@ -82,6 +83,10 @@ function SettingsPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const settings = useQuery(settingsQuery(user?.id));
+  const stages = useQuery(instrumentStagesQuery());
+  // Selectable instruments are whatever the lifecycle currently allows to publish;
+  // an unreadable stage view falls back to Wave 0 rather than offering more.
+  const selectableInstruments = publishableInstruments(stages.data);
 
   const [instruments, setInstruments] = useState<string[]>([...ALL_INSTRUMENTS]);
   const [sessions, setSessions] = useState<string[]>([...ALL_SESSIONS]);
@@ -277,7 +282,9 @@ function SettingsPage() {
     try {
       await saveSettings({
         user_id: user.id,
-        instruments,
+        // Never persist a symbol the lifecycle does not allow to publish, even if
+        // it was selected before a stage change.
+        instruments: instruments.filter((i) => selectableInstruments.includes(i)),
         sessions,
         min_grade: minGrade,
         alert_min_grade: alertMinGrade,
@@ -419,7 +426,7 @@ function SettingsPage() {
             <div>
               <Label className="text-xs">Instruments</Label>
               <div className="mt-2 flex flex-wrap gap-2">
-                {ALL_INSTRUMENTS.map((i) => (
+                {selectableInstruments.map((i) => (
                   <Chip
                     key={i}
                     active={instruments.includes(i)}
@@ -430,6 +437,19 @@ function SettingsPage() {
                   </Chip>
                 ))}
               </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Only instruments cleared to publish appear here. Pairs the scanner is still
+                measuring show as “measuring” on the Feed and become selectable once they are
+                promoted.
+              </p>
+              <GuideDetail
+                className="mt-2"
+                title="Why some instruments are missing"
+                what="Every instrument sits at one of three user-visible states: measuring (studied against live broker data, no signals), signal-only (published to your feed and alerts, never sent to a broker), and execution-approved (eligible for automatic orders as well)."
+                why="Offering a measuring pair would promise setups the engine is forbidden to publish for it."
+                todo="Select from the instruments listed here; a measuring pair appears automatically once it is promoted."
+                assume="A reachable broker feed on the Feed page does not mean an instrument is tradeable for you."
+              />
             </div>
 
             {/*

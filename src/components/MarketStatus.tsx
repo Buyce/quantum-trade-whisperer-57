@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { instrumentCapability } from "@/lib/db-types";
+import { feedChipLabel } from "@/lib/instruments/feed-labels";
 import { formatDuration, marketStatus } from "@/lib/market-hours";
 import { cn } from "@/lib/utils";
 
@@ -6,6 +8,11 @@ export interface MarketStatusHealth {
   instrument: string;
   available: boolean;
   unavailable_until: string | null;
+}
+
+export interface InstrumentStageRow {
+  symbol: string;
+  stage: string;
 }
 
 /**
@@ -16,7 +23,13 @@ export interface MarketStatusHealth {
  * boundaries the scanner uses) and instrument state is read from the
  * instrument_health rows the scanner already writes.
  */
-export function MarketStatus({ health }: { health?: MarketStatusHealth[] }) {
+export function MarketStatus({
+  health,
+  stages,
+}: {
+  health?: MarketStatusHealth[];
+  stages?: InstrumentStageRow[];
+}) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 30_000);
@@ -25,6 +38,9 @@ export function MarketStatus({ health }: { health?: MarketStatusHealth[] }) {
 
   const status = useMemo(() => marketStatus(new Date(now)), [now]);
   const rows = health ?? [];
+  const measuring = rows.filter(
+    (h) => h.available && instrumentCapability(h.instrument, stages) === "measuring",
+  );
 
   return (
     <div className="rounded-lg border border-border bg-card/50 p-3">
@@ -79,19 +95,38 @@ export function MarketStatus({ health }: { health?: MarketStatusHealth[] }) {
       </div>
 
       {rows.length > 0 ? (
-        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 border-t border-border pt-3">
-          {rows.map((h) => (
-            <span key={h.instrument} className="flex items-center gap-1.5 text-xs">
-              <span
-                aria-hidden
-                className={cn("size-2 rounded-full", h.available ? "bg-success" : "bg-destructive")}
-              />
-              <span className="num text-foreground">{h.instrument}</span>
-              <span className="text-muted-foreground">
-                {h.available ? "live feed" : "feed down"}
-              </span>
-            </span>
-          ))}
+        <div className="mt-3 border-t border-border pt-3">
+          <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+            {rows.map((h) => {
+              const capability = instrumentCapability(h.instrument, stages);
+              return (
+                <span key={h.instrument} className="flex items-center gap-1.5 text-xs">
+                  <span
+                    aria-hidden
+                    className={cn(
+                      "size-2 rounded-full",
+                      !h.available
+                        ? "bg-destructive"
+                        : capability === "publishable"
+                          ? "bg-success"
+                          : "bg-muted-foreground/60",
+                    )}
+                  />
+                  <span className="num text-foreground">{h.instrument}</span>
+                  <span className="text-muted-foreground">
+                    {feedChipLabel(h.available, capability)}
+                  </span>
+                </span>
+              );
+            })}
+          </div>
+          {measuring.length > 0 ? (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Measuring instruments are being validated against live broker data. They produce no
+              signals, alerts or orders yet, and become selectable in Settings only once they are
+              promoted.
+            </p>
+          ) : null}
         </div>
       ) : null}
     </div>

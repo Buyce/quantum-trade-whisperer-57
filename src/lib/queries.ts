@@ -212,6 +212,24 @@ export function instrumentHealthQuery() {
 }
 
 /**
+ * Lifecycle stage per instrument, read from the restricted `instrument_stages`
+ * view (symbol + stage only). The terminal uses it to say what an instrument is
+ * actually allowed to do rather than inferring capability from feed reachability.
+ */
+export function instrumentStagesQuery() {
+  return queryOptions({
+    queryKey: ["instrument-stages"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("instrument_stages" as never)
+        .select("symbol, stage");
+      if (error) throw error;
+      return (data ?? []) as unknown as Array<{ symbol: string; stage: string }>;
+    },
+  });
+}
+
+/**
  * Read-then-branch decision write. Insert initialises state and captures the
  * immutable journal snapshot; update touches decision + provenance only, so a
  * second tap can never reset a resolved trade's outcome to 'open'. A resolved

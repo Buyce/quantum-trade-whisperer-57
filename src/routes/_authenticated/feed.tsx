@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import {
   instrumentHealthQuery,
+  instrumentStagesQuery,
   logDecision,
   myTradesQuery,
   settingsQuery,
@@ -74,6 +75,7 @@ function FeedPage() {
   const trades = useQuery(myTradesQuery(user?.id));
   const settings = useQuery(settingsQuery(user?.id));
   const health = useQuery(instrumentHealthQuery());
+  const stages = useQuery(instrumentStagesQuery());
   // One shared cached quote poll for the whole page — cards read from this map.
   const { quotes } = useQuotes();
 
@@ -321,7 +323,7 @@ function FeedPage() {
     <div className="space-y-5">
       <OnboardingBanner />
 
-      <MarketStatus health={health.data ?? []} />
+      <MarketStatus health={health.data ?? []} stages={stages.data ?? []} />
 
       <GuideNote anchor="grades">
         Grades describe structure quality, not the odds of winning: A+ is an A-grade structure with
