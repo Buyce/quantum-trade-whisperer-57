@@ -18,7 +18,7 @@ import {
   hostAllowedForLive,
   spreadAcceptable,
   validateQuantity,
-  withinMaxAcceptableEntry,
+  pendingLimitSideValid,
   type BridgeOrder,
   type ExecutionPolicy,
   type OrderQuantity,
