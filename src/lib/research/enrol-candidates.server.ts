@@ -250,6 +250,8 @@ export interface CandidateEnrolmentSummary {
   budget: number;
   considered: number;
   skippedNotExecutable: number;
+  /** Refused by the instrument lifecycle at the write boundary. */
+  skippedNotApproved: number;
   enrolled: number;
   enrolledCounterfactual: number;
   /** Existing execution adopted after a duplicate insert — no new row created. */
@@ -262,6 +264,7 @@ const EMPTY: CandidateEnrolmentSummary = {
   budget: 0,
   considered: 0,
   skippedNotExecutable: 0,
+  skippedNotApproved: 0,
   enrolled: 0,
   enrolledCounterfactual: 0,
   reconciled: 0,
@@ -306,6 +309,7 @@ export async function enrolPendingCandidates(
       budget,
       considered: rows.length,
       skippedNotExecutable: 0,
+      skippedNotApproved: 0,
       enrolled: 0,
       enrolledCounterfactual: 0,
       reconciled: 0,
@@ -345,7 +349,7 @@ export async function enrolPendingCandidates(
        */
       const stageGate = await assertCapability(db, c.instrument, "resolve_research");
       if (!stageGate.allowed) {
-        summary.skipped += 1;
+        summary.skippedNotApproved += 1;
         continue;
       }
 
