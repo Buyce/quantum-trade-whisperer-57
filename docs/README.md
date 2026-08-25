@@ -40,9 +40,13 @@ and is never updated retroactively.
 18. [SECURITY.md](SECURITY.md)
 19. [OPERATIONS.md](OPERATIONS.md)
 20. [TESTING.md](TESTING.md)
-21. [PROMPT-14-VERIFICATION.md](PROMPT-14-VERIFICATION.md)
-22. [LINK-AUDIT.md](LINK-AUDIT.md) — canonical URLs, internal link results and the
-    vendor-guide audit behind the `/connect` steps.
+**Audits and indexes**
+
+- [LINK-AUDIT.md](LINK-AUDIT.md) — canonical URLs, internal link results and the
+  vendor-guide audit behind the `/connect` steps.
+- [audits/2026-08-23-prompt-14.md](audits/2026-08-23-prompt-14.md) — dated Prompt 14
+  closure snapshot. Historical evidence for that checkout only; it does not describe
+  verification status at HEAD.
 
 **Historical**
 
@@ -50,11 +54,25 @@ and is never updated retroactively.
   pinned defects. Historical characterisation, not a statement of intent.
 - [DB-TESTS.md](DB-TESTS.md) — the SQL regression layer.
 
-## Document contract
+## Document taxonomy and contract
 
-Every document in this set states: purpose, current behaviour, inputs, outputs,
-provenance, failure behaviour, user-facing meaning, explicit non-guarantees,
-implementation files and tests.
+Documents here are one of three kinds, and only the first carries the full
+structural contract:
+
+1. **Feature references** — every numbered document in the reading order above.
+   Each states: purpose, current behaviour, inputs, outputs, provenance, failure
+   behaviour, user-facing meaning, explicit non-guarantees, implementation files
+   and tests. Enforced by `src/test/__tests__/docs-contract.test.ts`.
+2. **Indexes and audits** — this file and `LINK-AUDIT.md`. They describe the
+   documentation set rather than a feature, so the feature-reference headings do
+   not apply.
+3. **Dated audit snapshots** — everything under `audits/`. Each is frozen evidence
+   from a named date and is never retrofitted to HEAD. Excluded from the contract
+   by design; adding empty headings to a historical record would falsify it.
+
+Every document listed in this index resolves, and every implementation path it
+cites exists — both checked mechanically rather than asserted as a count, because
+a hardcoded document total drifts on the next commit.
 
 ## Writing rules for this documentation
 

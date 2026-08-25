@@ -30,7 +30,7 @@ canonical documentation.
 | Source                        | Targets                                                                | Result          |
 | ----------------------------- | ---------------------------------------------------------------------- | --------------- |
 | `README.md`                   | `docs/*` index, `AGENTS.md`                                            | resolve         |
-| `docs/README.md`              | all 18 documents in `docs/`                                            | resolve         |
+| `docs/README.md`              | every document listed in the canonical index, including `docs/audits/` | resolve         |
 | `docs/*`                      | sibling documents, `src/**` implementation paths                       | resolve         |
 | `src/routes/index.tsx`        | `/auth`, `/feed`, `/connect`                                           | routes exist    |
 | `src/components/AppShell.tsx` | `/feed`, `/history`, `/performance`, `/connect`, `/settings`, `/guide` | routes exist    |
