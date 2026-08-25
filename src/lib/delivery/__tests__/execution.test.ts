@@ -86,6 +86,36 @@ describe("price gates", () => {
     expect(withinMaxAcceptableEntry(order, 1.1558)).toBe(false);
   });
 
+  it("[INVARIANT] lets a pending buy limit rest below a market that has run up", () => {
+    const order = buildBridgeOrder(long, qty); // entry 1.156
+    // The market running away ABOVE a buy limit cannot slip the fill: the order
+    // waits. This is exactly the case the market-entry ceiling used to refuse.
+    expect(pendingLimitSideValid(order, 1.16)).toBe(true);
+    expect(withinMaxAcceptableEntry(order, 1.16)).toBe(false);
+  });
+
+  it("[INVARIANT] refuses a pending limit the market has already reached", () => {
+    const order = buildBridgeOrder(long, qty);
+    expect(pendingLimitSideValid(order, 1.156)).toBe(false);
+    expect(pendingLimitSideValid(order, 1.1555)).toBe(false);
+  });
+
+  it("[UNIT] mirrors pending-side validity for a sell limit", () => {
+    const short = buildBridgeOrder(
+      { ...long, direction: "short", entryPrice: 1.156, stopLoss: 1.157 },
+      qty,
+    );
+    expect(pendingLimitSideValid(short, 1.1555)).toBe(true);
+    expect(pendingLimitSideValid(short, 1.1565)).toBe(false);
+  });
+
+  it("[INVARIANT] enforces the broker minimum distance and never assumes one", () => {
+    const order = buildBridgeOrder(long, qty);
+    expect(pendingLimitSideValid(order, 1.1562, 0.0005)).toBe(false);
+    expect(pendingLimitSideValid(order, 1.1566, 0.0005)).toBe(true);
+    expect(pendingLimitSideValid(order, 1.16, Number.NaN)).toBe(false);
+  });
+
   it("[UNIT] rejects a spread larger than 15% of planned risk", () => {
     const order = buildBridgeOrder(long, qty); // risk = 0.001
     expect(spreadAcceptable(order, 1.156, 1.15612)).toBe(true);
