@@ -368,8 +368,9 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
           suppressionReason: v1Suppression?.reason ?? null,
           lifecycleStage: instrumentStage,
           sessionVersion: SESSION_VERSION,
-
+        }),
       ];
+
       if (v2) {
         rows.push(
           v2ObservationRow({
