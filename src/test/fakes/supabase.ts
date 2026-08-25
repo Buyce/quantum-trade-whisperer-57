@@ -15,6 +15,7 @@ export interface FakeCall {
   is: Record<string, unknown>;
   notIs: string[];
   in: Record<string, unknown[]>;
+  neq: Record<string, unknown>;
   or: string[];
   gte: Record<string, unknown>;
   range: { from: number; to: number } | null;
@@ -54,6 +55,7 @@ export function createFakeSupabase(
       is: {},
       notIs: [],
       in: {},
+      neq: {},
       or: [],
       gte: {},
       range: null,
@@ -80,6 +82,10 @@ export function createFakeSupabase(
       },
       is(column: string, value: unknown) {
         call.is[column] = value;
+        return api;
+      },
+      neq(column: string, value: unknown) {
+        call.neq[column] = value;
         return api;
       },
       not(column: string, op2: string, _value: unknown) {
