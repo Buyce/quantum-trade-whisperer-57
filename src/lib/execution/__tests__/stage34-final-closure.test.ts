@@ -369,6 +369,7 @@ function target(): DirectTarget {
 
 const plan = {
   signalId: request.signalId,
+  instrument: request.instrument,
   direction: "long",
   entryPrice: 2400,
   stopLoss: 2390,

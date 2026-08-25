@@ -27,7 +27,6 @@
  *    affect production scanner or resolver state.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { assertCapability } from "@/lib/instruments/lifecycle.server";
 import { REPLAY_V1_VERSION } from "@/lib/execution/replay-registry";
 import { RESEARCH_PLAN_VERSION } from "./counterfactual-plan";
 import { noteResearchFailure, RESEARCH_WRITE_DEADLINE_MS } from "./observations.server";
@@ -193,56 +192,33 @@ export function isExecutableCandidate(c: CandidateRow): boolean {
   return true;
 }
 
-/** Candidate-namespaced structure claim. Never consumes a V2/V3 claim slot. */
-async function claimCandidate(db: SupabaseClient, candidate: CandidateRow): Promise<boolean> {
-  const key = `candidate:${candidate.structure_key ?? candidate.id}`;
+interface CandidateRpcResult {
+  inserted?: boolean;
+  reconciled?: boolean;
+  reason?: string | null;
+  plan_id?: string | null;
+}
+
+async function enrolCandidateAtomically(
+  db: SupabaseClient,
+  candidateId: string,
+): Promise<CandidateRpcResult | { error: string }> {
   try {
-    const { data, error } = await db.rpc("claim_v2_structure", {
-      _model_version: CANDIDATE_CLAIM_NAMESPACE,
-      _structure_key: key,
+    const { data, error } = await db.rpc("enrol_research_candidate_shadow", {
+      _candidate_id: candidateId,
+      _claim_model_version: CANDIDATE_CLAIM_NAMESPACE,
       _cooldown_minutes: CANDIDATE_CLAIM_COOLDOWN_MINUTES,
+      _expected_plan_version: RESEARCH_PLAN_VERSION,
+      _replay_version: REPLAY_V1_VERSION,
+      _execution_policy: CANDIDATE_EXECUTION_POLICY,
+      _plan_origin: CANDIDATE_PLAN_ORIGIN,
+      _cohort: CANDIDATE_COHORT,
     });
-    if (error) return false;
-    return Boolean(data);
-  } catch {
-    return false;
+    if (error) return { error: error.message };
+    return (data ?? {}) as CandidateRpcResult;
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : String(err) };
   }
-}
-
-/** Reads the existing research execution for a candidate, if any. */
-async function existingExecutionPlanId(
-  db: SupabaseClient,
-  candidateId: string,
-): Promise<string | null> {
-  try {
-    const { data, error } = await db
-      .from("shadow_executions")
-      .select("plan_id")
-      .eq("research_candidate_id", candidateId)
-      .eq("replay_version", REPLAY_V1_VERSION)
-      .eq("execution_policy", CANDIDATE_EXECUTION_POLICY)
-      .eq("plan_origin", CANDIDATE_PLAN_ORIGIN)
-      .limit(1);
-    const rows = (data ?? []) as { plan_id?: string }[];
-    if (error) return null;
-    return rows[0]?.plan_id ?? null;
-  } catch {
-    return null;
-  }
-}
-
-/** Writes bookkeeping only if nothing else claimed the candidate meanwhile. */
-async function markEnrolled(
-  db: SupabaseClient,
-  candidateId: string,
-  planId: string,
-): Promise<string | null> {
-  const { error } = await db
-    .from("research_candidates")
-    .update({ enrolled_plan_id: planId, enrolled_at: new Date().toISOString() })
-    .eq("id", candidateId)
-    .is("enrolled_plan_id", null);
-  return error ? error.message : null;
 }
 
 export interface CandidateEnrolmentSummary {
@@ -322,123 +298,23 @@ export async function enrolPendingCandidates(
         continue;
       }
 
-      // Reconcile first: an earlier attempt may have created the execution and
-      // died before bookkeeping. Adopting it is always correct and never
-      // creates a row.
-      const orphan = await existingExecutionPlanId(db, c.id);
-      if (orphan) {
-        const bookkeeping = await markEnrolled(db, c.id, orphan);
-        if (bookkeeping) {
-          summary.failed += 1;
-          await noteResearchFailure(
-            db,
-            `candidate enrolment reconciliation failed: ${bookkeeping}`,
-            deadlineMs,
-          );
-          continue;
-        }
+      const result = await enrolCandidateAtomically(db, c.id);
+      if ("error" in result) {
+        summary.failed += 1;
+        await noteResearchFailure(db, `candidate enrolment rpc failed: ${result.error}`, deadlineMs);
+        continue;
+      }
+      if (result.inserted === true) {
+        summary.enrolled += 1;
+        summary.enrolledCounterfactual += 1;
+        continue;
+      }
+      if (result.reconciled === true) {
         summary.reconciled += 1;
         continue;
       }
-
-      /**
-       * Lifecycle research gate (Phase A2A, R6-FIX). Re-read per candidate, at
-       * the write boundary, because a batch assembled minutes ago may name an
-       * instrument that has since been suspended or demoted. Checked BEFORE the
-       * claim so a refused candidate stays enrollable once the stage recovers.
-       */
-      const stageGate = await assertCapability(db, c.instrument, "resolve_research");
-      if (!stageGate.allowed) {
-        summary.skippedNotApproved += 1;
-        continue;
-      }
-
-      if (!(await claimCandidate(db, c))) continue;
-
-      const planId = crypto.randomUUID();
-      const insert = await db.from("shadow_executions").insert({
-        plan_id: planId,
-        // Research rows are never backed by a published signal.
-        signal_id: null,
-        research_candidate_id: c.id,
-        cohort: CANDIDATE_COHORT,
-        plan_origin: CANDIDATE_PLAN_ORIGIN,
-        replay_version: REPLAY_V1_VERSION,
-        execution_policy: CANDIDATE_EXECUTION_POLICY,
-        instrument: c.instrument,
-        grade: c.cf_grade,
-        direction: c.direction,
-        detected_at: c.detected_at,
-        entry_price: c.entry_price,
-        stop_loss: c.stop_loss,
-        // The COMMON research ladder — identical semantics on both arms.
-        tp1: c.cf_tp1,
-        tp2: c.cf_tp2,
-        tp3: c.cf_tp3,
-        tp1_r: c.cf_tp1_r,
-        tp2_r: c.cf_tp2_r,
-        tp3_r: c.cf_tp3_r,
-        max_r: c.cf_max_r,
-        risk_price: c.risk_price,
-        atr: c.atr,
-        // A research ladder has no production confidence score; inventing one
-        // would make a research plan look graded.
-        confidence_score: null,
-        trading_session: c.trading_session,
-        volatility_index: c.volatility_index,
-        // Provenance: the candidate's own strategy version drives the model
-        // stamp, so a candidate outcome can never be read as a V2/V3 result.
-        model_version: c.strategy_version,
-        observation_key: c.observation_key,
-        quality_grade: c.cf_grade,
-        status: "pending",
-        replay_cursor: c.detected_at,
-        bars_replayed: 0,
-      });
-
-      if (insert.error) {
-        if (isDuplicate(insert.error.message)) {
-          // The database refused a second execution for this candidate. Adopt
-          // the one that already exists.
-          const existing = await existingExecutionPlanId(db, c.id);
-          if (existing) {
-            const bookkeeping = await markEnrolled(db, c.id, existing);
-            if (!bookkeeping) {
-              summary.reconciled += 1;
-              continue;
-            }
-            summary.failed += 1;
-            await noteResearchFailure(
-              db,
-              `candidate enrolment reconciliation failed: ${bookkeeping}`,
-              deadlineMs,
-            );
-          }
-          continue;
-        }
-        summary.failed += 1;
-        await noteResearchFailure(
-          db,
-          `candidate enrolment insert failed: ${insert.error.message}`,
-          deadlineMs,
-        );
-        continue;
-      }
-
-      // Only now does the candidate become "enrolled", and only if nothing else
-      // claimed it in the meantime.
-      const bookkeeping = await markEnrolled(db, c.id, planId);
-      if (bookkeeping) {
-        summary.failed += 1;
-        await noteResearchFailure(
-          db,
-          `candidate enrolment bookkeeping failed: ${bookkeeping}`,
-          deadlineMs,
-        );
-        continue;
-      }
-      summary.enrolled += 1;
-      summary.enrolledCounterfactual += 1;
+      if (result.reason === "not_executable") summary.skippedNotExecutable += 1;
+      else if (result.reason === "lifecycle_refused") summary.skippedNotApproved += 1;
     }
 
     return summary;

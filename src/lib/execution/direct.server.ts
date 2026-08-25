@@ -16,6 +16,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { isMappingUsable, mapSymbol } from "@/lib/accounts/symbol-map";
+import { INSTRUMENT_NOT_APPROVED } from "@/lib/instruments/lifecycle";
+import { assertCapability } from "@/lib/instruments/lifecycle.server";
 import { fetchAccountFacts, fetchOrders, fetchPositions } from "@/lib/metaapi/accounts.server";
 import { estimateMargin } from "@/lib/metaapi/margin.server";
 import { submitPendingOrder } from "@/lib/metaapi/trade.server";
@@ -336,6 +338,27 @@ export async function submitDirectOrder(
     submitted_at: new Date().toISOString(),
     sent_at: new Date().toISOString(),
   });
+
+  /**
+   * Final lifecycle read at the broker boundary (Phase A2A, R3-FIX).
+   *
+   * Revalidation, account refresh, final sizing and margin estimation all happened
+   * before this point. A suspension issued inside that window must still prevent
+   * the MetaApi call. The `sent` evidence remains as the immutable attempt
+   * boundary, but no broker request is made when this last read refuses.
+   */
+  const finalGate = await assertCapability(db as unknown as SupabaseClient, plan.instrument, "execute");
+  if (!finalGate.allowed) {
+    const reason = `${INSTRUMENT_NOT_APPROVED}: ${
+      finalGate.reason ?? `${plan.instrument} is not approved for execution`
+    }`;
+    await settle(db, delivery.id, {
+      state: "rejected",
+      reason,
+      settled_at: new Date().toISOString(),
+    });
+    return { state: "rejected", reason, brokerOrderId: null };
+  }
 
   let verdict;
   try {

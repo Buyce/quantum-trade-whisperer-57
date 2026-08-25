@@ -508,20 +508,16 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
           // Mean reversion is recorded but never forward-tested.
           v2Disposition = "observation_only";
         } else {
-          const claimed = await claimV2Structure(
-            db,
-            v2.profile.structureKey,
-            STRUCTURE_COOLDOWN_MINUTES,
-          );
-          v2Disposition = claimed ? "observation_only" : "suppressed_cooldown";
-          if (claimed && (await isV2EnrolmentEnabled(db))) {
+          v2Disposition = "observation_only";
+          if (await isV2EnrolmentEnabled(db)) {
             const enrolled = await enrolV2Shadow(db, {
               profile: v2.profile,
               detectedAt: now.toISOString(),
               session,
               observationKey: observationKey(job.run_id, job.instrument),
+              cooldownMinutes: STRUCTURE_COOLDOWN_MINUTES,
             });
-            if (enrolled) v2Disposition = "shadow_enrolled";
+            v2Disposition = enrolled ? "shadow_enrolled" : "suppressed_cooldown";
           }
         }
       }
@@ -546,20 +542,16 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
           // Mean reversion is recorded but never forward-tested.
           v3Disposition = "observation_only";
         } else {
-          const claimed = await claimV3Structure(
-            db,
-            v3.profile.structureKey,
-            STRUCTURE_COOLDOWN_MINUTES,
-          );
-          v3Disposition = claimed ? "observation_only" : "suppressed_cooldown";
-          if (claimed && (await isV3EnrolmentEnabled(db))) {
+          v3Disposition = "observation_only";
+          if (await isV3EnrolmentEnabled(db)) {
             const enrolled = await enrolV3Shadow(db, {
               profile: v3.profile,
               detectedAt: now.toISOString(),
               session,
               observationKey: observationKey(job.run_id, job.instrument),
+              cooldownMinutes: STRUCTURE_COOLDOWN_MINUTES,
             });
-            if (enrolled) v3Disposition = "shadow_enrolled";
+            v3Disposition = enrolled ? "shadow_enrolled" : "suppressed_cooldown";
           }
         }
       }

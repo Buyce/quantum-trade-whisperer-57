@@ -37,6 +37,7 @@ const gate = (over: Partial<DirectGateInput> = {}): DirectGateInput => ({
 
 const plan: DirectOrderPlan = {
   signalId: "3f4a1c9e-2b6d-4f7a-9c11-8d5e6f7a8b9c",
+  instrument: "EURUSD",
   direction: "long",
   entryPrice: 1.085,
   stopLoss: 1.08,

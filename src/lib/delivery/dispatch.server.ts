@@ -276,6 +276,30 @@ export async function processNextDelivery(
     sent_at: new Date().toISOString(),
   });
 
+  /**
+   * Final lifecycle read at the bridge boundary (Phase A2A, R3-FIX).
+   *
+   * `sent` is recorded before the irreversible network call so a worker death
+   * cannot re-claim and double-fire the order. The stage is then re-read one last
+   * time; a suspension in this tiny window rejects without POSTing.
+   */
+  const postSentGate = await assertCapability(
+    db as unknown as SupabaseClient,
+    submittedInstrument,
+    "execute",
+  );
+  if (!postSentGate.allowed) {
+    const reason = `${INSTRUMENT_NOT_APPROVED}: ${
+      postSentGate.reason ?? `${submittedInstrument} is not approved for execution`
+    }`;
+    await settle(db, delivery.id, {
+      state: "rejected",
+      reason,
+      settled_at: new Date().toISOString(),
+    });
+    return { deliveryId: delivery.id, state: "rejected", reason, dryRun: false };
+  }
+
   const startedAt = Date.now();
   try {
     const res = await fetch(endpoint.url, {
