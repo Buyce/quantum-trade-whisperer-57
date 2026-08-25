@@ -105,6 +105,33 @@ describe("pre-Prompt-7 characterization — frozen baseline vs current V1", () =
   );
 
   it.each(CASES)(
+    "[V1_CHARACTERIZATION] %s — structure identity differs from the frozen key ONLY by instrument precision",
+    (_id, scenario) => {
+      const input = {
+        instrument: scenario.instrument,
+        candles: scenario.candles,
+        session: scenario.session,
+      };
+      const frozen = frozenBuildTradeProfile(input);
+      const current = buildTradeProfile(input);
+      if (!frozen || !current) return;
+
+      // The frozen key's four leading components must be untouched: instrument,
+      // direction and both swing timestamps still define the same ABC leg.
+      const frozenParts = frozen.structureKey.split("|");
+      const currentParts = current.structureKey.split("|");
+      expect(currentParts.slice(0, 4)).toEqual(frozenParts.slice(0, 4));
+
+      // The stop anchor is the same NUMBER, re-rendered at the instrument's own
+      // precision — never a different price.
+      const decimals = priceDecimals(scenario.instrument);
+      expect(currentParts[4]).toBe(Number(frozenParts[4]).toFixed(decimals));
+      expect(Number(currentParts[4])).toBeCloseTo(Number(frozenParts[4]), decimals);
+    },
+  );
+
+
+  it.each(CASES)(
     "[V1_CHARACTERIZATION] %s — evaluateSetup agrees with the frozen decision and persists a terminal stage",
     (_id, scenario) => {
       const input = {
