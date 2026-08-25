@@ -65,4 +65,4 @@ New/updated: `docs/NEWS-AND-EVENTS.md`, `docs/CALIBRATION.md`, `docs/OUTCOME-RES
 
 ## Where this will stop
 
-At the market-evidence gate. Expect the outcome: green CI, dark news pipeline, more Wave 1 instruments collecting data, telemetry proven, calibration/resolution infrastructure ready — and shadow/signals/alerts/execution still closed, with the earliest legitimate review date stated per instrument (Wave 0 and AUDUSD on/after 2026-09-01, later for anything transitioned after today).
+Green CI, live FRED and EIA ingestion writing production rows with honest per-currency coverage, more Wave 1 instruments collecting data, telemetry proven, shadow running, and automatic execution open on demo destinations only with live money still off. I will report exactly which providers produce live rows, which families/currencies/instruments remain incomplete, whether timestamps are precise enough for intraday suppression, and whether the policy is dark or enforcing — rather than declaring the pipeline "implemented". I will stop and ask if a provider needs a credential or licence decision, or if evidence for a specific instrument's publication is genuinely absent.
