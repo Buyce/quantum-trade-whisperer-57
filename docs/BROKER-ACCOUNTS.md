@@ -47,7 +47,53 @@ states that the provider-side account may still exist. A connection pointing at
 the reserved P-Trades engine account can never be armed, refreshed or issued a
 login page, and is removed locally without any provider mutation.
 
+## Broker telemetry surfaces
+
+Two read-only observation surfaces hang off a connected account. Both describe
+what a broker reported; neither is a control that can stop an order.
+
+| Surface       | What it reports                                                                        | State when the account does not report it |
+| ------------- | -------------------------------------------------------------------------------------- | ----------------------------------------- |
+| MetaStats     | Broker-side trade history and account metrics, gated by provider feature availability   | `unavailable` — never back-filled from Settings |
+| Risk Guardian | Drawdown-tracker breach events, deduplicated per event and timestamped by the broker     | `unavailable`, with no breach implied     |
+
+Both surfaces expose three honest states: `processing` while the provider is still
+computing, `unavailable` when the account or plan does not offer the feature, and
+`refused` when a fetch failed or returned data too stale to trust. None of the
+three is rendered as a zero, a pass, or an absence of risk.
+
+## Provenance
+
+Account type, readiness, equity, symbol specifications, MetaStats metrics and Risk
+Guardian events all come from the broker via MetaApi and are labelled broker-derived
+and timestamped by the broker's own observation time. Position sizing that uses them
+comes from the shared sizing service (engine-derived). Settings equity is
+user-reported and is never substituted for broker equity.
+
+## Failure behaviour
+
+Every gate fails closed: a missing specification, a stale quote, an unready account,
+an unconfirmed account type or an exceeded exposure boundary refuses the delivery and
+names the reason. A refusal is never downgraded into a default value.
+
+## Explicit non-guarantees
+
+- Risk Guardian is monitoring, not a pre-submit safeguard: it observes after the
+  broker acts, so no reported breach does not prove no risk was taken.
+- MetaStats figures are the broker's, computed on the provider's schedule; they are
+  not a live account read and may lag.
+- Connection does not imply permission: no mode is armed by connecting, and no
+  account qualifies for every mode.
+- An exposure boundary is advisory and derived from logged deliveries, not from
+  broker margin state.
+
 ## Implementation
 
-`src/lib/accounts/*`, `src/lib/metaapi/*`,
+`src/lib/accounts/*`, `src/lib/metaapi/*`, `src/lib/telemetry/*`,
 `src/routes/_authenticated/accounts.tsx`.
+
+## Tests
+
+`src/lib/accounts/__tests__/*`, `src/lib/telemetry/__tests__/*`,
+`src/test/__tests__/docs-contract.test.ts`.
+
