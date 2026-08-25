@@ -293,16 +293,38 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
   let v1VolatilityIndex: number | null = null;
   let publishedSignalId: string | null = null;
 
+  /**
+   * Why a qualifying V1 structure was withheld, set at the exact branch that
+   * withheld it (Phase A1, Finding 2).
+   *
+   * `skipped` used to collapse "lifecycle held it back", "no validated stop floor"
+   * and "no structure at all" into one bucket, and `duplicate` was recorded as
+   * `suppressed_cooldown` whether it was the cooldown window or the identical
+   * active structure. Both mislabelled rows as strategy no-trades, which is the
+   * one thing the rejection denominator must never contain.
+   */
+  let v1Suppression: { disposition: Disposition; reason: string } | null = null;
+
   /** V1 status -> (decision, disposition) for the research ledger. */
   const v1Cell = (
     status: JobResult["status"],
   ): { decision: "candidate" | "no_trade" | "error"; disposition: Disposition } => {
     if (status === "published") return { decision: "candidate", disposition: "published" };
+    // A withheld structure IS a candidate: the model produced a setup, and an
+    // operational rule stopped it. `decision` stays `candidate` so no downstream
+    // count can read it as a rejection.
+    if (v1Suppression)
+      return { decision: "candidate", disposition: v1Suppression.disposition };
     if (status === "duplicate")
-      return { decision: "candidate", disposition: "suppressed_cooldown" };
-    if (status === "failed") return { decision: "error", disposition: "none" };
+      return { decision: "candidate", disposition: "suppressed_duplicate" };
+    if (status === "failed") return { decision: "error", disposition: "evaluation_error" };
+    if (status === "stale") return { decision: "no_trade", disposition: "job_stale" };
+    if (status === "skipped")
+      return { decision: "no_trade", disposition: "operationally_skipped" };
+    // The only remaining case is a genuine strategy verdict.
     return { decision: "no_trade", disposition: "none" };
   };
+
 
   const finish = async (status: JobResult["status"], detail?: string) => {
     const stamp = new Date().toISOString();
