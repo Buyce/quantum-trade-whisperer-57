@@ -100,7 +100,6 @@ export function CandidatePanel() {
           </p>
         ) : null}
 
-
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Metric label="Captured" value={totals?.n ?? 0} />
           <Metric label="Last 24h" value={totals?.n_24h ?? 0} />

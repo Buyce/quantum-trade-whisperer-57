@@ -11,9 +11,8 @@ vi.mock("@/lib/scanner/metaapi.server", () => ({
   fetchCandles: (...args: unknown[]) => fetchCandles(...args),
 }));
 
-const { allFetchesFailedMessage, replayCandleDepthForRows, resolveShadowExecutions } = await import(
-  "../shadow_resolve.server"
-);
+const { allFetchesFailedMessage, replayCandleDepthForRows, resolveShadowExecutions } =
+  await import("../shadow_resolve.server");
 
 const DETECTED = "2026-08-20T08:00:00.000Z";
 

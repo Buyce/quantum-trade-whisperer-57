@@ -37,7 +37,6 @@ export const SAMPLER_INTERVAL_MS = 15 * 60_000;
 export const MAX_INSTRUMENTS_PER_RUN = 8;
 export const MAX_REQUESTS_PER_RUN = 10;
 
-
 /**
  * Freshness bound for a MEASUREMENT.
  *

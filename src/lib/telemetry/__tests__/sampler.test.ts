@@ -112,5 +112,4 @@ describe("sampler budget", () => {
     expect(MAX_REQUESTS_PER_RUN).toBe(10);
     expect(SAMPLER_VERSION).toBe(1);
   });
-
 });

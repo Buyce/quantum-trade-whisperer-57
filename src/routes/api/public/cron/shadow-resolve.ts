@@ -16,9 +16,8 @@ export const Route = createFileRoute("/api/public/cron/shadow-resolve")({
         const { adminClient } = await import("@/lib/scanner/pipeline.server");
         const { shadowBreakerGate, noteShadowRun } =
           await import("@/lib/execution/shadow_worker.server");
-          const { allFetchesFailedMessage, resolveShadowExecutions } = await import(
-            "@/lib/execution/shadow_resolve.server"
-          );
+        const { allFetchesFailedMessage, resolveShadowExecutions } =
+          await import("@/lib/execution/shadow_resolve.server");
 
         const db = adminClient();
         let probe = false;
