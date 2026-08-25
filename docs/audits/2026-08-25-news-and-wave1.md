@@ -21,7 +21,10 @@ Second run immediately after, proving idempotency rather than asserting it:
 provider=fred status=ok eventsReceived=46 inserts=0 updates=0 duplicates=46 revisions=0
 ```
 
-**EIA — blocked, and recorded as blocked.**
+**EIA — blocked, and recorded as blocked. Superseded: the EIA adapter was
+subsequently REMOVED, so there is no longer an EIA provider at all. Energy
+coverage is now reported as `unsupported` rather than `provider_error`, and the
+ledger rows below remain only as the historical record of why.**
 
 ```
 provider=eia status=authorization_error errorClass=rejected_credential errorNote=API_KEY_INVALID
