@@ -47,6 +47,24 @@ C-Grade is never executed, and an owner with no settings row gets no order rathe
 than a guessed default. Automatic orders therefore never reach an instrument,
 session or grade the owner did not select.
 
+On top of eligibility there is one optional, off-by-default, reduce-only rule:
+the **intelligence gate** (`src/lib/delivery/intel-gate.ts`). When an owner sets a
+minimum win-if-filled rate, an eligible setup only becomes an order if the
+replay-derived `regime_stats` rate for its own regime meets that threshold with at
+least the configured number of filled samples behind it. A regime with too few
+resolved samples — or unreadable statistics — is **refused, not passed**: the gate
+fails closed and its refusal is recorded as a missing measurement, never as a
+forecast. The gate governs automatic orders only; it never touches the feed,
+alerts, grading, replay or any statistic.
+
+Every enqueue decision, including each refusal and each system-wide refusal, is
+recorded in `execution_enqueue_decisions` (`enqueue-log.server.ts`, best-effort so
+a diagnostic write can never affect a publish). This is why an empty delivery
+ledger is unambiguous: either a decision exists and says why, or the engine
+published nothing. The owner sees their own decisions in Settings; the admin
+terminal sees the recent decisions pseudonymously.
+
+
 ### States
 
 `pending` → `claimed` → one of `sent`, `acknowledged`, `rejected`, `unknown`,
