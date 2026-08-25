@@ -31,6 +31,9 @@ import { withBenchmarkAccount } from "@/lib/metaapi/benchmark.server";
 import { scannerSessionOf } from "@/lib/market-hours";
 import { SESSION_VERSION } from "@/lib/scanner/session";
 
+import { assetClassOf } from "@/lib/instruments/registry";
+import { calendarForAssetClass, calendarUsable } from "@/lib/instruments/calendars";
+
 import { readTelemetryControls } from "./controls.server";
 import {
   ATR_SNAPSHOT_MAX_AGE_MS,
@@ -61,6 +64,9 @@ export interface SamplerOutcome {
   stageSkipped?: string[];
   breakerSkipped?: string[];
   mappingRefused?: { instrument: string; refusal: string }[];
+  /** Refused because no sourced market calendar authorises measuring them. */
+  calendarRefused?: { instrument: string; refusal: string }[];
+
   requestCount?: number;
   durationMs?: number;
 }
@@ -168,6 +174,7 @@ export async function runSpreadSampler(db: SupabaseClient, now = new Date()): Pr
   const stageSkipped: string[] = [];
   const breakerSkipped: string[] = [];
   const mappingRefused: { instrument: string; refusal: string }[] = [];
+  const calendarRefused: { instrument: string; refusal: string }[] = [];
   let invalidSamples = 0;
   let failedRequests = 0;
   let requestCount = 0;
@@ -187,6 +194,17 @@ export async function runSpreadSampler(db: SupabaseClient, now = new Date()): Pr
     }
     if (await breakerOpen(db, instrument, now)) {
       breakerSkipped.push(instrument);
+      continue;
+    }
+
+    // Wave 2: an instrument may only be measured against a calendar whose
+    // boundaries were sourced, not approximated. Energy and index CFDs have
+    // venue-local sessions, so they are refused here until those boundaries exist.
+    const assetClass = assetClassOf(instrument);
+    const cal = assetClass ? calendarForAssetClass(assetClass) : undefined;
+    const usable = cal ? calendarUsable(cal) : { usable: false, reason: "no market calendar" };
+    if (!usable.usable) {
+      calendarRefused.push({ instrument, refusal: usable.reason ?? "calendar unusable" });
       continue;
     }
 
@@ -228,6 +246,7 @@ export async function runSpreadSampler(db: SupabaseClient, now = new Date()): Pr
             ask: quote.ask,
             point: facts.point,
             digits: facts.digits,
+            assetClass,
             atr: atr?.atr ?? null,
           })
         : null;
@@ -235,6 +254,7 @@ export async function runSpreadSampler(db: SupabaseClient, now = new Date()): Pr
     const { error: insertError } = await db.from("instrument_spread_samples").insert({
       run_id: runId,
       instrument,
+      asset_class: assetClass,
       provider_symbol: authority.providerSymbol,
       scope: "scanner",
       stage,
@@ -302,6 +322,7 @@ export async function runSpreadSampler(db: SupabaseClient, now = new Date()): Pr
     stageSkipped,
     breakerSkipped,
     mappingRefused,
+    calendarRefused,
     requestCount,
     durationMs,
   };

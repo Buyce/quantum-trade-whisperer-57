@@ -25,38 +25,68 @@
  * registry cannot move a single V1 number.
  */
 
-export type InstrumentWave = 0 | 1;
+export type InstrumentWave = 0 | 1 | 2;
+
+/**
+ * The asset class an instrument belongs to (Wave 2).
+ *
+ * This is NOT decoration. It selects the market calendar, the spread reporting
+ * unit, the sizing route and the strategy manifest. A pip is an FX concept; an
+ * index has no pip at all, and an oil CFD's "point" is a broker fact rather than
+ * a decimal convention. Anything that used to assume "FX or Gold" must now ask.
+ */
+export type AssetClass = "fx" | "metal" | "energy" | "index";
+
+/**
+ * How a spread/distance is honestly reported for an instrument.
+ *
+ *   `pip`         — FX convention (10 broker points on a 3/5-digit quote).
+ *   `price`       — metals and energy: quote units, no pip claim.
+ *   `index_point` — index CFDs: one index point, which is not a pip.
+ */
+export type PriceUnit = "pip" | "price" | "index_point";
 
 export interface InstrumentDefinition {
   symbol: string;
   label: string;
   base: string;
   quote: string;
-  /** Units of the base currency in one standard lot. */
-  contractSize: number;
-  lotStep: number;
-  minLot: number;
+  assetClass: AssetClass;
+  priceUnit: PriceUnit;
+  /**
+   * Units of the base currency in one standard lot.
+   *
+   * `null` means "the broker is the only authority and we have not fetched it".
+   * Wave 2 CFDs enter that way deliberately: an invented contract size is an
+   * invented position size.
+   */
+  contractSize: number | null;
+  lotStep: number | null;
+  minLot: number | null;
   /** Used ONLY for display/derivation when no broker spec has been fetched yet. */
   fallbackDigits: number;
   /**
    * Minimum stop buffer in absolute price terms.
    *
-   * Wave 0 keeps its frozen V1 literals. Wave 1 is deliberately `null`: a
-   * plausible-looking guess (for example "0.02 for USDJPY") is exactly the kind
-   * of unvalidated number this project forbids, so the floor must be DERIVED
-   * from the broker's own `point`/`stops_level` plus a measured spread before the
-   * pair may leave `disabled`.
+   * Wave 0 keeps its frozen V1 literals. Wave 1 and Wave 2 are deliberately
+   * `null`: a plausible-looking guess (for example "0.02 for USDJPY") is exactly
+   * the kind of unvalidated number this project forbids, so the floor must be
+   * DERIVED from the broker's own `point`/`stops_level` plus a measured spread
+   * before the pair may leave `disabled`.
    */
   spreadFloor: number | null;
   wave: InstrumentWave;
 }
 
 export const INSTRUMENT_DEFINITIONS: readonly InstrumentDefinition[] = [
+
   {
     symbol: "XAUUSD",
     label: "Gold",
     base: "XAU",
     quote: "USD",
+    assetClass: "metal",
+    priceUnit: "price",
     contractSize: 100,
     lotStep: 0.01,
     minLot: 0.01,
@@ -69,6 +99,8 @@ export const INSTRUMENT_DEFINITIONS: readonly InstrumentDefinition[] = [
     label: "GBP/AUD",
     base: "GBP",
     quote: "AUD",
+    assetClass: "fx",
+    priceUnit: "pip",
     contractSize: 100_000,
     lotStep: 0.01,
     minLot: 0.01,
@@ -81,6 +113,8 @@ export const INSTRUMENT_DEFINITIONS: readonly InstrumentDefinition[] = [
     label: "EUR/USD",
     base: "EUR",
     quote: "USD",
+    assetClass: "fx",
+    priceUnit: "pip",
     contractSize: 100_000,
     lotStep: 0.01,
     minLot: 0.01,
@@ -94,6 +128,8 @@ export const INSTRUMENT_DEFINITIONS: readonly InstrumentDefinition[] = [
     label: "GBP/USD",
     base: "GBP",
     quote: "USD",
+    assetClass: "fx",
+    priceUnit: "pip",
     contractSize: 100_000,
     lotStep: 0.01,
     minLot: 0.01,
@@ -106,6 +142,8 @@ export const INSTRUMENT_DEFINITIONS: readonly InstrumentDefinition[] = [
     label: "USD/JPY",
     base: "USD",
     quote: "JPY",
+    assetClass: "fx",
+    priceUnit: "pip",
     contractSize: 100_000,
     lotStep: 0.01,
     minLot: 0.01,
@@ -120,6 +158,8 @@ export const INSTRUMENT_DEFINITIONS: readonly InstrumentDefinition[] = [
     label: "AUD/USD",
     base: "AUD",
     quote: "USD",
+    assetClass: "fx",
+    priceUnit: "pip",
     contractSize: 100_000,
     lotStep: 0.01,
     minLot: 0.01,
@@ -132,6 +172,8 @@ export const INSTRUMENT_DEFINITIONS: readonly InstrumentDefinition[] = [
     label: "USD/CAD",
     base: "USD",
     quote: "CAD",
+    assetClass: "fx",
+    priceUnit: "pip",
     contractSize: 100_000,
     lotStep: 0.01,
     minLot: 0.01,
@@ -144,6 +186,8 @@ export const INSTRUMENT_DEFINITIONS: readonly InstrumentDefinition[] = [
     label: "USD/CHF",
     base: "USD",
     quote: "CHF",
+    assetClass: "fx",
+    priceUnit: "pip",
     contractSize: 100_000,
     lotStep: 0.01,
     minLot: 0.01,
@@ -151,7 +195,76 @@ export const INSTRUMENT_DEFINITIONS: readonly InstrumentDefinition[] = [
     spreadFloor: null,
     wave: 1,
   },
+  // ---- Wave 2: new asset classes, admitted as DEFINITIONS ONLY. -------------
+  //
+  // Contract size, lot step, minimum lot and the stop floor are all `null`: for a
+  // metal, an energy CFD or an index CFD those are broker facts that vary between
+  // brokers by an order of magnitude (1 vs 100 vs 5000 units per lot). Guessing
+  // one would silently mis-size every order, so sizing REFUSES until the broker
+  // specification has been fetched during `data_validation`.
+  //
+  // `quote` records the expected settlement currency for planning the conversion
+  // route; readiness verifies it against the broker's own specification and marks
+  // the instrument unready when they disagree.
+  {
+    symbol: "XAGUSD",
+    label: "Silver",
+    base: "XAG",
+    quote: "USD",
+    assetClass: "metal",
+    priceUnit: "price",
+    contractSize: null,
+    lotStep: null,
+    minLot: null,
+    // Silver is commonly 3 digits where gold is 2. Display only, never execution.
+    fallbackDigits: 3,
+    spreadFloor: null,
+    wave: 2,
+  },
+  {
+    symbol: "USOIL",
+    label: "WTI Crude",
+    base: "USOIL",
+    quote: "USD",
+    assetClass: "energy",
+    priceUnit: "price",
+    contractSize: null,
+    lotStep: null,
+    minLot: null,
+    fallbackDigits: 2,
+    spreadFloor: null,
+    wave: 2,
+  },
+  {
+    symbol: "UKOIL",
+    label: "Brent Crude",
+    base: "UKOIL",
+    quote: "USD",
+    assetClass: "energy",
+    priceUnit: "price",
+    contractSize: null,
+    lotStep: null,
+    minLot: null,
+    fallbackDigits: 2,
+    spreadFloor: null,
+    wave: 2,
+  },
+  {
+    symbol: "NAS100",
+    label: "US Tech 100",
+    base: "NAS100",
+    quote: "USD",
+    assetClass: "index",
+    priceUnit: "index_point",
+    contractSize: null,
+    lotStep: null,
+    minLot: null,
+    fallbackDigits: 2,
+    spreadFloor: null,
+    wave: 2,
+  },
 ] as const;
+
 
 const BY_SYMBOL = new Map(INSTRUMENT_DEFINITIONS.map((d) => [d.symbol, d]));
 
@@ -181,27 +294,55 @@ export const WAVE1_SYMBOLS: readonly string[] = INSTRUMENT_DEFINITIONS.filter(
   (d) => d.wave === 1,
 ).map((d) => d.symbol);
 
+/** Wave 2: silver, the two crude benchmarks and the US tech index. Dark. */
+export const WAVE2_SYMBOLS: readonly string[] = INSTRUMENT_DEFINITIONS.filter(
+  (d) => d.wave === 2,
+).map((d) => d.symbol);
+
+export function assetClassOf(symbol: string): AssetClass | null {
+  return instrumentDefinition(symbol)?.assetClass ?? null;
+}
+
+export function priceUnitOf(symbol: string): PriceUnit | null {
+  return instrumentDefinition(symbol)?.priceUnit ?? null;
+}
+
+export function symbolsOfAssetClass(assetClass: AssetClass): readonly string[] {
+  return INSTRUMENT_DEFINITIONS.filter((d) => d.assetClass === assetClass).map((d) => d.symbol);
+}
+
 export function instrumentLabels(): Record<string, string> {
   return Object.fromEntries(INSTRUMENT_DEFINITIONS.map((d) => [d.symbol, d.label]));
 }
 
+/**
+ * Only instruments whose contract geometry is KNOWN appear here.
+ *
+ * A Wave 2 CFD has `null` contract size until the broker specification is
+ * fetched, and it is therefore absent rather than present with a guess — a
+ * missing key makes sizing refuse, which is the correct outcome.
+ */
 export function contractSpecs(): Record<
   string,
   { contractSize: number; base: string; quote: string; lotStep: number; minLot: number }
 > {
-  return Object.fromEntries(
-    INSTRUMENT_DEFINITIONS.map((d) => [
-      d.symbol,
-      {
-        contractSize: d.contractSize,
-        base: d.base,
-        quote: d.quote,
-        lotStep: d.lotStep,
-        minLot: d.minLot,
-      },
-    ]),
-  );
+  const out: Record<
+    string,
+    { contractSize: number; base: string; quote: string; lotStep: number; minLot: number }
+  > = {};
+  for (const d of INSTRUMENT_DEFINITIONS) {
+    if (d.contractSize === null || d.lotStep === null || d.minLot === null) continue;
+    out[d.symbol] = {
+      contractSize: d.contractSize,
+      base: d.base,
+      quote: d.quote,
+      lotStep: d.lotStep,
+      minLot: d.minLot,
+    };
+  }
+  return out;
 }
+
 
 /** Only symbols with an explicit, validated floor appear here. */
 export function spreadFloors(): Record<string, number> {

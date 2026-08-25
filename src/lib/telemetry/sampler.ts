@@ -14,6 +14,8 @@
  *     snapshot the scanner already produced from candles it had already fetched.
  */
 
+import type { AssetClass } from "@/lib/instruments/registry";
+
 /** Bump ONLY when the sampling procedure itself changes meaning. */
 export const SAMPLER_VERSION = 1 as const;
 
@@ -126,6 +128,12 @@ export interface SpreadMetricsInput {
   /** Broker SYMBOL_POINT. Null means the point unit is unknown, not 1. */
   point: number | null;
   digits: number | null;
+  /**
+   * Asset class (Wave 2). A pip is an FX convention: when the asset class is known
+   * and is not FX, `spreadPips` is null rather than a re-labelled point count.
+   * Omitting it keeps the pre-Wave-2 digit-based behaviour.
+   */
+  assetClass?: AssetClass | null;
   /** Scanner-derived ATR for volatility normalisation, or null when unavailable. */
   atr: number | null;
 }
@@ -150,8 +158,10 @@ export function spreadMetrics(input: SpreadMetricsInput): SpreadMetrics {
   const spreadPoints = point ? round(spreadPrice / point) : null;
   // One pip is ten points on a 3- or 5-digit FX quote. Without broker digits the
   // pip is undefined, and an undefined unit is reported as such.
-  const pipSize =
-    point && (input.digits === 3 || input.digits === 5)
+  const pipless = input.assetClass !== undefined && input.assetClass !== null && input.assetClass !== "fx";
+  const pipSize = pipless
+    ? null
+    : point && (input.digits === 3 || input.digits === 5)
       ? point * 10
       : point && (input.digits === 2 || input.digits === 4)
         ? point

@@ -1546,6 +1546,45 @@ export type Database = {
         }
         Relationships: []
       }
+      instrument_alias_discovery: {
+        Row: {
+          asset_class: string
+          candidates: string[]
+          canonical: string
+          created_at: string
+          evidence: Json | null
+          id: number
+          observed_at: string
+          outcome: string
+          provider_symbol: string | null
+          reason: string | null
+        }
+        Insert: {
+          asset_class: string
+          candidates?: string[]
+          canonical: string
+          created_at?: string
+          evidence?: Json | null
+          id?: number
+          observed_at?: string
+          outcome: string
+          provider_symbol?: string | null
+          reason?: string | null
+        }
+        Update: {
+          asset_class?: string
+          candidates?: string[]
+          canonical?: string
+          created_at?: string
+          evidence?: Json | null
+          id?: number
+          observed_at?: string
+          outcome?: string
+          provider_symbol?: string | null
+          reason?: string | null
+        }
+        Relationships: []
+      }
       instrument_atr_snapshots: {
         Row: {
           atr: number
@@ -1576,6 +1615,60 @@ export type Database = {
           id?: number
           instrument?: string
           timeframe?: string
+        }
+        Relationships: []
+      }
+      instrument_calendar_bindings: {
+        Row: {
+          asset_class: string
+          calendar_key: string
+          calendar_version: number
+          created_at: string
+          note: string | null
+          source: string
+          symbol: string
+          updated_at: string
+        }
+        Insert: {
+          asset_class: string
+          calendar_key: string
+          calendar_version: number
+          created_at?: string
+          note?: string | null
+          source?: string
+          symbol: string
+          updated_at?: string
+        }
+        Update: {
+          asset_class?: string
+          calendar_key?: string
+          calendar_version?: number
+          created_at?: string
+          note?: string | null
+          source?: string
+          symbol?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      instrument_correlation_groups: {
+        Row: {
+          created_at: string
+          group_key: string
+          rationale: string
+          symbol: string
+        }
+        Insert: {
+          created_at?: string
+          group_key: string
+          rationale: string
+          symbol: string
+        }
+        Update: {
+          created_at?: string
+          group_key?: string
+          rationale?: string
+          symbol?: string
         }
         Relationships: []
       }
@@ -1777,6 +1870,7 @@ export type Database = {
       instrument_spread_samples: {
         Row: {
           ask: number | null
+          asset_class: string | null
           atr_snapshot_id: number | null
           bid: number | null
           candle_policy_version: number | null
@@ -1808,6 +1902,7 @@ export type Database = {
         }
         Insert: {
           ask?: number | null
+          asset_class?: string | null
           atr_snapshot_id?: number | null
           bid?: number | null
           candle_policy_version?: number | null
@@ -1839,6 +1934,7 @@ export type Database = {
         }
         Update: {
           ask?: number | null
+          asset_class?: string | null
           atr_snapshot_id?: number | null
           bid?: number | null
           candle_policy_version?: number | null
@@ -1887,6 +1983,7 @@ export type Database = {
       }
       instrument_spread_stats: {
         Row: {
+          asset_class: string | null
           calculated_at: string
           computation_version: number
           coverage_end: string | null
@@ -1915,6 +2012,7 @@ export type Database = {
           valid_samples: number
         }
         Insert: {
+          asset_class?: string | null
           calculated_at?: string
           computation_version: number
           coverage_end?: string | null
@@ -1943,6 +2041,7 @@ export type Database = {
           valid_samples: number
         }
         Update: {
+          asset_class?: string | null
           calculated_at?: string
           computation_version?: number
           coverage_end?: string | null
