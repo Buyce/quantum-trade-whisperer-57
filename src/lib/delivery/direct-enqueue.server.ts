@@ -8,13 +8,21 @@
  * automatic orders follow the same rules as alerts). There is deliberately no
  * SQL mirror of those rules.
  *
+ * On top of eligibility there is ONE optional, off-by-default, reduce-only extra
+ * rule: the owner's intelligence gate (`@/lib/delivery/intel-gate`). Like every
+ * rule here it can only ever refuse.
+ *
  * This module only ever REDUCES what is sent. Every safety gate downstream
  * (broker-confirmed demo, READY phase, trade allowed, investor mode, symbol
  * resolution, equity freshness, margin, exposure boundary, system-wide switches,
  * pre-send revalidation) is unchanged and still authoritative.
+ *
+ * Every decision — including every refusal — is recorded through
+ * `recordEnqueueDecisions`, so an empty delivery ledger is never ambiguous.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Grade } from "@/lib/db-types";
+import type { RegimeStatRow } from "@/lib/learning/regime";
 import { fetchDayFrame, type FrameClient } from "./day-frame";
 import {
   buildCapFrame,
@@ -22,6 +30,8 @@ import {
   type EligibilitySettings,
   type EligibilitySignal,
 } from "./eligibility";
+import { evaluateIntelGate, gateConfigured, type IntelGateSettings } from "./intel-gate";
+import { recordEnqueueDecisions, type EnqueueDecisionRow } from "./enqueue-log.server";
 
 export interface DirectEnqueueSignal {
   id: string;
@@ -29,6 +39,10 @@ export interface DirectEnqueueSignal {
   grade: string;
   session: string;
   detectedAt?: string;
+  /** Needed only by the optional intelligence gate. */
+  direction?: string;
+  /** Needed only by the optional intelligence gate. */
+  volatilityIndex?: number | null;
 }
 
 interface AccountRow {
@@ -45,6 +59,9 @@ interface SettingsRow {
   alert_min_grade: string | null;
   daily_setup_cap: number | null;
   execution_config_version: number | null;
+  auto_intel_gate_enabled: boolean | null;
+  auto_intel_min_win_pct: number | string | null;
+  auto_intel_min_sample: number | null;
 }
 
 export interface DirectEnqueueOutcome {
@@ -66,22 +83,37 @@ export async function enqueueDirectDeliveries(
   signal: DirectEnqueueSignal,
   nowMs: number = Date.now(),
 ): Promise<DirectEnqueueOutcome> {
-  const empty = (reason: string): DirectEnqueueOutcome => ({ enqueued: 0, filtered: 0, reason });
+  const decisions: EnqueueDecisionRow[] = [];
+  const systemDecision = (decision: string, detail: string | null = null): EnqueueDecisionRow => ({
+    user_id: null,
+    signal_id: signal.id,
+    instrument: signal.instrument,
+    grade: signal.grade,
+    decision,
+    detail,
+    enqueued: 0,
+    filtered: 0,
+  });
+
+  const empty = async (reason: string, detail: string | null = null): Promise<DirectEnqueueOutcome> => {
+    await recordEnqueueDecisions(db, [systemDecision(reason, detail)]);
+    return { enqueued: 0, filtered: 0, reason };
+  };
 
   // C-Grade is never automatically executed. Unchanged rule.
-  if (signal.grade === "C") return empty("c_grade_never_executes");
+  if (signal.grade === "C") return await empty("c_grade_never_executes");
 
   const { data: controlRows, error: controlError } = await db
     .from("execution_controls")
     .select("demo_auto_enabled, live_auto_enabled")
     .limit(1);
-  if (controlError) return empty(`execution_controls_unreadable: ${controlError.message}`);
+  if (controlError) return await empty("execution_controls_unreadable", controlError.message);
   const controls = (controlRows ?? [])[0] as
     | { demo_auto_enabled: boolean | null; live_auto_enabled: boolean | null }
     | undefined;
   const demoAuto = controls?.demo_auto_enabled === true;
   const liveAuto = controls?.live_auto_enabled === true;
-  if (!demoAuto && !liveAuto) return empty("automatic_execution_disabled");
+  if (!demoAuto && !liveAuto) return await empty("automatic_execution_disabled");
 
   const { data: accountRows, error: accountError } = await db
     .from("connected_trading_accounts")
@@ -93,23 +125,23 @@ export async function enqueueDirectDeliveries(
     .in("phase", ["connected", "ready"])
     .in("mode", ["demo_auto", "live_auto"])
     .or("investor_mode.is.null,investor_mode.eq.false");
-  if (accountError) return empty(`accounts_unreadable: ${accountError.message}`);
+  if (accountError) return await empty("accounts_unreadable", accountError.message);
 
   const armed = ((accountRows ?? []) as AccountRow[]).filter(
     (a) =>
       (a.mode === "demo_auto" && a.broker_account_type === "demo" && demoAuto) ||
       (a.mode === "live_auto" && a.broker_account_type === "real" && liveAuto),
   );
-  if (armed.length === 0) return empty("no_armed_account");
+  if (armed.length === 0) return await empty("no_armed_account");
 
   const userIds = [...new Set(armed.map((a) => a.user_id))];
   const { data: settingsRows, error: settingsError } = await db
     .from("scanner_settings")
     .select(
-      "user_id, instruments, sessions, alert_min_grade, daily_setup_cap, execution_config_version",
+      "user_id, instruments, sessions, alert_min_grade, daily_setup_cap, execution_config_version, auto_intel_gate_enabled, auto_intel_min_win_pct, auto_intel_min_sample",
     )
     .in("user_id", userIds);
-  if (settingsError) return empty(`settings_unreadable: ${settingsError.message}`);
+  if (settingsError) return await empty("settings_unreadable", settingsError.message);
   const settingsByUser = new Map(
     ((settingsRows ?? []) as SettingsRow[]).map((row) => [row.user_id, row]),
   );
@@ -134,6 +166,33 @@ export async function enqueueDirectDeliveries(
     console.error("direct enqueue frame unavailable", err);
   }
 
+  // Regime statistics are read once, and only when at least one armed owner has
+  // actually configured the gate. Nobody pays for a feature they left off.
+  const gateSettingsOf = (row: SettingsRow): IntelGateSettings => ({
+    enabled: row.auto_intel_gate_enabled === true,
+    minWinPct:
+      row.auto_intel_min_win_pct === null || row.auto_intel_min_win_pct === undefined
+        ? null
+        : Number(row.auto_intel_min_win_pct),
+    minSample: Number(row.auto_intel_min_sample ?? 30),
+  });
+  const anyGate = [...settingsByUser.values()].some((row) => gateConfigured(gateSettingsOf(row)));
+  let regimeRows: RegimeStatRow[] = [];
+  if (anyGate) {
+    const { data: statRows, error: statError } = await db
+      .from("regime_stats")
+      .select(
+        "tier, regime_key, instrument, direction, session, vol_bucket, n_total, n_filled, wins, p_fill_shrunk, p_win_shrunk, vol_t1, vol_t2",
+      );
+    if (statError) {
+      // Fail CLOSED for the gate: an unreadable statistic must not be read as a
+      // passing one. `evaluateIntelGate` refuses on an empty row set.
+      console.error("direct enqueue regime stats unreadable", statError.message);
+    } else {
+      regimeRows = (statRows ?? []) as unknown as RegimeStatRow[];
+    }
+  }
+
   const rows: Record<string, unknown>[] = [];
   let filtered = 0;
 
@@ -142,6 +201,16 @@ export async function enqueueDirectDeliveries(
     if (!row) {
       // No settings row means no rules to honour; refuse rather than guess.
       filtered += 1;
+      decisions.push({
+        user_id: account.user_id,
+        signal_id: signal.id,
+        instrument: signal.instrument,
+        grade: signal.grade,
+        decision: "no_settings_row",
+        detail: null,
+        enqueued: 0,
+        filtered: 1,
+      });
       continue;
     }
     const grade = (row.alert_min_grade ?? "B") as Grade;
@@ -162,8 +231,47 @@ export async function enqueueDirectDeliveries(
     });
     if (!verdict.eligible) {
       filtered += 1;
+      decisions.push({
+        user_id: account.user_id,
+        signal_id: signal.id,
+        instrument: signal.instrument,
+        grade: signal.grade,
+        decision: verdict.reason,
+        detail: null,
+        enqueued: 0,
+        filtered: 1,
+      });
       continue;
     }
+
+    // Optional, owner-configured, reduce-only. Off by default.
+    const gate = gateSettingsOf(row);
+    if (gateConfigured(gate)) {
+      const gateVerdict = evaluateIntelGate(gate, regimeRows, {
+        instrument: signal.instrument,
+        direction: signal.direction ?? "",
+        session: signal.session,
+        volatilityIndex: signal.volatilityIndex ?? null,
+      });
+      if (!gateVerdict.allowed) {
+        filtered += 1;
+        decisions.push({
+          user_id: account.user_id,
+          signal_id: signal.id,
+          instrument: signal.instrument,
+          grade: signal.grade,
+          decision: gateVerdict.reason,
+          detail:
+            gateVerdict.winPct === null
+              ? `filled samples: ${gateVerdict.filledN ?? "unavailable"}`
+              : `win-if-filled ${gateVerdict.winPct}% on ${gateVerdict.filledN} filled samples vs threshold ${gate.minWinPct}%`,
+          enqueued: 0,
+          filtered: 1,
+        });
+        continue;
+      }
+    }
+
     rows.push({
       user_id: account.user_id,
       signal_id: signal.id,
@@ -174,9 +282,20 @@ export async function enqueueDirectDeliveries(
       dry_run: false,
       execution_config_version: row.execution_config_version,
     });
+    decisions.push({
+      user_id: account.user_id,
+      signal_id: signal.id,
+      instrument: signal.instrument,
+      grade: signal.grade,
+      decision: "enqueued",
+      detail: account.mode,
+      enqueued: 1,
+      filtered: 0,
+    });
   }
 
   if (rows.length === 0) {
+    await recordEnqueueDecisions(db, decisions);
     return { enqueued: 0, filtered, reason: "filtered_by_user_rules" };
   }
 
@@ -184,7 +303,14 @@ export async function enqueueDirectDeliveries(
     .from("execution_deliveries")
     .upsert(rows, { onConflict: "user_id,signal_id,bridge_profile", ignoreDuplicates: true });
   if (insertError) {
+    const failed = decisions.map((d) =>
+      d.decision === "enqueued"
+        ? { ...d, decision: "enqueue_failed", detail: insertError.message, enqueued: 0 }
+        : d,
+    );
+    await recordEnqueueDecisions(db, failed);
     return { enqueued: 0, filtered, reason: `enqueue_failed: ${insertError.message}` };
   }
+  await recordEnqueueDecisions(db, decisions);
   return { enqueued: rows.length, filtered, reason: null };
 }
