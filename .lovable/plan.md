@@ -90,7 +90,7 @@ Also replace LINK-AUDIT's "all 18 documents" with "every document listed in the 
 
 ## 6. Verification strategy
 
-`prettier --check` → `bun run lint` (0 errors) → `bun run typecheck` → `bunx vitest run --project blocking` → DB suites where `initdb` exists → `bun run build` → docs link/contract tests → MCP manifest parity → unauthenticated smoke of `/`, `/auth`, `/auth?mode=signup`, `/connect`, `/sitemap.xml`, `/robots.txt` → sitemap/metadata assertions → eligibility unit checks for settings→feed/alert → execution-safety invariants unchanged (no gate enabled, no order sent, no broker call, no settings mutation) → secret scan → finally a green GitHub Actions run on the last commit. Remediation is not complete while CI is red.
+`prettier --check` → `bun run lint` (0 errors) → `bun run typecheck` → `bunx vitest run --project blocking` → DB suites where `initdb` exists → `bun run build` (also the check that confirms production env injection for W9) → recursive docs link + contract tests → MCP manifest/registry parity and the pinned tool-count test → unauthenticated smoke of `/`, `/auth`, `/auth?mode=signup`, `/connect`, `/sitemap.xml`, `/robots.txt` → sitemap and public-indexable metadata assertions → eligibility unit checks for settings→feed/alert plus the `timeframes` deprecation warning → execution-safety invariants unchanged (no gate enabled, no order sent, no broker call, no settings mutation) → secret scan → finally a green GitHub Actions run on the last commit. Remediation is not complete while CI is red.
 
 ## 7. Acceptance criteria
 
