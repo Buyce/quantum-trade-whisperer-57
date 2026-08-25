@@ -232,8 +232,9 @@ export async function checkInstrumentReadiness(
                 : `bid=${quote.bid}, ask=${quote.ask}, spread=${spread}`,
     });
 
-    if (geometryOk && positiveSpread && fresh && specFields.point) {
+    if (geometryOk && positiveSpread && fresh && specFields["point"]) {
       const pointFloor = spec!.point! * 10;
+
       spreadFloorCandidate = Number(
         Math.max(spread * SPREAD_FLOOR_MULTIPLE, pointFloor).toPrecision(4),
       );
