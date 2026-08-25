@@ -310,6 +310,7 @@ export function toBrokerOrderView(
     detectedAt: signal?.detected_at ?? null,
     enqueuedAt: delivery.enqueued_at,
     accountType: accountType(evidence?.broker_account_type),
+    destination: brokerOrderDestination(delivery.destination_type),
     dryRun: delivery.dry_run === true,
     status,
     submitted: {
