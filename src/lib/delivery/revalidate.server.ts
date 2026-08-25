@@ -572,13 +572,26 @@ export async function revalidateDelivery(
   ) {
     return reject("spread_too_wide", "measured against the submitted broker-grid geometry");
   }
+  // The pending-limit side is re-asked on the snapped entry, now WITH the
+  // broker's own minimum order distance. A direct broker destination whose
+  // minimum distance cannot be read is refused rather than sent a price we cannot
+  // prove is placeable: the distance is never assumed.
+  const limitDistance = spec ? minStopDistance(spec) : null;
+  if (destination === "metaapi_direct" && limitDistance === null) {
+    return reject(
+      "limit_distance_unavailable",
+      `no minimum order distance is stored for ${signal.instrument} on this account`,
+    );
+  }
   if (
-    !withinMaxAcceptableEntry(
-      { action, maxAcceptableEntry: execPlan.maxAcceptableEntry },
-      marketPrice,
-    )
+    !pendingLimitSideValid({ action, entry: execPlan.entryPrice }, marketPrice, limitDistance ?? 0)
   ) {
-    return reject("price_beyond_max_acceptable_entry", String(marketPrice));
+    return reject(
+      "limit_price_not_on_pending_side",
+      `market ${marketPrice} vs ${execPlan.entryPrice}${
+        limitDistance === null ? "" : ` (broker minimum distance ${limitDistance})`
+      }`,
+    );
   }
 
   const sizingRequest = {
