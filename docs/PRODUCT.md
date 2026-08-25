@@ -34,7 +34,6 @@ A user's loop:
    one multi-timeframe structure, graded across H4, H1 and M15 together, so
    selecting timeframes was never a meaningful choice and the control is gone.
 
-
 ## Inputs
 
 Broker market data (candles, quotes); the user's filter and risk settings; the

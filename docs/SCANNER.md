@@ -73,3 +73,12 @@ granularity. It does not see news, order flow, or intrabar sequence.
 ## Tests
 
 `src/lib/scanner/__tests__/*` (indicators, grading, profile, pipeline).
+
+## Timeframes are a scan basis, not a user filter
+
+`TIMEFRAMES` describes how the engine looks at the market, not a preference a user
+or assistant can set. A published setup is one multi-timeframe structure whose
+grade already depends on H4/H1/M15 agreement, so there is no coherent way to serve
+"only M15" of it. The settings control was removed and the `timeframes` argument on
+the assistant settings tools is deprecated and ignored, answered with a warning
+naming the deprecation. See [MCP.md](MCP.md).
