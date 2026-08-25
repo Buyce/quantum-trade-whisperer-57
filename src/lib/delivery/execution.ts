@@ -95,6 +95,10 @@ export const REJECT_COPY: Record<RejectReason, string> = {
   quote_stale: "The broker price was too old to revalidate the setup.",
   spread_too_wide: "The spread was too wide relative to the planned risk.",
   price_beyond_max_acceptable_entry: "Price had already run beyond the maximum acceptable entry.",
+  limit_price_not_on_pending_side:
+    "The market had already reached the planned entry, so a pending limit order could not rest there at its planned price.",
+  limit_distance_unavailable:
+    "Your broker has not published a minimum order distance for this symbol, so a pending limit price could not be validated. No distance is assumed.",
   market_closed: "The market was closed.",
   stop_below_broker_stops_level: "The stop is closer than your broker's minimum stop distance.",
   risk_guardrail: "A position-size guardrail blocked the order.",
