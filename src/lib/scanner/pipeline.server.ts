@@ -339,9 +339,16 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
       })
       .eq("id", job.id);
 
-    // Research ledger. Isolated and bounded inside recordObservations: it can
-    // neither throw into, nor slow down, the production job above.
-    if (observed) {
+    /**
+     * Research ledger. Isolated and bounded inside recordObservations: it can
+     * neither throw into, nor slow down, the production job above.
+     *
+     * `mayCaptureResearch` is consulted here, not only at the strategy boundary:
+     * an instrument at `data_validation` produces NO measurement rows at all,
+     * because its inputs have not been proven trustworthy yet and a ledger seeded
+     * with unvalidated inputs is worse than an empty one.
+     */
+    if (observed && (!lifecycleEnforced || mayCaptureResearch(instrumentStage))) {
       const key = observationKey(job.run_id, job.instrument);
       const cell = v1Cell(status);
       const rows = [
@@ -358,7 +365,10 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
           // Terminal stage, gates and features, so a no_trade observation is
           // reconstructable rather than a prose reason string.
           evaluation: v1Evaluation,
-        }),
+          suppressionReason: v1Suppression?.reason ?? null,
+          lifecycleStage: instrumentStage,
+          sessionVersion: SESSION_VERSION,
+
       ];
       if (v2) {
         rows.push(
