@@ -19,6 +19,7 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { assertCapability } from "@/lib/instruments/lifecycle.server";
+import { provenanceColumns, type DetectionProvenance } from "@/lib/instruments/provenance";
 import type { SetupEvaluation } from "@/lib/scanner/profile";
 import { STRATEGY_V1_MANIFEST_HASH, STRATEGY_V1_VERSION } from "@/lib/scanner/strategy-manifest";
 import { noteResearchFailure, RESEARCH_WRITE_DEADLINE_MS } from "./observations.server";
@@ -144,6 +145,8 @@ export async function captureCandidate(
       cf_grade: ladder?.grade ?? null,
       cf_plan_version: ladder?.researchPlanVersion ?? null,
       published_signal_id: args.publishedSignalId,
+      // Detection provenance (R7/R8). NULLs when it was not recorded.
+      ...provenanceColumns(args.provenance),
     });
 
     const { error } = (await Promise.race([
