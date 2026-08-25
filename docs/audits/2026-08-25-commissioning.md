@@ -2,7 +2,9 @@
 
 This is an accelerated **same-day no-op and rollback proof**, not a week-long
 baseline. Nothing here claims evidence, shadow validation or profitability
-testing is finished.
+testing is finished. It is a dated snapshot of historical evidence as read on
+that date, not current release status — re-read the database and Admin
+diagnostics for that.
 
 ## 1. Starting and ending state
 
