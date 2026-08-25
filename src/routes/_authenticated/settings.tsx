@@ -114,6 +114,7 @@ function SettingsPage() {
   // Optional intelligence gate on automatic orders. Off unless the user says so.
   const [intelGate, setIntelGate] = useState(false);
   const [autoCGrade, setAutoCGrade] = useState(false);
+  const [maxActiveOrders, setMaxActiveOrders] = useState(3);
   const [intelMinWin, setIntelMinWin] = useState("");
   const [intelMinSample, setIntelMinSample] = useState("30");
   const [equityAsOf, setEquityAsOf] = useState<string | null>(null);
@@ -226,6 +227,7 @@ function SettingsPage() {
     setRiskAckHigh(s.risk_ack_high === true);
     setIntelGate(s.auto_intel_gate_enabled === true);
     setAutoCGrade(s.auto_execute_c_grade === true);
+    setMaxActiveOrders(Number(s.maximum_active_signal_orders ?? 3));
     setIntelMinWin(
       s.auto_intel_min_win_pct == null ? "" : String(Number(s.auto_intel_min_win_pct)),
     );

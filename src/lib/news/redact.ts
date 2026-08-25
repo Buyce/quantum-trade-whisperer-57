@@ -1,7 +1,7 @@
 /**
  * Credential redaction for anything that may be logged, stored or returned.
  *
- * Some official APIs (FRED, EIA) only accept the key as a query parameter, so the
+ * Some official APIs (FRED) only accept the key as a query parameter, so the
  * request URL itself is a secret. Every diagnostic path therefore goes through
  * `redactUrl` / `redactText` before it reaches a log line, an ingestion-run row or
  * an error message.

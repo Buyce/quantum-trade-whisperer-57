@@ -6,7 +6,6 @@
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { createEiaProvider, classifyEiaDataset, EIA_UNSUPPORTED } from "../providers/eia.server";
 import { createFredProvider, FRED_RELEASES, FRED_UNSUPPORTED } from "../providers/fred.server";
 
 const realFetch = globalThis.fetch;
@@ -101,55 +100,3 @@ describe("FRED adapter", () => {
   });
 });
 
-describe("EIA adapter", () => {
-  it("[UNIT] an invalid credential is reported as authorization_error", async () => {
-    mockFetch(403, { error: { code: "API_KEY_INVALID", message: "invalid" } });
-    const batch = await createEiaProvider("short-key").fetchEvents({
-      from: "2026-08-01",
-      to: "2026-09-10",
-    });
-    expect(batch.status).toBe("authorization_error");
-    expect(batch.errorClass).toBe("rejected_credential");
-  });
-
-  it("[UNIT] weekly stock rows are ingested as published values with date_only precision", async () => {
-    mockFetch(200, {
-      response: {
-        data: [{ period: "2026-09-04", series: "WCESTUS1", value: 421000, units: "MBBL" }],
-      },
-    });
-    const batch = await createEiaProvider("k".repeat(40)).fetchEvents({
-      from: "2026-08-01",
-      to: "2026-09-10",
-    });
-    expect(batch.status).toBe("ok");
-    expect(batch.events[0]!.status).toBe("published");
-    expect(batch.events[0]!.actual).toBe(421000);
-    expect(batch.events[0]!.timestampPrecision).toBe("date_only");
-    expect(batch.events[0]!.family).toBe("energy_inventory");
-  });
-
-  it("[INVARIANT] EIA never emits a forward-scheduled event, because no schedule endpoint exists", async () => {
-    mockFetch(200, {
-      response: { data: [{ period: "2026-09-04", series: "WCESTUS1", value: 1, units: "MBBL" }] },
-    });
-    const batch = await createEiaProvider("k".repeat(40)).fetchEvents({
-      from: "2026-08-01",
-      to: "2026-09-10",
-    });
-    for (const event of batch.events) expect(event.scheduledAt).toBeNull();
-  });
-
-  it("[INVARIANT] OPEC supply is declared unsupported rather than silently uncovered", () => {
-    expect(EIA_UNSUPPORTED.some((s) => s.family === "opec_supply")).toBe(true);
-  });
-
-  it("[UNIT] monthly datasets are classified as context, not as tradable events", () => {
-    expect(classifyEiaDataset("/petroleum/move/impcus/data/?frequency=monthly")).toBe(
-      "context_monthly",
-    );
-    expect(classifyEiaDataset("/petroleum/stoc/wstk/data/?frequency=weekly")).toBe(
-      "tradable_weekly",
-    );
-  });
-});

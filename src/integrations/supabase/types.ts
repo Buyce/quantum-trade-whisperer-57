@@ -3621,6 +3621,7 @@ export type Database = {
           live_execution_confirmed_version: number | null
           max_position_size: number
           max_stop_loss_percent: number
+          maximum_active_signal_orders: number
           min_grade: Database["public"]["Enums"]["signal_grade"]
           notify_email: boolean
           notify_push: boolean
@@ -3661,6 +3662,7 @@ export type Database = {
           live_execution_confirmed_version?: number | null
           max_position_size?: number
           max_stop_loss_percent?: number
+          maximum_active_signal_orders?: number
           min_grade?: Database["public"]["Enums"]["signal_grade"]
           notify_email?: boolean
           notify_push?: boolean
@@ -3701,6 +3703,7 @@ export type Database = {
           live_execution_confirmed_version?: number | null
           max_position_size?: number
           max_stop_loss_percent?: number
+          maximum_active_signal_orders?: number
           min_grade?: Database["public"]["Enums"]["signal_grade"]
           notify_email?: boolean
           notify_push?: boolean
