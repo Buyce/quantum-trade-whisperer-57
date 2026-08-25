@@ -101,9 +101,16 @@ describe("sampler budget", () => {
     expect(budget.requestsPerDay).toBe(288);
   });
 
-  it("[INVARIANT] compiled ceilings stay at the reviewed Wave 0 values", () => {
-    expect(MAX_INSTRUMENTS_PER_RUN).toBe(3);
-    expect(MAX_REQUESTS_PER_RUN).toBe(6);
+  it("[INVARIANT] in-service sampling (Wave 0 + validating Wave 1) stays inside the daily budget", () => {
+    const budget = dailyRequestBudget(MAX_INSTRUMENTS_PER_RUN, SAMPLER_INTERVAL_MS);
+    expect(budget.instrumentSlotsPerDay).toBe(768);
+    expect(budget.requestsPerDay).toBeLessThanOrEqual(1152);
+  });
+
+  it("[INVARIANT] compiled ceilings stay at the reviewed in-service values", () => {
+    expect(MAX_INSTRUMENTS_PER_RUN).toBe(8);
+    expect(MAX_REQUESTS_PER_RUN).toBe(10);
     expect(SAMPLER_VERSION).toBe(1);
   });
+
 });

@@ -86,13 +86,20 @@ export function CandidatePanel() {
         </div>
       </CardHeader>
       <CardContent className="space-y-5">
-        {!captureOn && (
+        {!captureOn ? (
           <p className="rounded-md border border-border/60 bg-muted/20 p-3 text-xs text-muted-foreground">
             Capture is dark. The scanner evaluates and labels every setup, but no candidate rows are
             written until the database switch is enabled. Published signals and learning are
             unaffected either way.
           </p>
-        )}
+        ) : (totals?.n ?? 0) === 0 ? (
+          <p className="rounded-md border border-border/60 bg-muted/20 p-3 text-xs text-muted-foreground">
+            Capture is live and nothing has been captured yet. Rows appear from the next scan cycle
+            that reaches a graded evaluation; zero here means no evaluation has been recorded since
+            capture was enabled, not that capture is off.
+          </p>
+        ) : null}
+
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Metric label="Captured" value={totals?.n ?? 0} />

@@ -26,9 +26,17 @@ export const SAMPLER_INTERVAL_MS = 15 * 60_000;
  * Hard per-run ceilings. The database `telemetry_controls` row may LOWER these;
  * it may never raise them, so a mistaken settings edit cannot spend an unbounded
  * provider budget.
+ *
+ * Reviewed for the eight IN-SERVICE instruments: Wave 0 (`XAUUSD`, `GBPAUD`,
+ * `EURUSD`) plus the five Wave 1 pairs now at `data_validation`. Those five are
+ * scanned and measured every cycle, so leaving them unsampled would starve the
+ * exact spread evidence their promotion gate requires. One quote per instrument
+ * per 15-minute slot = 8 requests/run, 768 requests/day — inside the stored
+ * daily budget, with two spare requests per run for a single retry.
  */
-export const MAX_INSTRUMENTS_PER_RUN = 3;
-export const MAX_REQUESTS_PER_RUN = 6;
+export const MAX_INSTRUMENTS_PER_RUN = 8;
+export const MAX_REQUESTS_PER_RUN = 10;
+
 
 /**
  * Freshness bound for a MEASUREMENT.
