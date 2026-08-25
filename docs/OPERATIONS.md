@@ -29,7 +29,7 @@ cadence rather than asserting a crontab line.
 | `cron/telemetry-rollup`     | hourly           | spread aggregation, telemetry retention, resolver health          |
 | `cron/instrument-readiness` | daily, 03:10 UTC | readiness snapshot with live conversion proof                     |
 
-### Operational telemetry (Wave 0 only)
+### Operational telemetry (in-service instruments only)
 
 Spread sampling is bounded in four independent ways, in this order: the
 `telemetry_controls` kill switch (unreadable means OFF), a slot claim that permits
@@ -37,8 +37,11 @@ exactly one run per 15-minute UTC slot per sampler version, per-run instrument a
 request ceilings that the database may lower but never raise above the compiled
 values, and a fresh per-instrument stage and breaker check before any request.
 
-Authorised scope today is XAUUSD, GBPAUD and EURUSD — 288 instrument-slots per
-day, one quote each, no candle fetches. Wave 1 symbols are not sampled.
+Authorised scope today is the eight in-service instruments: Wave 0 (XAUUSD,
+GBPAUD, EURUSD) at `execution_approved`, plus GBPUSD, AUDUSD, USDCAD, USDCHF and
+USDJPY at `data_validation`. That is 768 instrument-slots per day, one quote each,
+no candle fetches. Wave 2 symbols are `disabled` and are not sampled.
+
 
 Sampling is side-effect-free collection: it grades nothing, publishes nothing,
 alerts nobody and cannot promote an instrument. It is allowed at
