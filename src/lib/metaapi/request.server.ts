@@ -37,6 +37,39 @@ export interface MetaApiRequestOptions {
 export const SAFE_GET_RETRY_DELAY_MS = 250;
 const TRANSIENT_READ_STATUSES = new Set([502, 503, 504]);
 
+/**
+ * Fire-and-forget provider-usage observation. Loaded lazily and swallowed, so the
+ * outbound path keeps working unchanged when the telemetry table, the database or
+ * the admin client is unavailable.
+ */
+async function observe(
+  surface: string,
+  outcome: string,
+  status: number | null,
+  latencyMs: number,
+  label: string,
+): Promise<void> {
+  try {
+    const { recordApiObservation } = await import("@/lib/telemetry/observe.server");
+    await recordApiObservation({
+      surface,
+      outcome: outcome as never,
+      httpStatus: status,
+      latencyMs,
+      detail: label,
+    });
+  } catch {
+    // Observability must never break the request it observes.
+  }
+}
+
+function outcomeForStatus(status: number | null): string {
+  if (status === 429) return "throttled";
+  if (status === 401 || status === 403) return "unauthorized";
+  if (typeof status === "number" && status >= 200 && status < 300) return "ok";
+  return "error";
+}
+
 export function parseRetryAfterSeconds(raw: string | null, nowMs = Date.now()): number | null {
   if (!raw) return null;
   const numeric = Number(raw);
@@ -152,9 +185,22 @@ export async function metaApiRequest<T = unknown>(
     const attempts = method === "GET" ? 2 : 1;
 
     for (let attempt = 0; attempt < attempts; attempt += 1) {
+      // Every attempt is observed, successful or not: a refused call still spends
+      // provider quota, so counting only successes would understate usage.
+      const startedAt = Date.now();
       try {
-        return await requestOnce<T>(options, host, token);
+        const result = await requestOnce<T>(options, host, token);
+        void observe(options.service, "ok", null, Date.now() - startedAt, options.label);
+        return result;
       } catch (err) {
+        const status = err instanceof MetaApiHttpError ? err.status : null;
+        void observe(
+          options.service,
+          err instanceof MetaApiTimeoutError ? "timeout" : outcomeForStatus(status),
+          status,
+          Date.now() - startedAt,
+          options.label,
+        );
         const transientRead =
           method === "GET" &&
           err instanceof MetaApiHttpError &&

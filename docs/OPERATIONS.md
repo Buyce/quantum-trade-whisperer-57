@@ -25,6 +25,34 @@ cadence rather than asserting a crontab line.
 | `cron/verify-reminders` | daily            | remind users to backfill actual prices               |
 | `cron/weekly-report`    | weekly           | weekly shadow/performance report email               |
 | `cron/purge-accounts`   | daily            | hard-delete accounts past their restore window       |
+| `cron/sample-spreads`   | every 15 minutes | one broker quote per authorised instrument, classified and stored |
+| `cron/telemetry-rollup` | hourly           | spread aggregation, telemetry retention, resolver health |
+| `cron/instrument-readiness` | daily, 03:10 UTC | readiness snapshot with live conversion proof     |
+
+### Operational telemetry (Wave 0 only)
+
+Spread sampling is bounded in four independent ways, in this order: the
+`telemetry_controls` kill switch (unreadable means OFF), a slot claim that permits
+exactly one run per 15-minute UTC slot per sampler version, per-run instrument and
+request ceilings that the database may lower but never raise above the compiled
+values, and a fresh per-instrument stage and breaker check before any request.
+
+Authorised scope today is XAUUSD, GBPAUD and EURUSD — 288 instrument-slots per
+day, one quote each, no candle fetches. Wave 1 symbols are not sampled.
+
+Sampling is side-effect-free collection: it grades nothing, publishes nothing,
+alerts nobody and cannot promote an instrument. It is allowed at
+`data_validation`, `shadow`, `signals_only` and `execution_approved`, and refused
+at `disabled` and `suspended`.
+
+A measurement that is stale, crossed, zero-spread, undated, future-dated or taken
+while the market is closed is stored as a CLASSIFIED ATTEMPT, never as a spread.
+Zero valid samples therefore means "nothing measured", which is not evidence that
+spreads are acceptable, and a spread floor may not be derived from it.
+
+ATR context is written by the scanner from candles it had already fetched, so it
+costs no provider request. A telemetry write failure is always swallowed: telemetry
+may never break a scan cycle.
 
 Spec refresh is deliberately **not** part of the scan cron: sharing the MetaApi
 budget with the scanner is how a scan cycle starves.

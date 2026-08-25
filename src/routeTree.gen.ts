@@ -29,10 +29,13 @@ import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[
 import { Route as AuthenticatedAdminIntelligenceRouteImport } from './routes/_authenticated/admin/intelligence'
 import { Route as ApiPublicQuotesRouteImport } from './routes/api/public/quotes'
 import { Route as ApiPublicAgentRegisterRouteImport } from './routes/api/public/agent/register'
+import { Route as ApiPublicCronInstrumentReadinessRouteImport } from './routes/api/public/cron/instrument-readiness'
 import { Route as ApiPublicCronPurgeAccountsRouteImport } from './routes/api/public/cron/purge-accounts'
 import { Route as ApiPublicCronRefreshSpecsRouteImport } from './routes/api/public/cron/refresh-specs'
+import { Route as ApiPublicCronSampleSpreadsRouteImport } from './routes/api/public/cron/sample-spreads'
 import { Route as ApiPublicCronScanRouteImport } from './routes/api/public/cron/scan'
 import { Route as ApiPublicCronShadowResolveRouteImport } from './routes/api/public/cron/shadow-resolve'
+import { Route as ApiPublicCronTelemetryRollupRouteImport } from './routes/api/public/cron/telemetry-rollup'
 import { Route as ApiPublicCronVerifyRemindersRouteImport } from './routes/api/public/cron/verify-reminders'
 import { Route as ApiPublicCronWeeklyReportRouteImport } from './routes/api/public/cron/weekly-report'
 import { Route as ApiPublicWorkerDispatchRouteImport } from './routes/api/public/worker/dispatch'
@@ -148,6 +151,12 @@ const ApiPublicAgentRegisterRoute = ApiPublicAgentRegisterRouteImport.update({
   path: '/api/public/agent/register',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicCronInstrumentReadinessRoute =
+  ApiPublicCronInstrumentReadinessRouteImport.update({
+    id: '/api/public/cron/instrument-readiness',
+    path: '/api/public/cron/instrument-readiness',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicCronPurgeAccountsRoute =
   ApiPublicCronPurgeAccountsRouteImport.update({
     id: '/api/public/cron/purge-accounts',
@@ -160,6 +169,12 @@ const ApiPublicCronRefreshSpecsRoute =
     path: '/api/public/cron/refresh-specs',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicCronSampleSpreadsRoute =
+  ApiPublicCronSampleSpreadsRouteImport.update({
+    id: '/api/public/cron/sample-spreads',
+    path: '/api/public/cron/sample-spreads',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicCronScanRoute = ApiPublicCronScanRouteImport.update({
   id: '/api/public/cron/scan',
   path: '/api/public/cron/scan',
@@ -169,6 +184,12 @@ const ApiPublicCronShadowResolveRoute =
   ApiPublicCronShadowResolveRouteImport.update({
     id: '/api/public/cron/shadow-resolve',
     path: '/api/public/cron/shadow-resolve',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicCronTelemetryRollupRoute =
+  ApiPublicCronTelemetryRollupRouteImport.update({
+    id: '/api/public/cron/telemetry-rollup',
+    path: '/api/public/cron/telemetry-rollup',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiPublicCronVerifyRemindersRoute =
@@ -247,10 +268,13 @@ export interface FileRoutesByFullPath {
   '/admin/intelligence': typeof AuthenticatedAdminIntelligenceRoute
   '/api/public/quotes': typeof ApiPublicQuotesRoute
   '/api/public/agent/register': typeof ApiPublicAgentRegisterRoute
+  '/api/public/cron/instrument-readiness': typeof ApiPublicCronInstrumentReadinessRoute
   '/api/public/cron/purge-accounts': typeof ApiPublicCronPurgeAccountsRoute
   '/api/public/cron/refresh-specs': typeof ApiPublicCronRefreshSpecsRoute
+  '/api/public/cron/sample-spreads': typeof ApiPublicCronSampleSpreadsRoute
   '/api/public/cron/scan': typeof ApiPublicCronScanRoute
   '/api/public/cron/shadow-resolve': typeof ApiPublicCronShadowResolveRoute
+  '/api/public/cron/telemetry-rollup': typeof ApiPublicCronTelemetryRollupRoute
   '/api/public/cron/verify-reminders': typeof ApiPublicCronVerifyRemindersRoute
   '/api/public/cron/weekly-report': typeof ApiPublicCronWeeklyReportRoute
   '/api/public/worker/dispatch': typeof ApiPublicWorkerDispatchRoute
@@ -282,10 +306,13 @@ export interface FileRoutesByTo {
   '/admin/intelligence': typeof AuthenticatedAdminIntelligenceRoute
   '/api/public/quotes': typeof ApiPublicQuotesRoute
   '/api/public/agent/register': typeof ApiPublicAgentRegisterRoute
+  '/api/public/cron/instrument-readiness': typeof ApiPublicCronInstrumentReadinessRoute
   '/api/public/cron/purge-accounts': typeof ApiPublicCronPurgeAccountsRoute
   '/api/public/cron/refresh-specs': typeof ApiPublicCronRefreshSpecsRoute
+  '/api/public/cron/sample-spreads': typeof ApiPublicCronSampleSpreadsRoute
   '/api/public/cron/scan': typeof ApiPublicCronScanRoute
   '/api/public/cron/shadow-resolve': typeof ApiPublicCronShadowResolveRoute
+  '/api/public/cron/telemetry-rollup': typeof ApiPublicCronTelemetryRollupRoute
   '/api/public/cron/verify-reminders': typeof ApiPublicCronVerifyRemindersRoute
   '/api/public/cron/weekly-report': typeof ApiPublicCronWeeklyReportRoute
   '/api/public/worker/dispatch': typeof ApiPublicWorkerDispatchRoute
@@ -319,10 +346,13 @@ export interface FileRoutesById {
   '/_authenticated/admin/intelligence': typeof AuthenticatedAdminIntelligenceRoute
   '/api/public/quotes': typeof ApiPublicQuotesRoute
   '/api/public/agent/register': typeof ApiPublicAgentRegisterRoute
+  '/api/public/cron/instrument-readiness': typeof ApiPublicCronInstrumentReadinessRoute
   '/api/public/cron/purge-accounts': typeof ApiPublicCronPurgeAccountsRoute
   '/api/public/cron/refresh-specs': typeof ApiPublicCronRefreshSpecsRoute
+  '/api/public/cron/sample-spreads': typeof ApiPublicCronSampleSpreadsRoute
   '/api/public/cron/scan': typeof ApiPublicCronScanRoute
   '/api/public/cron/shadow-resolve': typeof ApiPublicCronShadowResolveRoute
+  '/api/public/cron/telemetry-rollup': typeof ApiPublicCronTelemetryRollupRoute
   '/api/public/cron/verify-reminders': typeof ApiPublicCronVerifyRemindersRoute
   '/api/public/cron/weekly-report': typeof ApiPublicCronWeeklyReportRoute
   '/api/public/worker/dispatch': typeof ApiPublicWorkerDispatchRoute
@@ -356,10 +386,13 @@ export interface FileRouteTypes {
     | '/admin/intelligence'
     | '/api/public/quotes'
     | '/api/public/agent/register'
+    | '/api/public/cron/instrument-readiness'
     | '/api/public/cron/purge-accounts'
     | '/api/public/cron/refresh-specs'
+    | '/api/public/cron/sample-spreads'
     | '/api/public/cron/scan'
     | '/api/public/cron/shadow-resolve'
+    | '/api/public/cron/telemetry-rollup'
     | '/api/public/cron/verify-reminders'
     | '/api/public/cron/weekly-report'
     | '/api/public/worker/dispatch'
@@ -391,10 +424,13 @@ export interface FileRouteTypes {
     | '/admin/intelligence'
     | '/api/public/quotes'
     | '/api/public/agent/register'
+    | '/api/public/cron/instrument-readiness'
     | '/api/public/cron/purge-accounts'
     | '/api/public/cron/refresh-specs'
+    | '/api/public/cron/sample-spreads'
     | '/api/public/cron/scan'
     | '/api/public/cron/shadow-resolve'
+    | '/api/public/cron/telemetry-rollup'
     | '/api/public/cron/verify-reminders'
     | '/api/public/cron/weekly-report'
     | '/api/public/worker/dispatch'
@@ -427,10 +463,13 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/intelligence'
     | '/api/public/quotes'
     | '/api/public/agent/register'
+    | '/api/public/cron/instrument-readiness'
     | '/api/public/cron/purge-accounts'
     | '/api/public/cron/refresh-specs'
+    | '/api/public/cron/sample-spreads'
     | '/api/public/cron/scan'
     | '/api/public/cron/shadow-resolve'
+    | '/api/public/cron/telemetry-rollup'
     | '/api/public/cron/verify-reminders'
     | '/api/public/cron/weekly-report'
     | '/api/public/worker/dispatch'
@@ -456,10 +495,13 @@ export interface RootRouteChildren {
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
   ApiPublicQuotesRoute: typeof ApiPublicQuotesRoute
   ApiPublicAgentRegisterRoute: typeof ApiPublicAgentRegisterRoute
+  ApiPublicCronInstrumentReadinessRoute: typeof ApiPublicCronInstrumentReadinessRoute
   ApiPublicCronPurgeAccountsRoute: typeof ApiPublicCronPurgeAccountsRoute
   ApiPublicCronRefreshSpecsRoute: typeof ApiPublicCronRefreshSpecsRoute
+  ApiPublicCronSampleSpreadsRoute: typeof ApiPublicCronSampleSpreadsRoute
   ApiPublicCronScanRoute: typeof ApiPublicCronScanRoute
   ApiPublicCronShadowResolveRoute: typeof ApiPublicCronShadowResolveRoute
+  ApiPublicCronTelemetryRollupRoute: typeof ApiPublicCronTelemetryRollupRoute
   ApiPublicCronVerifyRemindersRoute: typeof ApiPublicCronVerifyRemindersRoute
   ApiPublicCronWeeklyReportRoute: typeof ApiPublicCronWeeklyReportRoute
   ApiPublicWorkerDispatchRoute: typeof ApiPublicWorkerDispatchRoute
@@ -614,6 +656,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicAgentRegisterRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/cron/instrument-readiness': {
+      id: '/api/public/cron/instrument-readiness'
+      path: '/api/public/cron/instrument-readiness'
+      fullPath: '/api/public/cron/instrument-readiness'
+      preLoaderRoute: typeof ApiPublicCronInstrumentReadinessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/cron/purge-accounts': {
       id: '/api/public/cron/purge-accounts'
       path: '/api/public/cron/purge-accounts'
@@ -628,6 +677,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicCronRefreshSpecsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/cron/sample-spreads': {
+      id: '/api/public/cron/sample-spreads'
+      path: '/api/public/cron/sample-spreads'
+      fullPath: '/api/public/cron/sample-spreads'
+      preLoaderRoute: typeof ApiPublicCronSampleSpreadsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/cron/scan': {
       id: '/api/public/cron/scan'
       path: '/api/public/cron/scan'
@@ -640,6 +696,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/cron/shadow-resolve'
       fullPath: '/api/public/cron/shadow-resolve'
       preLoaderRoute: typeof ApiPublicCronShadowResolveRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/cron/telemetry-rollup': {
+      id: '/api/public/cron/telemetry-rollup'
+      path: '/api/public/cron/telemetry-rollup'
+      fullPath: '/api/public/cron/telemetry-rollup'
+      preLoaderRoute: typeof ApiPublicCronTelemetryRollupRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/cron/verify-reminders': {
@@ -766,10 +829,13 @@ const rootRouteChildren: RootRouteChildren = {
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
   ApiPublicQuotesRoute: ApiPublicQuotesRoute,
   ApiPublicAgentRegisterRoute: ApiPublicAgentRegisterRoute,
+  ApiPublicCronInstrumentReadinessRoute: ApiPublicCronInstrumentReadinessRoute,
   ApiPublicCronPurgeAccountsRoute: ApiPublicCronPurgeAccountsRoute,
   ApiPublicCronRefreshSpecsRoute: ApiPublicCronRefreshSpecsRoute,
+  ApiPublicCronSampleSpreadsRoute: ApiPublicCronSampleSpreadsRoute,
   ApiPublicCronScanRoute: ApiPublicCronScanRoute,
   ApiPublicCronShadowResolveRoute: ApiPublicCronShadowResolveRoute,
+  ApiPublicCronTelemetryRollupRoute: ApiPublicCronTelemetryRollupRoute,
   ApiPublicCronVerifyRemindersRoute: ApiPublicCronVerifyRemindersRoute,
   ApiPublicCronWeeklyReportRoute: ApiPublicCronWeeklyReportRoute,
   ApiPublicWorkerDispatchRoute: ApiPublicWorkerDispatchRoute,
