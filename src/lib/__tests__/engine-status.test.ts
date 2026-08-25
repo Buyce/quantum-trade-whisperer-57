@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { classifyEngineError, classifyScanHealth, cooldownRemaining } from "@/lib/engine-status";
+import {
+  classifyEngineError,
+  classifyReplayHealth,
+  classifyScanHealth,
+  cooldownRemaining,
+} from "@/lib/engine-status";
 
 describe("classifyEngineError", () => {
   it("[UNIT] treats no error as no error", () => {
@@ -106,5 +111,40 @@ describe("classifyScanHealth", () => {
     });
     expect(h.state).toBe("degraded");
     expect(h.errorIsCurrent).toBe(true);
+  });
+});
+
+describe("classifyReplayHealth", () => {
+  it("[UNIT] reports RUNNING only after a clean replay pass", () => {
+    expect(
+      classifyReplayHealth({
+        paused: false,
+        consecutive_failures: 0,
+        last_error: null,
+        last_run_at: "2026-08-25T12:00:00.000Z",
+      }),
+    ).toMatchObject({ state: "running", value: "RUNNING", tone: "good", errorIsCurrent: false });
+  });
+
+  it("[UNIT] reports DEGRADED when replay is allowed but the latest pass failed", () => {
+    expect(
+      classifyReplayHealth({
+        paused: false,
+        consecutive_failures: 1,
+        last_error: "All instrument candle fetches failed — EURUSD: timeout",
+        last_run_at: "2026-08-25T12:00:00.000Z",
+      }),
+    ).toMatchObject({ state: "degraded", value: "DEGRADED", tone: "warn", errorIsCurrent: true });
+  });
+
+  it("[UNIT] keeps breaker-trip semantics distinct from a degraded retryable pass", () => {
+    expect(
+      classifyReplayHealth({
+        paused: true,
+        consecutive_failures: 5,
+        last_error: "All instrument candle fetches failed",
+        last_run_at: "2026-08-25T12:00:00.000Z",
+      }),
+    ).toMatchObject({ state: "tripped", value: "BREAKER TRIPPED", tone: "bad" });
   });
 });
