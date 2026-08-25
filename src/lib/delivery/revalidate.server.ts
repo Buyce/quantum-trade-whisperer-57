@@ -464,7 +464,6 @@ export async function revalidateDelivery(
   // in section 6, so this first pass asserts the side only and section 6a-bis
   // re-asks with the broker's own distance.
   const marketPrice = action === "buy_limit" ? quote.ask : quote.bid;
-  console.log("DBG", action, plan.entryPrice, marketPrice, quote.bid, quote.ask);
   if (!pendingLimitSideValid({ action, entry: plan.entryPrice }, marketPrice)) {
     return reject("limit_price_not_on_pending_side", `market ${marketPrice} vs ${plan.entryPrice}`);
   }
@@ -578,6 +577,7 @@ export async function revalidateDelivery(
   // minimum distance cannot be read is refused rather than sent a price we cannot
   // prove is placeable: the distance is never assumed.
   const limitDistance = spec ? minStopDistance(spec) : null;
+  console.log("DBG2", execPlan.entryPrice, marketPrice, limitDistance, destination);
   if (destination === "metaapi_direct" && limitDistance === null) {
     return reject(
       "limit_distance_unavailable",
