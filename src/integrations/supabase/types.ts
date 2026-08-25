@@ -4587,6 +4587,7 @@ export type Database = {
       expire_execution_leases: { Args: never; Returns: number }
       get_admin_author_split: { Args: never; Returns: Json }
       get_admin_candidate_funnel: { Args: never; Returns: Json }
+      get_admin_commissioning: { Args: never; Returns: Json }
       get_admin_engine_status: { Args: never; Returns: Json }
       get_admin_experiments: { Args: never; Returns: Json }
       get_admin_filter_lift: { Args: never; Returns: Json }
@@ -4644,6 +4645,17 @@ export type Database = {
       }
       release_weekly_report: { Args: { _week: string }; Returns: undefined }
       session_of_v1: { Args: { _at: string }; Returns: string }
+      set_execution_control: {
+        Args: {
+          _changed_by: string
+          _evidence?: Json
+          _expected_old?: Json
+          _key: string
+          _reason: string
+          _value: Json
+        }
+        Returns: Json
+      }
       set_telemetry_control: {
         Args: {
           _changed_by: string
