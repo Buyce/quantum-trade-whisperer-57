@@ -229,3 +229,33 @@ export const getExecutionStatus = createServerFn({ method: "GET" })
         ),
     };
   });
+
+/**
+ * Your own most recent automatic-order decisions.
+ *
+ * This exists so that "no automatic orders yet" is never ambiguous: either the
+ * engine decided and this says what it decided, or there is no decision at all
+ * and the UI says exactly that instead of implying a refusal.
+ *
+ * Reads through the request-scoped client, so RLS returns only rows belonging to
+ * the caller plus the system-wide rows that concern no single user.
+ */
+export const getAutoOrderDecisions = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data, error } = await context.supabase
+      .from("execution_enqueue_decisions")
+      .select("created_at, instrument, grade, decision, detail, enqueued, filtered")
+      .order("created_at", { ascending: false })
+      .limit(10);
+    if (error) throw new Error(error.message);
+    return ((data ?? []) as Record<string, unknown>[]).map((row) => ({
+      at: String(row["created_at"]),
+      instrument: (row["instrument"] as string | null) ?? null,
+      grade: (row["grade"] as string | null) ?? null,
+      decision: String(row["decision"]),
+      detail: (row["detail"] as string | null) ?? null,
+      enqueued: Number(row["enqueued"] ?? 0),
+      filtered: Number(row["filtered"] ?? 0),
+    }));
+  });
