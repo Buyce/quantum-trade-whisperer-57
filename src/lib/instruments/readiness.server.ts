@@ -50,10 +50,27 @@ export interface ReadinessCheck {
 /** Account currencies P-Trades must be able to express risk in. */
 export const SUPPORTED_ACCOUNT_CURRENCIES = ["USD", "EUR", "GBP", "AUD"] as const;
 
+export interface ConversionLeg {
+  /** Canonical leg symbol the route needs, e.g. "EURUSD". */
+  symbol: string;
+  /** Provider symbol the leg resolved to, or null when the mapping refused. */
+  providerSymbol: string | null;
+  /** True only when a well-formed, fresh quote was actually returned. */
+  quotable: boolean;
+  detail: string;
+}
+
 export interface ConversionCell {
   accountCurrency: string;
   route: "parity" | "direct" | "inverse" | "usd_cross" | "unsupported";
   symbols: string[];
+  /**
+   * Live verification of every leg the route needs (R5). A planned route is not a
+   * usable route: if the provider will not quote a leg, risk in this instrument
+   * cannot be expressed in that account currency, and inventing a rate would be
+   * fabricating a financial input.
+   */
+  legs: ConversionLeg[];
   ok: boolean;
 }
 
@@ -246,6 +263,52 @@ export async function checkInstrumentReadiness(
   }
 
   // ---- 5. Conversion route for EVERY supported account currency -------------
+  /**
+   * Live leg verification (R5). Routes are planned from currency algebra, but a
+   * route only exists if the provider actually quotes each leg. Legs are cached
+   * per check so a shared USD cross costs one provider call, not four.
+   */
+  const legCache = new Map<string, ConversionLeg>();
+  const verifyLeg = async (leg: string): Promise<ConversionLeg> => {
+    const cached = legCache.get(leg);
+    if (cached) return cached;
+    let result: ConversionLeg;
+    const legAuthority = await resolveMapping(db, { canonical: leg, accountId: null, now });
+    if (!legAuthority.usable || !legAuthority.providerSymbol) {
+      result = {
+        symbol: leg,
+        providerSymbol: null,
+        quotable: false,
+        detail: `${legAuthority.refusal}: ${legAuthority.detail}`,
+      };
+    } else {
+      try {
+        const legQuote = await fetchQuote(legAuthority.providerSymbol);
+        const geometryOk = validQuoteGeometry(legQuote);
+        const fresh = quoteSourceFresh(legQuote, now, REVALIDATION_QUOTE_MAX_AGE_MS);
+        result = {
+          symbol: leg,
+          providerSymbol: legAuthority.providerSymbol,
+          quotable: geometryOk && fresh,
+          detail: !geometryOk
+            ? "the conversion leg quote was malformed or crossed"
+            : !fresh
+              ? "the conversion leg quote's own source timestamp was too old to trust"
+              : `bid=${legQuote.bid}, ask=${legQuote.ask}`,
+        };
+      } catch (err) {
+        result = {
+          symbol: leg,
+          providerSymbol: legAuthority.providerSymbol,
+          quotable: false,
+          detail: `leg quote fetch failed: ${err instanceof Error ? err.message : String(err)}`,
+        };
+      }
+    }
+    legCache.set(leg, result);
+    return result;
+  };
+
   for (const accountCurrency of SUPPORTED_ACCOUNT_CURRENCIES) {
     const plan = planConversion(definition.quote, accountCurrency);
     const route: ConversionCell["route"] =
@@ -258,21 +321,44 @@ export async function checkInstrumentReadiness(
             : plan.kind === "inverse"
               ? "inverse"
               : "usd_cross";
+    const legs: ConversionLeg[] = [];
+    for (const leg of plan.symbols) {
+      legs.push(await verifyLeg(leg));
+    }
     conversion.push({
       accountCurrency,
       route,
       symbols: plan.symbols,
-      ok: plan.kind !== "unsupported",
+      legs,
+      ok: plan.kind !== "unsupported" && legs.every((l) => l.quotable),
     });
   }
-  const unsupported = conversion.filter((c) => !c.ok).map((c) => c.accountCurrency);
+  const unsupported = conversion
+    .filter((c) => c.route === "unsupported")
+    .map((c) => c.accountCurrency);
+  const unverified = conversion
+    .filter((c) => c.route !== "unsupported" && !c.ok)
+    .map(
+      (c) =>
+        `${c.accountCurrency} (${c.legs
+          .filter((l) => !l.quotable)
+          .map((l) => `${l.symbol}: ${l.detail}`)
+          .join("; ")})`,
+    );
   checks.push({
     name: "conversion",
-    ok: unsupported.length === 0,
+    ok: unsupported.length === 0 && unverified.length === 0,
     detail:
-      unsupported.length === 0
-        ? `${definition.quote} risk converts to ${conversion.map((c) => `${c.accountCurrency} (${c.route})`).join(", ")}`
-        : `no supported conversion route from ${definition.quote} to ${unsupported.join(", ")}`,
+      unsupported.length === 0 && unverified.length === 0
+        ? `${definition.quote} risk converts to ${conversion.map((c) => `${c.accountCurrency} (${c.route})`).join(", ")}, every leg quoted live`
+        : [
+            unsupported.length
+              ? `no supported conversion route from ${definition.quote} to ${unsupported.join(", ")}`
+              : null,
+            unverified.length ? `conversion legs not verifiable for ${unverified.join(", ")}` : null,
+          ]
+            .filter(Boolean)
+            .join("; "),
   });
 
   const ready = checks.every((c) => c.ok);
