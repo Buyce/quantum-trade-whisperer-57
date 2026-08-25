@@ -472,6 +472,28 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
     const session = sessionOf(now);
 
     /**
+     * Strategy-evaluation gate (Phase A1, Finding 1).
+     *
+     * Candles have now been fetched and the data-health row updated, which is the
+     * ENTIRE purpose of `data_validation`. Running V1/V2/V3 here would grade data
+     * whose mapping, specification and series integrity have not been proven, and
+     * every resulting row would enter the research ledger as if it had been.
+     *
+     * So the strategy boundary — not the publication boundary — is where an
+     * instrument below `shadow` stops. `observed` stays true, but the capture gate
+     * in `finish` refuses to write measurement rows for this stage, so nothing is
+     * recorded except the job outcome.
+     */
+    if (lifecycleEnforced && !mayEvaluateStrategy(instrumentStage)) {
+      return await finish(
+        "skipped",
+        `${job.instrument} is at lifecycle stage "${instrumentStage}" (${describeStage(instrumentStage)}) — candles were fetched and validated, and no strategy was run`,
+      );
+    }
+
+
+
+    /**
      * V2 research evaluation, hoisted ABOVE every V1 return so the research
      * cohort is one row per fetched observation rather than one row per V1
      * publication. Pure computation on the identical candle snapshot V1 grades;
