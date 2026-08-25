@@ -46,6 +46,23 @@ exposing symbol and stage.
 `suspended` is a revocation, not a rank: it withdraws every capability however
 far the instrument had progressed.
 
+## What the user sees
+
+The terminal collapses the stage into three user-visible states, so a reachable
+broker feed is never mistaken for availability:
+
+| User-visible state  | Stages                          | Feed strip label             | Selectable in Settings |
+| ------------------- | ------------------------------- | ---------------------------- | ---------------------- |
+| measuring           | `data_validation`, `shadow`     | measuring — not published yet | no                     |
+| publishable         | `signals_only`, `execution_approved` | live feed               | yes                    |
+| out of service      | `disabled`, `suspended`         | not in service               | no                     |
+
+The Settings instrument list is **derived** from the restricted
+`instrument_stages` view via `publishableInstruments()` in `lib/db-types.ts`, not
+from a frozen wave constant: a legitimately promoted pair appears without a code
+change, and a stage-read failure falls back to Wave 0 only. Saving also filters
+out any previously selected symbol that is no longer publishable.
+
 The rules are pure functions in `src/lib/instruments/lifecycle.ts`
 (`mayScan`, `mayPublish`, `mayExecute`) so the same predicate answers the scanner,
 the alert path and the pre-send gate.
