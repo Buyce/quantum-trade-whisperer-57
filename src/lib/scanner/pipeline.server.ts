@@ -474,6 +474,31 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
     const session = sessionOf(now);
 
     /**
+     * ATR snapshot (Phase A2 telemetry). Recorded HERE — after the fetch, before
+     * the strategy gate — because volatility context is data collection, which is
+     * exactly what `data_validation` authorises, and because it must exist for
+     * every fetched observation rather than only for published signals.
+     *
+     * It costs no provider request: the number comes from candles already in hand.
+     * A write failure is swallowed inside the writer, so telemetry can never break
+     * a scan cycle.
+     */
+    {
+      const { recordAtrSnapshot } = await import("@/lib/telemetry/atr.server");
+      const h1AtrSnapshot = atr(candles.H1, 14);
+      const lastH1 = candles.H1[candles.H1.length - 1];
+      if (h1AtrSnapshot > 0 && lastH1) {
+        await recordAtrSnapshot(db, {
+          instrument: job.instrument,
+          timeframe: "H1",
+          atr: h1AtrSnapshot,
+          atrPeriod: 14,
+          candleAsOf: lastH1.time,
+        });
+      }
+    }
+
+    /**
      * Strategy-evaluation gate (Phase A1, Finding 1).
      *
      * Candles have now been fetched and the data-health row updated, which is the

@@ -555,6 +555,33 @@ export type Database = {
           },
         ]
       }
+      candle_policies: {
+        Row: {
+          applies_to: string
+          created_at: string
+          description: string
+          finality: string
+          name: string
+          version: number
+        }
+        Insert: {
+          applies_to: string
+          created_at?: string
+          description: string
+          finality: string
+          name: string
+          version: number
+        }
+        Update: {
+          applies_to?: string
+          created_at?: string
+          description?: string
+          finality?: string
+          name?: string
+          version?: number
+        }
+        Relationships: []
+      }
       connected_account_features: {
         Row: {
           account_id: string
@@ -1686,42 +1713,60 @@ export type Database = {
       }
       instrument_readiness_snapshots: {
         Row: {
+          candle_policy_version: number | null
           checked_at: string
           checks: Json
           code_hash: string | null
           conversion: Json
+          conversion_data_ready: boolean | null
+          conversion_live: Json | null
+          conversion_route_ready: boolean | null
           created_at: string
+          execution_conversion_ready: boolean | null
           id: number
           instrument: string
           mapping: Json
+          provider_symbol: string | null
           ready: boolean
           series: Json
           spec_fields: Json
           spread_floor_candidate: number | null
         }
         Insert: {
+          candle_policy_version?: number | null
           checked_at?: string
           checks: Json
           code_hash?: string | null
           conversion?: Json
+          conversion_data_ready?: boolean | null
+          conversion_live?: Json | null
+          conversion_route_ready?: boolean | null
           created_at?: string
+          execution_conversion_ready?: boolean | null
           id?: number
           instrument: string
           mapping?: Json
+          provider_symbol?: string | null
           ready: boolean
           series?: Json
           spec_fields?: Json
           spread_floor_candidate?: number | null
         }
         Update: {
+          candle_policy_version?: number | null
           checked_at?: string
           checks?: Json
           code_hash?: string | null
           conversion?: Json
+          conversion_data_ready?: boolean | null
+          conversion_live?: Json | null
+          conversion_route_ready?: boolean | null
           created_at?: string
+          execution_conversion_ready?: boolean | null
           id?: number
           instrument?: string
           mapping?: Json
+          provider_symbol?: string | null
           ready?: boolean
           series?: Json
           spec_fields?: Json
@@ -1734,6 +1779,7 @@ export type Database = {
           ask: number | null
           atr_snapshot_id: number | null
           bid: number | null
+          candle_policy_version: number | null
           created_at: string
           digits: number | null
           id: number
@@ -1764,6 +1810,7 @@ export type Database = {
           ask?: number | null
           atr_snapshot_id?: number | null
           bid?: number | null
+          candle_policy_version?: number | null
           created_at?: string
           digits?: number | null
           id?: number
@@ -1794,6 +1841,7 @@ export type Database = {
           ask?: number | null
           atr_snapshot_id?: number | null
           bid?: number | null
+          candle_policy_version?: number | null
           created_at?: string
           digits?: number | null
           id?: number
@@ -2004,6 +2052,7 @@ export type Database = {
       model_observations: {
         Row: {
           candle_as_of: string | null
+          candle_policy_version: number | null
           candle_source: string | null
           canonical_instrument: string | null
           code_hash: string | null
@@ -2033,6 +2082,7 @@ export type Database = {
         }
         Insert: {
           candle_as_of?: string | null
+          candle_policy_version?: number | null
           candle_source?: string | null
           canonical_instrument?: string | null
           code_hash?: string | null
@@ -2062,6 +2112,7 @@ export type Database = {
         }
         Update: {
           candle_as_of?: string | null
+          candle_policy_version?: number | null
           candle_source?: string | null
           canonical_instrument?: string | null
           code_hash?: string | null
@@ -2598,6 +2649,7 @@ export type Database = {
         Row: {
           atr: number | null
           candle_as_of: string | null
+          candle_policy_version: number | null
           candle_source: string | null
           canonical_instrument: string | null
           cf_grade: string | null
@@ -2657,6 +2709,7 @@ export type Database = {
         Insert: {
           atr?: number | null
           candle_as_of?: string | null
+          candle_policy_version?: number | null
           candle_source?: string | null
           canonical_instrument?: string | null
           cf_grade?: string | null
@@ -2716,6 +2769,7 @@ export type Database = {
         Update: {
           atr?: number | null
           candle_as_of?: string | null
+          candle_policy_version?: number | null
           candle_source?: string | null
           canonical_instrument?: string | null
           cf_grade?: string | null
@@ -3792,6 +3846,66 @@ export type Database = {
           },
         ]
       }
+      telemetry_controls: {
+        Row: {
+          aggregation_enabled: boolean
+          atr_retention_days: number
+          breaker_cooldown_minutes: number
+          capacity_enabled: boolean
+          capacity_retention_days: number
+          daily_request_budget: number
+          id: boolean
+          max_instruments_per_run: number
+          max_requests_per_run: number
+          note: string | null
+          observation_retention_days: number
+          readiness_enabled: boolean
+          retention_enabled: boolean
+          sample_retention_days: number
+          sampler_enabled: boolean
+          sampler_symbols: string[]
+          updated_at: string
+        }
+        Insert: {
+          aggregation_enabled?: boolean
+          atr_retention_days?: number
+          breaker_cooldown_minutes?: number
+          capacity_enabled?: boolean
+          capacity_retention_days?: number
+          daily_request_budget?: number
+          id?: boolean
+          max_instruments_per_run?: number
+          max_requests_per_run?: number
+          note?: string | null
+          observation_retention_days?: number
+          readiness_enabled?: boolean
+          retention_enabled?: boolean
+          sample_retention_days?: number
+          sampler_enabled?: boolean
+          sampler_symbols?: string[]
+          updated_at?: string
+        }
+        Update: {
+          aggregation_enabled?: boolean
+          atr_retention_days?: number
+          breaker_cooldown_minutes?: number
+          capacity_enabled?: boolean
+          capacity_retention_days?: number
+          daily_request_budget?: number
+          id?: boolean
+          max_instruments_per_run?: number
+          max_requests_per_run?: number
+          note?: string | null
+          observation_retention_days?: number
+          readiness_enabled?: boolean
+          retention_enabled?: boolean
+          sample_retention_days?: number
+          sampler_enabled?: boolean
+          sampler_symbols?: string[]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       v2_structure_claims: {
         Row: {
           claimed_at: string
@@ -4314,6 +4428,14 @@ export type Database = {
         }[]
       }
       claim_learning_milestone: { Args: { _gate: string }; Returns: boolean }
+      claim_sampler_slot: {
+        Args: {
+          _expected: string[]
+          _sampler_version: number
+          _scheduled_at: string
+        }
+        Returns: string
+      }
       claim_scan_job: {
         Args: never
         Returns: {
@@ -4387,6 +4509,7 @@ export type Database = {
       }
       prune_v2_structure_claims: { Args: never; Returns: number }
       purge_expired_signals: { Args: never; Returns: number }
+      purge_telemetry: { Args: never; Returns: Json }
       recompute_filter_lift: {
         Args: { _horizon_hours?: number }
         Returns: Json
@@ -4404,6 +4527,7 @@ export type Database = {
         Args: { _model_version?: number }
         Returns: Json
       }
+      recompute_spread_stats: { Args: { _days?: number }; Returns: Json }
       record_spec_refresh_outcome: {
         Args: { _error: string; _outcome: string; _symbol: string }
         Returns: undefined
@@ -4417,6 +4541,16 @@ export type Database = {
         Returns: undefined
       }
       release_weekly_report: { Args: { _week: string }; Returns: undefined }
+      session_of_v1: { Args: { _at: string }; Returns: string }
+      set_telemetry_control: {
+        Args: {
+          _changed_by: string
+          _key: string
+          _reason: string
+          _value: Json
+        }
+        Returns: Json
+      }
       transition_instrument_stage: {
         Args: {
           _approver: string

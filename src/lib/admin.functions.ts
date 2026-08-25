@@ -11,6 +11,7 @@
  */
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import type { Json } from "@/integrations/supabase/types";
 
 const OWNER_EMAIL = "boatengampomah@gmail.com";
 
@@ -478,4 +479,69 @@ export const getAdminEnqueueDecisions = createServerFn({ method: "GET" })
       enqueued: Number(row["enqueued"] ?? 0),
       filtered: Number(row["filtered"] ?? 0),
     }));
+  });
+
+/**
+ * Owner-only instrument/telemetry diagnostics (Phase A2 operational telemetry).
+ *
+ * The underlying RPC is granted to the service role ONLY, so this handler reads it
+ * through the admin client after verifying the owner identity from the bearer
+ * token. That is deliberate: telemetry describes provider budget consumption and
+ * lifecycle stages, which no ordinary authenticated session should be able to read.
+ *
+ * Everything returned is an aggregate over live rows. An empty section stays empty
+ * rather than being padded with an example.
+ */
+export type DiagnosticsRow = Record<string, Json>;
+
+export interface AdminInstrumentDiagnostics {
+  generated_at: string;
+  lifecycle: DiagnosticsRow[];
+  latest_readiness: DiagnosticsRow[];
+  spread_stats: DiagnosticsRow[];
+  sampler: DiagnosticsRow[];
+  capacity: DiagnosticsRow[];
+}
+
+export const getAdminInstrumentDiagnostics = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<AdminInstrumentDiagnostics> => {
+    const email = String(context.claims["email"] ?? "").toLowerCase();
+    if (email !== OWNER_EMAIL) throw new Error("Forbidden");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await supabaseAdmin.rpc("get_admin_instrument_diagnostics");
+    if (error) throw new Error(error.message);
+    return data as unknown as AdminInstrumentDiagnostics;
+  });
+
+/** Telemetry control room: the current worker switches and provider ceilings. */
+export interface AdminTelemetryControls {
+  sampler_enabled: boolean;
+  aggregation_enabled: boolean;
+  retention_enabled: boolean;
+  capacity_enabled: boolean;
+  readiness_enabled: boolean;
+  sampler_symbols: string[];
+  max_instruments_per_run: number;
+  max_requests_per_run: number;
+  daily_request_budget: number;
+  note: string | null;
+  updated_at: string | null;
+}
+
+export const getAdminTelemetryControls = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<AdminTelemetryControls | null> => {
+    const email = String(context.claims["email"] ?? "").toLowerCase();
+    if (email !== OWNER_EMAIL) throw new Error("Forbidden");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await supabaseAdmin
+      .from("telemetry_controls")
+      .select("*")
+      .eq("id", true)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    return (data as unknown as AdminTelemetryControls) ?? null;
   });
