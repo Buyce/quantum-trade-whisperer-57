@@ -6,6 +6,7 @@ import {
   isTerminal,
   spreadAcceptable,
   withinMaxAcceptableEntry,
+  pendingLimitSideValid,
   type BridgeSignal,
 } from "../execution";
 import { evaluateExposure } from "../exposure";
