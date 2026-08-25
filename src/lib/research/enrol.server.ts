@@ -12,7 +12,6 @@
  * shadow executions.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { assertCapability } from "@/lib/instruments/lifecycle.server";
 import { MODEL_V2_VERSION } from "@/lib/scanner/v2/manifest";
 import type { V2Profile } from "@/lib/scanner/v2/profile.v2";
 import { noteResearchFailure, RESEARCH_WRITE_DEADLINE_MS } from "./observations.server";
@@ -37,6 +36,89 @@ export interface V2EnrolmentArgs {
   detectedAt: string;
   session: string | null;
   observationKey: string | null;
+  cooldownMinutes: number;
+}
+
+interface AtomicModelEnrolmentResult {
+  inserted?: boolean;
+  claimed?: boolean;
+  reason?: string | null;
+  plan_id?: string | null;
+}
+
+async function atomicModelShadowEnrolment(
+  db: SupabaseClient,
+  args: {
+    claimModelVersion: number;
+    modelVersion: number;
+    structureKey: string;
+    cooldownMinutes: number;
+    instrument: string;
+    grade: string;
+    direction: string;
+    detectedAt: string;
+    entryPrice: number;
+    stopLoss: number;
+    tp1: number;
+    tp2: number;
+    tp3: number | null;
+    tp1R: number;
+    tp2R: number;
+    tp3R: number | null;
+    maxR: number;
+    atr: number;
+    session: string | null;
+    observationKey: string | null;
+    strategyFamily: string;
+    qualityGrade: string;
+    entrySource?: string | null;
+    stopAnchor?: string | null;
+  },
+  deadlineMs: number,
+): Promise<AtomicModelEnrolmentResult | "deadline" | { error: string }> {
+  try {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const result = await Promise.race([
+      db
+        .rpc("claim_and_enrol_model_shadow", {
+          _claim_model_version: args.claimModelVersion,
+          _structure_key: args.structureKey,
+          _cooldown_minutes: args.cooldownMinutes,
+          _instrument: args.instrument,
+          _grade: args.grade,
+          _direction: args.direction,
+          _detected_at: args.detectedAt,
+          _entry_price: args.entryPrice,
+          _stop_loss: args.stopLoss,
+          _tp1: args.tp1,
+          _tp2: args.tp2,
+          _tp3: args.tp3,
+          _tp1_r: args.tp1R,
+          _tp2_r: args.tp2R,
+          _tp3_r: args.tp3R,
+          _max_r: args.maxR,
+          _risk_price: Math.abs(args.entryPrice - args.stopLoss),
+          _atr: args.atr,
+          _trading_session: args.session,
+          _model_version: args.modelVersion,
+          _observation_key: args.observationKey,
+          _strategy_family: args.strategyFamily,
+          _quality_grade: args.qualityGrade,
+          _entry_source: args.entrySource ?? null,
+          _stop_anchor: args.stopAnchor ?? null,
+        })
+        .then((r) => r),
+      new Promise<"deadline">((resolve) => {
+        timer = setTimeout(() => resolve("deadline"), deadlineMs);
+      }),
+    ]);
+    if (timer) clearTimeout(timer);
+    if (result === "deadline") return result;
+    if (result.error) return { error: result.error.message };
+    return (result.data ?? {}) as AtomicModelEnrolmentResult;
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : String(err) };
+  }
 }
 
 /**
@@ -50,74 +132,43 @@ export async function enrolV2Shadow(
   deadlineMs = RESEARCH_WRITE_DEADLINE_MS,
 ): Promise<boolean> {
   const p = args.profile;
-  /**
-   * Lifecycle research gate (Phase A2A, R6-FIX).
-   *
-   * A shadow row is immutable evidence, so the stage is re-read at the write
-   * boundary itself: an instrument suspended or demoted after the scan job began
-   * must not add rows to the research ledger. A degraded read refuses everything
-   * outside the frozen Wave 0 universe.
-   */
-  const gate = await assertCapability(db, p.instrument, "resolve_research");
-  if (!gate.allowed) return false;
-  try {
-    const insert = db.from("shadow_executions").insert({
-      // Research rows are never backed by a published signal.
-      signal_id: null,
+  const result = await atomicModelShadowEnrolment(
+    db,
+    {
+      claimModelVersion: MODEL_V2_VERSION,
+      modelVersion: MODEL_V2_VERSION,
+      structureKey: p.structureKey,
+      cooldownMinutes: args.cooldownMinutes,
       instrument: p.instrument,
       grade: p.grade,
       direction: p.direction,
-      detected_at: args.detectedAt,
-      entry_price: p.entryPrice,
-      stop_loss: p.stopLoss,
+      detectedAt: args.detectedAt,
+      entryPrice: p.entryPrice,
+      stopLoss: p.stopLoss,
       tp1: p.tp1,
       tp2: p.tp2,
       tp3: p.tp3,
-      tp1_r: p.tp1R,
-      tp2_r: p.tp2R,
-      tp3_r: p.tp3R,
-      max_r: p.maxR,
-      risk_price: Math.abs(p.entryPrice - p.stopLoss),
+      tp1R: p.tp1R,
+      tp2R: p.tp2R,
+      tp3R: p.tp3R,
+      maxR: p.maxR,
       atr: p.atr,
-      trading_session: args.session,
-      status: "pending",
-      replay_cursor: args.detectedAt,
-      model_version: MODEL_V2_VERSION,
-      observation_key: args.observationKey,
-      strategy_family: p.family,
-      quality_grade: p.grade,
-    });
-
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const result = await Promise.race([
-      insert.then((r) => r),
-      new Promise<"deadline">((resolve) => {
-        timer = setTimeout(() => resolve("deadline"), deadlineMs);
-      }),
-    ]);
-    if (timer) clearTimeout(timer);
-
-    if (result === "deadline") {
-      await noteResearchFailure(db, "v2 shadow enrolment exceeded deadline", deadlineMs);
-      return false;
-    }
-    if (result.error) {
-      await noteResearchFailure(
-        db,
-        `v2 shadow enrolment failed: ${result.error.message}`,
-        deadlineMs,
-      );
-      return false;
-    }
-    return true;
-  } catch (err) {
-    await noteResearchFailure(
-      db,
-      `v2 shadow enrolment threw: ${err instanceof Error ? err.message : String(err)}`,
-      deadlineMs,
-    );
+      session: args.session,
+      observationKey: args.observationKey,
+      strategyFamily: p.family,
+      qualityGrade: p.grade,
+    },
+    deadlineMs,
+  );
+  if (result === "deadline") {
+    await noteResearchFailure(db, "v2 shadow enrolment exceeded deadline", deadlineMs);
     return false;
   }
+  if ("error" in result) {
+    await noteResearchFailure(db, `v2 shadow enrolment failed: ${result.error}`, deadlineMs);
+    return false;
+  }
+  return result.inserted === true;
 }
 
 /**
@@ -157,6 +208,7 @@ export interface V3EnrolmentArgs {
   detectedAt: string;
   session: string | null;
   observationKey: string | null;
+  cooldownMinutes: number;
 }
 
 /**
@@ -171,74 +223,43 @@ export async function enrolV3Shadow(
   deadlineMs = RESEARCH_WRITE_DEADLINE_MS,
 ): Promise<boolean> {
   const p = args.profile;
-  /**
-   * Lifecycle research gate (Phase A2A, R6-FIX).
-   *
-   * A shadow row is immutable evidence, so the stage is re-read at the write
-   * boundary itself: an instrument suspended or demoted after the scan job began
-   * must not add rows to the research ledger. A degraded read refuses everything
-   * outside the frozen Wave 0 universe.
-   */
-  const gate = await assertCapability(db, p.instrument, "resolve_research");
-  if (!gate.allowed) return false;
-  try {
-    const insert = db.from("shadow_executions").insert({
-      // Research rows are never backed by a published signal.
-      signal_id: null,
+  const result = await atomicModelShadowEnrolment(
+    db,
+    {
+      claimModelVersion: MODEL_V3_VERSION,
+      modelVersion: MODEL_V3_VERSION,
+      structureKey: p.structureKey,
+      cooldownMinutes: args.cooldownMinutes,
       instrument: p.instrument,
       grade: p.grade,
       direction: p.direction,
-      detected_at: args.detectedAt,
-      entry_price: p.entryPrice,
-      stop_loss: p.stopLoss,
+      detectedAt: args.detectedAt,
+      entryPrice: p.entryPrice,
+      stopLoss: p.stopLoss,
       tp1: p.tp1,
       tp2: p.tp2,
       tp3: p.tp3,
-      tp1_r: p.tp1R,
-      tp2_r: p.tp2R,
-      tp3_r: p.tp3R,
-      max_r: p.maxR,
-      risk_price: Math.abs(p.entryPrice - p.stopLoss),
+      tp1R: p.tp1R,
+      tp2R: p.tp2R,
+      tp3R: p.tp3R,
+      maxR: p.maxR,
       atr: p.atr,
-      trading_session: args.session,
-      status: "pending",
-      replay_cursor: args.detectedAt,
-      model_version: MODEL_V3_VERSION,
-      observation_key: args.observationKey,
-      strategy_family: p.family,
-      quality_grade: p.grade,
-      entry_source: p.entrySource,
-      stop_anchor: p.stopAnchor,
-    });
-
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const result = await Promise.race([
-      insert.then((r) => r),
-      new Promise<"deadline">((resolve) => {
-        timer = setTimeout(() => resolve("deadline"), deadlineMs);
-      }),
-    ]);
-    if (timer) clearTimeout(timer);
-
-    if (result === "deadline") {
-      await noteResearchFailure(db, "v3 shadow enrolment exceeded deadline", deadlineMs);
-      return false;
-    }
-    if (result.error) {
-      await noteResearchFailure(
-        db,
-        `v3 shadow enrolment failed: ${result.error.message}`,
-        deadlineMs,
-      );
-      return false;
-    }
-    return true;
-  } catch (err) {
-    await noteResearchFailure(
-      db,
-      `v3 shadow enrolment threw: ${err instanceof Error ? err.message : String(err)}`,
-      deadlineMs,
-    );
+      session: args.session,
+      observationKey: args.observationKey,
+      strategyFamily: p.family,
+      qualityGrade: p.grade,
+      entrySource: p.entrySource,
+      stopAnchor: p.stopAnchor,
+    },
+    deadlineMs,
+  );
+  if (result === "deadline") {
+    await noteResearchFailure(db, "v3 shadow enrolment exceeded deadline", deadlineMs);
     return false;
   }
+  if ("error" in result) {
+    await noteResearchFailure(db, `v3 shadow enrolment failed: ${result.error}`, deadlineMs);
+    return false;
+  }
+  return result.inserted === true;
 }

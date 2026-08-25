@@ -95,6 +95,7 @@ export function directExecutionAllowed(input: DirectGateInput): DirectGateVerdic
 
 export interface DirectOrderPlan {
   signalId: string;
+  instrument: string;
   direction: "long" | "short" | string;
   entryPrice: number;
   stopLoss: number;

@@ -107,6 +107,7 @@ interface FakeOptions {
   v2Enabled?: boolean;
   claim?: boolean;
   duplicate?: boolean;
+  lifecycleStage?: string;
   shadowInsertError?: string;
 }
 
@@ -124,6 +125,12 @@ function fakeDb(opts: FakeOptions) {
     }
     if (table === "shadow_engine_state" && op === "select") {
       return { data: { v2_enabled: opts.v2Enabled ?? false, research_errors: 0 }, error: null };
+    }
+    if (table === "execution_controls" && op === "select") {
+      return { data: { lifecycle_enforced: true }, error: null };
+    }
+    if (table === "instrument_lifecycle" && op === "select") {
+      return { data: [{ symbol: "EURUSD", stage: opts.lifecycleStage ?? "shadow" }], error: null };
     }
     if (table === "scanned_signals" && op === "select") {
       return { data: opts.duplicate ? [{ id: "existing" }] : [], error: null };
@@ -191,8 +198,19 @@ function fakeDb(opts: FakeOptions) {
           error: null,
         });
       }
-      if (fn === "claim_v2_structure") {
-        return Promise.resolve({ data: opts.claim ?? true, error: null });
+      if (fn === "claim_and_enrol_model_shadow") {
+        if (opts.shadowInsertError) {
+          return Promise.resolve({ data: null, error: { message: opts.shadowInsertError } });
+        }
+        return Promise.resolve({
+          data: {
+            inserted: opts.claim ?? true,
+            claimed: opts.claim ?? true,
+            reason: opts.claim === false ? "claim_lost" : null,
+            plan_id: opts.claim === false ? null : "plan-v2",
+          },
+          error: null,
+        });
       }
       return Promise.resolve({ data: null, error: null });
     },
@@ -201,8 +219,8 @@ function fakeDb(opts: FakeOptions) {
   return { db, recorded };
 }
 
-const shadowInserts = (recorded: Recorded[]) =>
-  recorded.filter((r) => r.table === "shadow_executions" && r.op === "insert");
+const shadowEnrolments = (recorded: Recorded[]) =>
+  recorded.filter((r) => r.table === "rpc:claim_and_enrol_model_shadow" && r.op === "rpc");
 const observationWrites = (recorded: Recorded[]) =>
   recorded.filter((r) => r.table === "model_observations");
 const signalInserts = (recorded: Recorded[]) =>
@@ -220,32 +238,33 @@ describe("V2 shadow enrolment gating", () => {
     const job = await processNextJob(db);
     expect(job?.status).toBe("no_trade");
 
-    const inserts = shadowInserts(recorded);
-    expect(inserts).toHaveLength(1);
-    const row = inserts[0]?.payload as Record<string, unknown>;
-    expect(row["model_version"]).toBe(2);
-    expect(row["status"]).toBe("pending");
-    expect(row["signal_id"]).toBeNull();
-    expect(row["strategy_family"]).toBe("continuation");
-    expect(row["quality_grade"]).toBe("A");
-    expect(row["entry_price"]).toBe(CANDIDATE_PROFILE.entryPrice);
-    expect(row["stop_loss"]).toBe(CANDIDATE_PROFILE.stopLoss);
-    expect(row["tp1"]).toBe(CANDIDATE_PROFILE.tp1);
-    expect(row["tp3_r"]).toBe(CANDIDATE_PROFILE.tp3R);
-    expect(row["max_r"]).toBe(CANDIDATE_PROFILE.maxR);
-    expect(row["observation_key"]).toBeTruthy();
+    const enrolments = shadowEnrolments(recorded);
+    expect(enrolments).toHaveLength(1);
+    const row = enrolments[0]?.payload as Record<string, unknown>;
+    expect(row["_model_version"]).toBe(2);
+    expect(row["_claim_model_version"]).toBe(2);
+    expect(row["_strategy_family"]).toBe("continuation");
+    expect(row["_quality_grade"]).toBe("A");
+    expect(row["_entry_price"]).toBe(CANDIDATE_PROFILE.entryPrice);
+    expect(row["_stop_loss"]).toBe(CANDIDATE_PROFILE.stopLoss);
+    expect(row["_tp1"]).toBe(CANDIDATE_PROFILE.tp1);
+    expect(row["_tp3_r"]).toBe(CANDIDATE_PROFILE.tp3R);
+    expect(row["_max_r"]).toBe(CANDIDATE_PROFILE.maxR);
+    expect(row["_observation_key"]).toBeTruthy();
   });
 
   it("[INVARIANT] v2_enabled = false produces zero V2 enrolments", async () => {
     const { db, recorded } = fakeDb({ v2Enabled: false, claim: true });
     await processNextJob(db);
-    expect(shadowInserts(recorded)).toHaveLength(0);
+    expect(shadowEnrolments(recorded)).toHaveLength(0);
   });
 
   it("[UNIT] a lost structure claim produces no enrolment", async () => {
     const { db, recorded } = fakeDb({ v2Enabled: true, claim: false });
     await processNextJob(db);
-    expect(shadowInserts(recorded)).toHaveLength(0);
+    const enrolments = shadowEnrolments(recorded);
+    expect(enrolments).toHaveLength(1);
+    expect(enrolments[0]?.payload).toMatchObject({ _claim_model_version: 2 });
   });
 
   it("[UNIT] the mean-reversion family is observation-only and never enrols", async () => {
@@ -255,7 +274,7 @@ describe("V2 shadow enrolment gating", () => {
     });
     const { db, recorded } = fakeDb({ v2Enabled: true, claim: true });
     await processNextJob(db);
-    expect(shadowInserts(recorded)).toHaveLength(0);
+    expect(shadowEnrolments(recorded)).toHaveLength(0);
     expect(observationWrites(recorded).length).toBeGreaterThan(0);
   });
 
@@ -266,10 +285,15 @@ describe("V2 shadow enrolment gating", () => {
       direction: "long",
       structureKey: "EURUSD|long|v1",
     };
-    const { db, recorded } = fakeDb({ v2Enabled: true, claim: true, duplicate: true });
+    const { db, recorded } = fakeDb({
+      v2Enabled: true,
+      claim: true,
+      duplicate: true,
+      lifecycleStage: "signals_only",
+    });
     const job = await processNextJob(db);
     expect(job?.status).toBe("duplicate");
-    expect(shadowInserts(recorded)).toHaveLength(1);
+    expect(shadowEnrolments(recorded)).toHaveLength(1);
     expect(signalInserts(recorded)).toHaveLength(0);
   });
 
@@ -281,7 +305,7 @@ describe("V2 shadow enrolment gating", () => {
     });
     const job = await processNextJob(db);
     expect(job?.status).toBe("no_trade");
-    expect(shadowInserts(recorded)).toHaveLength(1);
+    expect(shadowEnrolments(recorded)).toHaveLength(1);
     // Health is recorded durably rather than thrown.
     expect(recorded.some((r) => r.table === "shadow_engine_state" && r.op === "update")).toBe(true);
   });
@@ -298,7 +322,7 @@ describe("V2 shadow enrolment gating", () => {
     const v2Row = rows.find((r) => r["model_version"] === 2);
     expect(v2Row?.["decision"]).toBe("error");
     expect(String(v2Row?.["reason"])).toContain("evaluator exploded");
-    expect(shadowInserts(recorded)).toHaveLength(0);
+    expect(shadowEnrolments(recorded)).toHaveLength(0);
   });
 
   it("[INVARIANT] observation persistence upserts on the run identity, so retries cannot double-count", async () => {
