@@ -102,6 +102,8 @@ function PerformancePage() {
   const trades = useQuery(myTradesQuery(user?.id));
   const loadEvidence = useServerFn(getBrokerPerformanceEvidence);
   const loadAutomaticOrders = useServerFn(getAutomaticOrderSummary);
+  const [scope, setScope] = useState<PerformanceSource>("journal");
+  const [rBasis, setRBasis] = useState<RBasis>("actual_risk");
   const customerEvidence = useQuery({
     queryKey: ["performance-evidence", "customer"],
     queryFn: () => loadEvidence({ data: { source: "customer" } }),
@@ -117,8 +119,6 @@ function PerformancePage() {
     queryFn: () => loadAutomaticOrders(),
     enabled: Boolean(user) && scope === "broker",
   });
-  const [scope, setScope] = useState<PerformanceSource>("journal");
-  const [rBasis, setRBasis] = useState<RBasis>("actual_risk");
 
   const journal = useMemo(
     () => samplesFromTrades(trades.data ?? [], signals.data ?? [], rBasis),
