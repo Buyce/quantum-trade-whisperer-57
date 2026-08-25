@@ -21,6 +21,8 @@ export const ENQUEUE_DECISION_COPY: Record<string, string> = {
   below_alert_grade: "This setup's grade is below your minimum tier.",
   below_min_grade: "This setup's grade is below your minimum tier.",
   expired_retention: "The setup had already expired.",
+  execution_window_expired:
+    "The setup was already outside the 30-minute automatic-order window, so no broker order was queued.",
   daily_cap_reached: "Your trades-per-day limit was already used up.",
   intelligence_gate_below_threshold:
     "The historical win-if-filled rate for this regime is below your intelligence-gate threshold.",

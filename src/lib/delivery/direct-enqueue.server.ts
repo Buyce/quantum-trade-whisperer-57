@@ -21,7 +21,7 @@
  * `recordEnqueueDecisions`, so an empty delivery ledger is never ambiguous.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Grade } from "@/lib/db-types";
+import { ORDER_TIF_MINUTES, type Grade } from "@/lib/db-types";
 import type { RegimeStatRow } from "@/lib/learning/regime";
 import { fetchDayFrame, type FrameClient } from "./day-frame";
 import {
@@ -49,6 +49,27 @@ export interface DirectEnqueueSignal {
   direction?: string;
   /** Needed only by the optional intelligence gate. */
   volatilityIndex?: number | null;
+}
+
+const EXECUTION_WINDOW_MS = ORDER_TIF_MINUTES * 60_000;
+
+export function executionWindowAgeMinutes(
+  signal: Pick<DirectEnqueueSignal, "detectedAt">,
+  nowMs: number,
+): number | null {
+  if (!signal.detectedAt) return null;
+  const detected = new Date(signal.detectedAt).getTime();
+  if (!Number.isFinite(detected)) return null;
+  return Math.round((nowMs - detected) / 60_000);
+}
+
+export function executionWindowExpired(
+  signal: Pick<DirectEnqueueSignal, "detectedAt">,
+  nowMs: number,
+): boolean {
+  if (!signal.detectedAt) return false;
+  const detected = new Date(signal.detectedAt).getTime();
+  return Number.isFinite(detected) && nowMs - detected > EXECUTION_WINDOW_MS;
 }
 
 interface AccountRow {
@@ -210,6 +231,24 @@ async function runDirectEnqueue(
       (a.mode === "live_auto" && a.broker_account_type === "real" && liveAuto),
   );
   if (armed.length === 0) return await empty("no_armed_account");
+
+  if (executionWindowExpired(signal, nowMs)) {
+    const age = executionWindowAgeMinutes(signal, nowMs);
+    await recordEnqueueDecisions(
+      db,
+      armed.map((account) => ({
+        user_id: account.user_id,
+        signal_id: signal.id,
+        instrument: signal.instrument,
+        grade: signal.grade,
+        decision: "execution_window_expired",
+        detail: age === null ? null : `${age} minutes old`,
+        enqueued: 0,
+        filtered: 1,
+      })),
+    );
+    return { enqueued: 0, filtered: armed.length, reason: "execution_window_expired" };
+  }
 
   const userIds = [...new Set(armed.map((a) => a.user_id))];
   const { data: settingsRows, error: settingsError } = await db
