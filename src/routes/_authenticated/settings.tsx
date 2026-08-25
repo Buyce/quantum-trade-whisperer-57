@@ -1084,6 +1084,9 @@ function SettingsPage() {
                     >
                       {p.status}
                     </span>
+                    {p.byBackgroundWorker ? (
+                      <span className="text-muted-foreground"> (background worker)</span>
+                    ) : null}
                     {p.detail ? <span className="text-muted-foreground"> — {p.detail}</span> : null}
                   </p>
                 ))}
