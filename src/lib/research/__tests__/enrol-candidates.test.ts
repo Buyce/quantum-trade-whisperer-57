@@ -74,7 +74,6 @@ function scenario(opts: {
   candidates?: CandidateRow[];
   claim?: boolean;
   insertError?: string;
-  updateError?: string;
   readError?: string;
   existingPlanId?: string | null;
 }): Scenario {
@@ -84,7 +83,6 @@ function scenario(opts: {
     candidates = [executable()],
     claim = true,
     insertError,
-    updateError,
     readError,
     existingPlanId = null,
   } = opts;
@@ -109,25 +107,28 @@ function scenario(opts: {
           ? { data: null, error: { message: readError } }
           : { data: candidates, error: null };
       }
-      if (call.table === "shadow_executions" && call.op === "select") {
+      return { data: [], error: null };
+    },
+    (fn) => {
+      if (fn !== "enrol_research_candidate_shadow") return { data: true, error: null };
+      if (insertError) return { data: null, error: { message: insertError } };
+      if (existingPlanId) {
         return {
-          data: existingPlanId ? [{ plan_id: existingPlanId }] : [],
+          data: { inserted: false, reconciled: true, reason: null, plan_id: existingPlanId },
           error: null,
         };
       }
-      if (call.table === "shadow_executions" && call.op === "insert") {
-        return insertError
-          ? { data: null, error: { message: insertError } }
-          : { data: null, error: null };
+      if (!claim) {
+        return {
+          data: { inserted: false, reconciled: false, reason: "claim_lost", plan_id: null },
+          error: null,
+        };
       }
-      if (call.table === "research_candidates" && call.op === "update") {
-        return updateError
-          ? { data: null, error: { message: updateError } }
-          : { data: null, error: null };
-      }
-      return { data: [], error: null };
+      return {
+        data: { inserted: true, reconciled: false, reason: null, plan_id: "plan-new" },
+        error: null,
+      };
     },
-    () => ({ data: claim, error: null }),
   );
 
   return { db: fake.client as SupabaseClient, calls: fake.calls, rpcCalls: fake.rpcCalls };
@@ -135,6 +136,9 @@ function scenario(opts: {
 
 const insertOf = (calls: FakeCall[]) =>
   calls.find((c) => c.table === "shadow_executions" && c.op === "insert")?.payload ?? null;
+
+const enrolRpcOf = (s: Scenario) =>
+  s.rpcCalls.find((r) => r.fn === "enrol_research_candidate_shadow");
 
 describe("Stage 4 candidate enrolment — executability", () => {
   it("[INVARIANT] a complete pre-specified plan is executable", () => {
