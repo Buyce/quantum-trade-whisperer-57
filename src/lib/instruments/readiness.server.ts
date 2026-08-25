@@ -284,13 +284,17 @@ export async function checkInstrumentReadiness(
     } else {
       try {
         const legQuote = await fetchQuote(legAuthority.providerSymbol);
-        const geometryOk = validQuoteGeometry(legQuote);
-        const fresh = quoteSourceFresh(legQuote, now, REVALIDATION_QUOTE_MAX_AGE_MS);
+        const geometryOk = legQuote !== null && validQuoteGeometry(legQuote.bid, legQuote.ask);
+        const fresh =
+          legQuote !== null &&
+          quoteSourceFresh(legQuote.sourceTime, REVALIDATION_QUOTE_MAX_AGE_MS, now.getTime());
         result = {
           symbol: leg,
           providerSymbol: legAuthority.providerSymbol,
           quotable: geometryOk && fresh,
-          detail: !geometryOk
+          detail: !legQuote
+            ? "the provider returned no quote for the conversion leg"
+            : !geometryOk
             ? "the conversion leg quote was malformed or crossed"
             : !fresh
               ? "the conversion leg quote's own source timestamp was too old to trust"
