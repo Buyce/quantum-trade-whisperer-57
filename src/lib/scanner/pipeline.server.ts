@@ -872,7 +872,27 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
         console.error(`[pipeline] ${job.instrument} direct enqueue: ${outcome.reason}`);
       }
     } catch (execErr) {
-      console.error(`[pipeline] ${job.instrument} direct enqueue failed:`, describeError(execErr));
+      const detail = describeError(execErr);
+      console.error(`[pipeline] ${job.instrument} direct enqueue failed:`, detail);
+      // An enqueue that never completed must never look like "nothing
+      // qualified": record the attempt itself so the gap is visible.
+      try {
+        const { recordEnqueueDecisions } = await import("@/lib/delivery/enqueue-log.server");
+        await recordEnqueueDecisions(db, [
+          {
+            user_id: null,
+            signal_id: signalId,
+            instrument: profile.instrument,
+            grade: profile.grade,
+            decision: "enqueue_attempt_failed",
+            detail,
+            enqueued: 0,
+            filtered: 0,
+          },
+        ]);
+      } catch (logErr) {
+        console.error(`[pipeline] ${job.instrument} enqueue-failure log:`, describeError(logErr));
+      }
     }
 
     return await finish("published", `${profile.grade}-grade ${profile.direction}`);
