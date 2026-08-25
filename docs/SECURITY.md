@@ -94,6 +94,21 @@ outbound until you configure it and, for live orders, confirm it explicitly.
 No third-party penetration test or certification is claimed. No guarantee is made
 about the security of an external bridge the user chooses to point at.
 
+## Provenance
+
+Authorisation decisions come from the verified session claims and database policies,
+not from anything the client asserts about itself. Signing material comes from
+server-side secrets read inside handlers; it is never derived from user input and
+never returned to a client.
+
+## Explicit non-guarantees
+
+- These controls do not audit the operator's own broker, email or DNS accounts.
+- A signed, allow-listed outbound request proves origin and integrity only; it does
+  not vouch for what the receiving bridge then does.
+- A green security scan is not a penetration test and does not certify an external
+  integration the user chooses to point at.
+
 ## Implementation
 
 `src/routes/_authenticated/route.tsx`, `src/integrations/supabase/*`,
