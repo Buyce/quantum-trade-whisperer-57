@@ -27,8 +27,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import { PanelShell, timeAgo } from "@/components/admin/AdminPanels";
 
-type Pending =
-  { field: "demoAutoEnabled"; next: boolean } | { field: "forceDryRun"; next: boolean } | null;
+type SwitchField =
+  | "demoAutoEnabled"
+  | "forceDryRun"
+  | "liveExecutionEnabled"
+  | "liveAutoEnabled";
+
+type Pending = { field: SwitchField; next: boolean } | null;
 
 function confirmCopy(pending: NonNullable<Pending>): { title: string; detail: string } {
   if (pending.field === "demoAutoEnabled") {
@@ -42,6 +47,31 @@ function confirmCopy(pending: NonNullable<Pending>): { title: string; detail: st
           title: "Disable Demo auto-execution system-wide?",
           detail:
             "No new demo orders will be submitted. Accounts already armed keep their setting but cannot execute until this is enabled again.",
+        };
+  }
+  if (pending.field === "liveExecutionEnabled") {
+    return pending.next
+      ? {
+          title: "Enable REAL-MONEY webhook and broker execution?",
+          detail:
+            "Deliveries that pass every gate may be POSTed to an allowed live host, or submitted to a real broker account, and can create real orders with real money. The dry-run lock must already be off and at least one host must be allowed. Per-user live confirmation, endpoint validation and pre-send revalidation still apply to every single delivery.",
+        }
+      : {
+          title: "Disable real-money execution?",
+          detail:
+            "No live POST or real-account submission will be made. Dry-run validation is unaffected, and nobody's arming is changed.",
+        };
+  }
+  if (pending.field === "liveAutoEnabled") {
+    return pending.next
+      ? {
+          title: "Arm AUTOMATIC real-money orders?",
+          detail:
+            "Accounts their owner armed to Live Auto will be able to receive automatic orders on a broker-confirmed REAL account, without a human pressing anything per trade. This is the most consequential switch in the system.",
+        }
+      : {
+          title: "Disarm automatic real-money orders?",
+          detail: "No automatic orders will be submitted to real accounts.",
         };
   }
   return pending.next
@@ -70,9 +100,16 @@ export function ExecutionSwitchPanel() {
     staleTime: 30_000,
   });
 
+  const [hostDraft, setHostDraft] = useState("");
+
   const mutation = useMutation({
-    mutationFn: (input: { demoAutoEnabled?: boolean; forceDryRun?: boolean }) =>
-      saveSwitches({ data: input }),
+    mutationFn: (input: {
+      demoAutoEnabled?: boolean;
+      forceDryRun?: boolean;
+      liveExecutionEnabled?: boolean;
+      liveAutoEnabled?: boolean;
+      allowedLiveHosts?: string[];
+    }) => saveSwitches({ data: input }),
     onSuccess: () => {
       setPending(null);
       toast.success("Execution switches updated");
@@ -91,7 +128,7 @@ export function ExecutionSwitchPanel() {
   }
 
   const rows: {
-    key: "demoAutoEnabled" | "forceDryRun";
+    key: SwitchField;
     label: string;
     detail: string;
     on: boolean;
@@ -114,6 +151,24 @@ export function ExecutionSwitchPanel() {
         "While ON, deliveries are validated and logged but nothing reaches a broker, whatever any account is armed to.",
       on: data.forceDryRun,
       onLabel: "ON",
+      offLabel: "OFF",
+    },
+    {
+      key: "liveExecutionEnabled",
+      label: "Real-money execution",
+      detail:
+        "Allows outbound live webhook POSTs to an allowed host and submissions to real broker accounts. Cannot be enabled while dry run is forced or the host allow-list is empty.",
+      on: data.liveExecutionEnabled,
+      onLabel: "ARMED",
+      offLabel: "OFF",
+    },
+    {
+      key: "liveAutoEnabled",
+      label: "Automatic real-money orders",
+      detail:
+        "Lets an owner arm a broker-confirmed REAL account for automatic orders. Requires real-money execution to be on first.",
+      on: data.liveAutoEnabled,
+      onLabel: "ARMED",
       offLabel: "OFF",
     },
   ];
@@ -151,14 +206,65 @@ export function ExecutionSwitchPanel() {
           </div>
         ))}
 
-        <div className="rounded-sm border border-border p-2 text-[11px] text-muted-foreground">
-          Real-money switches (read-only here): live execution{" "}
-          <span className="font-medium text-foreground">
-            {data.liveExecutionEnabled ? "ON" : "OFF"}
-          </span>
-          , live auto{" "}
-          <span className="font-medium text-foreground">{data.liveAutoEnabled ? "ON" : "OFF"}</span>
-          .
+        <div className="space-y-2 rounded-sm border border-border p-2">
+          <div className="text-[11px] font-medium text-foreground">Allowed live hosts</div>
+          <p className="text-[11px] text-muted-foreground">
+            A live webhook POST may only go to a host listed here. An empty list means nothing can
+            leave the server, whatever any other switch says. Per-request URL validation at dispatch
+            is unchanged and still authoritative.
+          </p>
+          {data.allowedLiveHosts.length === 0 ? (
+            <p className="text-[11px] text-warning">
+              No host allowed — real-money webhook delivery cannot be enabled.
+            </p>
+          ) : (
+            <ul className="flex flex-wrap gap-2">
+              {data.allowedLiveHosts.map((host) => (
+                <li key={host} className="flex items-center gap-1 rounded-sm border border-border px-2 py-0.5 text-[11px]">
+                  <span className="font-mono">{host}</span>
+                  <button
+                    type="button"
+                    className="text-muted-foreground hover:text-destructive"
+                    disabled={mutation.isPending}
+                    onClick={() =>
+                      mutation.mutate({
+                        allowedLiveHosts: data.allowedLiveHosts.filter((h) => h !== host),
+                        // Removing the last destination must not leave live execution armed
+                        // with nowhere legitimate to send.
+                        ...(data.allowedLiveHosts.length === 1
+                          ? { liveExecutionEnabled: false, liveAutoEnabled: false }
+                          : {}),
+                      })
+                    }
+                    aria-label={`Remove ${host}`}
+                  >
+                    ×
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="flex gap-2">
+            <input
+              value={hostDraft}
+              onChange={(e) => setHostDraft(e.target.value)}
+              placeholder="hooks.example.com"
+              className="h-8 flex-1 rounded-sm border border-border bg-background px-2 text-[11px]"
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={mutation.isPending || hostDraft.trim() === ""}
+              onClick={() => {
+                mutation.mutate({
+                  allowedLiveHosts: [...data.allowedLiveHosts, hostDraft.trim()],
+                });
+                setHostDraft("");
+              }}
+            >
+              Add host
+            </Button>
+          </div>
         </div>
       </div>
 
