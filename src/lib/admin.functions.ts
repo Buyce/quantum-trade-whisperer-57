@@ -576,3 +576,116 @@ export const getAdminTelemetryControls = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
     return (data as unknown as AdminTelemetryControls) ?? null;
   });
+
+/**
+ * Live economic-event (news) diagnostics.
+ *
+ * Everything here is measured: ingestion runs actually attempted, coverage
+ * actually proven per (provider, currency, family), events actually stored, and
+ * the dark policy comparisons the engine recorded. There is no aggregate
+ * "news healthy" flag, because there is no scope in which one would be truthful.
+ */
+export interface AdminNewsRun {
+  provider: string;
+  job: string;
+  started_at: string;
+  completed_at: string | null;
+  batch_status: string;
+  events_received: number;
+  inserts: number;
+  updates: number;
+  duplicates: number;
+  revisions: number;
+  invalid_events: number;
+  request_count: number;
+  retry_count: number;
+  response_status: number | null;
+  duration_ms: number | null;
+  error_class: string | null;
+  error_note: string | null;
+  worker_version: string;
+}
+
+export interface AdminNewsProviderHealth {
+  provider: string;
+  last_attempt_at: string | null;
+  last_success_at: string | null;
+  runs_24h: number;
+  failures_24h: number;
+}
+
+export interface AdminNewsCoverage {
+  provider: string;
+  country: string | null;
+  currency: string | null;
+  event_family: string;
+  coverage_state: string;
+  scheduled_events: number;
+  events_with_exact_time: number;
+  latest_event_at: string | null;
+  last_successful_run_at: string | null;
+  freshness_seconds: number | null;
+  source_version: string | null;
+  mapping_version: string | null;
+  note: string | null;
+  computed_at: string;
+}
+
+export interface AdminNewsEvent {
+  canonical_event_id: string;
+  provider: string;
+  event_family: string;
+  currencies: string[];
+  importance: string;
+  scheduled_at: string | null;
+  scheduled_date: string | null;
+  timestamp_precision: string;
+  event_status: string;
+  affected_instruments: string[];
+  source_version: string;
+  mapping_version: string;
+}
+
+export interface AdminNewsEvaluation {
+  evaluated_at: string;
+  boundary: string;
+  instrument: string;
+  wave: number | null;
+  mode: string;
+  decision: string;
+  coverage_state: string;
+  required_currencies: string[];
+  required_families: string[];
+  news_snapshot_version: string;
+  news_policy_version: string;
+  reason: string | null;
+}
+
+export interface AdminNews {
+  runs: AdminNewsRun[];
+  provider_health: AdminNewsProviderHealth[];
+  coverage: AdminNewsCoverage[];
+  upcoming: AdminNewsEvent[];
+  event_totals: {
+    provider: string;
+    event_family: string;
+    events: number;
+    exact_time_events: number;
+    last_ingested_at: string | null;
+  }[];
+  evaluations: AdminNewsEvaluation[];
+  evaluation_summary: { instrument: string; mode: string; decision: string; n: number }[];
+  generated_at: string;
+}
+
+export const getAdminNews = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<AdminNews> => {
+    const email = String(context.claims["email"] ?? "").toLowerCase();
+    if (email !== OWNER_EMAIL) throw new Error("Forbidden");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await supabaseAdmin.rpc("get_admin_news");
+    if (error) throw new Error(error.message);
+    return data as unknown as AdminNews;
+  });

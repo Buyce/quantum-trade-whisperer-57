@@ -30,6 +30,7 @@ import { Route as AuthenticatedAdminIntelligenceRouteImport } from './routes/_au
 import { Route as ApiPublicQuotesRouteImport } from './routes/api/public/quotes'
 import { Route as ApiPublicAgentRegisterRouteImport } from './routes/api/public/agent/register'
 import { Route as ApiPublicCronCommissionReadinessRouteImport } from './routes/api/public/cron/commission-readiness'
+import { Route as ApiPublicCronIngestNewsRouteImport } from './routes/api/public/cron/ingest-news'
 import { Route as ApiPublicCronInstrumentReadinessRouteImport } from './routes/api/public/cron/instrument-readiness'
 import { Route as ApiPublicCronPurgeAccountsRouteImport } from './routes/api/public/cron/purge-accounts'
 import { Route as ApiPublicCronRefreshSpecsRouteImport } from './routes/api/public/cron/refresh-specs'
@@ -158,6 +159,11 @@ const ApiPublicCronCommissionReadinessRoute =
     path: '/api/public/cron/commission-readiness',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicCronIngestNewsRoute = ApiPublicCronIngestNewsRouteImport.update({
+  id: '/api/public/cron/ingest-news',
+  path: '/api/public/cron/ingest-news',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicCronInstrumentReadinessRoute =
   ApiPublicCronInstrumentReadinessRouteImport.update({
     id: '/api/public/cron/instrument-readiness',
@@ -276,6 +282,7 @@ export interface FileRoutesByFullPath {
   '/api/public/quotes': typeof ApiPublicQuotesRoute
   '/api/public/agent/register': typeof ApiPublicAgentRegisterRoute
   '/api/public/cron/commission-readiness': typeof ApiPublicCronCommissionReadinessRoute
+  '/api/public/cron/ingest-news': typeof ApiPublicCronIngestNewsRoute
   '/api/public/cron/instrument-readiness': typeof ApiPublicCronInstrumentReadinessRoute
   '/api/public/cron/purge-accounts': typeof ApiPublicCronPurgeAccountsRoute
   '/api/public/cron/refresh-specs': typeof ApiPublicCronRefreshSpecsRoute
@@ -315,6 +322,7 @@ export interface FileRoutesByTo {
   '/api/public/quotes': typeof ApiPublicQuotesRoute
   '/api/public/agent/register': typeof ApiPublicAgentRegisterRoute
   '/api/public/cron/commission-readiness': typeof ApiPublicCronCommissionReadinessRoute
+  '/api/public/cron/ingest-news': typeof ApiPublicCronIngestNewsRoute
   '/api/public/cron/instrument-readiness': typeof ApiPublicCronInstrumentReadinessRoute
   '/api/public/cron/purge-accounts': typeof ApiPublicCronPurgeAccountsRoute
   '/api/public/cron/refresh-specs': typeof ApiPublicCronRefreshSpecsRoute
@@ -356,6 +364,7 @@ export interface FileRoutesById {
   '/api/public/quotes': typeof ApiPublicQuotesRoute
   '/api/public/agent/register': typeof ApiPublicAgentRegisterRoute
   '/api/public/cron/commission-readiness': typeof ApiPublicCronCommissionReadinessRoute
+  '/api/public/cron/ingest-news': typeof ApiPublicCronIngestNewsRoute
   '/api/public/cron/instrument-readiness': typeof ApiPublicCronInstrumentReadinessRoute
   '/api/public/cron/purge-accounts': typeof ApiPublicCronPurgeAccountsRoute
   '/api/public/cron/refresh-specs': typeof ApiPublicCronRefreshSpecsRoute
@@ -397,6 +406,7 @@ export interface FileRouteTypes {
     | '/api/public/quotes'
     | '/api/public/agent/register'
     | '/api/public/cron/commission-readiness'
+    | '/api/public/cron/ingest-news'
     | '/api/public/cron/instrument-readiness'
     | '/api/public/cron/purge-accounts'
     | '/api/public/cron/refresh-specs'
@@ -436,6 +446,7 @@ export interface FileRouteTypes {
     | '/api/public/quotes'
     | '/api/public/agent/register'
     | '/api/public/cron/commission-readiness'
+    | '/api/public/cron/ingest-news'
     | '/api/public/cron/instrument-readiness'
     | '/api/public/cron/purge-accounts'
     | '/api/public/cron/refresh-specs'
@@ -476,6 +487,7 @@ export interface FileRouteTypes {
     | '/api/public/quotes'
     | '/api/public/agent/register'
     | '/api/public/cron/commission-readiness'
+    | '/api/public/cron/ingest-news'
     | '/api/public/cron/instrument-readiness'
     | '/api/public/cron/purge-accounts'
     | '/api/public/cron/refresh-specs'
@@ -509,6 +521,7 @@ export interface RootRouteChildren {
   ApiPublicQuotesRoute: typeof ApiPublicQuotesRoute
   ApiPublicAgentRegisterRoute: typeof ApiPublicAgentRegisterRoute
   ApiPublicCronCommissionReadinessRoute: typeof ApiPublicCronCommissionReadinessRoute
+  ApiPublicCronIngestNewsRoute: typeof ApiPublicCronIngestNewsRoute
   ApiPublicCronInstrumentReadinessRoute: typeof ApiPublicCronInstrumentReadinessRoute
   ApiPublicCronPurgeAccountsRoute: typeof ApiPublicCronPurgeAccountsRoute
   ApiPublicCronRefreshSpecsRoute: typeof ApiPublicCronRefreshSpecsRoute
@@ -675,6 +688,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/cron/commission-readiness'
       fullPath: '/api/public/cron/commission-readiness'
       preLoaderRoute: typeof ApiPublicCronCommissionReadinessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/cron/ingest-news': {
+      id: '/api/public/cron/ingest-news'
+      path: '/api/public/cron/ingest-news'
+      fullPath: '/api/public/cron/ingest-news'
+      preLoaderRoute: typeof ApiPublicCronIngestNewsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/cron/instrument-readiness': {
@@ -851,6 +871,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicQuotesRoute: ApiPublicQuotesRoute,
   ApiPublicAgentRegisterRoute: ApiPublicAgentRegisterRoute,
   ApiPublicCronCommissionReadinessRoute: ApiPublicCronCommissionReadinessRoute,
+  ApiPublicCronIngestNewsRoute: ApiPublicCronIngestNewsRoute,
   ApiPublicCronInstrumentReadinessRoute: ApiPublicCronInstrumentReadinessRoute,
   ApiPublicCronPurgeAccountsRoute: ApiPublicCronPurgeAccountsRoute,
   ApiPublicCronRefreshSpecsRoute: ApiPublicCronRefreshSpecsRoute,

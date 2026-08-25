@@ -45,6 +45,7 @@ import { ExecutionSwitchPanel } from "@/components/admin/ExecutionSwitchPanel";
 import { EnqueueDecisionPanel } from "@/components/admin/EnqueueDecisionPanel";
 import { InstrumentDiagnosticsPanel } from "@/components/admin/InstrumentDiagnosticsPanel";
 import { CommissioningPanel } from "@/components/admin/CommissioningPanel";
+import { NewsPanel } from "@/components/admin/NewsPanel";
 
 export const Route = createFileRoute("/_authenticated/admin/intelligence")({
   head: () => ({
@@ -157,6 +158,8 @@ function AdminIntelligencePage() {
       <InstrumentDiagnosticsPanel />
 
       <CommissioningPanel />
+
+      <NewsPanel />
 
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <StatCard
