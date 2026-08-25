@@ -77,6 +77,7 @@ export type BrokerOrderStatusKind =
   | "open_at_broker"
   | "closed_at_broker"
   | "rejected"
+  | "not_sent"
   | "failed"
   | "unknown";
 
