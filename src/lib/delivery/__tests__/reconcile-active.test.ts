@@ -19,7 +19,7 @@ function signal(over: Partial<ActiveSignalRow> & { id: string }): ActiveSignalRo
     instrument: "EURUSD",
     grade: "B",
     direction: "long",
-    detected_at: "2026-08-25T10:00:00.000Z",
+  detected_at: "2026-08-25T11:45:00.000Z",
     expired_at: null,
     status: "active",
     ...over,
@@ -47,6 +47,12 @@ describe("reconcilable signal state", () => {
 
   it("[UNIT] an expiry exactly at now is already past", () => {
     expect(isReconcilable(signal({ id: "a", expired_at: new Date(NOW).toISOString() }), NOW)).toBe(
+      false,
+    );
+  });
+
+  it("[INVARIANT] a signal outside the automatic-order window is not reconciled", () => {
+    expect(isReconcilable(signal({ id: "a", detected_at: "2026-08-25T11:29:00.000Z" }), NOW)).toBe(
       false,
     );
   });

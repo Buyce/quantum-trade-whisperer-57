@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import fc from "fast-check";
 import {
+  automaticOrderDeliveryReachedBroker,
+  summarizeAutomaticOrders,
+  type AutomaticOrderDeliverySummaryRow,
+} from "../automatic-order-summary";
+import {
   EMPTY_EXPECTANCY,
   computeExpectancy,
   generateInsights,
@@ -183,5 +188,55 @@ describe("broker Performance evidence separation", () => {
     await expect(collectCompleteEvidencePages(fetchPage, 2, 2)).rejects.toThrow(
       /refusing incomplete metrics/,
     );
+  });
+});
+
+describe("automatic broker-order accounting", () => {
+  const delivery = (
+    row: Partial<AutomaticOrderDeliverySummaryRow>,
+  ): AutomaticOrderDeliverySummaryRow => ({
+    state: row.state ?? "pending",
+    dry_run: row.dry_run ?? false,
+    submitted_at: row.submitted_at ?? null,
+    broker_retcode_string: row.broker_retcode_string ?? null,
+  });
+
+  it("[INVARIANT] blocked-before-submit rows and dry runs are not broker submissions", () => {
+    expect(automaticOrderDeliveryReachedBroker(delivery({ state: "rejected" }))).toBe(false);
+    expect(
+      automaticOrderDeliveryReachedBroker(delivery({ state: "acknowledged", dry_run: true })),
+    ).toBe(false);
+    expect(
+      automaticOrderDeliveryReachedBroker(
+        delivery({ state: "sent", submitted_at: "2026-08-25T12:00:00.000Z" }),
+      ),
+    ).toBe(true);
+  });
+
+  it("[INVARIANT] automatic-order summary counts closed broker evidence by signed R only", () => {
+    const summary = summarizeAutomaticOrders(
+      [
+        delivery({ state: "rejected" }),
+        delivery({ state: "failed" }),
+        delivery({ state: "acknowledged", submitted_at: "2026-08-25T12:00:00.000Z" }),
+        delivery({ state: "acknowledged", dry_run: true }),
+      ],
+      [
+        { state: "open", r_vs_plan: null, r_vs_actual_risk: null },
+        { state: "closed", r_vs_plan: 2, r_vs_actual_risk: 1.5 },
+        { state: "closed", r_vs_plan: -1, r_vs_actual_risk: null },
+        { state: "closed", r_vs_plan: 0, r_vs_actual_risk: -0.25 },
+      ],
+    );
+    expect(summary).toMatchObject({
+      deliveryRows: 4,
+      dryRuns: 1,
+      blockedBeforeBroker: 2,
+      submittedToBroker: 1,
+      brokerOpen: 1,
+      brokerClosed: 3,
+      closedPlan: { wins: 1, losses: 1, breakeven: 1, unavailable: 0 },
+      closedActualRisk: { wins: 1, losses: 1, breakeven: 0, unavailable: 1 },
+    });
   });
 });

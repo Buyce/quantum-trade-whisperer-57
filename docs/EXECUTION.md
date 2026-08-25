@@ -61,9 +61,10 @@ reconciler (`src/lib/delivery/reconcile-active.server.ts`, worker route
 `/api/public/worker/reconcile-active`) is that second attempt, and every later one.
 
 It is not a second rule set. It selects still-entryable active signals — status
-`active`, not expired — ranks them the way the feed already reads (grade first, then
-newest, with a stable id tie-breaker), bounds the pass, and hands each to the same
-authoritative enqueue path, leaving the same decision trail. Idempotency is
+`active`, not expired, and still inside the 30-minute automatic-order window — ranks
+them the way the feed already reads (grade first, then newest, with a stable id
+tie-breaker), bounds the pass, and hands each to the same authoritative enqueue path,
+leaving the same decision trail. Idempotency is
 database-backed: deliveries upsert on `(user_id, signal_id, bridge_profile)` with
 duplicates ignored, so repeated passes and concurrent workers cannot double-order.
 It reads no alert state — a missed alert never blocks an order and a delivered alert
@@ -97,6 +98,11 @@ a diagnostic write can never affect a publish). This is why an empty delivery
 ledger is unambiguous: either a decision exists and says why, or the engine
 published nothing. The owner sees their own decisions in Settings; the admin
 terminal sees the recent decisions pseudonymously.
+
+An active setup older than the automatic-order window is recorded as
+`execution_window_expired` before any delivery row is created. The dispatcher still
+keeps its own `tif_expired` safety net for orders that were fresh at enqueue time but
+became stale before dispatch.
 
 ### States
 
@@ -188,7 +194,7 @@ Every refusal has a named reason, including
 `live_execution_globally_disabled`, `user_execution_disabled`, `bridge_disabled`,
 `instrument_disabled`, `webhook_not_configured`, `webhook_not_validated`,
 `endpoint_rejected`, `not_alert_eligible`, `signal_missing`, `signal_not_active`,
-`tif_expired`, `quote_unavailable`, `policy_unsupported`,
+`execution_window_expired`, `tif_expired`, `quote_unavailable`, `policy_unsupported`,
 `limit_price_not_on_pending_side`, `limit_distance_unavailable`,
 `configuration_changed_since_enqueue`, `intelligence_gate_below_threshold`,
 `intelligence_gate_sample_insufficient`.
@@ -216,6 +222,16 @@ A refusal recorded before submission is a P-Trades refusal, not a broker verdict
 History labels those rows "Not sent — refused by P-Trades" with the plain-language
 reason, and reserves "Rejected by broker" for rows that carry a broker return code
 or a recorded submission.
+
+## Performance accounting
+
+Automatic broker orders are accounted for separately from the self-reported journal.
+Delivery rows describe attempts and whether an order reached the broker boundary;
+`broker_trade_evidence` is the only source for broker-confirmed open/closed outcomes.
+A P-Trades refusal, a dry run, or a missing broker match is not counted as a taken
+broker trade and cannot become a broker win or loss. A closed automatic order enters
+Broker Account Performance only when the reconciler positively associates broker
+evidence and the selected canonical R basis is present.
 
 ## User-facing meaning
 

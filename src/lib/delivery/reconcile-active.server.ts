@@ -28,7 +28,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { GRADE_RANK, type Grade } from "@/lib/db-types";
-import { enqueueDirectDeliveries, type DirectEnqueueSignal } from "./direct-enqueue.server";
+import {
+  enqueueDirectDeliveries,
+  executionWindowExpired,
+  type DirectEnqueueSignal,
+} from "./direct-enqueue.server";
 
 /** Hard bound on how many active signals one pass may consider. */
 export const RECONCILE_MAX_SIGNALS = 25;
@@ -79,6 +83,7 @@ export function rankActiveSignals<T extends ActiveSignalRow>(rows: T[]): T[] {
 export function isReconcilable(row: ActiveSignalRow, nowMs: number): boolean {
   if (row.status !== "active") return false;
   if (row.expired_at !== null && new Date(row.expired_at).getTime() <= nowMs) return false;
+  if (executionWindowExpired({ detectedAt: row.detected_at }, nowMs)) return false;
   return true;
 }
 

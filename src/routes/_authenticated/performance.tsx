@@ -18,7 +18,8 @@ import {
   samplesFromBrokerEvidence,
   samplesFromTrades,
 } from "@/lib/performance";
-import { getBrokerPerformanceEvidence } from "@/lib/performance.functions";
+import { getAutomaticOrderSummary, getBrokerPerformanceEvidence } from "@/lib/performance.functions";
+import type { AutomaticOrderSummary } from "@/lib/automatic-order-summary";
 import type { RBasis } from "@/lib/journal/r-math";
 import { downloadCsv, samplesToCsv, todayStamp } from "@/lib/export";
 import { Button } from "@/components/ui/button";
@@ -100,6 +101,7 @@ function PerformancePage() {
   const signals = useQuery(signalsQuery());
   const trades = useQuery(myTradesQuery(user?.id));
   const loadEvidence = useServerFn(getBrokerPerformanceEvidence);
+  const loadAutomaticOrders = useServerFn(getAutomaticOrderSummary);
   const customerEvidence = useQuery({
     queryKey: ["performance-evidence", "customer"],
     queryFn: () => loadEvidence({ data: { source: "customer" } }),
@@ -108,6 +110,11 @@ function PerformancePage() {
   const benchmarkEvidence = useQuery({
     queryKey: ["performance-evidence", "benchmark"],
     queryFn: () => loadEvidence({ data: { source: "benchmark" } }),
+    enabled: Boolean(user),
+  });
+  const automaticOrders = useQuery({
+    queryKey: ["automatic-order-summary"],
+    queryFn: () => loadAutomaticOrders(),
     enabled: Boolean(user),
   });
   const [scope, setScope] = useState<PerformanceSource>("journal");
@@ -174,7 +181,8 @@ function PerformancePage() {
     signals.isLoading ||
     trades.isLoading ||
     customerEvidence.isLoading ||
-    benchmarkEvidence.isLoading
+      benchmarkEvidence.isLoading ||
+      automaticOrders.isLoading
   ) {
     return (
       <div className="space-y-4">
@@ -217,7 +225,8 @@ function PerformancePage() {
       {signals.isError ||
       trades.isError ||
       customerEvidence.isError ||
-      benchmarkEvidence.isError ? (
+      benchmarkEvidence.isError ||
+      automaticOrders.isError ? (
         <p className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm">
           Could not load performance data, so the metrics below are incomplete. Reload before
           drawing conclusions from them.
@@ -257,6 +266,10 @@ function PerformancePage() {
           </span>
         </div>
       </section>
+
+      {scope === "broker" ? (
+        <AutomaticOrderSummaryPanel summary={automaticOrders.data ?? null} basis={rBasis} />
+      ) : null}
 
       {samples.length === 0 ? (
         <p className="rounded-md border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
@@ -482,6 +495,56 @@ function PerformancePage() {
           <LearningHistory />
         </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+function AutomaticOrderSummaryPanel({
+  summary,
+  basis,
+}: {
+  summary: AutomaticOrderSummary | null;
+  basis: RBasis;
+}) {
+  const rStats = basis === "plan" ? summary?.closedPlan : summary?.closedActualRisk;
+  return (
+    <section className="rounded-md border border-border bg-card p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant="outline" className="font-mono text-[10px] tracking-wide">
+          AUTOMATIC BROKER ORDERS
+        </Badge>
+        <span className="text-sm font-medium">Delivery accounting</span>
+      </div>
+      <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+        Delivery rows count P-Trades attempts and broker submissions. Win/loss counts come only
+        from closed broker evidence with the selected R basis; blocked checks and dry runs stay out.
+      </p>
+      <div className="mt-4 grid gap-px overflow-hidden rounded-sm border border-border bg-border sm:grid-cols-3 lg:grid-cols-6">
+        <SummaryCell label="Delivery rows" value={summary?.deliveryRows ?? 0} />
+        <SummaryCell label="Blocked before broker" value={summary?.blockedBeforeBroker ?? 0} />
+        <SummaryCell label="Submitted to broker" value={summary?.submittedToBroker ?? 0} />
+        <SummaryCell label="Broker open" value={summary?.brokerOpen ?? 0} />
+        <SummaryCell label="Broker closed" value={summary?.brokerClosed ?? 0} />
+        <SummaryCell label="Dry runs" value={summary?.dryRuns ?? 0} />
+      </div>
+      <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
+        <span>
+          Closed broker R: {rStats?.wins ?? 0} win, {rStats?.losses ?? 0} loss,{" "}
+          {rStats?.breakeven ?? 0} breakeven
+        </span>
+        {(rStats?.unavailable ?? 0) > 0 ? (
+          <span>{rStats?.unavailable ?? 0} closed broker rows have no selected R basis.</span>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+function SummaryCell({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="min-w-0 bg-card px-3 py-3">
+      <p className="label-xs">{label}</p>
+      <p className="num mt-1 text-lg font-bold text-foreground">{value}</p>
     </div>
   );
 }

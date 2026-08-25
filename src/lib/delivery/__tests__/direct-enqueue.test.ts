@@ -128,6 +128,30 @@ describe("enqueueDirectDeliveries", () => {
     expect(out.reason).toBe("no_armed_account");
   });
 
+  it.each(["A+", "A", "B", "C"])(
+    "[INVARIANT] records %s-Grade stale automatic-order attempts before a delivery exists",
+    async (grade) => {
+      const f = fake({ settings: { auto_execute_c_grade: true, alert_min_grade: "C" } });
+      const out = await enqueueDirectDeliveries(
+        f.client as SupabaseClient,
+        { ...SIGNAL, grade, detectedAt: new Date(NOW - 31 * 60_000).toISOString() },
+        NOW,
+      );
+      expect(out).toMatchObject({ enqueued: 0, filtered: 1, reason: "execution_window_expired" });
+      expect(inserts(f.calls)).toHaveLength(0);
+      const decision = f.calls.find((c) => c.table === "execution_enqueue_decisions")
+        ?.payload as unknown as Record<string, unknown>[];
+      expect(decision[0]).toMatchObject({
+        user_id: "user-1",
+        signal_id: "sig-1",
+        grade,
+        decision: "execution_window_expired",
+        enqueued: 0,
+        filtered: 1,
+      });
+    },
+  );
+
   it("[INVARIANT] filters an instrument the owner did not select", async () => {
     const f = fake({ settings: { instruments: ["EURUSD"] } });
     const out = await enqueueDirectDeliveries(f.client as SupabaseClient, SIGNAL, NOW);
