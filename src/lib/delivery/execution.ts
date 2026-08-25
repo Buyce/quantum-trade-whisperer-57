@@ -70,13 +70,16 @@ export type RejectReason =
   | "account_equity_stale"
   | "account_currency_unavailable"
   | "account_not_armed"
-  | "instrument_not_approved";
+  | "instrument_not_approved"
+  | "no_execution_grid";
 
 export const REJECT_COPY: Record<RejectReason, string> = {
   live_execution_globally_disabled: "Live execution is disabled system-wide.",
   user_execution_disabled: "You have not enabled execution for your account.",
   bridge_disabled: "This bridge profile is temporarily disabled.",
   instrument_disabled: "Execution is temporarily disabled for this instrument.",
+  no_execution_grid:
+    "This broker has not published a tick size for this symbol, so no order price could be placed on its grid.",
   instrument_not_approved:
     "This instrument is not approved for automatic execution yet. It is still being measured, so no order was sent.",
   webhook_not_configured: "No bridge URL is saved.",

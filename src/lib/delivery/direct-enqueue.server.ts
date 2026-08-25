@@ -35,8 +35,7 @@ import { recordEnqueueDecisions, type EnqueueDecisionRow } from "./enqueue-log.s
 import {
   INSTRUMENT_NOT_APPROVED,
   describeStage,
-  mayExecute,
-  stageOf,
+  lifecycleAllows,
 } from "@/lib/instruments/lifecycle";
 import { readLifecycleView } from "@/lib/instruments/lifecycle.server";
 
@@ -116,13 +115,17 @@ export async function enqueueDirectDeliveries(
   // Lifecycle: only an instrument approved for execution may be enqueued at all.
   // The pre-send gate repeats this check, because a suspension can land after a
   // delivery is already queued — this one just avoids queuing work that cannot ship.
+  // A DEGRADED lifecycle read refuses every non-Wave-0 symbol here rather than
+  // treating "unknown" as permission (Phase A2A, R3-FIX).
   const lifecycle = await readLifecycleView(db as unknown as SupabaseClient);
-  if (lifecycle.enforced) {
-    const stage = stageOf(signal.instrument, lifecycle.stages);
-    if (!mayExecute(stage)) {
+  {
+    const gate = lifecycleAllows(lifecycle, signal.instrument, "execute");
+    if (!gate.allowed) {
       return await empty(
         INSTRUMENT_NOT_APPROVED,
-        `${signal.instrument} is at lifecycle stage "${stage}" (${describeStage(stage)})`,
+        lifecycle.degraded
+          ? `the lifecycle stage for ${signal.instrument} could not be read`
+          : `${signal.instrument} is at lifecycle stage "${gate.stage}" (${describeStage(gate.stage)})`,
       );
     }
   }

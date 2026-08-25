@@ -70,11 +70,12 @@ describe("Phase A1 — lifecycle capability model", () => {
       for (const stage of STAGES.slice(2)) {
         const allowed = allows(stage, capability);
         if (allowed) seenAllowed = true;
-        else expect({ capability, stage, regression: seenAllowed }).toEqual({
-          capability,
-          stage,
-          regression: false,
-        });
+        else
+          expect({ capability, stage, regression: seenAllowed }).toEqual({
+            capability,
+            stage,
+            regression: false,
+          });
       }
     }
   });
@@ -89,9 +90,10 @@ describe("Phase A1 — lifecycle capability model", () => {
 describe("Phase A1 — suppression is never a strategy rejection", () => {
   it("[INVARIANT] every suppressed or non-verdict disposition is excluded from no-trade", () => {
     for (const disposition of [...SUPPRESSED_DISPOSITIONS, ...NON_VERDICT_DISPOSITIONS]) {
-      expect({ disposition, counted: isStrategyNoTrade({ decision: "no_trade", disposition }) }).toEqual(
-        { disposition, counted: false },
-      );
+      expect({
+        disposition,
+        counted: isStrategyNoTrade({ decision: "no_trade", disposition }),
+      }).toEqual({ disposition, counted: false });
     }
   });
 
@@ -118,21 +120,21 @@ describe("Phase A1 — instrument-aware precision", () => {
     expect(priceDecimals("EURUSD", { digits: 3 } as never)).toBe(3);
   });
 
-  it("[INVARIANT] structure identity is stable across sub-tick noise on XAUUSD", () => {
+  it("[INVARIANT] structure identity ignores instrument display precision (A2A R1-FIX)", () => {
     const base = {
       instrument: "XAUUSD",
       direction: "short" as const,
       aTime: "2026-08-20T05:30:00.000Z",
       bTime: "2026-08-20T05:45:00.000Z",
     };
-    // Two scans of one lingering structure whose stop anchor wobbles below the
-    // price grid must NOT mint a second published signal.
+    // Identity is version-pinned at five decimals for every instrument, because
+    // the live rows it is compared against were written that way. Display
+    // precision (2 for Gold) must not leak into it.
     expect(structureKeyOf({ ...base, stopLoss: 933.44941 })).toBe(
-      structureKeyOf({ ...base, stopLoss: 933.45012 }),
+      "XAUUSD|short|2026-08-20T05:30:00.000Z|2026-08-20T05:45:00.000Z|933.44941",
     );
-    // A genuinely different anchor still produces a different key.
-    expect(structureKeyOf({ ...base, stopLoss: 933.45 })).not.toBe(
-      structureKeyOf({ ...base, stopLoss: 934.12 }),
+    expect(structureKeyOf({ ...base, stopLoss: 933.44941 })).not.toBe(
+      structureKeyOf({ ...base, stopLoss: 933.45012 }),
     );
   });
 
@@ -179,14 +181,7 @@ describe("Phase A1 — series validation", () => {
 
     const badGeometry = validateSeries({
       timeframe: "M15",
-      candles: [
-        at(0),
-        { ...at(1), high: 1.0, low: 1.2 },
-        at(2),
-        at(3),
-        at(4),
-        at(5),
-      ],
+      candles: [at(0), { ...at(1), high: 1.0, low: 1.2 }, at(2), at(3), at(4), at(5)],
       required: 5,
       now,
     });

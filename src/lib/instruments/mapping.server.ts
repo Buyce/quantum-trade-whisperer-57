@@ -36,12 +36,7 @@ import { isRegistrySymbol } from "./registry";
  *   unverified  — no resolution has ever been recorded for this scope.
  */
 export type MappingStatus =
-  | "exact"
-  | "configured"
-  | "inferred"
-  | "ambiguous"
-  | "unavailable"
-  | "unverified";
+  "exact" | "configured" | "inferred" | "ambiguous" | "unavailable" | "unverified";
 
 export interface MappingScope {
   /** Connected account the mapping belongs to, or null for the scanner scope. */

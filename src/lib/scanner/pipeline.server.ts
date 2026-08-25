@@ -32,7 +32,6 @@ import { isTransientMetaApiReadFailure } from "@/lib/metaapi/errors";
 import { fetchCandles, MetaApiNotConfiguredError } from "./metaapi.server";
 import {
   CANDLE_LIMITS,
-  
   INSTRUMENTS,
   SIGNAL_MAX_AGE_HOURS,
   STRUCTURE_COOLDOWN_MINUTES,
@@ -41,19 +40,11 @@ import {
   type Timeframe,
 } from "./types";
 import { REGISTRY_SYMBOLS } from "@/lib/instruments/registry";
-import {
-  describeStage,
-  mayCaptureResearch,
-  mayEvaluateStrategy,
-  mayPublish,
-  mayScan,
-  stageOf,
-} from "@/lib/instruments/lifecycle";
+import { describeStage, lifecycleAllows, stageOf } from "@/lib/instruments/lifecycle";
 import { readLifecycleView } from "@/lib/instruments/lifecycle.server";
 // The session ALGORITHM version, stamped on every research row so a later change
 // to session boundaries cannot silently redefine older measurements.
 import { SESSION_VERSION } from "./session";
-
 
 const TIMEFRAMES: Timeframe[] = ["H4", "H1", "M15"];
 
@@ -112,8 +103,8 @@ export async function expireStaleSignals(db: SupabaseClient): Promise<{
  */
 export async function scanUniverse(db: SupabaseClient): Promise<string[]> {
   const view = await readLifecycleView(db);
-  if (!view.enforced) return [...INSTRUMENTS];
-  return REGISTRY_SYMBOLS.filter((symbol) => mayScan(stageOf(symbol, view.stages)));
+  if (!view.enforced && !view.degraded) return [...INSTRUMENTS];
+  return REGISTRY_SYMBOLS.filter((symbol) => lifecycleAllows(view, symbol, "collect_data").allowed);
 }
 
 /** Enqueue one job per monitored instrument for this scan cycle. */
@@ -145,7 +136,6 @@ export async function enqueueScanCycle(db: SupabaseClient) {
  * reach the same verdict the index reaches for free, and it could not close the
  * race window anyway — so the insert's 23505 is the single source of truth.
  */
-
 
 /** Serialize thrown values — Supabase/PostgREST errors are plain objects, not Errors. */
 export function describeError(err: unknown): string {
@@ -201,10 +191,7 @@ const BREAKER_TRIP_AFTER = 3;
 const BREAKER_BACKOFF_MINUTES = [15, 30, 60] as const;
 
 function backoffMs(failures: number): number {
-  const index = Math.min(
-    failures - BREAKER_TRIP_AFTER,
-    BREAKER_BACKOFF_MINUTES.length - 1,
-  );
+  const index = Math.min(failures - BREAKER_TRIP_AFTER, BREAKER_BACKOFF_MINUTES.length - 1);
   return BREAKER_BACKOFF_MINUTES[Math.max(0, index)]! * 60_000;
 }
 
@@ -219,7 +206,8 @@ async function flagInstrument(
     .select("consecutive_failures")
     .eq("instrument", instrument)
     .maybeSingle();
-  const failures = Number((data as { consecutive_failures?: number } | null)?.consecutive_failures ?? 0) + 1;
+  const failures =
+    Number((data as { consecutive_failures?: number } | null)?.consecutive_failures ?? 0) + 1;
   const tripped = failures >= BREAKER_TRIP_AFTER;
 
   await writeHealth(db, {
@@ -283,9 +271,7 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
   // Read once per job: the gate below must use one consistent verdict, and a
   // degraded read falls back to the frozen Wave 0 stage rather than blocking.
   const lifecycle = await readLifecycleView(db);
-  const lifecycleEnforced = lifecycle.enforced;
   const instrumentStage = stageOf(job.instrument, lifecycle.stages);
-
 
   /**
    * Research state for this observation. Populated only once candles have been
@@ -332,18 +318,15 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
     // A withheld structure IS a candidate: the model produced a setup, and an
     // operational rule stopped it. `decision` stays `candidate` so no downstream
     // count can read it as a rejection.
-    if (v1Suppression)
-      return { decision: "candidate", disposition: v1Suppression.disposition };
+    if (v1Suppression) return { decision: "candidate", disposition: v1Suppression.disposition };
     if (status === "duplicate")
       return { decision: "candidate", disposition: "suppressed_duplicate" };
     if (status === "failed") return { decision: "error", disposition: "evaluation_error" };
     if (status === "stale") return { decision: "no_trade", disposition: "job_stale" };
-    if (status === "skipped")
-      return { decision: "no_trade", disposition: "operationally_skipped" };
+    if (status === "skipped") return { decision: "no_trade", disposition: "operationally_skipped" };
     // The only remaining case is a genuine strategy verdict.
     return { decision: "no_trade", disposition: "none" };
   };
-
 
   const finish = async (status: JobResult["status"], detail?: string) => {
     const stamp = new Date().toISOString();
@@ -367,7 +350,7 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
      * because its inputs have not been proven trustworthy yet and a ledger seeded
      * with unvalidated inputs is worse than an empty one.
      */
-    if (observed && (!lifecycleEnforced || mayCaptureResearch(instrumentStage))) {
+    if (observed && lifecycleAllows(lifecycle, job.instrument, "capture_research").allowed) {
       const key = observationKey(job.run_id, job.instrument);
       const cell = v1Cell(status);
       const rows = [
@@ -503,14 +486,12 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
      * in `finish` refuses to write measurement rows for this stage, so nothing is
      * recorded except the job outcome.
      */
-    if (lifecycleEnforced && !mayEvaluateStrategy(instrumentStage)) {
+    if (!lifecycleAllows(lifecycle, job.instrument, "evaluate_strategy").allowed) {
       return await finish(
         "skipped",
         `${job.instrument} is at lifecycle stage "${instrumentStage}" (${describeStage(instrumentStage)}) — candles were fetched and validated, and no strategy was run`,
       );
     }
-
-
 
     /**
      * V2 research evaluation, hoisted ABOVE every V1 return so the research
@@ -611,8 +592,12 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
      * job spans several provider round trips, and a suspension issued in that
      * window must take effect at the publication boundary, not at the next job.
      */
-    const publishStage = stageOf(job.instrument, (await readLifecycleView(db)).stages);
-    if (lifecycleEnforced && !mayPublish(publishStage)) {
+    // Re-read immediately before publication: the stage may have changed while
+    // this job was fetching candles and grading (Phase A2A, R3-FIX/R6).
+    const publishView = await readLifecycleView(db);
+    const publishGate = lifecycleAllows(publishView, job.instrument, "publish");
+    const publishStage = publishGate.stage;
+    if (!publishGate.allowed) {
       // `suppressed_lifecycle`, never `no_trade`: a structure WAS found, and
       // labelling it as a rejection would corrupt the no-trade rate and every
       // filter-lift denominator derived from it.
@@ -625,7 +610,6 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
         `${job.instrument} is at lifecycle stage "${publishStage}" (${describeStage(publishStage)}) — measured, not published`,
       );
     }
-
 
     /**
      * A published setup's stop must sit outside real execution cost. Wave 0 has
@@ -645,7 +629,6 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
         `${job.instrument} has no validated stop floor yet — publication withheld`,
       );
     }
-
 
     // No global ceiling: every qualifying setup publishes. Each account applies
     // its own daily cap (scanner_settings.daily_setup_cap, 0 = unlimited) to

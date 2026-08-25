@@ -141,4 +141,3 @@ export async function transitionStage(
     ...(typeof result.noop === "boolean" ? { noop: result.noop } : {}),
   };
 }
-
