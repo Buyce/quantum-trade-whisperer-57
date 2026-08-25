@@ -132,12 +132,20 @@ export async function enqueueScanCycle(db: SupabaseClient) {
 
 /**
  * Duplicate suppression is enforced by the partial unique index
- * `scanned_signals_active_unique` on (instrument, direction, round(entry_price, 5))
- * WHERE status = 'active'. The pre-flight SELECT that used to live here pulled up
- * to 200 rows per job to reach the same verdict the index reaches for free, and
- * it could not close the race window anyway — so the insert's 23505 is now the
- * single source of truth.
+ * `scanned_signals_active_structure` on (structure_key) WHERE status = 'active'
+ * AND structure_key IS NOT NULL — verified against the live database, not assumed.
+ *
+ * An earlier version of this comment described an index on
+ * (instrument, direction, round(entry_price, 5)). That index does not exist, and
+ * the identity it described was weaker: it treated two different ABC legs that
+ * happened to share an entry price as the same structure. Identity is the
+ * structure key (instrument, direction, swing A/B timestamps, stop anchor).
+ *
+ * The pre-flight SELECT that used to live here pulled up to 200 rows per job to
+ * reach the same verdict the index reaches for free, and it could not close the
+ * race window anyway — so the insert's 23505 is the single source of truth.
  */
+
 
 /** Serialize thrown values — Supabase/PostgREST errors are plain objects, not Errors. */
 export function describeError(err: unknown): string {
