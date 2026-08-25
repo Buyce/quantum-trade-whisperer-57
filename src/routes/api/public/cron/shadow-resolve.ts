@@ -16,7 +16,9 @@ export const Route = createFileRoute("/api/public/cron/shadow-resolve")({
         const { adminClient } = await import("@/lib/scanner/pipeline.server");
         const { shadowBreakerGate, noteShadowRun } =
           await import("@/lib/execution/shadow_worker.server");
-        const { resolveShadowExecutions } = await import("@/lib/execution/shadow_resolve.server");
+          const { allFetchesFailedMessage, resolveShadowExecutions } = await import(
+            "@/lib/execution/shadow_resolve.server"
+          );
 
         const db = adminClient();
         let probe = false;
@@ -80,19 +82,18 @@ export const Route = createFileRoute("/api/public/cron/shadow-resolve")({
             console.error("[cron/shadow-resolve] regime stats recompute failed:", statsError);
           }
 
-          // Every instrument failing to return candles is a source-level
-          // problem; that increments the breaker. A partial failure is normal.
-          const allFailed =
-            summary.instruments.length > 0 && summary.fetchFailures === summary.instruments.length;
+          // Every attempted provider fetch failing is a source-level problem;
+          // lifecycle/mapping refusals are truthful skips, not provider outages.
+          const allFailedMessage = allFetchesFailedMessage(summary);
           await noteShadowRun(db, {
-            failure: allFailed,
-            error: allFailed ? "All instrument candle fetches failed" : null,
+            failure: allFailedMessage !== null,
+            error: allFailedMessage,
           });
 
           return Response.json({
             ok: true,
             probe,
-            breaker_cleared: probe && !allFailed,
+            breaker_cleared: probe && allFailedMessage === null,
             maintenance,
             stats,
             statsError,

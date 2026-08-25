@@ -71,6 +71,9 @@ execution policy; V1 and V2 results are never one population.
 
 Insufficient samples or clusters ⇒ the bucket is reported immature rather than
 estimated. Missing candles ⇒ the setup stays unresolved rather than being scored.
+Replay fetches use bounded M15 windows sized from each open row's cursor/detection
+time; if the provider times out or returns no usable candles, no cursor is advanced
+and no outcome is inferred.
 
 ## User-facing meaning
 

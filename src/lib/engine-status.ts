@@ -127,3 +127,38 @@ export function classifyScanHealth(scan: ScanWindowInput): ScanHealth {
     ? { state: "recovered", value: "RECOVERED", tone: "warn", errorIsCurrent: false }
     : { state: "degraded", value: "DEGRADED", tone: "warn", errorIsCurrent: true };
 }
+
+export type ReplayHealthState = "no_runs" | "tripped" | "degraded" | "running";
+
+export interface ReplayBreakerInput {
+  paused?: boolean | null;
+  consecutive_failures?: number | null;
+  last_error?: string | null;
+  last_run_at?: string | null;
+}
+
+export interface ReplayHealth {
+  state: ReplayHealthState;
+  value: string;
+  tone: "good" | "warn" | "bad";
+  errorIsCurrent: boolean;
+}
+
+/**
+ * Health of the replay/statistics engine breaker.
+ *
+ * A non-paused breaker with recent failures is not healthy: replay is still
+ * allowed to try the next pass, but the last available result is degraded.
+ */
+export function classifyReplayHealth(breaker: ReplayBreakerInput | null | undefined): ReplayHealth {
+  if (!breaker?.last_run_at) {
+    return { state: "no_runs", value: "NO RUNS", tone: "warn", errorIsCurrent: false };
+  }
+  if (breaker.paused) {
+    return { state: "tripped", value: "BREAKER TRIPPED", tone: "bad", errorIsCurrent: true };
+  }
+  if ((breaker.consecutive_failures ?? 0) > 0 || Boolean((breaker.last_error ?? "").trim())) {
+    return { state: "degraded", value: "DEGRADED", tone: "warn", errorIsCurrent: true };
+  }
+  return { state: "running", value: "RUNNING", tone: "good", errorIsCurrent: false };
+}

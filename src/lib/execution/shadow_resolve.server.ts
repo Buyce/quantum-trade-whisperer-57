@@ -1,7 +1,7 @@
 /**
  * Hourly resolution loop.
  *
- * One batched M15 candle fetch per instrument (max 3 per run), then a pure
+ * One batched M15 candle fetch per instrument, then a pure
  * replay of every open shadow row for that instrument. Idempotent: rows are
  * written only when their state actually advanced.
  */
@@ -10,6 +10,7 @@ import { assertCapability } from "@/lib/instruments/lifecycle.server";
 import { fetchCandles } from "@/lib/scanner/metaapi.server";
 import { resolveFetchSymbol } from "@/lib/instruments/fetch-authority.server";
 import { describeError } from "@/lib/scanner/pipeline.server";
+import { ORDER_TIF_MINUTES, SIGNAL_MAX_AGE_HOURS } from "@/lib/scanner/types";
 import { ACTIVE_MODEL_VERSION } from "@/lib/versioning";
 import { replaySetup, type ReplayInput } from "./replay";
 import { replaySetupV2 } from "./replay-v2";
@@ -36,11 +37,15 @@ const CANDIDATE_COHORT = "research_candidate";
 /** Model cohorts are resolved strictly in this order. */
 const MODEL_PRIORITY = [1, 2, 3] as const;
 
+/** One M15 bar in milliseconds. */
+const M15_MS = 15 * 60_000;
 /**
- * 1000 M15 bars is ~10 days of session time — deep enough to replay a backlog
- * from the start of the dataset, not just the last day.
+ * Live scanner M15 reads are capped at 200. Replay stays in the same pressure
+ * class and sizes the request from the rows' replay cursor/detection time.
  */
-const CANDLE_DEPTH = 1000;
+export const REPLAY_MAX_CANDLE_DEPTH = 200;
+/** Small overlap so a provider that returns a bar on the boundary cannot strand a row. */
+const REPLAY_FETCH_OVERLAP_BARS = 2;
 
 interface ShadowRow {
   id: string;
@@ -69,11 +74,16 @@ interface ShadowRow {
   replay_version: number;
 }
 
+export interface ReplayFetchRow {
+  detected_at: string;
+  replay_cursor: string | null;
+}
+
 export interface ResolveSummary {
   scanned: number;
   advanced: number;
   resolved: number;
-  instruments: Array<{ instrument: string; candles: number; error?: string }>;
+  instruments: Array<{ instrument: string; candles: number; requested?: number; error?: string }>;
   fetchFailures: number;
   /** Research (Replay-V2) rows advanced this run. Never affects production counts. */
   researchScanned: number;
@@ -87,6 +97,35 @@ export interface ResolveSummary {
    * coverage/health telemetry rather than looking like zero candidates.
    */
   candidateBacklogNoCandles: number;
+}
+
+export function replayCandleDepthForRows(rows: ReplayFetchRow[], nowMs = Date.now()): number {
+  if (rows.length === 0) return 0;
+  const verticalBars = Math.ceil((SIGNAL_MAX_AGE_HOURS * 60) / 15);
+  const tifBars = Math.ceil(ORDER_TIF_MINUTES / 15);
+  const required = rows.reduce((max, row) => {
+    const start = Date.parse(row.replay_cursor ?? row.detected_at);
+    if (!Number.isFinite(start)) return max;
+    const elapsedBars = Math.max(1, Math.ceil((nowMs - start) / M15_MS));
+    return Math.max(max, elapsedBars + REPLAY_FETCH_OVERLAP_BARS);
+  }, tifBars + REPLAY_FETCH_OVERLAP_BARS);
+  return Math.max(1, Math.min(REPLAY_MAX_CANDLE_DEPTH, Math.max(required, verticalBars + REPLAY_FETCH_OVERLAP_BARS)));
+}
+
+function summarizeInstrumentFailures(instruments: ResolveSummary["instruments"]): string {
+  const details = instruments
+    .filter((item) => item.error)
+    .map((item) => `${item.instrument}: ${String(item.error).replace(/\s+/g, " ").slice(0, 120)}`)
+    .slice(0, 6);
+  if (details.length === 0) return "All instrument candle fetches failed";
+  return `All instrument candle fetches failed — ${details.join("; ")}`.slice(0, 900);
+}
+
+export function allFetchesFailedMessage(summary: ResolveSummary): string | null {
+  const fetchAttempts = summary.instruments.filter((item) => item.requested !== undefined);
+  if (fetchAttempts.length === 0) return null;
+  const allAttemptsFailed = fetchAttempts.every((item) => item.candles === 0 && Boolean(item.error));
+  return allAttemptsFailed ? summarizeInstrumentFailures(fetchAttempts) : null;
 }
 
 const OPEN_ROW_COLUMNS =
@@ -415,11 +454,7 @@ export async function resolveShadowExecutions(db: SupabaseClient): Promise<Resol
      */
     const dataGate = await assertCapability(db, instrument, "collect_data");
     if (!dataGate.allowed) {
-      summary.instruments.push({
-        instrument,
-        candles: 0,
-        error: dataGate.reason ?? "not in service",
-      });
+      summary.instruments.push({ instrument, candles: 0, error: dataGate.reason ?? "not in service" });
       summary.candidateBacklogNoCandles += (candidateByInstrument.get(instrument) ?? []).length;
       continue;
     }
@@ -432,28 +467,25 @@ export async function resolveShadowExecutions(db: SupabaseClient): Promise<Resol
      */
     const authority = await resolveFetchSymbol(db, instrument);
     if (!authority.usable || !authority.providerSymbol) {
-      summary.instruments.push({
-        instrument,
-        candles: 0,
-        error: authority.refusal ?? "no verified broker symbol",
-      });
+      summary.instruments.push({ instrument, candles: 0, error: authority.refusal ?? "no verified broker symbol" });
       summary.candidateBacklogNoCandles += (candidateByInstrument.get(instrument) ?? []).length;
       continue;
     }
 
     let candles;
+    const requested = replayCandleDepthForRows(group);
     try {
-      candles = await fetchCandles(authority.providerSymbol, "M15", CANDLE_DEPTH);
+      candles = await fetchCandles(authority.providerSymbol, "M15", requested);
     } catch (err) {
       // Timeouts, 504s and closed-market responses are expected. Skip the
       // instrument; the next hourly pass replays from the same cursor.
       summary.fetchFailures += 1;
       summary.candidateBacklogNoCandles += (candidateByInstrument.get(instrument) ?? []).length;
-      summary.instruments.push({ instrument, candles: 0, error: describeError(err) });
+      summary.instruments.push({ instrument, candles: 0, requested, error: describeError(err) });
       continue;
     }
 
-    summary.instruments.push({ instrument, candles: candles.length });
+    summary.instruments.push({ instrument, candles: candles.length, requested });
 
     for (const row of group) {
       const input = toReplayInput(row);

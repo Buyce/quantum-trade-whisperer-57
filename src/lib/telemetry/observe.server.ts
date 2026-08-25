@@ -13,7 +13,7 @@
  *   - It can never propagate an error. Observability that breaks the thing it
  *     observes is worse than no observability.
  */
-export type ApiOutcome = "ok" | "error" | "timeout" | "throttled" | "unauthorized";
+export type ApiOutcome = "ok" | "error" | "timeout" | "rate_limited" | "refused";
 
 export interface ApiObservation {
   /** Coarse provider surface, e.g. "market-data", "provisioning", "metastats". */
@@ -51,8 +51,8 @@ export async function recordApiObservation(observation: ApiObservation): Promise
 
 /** Map an HTTP status onto the outcome vocabulary. */
 export function outcomeForStatus(status: number | null | undefined): ApiOutcome {
-  if (status === 429) return "throttled";
-  if (status === 401 || status === 403) return "unauthorized";
+  if (status === 429) return "rate_limited";
+  if (status === 401 || status === 403) return "refused";
   if (typeof status === "number" && status >= 200 && status < 300) return "ok";
   return "error";
 }
