@@ -620,6 +620,10 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
         grade: profile.grade,
         session: sessionOf(now),
         detectedAt: now.toISOString(),
+        // Only the optional per-user intelligence gate reads these; publication,
+        // grading and every statistic remain untouched by them.
+        direction: profile.direction,
+        volatilityIndex,
       });
       if (outcome.reason && outcome.reason.includes("failed")) {
         console.error(`[pipeline] ${job.instrument} direct enqueue: ${outcome.reason}`);
