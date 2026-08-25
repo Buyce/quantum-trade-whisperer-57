@@ -64,8 +64,8 @@ async function observe(
 }
 
 function outcomeForStatus(status: number | null): string {
-  if (status === 429) return "throttled";
-  if (status === 401 || status === 403) return "unauthorized";
+  if (status === 429) return "rate_limited";
+  if (status === 401 || status === 403) return "refused";
   if (typeof status === "number" && status >= 200 && status < 300) return "ok";
   return "error";
 }
