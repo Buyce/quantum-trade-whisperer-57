@@ -103,19 +103,38 @@ export function MarketStatus({
       </div>
 
       {rows.length > 0 ? (
-        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 border-t border-border pt-3">
-          {rows.map((h) => (
-            <span key={h.instrument} className="flex items-center gap-1.5 text-xs">
-              <span
-                aria-hidden
-                className={cn("size-2 rounded-full", h.available ? "bg-success" : "bg-destructive")}
-              />
-              <span className="num text-foreground">{h.instrument}</span>
-              <span className="text-muted-foreground">
-                {h.available ? "live feed" : "feed down"}
-              </span>
-            </span>
-          ))}
+        <div className="mt-3 border-t border-border pt-3">
+          <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+            {rows.map((h) => {
+              const capability = instrumentCapability(h.instrument, stages);
+              return (
+                <span key={h.instrument} className="flex items-center gap-1.5 text-xs">
+                  <span
+                    aria-hidden
+                    className={cn(
+                      "size-2 rounded-full",
+                      !h.available
+                        ? "bg-destructive"
+                        : capability === "publishable"
+                          ? "bg-success"
+                          : "bg-muted-foreground/60",
+                    )}
+                  />
+                  <span className="num text-foreground">{h.instrument}</span>
+                  <span className="text-muted-foreground">
+                    {feedChipLabel(h.available, capability)}
+                  </span>
+                </span>
+              );
+            })}
+          </div>
+          {measuring.length > 0 ? (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Measuring instruments are being validated against live broker data. They produce no
+              signals, alerts or orders yet, and become selectable in Settings only once they are
+              promoted.
+            </p>
+          ) : null}
         </div>
       ) : null}
     </div>
