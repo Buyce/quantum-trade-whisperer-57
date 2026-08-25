@@ -37,6 +37,14 @@ vi.mock("@/lib/metaapi/margin.server", () => ({
 vi.mock("@/lib/metaapi/trade.server", () => ({
   submitPendingOrder: (...args: unknown[]) => submitPendingOrder(...args),
 }));
+
+vi.mock("@/lib/instruments/lifecycle.server", () => ({
+  assertCapability: vi.fn(async () => ({
+    allowed: true,
+    stage: "execution_approved",
+    reason: null,
+  })),
+}));
 vi.mock("@/lib/scanner/metaapi.server", () => ({
   fetchQuote: vi.fn(),
   fetchSymbolSpecification: vi.fn(),
