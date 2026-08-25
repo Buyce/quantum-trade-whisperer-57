@@ -26,6 +26,8 @@ export const ENQUEUE_DECISION_COPY: Record<string, string> = {
     "The historical win-if-filled rate for this regime is below your intelligence-gate threshold.",
   intelligence_gate_sample_insufficient:
     "Too few resolved replay samples behind this regime to satisfy your intelligence gate. This is a missing measurement, not a prediction.",
+  enqueue_attempt_failed:
+    "The automatic-order check itself failed, so no order was placed. This is a system fault, not a decision about the setup.",
 };
 
 export function describeEnqueueDecision(decision: string): string {

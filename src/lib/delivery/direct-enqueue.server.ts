@@ -85,7 +85,7 @@ export interface DirectEnqueueOutcome {
  * accept this signal. Safe to call twice: the `(user_id, signal_id,
  * bridge_profile)` conflict key makes the insert idempotent.
  */
-export async function enqueueDirectDeliveries(
+async function runDirectEnqueue(
   db: SupabaseClient,
   signal: DirectEnqueueSignal,
   nowMs: number = Date.now(),
@@ -359,4 +359,38 @@ export async function enqueueDirectDeliveries(
   }
   await recordEnqueueDecisions(db, decisions);
   return { enqueued: rows.length, filtered, reason: null };
+}
+
+/**
+ * Every automatic-order attempt — A+, A, B or C — must leave exactly one
+ * explanation behind. `runDirectEnqueue` records a decision on each of its own
+ * exits, but a throw anywhere inside it (an unreadable lifecycle view, a
+ * transport failure, a broken statistic read) used to leave the ledger silent,
+ * which reads as "nothing was ever attempted". This wrapper converts any such
+ * throw into a recorded system decision, so an empty ledger for a published
+ * setup is impossible rather than ambiguous.
+ */
+export async function enqueueDirectDeliveries(
+  db: SupabaseClient,
+  signal: DirectEnqueueSignal,
+  nowMs: number = Date.now(),
+): Promise<DirectEnqueueOutcome> {
+  try {
+    return await runDirectEnqueue(db, signal, nowMs);
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    await recordEnqueueDecisions(db, [
+      {
+        user_id: null,
+        signal_id: signal.id,
+        instrument: signal.instrument,
+        grade: signal.grade,
+        decision: "enqueue_attempt_failed",
+        detail,
+        enqueued: 0,
+        filtered: 0,
+      },
+    ]);
+    return { enqueued: 0, filtered: 0, reason: `enqueue_attempt_failed: ${detail}` };
+  }
 }

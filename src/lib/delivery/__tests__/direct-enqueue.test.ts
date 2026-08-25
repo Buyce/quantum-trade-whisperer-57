@@ -195,4 +195,37 @@ describe("enqueueDirectDeliveries", () => {
     const out = await enqueueDirectDeliveries(f.client as SupabaseClient, SIGNAL, NOW);
     expect(out.reason).toBe("no_armed_account");
   });
+  it.each(["A+", "A", "B", "C"])(
+    "[INVARIANT] records a decision for a %s-Grade attempt even when the check itself throws",
+    async (grade) => {
+      const recorded: FakeCall[] = [];
+      const f = createFakeSupabase((call: FakeCall) => {
+        if (call.table === "execution_enqueue_decisions") {
+          recorded.push(call);
+          return { data: [], error: null };
+        }
+        if (call.table === "execution_controls") {
+          // Any throw inside the attempt: a transport failure on a gate read.
+          throw new Error("control read unavailable");
+        }
+        return { data: [], error: null };
+      });
+      const out = await enqueueDirectDeliveries(
+        f.client as SupabaseClient,
+        { ...SIGNAL, grade },
+        NOW,
+      );
+      expect(out.enqueued).toBe(0);
+      expect(out.reason).toContain("enqueue_attempt_failed");
+      const rows = recorded[0]?.payload as unknown as Record<string, unknown>[];
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({
+        signal_id: "sig-1",
+        grade,
+        decision: "enqueue_attempt_failed",
+        enqueued: 0,
+      });
+      expect(String(rows[0]?.['detail'])).toContain("control read unavailable");
+    },
+  );
 });

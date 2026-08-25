@@ -25,15 +25,30 @@ export interface EnqueueDecisionRow {
   filtered: number;
 }
 
+/**
+ * Persist the decisions. A write failure is loud: losing the ledger silently is
+ * indistinguishable from "no automatic order was ever attempted", so the log
+ * names the affected signal and every decision code that was dropped.
+ */
 export async function recordEnqueueDecisions(
   db: SupabaseClient,
   rows: EnqueueDecisionRow[],
-): Promise<void> {
-  if (rows.length === 0) return;
+): Promise<boolean> {
+  if (rows.length === 0) return true;
+  const dropped = () =>
+    `signal ${rows[0]?.signal_id ?? "unknown"} decisions [${rows.map((r) => r.decision).join(", ")}]`;
   try {
     const { error } = await db.from("execution_enqueue_decisions").insert(rows as never);
-    if (error) console.error("[enqueue-log] write failed:", error.message);
+    if (error) {
+      console.error(`[enqueue-log] write failed for ${dropped()}:`, error.message);
+      return false;
+    }
+    return true;
   } catch (err) {
-    console.error("[enqueue-log] write threw:", err instanceof Error ? err.message : String(err));
+    console.error(
+      `[enqueue-log] write threw for ${dropped()}:`,
+      err instanceof Error ? err.message : String(err),
+    );
+    return false;
   }
 }
