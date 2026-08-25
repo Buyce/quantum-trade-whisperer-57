@@ -17,24 +17,24 @@ const WAVE0 = "EURUSD";
 describe("[UNIT] lifecycle gate under a degraded read", () => {
   const degraded = { enforced: false, degraded: true, stages: null };
 
-  it("refuses execution for a Wave 1 symbol when the stage is unreadable", () => {
+  it("[UNIT] refuses execution for a Wave 1 symbol when the stage is unreadable", () => {
     const verdict = lifecycleAllows(degraded, WAVE1, "execute");
     expect(verdict.allowed).toBe(false);
     expect(verdict.reason).toContain(WAVE1);
   });
 
-  it("refuses publication and research capture for a Wave 1 symbol too", () => {
+  it("[UNIT] refuses publication and research capture for a Wave 1 symbol too", () => {
     expect(lifecycleAllows(degraded, WAVE1, "publish").allowed).toBe(false);
     expect(lifecycleAllows(degraded, WAVE1, "capture_research").allowed).toBe(false);
     expect(lifecycleAllows(degraded, WAVE1, "collect_data").allowed).toBe(false);
   });
 
-  it("still allows the frozen Wave 0 universe, so an outage cannot halt production", () => {
+  it("[UNIT] still allows the frozen Wave 0 universe, so an outage cannot halt production", () => {
     expect(lifecycleAllows(degraded, WAVE0, "execute").allowed).toBe(true);
     expect(lifecycleAllows(degraded, WAVE0, "publish").allowed).toBe(true);
   });
 
-  it("defers to the stage once the read succeeds and enforcement is on", () => {
+  it("[UNIT] defers to the stage once the read succeeds and enforcement is on", () => {
     const view = { enforced: true, degraded: false, stages: { [WAVE1]: "shadow" as const } };
     expect(lifecycleAllows(view, WAVE1, "capture_research").allowed).toBe(true);
     expect(lifecycleAllows(view, WAVE1, "publish").allowed).toBe(false);
@@ -45,7 +45,7 @@ describe("[UNIT] lifecycle gate under a degraded read", () => {
 describe("[UNIT] role-aware order geometry", () => {
   const spec = { tickSize: 0.001, point: 0.001, digits: 3 } as never;
 
-  it("never moves a long stop closer to entry, nor a target nearer", () => {
+  it("[UNIT] never moves a long stop closer to entry, nor a target nearer", () => {
     const g = normalizeOrderGeometry({
       spec,
       direction: "long",
@@ -60,7 +60,7 @@ describe("[UNIT] role-aware order geometry", () => {
     expect(g.tick).toBe(0.001);
   });
 
-  it("never moves a short stop closer to entry, nor a target nearer", () => {
+  it("[UNIT] never moves a short stop closer to entry, nor a target nearer", () => {
     const g = normalizeOrderGeometry({
       spec,
       direction: "short",
@@ -74,7 +74,7 @@ describe("[UNIT] role-aware order geometry", () => {
     expect(g.tp1).toBeLessThanOrEqual(150.71234);
   });
 
-  it("reports an unknown grid rather than inventing a tick size", () => {
+  it("[UNIT] reports an unknown grid rather than inventing a tick size", () => {
     const g = normalizeOrderGeometry({
       spec: null,
       direction: "long",
