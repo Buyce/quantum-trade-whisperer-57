@@ -25,7 +25,7 @@ describe("write-only bridge credential", () => {
   it("[INVARIANT] browser settings restore execution switches but never select the secret", () => {
     const source = readFileSync("src/lib/queries.ts", "utf8");
     const settingsQuery = source.slice(
-      source.indexOf("export function settingsQuery"),
+      source.indexOf("export const SETTINGS_SELECT"),
       source.indexOf("export function instrumentHealthQuery"),
     );
     expect(settingsQuery).toContain("execution_enabled");
