@@ -65,9 +65,10 @@ structural contract:
    implementation files and tests. `src/test/__tests__/docs-contract.test.ts`
    enforces the parts that can be checked mechanically — provenance, explicit
    non-guarantees and named tests — rather than the presence of literal headings.
-2. **Indexes and audits** — this file and `LINK-AUDIT.md`. They describe the
-   documentation set rather than a feature, so the feature-reference headings do
-   not apply.
+2. **Indexes and historical ledgers** — this file, `LINK-AUDIT.md`,
+   `CHARACTERISATION.md` and `DB-TESTS.md`. They describe the documentation set, a
+   frozen behaviour ledger, or a test layer rather than a shipped feature, so the
+   feature-reference headings do not apply.
 3. **Dated audit snapshots** — everything under `audits/`. Each is frozen evidence
    from a named date and is never retrofitted to HEAD. Excluded from the contract
    by design; adding empty headings to a historical record would falsify it.

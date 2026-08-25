@@ -53,7 +53,14 @@ const FEATURE_REFERENCES = DOC_FILES.filter(
   (rel) =>
     rel.startsWith("docs/") &&
     !DATED_AUDITS.includes(rel) &&
-    !["docs/README.md", "docs/LINK-AUDIT.md"].includes(rel),
+    // Indexes and historical ledgers are a different kind of document; see the
+    // taxonomy in docs/README.md.
+    ![
+      "docs/README.md",
+      "docs/LINK-AUDIT.md",
+      "docs/CHARACTERISATION.md",
+      "docs/DB-TESTS.md",
+    ].includes(rel),
 );
 
 describe("documentation contract: URLs", () => {
