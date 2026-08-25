@@ -1,66 +1,73 @@
-# Phase A — Data and Architecture Foundation (remaining work)
+# Phase A1 — Foundation Audit and Hardening
 
-## 1. Executive feasibility verdict
+## Audit checkpoint (verified before planning)
 
-Feasible, and smaller than the brief assumes. A verification pass against HEAD and the live database shows that roughly half of Phase A is already built and merged. What remains is telemetry, provenance versioning, suppressed-candidate research enrolment, admin diagnostics, and the controlled `disabled → data_validation → shadow` walk. No destructive migration is required; every remaining change is additive and independently reversible.
+HEAD is `c7a9dcc02eabdc6f8f1d0e1906f1783f2bf1a589` — identical to the reference commit, so the audit is against the intended tree.
 
-## 2. Corrections to the brief (verified, not assumed)
+Live state: `execution_controls.lifecycle_enforced = false`. `shadow_engine_state`: `v2_enabled=false`, `v3_enabled=false`, `candidate_capture_enabled=false`, `candidate_enrolment_enabled=false`, `replay_v2_shadow_enabled=false`, `sizing_v2_enabled=false`, `active_replay_version=1`, `paused=false`. Lifecycle rows: XAUUSD, GBPAUD, EURUSD = `execution_approved`; AUDUSD, GBPUSD, USDCAD, USDCHF, USDJPY = `disabled`. Row counts: `research_candidates` 0, `shadow_executions` 482, `model_observations` 2591, `instrument_health` 3 (Wave 0 only). No Wave 1 instrument is active, visible or execution-capable.
 
-| Brief assumption | Verified status | Evidence |
+## Finding-by-finding verdict
+
+| # | Verdict | Evidence |
 | --- | --- | --- |
-| Instrument definitions fragmented across four files | Already solved | `src/lib/instruments/registry.ts` is the authority; `scanner/types.ts`, `db-types.ts`, `risk.ts` derive from it |
-| Lifecycle schema must be designed | Already deployed | `instrument_lifecycle` + `instrument_lifecycle_transitions` exist; 8 symbols seeded, Wave 1 all `disabled` |
-| Lifecycle gates must be written | Already written, **not yet enforced** | `execution_controls.lifecycle_enforced = false` today; gates in `pipeline.server.ts`, `revalidate.server.ts`, `direct-enqueue.server.ts` |
-| Per-instrument breakers needed | Already solved | `instrument_health.consecutive_failures`, `failure_scope`, `breaker_open_until` (3 rows, Wave 0 only) |
-| Readiness/mapping/spec checks needed | Already solved | `src/lib/instruments/readiness.server.ts` |
-| Existing-user preference protection needed | Already solved | `eligibility.ts` pins empty arrays to `WAVE0_SYMBOLS` |
-| Spread/session versioning exists | Confirmed missing | no `session_version` anywhere; `market_context.trading_session` is bare text |
-| Suppressed V1 candidates get outcomes | Confirmed missing | `research_candidates` = 0 rows; `candidate_enrolment_enabled = false` |
+| 1 Lifecycle stages don't enforce distinct capabilities | **Confirmed** | Only `mayScan`/`mayPublish`/`mayExecute` exist (`lifecycle.ts`). In `pipeline.server.ts` V2 runs at line ~449 and V3 at ~487, while the publication gate is at line 539 — strategy evaluation and shadow enrolment precede the lifecycle decision. The stage is read once at line 266 and reused for the whole job. |
+| 2 Suppressed candidates misclassified | **Confirmed — real defect** | `pipeline.server.ts:299-304`: the status→observation mapper returns `decision: "no_trade"` for every unhandled status, and `skipped` is unhandled. A valid structure suppressed at line 539 is therefore recorded as a strategy no-trade. |
+| 3 Suppressed capture already exists | **Partially confirmed** | `captureCandidate` is called at ~line 393 behind `isCandidateCaptureEnabled`, passing `v1Decision: status`, so `skipped` *is* distinguishable in that column. But there is no cohort column, no lifecycle-stage column, and capture sits inside the same observation block for every status. Table is empty (0 rows), so nothing needs reclassifying. |
+| 4 Transitions not atomic | **Confirmed** | `lifecycle.server.ts` `transitionStage` inserts history, then updates the row in a second call. No transition-graph validation, no expected-from check, no reason/approver validation, no locking. A failed second call leaves history for a transition that never happened. |
+| 5 Mapping conflated with specification | **Confirmed** | `readiness.server.ts:74-81`: the `mapping` check is literally `spec !== null` with the detail string "run the specification refresh first". Mapping is never independently verified. |
+| 6 Readiness insufficient | **Partially confirmed** | Five components are reported separately (good, contrary to the brief's fear of one boolean), but candle checks do not test interval continuity, duplicate timestamps or incomplete current candles, and conversion is checked for one route rather than per account currency. |
+| 7 Price normalization incomplete | **Confirmed, with a brief correction** | `ENTRY_PRICE_DECIMALS = 5` in `scanner/types.ts` is used by `pipeline.server.ts` for duplicate identity. **Correction:** the brief (and a code comment at `pipeline.server.ts:124`) claims a database unique index `scanned_signals_active_unique` on `round(entry_price, 5)`; no such expression index exists in the live database. Duplicate identity is enforced in code, not by that index. The stale comment is itself a defect. |
+| 8 Provenance | Confirmed as work-to-do | `research_candidates` already carries `manifest_hash`, `code_hash`, `observation_key`, `run_id`; it lacks lifecycle stage, provider symbol, cohort, session version and data as-of. |
+| 9 Session versioning | Confirmed missing | No `session_version` anywhere; `market_context.trading_session` is bare `text`. |
+| 10 Parity proof thin | Confirmed | Existing parity suite pins registry literals only, not end-to-end decisions. |
 
-So Phase A's remaining scope is A7, A8, A9 (admin surfacing only), A10, A11 (verification only), A12, A13, A14, plus activation.
+## Corrections to the brief
 
-## 3. Remaining workstreams
+1. The `round(entry_price, 5)` index does not exist — no migration should be written against it; the comment gets corrected instead.
+2. Readiness already reports components separately; only the checks inside them need deepening.
+3. `research_candidates` is empty, so Finding 2's "historical rows must not be reclassified" is moot for that table. `model_observations` (2591 rows) does contain the misclassification risk, but only for Wave 0 rows produced while enforcement was off — i.e. no lifecycle suppression ever occurred, so no historical row is wrong today. The fix is purely forward-looking. This is the honest reading and it will be documented rather than backfilled.
+4. Capability matrix correction: `data_validation` must **not** run strategy evaluation at all. The brief's matrix agrees; the current code disagrees because V2/V3 run before any stage check. This is the single most important behavioural fix in A1.
 
-### P1 — Cost/spread telemetry (A7)
-New table `spread_samples` (raw) + `spread_stats` (aggregate). Raw row: instrument, source account, bid, ask, spread_price, spread_points, spread_atr_fraction, session, session_version, source_time, received_at, market_open, quality. Sampled by a new `/api/public/cron/spread-sample` worker on the existing 15-minute cadence, one quote per non-`disabled` instrument, service-role only, hard row cap per run. Aggregates recomputed daily: median, p90, p95, sample count, per session bucket. Retention: raw 60 days, aggregates permanent. Wave 0 spread floors in the registry stay literal and untouched — telemetry is read by nobody in the decision path during Phase A. A pair may leave `data_validation` only when it has ≥ 200 valid open-market samples across ≥ 3 sessions and a derived floor candidate; the floor is still written by a human-approved registry edit, never auto-adopted.
+## Implementation packages
 
-### P2 — Session and provenance versioning (A8, A12)
-Register the current fixed-UTC definition as `session_version = 1` in a `session_definitions` table. Add nullable `session_version` to `market_context` and to research observation rows; existing null rows are defined in docs as "v1, fixed UTC, unstamped". No new session algorithm in Phase A. Provenance fields added to the research rows only where truthfully populatable: strategy model version, strategy manifest hash, symbol-mapping verified-at, candle source, market-data as-of, spec as-of, lifecycle stage at detection, research cohort.
+Each package is independently revertible. No flag values change, no lifecycle row moves, no migration is destructive.
 
-### P3 — Suppressed-candidate research enrolment (A10, A11)
-Single outcome authority: reuse `shadow_executions` for outcomes and `research_candidates` for pre-publication capture — no third path. In `pipeline.server.ts`, when a graded V1 setup is suppressed by `mayPublish() === false`, write a frozen counterfactual plan through the existing `enrol-candidates.server.ts` code path with a distinct cohort label (`lifecycle_suppressed`), never touching `scanned_signals`. Consequences: no feed row, no alert fan-out, no `enqueue_execution_deliveries` trigger, no MCP visibility. Idempotency via the existing structure-claim + unique observation key. Enrolment failure is caught and logged; it can never change the scan result. Resolution runs on the existing shadow resolver, which already handles never-filled, gap, TP1/2/3, stop, expiry, same-candle ambiguity and missing candles — extended only with per-instrument isolation so a USDJPY replay outage cannot stall Gold.
+**P1 — Capability model (Finding 1).** Extend `src/lib/instruments/lifecycle.ts` with `mayCollectData`, `mayEvaluateStrategy`, `mayCaptureResearch`, `mayResolveResearch`, `mayAlert` alongside the existing three, all derived from the same rank ladder so no stage answer can drift. In `pipeline.server.ts`, move the lifecycle read's verdicts to the action boundaries: guard the V2 block and the V3 block with `mayEvaluateStrategy`, guard `captureCandidate` with `mayCaptureResearch`, and re-read the stage immediately before the publication write rather than relying on the line-266 snapshot. Add `mayAlert` to the alert fan-out and re-check `mayExecute` at the pre-send boundary in `revalidate.server.ts` (it is already checked there; the change is that it re-reads rather than trusting a passed-in view). Fail closed on a degraded read for any non-Wave-0 symbol.
 
-### P4 — Admin diagnostics (A9, A14)
-New `InstrumentLifecyclePanel` in the existing admin intelligence route, fed by one `get_admin_instruments()` security-definer function: registry definition, stage, last transition (reason/approver), broker mapping + verified-at, spec freshness, quote freshness, candle completeness by timeframe, breaker status, spread-sample maturity, enrolment and resolved/unresolved counts. No secrets, logins, provider payloads or account IDs. Runbook added to `docs/OPERATIONS.md` for mapping ambiguity, missing symbol, stale specs, incomplete candles, queue backlog, resolver backlog, breaker trip, lifecycle rollback, provider outage.
+**P2 — Research classification (Finding 2).** Replace the catch-all `no_trade` mapper with an exhaustive, non-overlapping classification: `no_trade`, `published`, `suppressed_lifecycle`, `suppressed_cooldown`, `suppressed_duplicate`, `research_shadow`, `evaluation_error`, `data_unavailable`, `job_stale`, `operationally_skipped`. Observation rows gain a `suppression_reason` column (nullable) and lifecycle suppression maps to `decision: "candidate"` with a suppressed disposition — never to `no_trade`. Statistics readers filter on the disposition, so a suppressed candidate cannot enter a rejection denominator.
 
-### P5 — Capacity measurement, then activation (A13, then the walk)
-Measure before widening: record job duration p50/p95/p99, cycle duration, queue age and provider error rate per instrument for one week at three instruments; that becomes the baseline. Then, one instrument at a time:
-1. Flip `lifecycle_enforced = true` while all Wave 1 pairs are still `disabled` — a pure no-op proof that the gates hold.
-2. Move one pair to `data_validation`; it fetches candles and quotes, collects health and spread telemetry, publishes nothing.
-3. After a clean readiness report and spread maturity, move that pair to `shadow`; it evaluates, enrols and resolves — still publishes nothing.
-Repeat per pair. Immediate rollback on any single severe failure (cycle duration above budget, provider error rate spike, resolver backlog growth): set that symbol back to `disabled` — one row update, no deploy.
+**P3 — Transactional transitions (Finding 4).** New `transition_instrument_stage(_symbol, _expected_from, _to, _reason, _approver, _evidence, _rollback_target)` security-definer function with `set search_path = public`, granted to `service_role` only. It selects the current row `for update`, rejects a mismatch against `_expected_from`, validates the destination against an explicit allowed-transition graph (`disabled→data_validation→shadow→signals_only→execution_approved`, any stage→`suspended`, `suspended`→its rollback target, plus one-step-back rollbacks), rejects blank reason or approver, inserts history and updates the row in the same transaction. `transitionStage` in `lifecycle.server.ts` becomes a thin caller. Rollback is the same function, never a bare update.
 
-## 4. Tests
+**P4 — Mapping authority (Finding 5).** Split mapping from specification. A `resolveBrokerSymbol` path returns a discriminated result: `exact | configured | inferred | ambiguous | unavailable`, with the account/server scope, the provider symbol and a `verified_at`. `connected_account_symbols` is reused (it already keys per account); the gap is a resolution status and verified-at, added as nullable columns. Readiness's `mapping` check calls this instead of testing for a spec. Ambiguous, stale and unavailable all fail closed. No fuzzy matching: suffix/prefix candidates must match the canonical base exactly, and more than one surviving candidate is `ambiguous`, not a guess. No candle or quote request is issued for an unresolved canonical symbol.
 
-Parity (must stay green, extended): the existing registry-parity suite plus semantic parity for XAUUSD/GBPAUD/EURUSD across direction, grade, entry, stop, TP1-3, R multiples, max acceptable entry, structure key, duplicate suppression, confidence, pillars, publication, feed and alert eligibility, daily cap, sizing, conversion, enqueue, pre-send decision, broker payload, reconciliation, performance grouping. Added nullable provenance columns are excluded by name from the comparison, and that exclusion list is itself asserted.
+**P5 — Readiness depth (Finding 6).** Candle validation gains ascending-order, duplicate-timestamp, interval-continuity, missing-interval, incomplete-current-candle, OHLC-geometry and non-finite checks per timeframe. Quote validation gains bid/ask geometry, positive spread, future-timestamp and market-open checks (source-time staleness already exists). Spec validation reports each provider field present/absent separately. Conversion becomes a matrix over USD/EUR/GBP/AUD account currencies with route type and refusal reason per cell.
 
-Per new pair: lifecycle default is `disabled`; suppressed stage yields no `scanned_signals` row, no alert, no webhook, no MCP signal, no automatic enqueue, no broker submission even with enforcement off; exact broker mapping and refusal on ambiguity/unavailability; USDJPY precision and point/pip conversion (3 digits, not 5) across entry, stop, targets, max-acceptable-entry, structure key and display; conversion routes for USD/EUR/GBP/AUD account currencies including missing, stale, future and unparseable timestamps; spread telemetry validity and closed-market exclusion; per-instrument breaker isolation; enrolment idempotency; cohort separation from V1 production and V2/V3.
+**P6 — Instrument-aware precision (Finding 7).** Introduce `src/lib/instruments/precision.ts`: `priceDecimals(symbol, spec)` preferring the broker's `digits`, falling back to the registry's `fallbackDigits`; `normalizeToTick(price, spec, direction)` snapping to the broker `tickSize`/`point` grid with deterministic direction — stops away from entry, limits toward the trader, so rounding never silently increases risk. Duplicate identity becomes `entryPriceKey(symbol, price)` using instrument digits; **for Wave 0 this returns exactly the current 5-decimal result**, pinned by test. Order-grid normalization applies at the broker boundary only; research and display use registry digits as fallback. The stale index comment is corrected.
 
-## 5. Red-team findings that changed this plan
+**P7 — Provenance and session version (Findings 8, 9).** Additive nullable columns on `research_candidates` and the observation rows: `canonical_instrument`, `provider_symbol`, `lifecycle_stage_at_detection`, `research_cohort`, `session_version`, `candle_source`, `candle_as_of`, `quote_as_of`, `spec_as_of`, `mapping_verified_at`. New `session_definitions` table registering the current fixed-UTC algorithm as version 1. `session_version` added nullable to `market_context`. Nothing is backfilled; null is documented as the named legacy cohort "v1-unstamped". No DST-aware algorithm.
 
-- **Fail-open risk if enforcement is flipped carelessly.** Fixed by ordering: enforce first while Wave 1 is `disabled`, so the flip is provably a no-op before any pair moves.
-- **Two outcome authorities.** The brief's "research_candidates or shadow_executions or both" invited a split. Resolved: candidates capture, shadow_executions resolve, nothing else.
-- **Auto-adopted spread floors.** Telemetry deriving a floor that silently enters the decision path would be an unvalidated financial input. Resolved: floors remain human-approved registry literals in Phase A.
-- **Backfill starving live scans.** Resolved by excluding historical backfill from Phase A entirely.
-- **Rollback existing only on paper.** Resolved: rollback is a single `instrument_lifecycle.stage` update plus the `lifecycle_enforced` flag, and the rollback drill is an exit criterion, not a note.
+**P8 — Wave 0 parity proof (Finding 10).** Golden-fixture dual-run: deterministic candle fixtures per Wave 0 instrument feed `evaluateSetup` and the downstream chain, and the full decision object is compared against committed goldens covering direction, gates, rejection reasons, grade, entry, stop, TP1-3, R multiples, max acceptable entry, structure key, duplicate key, confidence, pillars, publication, feed and alert eligibility, daily cap, default instrument resolution, sizing, conversion, enqueue, pre-send decision, broker payload, reconciliation grouping and shadow resolution. New nullable provenance fields are excluded only through a named exclusion list that the test itself asserts is complete.
 
-Residual risks accepted: research volume growth (bounded by row caps and retention); MetaApi quota under eight instruments (mitigated by staged, one-pair-at-a-time activation and measured baselines).
+**P9 — Documentation.** `docs/INSTRUMENT-LIFECYCLE.md` gains the capability matrix, transition graph, degraded-read semantics and rollback procedure. New sections in `docs/DATA-PROVENANCE.md` (legacy cohort, session version), `docs/BROKER-ACCOUNTS.md` (mapping vs specification), `docs/SCANNER.md` (precision authority). Nothing claims Wave 1 support.
 
-## 6. Explicitly out of scope
+## Migrations (all additive, in order)
 
-News provider and blackout enforcement, predictive training/scoring, holdout promotion, `signals_only` and `execution_approved` transitions, alerts or automatic execution for new pairs, correlated-exposure hard blocking, Wave 2, any public or homepage claim about expanded coverage.
+1. `session_definitions` table + seed of version 1 + `market_context.session_version` nullable. Grants: `SELECT` to `authenticated` on definitions, `ALL` to `service_role`; RLS on with a read-only authenticated policy.
+2. Provenance columns on `research_candidates` and observation tables, all nullable, no defaults, no backfill.
+3. `suppression_reason` column on the observation table.
+4. Resolution-status and `verified_at` columns on `connected_account_symbols`, nullable.
+5. `transition_instrument_stage` function, `service_role`-only EXECUTE, `search_path = public`.
 
-## 7. Decisions I need from you
+Rollback for each: drop the added column or function; every reader treats the columns as optional, so the application tolerates staggered deployment in both directions.
 
-1. Activation order for the five pairs — I propose GBPUSD first (closest to existing EURUSD mechanics), USDJPY last (precision risk).
-2. Spread-sampling cadence: reuse the 15-minute scan cron, or a separate 5-minute sampler for finer session detail at higher provider cost?
+## Stop conditions
+
+Stop and report if the audit turns up a Wave 1 instrument that is scannable, publishable or executable in the live database; if a parity golden differs for Wave 0; or if any required change turns out to need a destructive migration or a flag flip.
+
+## Out of scope (unchanged from your boundary)
+
+No `lifecycle_enforced = true`, no stage moves, no flag changes, no spread-floor changes, no news provider, no predictive work, no backfill, no Wave 1 documentation claims, no broker test orders.
+
+## Phase A2 (to propose after A1, not now)
+
+Spread/cost telemetry, provenance population, stage-correct enrolment, outcome resolution, admin diagnostics, capacity measurement, one-instrument-at-a-time activation — to be written against the A1 evidence rather than copied forward.
