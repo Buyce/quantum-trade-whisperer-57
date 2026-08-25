@@ -615,11 +615,18 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
      * cannot justify.
      */
     if (!hasValidatedSpreadFloor(job.instrument)) {
+      // Operational refusal, not a strategy judgement: the model DID produce a
+      // setup, so the row must not land in the rejection denominator.
+      v1Suppression = {
+        disposition: "operationally_skipped",
+        reason: "no_validated_spread_floor",
+      };
       return await finish(
         "skipped",
         `${job.instrument} has no validated stop floor yet — publication withheld`,
       );
     }
+
 
     // No global ceiling: every qualifying setup publishes. Each account applies
     // its own daily cap (scanner_settings.daily_setup_cap, 0 = unlimited) to
