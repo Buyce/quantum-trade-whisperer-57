@@ -10,10 +10,11 @@ import { sendTestWebhook } from "@/lib/webhook-test.functions";
 import { getExecutionStatus, saveBridgeSettings } from "@/lib/execution.functions";
 
 import { useAuth } from "@/hooks/useAuth";
-import { saveSettings, settingsQuery } from "@/lib/queries";
+import { instrumentStagesQuery, saveSettings, settingsQuery } from "@/lib/queries";
 import {
   ALL_INSTRUMENTS,
   ALL_SESSIONS,
+  publishableInstruments,
   SESSION_LABELS,
   INSTRUMENT_LABELS,
   ORDER_TIF_MINUTES,
@@ -82,6 +83,10 @@ function SettingsPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const settings = useQuery(settingsQuery(user?.id));
+  const stages = useQuery(instrumentStagesQuery());
+  // Selectable instruments are whatever the lifecycle currently allows to publish;
+  // an unreadable stage view falls back to Wave 0 rather than offering more.
+  const selectableInstruments = publishableInstruments(stages.data);
 
   const [instruments, setInstruments] = useState<string[]>([...ALL_INSTRUMENTS]);
   const [sessions, setSessions] = useState<string[]>([...ALL_SESSIONS]);
@@ -419,7 +424,7 @@ function SettingsPage() {
             <div>
               <Label className="text-xs">Instruments</Label>
               <div className="mt-2 flex flex-wrap gap-2">
-                {ALL_INSTRUMENTS.map((i) => (
+                {selectableInstruments.map((i) => (
                   <Chip
                     key={i}
                     active={instruments.includes(i)}
