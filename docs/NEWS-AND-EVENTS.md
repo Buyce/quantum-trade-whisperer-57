@@ -6,10 +6,10 @@ calendar from being mistaken for a clear one.
 
 ## Sources
 
-| Provider | What it proves | What it cannot prove |
-| --- | --- | --- |
-| **FRED** (St. Louis Fed) | Which US statistical releases exist (stable numeric release ids) and which **calendar dates** they are scheduled for, including future dates. | The intraday release **time**. `/fred/releases/dates` returns a bare date, so no exact instant exists. Actual/forecast/previous values are not requested by the adapter. |
-| **EIA** v2 | Weekly US petroleum stock **published values**, keyed by week-ending period. | The Weekly Petroleum Status Report **publication schedule**, including holiday-adjusted release times — it is not served by the API. No forward EIA event is ever emitted. |
+| Provider                 | What it proves                                                                                                                                | What it cannot prove                                                                                                                                                       |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **FRED** (St. Louis Fed) | Which US statistical releases exist (stable numeric release ids) and which **calendar dates** they are scheduled for, including future dates. | The intraday release **time**. `/fred/releases/dates` returns a bare date, so no exact instant exists. Actual/forecast/previous values are not requested by the adapter.   |
+| **EIA** v2               | Weekly US petroleum stock **published values**, keyed by week-ending period.                                                                  | The Weekly Petroleum Status Report **publication schedule**, including holiday-adjusted release times — it is not served by the API. No forward EIA event is ever emitted. |
 
 Deliberately absent:
 
@@ -27,15 +27,15 @@ There is no global `news_healthy` boolean anywhere in the system, because no sin
 flag would be truthful. Coverage is measured per **(provider, currency, event
 family)** and stored in `news_coverage_snapshots`:
 
-| State | Meaning |
-| --- | --- |
-| `healthy` | Provider answered completely and every event carries an exact release time. Only this state can clear a new entry. |
-| `timestamp_incomplete` | The schedule is real, but release times are date-only — it cannot authorise an intraday suppression window. |
-| `partial` | Some pages/series answered, others did not. |
-| `stale` | The provider's own data is older than required. |
-| `provider_error` | Outage, throttle, rejected credential, or a schema mismatch. |
-| `unsupported` | The provider structurally has no data for this scope. |
-| `unknown` (`unproven` in code) | Never successfully observed. |
+| State                          | Meaning                                                                                                            |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| `healthy`                      | Provider answered completely and every event carries an exact release time. Only this state can clear a new entry. |
+| `timestamp_incomplete`         | The schedule is real, but release times are date-only — it cannot authorise an intraday suppression window.        |
+| `partial`                      | Some pages/series answered, others did not.                                                                        |
+| `stale`                        | The provider's own data is older than required.                                                                    |
+| `provider_error`               | Outage, throttle, rejected credential, or a schema mismatch.                                                       |
+| `unsupported`                  | The provider structurally has no data for this scope.                                                              |
+| `unknown` (`unproven` in code) | Never successfully observed.                                                                                       |
 
 Rules that hold by construction, and are covered by tests:
 
@@ -61,11 +61,11 @@ its required scopes are proven `healthy`.
 
 Suppression windows apply **only** to events with an exact time:
 
-| Importance | Before | After |
-| --- | --- | --- |
-| high | 60 min | 30 min |
-| medium | 30 min | 15 min |
-| low | none | none |
+| Importance | Before | After  |
+| ---------- | ------ | ------ |
+| high       | 60 min | 30 min |
+| medium     | 30 min | 15 min |
+| low        | none   | none   |
 
 Refusal reasons are explicit: `no_news_profile`, `coverage_incomplete`,
 `release_time_unknown`, `event_window`. Unknown coverage is **not** clearance.

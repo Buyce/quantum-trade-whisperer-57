@@ -36,12 +36,12 @@ key must be supplied through secret management.
 
 Latest snapshot per (provider, currency, family), 50 scopes:
 
-| State | Scopes |
-| --- | --- |
-| `unsupported` | 45 |
+| State                  | Scopes                                                                    |
+| ---------------------- | ------------------------------------------------------------------------- |
+| `unsupported`          | 45                                                                        |
 | `timestamp_incomplete` | 4 (USD central_bank, inflation, employment, us_macro — FRED is date-only) |
-| `provider_error` | 1 (USD energy_inventory — EIA credential) |
-| `healthy` | **0** |
+| `provider_error`       | 1 (USD energy_inventory — EIA credential)                                 |
+| `healthy`              | **0**                                                                     |
 
 Consequence, stated plainly: **no instrument currently has news coverage that could
 clear a new entry.** The policy therefore stays in comparison (dark) mode for every
@@ -52,11 +52,11 @@ would have applied a calendar that cannot resolve intraday timing.
 
 Readiness was re-run per symbol against the live provider (12,494-symbol inventory):
 
-| Symbol | Decision | Blockers |
-| --- | --- | --- |
-| GBPUSD, USDCHF, USDJPY, USDCAD | may enter data_validation | none (note: `calendar_unverified`) |
-| XAGUSD | stays disabled | `no_candle_series`, `no_live_quote` |
-| USOIL, UKOIL, NAS100 | stay disabled | unchanged from the Wave 2 audit |
+| Symbol                         | Decision                  | Blockers                            |
+| ------------------------------ | ------------------------- | ----------------------------------- |
+| GBPUSD, USDCHF, USDJPY, USDCAD | may enter data_validation | none (note: `calendar_unverified`)  |
+| XAGUSD                         | stays disabled            | `no_candle_series`, `no_live_quote` |
+| USOIL, UKOIL, NAS100           | stay disabled             | unchanged from the Wave 2 audit     |
 
 Applied via the audited `transition_instrument_stage` RPC, `disabled → data_validation`,
 all four `ok`. Wave 1 is now fully in data collection (AUDUSD was already there).
