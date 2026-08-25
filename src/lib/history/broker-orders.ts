@@ -151,7 +151,10 @@ function accountType(value: string | null | undefined): BrokerOrderView["account
  * "awaiting broker confirmation", never a fill.
  */
 export function brokerOrderStatus(
-  delivery: Pick<BrokerOrderDeliveryRow, "state" | "reason" | "broker_retcode_string">,
+  delivery: Pick<
+    BrokerOrderDeliveryRow,
+    "state" | "reason" | "broker_retcode_string" | "submitted_at"
+  >,
   evidence: Pick<BrokerOrderEvidenceRow, "state"> | null,
 ): BrokerOrderStatus {
   if (evidence) {
