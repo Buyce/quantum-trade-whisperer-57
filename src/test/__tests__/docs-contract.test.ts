@@ -56,7 +56,6 @@ const FEATURE_REFERENCES = DOC_FILES.filter(
     !["docs/README.md", "docs/LINK-AUDIT.md"].includes(rel),
 );
 
-
 describe("documentation contract: URLs", () => {
   it("[INVARIANT] names the canonical production URL in the README", () => {
     expect(read("README.md")).toContain(CANONICAL_URL);
@@ -456,9 +455,7 @@ describe("documentation contract: settings match eligibility", () => {
     expect(read("src/lib/mcp/tools/update-my-settings.ts")).toMatch(
       /Deprecated and ignored[^"]{0,120}timeframes are not a filter/i,
     );
-    expect(read("src/lib/mcp/settings-validation.ts")).toContain(
-      "DEPRECATED_TIMEFRAMES_WARNING",
-    );
+    expect(read("src/lib/mcp/settings-validation.ts")).toContain("DEPRECATED_TIMEFRAMES_WARNING");
   });
 
   it("[INVARIANT] TIMEFRAMES stay documented as the scan basis", () => {
@@ -516,4 +513,3 @@ describe("documentation contract: public routes", () => {
     expect(connect).toMatch(/public HTTPS registration endpoint/i);
   });
 });
-
