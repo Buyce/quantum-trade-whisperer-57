@@ -1019,6 +1019,39 @@ export type Database = {
           },
         ]
       }
+      execution_control_changes: {
+        Row: {
+          changed_at: string
+          changed_by: string
+          control_key: string
+          evidence: Json
+          id: number
+          new_value: Json | null
+          old_value: Json | null
+          reason: string
+        }
+        Insert: {
+          changed_at?: string
+          changed_by: string
+          control_key: string
+          evidence?: Json
+          id?: number
+          new_value?: Json | null
+          old_value?: Json | null
+          reason: string
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string
+          control_key?: string
+          evidence?: Json
+          id?: number
+          new_value?: Json | null
+          old_value?: Json | null
+          reason?: string
+        }
+        Relationships: []
+      }
       execution_controls: {
         Row: {
           allowed_live_hosts: string[]
@@ -1097,6 +1130,12 @@ export type Database = {
           margin_currency: string | null
           margin_estimate: number | null
           payload_version: number
+          price_grid_moved: boolean | null
+          price_grid_source: string | null
+          price_grid_tick: number | null
+          published_entry: number | null
+          published_stop: number | null
+          published_target: number | null
           reason: string | null
           request_fingerprint: string | null
           sent_at: string | null
@@ -1105,6 +1144,9 @@ export type Database = {
           state: string
           submitted_at: string | null
           submitted_entry: number | null
+          submitted_quantity_sizing_model: number | null
+          submitted_quantity_spec_as_of: string | null
+          submitted_quantity_spec_source: string | null
           submitted_stop: number | null
           submitted_target: number | null
           submitted_volume: number | null
@@ -1136,6 +1178,12 @@ export type Database = {
           margin_currency?: string | null
           margin_estimate?: number | null
           payload_version?: number
+          price_grid_moved?: boolean | null
+          price_grid_source?: string | null
+          price_grid_tick?: number | null
+          published_entry?: number | null
+          published_stop?: number | null
+          published_target?: number | null
           reason?: string | null
           request_fingerprint?: string | null
           sent_at?: string | null
@@ -1144,6 +1192,9 @@ export type Database = {
           state?: string
           submitted_at?: string | null
           submitted_entry?: number | null
+          submitted_quantity_sizing_model?: number | null
+          submitted_quantity_spec_as_of?: string | null
+          submitted_quantity_spec_source?: string | null
           submitted_stop?: number | null
           submitted_target?: number | null
           submitted_volume?: number | null
@@ -1175,6 +1226,12 @@ export type Database = {
           margin_currency?: string | null
           margin_estimate?: number | null
           payload_version?: number
+          price_grid_moved?: boolean | null
+          price_grid_source?: string | null
+          price_grid_tick?: number | null
+          published_entry?: number | null
+          published_stop?: number | null
+          published_target?: number | null
           reason?: string | null
           request_fingerprint?: string | null
           sent_at?: string | null
@@ -1183,6 +1240,9 @@ export type Database = {
           state?: string
           submitted_at?: string | null
           submitted_entry?: number | null
+          submitted_quantity_sizing_model?: number | null
+          submitted_quantity_spec_as_of?: string | null
+          submitted_quantity_spec_source?: string | null
           submitted_stop?: number | null
           submitted_target?: number | null
           submitted_volume?: number | null
@@ -1459,6 +1519,39 @@ export type Database = {
         }
         Relationships: []
       }
+      instrument_atr_snapshots: {
+        Row: {
+          atr: number
+          atr_period: number
+          atr_version: number
+          candle_as_of: string
+          created_at: string
+          id: number
+          instrument: string
+          timeframe: string
+        }
+        Insert: {
+          atr: number
+          atr_period: number
+          atr_version: number
+          candle_as_of: string
+          created_at?: string
+          id?: number
+          instrument: string
+          timeframe: string
+        }
+        Update: {
+          atr?: number
+          atr_period?: number
+          atr_version?: number
+          candle_as_of?: string
+          created_at?: string
+          id?: number
+          instrument?: string
+          timeframe?: string
+        }
+        Relationships: []
+      }
       instrument_health: {
         Row: {
           available: boolean
@@ -1496,6 +1589,9 @@ export type Database = {
         Row: {
           created_at: string
           data_health: string | null
+          pre_suspension_stage:
+            | Database["public"]["Enums"]["instrument_stage"]
+            | null
           stage: Database["public"]["Enums"]["instrument_stage"]
           symbol: string
           updated_at: string
@@ -1504,6 +1600,9 @@ export type Database = {
         Insert: {
           created_at?: string
           data_health?: string | null
+          pre_suspension_stage?:
+            | Database["public"]["Enums"]["instrument_stage"]
+            | null
           stage?: Database["public"]["Enums"]["instrument_stage"]
           symbol: string
           updated_at?: string
@@ -1512,6 +1611,9 @@ export type Database = {
         Update: {
           created_at?: string
           data_health?: string | null
+          pre_suspension_stage?:
+            | Database["public"]["Enums"]["instrument_stage"]
+            | null
           stage?: Database["public"]["Enums"]["instrument_stage"]
           symbol?: string
           updated_at?: string
@@ -1581,6 +1683,246 @@ export type Database = {
             referencedColumns: ["symbol"]
           },
         ]
+      }
+      instrument_readiness_snapshots: {
+        Row: {
+          checked_at: string
+          checks: Json
+          code_hash: string | null
+          conversion: Json
+          created_at: string
+          id: number
+          instrument: string
+          mapping: Json
+          ready: boolean
+          series: Json
+          spec_fields: Json
+          spread_floor_candidate: number | null
+        }
+        Insert: {
+          checked_at?: string
+          checks: Json
+          code_hash?: string | null
+          conversion?: Json
+          created_at?: string
+          id?: number
+          instrument: string
+          mapping?: Json
+          ready: boolean
+          series?: Json
+          spec_fields?: Json
+          spread_floor_candidate?: number | null
+        }
+        Update: {
+          checked_at?: string
+          checks?: Json
+          code_hash?: string | null
+          conversion?: Json
+          created_at?: string
+          id?: number
+          instrument?: string
+          mapping?: Json
+          ready?: boolean
+          series?: Json
+          spec_fields?: Json
+          spread_floor_candidate?: number | null
+        }
+        Relationships: []
+      }
+      instrument_spread_samples: {
+        Row: {
+          ask: number | null
+          atr_snapshot_id: number | null
+          bid: number | null
+          created_at: string
+          digits: number | null
+          id: number
+          instrument: string
+          mapping_verified_at: string | null
+          market_state: string
+          mid: number | null
+          point: number | null
+          provider_symbol: string
+          quality: string
+          quality_reasons: string[]
+          received_at: string
+          run_id: string
+          sampler_version: number
+          scope: string
+          session: string | null
+          session_version: number
+          source_time: string | null
+          spec_as_of: string | null
+          spread_atr_fraction: number | null
+          spread_pips: number | null
+          spread_points: number | null
+          spread_price: number | null
+          stage: Database["public"]["Enums"]["instrument_stage"]
+          tick_size: number | null
+        }
+        Insert: {
+          ask?: number | null
+          atr_snapshot_id?: number | null
+          bid?: number | null
+          created_at?: string
+          digits?: number | null
+          id?: number
+          instrument: string
+          mapping_verified_at?: string | null
+          market_state: string
+          mid?: number | null
+          point?: number | null
+          provider_symbol: string
+          quality: string
+          quality_reasons?: string[]
+          received_at?: string
+          run_id: string
+          sampler_version: number
+          scope?: string
+          session?: string | null
+          session_version: number
+          source_time?: string | null
+          spec_as_of?: string | null
+          spread_atr_fraction?: number | null
+          spread_pips?: number | null
+          spread_points?: number | null
+          spread_price?: number | null
+          stage: Database["public"]["Enums"]["instrument_stage"]
+          tick_size?: number | null
+        }
+        Update: {
+          ask?: number | null
+          atr_snapshot_id?: number | null
+          bid?: number | null
+          created_at?: string
+          digits?: number | null
+          id?: number
+          instrument?: string
+          mapping_verified_at?: string | null
+          market_state?: string
+          mid?: number | null
+          point?: number | null
+          provider_symbol?: string
+          quality?: string
+          quality_reasons?: string[]
+          received_at?: string
+          run_id?: string
+          sampler_version?: number
+          scope?: string
+          session?: string | null
+          session_version?: number
+          source_time?: string | null
+          spec_as_of?: string | null
+          spread_atr_fraction?: number | null
+          spread_pips?: number | null
+          spread_points?: number | null
+          spread_price?: number | null
+          stage?: Database["public"]["Enums"]["instrument_stage"]
+          tick_size?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "instrument_spread_samples_atr_snapshot_id_fkey"
+            columns: ["atr_snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "instrument_atr_snapshots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "instrument_spread_samples_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "spread_sampler_runs"
+            referencedColumns: ["run_id"]
+          },
+        ]
+      }
+      instrument_spread_stats: {
+        Row: {
+          calculated_at: string
+          computation_version: number
+          coverage_end: string | null
+          coverage_start: string | null
+          distinct_trading_days: number
+          excluded_samples: number
+          instrument: string
+          max_spread_price: number | null
+          median_atr_fraction: number | null
+          missingness: number | null
+          p50_spread_points: number | null
+          p50_spread_price: number | null
+          p75_spread_price: number | null
+          p90_atr_fraction: number | null
+          p90_spread_points: number | null
+          p90_spread_price: number | null
+          p95_spread_price: number | null
+          p99_spread_price: number | null
+          raw_samples: number
+          scope: string
+          session: string
+          session_coverage: number | null
+          session_version: number
+          stage: Database["public"]["Enums"]["instrument_stage"]
+          trading_date: string
+          valid_samples: number
+        }
+        Insert: {
+          calculated_at?: string
+          computation_version: number
+          coverage_end?: string | null
+          coverage_start?: string | null
+          distinct_trading_days: number
+          excluded_samples: number
+          instrument: string
+          max_spread_price?: number | null
+          median_atr_fraction?: number | null
+          missingness?: number | null
+          p50_spread_points?: number | null
+          p50_spread_price?: number | null
+          p75_spread_price?: number | null
+          p90_atr_fraction?: number | null
+          p90_spread_points?: number | null
+          p90_spread_price?: number | null
+          p95_spread_price?: number | null
+          p99_spread_price?: number | null
+          raw_samples: number
+          scope: string
+          session: string
+          session_coverage?: number | null
+          session_version: number
+          stage: Database["public"]["Enums"]["instrument_stage"]
+          trading_date: string
+          valid_samples: number
+        }
+        Update: {
+          calculated_at?: string
+          computation_version?: number
+          coverage_end?: string | null
+          coverage_start?: string | null
+          distinct_trading_days?: number
+          excluded_samples?: number
+          instrument?: string
+          max_spread_price?: number | null
+          median_atr_fraction?: number | null
+          missingness?: number | null
+          p50_spread_points?: number | null
+          p50_spread_price?: number | null
+          p75_spread_price?: number | null
+          p90_atr_fraction?: number | null
+          p90_spread_points?: number | null
+          p90_spread_price?: number | null
+          p95_spread_price?: number | null
+          p99_spread_price?: number | null
+          raw_samples?: number
+          scope?: string
+          session?: string
+          session_coverage?: number | null
+          session_version?: number
+          stage?: Database["public"]["Enums"]["instrument_stage"]
+          trading_date?: string
+          valid_samples?: number
+        }
+        Relationships: []
       }
       market_context: {
         Row: {
@@ -2638,6 +2980,102 @@ export type Database = {
         }
         Relationships: []
       }
+      scanner_capacity_samples: {
+        Row: {
+          alert_failures: number
+          alert_latency_ms: number | null
+          breaker_events: number
+          candle_failures: number
+          chain_depth: number | null
+          created_at: string
+          cycle_duration_ms: number | null
+          db_write_failures: number
+          details: Json
+          enqueue_failures: number
+          enqueue_latency_ms: number | null
+          id: number
+          job_duration_ms: number | null
+          provider_errors: number
+          provider_requests: number
+          provider_throttles: number
+          queue_age_ms: number | null
+          quote_failures: number
+          resolver_backlog: number | null
+          resolver_oldest_age_ms: number | null
+          resolver_throughput: number | null
+          run_id: string | null
+          sampled_at: string
+          source: string
+          stale_jobs: number
+          timeouts: number
+          wave0_alerts: number
+          wave0_execution_decisions: number
+          wave0_publications: number
+        }
+        Insert: {
+          alert_failures?: number
+          alert_latency_ms?: number | null
+          breaker_events?: number
+          candle_failures?: number
+          chain_depth?: number | null
+          created_at?: string
+          cycle_duration_ms?: number | null
+          db_write_failures?: number
+          details?: Json
+          enqueue_failures?: number
+          enqueue_latency_ms?: number | null
+          id?: number
+          job_duration_ms?: number | null
+          provider_errors?: number
+          provider_requests?: number
+          provider_throttles?: number
+          queue_age_ms?: number | null
+          quote_failures?: number
+          resolver_backlog?: number | null
+          resolver_oldest_age_ms?: number | null
+          resolver_throughput?: number | null
+          run_id?: string | null
+          sampled_at?: string
+          source: string
+          stale_jobs?: number
+          timeouts?: number
+          wave0_alerts?: number
+          wave0_execution_decisions?: number
+          wave0_publications?: number
+        }
+        Update: {
+          alert_failures?: number
+          alert_latency_ms?: number | null
+          breaker_events?: number
+          candle_failures?: number
+          chain_depth?: number | null
+          created_at?: string
+          cycle_duration_ms?: number | null
+          db_write_failures?: number
+          details?: Json
+          enqueue_failures?: number
+          enqueue_latency_ms?: number | null
+          id?: number
+          job_duration_ms?: number | null
+          provider_errors?: number
+          provider_requests?: number
+          provider_throttles?: number
+          queue_age_ms?: number | null
+          quote_failures?: number
+          resolver_backlog?: number | null
+          resolver_oldest_age_ms?: number | null
+          resolver_throughput?: number | null
+          run_id?: string | null
+          sampled_at?: string
+          source?: string
+          stale_jobs?: number
+          timeouts?: number
+          wave0_alerts?: number
+          wave0_execution_decisions?: number
+          wave0_publications?: number
+        }
+        Relationships: []
+      }
       scanner_settings: {
         Row: {
           account_currency: string
@@ -2868,6 +3306,7 @@ export type Database = {
           atr: number | null
           bars_replayed: number
           bars_to_outcome: number | null
+          candle_finality_policy: string | null
           cohort: string
           confidence_score: number | null
           created_at: string
@@ -2909,6 +3348,7 @@ export type Database = {
           research_candidate_id: string | null
           resolved_at: string | null
           resolved_outcome: string | null
+          resolver_version: number | null
           risk_price: number
           risk_price_actual: number | null
           signal_id: string | null
@@ -2936,6 +3376,7 @@ export type Database = {
           atr?: number | null
           bars_replayed?: number
           bars_to_outcome?: number | null
+          candle_finality_policy?: string | null
           cohort?: string
           confidence_score?: number | null
           created_at?: string
@@ -2977,6 +3418,7 @@ export type Database = {
           research_candidate_id?: string | null
           resolved_at?: string | null
           resolved_outcome?: string | null
+          resolver_version?: number | null
           risk_price: number
           risk_price_actual?: number | null
           signal_id?: string | null
@@ -3004,6 +3446,7 @@ export type Database = {
           atr?: number | null
           bars_replayed?: number
           bars_to_outcome?: number | null
+          candle_finality_policy?: string | null
           cohort?: string
           confidence_score?: number | null
           created_at?: string
@@ -3045,6 +3488,7 @@ export type Database = {
           research_candidate_id?: string | null
           resolved_at?: string | null
           resolved_outcome?: string | null
+          resolver_version?: number | null
           risk_price?: number
           risk_price_actual?: number | null
           signal_id?: string | null
@@ -3241,6 +3685,78 @@ export type Database = {
         }
         Relationships: []
       }
+      spread_sampler_runs: {
+        Row: {
+          attempted_instruments: string[]
+          breaker_skipped: string[]
+          created_at: string
+          duplicate_source_times: number
+          duration_ms: number | null
+          error_class: string | null
+          expected_instruments: string[]
+          failed_requests: number
+          finished_at: string | null
+          invalid_samples: number
+          killed: boolean
+          provider_outage: boolean
+          request_count: number
+          retry_count: number
+          run_id: string
+          sampler_version: number
+          scheduled_at: string
+          stage_skipped: string[]
+          started_at: string
+          succeeded_instruments: string[]
+          timed_out: boolean
+        }
+        Insert: {
+          attempted_instruments?: string[]
+          breaker_skipped?: string[]
+          created_at?: string
+          duplicate_source_times?: number
+          duration_ms?: number | null
+          error_class?: string | null
+          expected_instruments: string[]
+          failed_requests?: number
+          finished_at?: string | null
+          invalid_samples?: number
+          killed?: boolean
+          provider_outage?: boolean
+          request_count?: number
+          retry_count?: number
+          run_id?: string
+          sampler_version: number
+          scheduled_at: string
+          stage_skipped?: string[]
+          started_at?: string
+          succeeded_instruments?: string[]
+          timed_out?: boolean
+        }
+        Update: {
+          attempted_instruments?: string[]
+          breaker_skipped?: string[]
+          created_at?: string
+          duplicate_source_times?: number
+          duration_ms?: number | null
+          error_class?: string | null
+          expected_instruments?: string[]
+          failed_requests?: number
+          finished_at?: string | null
+          invalid_samples?: number
+          killed?: boolean
+          provider_outage?: boolean
+          request_count?: number
+          retry_count?: number
+          run_id?: string
+          sampler_version?: number
+          scheduled_at?: string
+          stage_skipped?: string[]
+          started_at?: string
+          succeeded_instruments?: string[]
+          timed_out?: boolean
+        }
+        Relationships: []
+      }
       telemetry_budget: {
         Row: {
           account_id: string
@@ -3401,6 +3917,114 @@ export type Database = {
       }
     }
     Views: {
+      instrument_spread_samples_valid: {
+        Row: {
+          ask: number | null
+          atr_snapshot_id: number | null
+          bid: number | null
+          created_at: string | null
+          digits: number | null
+          id: number | null
+          instrument: string | null
+          mapping_verified_at: string | null
+          market_state: string | null
+          mid: number | null
+          point: number | null
+          provider_symbol: string | null
+          quality: string | null
+          quality_reasons: string[] | null
+          received_at: string | null
+          run_id: string | null
+          sampler_version: number | null
+          scope: string | null
+          session: string | null
+          session_version: number | null
+          source_time: string | null
+          spec_as_of: string | null
+          spread_atr_fraction: number | null
+          spread_pips: number | null
+          spread_points: number | null
+          spread_price: number | null
+          stage: Database["public"]["Enums"]["instrument_stage"] | null
+          tick_size: number | null
+        }
+        Insert: {
+          ask?: number | null
+          atr_snapshot_id?: number | null
+          bid?: number | null
+          created_at?: string | null
+          digits?: number | null
+          id?: number | null
+          instrument?: string | null
+          mapping_verified_at?: string | null
+          market_state?: string | null
+          mid?: number | null
+          point?: number | null
+          provider_symbol?: string | null
+          quality?: string | null
+          quality_reasons?: string[] | null
+          received_at?: string | null
+          run_id?: string | null
+          sampler_version?: number | null
+          scope?: string | null
+          session?: string | null
+          session_version?: number | null
+          source_time?: string | null
+          spec_as_of?: string | null
+          spread_atr_fraction?: number | null
+          spread_pips?: number | null
+          spread_points?: number | null
+          spread_price?: number | null
+          stage?: Database["public"]["Enums"]["instrument_stage"] | null
+          tick_size?: number | null
+        }
+        Update: {
+          ask?: number | null
+          atr_snapshot_id?: number | null
+          bid?: number | null
+          created_at?: string | null
+          digits?: number | null
+          id?: number | null
+          instrument?: string | null
+          mapping_verified_at?: string | null
+          market_state?: string | null
+          mid?: number | null
+          point?: number | null
+          provider_symbol?: string | null
+          quality?: string | null
+          quality_reasons?: string[] | null
+          received_at?: string | null
+          run_id?: string | null
+          sampler_version?: number | null
+          scope?: string | null
+          session?: string | null
+          session_version?: number | null
+          source_time?: string | null
+          spec_as_of?: string | null
+          spread_atr_fraction?: number | null
+          spread_pips?: number | null
+          spread_points?: number | null
+          spread_price?: number | null
+          stage?: Database["public"]["Enums"]["instrument_stage"] | null
+          tick_size?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "instrument_spread_samples_atr_snapshot_id_fkey"
+            columns: ["atr_snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "instrument_atr_snapshots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "instrument_spread_samples_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "spread_sampler_runs"
+            referencedColumns: ["run_id"]
+          },
+        ]
+      }
       instrument_stages: {
         Row: {
           stage: Database["public"]["Enums"]["instrument_stage"] | null
@@ -3699,6 +4323,7 @@ export type Database = {
       get_admin_engine_status: { Args: never; Returns: Json }
       get_admin_experiments: { Args: never; Returns: Json }
       get_admin_filter_lift: { Args: never; Returns: Json }
+      get_admin_instrument_diagnostics: { Args: never; Returns: Json }
       get_admin_intelligence: { Args: never; Returns: Json }
       get_admin_payoff_research: { Args: never; Returns: Json }
       is_admin: { Args: never; Returns: boolean }
