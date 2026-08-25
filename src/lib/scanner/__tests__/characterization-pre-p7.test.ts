@@ -16,7 +16,18 @@ import { buildTradeProfile, evaluateSetup } from "../profile";
 import { buildTradeProfile as frozenBuildTradeProfile } from "@/test/fixtures/pre-p7/profile";
 import { CANDLE_SCENARIOS } from "@/test/fixtures/pre-p7/candle-sets";
 
-/** Every persisted scanner field, compared value-for-value. */
+/**
+ * Every persisted scanner field, compared value-for-value.
+ *
+ * `structureKey` is NOT in this list. It is the one field with a deliberate,
+ * reviewed divergence from the frozen baseline (Phase A1, Finding 6): the frozen
+ * code rendered the stop anchor at a fixed five decimals for every instrument,
+ * and current code renders it at that instrument's own price precision. The
+ * divergence is pinned exactly, and only for that field, by the dedicated case
+ * below — so an accidental change to structure identity still fails this gate.
+ *
+ * Nothing about the publish/no-trade DECISION or the plan GEOMETRY may differ.
+ */
 const PROFILE_FIELDS = [
   "instrument",
   "grade",
@@ -32,7 +43,6 @@ const PROFILE_FIELDS = [
   "maxR",
   "maxAcceptableEntry",
   "capped",
-  "structureKey",
   "atr",
   "rrRatio",
   "patternSymmetry",
@@ -41,6 +51,7 @@ const PROFILE_FIELDS = [
   "m15Bias",
   "qualitativeBreakdown",
 ] as const;
+
 
 const CASES = CANDLE_SCENARIOS.map((s) => [s.id, s] as const);
 
