@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendTemplateEmail } from "@/lib/email-templates/send-email";
 import { ORDER_TIF_MINUTES } from "@/lib/db-types";
 import { sendPushToUsers } from "./push.server";
+import { assertCapability } from "@/lib/instruments/lifecycle.server";
 
 import {
   buildCapFrame,
@@ -64,6 +65,25 @@ interface SettingsRow {
  * signature → dispatch). `webhook_enabled` alone can never place a trade.
  */
 export async function sendSignalAlerts(db: SupabaseClient, signal: AlertSignal) {
+  /**
+   * Lifecycle alert gate (Phase A2A, R6-FIX).
+   *
+   * Publication and alerting are SEPARATE capabilities, so a fan-out is not
+   * authorised merely because a row reached `scanned_signals`. The stage is
+   * re-read here, at the fan-out boundary, so an instrument suspended between
+   * publication and this call sends nothing. A degraded read refuses everything
+   * outside the frozen Wave 0 universe.
+   */
+  const gate = await assertCapability(db, signal.instrument, "alert");
+  if (!gate.allowed) {
+    console.warn("[alerts] refused by the instrument lifecycle", {
+      instrument: signal.instrument,
+      stage: gate.stage,
+      reason: gate.reason,
+    });
+    return;
+  }
+
   const { data: rows, error } = await db
     .from("scanner_settings")
     .select(
