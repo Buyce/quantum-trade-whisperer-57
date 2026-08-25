@@ -154,7 +154,7 @@ describe("Phase A1 — series validation", () => {
   });
   const now = new Date(Date.UTC(2026, 0, 1, 0, 15 * 12));
 
-  it("accepts a long, ordered, gap-free series", () => {
+  it("[BEHAVIOUR] accepts a long, ordered, gap-free series", () => {
     const report = validateSeries({
       timeframe: "M15",
       candles: Array.from({ length: 10 }, (_, i) => at(i)),
