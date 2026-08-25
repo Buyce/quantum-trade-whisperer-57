@@ -56,6 +56,8 @@ export type RejectReason =
   | "quote_stale"
   | "spread_too_wide"
   | "price_beyond_max_acceptable_entry"
+  | "limit_price_not_on_pending_side"
+  | "limit_distance_unavailable"
   | "market_closed"
   | "stop_below_broker_stops_level"
   | "risk_guardrail"
