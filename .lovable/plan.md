@@ -84,7 +84,7 @@ Also replace LINK-AUDIT's "all 18 documents" with "every document listed in the 
 | Public copy | `index.tsx`, `connect.tsx` | W3, W8 | copy-contract tests |
 | Docs | `docs/README.md`, `PRODUCT.md`, `LINK-AUDIT.md`, `SCANNER.md`, `ALERTS-AND-ELIGIBILITY.md`, `MCP.md`, `SECURITY.md`, new `docs/audits/…` | W2, W3, W5, W6, W8 | link + contract tests |
 | Tests | `docs-contract.test.ts`, new eligibility/settings-parity, auth-route, sitemap/head tests | all | `bunx vitest run --project blocking` |
-| Config/SEO | `.gitignore`, new `.env.example`, `public/robots.txt` | W7, W9 | secret scan, manual robots read |
+| Config/secrets | `.gitignore`, new `.env.example`, `.env` untracked if injection confirmed (W9) | W9 | secret scan; production build reads injected env |
 | Formatting only | 67 Prettier files | W1 | `prettier --check` |
 | Migrations | **none** | timeframes column retained | n/a |
 
