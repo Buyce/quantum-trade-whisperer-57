@@ -18,6 +18,7 @@
  *    surface, and captured rows are readable only by service_role.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { assertCapability } from "@/lib/instruments/lifecycle.server";
 import type { SetupEvaluation } from "@/lib/scanner/profile";
 import { STRATEGY_V1_MANIFEST_HASH, STRATEGY_V1_VERSION } from "@/lib/scanner/strategy-manifest";
 import { noteResearchFailure, RESEARCH_WRITE_DEADLINE_MS } from "./observations.server";
@@ -80,6 +81,16 @@ export async function captureCandidate(
   const planOrigin = p ? "production" : ladder ? "counterfactual" : null;
 
   try {
+    const gate = await Promise.race([
+      assertCapability(db, args.instrument, "capture_research"),
+      new Promise<"deadline">((resolve) => setTimeout(() => resolve("deadline"), deadlineMs)),
+    ]);
+    if (gate === "deadline") {
+      await noteResearchFailure(db, "candidate capture lifecycle gate exceeded deadline");
+      return false;
+    }
+    if (!gate.allowed) return false;
+
     const insert = db.from("research_candidates").insert({
       run_id: args.runId,
       observation_key: args.observationKey,
