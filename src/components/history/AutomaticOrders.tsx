@@ -169,9 +169,21 @@ function OrderCard({ row }: { row: BrokerOrderView }) {
               {long ? "LONG" : "SHORT"}
             </span>
           ) : null}
+          <span
+            className="num rounded-sm border border-border px-1.5 py-0.5 text-[11px] text-muted-foreground"
+            title={
+              row.destination.kind === "webhook_bridge"
+                ? "This order was addressed to your outbound webhook, not to a connected broker account."
+                : undefined
+            }
+          >
+            {row.destination.label}
+          </span>
           {row.dryRun ? (
             <span className="num rounded-sm border border-border px-1.5 py-0.5 text-[11px] text-muted-foreground">
-              Dry run · not sent to a broker
+              {row.destination.kind === "webhook_bridge"
+                ? "Dry run · not sent to your webhook"
+                : "Dry run · not sent to a broker"}
             </span>
           ) : null}
           {row.accountType ? (

@@ -82,6 +82,12 @@ export type BrokerOrderStatusKind =
   | "failed"
   | "unknown";
 
+export interface BrokerOrderDestination {
+  kind: "broker_account" | "webhook_bridge" | "unknown";
+  /** Short user-facing label naming the destination. */
+  label: string;
+}
+
 export interface BrokerOrderStatus {
   kind: BrokerOrderStatusKind;
   /** Short user-facing label. Never claims an outcome the broker did not give. */
@@ -101,6 +107,12 @@ export interface BrokerOrderView {
   enqueuedAt: string;
   /** Broker-reported account classification, or null when the broker has not said. */
   accountType: "demo" | "real" | "unknown" | null;
+  /**
+   * WHERE this order was addressed. A webhook bridge row is not the connected
+   * broker account, so a dry-run bridge row must never read as "your demo
+   * account did nothing".
+   */
+  destination: BrokerOrderDestination;
   dryRun: boolean;
   status: BrokerOrderStatus;
   submitted: {
@@ -158,6 +170,19 @@ function direction(value: string | null | undefined): "long" | "short" | null {
 function accountType(value: string | null | undefined): BrokerOrderView["accountType"] {
   if (value === "demo" || value === "real" || value === "unknown") return value;
   return null;
+}
+
+/** Where the order was addressed, from the ledger's own destination field. */
+export function brokerOrderDestination(
+  destinationType: string | null | undefined,
+): BrokerOrderDestination {
+  if (destinationType === "metaapi_direct") {
+    return { kind: "broker_account", label: "Connected broker account" };
+  }
+  if (destinationType === "bridge_json" || destinationType === "bridge_form") {
+    return { kind: "webhook_bridge", label: "Your webhook bridge" };
+  }
+  return { kind: "unknown", label: "Destination not recorded" };
 }
 
 /**
@@ -285,6 +310,7 @@ export function toBrokerOrderView(
     detectedAt: signal?.detected_at ?? null,
     enqueuedAt: delivery.enqueued_at,
     accountType: accountType(evidence?.broker_account_type),
+    destination: brokerOrderDestination(delivery.destination_type),
     dryRun: delivery.dry_run === true,
     status,
     submitted: {
