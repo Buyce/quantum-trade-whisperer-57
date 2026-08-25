@@ -13,6 +13,11 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { assertCapability } from "@/lib/instruments/lifecycle.server";
+import {
+  provenanceColumns,
+  type DetectionProvenance,
+  type ProvenanceColumns,
+} from "@/lib/instruments/provenance";
 import type { SetupEvaluation } from "@/lib/scanner/profile";
 import { MODEL_V2_CODE_HASH, MODEL_V2_VERSION } from "@/lib/scanner/v2/manifest";
 import type { V2Evaluation } from "@/lib/scanner/v2/profile.v2";
