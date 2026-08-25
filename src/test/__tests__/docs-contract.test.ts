@@ -375,4 +375,145 @@ describe("documentation contract: code constants", () => {
       .sort();
     expect(manifestNames).toEqual(registered);
   });
+
+  /**
+   * The homepage advertises "Twelve MCP tools". Importing the server registry into
+   * public marketing code would drag server modules into the browser bundle, so
+   * the number is pinned here instead: change the tool set and this test tells you
+   * which sentence to rewrite.
+   */
+  it("[INVARIANT] the homepage tool count matches the registered tool set", () => {
+    const registered = readdirSync(join(ROOT, "src/lib/mcp/tools")).filter((f) =>
+      f.endsWith(".ts"),
+    );
+    const words = [
+      "Zero",
+      "One",
+      "Two",
+      "Three",
+      "Four",
+      "Five",
+      "Six",
+      "Seven",
+      "Eight",
+      "Nine",
+      "Ten",
+      "Eleven",
+      "Twelve",
+      "Thirteen",
+      "Fourteen",
+    ];
+    const expected = words[registered.length];
+    expect(expected, `add a word for ${registered.length} tools`).toBeTruthy();
+    expect(
+      read("src/routes/index.tsx"),
+      `homepage must say "${expected} MCP tools" for ${registered.length} registered tools`,
+    ).toContain(`${expected} MCP tools`);
+  });
 });
+
+describe("documentation contract: documentation taxonomy", () => {
+  it("[INVARIANT] feature references carry the full structural contract", () => {
+    // The contract claim in docs/README.md is only made about feature references;
+    // this asserts it is true of each of them rather than of every markdown file.
+    const required = [/purpose/i, /provenance/i, /non-guarantee|does not|not a /i, /test/i];
+    for (const rel of FEATURE_REFERENCES) {
+      const text = read(rel);
+      for (const re of required) {
+        expect(re.test(text), `${rel} is missing ${re} required of feature references`).toBe(true);
+      }
+    }
+  });
+
+  it("[INVARIANT] dated audit snapshots are labelled historical, not current status", () => {
+    expect(DATED_AUDITS.length, "docs/audits must hold the dated snapshots").toBeGreaterThan(0);
+    for (const rel of DATED_AUDITS) {
+      const text = read(rel);
+      expect(text, `${rel} must be dated in its title`).toMatch(/\d{4}/);
+      expect(text, `${rel} must disclaim current-HEAD verification`).toMatch(
+        /not current release status|historical evidence/i,
+      );
+    }
+  });
+
+  it("[INVARIANT] the docs index avoids a hardcoded document total", () => {
+    const index = read("docs/README.md");
+    expect(index, "docs/README.md must not claim a fixed document count").not.toMatch(
+      /all \d+ documents/i,
+    );
+    expect(read("docs/LINK-AUDIT.md")).not.toMatch(/all \d+ documents/i);
+  });
+});
+
+describe("documentation contract: settings match eligibility", () => {
+  it("[INVARIANT] timeframes are not presented as a selectable filter", () => {
+    // No eligibility path reads scanner_settings.timeframes: a setup is one
+    // multi-timeframe structure. Nothing user- or agent-facing may imply a choice.
+    expect(read("src/routes/_authenticated/settings.tsx")).not.toContain("Timeframes of interest");
+    expect(read("src/lib/mcp/tools/get-my-settings.ts")).not.toMatch(
+      /feed filters \(instruments, timeframes/i,
+    );
+    expect(read("src/lib/mcp/tools/update-my-settings.ts")).toMatch(
+      /Deprecated and ignored[^"]{0,120}timeframes are not a filter/i,
+    );
+    expect(read("src/lib/mcp/settings-validation.ts")).toContain(
+      "DEPRECATED_TIMEFRAMES_WARNING",
+    );
+  });
+
+  it("[INVARIANT] TIMEFRAMES stay documented as the scan basis", () => {
+    const scanner = read("docs/SCANNER.md");
+    for (const tf of TIMEFRAMES) expect(scanner).toContain(tf);
+  });
+});
+
+describe("documentation contract: public routes", () => {
+  it("[INVARIANT] the sitemap lists only indexable public routes", () => {
+    const sitemap = read("src/routes/sitemap[.]xml.ts");
+    expect(sitemap).toContain('path: "/"');
+    expect(sitemap).toContain('path: "/connect"');
+    // /auth sends robots: noindex; advertising it would contradict that.
+    expect(sitemap).not.toMatch(/path: "\/auth"/);
+    expect(read("src/routes/auth.tsx")).toContain("noindex");
+  });
+
+  it("[INVARIANT] robots.txt still allows /auth so its noindex can be read", () => {
+    expect(read("public/robots.txt")).not.toMatch(/Disallow:\s*\/auth/i);
+  });
+
+  it("[INVARIANT] indexable public routes carry a self-referencing canonical", () => {
+    for (const [rel, url] of [
+      ["src/routes/index.tsx", "https://getptrades.com/"],
+      ["src/routes/connect.tsx", "https://getptrades.com/connect"],
+    ] as const) {
+      const text = read(rel);
+      expect(text, `${rel} needs a canonical link`).toContain(`rel: "canonical", href: "${url}"`);
+      expect(text, `${rel} needs a self-referencing og:url`).toContain(
+        `property: "og:url", content: "${url}"`,
+      );
+      // A large-image card without an image degrades the preview.
+      expect(text, `${rel} must not claim a large image it does not ship`).not.toContain(
+        "summary_large_image",
+      );
+    }
+  });
+
+  it("[INVARIANT] Create an account opens the registration pane", () => {
+    const home = read("src/routes/index.tsx");
+    const createAccountCtas = home.match(/Create an account/g) ?? [];
+    expect(createAccountCtas.length).toBeGreaterThan(0);
+    // Every one of them must carry the signup search param.
+    expect(home.match(/search=\{\{ mode: "signup" \}\}/g)?.length).toBe(createAccountCtas.length);
+    const auth = read("src/routes/auth.tsx");
+    expect(auth).toContain('mode?: "signup"');
+    expect(auth).toContain("Create your P-Trades Hub account");
+  });
+
+  it("[INVARIANT] /connect does not ask a user to hand a password to an assistant", () => {
+    const connect = read("src/routes/connect.tsx");
+    expect(connect).not.toContain("a-strong-password");
+    expect(connect).not.toMatch(/plain\s*HTTP endpoint/i);
+    expect(connect).toMatch(/public HTTPS registration endpoint/i);
+  });
+});
+
