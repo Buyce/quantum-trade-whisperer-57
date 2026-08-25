@@ -70,6 +70,20 @@ entries.
 - Alter grading, published signals, replay outcomes or statistics.
 - Retrieve secrets.
 
+## Explicit non-guarantees
+
+- Tool availability is not entitlement: a tool answering does not mean the account
+  is permitted to act on what it returns.
+- An empty or filtered result is not a scanner-wide verdict. Only the scanner
+  heartbeat states whether the engine is cycling.
+- `timeframes` on the settings tools is deprecated and ignored. A setup is one
+  multi-timeframe structure, so there is no per-timeframe filter to set; writes are
+  accepted for wire compatibility and answered with a deprecation warning that says
+  the value was not stored.
+- Statistics returned here are descriptive, not predictive, and carry no
+  out-of-sample claim.
+- The assistant does not observe the broker: nothing it returns proves a fill.
+
 ## Implementation
 
 `src/routes/mcp.ts`, `src/routes/[.mcp]/*`,
