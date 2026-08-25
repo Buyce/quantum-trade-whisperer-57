@@ -8,8 +8,8 @@ that describes current state was confirmed by reading the code this pass.
 ## Locked rules carried forward (unchanged)
 
 1. **Binding R mathematics.** `gross_move = long ? actual_exit - actual_entry :
-   actual_entry - actual_exit`; `r_vs_plan = gross_move / abs(planned_entry -
-   planned_stop)`; `stop_ref = actual_initial_stop ?? planned_stop`;
+actual_entry - actual_exit`; `r_vs_plan = gross_move / abs(planned_entry -
+planned_stop)`; `stop_ref = actual_initial_stop ?? planned_stop`;
    `r_vs_actual_risk = gross_move / abs(actual_entry - stop_ref)`. Actual fill is
    always the numerator anchor. Realised movement is never computed from planned
    entry.
@@ -96,47 +96,47 @@ is legacy.
 ## B. Major design decisions
 
 **D1 — dual canonical columns rather than one column plus a basis discriminator.**
-*Why:* a trade legitimately has both values, and a single column forces a lossy
-choice at write time. *Alt A:* one `r` column + `r_basis` — rejected, it makes
+_Why:_ a trade legitimately has both values, and a single column forces a lossy
+choice at write time. _Alt A:_ one `r` column + `r_basis` — rejected, it makes
 correct aggregation depend on filtering and invites the exact mixed-basis average
-the original defect is about. *Alt B:* compute R on read only — rejected, the
+the original defect is about. _Alt B:_ compute R on read only — rejected, the
 inputs (planned entry/stop) are not guaranteed to be present forever and SQL
-aggregates could not reproduce TypeScript rounding. *Evidence:* the admin RPC
+aggregates could not reproduce TypeScript rounding. _Evidence:_ the admin RPC
 already averages R in SQL, so a stored, basis-explicit value is required for app and
-admin to agree. *Changes my mind:* if all aggregation moved into TypeScript.
+admin to agree. _Changes my mind:_ if all aggregation moved into TypeScript.
 
-**D2 — snapshot journal context at creation.** *Why:* it makes R and the bootstrap
+**D2 — snapshot journal context at creation.** _Why:_ it makes R and the bootstrap
 cluster key reproducible from the journal row alone and removes the K1 join
-dependency. *Alt A:* join the signal at read time — rejected, that is the current
-silent-drop behaviour. *Alt B:* snapshot at resolution — rejected, the planned
-values must be captured before the trader can influence them. *Evidence:*
+dependency. _Alt A:_ join the signal at read time — rejected, that is the current
+silent-drop behaviour. _Alt B:_ snapshot at resolution — rejected, the planned
+values must be captured before the trader can influence them. _Evidence:_
 `samplesFromTrades` derives instrument, grade, session and the cluster day purely
 from the signal today.
 
-**D3 — read-then-branch decision writers instead of upsert.** *Why:* K2 — upsert
-cannot express "leave resolution alone". *Alt A:* keep upsert and omit `outcome`
+**D3 — read-then-branch decision writers instead of upsert.** _Why:_ K2 — upsert
+cannot express "leave resolution alone". _Alt A:_ keep upsert and omit `outcome`
 from the payload — rejected, an insert then has no initial state and the update
-path still cannot distinguish resolved from unresolved for messaging. *Alt B:* a
+path still cannot distinguish resolved from unresolved for messaging. _Alt B:_ a
 `SECURITY DEFINER` RPC — rejected as unnecessary surface for a row the user already
-owns under RLS. *Residual:* the read-then-branch race is closed by the DB trigger,
+owns under RLS. _Residual:_ the read-then-branch race is closed by the DB trigger,
 not by the client.
 
-**D4 — whole-UTC-day cluster bootstrap as the primary interval.** *Why:* plans on
+**D4 — whole-UTC-day cluster bootstrap as the primary interval.** _Why:_ plans on
 the same day share regime and overlap, so per-trade independence is invalid.
-*Alt A:* per-trade Wilson/t intervals — rejected, understates width. *Alt B:*
+_Alt A:_ per-trade Wilson/t intervals — rejected, understates width. _Alt B:_
 per-instrument-day clusters — rejected, correlated instruments on one day would
-still be treated as independent. *Changes my mind:* evidence that same-day
+still be treated as independent. _Changes my mind:_ evidence that same-day
 cross-instrument outcomes are near-independent.
 
-**D5 — `evidence.ts` as the single sufficiency gate.** *Why:* `weekly.ts:10`
+**D5 — `evidence.ts` as the single sufficiency gate.** _Why:_ `weekly.ts:10`
 `MIN_TIER_SAMPLES = 30` and `:233-234` already implement a second, different gate
 than the one the statistics module will own; two gates cannot stay consistent.
-*Alt A:* keep both — rejected. *Alt B:* delete `MIN_TIER_SAMPLES` — rejected, it is
+_Alt A:_ keep both — rejected. _Alt B:_ delete `MIN_TIER_SAMPLES` — rejected, it is
 referenced by existing tests and email wording; derive it from `evidence.ts`.
 
-**D6 — holdout ships as machinery, not conclusions.** *Alt A:* split the current
+**D6 — holdout ships as machinery, not conclusions.** _Alt A:_ split the current
 filled rows into train/holdout now — rejected as overfitting by construction.
-*Alt B:* skip the ledger — rejected, it is the multiplicity denominator.
+_Alt B:_ skip the ledger — rejected, it is the multiplicity denominator.
 
 ## C. Failure scenarios the architecture must survive
 

@@ -242,10 +242,7 @@ export function toBrokerOrderView(
           },
           basis,
         )
-    : journalRView(
-        { outcome: "open", r_availability: "unavailable_open" },
-        basis,
-      );
+      : journalRView({ outcome: "open", r_availability: "unavailable_open" }, basis);
 
   return {
     key: `delivery-${delivery.id}`,

@@ -105,6 +105,13 @@ Settings shows the scanner's last cycle. Quiet markets look quiet.
 Continuous upstream data availability, or that a scheduled job external to this
 app is actually calling in.
 
+## Provenance
+
+Heartbeat times, cycle counts and market status all come from rows the workers
+actually wrote, plus the broker's own candle timestamps — never from a clock
+assumption about when a job "should" have run. A stale heartbeat is reported as
+stale rather than smoothed over.
+
 ## Implementation
 
 `src/routes/api/public/cron/*`, `src/routes/api/public/worker/*`,

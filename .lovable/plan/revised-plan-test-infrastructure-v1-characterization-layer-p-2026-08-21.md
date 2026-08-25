@@ -21,11 +21,11 @@ Freeze the identity of the V1 production model in executable form before any mod
 
 ## 3. Test classification (mandatory label on every trading test)
 
-| Class | Meaning | CI behaviour |
-|---|---|---|
-| `V1_CHARACTERIZATION` | Pins observed current production behaviour, correct or not | **Blocking** |
-| `INVARIANT` | Model-independent safety property | **Blocking** |
-| `INTENDED_V2` | Desired future behaviour that V1 does not satisfy | `test.todo` / report-only, **never blocking** |
+| Class                 | Meaning                                                    | CI behaviour                                  |
+| --------------------- | ---------------------------------------------------------- | --------------------------------------------- |
+| `V1_CHARACTERIZATION` | Pins observed current production behaviour, correct or not | **Blocking**                                  |
+| `INVARIANT`           | Model-independent safety property                          | **Blocking**                                  |
+| `INTENDED_V2`         | Desired future behaviour that V1 does not satisfy          | `test.todo` / report-only, **never blocking** |
 
 Enforcement: the label is part of every test name (e.g. `[V1_CHARACTERIZATION] replay fills post-TIF touch`), `INTENDED_V2` lives in `*.v2.test.ts` files excluded from the blocking Vitest project and run by a separate report-only script. A lint-style check asserts every trading test file carries exactly one class prefix per test. CI can never fail because an `INTENDED_V2` expectation differs from V1.
 
@@ -41,6 +41,7 @@ Each item passes against current behaviour and is labelled `V1_CHARACTERIZATION`
 6. ABC acceptance of invalid directional geometry / C placement, with the specific accepted-but-questionable configurations enumerated as fixtures.
 
 Replay ambiguity fixtures, all `V1_CHARACTERIZATION`, asserting current resolution without claiming economic correctness:
+
 - entry + stop + target inside one M15 candle (current conservative loss resolution);
 - gap through the limit (fill at candle open, slippage recorded);
 - post-TIF touch (item 1);
@@ -78,7 +79,8 @@ Tests are co-located under `src/**/__tests__/` so the strict compiler options al
 
 Assertions, including the Prompt-00 model-version infrastructure set:
 
-*Model versioning*
+_Model versioning_
+
 1. V1 and V2 `regime_stats` rows coexist under the composite key.
 2. `recompute_regime_stats(1)` deletes/modifies no V2 row.
 3. `recompute_regime_stats(2)` deletes/modifies no V1 row.
@@ -89,11 +91,7 @@ Assertions, including the Prompt-00 model-version infrastructure set:
 8. Raw `baseline_snapshots` denied to `anon` and `authenticated`; reachable only through the authorized server/admin path.
 9. Once defaults are removed in the expand/contract migration, an insert omitting `model_version` fails rather than silently landing in V1.
 
-*Core integrity*
-10. Per-user isolation on `executed_trades`, `scanner_settings`, `push_subscriptions`.
-11. `scanned_signals_active_unique` → 23505 on a concurrent identical active signal.
-12. Two concurrent `claim_scan_job` callers → exactly one claim (`FOR UPDATE SKIP LOCKED`).
-13. `purge_expired_signals` retention tiers (C 24h / B 36h / A+ 48h), `taken` trades preserved, `skipped` removed.
+_Core integrity_ 10. Per-user isolation on `executed_trades`, `scanner_settings`, `push_subscriptions`. 11. `scanned_signals_active_unique` → 23505 on a concurrent identical active signal. 12. Two concurrent `claim_scan_job` callers → exactly one claim (`FOR UPDATE SKIP LOCKED`). 13. `purge_expired_signals` retention tiers (C 24h / B 36h / A+ 48h), `taken` trades preserved, `skipped` removed.
 
 ## 9. GitHub CI
 
@@ -133,24 +131,24 @@ Every committed market fixture ships a sidecar/header with: instrument; timefram
 
 ## 12. Representative expected values
 
-| Target | Input | Expected | Class |
-|---|---|---|---|
-| `atr` | 15 candles, TR = 1.0 each | 1.0 | INVARIANT-adjacent unit |
-| `atr` | 10 candles, period 14 | `0` | V1_CHARACTERIZATION |
-| `ema` | constant 10, any period | 10 | unit |
-| `calculateRisk` | 10 000 USD, 1%, EURUSD, 50-pip stop, 100k contract | budget 100.00; riskPerLot 500; rawLots 0.20; lots 0.20; risk 100.00 | INVARIANT (never above budget) |
-| `calculateRisk` | equity 0 / missing rate | `{ok:false}` with the specific reason | INVARIANT (fail closed) |
-| R geometry, long | entry 1.1000, stop 1.0950, tp1 1.1050 | risk 0.0050, `tp1_r` = 1.0 | INVARIANT |
-| R geometry, short | entry 1.1000, stop 1.1050, tp2 1.0900 | risk 0.0050, `tp2_r` = 2.0 | INVARIANT |
-| `computeExpectancy` | R = [+2, −1, −1, +3] | mean R +0.75, win rate 0.5 | unit |
-| `computeExpectancy` | empty | `EMPTY_EXPECTANCY`, no NaN | INVARIANT |
-| `twoProportionZTest` | 50/100 vs 50/100 | z = 0, p = 1 | unit |
-| tier with n = 10 | below `MIN_TIER_SAMPLES` 30 | verdict `insufficient` | INVARIANT |
-| shrinkage | wins 1 / n 1, k = 30 | strictly between 1.0 and the prior mean | INVARIANT |
-| `replaySetup` | stop+target in one candle | loss, R = −1 | V1_CHARACTERIZATION |
-| `replaySetup` | post-TIF touch | fills | V1_CHARACTERIZATION |
-| `gradeSetup` | H4 neutral, H1=M15 long | `B` | V1_CHARACTERIZATION |
-| `gradeSetup` | H4/H1 neutral, M15 long | `C` | V1_CHARACTERIZATION |
+| Target               | Input                                              | Expected                                                            | Class                          |
+| -------------------- | -------------------------------------------------- | ------------------------------------------------------------------- | ------------------------------ |
+| `atr`                | 15 candles, TR = 1.0 each                          | 1.0                                                                 | INVARIANT-adjacent unit        |
+| `atr`                | 10 candles, period 14                              | `0`                                                                 | V1_CHARACTERIZATION            |
+| `ema`                | constant 10, any period                            | 10                                                                  | unit                           |
+| `calculateRisk`      | 10 000 USD, 1%, EURUSD, 50-pip stop, 100k contract | budget 100.00; riskPerLot 500; rawLots 0.20; lots 0.20; risk 100.00 | INVARIANT (never above budget) |
+| `calculateRisk`      | equity 0 / missing rate                            | `{ok:false}` with the specific reason                               | INVARIANT (fail closed)        |
+| R geometry, long     | entry 1.1000, stop 1.0950, tp1 1.1050              | risk 0.0050, `tp1_r` = 1.0                                          | INVARIANT                      |
+| R geometry, short    | entry 1.1000, stop 1.1050, tp2 1.0900              | risk 0.0050, `tp2_r` = 2.0                                          | INVARIANT                      |
+| `computeExpectancy`  | R = [+2, −1, −1, +3]                               | mean R +0.75, win rate 0.5                                          | unit                           |
+| `computeExpectancy`  | empty                                              | `EMPTY_EXPECTANCY`, no NaN                                          | INVARIANT                      |
+| `twoProportionZTest` | 50/100 vs 50/100                                   | z = 0, p = 1                                                        | unit                           |
+| tier with n = 10     | below `MIN_TIER_SAMPLES` 30                        | verdict `insufficient`                                              | INVARIANT                      |
+| shrinkage            | wins 1 / n 1, k = 30                               | strictly between 1.0 and the prior mean                             | INVARIANT                      |
+| `replaySetup`        | stop+target in one candle                          | loss, R = −1                                                        | V1_CHARACTERIZATION            |
+| `replaySetup`        | post-TIF touch                                     | fills                                                               | V1_CHARACTERIZATION            |
+| `gradeSetup`         | H4 neutral, H1=M15 long                            | `B`                                                                 | V1_CHARACTERIZATION            |
+| `gradeSetup`         | H4/H1 neutral, M15 long                            | `C`                                                                 | V1_CHARACTERIZATION            |
 
 ## 13. Failure-mode simulations
 
@@ -158,7 +156,7 @@ MetaApi (mocked): 8s timeout → instrument flagged, job `skipped`; 401/429 → 
 
 ## 14. Baseline / versioning implications
 
-No historical row is rewritten and no algorithm output changes; the characterization suite *is* the V1 reference. Golden outputs are stamped with `ACTIVE_MODEL_VERSION` at capture and cross-referenced to `CHARACTERISATION.md`, so a V2 diff reads as intentional divergence rather than a silent pass.
+No historical row is rewritten and no algorithm output changes; the characterization suite _is_ the V1 reference. Golden outputs are stamped with `ACTIVE_MODEL_VERSION` at capture and cross-referenced to `CHARACTERISATION.md`, so a V2 diff reads as intentional divergence rather than a silent pass.
 
 ## 15. Security
 
@@ -166,7 +164,7 @@ No secret reaches CI: no `SUPABASE_SERVICE_ROLE_KEY`, DB password, `METAAPI_TOKE
 
 ## 16. Acceptance criteria — exact evidence required
 
-The implementation report must contain: exact files changed; exact commands run; test counts pass/fail/todo split by class; property-test seeds; database-test results per §8 item; full lint, typecheck and build output; GitHub workflow status reported separately as *file created* vs *required check active*; proof of zero MetaApi calls (no network egress from the suite; fixtures synthetic or previously stored); and a diff review showing no unintended production algorithm change. Plus: `bun run verify` exits 0; every trading test carries exactly one class label; `CHARACTERISATION.md` covers all six §4 items plus the replay ambiguity set; every fixture has complete provenance; no migration applied and no production row written.
+The implementation report must contain: exact files changed; exact commands run; test counts pass/fail/todo split by class; property-test seeds; database-test results per §8 item; full lint, typecheck and build output; GitHub workflow status reported separately as _file created_ vs _required check active_; proof of zero MetaApi calls (no network egress from the suite; fixtures synthetic or previously stored); and a diff review showing no unintended production algorithm change. Plus: `bun run verify` exits 0; every trading test carries exactly one class label; `CHARACTERISATION.md` covers all six §4 items plus the replay ambiguity set; every fixture has complete provenance; no migration applied and no production row written.
 
 ## 17. Rollback
 
@@ -174,7 +172,7 @@ Delete added test files, `vitest.config.ts`, the workflow file, and remove devDe
 
 ## 18. Remaining risks and what cannot be guaranteed
 
-Node/Bun passes do not prove workerd behaviour — `bun run build` stays the only Worker-shaped check. Local Postgres RLS may differ from the managed project in roles/extensions. GitHub execution cannot be observed from this environment, so *check-active* will be reported as unverified until it reports. Migration-replay fidelity is unknown until the Phase-0 spike. Property testing cannot prove absence of latent geometry bugs. Characterizing a defect does not make it safe — it makes it reproducible, and each pinned item still needs the model-remediation prompt.
+Node/Bun passes do not prove workerd behaviour — `bun run build` stays the only Worker-shaped check. Local Postgres RLS may differ from the managed project in roles/extensions. GitHub execution cannot be observed from this environment, so _check-active_ will be reported as unverified until it reports. Migration-replay fidelity is unknown until the Phase-0 spike. Property testing cannot prove absence of latent geometry bugs. Characterizing a defect does not make it safe — it makes it reproducible, and each pinned item still needs the model-remediation prompt.
 
 ## 19. Recommendation
 

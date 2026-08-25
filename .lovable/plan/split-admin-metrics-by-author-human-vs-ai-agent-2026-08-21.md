@@ -1,6 +1,6 @@
 # Split admin metrics by author: human vs AI agent
 
-Today only *prices* carry provenance (`price_source` human/agent on `executed_trades`). Verified against live rows: all 25 logged decisions have `price_source = null`, and `agent_registrations` has 0 rows — so nothing else in the admin terminal can currently tell a human apart from an assistant. Accounts, taken/skipped and the user-reported win rate are all author-blind by construction.
+Today only _prices_ carry provenance (`price_source` human/agent on `executed_trades`). Verified against live rows: all 25 logged decisions have `price_source = null`, and `agent_registrations` has 0 rows — so nothing else in the admin terminal can currently tell a human apart from an assistant. Accounts, taken/skipped and the user-reported win rate are all author-blind by construction.
 
 This adds provenance at the two remaining write points (account creation, decision logging) and then splits four admin sections by author.
 
@@ -9,6 +9,7 @@ This adds provenance at the two remaining write points (account creation, decisi
 **Account origin** — new columns on `public.profiles`: `signup_source` (`human` | `agent`, default `human`) and `signup_client` (assistant label, null for humans). The agent registration endpoint already accepts a `client` field; it will pass it through sign-up metadata, and `handle_new_user()` copies it onto the profile. Existing accounts backfill as `human` (they were all created in the browser).
 
 **Decision origin** — new columns on `public.executed_trades`: `decision_source` (`human` | `agent`) and `decision_source_client`. Stamped server-side, exactly like prices:
+
 - web terminal writes (`recordTradeDecision` / `recordTradeOutcome`) → `human`
 - the `log_trade_decision` and `update_trade_outcome` MCP tools → `agent` + the assistant's OAuth client id
 

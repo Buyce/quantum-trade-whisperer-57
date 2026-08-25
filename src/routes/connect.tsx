@@ -22,9 +22,14 @@ export const Route = createFileRoute("/connect")({
           "Paste the P-Trades Hub server URL into ChatGPT, Claude or Claude Code and let your assistant read live scanner setups and your trade journal.",
       },
       { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
+      { property: "og:url", content: "https://getptrades.com/connect" },
+      // A small `summary` card deliberately: this page ships no absolute social
+      // image, and declaring a large card without one degrades the preview.
+      { name: "twitter:card", content: "summary" },
     ],
+    links: [{ rel: "canonical", href: "https://getptrades.com/connect" }],
   }),
+
   component: ConnectPage,
 });
 
@@ -40,7 +45,7 @@ const TOOL_ROWS: [string, string][] = [
     "get_market_status",
     "Which FX sessions are open right now and per-instrument broker feed health.",
   ],
-  ["get_my_settings", "Your instruments, timeframes, alert grade, daily cap and risk profile."],
+  ["get_my_settings", "Your instruments, sessions, alert grade, daily cap and risk profile."],
   [
     "update_my_settings",
     "Change those preferences. Values are clamped to safe bounds server-side.",
@@ -139,9 +144,9 @@ function Ext({ href, children }: { href: string; children: ReactNode }) {
 function ConnectPage() {
   const mcpUrl = useMcpUrl();
   const registerUrl = useRegisterUrl();
-  const registerExample = `curl -X POST ${registerUrl || "/api/public/agent/register"} \\
-  -H 'Content-Type: application/json' \\
-  -d '{"email":"you@example.com","password":"a-strong-password"}'`;
+  // No copyable registration command lives on this page any more: the guided
+  // flow sends people to /auth so a password is never typed into an assistant.
+
   const claudeAdd = `https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=${encodeURIComponent(
     "P-Trades Hub",
   )}&connectorUrl=${encodeURIComponent(mcpUrl)}`;
@@ -218,33 +223,40 @@ function ConnectPage() {
         </section>
 
         <section className="mt-10 rounded-md border border-border bg-card p-4 sm:p-5">
-          <h2 className="text-lg font-semibold text-foreground">
-            No account yet? Create one from your assistant
-          </h2>
+          <h2 className="text-lg font-semibold text-foreground">No account yet?</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            An assistant has no sign-in before an account exists, so registration runs over a plain
-            HTTP endpoint instead of the connector. It starts an ordinary email sign-up: the
-            confirmation email still has to be clicked by whoever owns the inbox before the account
-            works.
+            Create it yourself, in your own browser — it takes a minute and your password never
+            leaves your hands. An assistant cannot connect until an account exists and its
+            confirmation email has been clicked by whoever owns the inbox.
           </p>
-          <div className="mt-3 flex flex-wrap items-center gap-3">
-            <code className="num min-w-0 flex-1 truncate rounded-sm bg-secondary px-3 py-2 text-xs text-foreground sm:text-sm">
-              POST {registerUrl}
-            </code>
-            <CopyButton value={registerUrl} label="Copy registration endpoint" />
+          <div className="mt-3 flex flex-wrap gap-3">
+            <Button asChild>
+              <Link to="/auth" search={{ mode: "signup" }}>
+                Create an account
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link to="/auth">Sign in</Link>
+            </Button>
           </div>
-          <pre className="num mt-3 overflow-x-auto rounded-sm bg-secondary p-3 text-xs text-foreground">
-            {registerExample}
-          </pre>
           <Steps
             items={[
-              <>The assistant posts an email and a password of at least 8 characters.</>,
-              <>The account owner clicks the confirmation link we email them.</>,
+              <>Create the account and set your own password here, not in a chat window.</>,
+              <>Click the confirmation link we email you.</>,
               <>
-                The assistant then connects the server URL above and approves the consent screen.
+                Then connect the server URL above from your assistant and approve the consent
+                screen.
               </>,
             ]}
           />
+          <p className="mt-4 border-t border-border pt-3 text-xs text-muted-foreground">
+            There is also a public HTTPS registration endpoint (
+            <span className="num">POST {registerUrl || "/api/public/agent/register"}</span>) that
+            sits outside the authenticated MCP connection, for scripted setups. It is deliberately
+            not part of the guided flow: using it means typing your chosen password into an
+            assistant that will transmit it on your behalf, and we would rather you did not. It
+            still requires email confirmation and grants nothing until you sign in.
+          </p>
         </section>
 
         <section className="mt-10">

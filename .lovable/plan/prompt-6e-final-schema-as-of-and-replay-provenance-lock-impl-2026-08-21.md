@@ -17,7 +17,7 @@ Pre-plan evidence measured at HEAD:
 
 1. **Contamination filter + model lock (§5).** `recompute_regime_stats` sources exactly
    `(model_version = 1, replay_version = 1, execution_policy = 'legacy_best_target_touched',
-   status = 'resolved')`. The function **rejects/no-ops for `_model_version <> 1`**, returning
+status = 'resolved')`. The function **rejects/no-ops for `_model_version <> 1`**, returning
    `{"skipped":"model_version_not_promoted"}` without writing. No V2/V3 rows can ever reach live
    `regime_stats`. `regime_stats` stays structurally unchanged.
 2. **Advisory lock + one `as_of`.** `pg_advisory_xact_lock(hashtext('recompute_regime_stats'), 1)`,
@@ -58,14 +58,15 @@ regime_key)` — never the current-state PK.
 **§2 Denominators (contradiction resolved).** Counters stored per cohort:
 `n_mature`, `n_resolved_total`, `n_unresolved_mature`, `n_per_plan_eligible`, `n_executable`,
 `n_invalid_excluded`, `n_gap_no_trade`, and `replay_coverage = n_resolved_total / n_mature`.
+
 - `invalid_plan`: excluded from **both** estimands, counted in `n_invalid_excluded`.
 - `gap_beyond_stop`: counts as a **resolved replay**, contributes **0R** to the per-plan headline
-  (it is *eligible*, not excluded), and is **absent** from `given_executable`; counted in
+  (it is _eligible_, not excluded), and is **absent** from `given_executable`; counted in
   `n_gap_no_trade`.
 - Valid `never_filled`: 0R in per-plan; absent from `given_executable`.
 - Valid filled/expiry: execution-policy gross R in both.
-Headline estimand is predeclared `per_plan` (`mean_r_per_plan`); `mean_r_given_executable` is
-stored as the labelled conditional companion. `estimand` is part of the PK so both coexist.
+  Headline estimand is predeclared `per_plan` (`mean_r_per_plan`); `mean_r_given_executable` is
+  stored as the labelled conditional companion. `estimand` is part of the PK so both coexist.
 
 **§4 Point-in-time `_payoff_src`.** Two frozen sources under the one lock and one `as_of`:
 `_regime_src` = production tuple resolved rows only; `_payoff_src` = the full candidate cohort with

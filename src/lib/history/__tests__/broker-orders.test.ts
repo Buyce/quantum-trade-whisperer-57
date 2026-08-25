@@ -91,7 +91,11 @@ describe("automatic broker orders", () => {
   it("[INVARIANT] does not invent an R when the broker never supplied one", () => {
     const view = toBrokerOrderView(
       delivery(),
-      evidence({ r_vs_plan: null, r_vs_actual_risk: null, r_availability: "unavailable_no_prices" }),
+      evidence({
+        r_vs_plan: null,
+        r_vs_actual_risk: null,
+        r_availability: "unavailable_no_prices",
+      }),
       null,
     );
     expect(view.r.value).toBeNull();
@@ -99,7 +103,8 @@ describe("automatic broker orders", () => {
   });
 
   it("[INVARIANT] treats an unknown delivery state as an explicit non-claim", () => {
-    expect(brokerOrderStatus({ state: "weird", reason: null, broker_retcode_string: null }, null))
-      .toMatchObject({ kind: "unknown" });
+    expect(
+      brokerOrderStatus({ state: "weird", reason: null, broker_retcode_string: null }, null),
+    ).toMatchObject({ kind: "unknown" });
   });
 });

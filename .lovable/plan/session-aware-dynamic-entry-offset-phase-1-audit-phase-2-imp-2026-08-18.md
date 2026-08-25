@@ -41,7 +41,7 @@ new feature — worst case it publishes exactly as it does today. `MAX_RISK_ATR`
 ### Checkpoint 3 — Type and payload safety: CLEAR (session must be threaded in)
 
 - `trading_session` is **not** currently available to `profile.ts`. It is computed in
-  `src/lib/scanner/pipeline.server.ts` as `sessionOf(now)` *after* `buildTradeProfile(...)` runs,
+  `src/lib/scanner/pipeline.server.ts` as `sessionOf(now)` _after_ `buildTradeProfile(...)` runs,
   and written to `market_context.trading_session`. Fix: hoist `const session = sessionOf(now)`
   above the profile build and pass it into `buildTradeProfile({ instrument, candles, session })`.
   `market_context` keeps using the same variable, so the row and the entry math can never disagree.
@@ -81,13 +81,14 @@ Files touched: `src/lib/scanner/profile.ts`, `src/lib/scanner/types.ts`,
      `candidate >= lastClose + spreadFloor`. (Satisfied by construction for 0.3 ATR > spread, but
      enforced explicitly so a future fraction change cannot invert it.)
    - **Never further from market than structural C**: long `candidate = max(candidate, abc.c)`,
-     short `candidate = min(candidate, abc.c)`. The offset can only ever move the entry *toward*
+     short `candidate = min(candidate, abc.c)`. The offset can only ever move the entry _toward_
      price, never deeper.
    - **Never crosses the stop**: require `|candidate - stopLoss| >= MIN_DYNAMIC_RISK_ATR * m15.atr`
      and the correct side of the stop; otherwise reject the candidate.
    - **Risk / reachability**: recompute `risk` and `maxR` with the candidate; keep it only if
      `risk <= MAX_RISK_ATR * atr` and `maxR >= MIN_REACHABLE_R`.
    - Any failed guard ⇒ keep `abc.c`. Existing behaviour, byte for byte.
+
 3. All existing target, `maxR`, `rrRatio`, `maxAcceptableEntry` and slippage-tolerance math runs once
    on the final entry — no duplication.
 4. `qualitativeBreakdown` gains one sentence when the offset fires, so the card explains why the

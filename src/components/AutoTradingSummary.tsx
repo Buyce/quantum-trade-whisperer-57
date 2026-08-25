@@ -51,7 +51,8 @@ function Line({ label, children }: { label: string; children: React.ReactNode })
 }
 
 export function AutoTradingSummary(props: AutoTradingSummaryProps) {
-  const { instruments, sessions, alertMinGrade, cap, equity, currency, riskPercent, maxLots } = props;
+  const { instruments, sessions, alertMinGrade, cap, equity, currency, riskPercent, maxLots } =
+    props;
   const loadAccounts = useServerFn(listConnectedAccounts);
   const accounts = useQuery({
     queryKey: ["connected-accounts", "auto-summary"],
@@ -106,7 +107,6 @@ export function AutoTradingSummary(props: AutoTradingSummaryProps) {
           </Link>
           .
         </p>
-
       ) : (
         <p className="text-xs text-foreground">
           Armed:{" "}
@@ -159,7 +159,9 @@ export function AutoTradingSummary(props: AutoTradingSummaryProps) {
           {armed.length === 0
             ? "—"
             : armed
-                .map((a) => (a.broker.leverage === null ? "not reported" : `1:${a.broker.leverage}`))
+                .map((a) =>
+                  a.broker.leverage === null ? "not reported" : `1:${a.broker.leverage}`,
+                )
                 .join(" · ")}
         </Line>
       </div>
@@ -179,6 +181,5 @@ export function AutoTradingSummary(props: AutoTradingSummaryProps) {
         .
       </p>
     </section>
-
   );
 }

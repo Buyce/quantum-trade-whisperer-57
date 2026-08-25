@@ -18,7 +18,7 @@ Feasibility confirmed: both pages already hold everything needed in React Query 
 
 3. **Trade History → Export Trade History (CSV + JSON)**
    - Two ghost buttons in the History page header: `Export History (CSV)` and `Export History (JSON)`.
-   - Covers every trade you logged as *taken*, permanent record, ideal for trend hunting.
+   - Covers every trade you logged as _taken_, permanent record, ideal for trend hunting.
    - CSV columns (flat, spreadsheet/LLM-ready): `Logged_At, Detected_At, Instrument, Grade, Direction, Session, Entry, Stop_Loss, TP1, TP2, TP3, Planned_RR, Confidence, Pillar_Trend, Pillar_Order_Block, Pillar_Momentum, Pillar_Volatility, Outcome, R_Yield, Notes`.
    - JSON version keeps the same fields plus the qualitative breakdown text, nested per trade, for richer LLM reasoning.
    - Filenames: `ptrades_trade_history_YYYY-MM-DD.csv` / `.json`. Disabled when the log is empty.

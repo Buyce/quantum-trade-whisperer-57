@@ -21,6 +21,7 @@ The web terminal is functionally solid and standards-compliant as a **website**.
 ## Proposed work
 
 ### Batch A — Real installed-app behaviour (recommended, do first)
+
 - Add a padded maskable icon variant plus a 180px Apple touch icon; split `purpose: "any"` and `purpose: "maskable"` correctly.
 - Add `lang`, `id`, `categories`, install `screenshots`, and app `shortcuts` (Feed, Performance) to the manifest.
 - Add iOS standalone meta tags and a dark status bar style.
@@ -28,11 +29,13 @@ The web terminal is functionally solid and standards-compliant as a **website**.
 - Audit tap targets and iOS input zoom (any control under 44px, any input under 16px text) and fix the offenders.
 
 ### Batch B — Push notifications (makes the existing toggle real)
+
 - Add a dedicated web-push messaging service worker plus a `push_subscriptions` table, permission prompt in Settings tied to the existing `notify_push` toggle, and a push fan-out step in `alerts.server.ts` alongside email and webhooks, respecting `alert_min_grade`, instruments and sessions.
 - Works on Android/Chrome and on iOS 16.4+ **only once the app is added to the Home Screen** — this will be stated in the UI so expectations are correct.
 - Until this batch ships, the alternative is to hide the push toggle rather than leave a dead control.
 
 ### Batch C — Play Store / App Store listing (optional, needs your go-ahead)
+
 Store distribution is a separate track from the web app: Android can ship the same code as a Trusted Web Activity, iOS requires a native wrapper and Apple review. This is packaging and developer-account work, not app code, so it is out of scope of Batch A/B and should be decided separately.
 
 ## Technical notes

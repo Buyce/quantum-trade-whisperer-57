@@ -18,8 +18,8 @@ time   entry     stop      risk(ATR)  rr_ratio
 
 Three verified facts:
 
-1. **The dedupe index is structurally unable to fire.** `scanned_signals_active_unique` keys on rounded `entry_price`, and entry is `last M15 close` — it drifts every candle. The *stop* (the structural anchor) is literally identical across six of those rows. So the engine is republishing one structure while the uniqueness key looks new every time. A pip-variance band on entry is the same flawed axis, just wider.
-2. **Stops are not uniformly tight — risk is unstable.** Risk ranged 1.3–5.5 M15 ATR on the same structure. Cause: risk = distance from *drifting entry* to a fixed 10-bar extreme, plus a `0.35 × M15 ATR` buffer. On EURUSD that buffer is ~0.4 pip — below spread + noise, so the extreme itself becomes the stop. Multiplying the buffer alone (your hypothesis) fixes the noise cushion but not the unstable risk.
+1. **The dedupe index is structurally unable to fire.** `scanned_signals_active_unique` keys on rounded `entry_price`, and entry is `last M15 close` — it drifts every candle. The _stop_ (the structural anchor) is literally identical across six of those rows. So the engine is republishing one structure while the uniqueness key looks new every time. A pip-variance band on entry is the same flawed axis, just wider.
+2. **Stops are not uniformly tight — risk is unstable.** Risk ranged 1.3–5.5 M15 ATR on the same structure. Cause: risk = distance from _drifting entry_ to a fixed 10-bar extreme, plus a `0.35 × M15 ATR` buffer. On EURUSD that buffer is ~0.4 pip — below spread + noise, so the extreme itself becomes the stop. Multiplying the buffer alone (your hypothesis) fixes the noise cushion but not the unstable risk.
 3. **`rr_ratio` is not the R:R of the printed targets.** TP1/TP2/TP3 are hardcoded at exactly 1R/2R/3R off entry, while `rr_ratio = clamp(reachableAtr × (m15Atr / risk), 0.5, 3)` — `reachableAtr` is measured in **H4** ATR units and multiplied by an **M15** ATR, a unit mismatch. The number is not derived from any target price. That is why a 1.02R headline sits above a "TP3 · 1:3" box.
 
 ## Proposed solutions
@@ -64,14 +64,14 @@ Fix the number first, then the UI:
 - `rr_ratio` becomes exactly `TP-final R` — the headline and the boxes can no longer disagree. Confidence's `rr` component reads the same value.
 - `SignalCard.tsx`: render targets from the stored values with their true multiples ("TP2 · 1:0.8"), omit the box entirely when the target is NULL, and show a "capped by H4 barrier" chip with the barrier reason in the breakdown. No fake 1:2/1:3 labels.
 
-Rejected: keeping three boxes and rescaling silently — the trader needs to *see* that the structure is capped, not just smaller numbers.
+Rejected: keeping three boxes and rescaling silently — the trader needs to _see_ that the structure is capped, not just smaller numbers.
 
 ### 4. Entry latency and live distance
 
 Architecture check: a per-client MetaApi quote poll would multiply requests by user count against the same broker token — not acceptable. The safe pattern is **one shared cached quote source**:
 
 - Add `GET /api/public/quotes` returning last price for the three instruments, with a short server-side cache (15s TTL) and `Cache-Control: public, max-age=15` so the edge, not MetaApi, absorbs the fan-out. One upstream call per 15s regardless of how many users are watching.
-- Feed cards show **live distance from entry** in pips and in R units (`+0.4R away — price has run past entry`), plus one of three states: *Awaiting fill* (price the correct side of entry), *At entry*, *Invalidated* (price beyond entry by > 0.5R, or already past stop).
+- Feed cards show **live distance from entry** in pips and in R units (`+0.4R away — price has run past entry`), plus one of three states: _Awaiting fill_ (price the correct side of entry), _At entry_, _Invalidated_ (price beyond entry by > 0.5R, or already past stop).
 - Reinforce the limit-order framing: the existing `BUY LIMIT / SELL LIMIT` badge becomes always-on (not Guide-Mode only), and the copy block already emits the pending-order layout.
 - Latency itself is not removed — but the invalidation state means a stale signal visibly retires itself instead of quietly misleading.
 

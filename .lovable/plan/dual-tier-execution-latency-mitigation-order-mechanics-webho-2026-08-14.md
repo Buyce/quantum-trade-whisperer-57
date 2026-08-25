@@ -80,7 +80,6 @@ Footer      existing alerts/not-advice disclaimer (Lovable appends unsubscribe)
 
 **Guide Mode** — new tooltip entries on the feed and card explaining, in plain language: what Max Acceptable Entry is (the slippage ceiling where the planned payoff still holds), why the two live states differ, and why the 30-minute time-in-force protects capital (a setup unfilled after two candles is a different market than the one that was graded).
 
-
 ## Technical notes
 
 - Migration adds to `scanner_settings`: `order_strategy text default 'smart_adaptive'`, `webhook_enabled boolean default false`, `webhook_url text`, `webhook_secret text`, `webhook_format text default 'json'`. Existing own-row RLS covers them; no new grants needed beyond the table's current ones. Secrets are per-user config, readable only by that user.

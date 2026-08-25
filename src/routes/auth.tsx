@@ -11,24 +11,48 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ptradesMark from "@/assets/ptrades-mark.png.asset.json";
 
+/** The two panes of this route. `signup` is the only alternative mode. */
+type AuthMode = "signin" | "signup";
+
+const COPY: Record<AuthMode, { title: string; heading: string; description: string }> = {
+  signin: {
+    title: "Sign in — P-Trades Hub",
+    heading: "Sign in to the P-Trades Hub terminal",
+    description: "Sign in or create an account to access the P-Trades Hub forex scanner terminal.",
+  },
+  signup: {
+    title: "Create your account — P-Trades Hub",
+    heading: "Create your P-Trades Hub account",
+    description:
+      "Create a free P-Trades Hub account to open the quantitative forex scanner terminal.",
+  },
+};
+
 export const Route = createFileRoute("/auth")({
-  head: () => ({
-    meta: [
-      { title: "Sign in — P-Trades Hub" },
-      {
-        name: "description",
-        content: "Sign in or create an account to access the P-Trades Hub forex scanner terminal.",
-      },
-      { property: "og:title", content: "Sign in — P-Trades Hub" },
-      {
-        property: "og:description",
-        content: "Access your P-Trades Hub quantitative forex terminal.",
-      },
-      { name: "robots", content: "noindex" },
-    ],
+  head: ({ match }) => {
+    const mode: AuthMode = match.search.mode === "signup" ? "signup" : "signin";
+    const copy = COPY[mode];
+    return {
+      meta: [
+        { title: copy.title },
+        { name: "description", content: copy.description },
+        { property: "og:title", content: copy.title },
+        { property: "og:description", content: copy.description },
+        // Signed-out authentication is intentionally kept out of the index:
+        // it carries no content a searcher wants and is absent from the sitemap.
+        { name: "robots", content: "noindex" },
+      ],
+    };
+  },
+  /**
+   * `next` is a post-login redirect; `mode` selects which pane opens. Anything
+   * other than the literal `signup` collapses to sign-in, so a hand-edited or
+   * stale URL can never land the user on an unexpected pane.
+   */
+  validateSearch: (s: Record<string, unknown>): { next?: string; mode?: "signup" } => ({
+    ...(typeof s["next"] === "string" ? { next: s["next"] } : {}),
+    ...(s["mode"] === "signup" ? { mode: "signup" as const } : {}),
   }),
-  validateSearch: (s: Record<string, unknown>): { next?: string } =>
-    typeof s["next"] === "string" ? { next: s["next"] } : {},
   component: AuthPage,
 });
 
@@ -45,8 +69,13 @@ const credentials = z.object({
 
 function AuthPage() {
   const navigate = useNavigate();
-  const { next } = Route.useSearch();
+  const { next, mode } = Route.useSearch();
   const nextPath = safeNext(next);
+  const initialMode: AuthMode = mode === "signup" ? "signup" : "signin";
+  // Controlled so a direct link, a refresh and an in-page tab click all agree,
+  // while the URL keeps carrying the chosen pane for the confirmation return.
+  const [pane, setPane] = useState<AuthMode>(initialMode);
+  useEffect(() => setPane(initialMode), [initialMode]);
   const afterAuth = useCallback(() => {
     if (nextPath) {
       window.location.href = nextPath;
@@ -147,7 +176,7 @@ function AuthPage() {
         <Card>
           <CardHeader>
             <h1 className="text-lg font-semibold leading-none tracking-tight">
-              Sign in to the P-Trades Hub terminal
+              {COPY[pane].heading}
             </h1>
           </CardHeader>
           <CardContent>
@@ -161,13 +190,19 @@ function AuthPage() {
                 <Button
                   variant="outline"
                   className="w-full"
-                  onClick={() => setAwaitingConfirm(false)}
+                  onClick={() => {
+                    setAwaitingConfirm(false);
+                    setPane("signin");
+                  }}
                 >
                   Back to sign in
                 </Button>
               </div>
             ) : (
-              <Tabs defaultValue="signin">
+              <Tabs
+                value={pane}
+                onValueChange={(v) => setPane(v === "signup" ? "signup" : "signin")}
+              >
                 <TabsList className="grid w-full grid-cols-2">
                   <TabsTrigger value="signin">Sign in</TabsTrigger>
                   <TabsTrigger value="signup">Create account</TabsTrigger>

@@ -121,3 +121,11 @@ attributed.
 `src/lib/scanner/*`, `src/lib/risk.ts`, `src/lib/sizing/*`, `src/lib/broker/*`,
 `src/lib/journal/*`, `src/lib/stats/*`, `src/lib/execution/*`,
 `src/lib/delivery/*`, `src/lib/accounts/*`, `src/lib/evidence/*`.
+
+## Tests
+
+The zero-hallucination rule is enforced, not documented on trust:
+`src/lib/mcp/__tests__/list-signals.behavior.test.ts` (no scanner-wide "No Trade"
+claim from a filtered view), `src/lib/sizing/__tests__/*` and
+`src/lib/__tests__/risk*.test.ts` (refusals instead of defaulted inputs), and
+`src/test/__tests__/docs-contract.test.ts` (this map stays in step with the code).

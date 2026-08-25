@@ -25,8 +25,14 @@ A user's loop:
    broker-reported account facts and explicitly choose an available mode.
 6. **Performance** — select My Journal, Broker Account or P-Trades Benchmark;
    choose one R basis; never combine the sources.
-7. **Settings** — instruments, sessions, feed and alert grade thresholds, daily
-   cap, risk profile, notifications, assistant access, execution bridge.
+7. **Broker telemetry** — where the provider supports it, the connected account
+   also shows MetaStats metrics and Risk Guardian drawdown events, each labelled
+   `ok`, `processing` or `unavailable`. Both are read-only monitoring.
+8. **Settings** — instruments, sessions, feed and alert grade thresholds, daily
+   cap, risk profile, notifications, assistant access, automatic orders and the
+   intelligence gate, execution bridge. There is no timeframe filter: a setup is
+   one multi-timeframe structure, graded across H4, H1 and M15 together, so
+   selecting timeframes was never a meaningful choice and the control is gone.
 
 ## Inputs
 

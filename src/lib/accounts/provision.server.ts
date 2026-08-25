@@ -79,7 +79,6 @@ export function assertNotBenchmarkAccount(metaapiAccountId: string): void {
   }
 }
 
-
 export interface StartConnectionInput {
   userId: string;
   label: string;

@@ -192,7 +192,6 @@ export function settingsQuery(userId: string | undefined) {
   });
 }
 
-
 export function instrumentHealthQuery() {
   return queryOptions({
     queryKey: ["instrument-health"],

@@ -24,7 +24,7 @@ already a provider timeout, so this path is reachable too.
 ## The fix
 
 1. **The reserved guard stops blocking removal.** Keep it as an absolute refusal
-   for *linking* and *creating* (adopt, create, resume) — a customer must never
+   for _linking_ and _creating_ (adopt, create, resume) — a customer must never
    be able to attach the engine account. For an already-stored row, the guard no
    longer throws inside `ownedRow`; instead the row is flagged as
    reserved-remote, which means:

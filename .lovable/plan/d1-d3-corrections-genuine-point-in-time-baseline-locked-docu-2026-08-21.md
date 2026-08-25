@@ -10,7 +10,7 @@ Correction — the cutoff approach (no single-statement rewrite, so the SQL surf
 
 - `data_as_of = pinned_run_at` (`regime_snapshots.computed_at` of the pinned run). It becomes a required top-level field of the stored JSON alongside `captured_at`, with a note that `captured_at` is wall-clock bookkeeping and `data_as_of` is the semantic instant.
 - Every time-varying source used in the official document gets a cutoff:
-  - `shadow_executions` — `detected_at <= data_as_of`; a row whose `resolved_at` is after the cutoff is counted as *not yet resolved* at that instant, so fill/win/R aggregates only ever see outcomes that existed then.
+  - `shadow_executions` — `detected_at <= data_as_of`; a row whose `resolved_at` is after the cutoff is counted as _not yet resolved_ at that instant, so fill/win/R aggregates only ever see outcomes that existed then.
   - `scanned_signals` — `detected_at <= data_as_of`.
   - `scan_queue` — `enqueued_at <= data_as_of`.
   - `webhook_dispatch_log`, `executed_trades`, `signal_user_telemetry` — `created_at <= data_as_of`.
@@ -23,6 +23,7 @@ Because the pinned run id is the idempotency key and `data_as_of` derives from i
 ## 2. Lock the raw documents to service-role/admin only
 
 Migration:
+
 - `DROP POLICY baseline_snapshots_readable_by_authenticated`
 - `REVOKE SELECT ON public.baseline_snapshots FROM authenticated`
 - `service_role` keeps `ALL`. No new anon or authenticated policy. RLS stays enabled, leaving the table with no permissive policy for ordinary users, which is the intent.
@@ -42,20 +43,21 @@ Code consequence that must ship in the same change: `getBaselineStatus` in `src/
 
 New `source_coverage` block in the baseline document, one entry per source: row count as-of the cutoff, earliest and latest timestamp observed, the timestamp column used, and the retention rule that bounds it —
 
-| Source | Bound stated |
-|---|---|
-| `scan_queue` | pruned at 7 days by `maintain_scan_queue`; older cycles unobservable |
-| `scanned_signals` | tiered hard delete (C 24h, B 36h, A/A+ 48h) after expiry; grade/session distribution of deleted rows unrecoverable |
-| `shadow_executions` | no retention rule; full history, but rows resolved after the cutoff are excluded by design |
-| `webhook_dispatch_log` | pruned at 14 days |
-| `executed_trades` / `signal_user_telemetry` | user-deletable from Trade History; counts are a lower bound |
-| `regime_snapshots` | 180-day retention; no Tier-0 rows before this change |
+| Source                                      | Bound stated                                                                                                       |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `scan_queue`                                | pruned at 7 days by `maintain_scan_queue`; older cycles unobservable                                               |
+| `scanned_signals`                           | tiered hard delete (C 24h, B 36h, A/A+ 48h) after expiry; grade/session distribution of deleted rows unrecoverable |
+| `shadow_executions`                         | no retention rule; full history, but rows resolved after the cutoff are excluded by design                         |
+| `webhook_dispatch_log`                      | pruned at 14 days                                                                                                  |
+| `executed_trades` / `signal_user_telemetry` | user-deletable from Trade History; counts are a lower bound                                                        |
+| `regime_snapshots`                          | 180-day retention; no Tier-0 rows before this change                                                               |
 
 Where a source is empty, the entry states so with null timestamps rather than a plausible default.
 
 ## 5. Verification I will report verbatim
 
 After the edits I will run and paste the exact commands and their output:
+
 - `bun run typecheck` (or `tsgo` if no such script exists — I will report which)
 - `bun run build`
 - the contents of the post-edit build log
@@ -63,6 +65,7 @@ After the edits I will run and paste the exact commands and their output:
 There is no `.github/` directory in this repo and the git remote is not GitHub, so no GitHub status check exists. I will not claim CI passed; only the local build/typecheck results and, after capture, the stored document's `data_as_of`.
 
 ## Technical summary
+
 - One migration: drop the authenticated baseline policy, revoke the grant, add `vol_t1`/`vol_t2` to `regime_snapshots`, replace `recompute_regime_stats` with the `tier >= 0` snapshot insert (formulas byte-identical otherwise).
 - `src/lib/baseline/capture.server.ts`: `data_as_of` derivation, per-source cutoffs, resolution cutoff, `source_coverage`, added caveats.
 - `src/lib/baseline.functions.ts`: owner gate plus admin-client read in `getBaselineStatus`.
@@ -70,4 +73,5 @@ There is no `.github/` directory in this repo and the git remote is not GitHub, 
 - No other functional change.
 
 ## Out of scope
+
 No new tables, no scanner or replay behaviour change, no retention-rule change, no backfill of any historical row, and no resumption of the testing/CI work.

@@ -5,7 +5,7 @@ export default defineTool({
   name: "get_my_settings",
   title: "Get my settings",
   description:
-    "Read the signed-in user's feed filters (instruments, timeframes, sessions, minimum grade), alert preferences, daily cap (0 = unlimited; the cap governs feed and alert eligibility, each channel using its own grade threshold) and risk profile (account equity, currency, risk per trade, leverage, max stop-loss percent, max position size). Webhook credentials are never returned.",
+    "Read the signed-in user's feed filters (instruments, sessions, minimum grade — every setup covers H4, H1 and M15 together, so timeframes are not a filter), alert preferences, daily cap (0 = unlimited; the cap governs feed and alert eligibility, each channel using its own grade threshold) and risk profile (account equity, currency, risk per trade, leverage, max stop-loss percent, max position size). Webhook credentials are never returned.",
   inputSchema: {},
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
   handler: async (_input, ctx) => {
@@ -16,7 +16,7 @@ export default defineTool({
     const { data, error } = await supabase
       .from("scanner_settings")
       .select(
-        "instruments, timeframes, sessions, min_grade, alert_min_grade, daily_setup_cap, notify_push, notify_email, order_strategy, account_equity, account_currency, risk_per_trade_percent, max_position_size, leverage, max_stop_loss_percent, equity_as_of, risk_ack_high, webhook_enabled",
+        "instruments, sessions, min_grade, alert_min_grade, daily_setup_cap, notify_push, notify_email, order_strategy, account_equity, account_currency, risk_per_trade_percent, max_position_size, leverage, max_stop_loss_percent, equity_as_of, risk_ack_high, webhook_enabled",
       )
       .maybeSingle();
 

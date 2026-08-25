@@ -25,14 +25,14 @@ Because MCP is OAuth-protected server-wide, registration cannot be an MCP tool �
 
 Added to the MCP server, all acting as the signed-in user under existing row security:
 
-| Tool | Does |
-| --- | --- |
-| `get_my_settings` | Read instruments, timeframes, sessions, min grade, alert grade, daily cap, notification prefs, risk profile (equity, risk %, leverage, max SL %, max position size). |
-| `update_my_settings` | Change any of the above. Values validated and clamped (risk % 0.1–10, leverage 1–500, grades restricted to A+/A/B/C, cap 0 = unlimited). Webhook URL/secret stays out of agent reach. |
-| `get_market_status` | Which sessions are open/closed right now, next open/close, and per-instrument feed health. |
-| `calculate_position_size` | For a signal id (or explicit entry/SL), returns lot size, cash risk, margin, and any guardrail warnings — using the user's saved risk profile. |
-| `get_intelligence` | Regime stats for a signal or bucket: fill/win priors with shrinkage, sample counts, whether the learning gates have cleared, and the top influencing regimes/features. |
-| `get_shadow_comparison` | The weekly A/A+ vs B/C shadow-engine comparison: win rates, mean R, sample sizes, statistical significance. |
+| Tool                      | Does                                                                                                                                                                                  |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `get_my_settings`         | Read instruments, timeframes, sessions, min grade, alert grade, daily cap, notification prefs, risk profile (equity, risk %, leverage, max SL %, max position size).                  |
+| `update_my_settings`      | Change any of the above. Values validated and clamped (risk % 0.1–10, leverage 1–500, grades restricted to A+/A/B/C, cap 0 = unlimited). Webhook URL/secret stays out of agent reach. |
+| `get_market_status`       | Which sessions are open/closed right now, next open/close, and per-instrument feed health.                                                                                            |
+| `calculate_position_size` | For a signal id (or explicit entry/SL), returns lot size, cash risk, margin, and any guardrail warnings — using the user's saved risk profile.                                        |
+| `get_intelligence`        | Regime stats for a signal or bucket: fill/win priors with shrinkage, sample counts, whether the learning gates have cleared, and the top influencing regimes/features.                |
+| `get_shadow_comparison`   | The weekly A/A+ vs B/C shadow-engine comparison: win rates, mean R, sample sizes, statistical significance.                                                                           |
 
 Reuses the existing engines (`src/lib/risk.ts`, `src/lib/market-hours.ts`, `src/lib/learning/*`, weekly-report stats) — no duplicated maths.
 

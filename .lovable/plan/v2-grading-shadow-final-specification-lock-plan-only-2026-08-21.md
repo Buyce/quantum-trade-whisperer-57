@@ -4,7 +4,7 @@ Prompt 3D resolutions folded into the approved 3C architecture. P1–P7 from the
 
 ## 1. Exact control structure (removes the early-return contradiction)
 
-`processNextJob()` keeps its existing `finish(status, detail)` helper and its exact return values. The V1 policy branches stop *returning* directly; they assign a disposition and fall through to one shared exit. Shape:
+`processNextJob()` keeps its existing `finish(status, detail)` helper and its exact return values. The V1 policy branches stop _returning_ directly; they assign a disposition and fall through to one shared exit. Shape:
 
 ```text
 claim job; stale-job guard            (unchanged)
@@ -51,34 +51,34 @@ Visibility instead of silence: `shadow_engine_state` gains `research_errors inte
 
 ## 3. `buildTradeProfileV2()` — complete component specification
 
-| Component | V2 | Specification |
-|---|---|---|
-| Direction derivation | inherits | `readTimeframe("M15")` bias; neutral ⇒ no trade. |
-| A/B pivot selection | replaces | §4, deterministic, no search-until-valid. |
-| Point C | replaces | current retracement extreme after `B`, from the delivered snapshot; "confirmed-bar-only" wording is conditional on §12. |
-| Retracement band | adds | `[0.382, 0.886]` mandatory (V1 has no band). |
-| Structural entry | inherits | Point C price (V2's C, not V1's `abc.c`). |
-| Session dynamic entry | inherits unchanged | `RUNAWAY_SESSIONS`, `DYNAMIC_ENTRY_ATR_FRACTION = 0.3`, all four existing guards (not worse than market, never beyond structural entry, `MIN_DYNAMIC_RISK_ATR = 0.5` clearance from stop, re-validated risk/reach). |
-| Structural stop anchor | inherits | last 10 M15 bars' extreme, opposite side. |
-| M15 ATR stop multiplier | inherits | `STOP_M15_ATR_MULTIPLIER = 1.2`. |
-| H1 ATR floor | inherits | `STOP_H1_ATR_FLOOR = 0.5`. |
-| Spread floor | inherits | `SPREAD_FLOOR[instrument] ?? DEFAULT_SPREAD_FLOOR`. |
-| Max-risk-ATR rejection | inherits | reject when `risk > MAX_RISK_ATR (3) × m15.atr`. |
-| H4 barrier | **corrects** | one canonical directional barrier from confirmed unbroken H4 pivots (the `directionalHeadroomAtr` construction), used for **both** the grade headroom gate and `maxR`. V1 grades on pivots but computes `maxR` from `h4.rangeHigh/rangeLow` — the two disagree; V2 removes that split. |
-| Minimum reachable R | inherits | `MIN_REACHABLE_R = 1`. |
-| Open-space barrier | adds | §J: finite extension `entry ± EXTENSION_ATR × h4.atr`, never `Infinity`. |
-| Target ladder | inherits | identical thresholds: `maxR ≥ 3 ⇒ [1,2,3]`; `≥1.5 ⇒ [0.5,0.75,1.0]×maxR`; else `[0.6,1.0]×maxR` with `tp3R = null`. |
-| TP nullability | inherits | `tp3` may be null (see §11). |
-| R:R headline | inherits | `tp3R ?? tp2R`. |
-| Max acceptable entry | inherits | `SLIPPAGE_TOLERANCE_R = 0.15`, `TIGHT_SLIPPAGE_TOLERANCE_R = 0.10` when `maxR < 1.5`. |
-| Pillar 1 trend | inherits | alignment score logic unchanged. |
-| Pillar 2 order zone | **corrects** | zone distance normalised by native-timeframe ATR at the zone's own index (§7). |
-| Pillar 3 momentum | inherits | M15 RSI extreme/divergence at Point C. |
-| Pillar 4 volatility | **corrects** | continuous transform (§5) replacing the step function. |
-| Confluence score | inherits | same weights, same R:R multiplier cap, symmetry still excluded from the score. |
-| Grade | **replaces** | family + quality grade per the 3C truth table: continuation requires H4/H1/M15 alignment; H4-neutral is no trade; M15-opposed is `mean_reversion_candidate` (observation-only); EMA200 unavailable ⇒ `insufficient_data`. |
-| Structure key | inherits shape | `instrument|direction|aTime|bTime|stopLoss(5dp)`, computed from V2's A/B. |
-| Symmetry | inherits, unscored | recorded as diagnostic only. |
+| Component               | V2                 | Specification                                                                                                                                                                                                                                                                          |
+| ----------------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Direction derivation    | inherits           | `readTimeframe("M15")` bias; neutral ⇒ no trade.                                                                                                                                                                                                                                       |
+| A/B pivot selection     | replaces           | §4, deterministic, no search-until-valid.                                                                                                                                                                                                                                              |
+| Point C                 | replaces           | current retracement extreme after `B`, from the delivered snapshot; "confirmed-bar-only" wording is conditional on §12.                                                                                                                                                                |
+| Retracement band        | adds               | `[0.382, 0.886]` mandatory (V1 has no band).                                                                                                                                                                                                                                           |
+| Structural entry        | inherits           | Point C price (V2's C, not V1's `abc.c`).                                                                                                                                                                                                                                              |
+| Session dynamic entry   | inherits unchanged | `RUNAWAY_SESSIONS`, `DYNAMIC_ENTRY_ATR_FRACTION = 0.3`, all four existing guards (not worse than market, never beyond structural entry, `MIN_DYNAMIC_RISK_ATR = 0.5` clearance from stop, re-validated risk/reach).                                                                    |
+| Structural stop anchor  | inherits           | last 10 M15 bars' extreme, opposite side.                                                                                                                                                                                                                                              |
+| M15 ATR stop multiplier | inherits           | `STOP_M15_ATR_MULTIPLIER = 1.2`.                                                                                                                                                                                                                                                       |
+| H1 ATR floor            | inherits           | `STOP_H1_ATR_FLOOR = 0.5`.                                                                                                                                                                                                                                                             |
+| Spread floor            | inherits           | `SPREAD_FLOOR[instrument] ?? DEFAULT_SPREAD_FLOOR`.                                                                                                                                                                                                                                    |
+| Max-risk-ATR rejection  | inherits           | reject when `risk > MAX_RISK_ATR (3) × m15.atr`.                                                                                                                                                                                                                                       |
+| H4 barrier              | **corrects**       | one canonical directional barrier from confirmed unbroken H4 pivots (the `directionalHeadroomAtr` construction), used for **both** the grade headroom gate and `maxR`. V1 grades on pivots but computes `maxR` from `h4.rangeHigh/rangeLow` — the two disagree; V2 removes that split. |
+| Minimum reachable R     | inherits           | `MIN_REACHABLE_R = 1`.                                                                                                                                                                                                                                                                 |
+| Open-space barrier      | adds               | §J: finite extension `entry ± EXTENSION_ATR × h4.atr`, never `Infinity`.                                                                                                                                                                                                               |
+| Target ladder           | inherits           | identical thresholds: `maxR ≥ 3 ⇒ [1,2,3]`; `≥1.5 ⇒ [0.5,0.75,1.0]×maxR`; else `[0.6,1.0]×maxR` with `tp3R = null`.                                                                                                                                                                    |
+| TP nullability          | inherits           | `tp3` may be null (see §11).                                                                                                                                                                                                                                                           |
+| R:R headline            | inherits           | `tp3R ?? tp2R`.                                                                                                                                                                                                                                                                        |
+| Max acceptable entry    | inherits           | `SLIPPAGE_TOLERANCE_R = 0.15`, `TIGHT_SLIPPAGE_TOLERANCE_R = 0.10` when `maxR < 1.5`.                                                                                                                                                                                                  |
+| Pillar 1 trend          | inherits           | alignment score logic unchanged.                                                                                                                                                                                                                                                       |
+| Pillar 2 order zone     | **corrects**       | zone distance normalised by native-timeframe ATR at the zone's own index (§7).                                                                                                                                                                                                         |
+| Pillar 3 momentum       | inherits           | M15 RSI extreme/divergence at Point C.                                                                                                                                                                                                                                                 |
+| Pillar 4 volatility     | **corrects**       | continuous transform (§5) replacing the step function.                                                                                                                                                                                                                                 |
+| Confluence score        | inherits           | same weights, same R:R multiplier cap, symmetry still excluded from the score.                                                                                                                                                                                                         |
+| Grade                   | **replaces**       | family + quality grade per the 3C truth table: continuation requires H4/H1/M15 alignment; H4-neutral is no trade; M15-opposed is `mean_reversion_candidate` (observation-only); EMA200 unavailable ⇒ `insufficient_data`.                                                              |
+| Structure key           | inherits shape     | `instrument                                                                                                                                                                                                                                                                            | direction | aTime | bTime | stopLoss(5dp)`, computed from V2's A/B. |
+| Symmetry                | inherits, unscored | recorded as diagnostic only.                                                                                                                                                                                                                                                           |
 
 Anything not in this table is not V2's to change; no mechanic may be invented at implementation time.
 
@@ -109,7 +109,7 @@ v(r) = 100                            r > 1.6
 
 ## 6. `atrAtIndex` — Wilder, prefix-only (corrected)
 
-**Correction accepted.** V1's `atr()` is Wilder ATR: arithmetic mean of the first `period` true ranges, then recursive smoothing `ATR_t = ((period − 1) × ATR_{t−1} + TR_t) / period`. A simple mean of `TR[i−13..i]` is *not* equivalent, so the earlier §6 formula was wrong and its equality test would have failed. Replaced by:
+**Correction accepted.** V1's `atr()` is Wilder ATR: arithmetic mean of the first `period` true ranges, then recursive smoothing `ATR_t = ((period − 1) × ATR_{t−1} + TR_t) / period`. A simple mean of `TR[i−13..i]` is _not_ equivalent, so the earlier §6 formula was wrong and its equality test would have failed. Replaced by:
 
 `atrAtIndex(candles, i, period = 14)` returns exactly the value the existing Wilder algorithm produces when run over the prefix `candles[0..i]` — same seeding, same recursion, same `TR_t = max(high−low, |high−prevClose|, |low−prevClose|)`.
 
@@ -118,7 +118,6 @@ Properties: reads no index `> i`; `period = 14` needs 15 candles, i.e. `i ≥ 14
 Tests: prefix invariance across every `i` in a fixture; the V1-equality assertion above (so the two definitions cannot drift); seeding boundary at `i = 14`; non-finite rejection.
 
 Native H1/H4 zone normalisation (§7) uses this Wilder historical ATR.
-
 
 ## 7. Native-timeframe zone normalisation
 
@@ -153,14 +152,13 @@ V2 **preserves the adaptive ladder**: `tp1` and `tp2` are required and finite; `
 - Arrays contain **only closed candles** ⇒ V2's C is described as confirmed-bar-only, as originally written.
 - Arrays **include the forming candle** ⇒ V2 keeps the identical delivered snapshot (V1 must not be handed a different array for the paired experiment), and both the manifest and the UI/doc wording state explicitly that the current retracement extreme may include the forming bar. Prompt 3 does **not** strip it.
 
-Either way, `A` and `B` remain confirmed fractal pivots (2 bars either side), and a test asserts V1 and V2 receive the *same array reference* from the frozen snapshot. Switching to closed-bar-only inputs is a new model version, never an in-place V2 mutation.
+Either way, `A` and `B` remain confirmed fractal pivots (2 bars either side), and a test asserts V1 and V2 receive the _same array reference_ from the frozen snapshot. Switching to closed-bar-only inputs is a new model version, never an in-place V2 mutation.
 
 ## 13. Latency budget and bounded research writes (corrected)
 
 **Correction accepted.** No fire-and-forget database promises: on a serverless runtime the request may terminate before an unawaited write lands, which would silently corrupt the coverage metric. Instead, every research write is **awaited inside a bounded best-effort wrapper** — `Promise.race` against a per-call deadline (250 ms observation upsert, 250 ms cooldown claim, 500 ms shadow insert, 250 ms disposition update; ~1.25 s worst case total), placed **after** the V1 write and alert fan-out it follows. On timeout or failure the research work is abandoned for that cycle, `research_errors` / `research_last_error` are updated on a best-effort basis, the coverage ratio records the gap, and the V1 `JobResult` is unchanged.
 
 Measurement: compare p95 job duration (existing `started_at`/`finished_at`) across pre-refactor baseline, refactor with `v2_enabled = false`, and `v2_enabled = true`. Budget: **≤150 ms added p95 disabled**, **≤600 ms added p95 enabled**, absolute p95 under 5 s. If exceeded, deadlines are tightened or the research block is skipped for that cycle — never converted to an unawaited promise. V1 keeps priority under time pressure; no research call is retried inside the job.
-
 
 ## 14. Acceptance tests (failure injections)
 

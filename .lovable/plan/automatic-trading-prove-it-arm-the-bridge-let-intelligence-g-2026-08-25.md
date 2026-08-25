@@ -1,6 +1,6 @@
 # Automatic trading: prove it, arm the bridge, let intelligence gate it
 
-Three separate pieces of work, in this order. Each one can only ever *reduce* what is sent; no existing safety gate is weakened, and nothing here can change what the scanner publishes or any statistic.
+Three separate pieces of work, in this order. Each one can only ever _reduce_ what is sent; no existing safety gate is weakened, and nothing here can change what the scanner publishes or any statistic.
 
 ## 1. Prove the demo auto path end to end
 

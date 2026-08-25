@@ -64,7 +64,6 @@ ledger is unambiguous: either a decision exists and says why, or the engine
 published nothing. The owner sees their own decisions in Settings; the admin
 terminal sees the recent decisions pseudonymously.
 
-
 ### States
 
 `pending` → `claimed` → one of `sent`, `acknowledged`, `rejected`, `unknown`,
@@ -96,7 +95,7 @@ Resolution of those states is manual or dry-run.
   settings `instruments`, `sessions`, `alert_min_grade`, `daily_setup_cap`. The
   version is snapshotted at enqueue; at dispatch a mismatch is rejected with
   `configuration_changed_since_enqueue`, `intelligence_gate_below_threshold`,
-`intelligence_gate_sample_insufficient`. An old signal is never silently sent under
+  `intelligence_gate_sample_insufficient`. An old signal is never silently sent under
   new authorisation.
 - **Server-only authorisation writes.** Database column privileges prevent an
   authenticated browser/REST client from reading or replacing the bridge secret

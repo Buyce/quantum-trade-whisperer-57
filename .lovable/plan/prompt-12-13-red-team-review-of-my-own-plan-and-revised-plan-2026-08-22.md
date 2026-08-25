@@ -5,7 +5,7 @@ Plan only. Prompt 12 ships and verifies first; Prompt 13 is built against that v
 ## A. Defects found in my own previous plan
 
 **A1. "No increase in MetaApi usage" was false.** A `broker_symbol_specs` refresh is, by definition,
-new broker calls (3 symbols × 1/day + retries). The honest claim is *bounded* usage: ≤3 spec calls
+new broker calls (3 symbols × 1/day + retries). The honest claim is _bounded_ usage: ≤3 spec calls
 per 24h, zero per render, zero inside the scan critical path.
 
 **A2. I assumed a MetaApi symbol-specification endpoint without verifying it.** `metaapi.server.ts`
@@ -27,9 +27,9 @@ compute v1 (static) and v2 (broker spec) side by side, persist divergences to a 
 `sizing_divergence_log`, keep v1 authoritative until divergence is reviewed, then flip a flag.
 
 **A5. Making the panel fail-closed on an empty spec table would dark the risk panel for everyone at
-deploy.** Static contract specs are *documented instrument facts*, not fabricated market data, so
+deploy.** Static contract specs are _documented instrument facts_, not fabricated market data, so
 keeping them is not a zero-hallucination violation — provided they are labelled
-`spec_source: "static_v1"` and never called broker-confirmed. Fail-closed applies to *market* inputs
+`spec_source: "static_v1"` and never called broker-confirmed. Fail-closed applies to _market_ inputs
 (FX rate, quote freshness) and to broker-only fields (`stopsLevel`, `volumeLimit`), which are simply
 absent rather than guessed.
 
@@ -43,7 +43,7 @@ research engine** (different owners, different lifecycle, admin-RPC-only access)
 `execution_controls` singleton.
 
 **A8. HMAC-only signing is backwards-incompatible** with the one live JSON receiver. Revised: keep
-the existing body `secret` field, *add* `X-PTrades-Signature`/`-Timestamp`/`-Nonce` and a
+the existing body `secret` field, _add_ `X-PTrades-Signature`/`-Timestamp`/`-Nonce` and a
 `payload_version: 2`, and deprecate the body secret only after the receiver confirms.
 
 **A9. DNS-over-HTTPS validation inside the publish path is a latency/failure coupling.** The scanner
@@ -60,7 +60,7 @@ never auto-retries `sent` or `unknown`; only `pending` is claimable, and lease e
 be worded "based on trades you logged", never "your account exposure".
 
 **A12. Multi-TP mismatch had no principled resolution.** Insight: the replay registry already
-defines `single_exit_first_target`. Align the bridge order with a *named execution policy* so what a
+defines `single_exit_first_target`. Align the bridge order with a _named execution policy_ so what a
 bridge user gets is the same object the shadow engine measures — instead of inventing a third,
 unmeasured behaviour.
 
@@ -79,7 +79,7 @@ the unconditional AUDUSD+GBPUSD fetch — 2 wasted calls per TTL forever; reject
 `fx.test.ts` already pins parity=0/direct=1/cross=2 request counts. Changes my mind: adding a
 non-USD-crossed account currency.
 
-**B3. Margin stays notional/leverage but is *labelled* an estimate.** Alternatives: (i) call it
+**B3. Margin stays notional/leverage but is _labelled_ an estimate.** Alternatives: (i) call it
 `marginRequired` as today — false precision; rejected. (ii) Hide margin entirely — removes a useful
 sanity check; rejected. Evidence: MT5 margin depends on `calcMode`, `currencyMargin`, and symbol
 margin rates we do not have. Changes my mind: a verified broker margin calculation endpoint.
@@ -92,7 +92,7 @@ Changes my mind: if execution stays permanently dry-run-only, a simpler log woul
 
 **B5. Advisory-first deterministic exposure limits.** Alternatives: (i) covariance/portfolio VaR — no
 data (25 self-reported trades); rejected. (ii) Blocking limits immediately — would block on
-low-quality journal data; rejected for now, promoted to blocking only for *execution*, never for
+low-quality journal data; rejected for now, promoted to blocking only for _execution_, never for
 feed/alerts.
 
 ## C. Failure scenarios the architecture must survive
@@ -117,6 +117,7 @@ authenticated read per instrument. Record FACT vs ASSUMPTION. Everything spec-de
 this.
 
 **Prompt 12**
+
 1. `broker_symbol_specs` (service_role write, authenticated read) + `src/lib/broker/specs.server.ts`
    refresh (≤1/symbol/24h, invoked from the existing scan cron, never per render, never blocking a
    scan) + `specs.ts` pure adapter.
@@ -136,6 +137,7 @@ this.
    and extends it to new risk fields. Manifest wording updated.
 
 **Prompt 13**
+
 1. `execution_controls` singleton (global disable defaulting to blocked, dry-run, per-bridge and
    per-instrument disable) + `scanner_settings.execution_enabled`, `execution_dry_run`.
 2. `outbound-url.server.ts`: WHATWG parse, https only, no userinfo, port 443, DoH A/AAAA, reject

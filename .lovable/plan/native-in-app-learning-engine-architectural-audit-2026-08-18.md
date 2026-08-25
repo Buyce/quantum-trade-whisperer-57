@@ -4,14 +4,14 @@
 
 Measured against the live `shadow_executions` table right now:
 
-| Metric | Value |
-| --- | --- |
-| Resolved rows | 68 |
-| Actually filled (tradable outcomes) | 19 |
-| Wins (`ml_target_label = 1`) | 7 |
-| Never filled | 49 (72%) |
-| Grades present | B (65), C (3) — zero A, zero A+ |
-| Instruments | XAUUSD 39, EURUSD 26, GBPAUD 3 |
+| Metric                              | Value                           |
+| ----------------------------------- | ------------------------------- |
+| Resolved rows                       | 68                              |
+| Actually filled (tradable outcomes) | 19                              |
+| Wins (`ml_target_label = 1`)        | 7                               |
+| Never filled                        | 49 (72%)                        |
+| Grades present                      | B (65), C (3) — zero A, zero A+ |
+| Instruments                         | XAUUSD 39, EURUSD 26, GBPAUD 3  |
 
 Your Option A example bucket — `EURUSD + London + High Volatility` — would resolve to roughly **two** filled samples. Option B would fit 4-6 weights to 19 observations with 7 positives, which is a memorised dataset, not a model.
 
@@ -111,7 +111,6 @@ This is recorded as a finding only; changing the TIF is a separate decision and 
 ## 9. Explicitly out of scope
 
 No Python, no external microservice, no external ML API, no seeded or synthetic training rows, no change to the 15-minute cron cadence, no TIF change, no change to the live feed queries or the daily cap.
-
 
 ## Technical notes
 

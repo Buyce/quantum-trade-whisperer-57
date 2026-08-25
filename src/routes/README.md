@@ -9,35 +9,35 @@ is `src/routes/__root.tsx`.
 
 ## Conventions
 
-| File | URL |
-| --- | --- |
-| `index.tsx` | `/` |
-| `about.tsx` | `/about` |
-| `users/index.tsx` | `/users` |
-| `users/$id.tsx` | `/users/$id` (dynamic — bare `$`, no curly braces) |
-| `files/$.tsx` | `/files/*` (splat — read via `_splat`, never `*`) |
+| File                       | URL                                                 |
+| -------------------------- | --------------------------------------------------- |
+| `index.tsx`                | `/`                                                 |
+| `about.tsx`                | `/about`                                            |
+| `users/index.tsx`          | `/users`                                            |
+| `users/$id.tsx`            | `/users/$id` (dynamic — bare `$`, no curly braces)  |
+| `files/$.tsx`              | `/files/*` (splat — read via `_splat`, never `*`)   |
 | `_authenticated/route.tsx` | pathless layout (renders children via `<Outlet />`) |
-| `__root.tsx` | app shell — wraps every page; preserve `<Outlet />` |
+| `__root.tsx`               | app shell — wraps every page; preserve `<Outlet />` |
 
 The string passed to `createFileRoute("…")` uses **slashes**, includes the
 underscore layout segment, and must match the generated route id exactly.
 
 ## This project's route map
 
-| Route | Access | Indexable |
-| --- | --- | --- |
-| `index.tsx` | public landing | yes (in `sitemap.xml`) |
-| `auth.tsx` | public sign-in | yes (in `sitemap.xml`) |
-| `connect.tsx` | public AI-connection instructions | yes |
-| `_authenticated/feed.tsx` | signed-in terminal | no |
-| `_authenticated/history.tsx` | signed-in terminal | no |
-| `_authenticated/performance.tsx` | signed-in terminal | no |
-| `_authenticated/settings.tsx` | signed-in terminal | no |
-| `_authenticated/guide.tsx` | signed-in help centre | no — `robots: noindex`, absent from `sitemap.xml` |
-| `_authenticated/admin/*` | owner only | no |
-| `api/public/**` | external callers, bypasses site auth | no |
-| `mcp.ts`, `[.mcp]/*` | MCP transport for AI assistants | no |
-| `sitemap[.]xml.ts`, `lovable/email/**` | machine endpoints | n/a |
+| Route                                  | Access                               | Indexable                                         |
+| -------------------------------------- | ------------------------------------ | ------------------------------------------------- |
+| `index.tsx`                            | public landing                       | yes (in `sitemap.xml`)                            |
+| `auth.tsx`                             | public sign-in                       | yes (in `sitemap.xml`)                            |
+| `connect.tsx`                          | public AI-connection instructions    | yes                                               |
+| `_authenticated/feed.tsx`              | signed-in terminal                   | no                                                |
+| `_authenticated/history.tsx`           | signed-in terminal                   | no                                                |
+| `_authenticated/performance.tsx`       | signed-in terminal                   | no                                                |
+| `_authenticated/settings.tsx`          | signed-in terminal                   | no                                                |
+| `_authenticated/guide.tsx`             | signed-in help centre                | no — `robots: noindex`, absent from `sitemap.xml` |
+| `_authenticated/admin/*`               | owner only                           | no                                                |
+| `api/public/**`                        | external callers, bypasses site auth | no                                                |
+| `mcp.ts`, `[.mcp]/*`                   | MCP transport for AI assistants      | no                                                |
+| `sitemap[.]xml.ts`, `lovable/email/**` | machine endpoints                    | n/a                                               |
 
 Rules that hold across the terminal routes:
 
