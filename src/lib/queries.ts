@@ -168,6 +168,15 @@ function one<T>(value: T[] | T | null | undefined): T | null {
   return Array.isArray(value) ? (value[0] ?? null) : value;
 }
 
+/**
+ * Every column the settings form reads back after a save. Exported so a test can
+ * assert the read projection covers everything the form writes — a field that is
+ * written but not selected comes back undefined and makes a saved control appear
+ * to revert on screen, which is exactly the failure this constant guards.
+ */
+export const SETTINGS_SELECT =
+  "user_id, instruments, timeframes, sessions, min_grade, alert_min_grade, daily_setup_cap, notify_push, notify_email, order_strategy, webhook_enabled, webhook_url, webhook_format, execution_enabled, execution_dry_run, exposure_limit_enabled, webhook_validated_at, webhook_validation_reason, account_equity, account_currency, risk_per_trade_percent, max_position_size, leverage, max_stop_loss_percent, equity_as_of, risk_ack_high, auto_intel_gate_enabled, auto_intel_min_win_pct, auto_intel_min_sample";
+
 export function settingsQuery(userId: string | undefined) {
   return queryOptions({
     queryKey: ["scanner-settings", userId],
@@ -175,15 +184,14 @@ export function settingsQuery(userId: string | undefined) {
     queryFn: async (): Promise<ScannerSettingsRow | null> => {
       const { data, error } = await supabase
         .from("scanner_settings" as never)
-        .select(
-          "user_id, instruments, timeframes, sessions, min_grade, alert_min_grade, daily_setup_cap, notify_push, notify_email, order_strategy, webhook_enabled, webhook_url, webhook_format, execution_enabled, execution_dry_run, exposure_limit_enabled, webhook_validated_at, webhook_validation_reason, account_equity, account_currency, risk_per_trade_percent, max_position_size, leverage, max_stop_loss_percent, equity_as_of, risk_ack_high",
-        )
+        .select(SETTINGS_SELECT)
         .maybeSingle();
       if (error) throw error;
       return (data ?? null) as unknown as ScannerSettingsRow | null;
     },
   });
 }
+
 
 export function instrumentHealthQuery() {
   return queryOptions({
