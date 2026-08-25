@@ -81,7 +81,7 @@ describe("enqueueDirectDeliveries", () => {
     });
   });
 
-  it("[INVARIANT] never enqueues a C-Grade setup", async () => {
+  it("[INVARIANT] never enqueues a C-Grade setup without the owner's opt-in", async () => {
     const f = fake();
     const out = await enqueueDirectDeliveries(
       f.client as SupabaseClient,
@@ -89,7 +89,29 @@ describe("enqueueDirectDeliveries", () => {
       NOW,
     );
     expect(out.enqueued).toBe(0);
-    expect(out.reason).toBe("c_grade_never_executes");
+    expect(out.reason).toBe("filtered_by_user_rules");
+    expect(inserts(f.calls)).toHaveLength(0);
+  });
+
+  it("[INVARIANT] enqueues a C-Grade setup only when the owner opted in and the tier allows C", async () => {
+    const f = fake({ settings: { auto_execute_c_grade: true, alert_min_grade: "C" } });
+    const out = await enqueueDirectDeliveries(
+      f.client as SupabaseClient,
+      { ...SIGNAL, grade: "C" },
+      NOW,
+    );
+    expect(out.enqueued).toBe(1);
+    expect(out.reason).toBeNull();
+  });
+
+  it("[INVARIANT] the C-Grade opt-in does not bypass the owner's alert tier", async () => {
+    const f = fake({ settings: { auto_execute_c_grade: true, alert_min_grade: "B" } });
+    const out = await enqueueDirectDeliveries(
+      f.client as SupabaseClient,
+      { ...SIGNAL, grade: "C" },
+      NOW,
+    );
+    expect(out.enqueued).toBe(0);
     expect(inserts(f.calls)).toHaveLength(0);
   });
 
