@@ -115,7 +115,7 @@ function PerformancePage() {
   const automaticOrders = useQuery({
     queryKey: ["automatic-order-summary"],
     queryFn: () => loadAutomaticOrders(),
-    enabled: Boolean(user),
+    enabled: Boolean(user) && scope === "broker",
   });
   const [scope, setScope] = useState<PerformanceSource>("journal");
   const [rBasis, setRBasis] = useState<RBasis>("actual_risk");
@@ -182,7 +182,7 @@ function PerformancePage() {
     trades.isLoading ||
     customerEvidence.isLoading ||
       benchmarkEvidence.isLoading ||
-      automaticOrders.isLoading
+      (scope === "broker" && automaticOrders.isLoading)
   ) {
     return (
       <div className="space-y-4">
