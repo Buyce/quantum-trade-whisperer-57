@@ -410,7 +410,12 @@ export function v1ObservationRow(args: {
           hasProposedProfile: ev.proposedProfile !== null,
         }
       : null,
+    suppression_reason: args.suppressionReason ?? null,
+    lifecycle_stage_at_detection: args.lifecycleStage ?? null,
+    session_version: args.sessionVersion ?? null,
+    canonical_instrument: args.instrument,
   };
+
 }
 
 /**
