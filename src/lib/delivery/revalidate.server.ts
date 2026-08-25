@@ -576,8 +576,9 @@ export async function revalidateDelivery(
   // broker's own minimum order distance. A direct broker destination whose
   // minimum distance cannot be read is refused rather than sent a price we cannot
   // prove is placeable: the distance is never assumed.
-  const limitDistance = spec ? minStopDistance(spec) : null;
-  console.log("DBG2", execPlan.entryPrice, marketPrice, limitDistance, destination);
+  const rawDistance = spec ? minStopDistance(spec) : null;
+  const limitDistance =
+    rawDistance !== null && Number.isFinite(rawDistance) && rawDistance >= 0 ? rawDistance : null;
   if (destination === "metaapi_direct" && limitDistance === null) {
     return reject(
       "limit_distance_unavailable",
