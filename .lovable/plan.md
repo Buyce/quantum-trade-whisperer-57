@@ -1,283 +1,288 @@
-# Wave 1 — Revised Plan (Second-Pass Audit)
+# Phase A — Data and Architecture Foundation (detailed plan)
 
-## Executive verdict
+Umbrella direction approved separately. Phase A is plan-only until approved here.
+Phase A adds no intelligence, no news provider, no prediction model, and does not
+make any new instrument visible or executable. Phase B is planned separately.
 
-The first plan's sequencing was right; two of its statements were wrong and one
-was unsafe. It is approvable only after the corrections below. All 16 findings
-were checked against HEAD and the live database; three are already handled by
-existing machinery and should NOT be rebuilt, two are only partially true, and
-one (F14) is materially overstated by the review.
+## Phase A objective
 
-### What the first plan got right
+Give the system one authoritative instrument definition layer, an operational
+lifecycle with immutable history, and the correctness work that a JPY/CAD/CHF pair
+forces — then admit the five Wave 1 pairs at a stage where they can only be
+measured. Existing XAUUSD, GBPAUD and EURUSD behaviour must be provably unchanged.
 
-Lifecycle before exposure; five pairs non-public and non-executable; service-role
-only stage changes; explicit refusal reasons; fail-closed sizing; no synthetic
-data; docs contract tests; measured worker capacity; independent promotion.
+Explicitly out of scope for Phase A: news, predictions, promotion of any pair,
+research cohort activation for the new pairs (Phase B), exposure extensions.
 
-### What the first plan got wrong
+## A1 — Instrument registry (code only, zero behaviour change)
 
-1. It proposed the predictive challenger write `model_version = 3`. That number is
-   already taken and registered (see F1). Hard collision.
-2. It claimed lifecycle suppression is harmless. Suppressing `scanned_signals`
-   also suppresses V1 outcome learning, because enrolment is a trigger on that
-   table (F2). Suppressed pairs would have learned nothing.
-3. It leaned on the existing evidence gate for promotion. That gate cannot reach
-   `actionable` by construction (F3).
-4. It asserted "byte-identical" behaviour and quoted an unvalidated 0.02 USDJPY
-   spread floor (F8, F16).
+New `src/lib/instruments/registry.ts`, the single definition authority:
 
-## Verdicts, with evidence
+```
+InstrumentDefinition = {
+  symbol, label, base, quote,
+  contractSize, lotStep, minLot,
+  fallbackDigits,            // used only when no broker spec exists
+  spreadFloor,               // V1-frozen for wave 0; broker-derived for wave 1
+  wave: 0 | 1,
+}
+```
 
-**F1 — Confirmed (critical).** `src/lib/scanner/v3/manifest.ts` defines
-`MODEL_V3_VERSION = 3`, `enrolV3Shadow` in `src/lib/research/enrol.server.ts`
-writes `shadow_executions.model_version = 3`, and `model_versions` holds
-`1: V1 production engine | 2: v2-canonical-abc-research | 3: v3-corrected-geometry-research`.
-Correction: predictions get their own identity, not a strategy version. New
-`prediction_models` registry (`prediction_model_id`, `artifact_version`,
-`feature_schema_version`, `training_cutoff`, `code_hash`) and prediction rows that
-*reference* `strategy_model_version` (1/2/3) instead of occupying it. No numeric
-V4 is minted for a non-geometry model.
+- `WAVE0 = XAUUSD, GBPAUD, EURUSD` with values copied byte-for-byte from
+  `CONTRACT_SPECS` and `SPREAD_FLOOR` in `src/lib/risk.ts`, plus
+  `INSTRUMENT_LABELS` in `src/lib/db-types.ts`.
+- Wave 1 definitions are added in A4, not here.
+- Broker-authoritative facts are NOT copied in: `digits`, `point`, `stops_level`,
+  `volume_*`, `trade_mode` continue to come from `broker_symbol_specs` and
+  `connected_account_specs`, and per-account symbol names from
+  `connected_account_symbols`.
 
-**F2 — Confirmed (critical), and the fix already exists.** Live triggers on
-`scanned_signals`: `shadow_enroll_on_signal` → `enroll_shadow_signal()` and
-`enqueue_execution_deliveries_trg`. So a pair that never publishes gets no V1
-shadow row. But V2/V3 already prove the correct pattern: `enrolV2Shadow` /
-`enrolV3Shadow` write `shadow_executions` in-pipeline with `signal_id = NULL`, and
-`src/lib/execution/shadow_resolve.server.ts` resolves them by replay filtered on
-`model_version`. Wave 1 therefore adds an **in-pipeline, cohort-labelled V1-geometry
-enrolment for lifecycle-suppressed instruments** — same frozen plan fields, same
-replay resolver, no trigger, no `scanned_signals` write.
-Documented path: candles → `evaluateSetup` → lifecycle suppression → in-pipeline
-shadow enrolment (frozen entry/stop/TP/R + `observation_key`) → replay resolution →
-cohort statistics → promotion evidence.
-Runtime fact that changes the plan: `shadow_engine_state` currently reads
-`v2_enabled = false, v3_enabled = false, candidate_capture_enabled = false,
-candidate_enrolment_enabled = false` and `research_candidates` has **0 rows**. The
-research plane is dormant, so Wave 1 must explicitly enable bounded capture for the
-new pairs — it cannot assume research is already flowing.
+Existing constants become thin re-exports so nothing else changes shape:
+`INSTRUMENTS` (`src/lib/scanner/types.ts`), `ALL_INSTRUMENTS` and
+`INSTRUMENT_LABELS` (`src/lib/db-types.ts`), `CONTRACT_SPECS` and `SPREAD_FLOOR`
+(`src/lib/risk.ts`).
 
-**F3 — Confirmed.** `src/lib/stats/evidence.ts` exports `HOLDOUT_AVAILABLE = false`
-and `holdoutConfirmed()` returns it, so `actionable` is unreachable and
-`MIN_GROUP_SAMPLES = 30` / `MIN_GROUP_CLUSTERS` are descriptive only. Three
-distinct gates are defined below; the existing gate is reused unchanged for the
-descriptive layer only.
+Tests: a registry-parity test asserting the derived constants are deeply equal to
+the current literals (the literals are copied into the test as frozen expectations),
+so A1 cannot alter a single number.
 
-**F4 — Partially confirmed.** The fragmentation is worse than the review states:
-besides `INSTRUMENTS`, `ALL_INSTRUMENTS`, `INSTRUMENT_LABELS`, `CONTRACT_SPECS`,
-`SPREAD_FLOOR` and the docs contract, the **database column default** of
-`scanner_settings.instruments` is a fourth hard-coded list
-(`ARRAY['XAUUSD','GBPAUD','EURUSD']`), and `specs.server.ts`, `provision.server.ts`,
-`conversion.server.ts` and `routes/api/public/quotes.ts` all derive from
-`INSTRUMENTS`. Correction: one typed code registry for *definitions* (symbol, base,
-quote, digits fallback, contract size, lot step, label, wave), DB lifecycle table for
-*operational state*, `connected_account_symbols`/`connected_account_specs` for
-*account-specific mapping*, `broker_symbol_specs` for *broker-authoritative* facts,
-and a new versioned cost table for *empirical* spread. Broker and account facts stay
-where they are — they are not moved into the registry.
+## A2 — Lifecycle schema
 
-**F5 — Confirmed as missing.** Continuity matrix below. No existing row is
-rewritten; every instrument column is free-form text (no check constraint pins
-instrument names), so expansion needs no data migration at all.
+Migration A2 (single migration, additive only):
 
-**F6 — Confirmed.** Restated with separate estimands and, given 0 candidate rows
-today, deliberately deferred: no ML infrastructure is built in Wave 1.
+```
+create type instrument_stage as enum
+  ('disabled','data_validation','shadow','signals_only','execution_approved','suspended');
 
-**F7 — Confirmed.** Per-instrument characterisation is required; maturity is never
-inherited.
+instrument_lifecycle
+  symbol text primary key
+  stage instrument_stage not null default 'disabled'
+  wave smallint not null default 1
+  data_health text                -- last operational verdict
+  updated_at timestamptz not null default now()
 
-**F8 — Partially confirmed.** `SPREAD_FLOOR` has 3 entries and
-`DEFAULT_SPREAD_FLOOR = 0.0002`; that default is dimensionally wrong for a
-3-digit JPY pair. But 0.02 is an unvalidated guess, so the plan does **not** hard-code
-it: the JPY floor is derived from the broker's own `point`/`digits`
-(`broker_symbol_specs` already stores `point`, `point_source`, `digits`,
-`stops_level`) times a measured spread percentile, and until that measurement exists
-the pair stays in `data_validation`. V1's three existing floors are frozen verbatim.
+instrument_lifecycle_transitions   -- append-only, no update/delete policy
+  id bigserial primary key
+  symbol text not null references instrument_lifecycle(symbol)
+  from_stage instrument_stage
+  to_stage instrument_stage not null
+  reason text not null
+  evidence jsonb                  -- gate snapshot at decision time
+  strategy_model_version smallint
+  code_hash text
+  approver text
+  rollback_target instrument_stage
+  created_at timestamptz not null default now()
+```
 
-**F9 — Partially confirmed.** Sessions are fixed UTC and already single-sourced:
-`scannerSessionOf` in `src/lib/market-hours.ts` mirrors `sessionOf` in
-`pipeline.server.ts`. DST drift is real but correcting it would silently reinterpret
-125 existing signals and 482 existing shadow rows. Correction: keep V1 boundaries
-frozen, add a nullable `session_definition_version` to new observation writes
-(`market_context` has no such column today), and only a versioned challenger may use
-DST-aware boundaries.
+Grants and RLS, in the required order: grants → enable RLS → policies.
 
-**F10 — Confirmed, and one product decision reversed.** No calendar integration
-exists anywhere in `src/`. The first plan's "publish but label" contradicts the
-stated no-high-impact-news policy. Recommended safest coherent behaviour:
-**research capture + feed display with an explicit warning + no alert + no automatic
-execution**, because full suppression destroys the very research needed to validate
-the rule, while alerting invites the trade the policy forbids.
+- `instrument_lifecycle`: `GRANT SELECT` to `authenticated` is **not** given.
+  Customers read a restricted projection instead:
+  `public.instrument_stages` view exposing `symbol, stage` only, granted
+  `SELECT` to `authenticated`. Approver, reason, evidence and notes stay
+  service-role.
+- `instrument_lifecycle_transitions`: `GRANT ALL` to `service_role` only; no
+  authenticated grant; a policy set with no UPDATE/DELETE policy, making history
+  append-only in practice.
+- `touch_updated_at` trigger on `instrument_lifecycle`.
 
-**F11 — Already handled.** Both systems exist and are explicitly documented as
-non-mergeable: `src/lib/delivery/exposure.ts` (journal, advisory unless
-`exposure_limit_enabled`) and `src/lib/execution/exposure-account.ts`
-(broker-derived, fail-closed, blocks submission). Wave 1 extends each separately,
-never merges them.
+Seed (data statement, run after the migration): the three Wave 0 symbols at
+`execution_approved`, each with one transition row recording
+`reason = 'wave 0 baseline, current effective stage'`.
 
-**F12 — Already handled structurally; one gap.**
-`src/lib/delivery/revalidate.server.ts` is the single pre-send gate ("NOTHING leaves
-this system without passing here") and already re-checks
-`execution_controls.disabled_instruments`, per-user settings, live quote freshness
-and the stored spec. The lowest authoritative boundary therefore already exists:
-lifecycle stage and news state are added **there** (and to `submitDirectOrder`'s
-shared call path), not as duplicate rules. Queued deliveries for a demoted or
-suspended instrument end as `rejected` with a named reason — the existing terminal
-path, no new state machine.
+## A3 — Lifecycle reads behind a flag, with parity proof
 
-**F13 — Confirmed.** Add `disabled | data_validation | shadow | signals_only |
-execution_approved | suspended`, an append-only transitions table (approver,
-reason, evidence snapshot, code hash, rollback target), and a **restricted
-projection** for customers exposing stage only — approver identity and operational
-notes stay service-role.
+New `src/lib/instruments/lifecycle.server.ts`:
 
-**F14 — Partially confirmed; materially overstated.** Live check: 5 rows in
-`scanner_settings`, **0** with a null/empty `instruments` array, all 5 with exactly
-3 instruments, column default `ARRAY['XAUUSD','GBPAUD','EURUSD']`. So no existing
-user is currently exposed to auto-opt-in. The real defects are in code:
-`eligibility.ts` line 88 treats an empty array as no filter, and `settings.tsx`
-seeds state from `ALL_INSTRUMENTS`. Correction (smaller than proposed): pin both
-the UI default and the column default to the Wave 0 set, and require explicit
-inclusion for any instrument outside it — no data migration needed.
+- `readStages(db)` → `Record<symbol, stage>`, short-cached per request.
+- `LIFECYCLE_ENFORCED` flag read from `execution_controls` (new boolean column
+  `lifecycle_enforced default false`, migration A3) so the switch is operational,
+  not a redeploy.
+- Read-failure policy, tested explicitly: for a Wave 0 symbol fall back to the
+  frozen registry stage (`execution_approved`); for any symbol not in Wave 0 the
+  answer is `disabled`. Never "unknown means allowed".
 
-**F15 — Confirmed.** `instrument_health` is per-instrument
-(`available`, `unavailable_until`), but `shadow_engine_state` carries **global**
-`paused`, `consecutive_failures`, `research_errors`. A new pair failing repeatedly
-would pause research for Gold. Add per-instrument research failure counters and a
-per-instrument breaker; the global breaker is reserved for provider-wide failure.
+Call sites — each gets one added check, no rule duplicated:
 
-**F16 — Confirmed.** Parity is demonstrated by tests and observed output, not
-asserted. Flagged rollout sequence below.
-
-## Corrected scope
-
-Wave 1 delivers: registry + lifecycle (F4, F13), research enrolment and resolution
-for suppressed pairs (F2), three independent gates (F3), precision/cost correctness
-(F8), the five pairs in `data_validation` (F7), failure isolation (F15), pre-send
-revalidation extension (F12), opt-in safety (F14), and per-instrument
-characterisation. News (F10) is scoped to schema + gate + provider evaluation.
-The predictive challenger (F1, F6) is scoped to identity/registry design and
-prediction-record schema only — no model is trained.
-
-## Existing-data continuity matrix
-
-| Object | Treatment | Backfill |
+| Path | File | Requirement when enforced |
 | --- | --- | --- |
-| `scanned_signals` (125 rows) | unchanged | none |
-| `market_context` | add nullable `session_definition_version` | none — old rows stay unknown |
-| `executed_trades`, `broker_trade_evidence` | unchanged | none |
-| `model_versions` (1,2,3) | unchanged; predictions never mint a version | none |
-| `model_observations`, `research_candidates` (0 rows) | extended with cohort label | none |
-| `shadow_executions` (482 V1 rows) | extended with a research-cohort flag | none |
-| `regime_stats`, `regime_snapshots`, payoff tables | unchanged; new cohorts are separate | none |
-| `scanner_settings` | column default pinned to Wave 0 | none |
-| `connected_trading_accounts`, `*_specs`, `*_symbols` | unchanged | new symbols mapped on refresh |
-| `execution_deliveries`, `execution_enqueue_decisions` | new refusal reasons only | none |
-| `broker_symbol_specs` (3 symbols) | new symbol rows added by the daily job | factual only |
-| `instrument_health` | unchanged | none |
+| publication | `src/lib/scanner/pipeline.server.ts` | `>= signals_only` to write `scanned_signals`; below it the job records the observation and returns a named skip |
+| feed/alerts | `src/lib/delivery/eligibility.ts` | `>= signals_only` |
+| auto enqueue | `src/lib/delivery/direct-enqueue.server.ts` | `= execution_approved`, refusal reason `instrument_not_approved` in `execution_enqueue_decisions` |
+| final pre-send | `src/lib/delivery/revalidate.server.ts` | `= execution_approved` re-checked immediately before submission; otherwise delivery ends `rejected` with reason `instrument_not_approved` (existing terminal path) |
+| direct submit | `src/lib/execution/direct.server.ts` | inherits the revalidate gate; no second rule |
 
-Unknown history stays unknown: no old session relabelling, no synthetic spreads, no
-back-dated news, no cohort reclassification. Rollback is per stage: drop the flag,
-and the new tables become inert.
+`suspended` behaves as "not approved" everywhere, so a demotion after enqueue is
+refused at the pre-send gate. `disabled` additionally skips scanning.
 
-## Promotion gates (independent per instrument)
+Parity requirement before A3 enforcement is switched on: with the flag off, and
+again with the flag on for Wave 0 only, the same recorded inputs must produce
+identical direction, grade, entry, stop, TP1-3, R multiples, structure key,
+confidence, pillars, gate outcomes, publication decision, alert decision,
+eligibility verdict, sizing result, enqueue decision and final pre-send verdict.
 
-- **`data_validation` → `shadow`** — operational only, no statistics: symbol mapped
-  unambiguously on the benchmark account, broker `digits`/`point` present and fresh,
-  candle completeness per timeframe, quote freshness, conversion route resolvable
-  for every supported account currency, queue processing stable, zero unresolved
-  data-integrity failures.
-- **`shadow` → `signals_only`** — resolved forward observations meeting the existing
-  descriptive gate (`MIN_GROUP_SAMPLES`, day clusters), cost-adjusted behaviour
-  stable, manual review of accepted and rejected candidates, correct feed/alert
-  presentation, honest evidence labels. No execution authority.
-- **`signals_only` → `execution_approved`** — genuine untouched forward holdout
-  (the holdout mechanism itself is new work; historical backfill can never satisfy
-  it), broker execution evidence, cost-adjusted net expectancy, calibration and
-  stability, portfolio controls, news protection, pre-submit revalidation,
-  emergency suspension and a tested rollback.
+## A4 — Wave 1 pairs admitted at `data_validation`
 
-Thresholds are set from each instrument's own measured setup frequency, not a
-borrowed sample number.
+Registry additions: GBPUSD, USDJPY, AUDUSD, USDCAD, USDCHF (`wave: 1`).
+Lifecycle rows inserted at `disabled`, then moved to `data_validation` only after
+A5 passes for that symbol. Publication, alerts and execution remain impossible by
+construction at both stages.
 
-## Stages
+Derived coverage this unlocks automatically (all already read `INSTRUMENTS`):
+`src/lib/broker/specs.server.ts` (daily spec refresh),
+`src/routes/api/public/quotes.ts`, `src/lib/sizing/conversion.server.ts`,
+`src/lib/accounts/provision.server.ts` (symbol mapping on connect).
 
-Each stage lists reuse / additive / behaviour / DB / user impact / failure / tests /
-observability / rollback / dependency / completion evidence.
+`scanner_settings.instruments` column default and the `settings.tsx` initial
+selection are pinned to Wave 0 (migration A4 alters the column default to the same
+literal it already has, expressed against the registry in code). Eligibility is
+changed so an instrument outside Wave 0 requires explicit inclusion — an empty
+`instruments` array continues to mean "all Wave 0", never "all instruments".
+Current data makes this safe: 5 settings rows, 0 empty arrays, all with exactly the
+three Wave 0 symbols.
 
-**Stage 1 — Registry + lifecycle, read-only behind a flag.**
-Reuse: `execution_controls.disabled_instruments`, `revalidate.server.ts`,
-`instrument_health`. Additive: typed registry module, `instrument_lifecycle`,
-`instrument_lifecycle_transitions`, customer projection. Behaviour: none —
-enforcement off. DB: three additive objects with grants then RLS then policies.
-User impact: none. Failure: lifecycle read failure falls back to the frozen Wave 0
-registry for existing pairs and to "suppressed" for new pairs. Tests: parity
-snapshots for the three live pairs across direction, grade, entry, stop, targets, R,
-structure key, confidence, pillars, gates, publication, alerts, eligibility, sizing,
-enqueue and final refusal. Observability: stage read counters. Rollback: drop flag.
-Completion: dual-path comparison shows zero diffs.
+## A5 — Precision, cost floor and conversion correctness
 
-**Stage 2 — Enforcement on for existing pairs only**, after parity holds.
+Per-symbol operational readiness check (`src/lib/instruments/readiness.server.ts`),
+run on demand and recorded into `instrument_lifecycle.data_health`:
 
-**Stage 3 — Five pairs added at `disabled`, then `data_validation`.** Registry
-entries, spec-refresh coverage, quotes route, FX routes, JPY floor derived from
-broker `point`; per-instrument breakers and research failure counters (F15).
-No publication, no alerts, no orders.
+1. symbol maps unambiguously on the benchmark account (existing `symbol-map.ts`
+   verdicts: `exact`/`suffix` pass; `ambiguous`/`unavailable` fail);
+2. `broker_symbol_specs` row present, fresh, with `digits` and `point`;
+3. candle completeness per timeframe at the configured depth;
+4. quote freshness within the existing bound;
+5. conversion route resolvable from the symbol's quote currency to every supported
+   account currency (USD, EUR, GBP, AUD) via existing `planConversion`;
+6. no unresolved data-integrity failure in `instrument_health`.
 
-**Stage 4 — Suppressed-candidate research enrolment + resolution** (F2), bounded
-rows per run, gated by its own switch, cohort-labelled.
+Spread floor: for Wave 1 the floor is **derived**, never guessed —
+`max(point × measured_spread_points_p90, stops_level × point)` from the broker's
+own spec, recorded with its source. Until a measurement exists the readiness check
+fails and the symbol stays at `disabled`. Wave 0's three literals stay frozen for
+V1 characterisation, and `DEFAULT_SPREAD_FLOOR` is retained only as the
+last-resort fallback it already is, with a test proving no registry symbol relies
+on it.
 
-**Stage 5 — News schema, deterministic states and the gate** (F10), fail-closed for
-automatic execution, provider chosen only after licensing and rate-limit review.
+## A6 — Failure isolation
 
-**Stage 6 — Exposure extensions** (F11) in both systems, kept separate.
+Migration A6, additive:
 
-**Stage 7 — Prediction registry and immutable prediction records only** (F1/F6). No
-training, no scoring in the production path; removable without touching V1/V2/V3.
+- `instrument_health` gains `consecutive_failures int not null default 0`,
+  `failure_scope text` (`market_data` | `spec` | `research`), and
+  `breaker_open_until timestamptz`.
+- Per-instrument breaker in the scan path: repeated failures skip that symbol for a
+  cooling window; the cycle and all other symbols proceed. Existing behaviour
+  (skip-and-flag) is preserved, only counted per symbol now.
+- Research failure counters move from global-only to per-instrument: the existing
+  global `shadow_engine_state.research_errors` is retained for provider-wide
+  failure, and a new per-symbol counter prevents one new pair from tripping the
+  global pause that today would stall Gold research.
 
-## Capacity and acceptance thresholds
+## Migration-by-migration map
 
-Measured: 11-16 scan jobs/hour, mean job 2.7-7.9s, worst 15.2s; worker does 3 jobs
-per pass, 20s budget, 8 hops. Eight instruments ≈ 40-60s per cycle → 3-4 hops.
-Added load: 8 spec refreshes/day, 8 quotes per quote call, news polling, plus
-bounded research writes. Acceptance: queue age p95 < 5 min; cycle completion < 5
-min; provider error rate < 5% per instrument; stale-job rate 0; candle completeness
-≥ 99%; research failure rate < 5%. Breach of any two for two consecutive hours is
-the rollback trigger.
+| # | Contents | Reversible by |
+| --- | --- | --- |
+| A2 | enum, `instrument_lifecycle`, `instrument_lifecycle_transitions`, grants, RLS, policies, `instrument_stages` view, touch trigger | dropping the objects; nothing else reads them until A3 |
+| A3 | `execution_controls.lifecycle_enforced boolean default false` | set false |
+| A4 | `scanner_settings.instruments` default pinned to the Wave 0 literal | restore prior default (identical value) |
+| A6 | `instrument_health` failure/breaker columns | columns unused when the flag is off |
 
-## Red-team review of this plan
+Data statements (run_sql, not migrations): Wave 0 seed rows and their transition
+records; per-symbol stage moves.
 
-Attacked and addressed: version collision (F1, separate identity); prediction
-semantics inside a strategy number (rejected); candidates without outcomes (F2,
-in-pipeline enrolment plus replay); history reinterpretation (frozen sessions,
-versioned new writes); backfill contaminating holdout (holdout is forward-only by
-construction); pooled evidence promoting a weak pair (gates are per instrument);
-JPY maths (broker-derived, not the guessed 0.02); missing conversion routes
-(pre-resolution test per account currency); stale spec fallback (existing staleness
-refusals reused); symbol ambiguity (existing `ambiguous` refusal); time-of-check /
-time-of-use (lifecycle and news added to the existing single pre-send gate);
-silent opt-in (defaults pinned to Wave 0); global breaker contamination (per
-instrument counters); queue starvation (bounded research work, measured budget);
-news outage presented as safe (fails closed); correlated USD exposure (both exposure
-systems extended); RLS/licensing (customer projection, provider review before
-ingest); irreversibility (all changes additive and flag-gated); documentation ahead
-of functionality (docs contract test pins the instrument list to the code
-constants).
+No migration rewrites, deletes or relabels an existing row. No instrument column has
+a check constraint, so no existing data is touched by expansion.
 
-Residual risks accepted and stated: the holdout mechanism is new and unproven; news
-licensing may not permit storage, which would force a narrower gate; and the
-predictive challenger may never be justified at this sample size.
+## File-by-file implementation map
 
-## Product decisions needing your confirmation
+Additive: `src/lib/instruments/registry.ts`,
+`src/lib/instruments/lifecycle.server.ts`,
+`src/lib/instruments/readiness.server.ts`, plus tests under
+`src/lib/instruments/__tests__/`.
 
-1. News policy: research capture + labelled feed + no alert + no automatic
-   execution (recommended) versus full suppression.
-2. News provider and budget, given licensing and storage rights.
-3. Which geometry the suppressed-pair research cohort uses — frozen V1, or enabling
-   the currently dormant V2/V3 cohorts for the new pairs only.
-4. Whether existing users must explicitly opt in to each new pair (recommended) or
-   inherit them at `signals_only`.
+Edited (one concern each): `src/lib/scanner/types.ts`, `src/lib/db-types.ts`,
+`src/lib/risk.ts` (re-exports); `src/lib/scanner/pipeline.server.ts` (publication
+gate, per-symbol breaker); `src/lib/delivery/eligibility.ts` (stage + explicit
+opt-in); `src/lib/delivery/direct-enqueue.server.ts` (refusal reason);
+`src/lib/delivery/revalidate.server.ts` (pre-send stage re-check);
+`src/lib/queries.ts` (stage projection for the UI);
+`src/routes/_authenticated/settings.tsx` (Wave 0 default selection);
+`src/lib/mcp/settings-validation.ts` (accepts only registry symbols);
+`docs/SCANNER.md`, `docs/ARCHITECTURE.md`, `docs/RISK-SIZING.md`,
+`docs/OPERATIONS.md` (lifecycle, registry, derived floors, runbook).
 
-## Final approval recommendation
+Untouched by Phase A: grading, indicators, profile, V2/V3 modules, journal, R math,
+statistics, evidence gate, exposure modules, MetaApi request layer.
 
-Approve Stages 1-4 now. Stages 5-7 are approved in design only and each returns for
-confirmation before implementation, because they depend on the four decisions above.
+## Test matrix
+
+Parity (blocking): frozen-input snapshots for the three Wave 0 pairs across every
+field listed in A3, run with the flag off and on.
+Registry: derived constants deeply equal today's literals; every registry symbol has
+a spread floor; no symbol falls through to `DEFAULT_SPREAD_FLOOR`.
+Precision: USDJPY digits/point maths, floor derivation from broker spec, and a
+regression proving Wave 0 floors are unchanged.
+Conversion: every Wave 1 quote currency to each of USD/EUR/GBP/AUD, plus the
+`unsupported` and `no_conversion_rate` refusals.
+Symbol mapping: ambiguous and unavailable broker symbols refuse.
+Lifecycle: each stage's effect at all five call sites; read-failure fallback for
+Wave 0 and for Wave 1; queued delivery refused after demotion or suspension;
+append-only history (an update/delete attempt is rejected).
+Opt-in: empty `instruments` array never yields a Wave 1 instrument on feed, toast,
+push, email, webhook, MCP or auto execution.
+Isolation: repeated USDJPY failures do not raise the global research counter, do not
+pause Gold research, and do not stall the queue.
+Docs contract: `src/test/__tests__/docs-contract.test.ts` continues to pin the
+documented instrument list to the code constants, now sourced from the registry.
+
+## Deployment sequence
+
+1. Apply A2; verify rows, grants, RLS and that the projection returns stage only.
+2. Seed Wave 0 at `execution_approved` with transition rows; verify counts.
+3. Deploy A1/A3 code with `lifecycle_enforced = false`; run dual-path comparison in
+   the test suite and observe production output unchanged for one full scan cycle.
+4. Set `lifecycle_enforced = true` (Wave 0 only exists at this point); observe one
+   further cycle plus one alert and one enqueue decision.
+5. Apply A4/A6; add the five pairs at `disabled`.
+6. Run readiness per symbol; move each passing symbol to `data_validation`
+   individually, never as a batch.
+
+## Rollback sequence
+
+Per step, in reverse: demote a symbol to `disabled`; set
+`lifecycle_enforced = false` (system returns to today's behaviour with the tables
+inert); revert the code deploy; drop the A2 objects if the direction is abandoned.
+No step requires restoring data, because no data is modified.
+
+## Monitoring and acceptance criteria
+
+Per stage: zero parity diffs; queue age p95 under 5 minutes; cycle completion under
+5 minutes; per-instrument provider error rate under 5%; stale-job rate zero; candle
+completeness at or above 99% per Wave 1 symbol; no change in Wave 0 signal volume
+attributable to the deploy. Rollback trigger: any two criteria breached for two
+consecutive hours, or any Wave 0 parity diff at all.
+
+## Customer protection during Phase A
+
+Scanner, alerts, monitoring, automatic trading, watchlists, execution settings,
+statistics, model priors, mobile and desktop UI, MCP behaviour and support
+diagnostics are unchanged: the only enforced stage in Phase A is
+`execution_approved` for the three pairs that already have it. New pairs are
+invisible in the feed, absent from alerts, unselectable in settings, and refused at
+the pre-send gate. Degradation is explicit for lifecycle read failure (fall back to
+frozen Wave 0), missing spec, stale quote, broker symbol failure and single-symbol
+provider failure.
+
+## Completion evidence for Phase A
+
+Parity snapshots green; lifecycle tests green; five symbols present at
+`data_validation` with a recorded readiness verdict each; a demotion drill showing a
+queued delivery refused; documentation updated; and one full scan cycle logged with
+Wave 0 output identical to the pre-deploy cycle.
+
+## Decisions still open (they belong to Phase B, not A)
+
+News policy and provider; the geometry cohort used for suppressed-pair research;
+whether users must opt in per pair at `signals_only`; predictive challenger scope.
+Phase A is deliberately independent of all four.
