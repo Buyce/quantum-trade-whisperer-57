@@ -220,7 +220,9 @@ function OrderCard({ row }: { row: BrokerOrderView }) {
       </div>
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2.5 text-xs sm:px-4">
-        <span className="label-xs">Broker result</span>
+        <span className="label-xs">
+          {row.status.kind === "not_sent" ? "P-Trades check" : "Broker result"}
+        </span>
         {row.broker ? (
           <>
             <span className="num text-foreground">
