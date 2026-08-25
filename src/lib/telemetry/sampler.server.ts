@@ -64,6 +64,9 @@ export interface SamplerOutcome {
   stageSkipped?: string[];
   breakerSkipped?: string[];
   mappingRefused?: { instrument: string; refusal: string }[];
+  /** Refused because no sourced market calendar authorises measuring them. */
+  calendarRefused?: { instrument: string; refusal: string }[];
+
   requestCount?: number;
   durationMs?: number;
 }
