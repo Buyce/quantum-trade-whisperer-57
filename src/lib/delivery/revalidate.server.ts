@@ -551,6 +551,23 @@ export async function revalidateDelivery(
     }
   }
 
+  // ---- 6a-bis. Re-check the market gates on SUBMITTED geometry -------------
+  // The spread and slippage-ceiling gates in section 5 ran on the PUBLISHED
+  // prices, because the destination account's specification — and therefore the
+  // tick grid — is not known until section 6. Snapping changes the risk distance
+  // that spread acceptability is measured against, so both gates are re-asked
+  // here against the geometry that will actually be submitted. Neither check is
+  // relaxed: whichever geometry fails, the delivery is refused.
+  if (!spreadAcceptable({ entry: execPlan.entryPrice, stopLoss: execPlan.stopLoss }, quote.bid, quote.ask)) {
+    return reject("spread_too_wide", "measured against the submitted broker-grid geometry");
+  }
+  if (
+    !withinMaxAcceptableEntry({ action, maxAcceptableEntry: execPlan.maxAcceptableEntry }, marketPrice)
+  ) {
+    return reject("price_beyond_max_acceptable_entry", String(marketPrice));
+  }
+
+
   const sizingRequest = {
     instrument: signal.instrument,
     entryPrice: execPlan.entryPrice,
