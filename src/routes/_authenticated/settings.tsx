@@ -1052,8 +1052,21 @@ function SettingsPage() {
             {scanReport && (
               <div className="space-y-1 rounded border border-border bg-background p-3 font-mono text-xs">
                 <p className="text-muted-foreground">
-                  run {scanReport.runId.slice(0, 8)} · {scanReport.enqueued} enqueued
+                  run {scanReport.runId.slice(0, 8)} · {scanReport.enqueued} enqueued ·{" "}
+                  {scanReport.processed.length} reported
+                  {scanReport.claimedByWorker > 0
+                    ? ` · ${scanReport.claimedByWorker} completed by the background worker`
+                    : ""}
+                  {scanReport.stillPending > 0
+                    ? ` · ${scanReport.stillPending} still queued`
+                    : ""}
                 </p>
+                {scanReport.reconcileError ? (
+                  <p className="text-warning">
+                    This run's queue rows could not be re-read ({scanReport.reconcileError}), so the
+                    list below is only what this request observed, not the whole run.
+                  </p>
+                ) : null}
                 {scanReport.processed.length === 0 && (
                   <p className="text-muted-foreground">No jobs processed.</p>
                 )}
