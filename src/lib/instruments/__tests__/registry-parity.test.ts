@@ -67,7 +67,7 @@ describe("instrument registry parity", () => {
     }
   });
 
-  it("labels every registry symbol, keeping the Wave 0 wording", () => {
+  it("[UNIT] labels every registry symbol, keeping the Wave 0 wording", () => {
     for (const [symbol, label] of Object.entries(FROZEN_LABELS)) {
       expect(INSTRUMENT_LABELS[symbol]).toBe(label);
     }
@@ -81,7 +81,7 @@ describe("instrument registry parity", () => {
     expect(jpy.fallbackDigits).toBe(3);
   });
 
-  it("keeps every definition internally consistent", () => {
+  it("[INVARIANT] keeps every definition internally consistent", () => {
     for (const d of INSTRUMENT_DEFINITIONS) {
       expect(d.symbol).toBe(`${d.base}${d.quote}`.replace("XAUUSD", "XAUUSD"));
       expect(d.contractSize).toBeGreaterThan(0);
@@ -122,7 +122,7 @@ describe("lifecycle stage semantics", () => {
     expect(mayExecute("suspended")).toBe(false);
   });
 
-  it("signals_only publishes without executing", () => {
+  it("[INVARIANT] signals_only publishes without executing", () => {
     expect(mayPublish("signals_only")).toBe(true);
     expect(mayExecute("signals_only")).toBe(false);
   });
@@ -139,7 +139,7 @@ describe("lifecycle stage semantics", () => {
     }
   });
 
-  it("describes every stage in plain language", () => {
+  it("[UNIT] describes every stage in plain language", () => {
     for (const stage of stages) expect(describeStage(stage).length).toBeGreaterThan(3);
   });
 });
@@ -176,7 +176,7 @@ describe("empty instrument preference means Wave 0, not everything", () => {
     }
   });
 
-  it("an explicit preference is still honoured verbatim", () => {
+  it("[UNIT] an explicit preference is still honoured verbatim", () => {
     const opted = { ...settings, instruments: ["USDJPY"] };
     expect(baseEligibility(signal("USDJPY"), opted, "feed", now).eligible).toBe(true);
     expect(baseEligibility(signal("EURUSD"), opted, "feed", now).eligible).toBe(false);
