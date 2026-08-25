@@ -85,7 +85,7 @@ export function isStrategyNoTrade(row: { decision: string; disposition: Disposit
   );
 }
 
-export interface ObservationRow {
+export interface ObservationRow extends Partial<ProvenanceColumns> {
   run_id: string | null;
   observation_key: string | null;
   model_version: number;
