@@ -2,7 +2,8 @@
  * Row shapes for the P-Trades tables. Declared locally so the app compiles
  * independently of generated type regeneration.
  */
-import { WAVE0_SYMBOLS, instrumentLabels } from "@/lib/instruments/registry";
+import { isStage, mayPublish, mayScan } from "@/lib/instruments/lifecycle";
+import { REGISTRY_SYMBOLS, WAVE0_SYMBOLS, instrumentLabels } from "@/lib/instruments/registry";
 
 export type Grade = "A+" | "A" | "B" | "C";
 export type Direction = "long" | "short";
