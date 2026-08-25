@@ -300,6 +300,9 @@ function SettingsPage() {
         // C-Grade automatic orders: the user's own choice, never inferred. Only
         // meaningful when the alert tier already includes C.
         auto_execute_c_grade: autoCGrade,
+        // Ceiling on simultaneous automatic orders, never a quota: fewer
+        // qualifying setups simply means fewer orders.
+        maximum_active_signal_orders: Math.round(clamp(maxActiveOrders, 0, 10)),
         auto_intel_min_win_pct:
           Number.isFinite(Number(intelMinWin)) && intelMinWin.trim() !== ""
             ? clamp(Number(intelMinWin), 0, 100)
