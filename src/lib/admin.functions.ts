@@ -515,6 +515,37 @@ export const getAdminInstrumentDiagnostics = createServerFn({ method: "GET" })
     return data as unknown as AdminInstrumentDiagnostics;
   });
 
+/**
+ * Owner-only commissioning view (Wave 1 / Wave 2 validation commissioning).
+ *
+ * One row per registry instrument: wave, lifecycle stage, provider symbol,
+ * mapping and specification status, candle/quote quality, conversion readiness,
+ * calendar verification, sampler coverage, valid/invalid sample counts, breaker
+ * status, scan duration, provider errors, promotion blockers and the last
+ * successful readiness check.
+ *
+ * The RPC is admin-gated in the database and returns no token, account id, login
+ * or raw provider payload.
+ */
+export interface AdminCommissioning {
+  generated_at: string;
+  lifecycle_enforced: boolean | null;
+  sampler_symbols: string[] | null;
+  instruments: DiagnosticsRow[];
+}
+
+export const getAdminCommissioning = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<AdminCommissioning> => {
+    const email = String(context.claims["email"] ?? "").toLowerCase();
+    if (email !== OWNER_EMAIL) throw new Error("Forbidden");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await supabaseAdmin.rpc("get_admin_commissioning");
+    if (error) throw new Error(error.message);
+    return data as unknown as AdminCommissioning;
+  });
+
 /** Telemetry control room: the current worker switches and provider ceilings. */
 export interface AdminTelemetryControls {
   sampler_enabled: boolean;

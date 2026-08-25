@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.bump_execution_config_version() FROM PUBLIC;

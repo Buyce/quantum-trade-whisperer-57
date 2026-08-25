@@ -29,6 +29,7 @@ import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[
 import { Route as AuthenticatedAdminIntelligenceRouteImport } from './routes/_authenticated/admin/intelligence'
 import { Route as ApiPublicQuotesRouteImport } from './routes/api/public/quotes'
 import { Route as ApiPublicAgentRegisterRouteImport } from './routes/api/public/agent/register'
+import { Route as ApiPublicCronCommissionReadinessRouteImport } from './routes/api/public/cron/commission-readiness'
 import { Route as ApiPublicCronInstrumentReadinessRouteImport } from './routes/api/public/cron/instrument-readiness'
 import { Route as ApiPublicCronPurgeAccountsRouteImport } from './routes/api/public/cron/purge-accounts'
 import { Route as ApiPublicCronRefreshSpecsRouteImport } from './routes/api/public/cron/refresh-specs'
@@ -151,6 +152,12 @@ const ApiPublicAgentRegisterRoute = ApiPublicAgentRegisterRouteImport.update({
   path: '/api/public/agent/register',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicCronCommissionReadinessRoute =
+  ApiPublicCronCommissionReadinessRouteImport.update({
+    id: '/api/public/cron/commission-readiness',
+    path: '/api/public/cron/commission-readiness',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicCronInstrumentReadinessRoute =
   ApiPublicCronInstrumentReadinessRouteImport.update({
     id: '/api/public/cron/instrument-readiness',
@@ -268,6 +275,7 @@ export interface FileRoutesByFullPath {
   '/admin/intelligence': typeof AuthenticatedAdminIntelligenceRoute
   '/api/public/quotes': typeof ApiPublicQuotesRoute
   '/api/public/agent/register': typeof ApiPublicAgentRegisterRoute
+  '/api/public/cron/commission-readiness': typeof ApiPublicCronCommissionReadinessRoute
   '/api/public/cron/instrument-readiness': typeof ApiPublicCronInstrumentReadinessRoute
   '/api/public/cron/purge-accounts': typeof ApiPublicCronPurgeAccountsRoute
   '/api/public/cron/refresh-specs': typeof ApiPublicCronRefreshSpecsRoute
@@ -306,6 +314,7 @@ export interface FileRoutesByTo {
   '/admin/intelligence': typeof AuthenticatedAdminIntelligenceRoute
   '/api/public/quotes': typeof ApiPublicQuotesRoute
   '/api/public/agent/register': typeof ApiPublicAgentRegisterRoute
+  '/api/public/cron/commission-readiness': typeof ApiPublicCronCommissionReadinessRoute
   '/api/public/cron/instrument-readiness': typeof ApiPublicCronInstrumentReadinessRoute
   '/api/public/cron/purge-accounts': typeof ApiPublicCronPurgeAccountsRoute
   '/api/public/cron/refresh-specs': typeof ApiPublicCronRefreshSpecsRoute
@@ -346,6 +355,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/intelligence': typeof AuthenticatedAdminIntelligenceRoute
   '/api/public/quotes': typeof ApiPublicQuotesRoute
   '/api/public/agent/register': typeof ApiPublicAgentRegisterRoute
+  '/api/public/cron/commission-readiness': typeof ApiPublicCronCommissionReadinessRoute
   '/api/public/cron/instrument-readiness': typeof ApiPublicCronInstrumentReadinessRoute
   '/api/public/cron/purge-accounts': typeof ApiPublicCronPurgeAccountsRoute
   '/api/public/cron/refresh-specs': typeof ApiPublicCronRefreshSpecsRoute
@@ -386,6 +396,7 @@ export interface FileRouteTypes {
     | '/admin/intelligence'
     | '/api/public/quotes'
     | '/api/public/agent/register'
+    | '/api/public/cron/commission-readiness'
     | '/api/public/cron/instrument-readiness'
     | '/api/public/cron/purge-accounts'
     | '/api/public/cron/refresh-specs'
@@ -424,6 +435,7 @@ export interface FileRouteTypes {
     | '/admin/intelligence'
     | '/api/public/quotes'
     | '/api/public/agent/register'
+    | '/api/public/cron/commission-readiness'
     | '/api/public/cron/instrument-readiness'
     | '/api/public/cron/purge-accounts'
     | '/api/public/cron/refresh-specs'
@@ -463,6 +475,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/intelligence'
     | '/api/public/quotes'
     | '/api/public/agent/register'
+    | '/api/public/cron/commission-readiness'
     | '/api/public/cron/instrument-readiness'
     | '/api/public/cron/purge-accounts'
     | '/api/public/cron/refresh-specs'
@@ -495,6 +508,7 @@ export interface RootRouteChildren {
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
   ApiPublicQuotesRoute: typeof ApiPublicQuotesRoute
   ApiPublicAgentRegisterRoute: typeof ApiPublicAgentRegisterRoute
+  ApiPublicCronCommissionReadinessRoute: typeof ApiPublicCronCommissionReadinessRoute
   ApiPublicCronInstrumentReadinessRoute: typeof ApiPublicCronInstrumentReadinessRoute
   ApiPublicCronPurgeAccountsRoute: typeof ApiPublicCronPurgeAccountsRoute
   ApiPublicCronRefreshSpecsRoute: typeof ApiPublicCronRefreshSpecsRoute
@@ -654,6 +668,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/agent/register'
       fullPath: '/api/public/agent/register'
       preLoaderRoute: typeof ApiPublicAgentRegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/cron/commission-readiness': {
+      id: '/api/public/cron/commission-readiness'
+      path: '/api/public/cron/commission-readiness'
+      fullPath: '/api/public/cron/commission-readiness'
+      preLoaderRoute: typeof ApiPublicCronCommissionReadinessRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/cron/instrument-readiness': {
@@ -829,6 +850,7 @@ const rootRouteChildren: RootRouteChildren = {
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
   ApiPublicQuotesRoute: ApiPublicQuotesRoute,
   ApiPublicAgentRegisterRoute: ApiPublicAgentRegisterRoute,
+  ApiPublicCronCommissionReadinessRoute: ApiPublicCronCommissionReadinessRoute,
   ApiPublicCronInstrumentReadinessRoute: ApiPublicCronInstrumentReadinessRoute,
   ApiPublicCronPurgeAccountsRoute: ApiPublicCronPurgeAccountsRoute,
   ApiPublicCronRefreshSpecsRoute: ApiPublicCronRefreshSpecsRoute,
