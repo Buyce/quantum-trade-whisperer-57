@@ -54,7 +54,39 @@ uses only a random pseudonymous account reference. Dependence-aware research
 clusters by `signal_id` and whole UTC day. `HOLDOUT_AVAILABLE = false`, so no
 out-of-sample claim is permitted.
 
+## Provenance
+
+Every field in a broker-evidence row comes from the broker's own deal and order
+history via MetaApi and is labelled broker-derived. Prices, volumes, commission,
+swap and profit are the broker's values; R multiples are engine-derived from those
+values and the published plan. Self-reported journal rows come from the user or
+their assistant and are labelled as such. Benchmark rows come from the dedicated
+P-Trades demo policy account. No population is derived from, or back-filled by,
+another.
+
+## Failure behaviour
+
+An unreadable history, a truncated page walk, or a deal that cannot be positively
+associated produces an explicit error or no row at all — never an inferred match.
+Missing broker-held stops make `r_vs_actual_risk` unavailable rather than
+approximated.
+
+## Explicit non-guarantees
+
+- Positive association is deliberately conservative: a genuine P-Trades trade whose
+  client reference the broker did not preserve stays excluded, so evidence counts are
+  a lower bound.
+- The controlled benchmark is demo execution and does not predict live fills,
+  slippage or commission.
+- Monetary fields are not convertible into R without a valid cash value for one R.
+- `HOLDOUT_AVAILABLE = false`: nothing here supports an out-of-sample claim.
+
 ## Implementation
 
 `src/lib/evidence/*`, `src/lib/research/consent.ts`,
 `src/lib/performance-evidence.server.ts`, `src/lib/performance.ts`.
+
+## Tests
+
+`src/lib/evidence/__tests__/*`, `src/lib/__tests__/performance*.test.ts`,
+`src/test/__tests__/docs-contract.test.ts`.
