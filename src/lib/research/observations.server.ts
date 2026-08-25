@@ -76,10 +76,7 @@ export const NON_VERDICT_DISPOSITIONS: readonly Disposition[] = [
 ];
 
 /** True when the row represents a genuine strategy no-trade judgement. */
-export function isStrategyNoTrade(row: {
-  decision: string;
-  disposition: Disposition;
-}): boolean {
+export function isStrategyNoTrade(row: { decision: string; disposition: Disposition }): boolean {
   return (
     row.decision === "no_trade" &&
     !SUPPRESSED_DISPOSITIONS.includes(row.disposition) &&
@@ -110,7 +107,6 @@ export interface ObservationRow {
   session_version?: number | null;
   canonical_instrument?: string | null;
 }
-
 
 /** Counts research failures so the admin panel can see telemetry health. */
 let failureCount = 0;
@@ -383,7 +379,6 @@ export function v1ObservationRow(args: {
   lifecycleStage?: string | null;
   sessionVersion?: number | null;
 }): ObservationRow {
-
   const ev = args.evaluation ?? null;
   return {
     run_id: args.runId,
@@ -415,7 +410,6 @@ export function v1ObservationRow(args: {
     session_version: args.sessionVersion ?? null,
     canonical_instrument: args.instrument,
   };
-
 }
 
 /**

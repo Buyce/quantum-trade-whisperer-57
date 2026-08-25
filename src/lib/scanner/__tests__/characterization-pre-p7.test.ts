@@ -15,20 +15,12 @@ import { describe, expect, it } from "vitest";
 import { buildTradeProfile, evaluateSetup } from "../profile";
 import { buildTradeProfile as frozenBuildTradeProfile } from "@/test/fixtures/pre-p7/profile";
 import { CANDLE_SCENARIOS } from "@/test/fixtures/pre-p7/candle-sets";
-import { priceDecimals } from "@/lib/instruments/precision";
-
 
 /**
  * Every persisted scanner field, compared value-for-value.
  *
- * `structureKey` is NOT in this list. It is the one field with a deliberate,
- * reviewed divergence from the frozen baseline (Phase A1, Finding 6): the frozen
- * code rendered the stop anchor at a fixed five decimals for every instrument,
- * and current code renders it at that instrument's own price precision. The
- * divergence is pinned exactly, and only for that field, by the dedicated case
- * below — so an accidental change to structure identity still fails this gate.
- *
- * Nothing about the publish/no-trade DECISION or the plan GEOMETRY may differ.
+ * `structureKey` is checked separately below, also for exact equality: no field
+ * of the V1 path is allowed to diverge from the frozen baseline.
  */
 const PROFILE_FIELDS = [
   "instrument",
@@ -53,7 +45,6 @@ const PROFILE_FIELDS = [
   "m15Bias",
   "qualitativeBreakdown",
 ] as const;
-
 
 const CASES = CANDLE_SCENARIOS.map((s) => [s.id, s] as const);
 
@@ -107,7 +98,7 @@ describe("pre-Prompt-7 characterization — frozen baseline vs current V1", () =
   );
 
   it.each(CASES)(
-    "[V1_CHARACTERIZATION] %s — structure identity differs from the frozen key ONLY by instrument precision",
+    "[V1_CHARACTERIZATION] %s — structure identity is byte-identical to the frozen key",
     (_id, scenario) => {
       const input = {
         instrument: scenario.instrument,
@@ -118,20 +109,12 @@ describe("pre-Prompt-7 characterization — frozen baseline vs current V1", () =
       const current = buildTradeProfile(input);
       if (!frozen || !current) return;
 
-      // The frozen key's four leading components must be untouched: instrument,
-      // direction and both swing timestamps still define the same ABC leg.
-      const frozenParts = frozen.structureKey.split("|");
-      const currentParts = current.structureKey.split("|");
-      expect(currentParts.slice(0, 4)).toEqual(frozenParts.slice(0, 4));
-
-      // The stop anchor is the same NUMBER, re-rendered at the instrument's own
-      // precision — never a different price.
-      const decimals = priceDecimals(scenario.instrument);
-      expect(currentParts[4]).toBe(Number(frozenParts[4]).toFixed(decimals));
-      expect(Number(currentParts[4])).toBeCloseTo(Number(frozenParts[4]), decimals);
+      // No tolerance, no re-rendering, no normalisation: duplicate detection
+      // compares strings against rows already in the database, so the only
+      // acceptable relationship to the frozen key is equality (Phase A2A R1-FIX).
+      expect(current.structureKey).toBe(frozen.structureKey);
     },
   );
-
 
   it.each(CASES)(
     "[V1_CHARACTERIZATION] %s — evaluateSetup agrees with the frozen decision and persists a terminal stage",
@@ -167,7 +150,6 @@ describe("pre-Prompt-7 characterization — frozen baseline vs current V1", () =
         }
         expect(plan.confidence).toEqual(frozen.confidence);
         expect(plan.pillars).toEqual(frozen.pillars);
-
       }
     },
   );

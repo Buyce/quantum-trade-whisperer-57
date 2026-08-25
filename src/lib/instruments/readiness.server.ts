@@ -181,9 +181,7 @@ export async function checkInstrumentReadiness(
         count: 0,
         required,
         ok: false,
-        findings: [
-          { problem: "empty", detail: err instanceof Error ? err.message : String(err) },
-        ],
+        findings: [{ problem: "empty", detail: err instanceof Error ? err.message : String(err) }],
         lastCandleAt: null,
         missingIntervals: 0,
       });

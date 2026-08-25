@@ -68,17 +68,22 @@ export function tickGrid(spec: SizingSpec | null | undefined): number | null {
 }
 
 /**
- * Rounding direction at the broker boundary.
+ * The ROLE a price plays on a broker order (Phase A2A, R2-FIX).
  *
- *   `safer_stop`   — a stop-loss: move AWAY from entry, so snapping can only ever
- *                    reduce risk-per-unit's surprise, never silently widen loss
- *                    beyond what was sized.
- *   `safer_limit`  — an entry or take-profit limit: move to the side that makes
- *                    the order HARDER to fill rather than filling at a worse
- *                    price than the trader was shown.
- *   `nearest`      — display/telemetry only.
+ * The direction to snap in depends on the role, not on a vague notion of
+ * "safer" — the previous `safer_stop` / `safer_limit` pair used the identical
+ * branch and therefore rounded a take-profit optimistically:
+ *
+ *   `entry_limit`  — long DOWN, short UP: harder to fill, never a worse fill
+ *                    than the price the trader was shown.
+ *   `stop_loss`    — long DOWN, short UP: away from entry, so structural
+ *                    clearance is preserved. Risk-per-unit is then RE-DERIVED
+ *                    from the snapped price; it is never assumed unchanged.
+ *   `take_profit`  — long UP, short DOWN: harder to fill, never an optimistic
+ *                    target that would overstate R.
+ *   `display`      — nearest; telemetry and UI only, never sent to a broker.
  */
-export type TickRounding = "safer_stop" | "safer_limit" | "nearest";
+export type OrderPriceRole = "entry_limit" | "stop_loss" | "take_profit" | "display";
 
 export interface NormalizedPrice {
   price: number;
@@ -89,20 +94,17 @@ export interface NormalizedPrice {
 }
 
 /**
- * Snap a price onto the broker's tick grid with an explicit risk direction.
- *
- * `direction` is the trade direction, needed because "away from entry" flips:
- * a long's stop sits below entry (round DOWN), a short's stop sits above entry
- * (round UP).
+ * Snap a price onto the broker's tick grid for a specific order role.
  *
  * When no grid is available the price is returned untouched and flagged
  * `unnormalized` — the caller decides whether that is acceptable. Silently
- * inventing a grid would be a fabricated broker fact.
+ * inventing a grid would be a fabricated broker fact, and the submission path
+ * refuses instead (`no_execution_grid`).
  */
 export function normalizeToTick(args: {
   price: number;
   spec: SizingSpec | null | undefined;
-  rounding: TickRounding;
+  role: OrderPriceRole;
   direction: "long" | "short";
 }): NormalizedPrice {
   const tick = tickGrid(args.spec);
@@ -114,17 +116,22 @@ export function normalizeToTick(args: {
 
   const up = () => Math.ceil(args.price / tick) * tick;
   const down = () => Math.floor(args.price / tick) * tick;
-  const nearest = () => Math.round(args.price / tick) * tick;
+  const long = args.direction === "long";
 
   let raw: number;
-  if (args.rounding === "nearest") {
-    raw = nearest();
-  } else if (args.rounding === "safer_stop") {
-    // Away from entry: long stop is below entry, short stop is above.
-    raw = args.direction === "long" ? down() : up();
-  } else {
-    // Harder to fill: long limit lower, short limit higher.
-    raw = args.direction === "long" ? down() : up();
+  switch (args.role) {
+    case "display":
+      raw = Math.round(args.price / tick) * tick;
+      break;
+    case "take_profit":
+      // Harder to fill: a long target moves up, a short target moves down.
+      raw = long ? up() : down();
+      break;
+    case "entry_limit":
+    case "stop_loss":
+      // Entry: harder to fill. Stop: away from entry. Both are long-down.
+      raw = long ? down() : up();
+      break;
   }
 
   // Tick grids are decimal fractions; snapping in floating point leaves residue
@@ -132,6 +139,57 @@ export function normalizeToTick(args: {
   const decimals = tickDecimals(tick);
   const price = Number(raw.toFixed(decimals));
   return { price, tick, source, moved: price !== args.price };
+}
+
+/** One order's geometry after every price has been snapped to the broker grid. */
+export interface NormalizedGeometry {
+  entryPrice: number;
+  stopLoss: number;
+  tp1: number;
+  tp2: number;
+  tp3: number | null;
+  /** Grid applied to every leg; null means the broker grid was unknown. */
+  tick: number | null;
+  source: NormalizedPrice["source"];
+  /** True when any leg actually moved, so reconciliation can explain the diff. */
+  moved: boolean;
+}
+
+/**
+ * Normalize a whole plan for submission.
+ *
+ * Every leg is snapped by its own role, so the result can never be an optimistic
+ * target paired with a widened stop. The caller must reject when `tick` is null
+ * and the destination is a real broker.
+ */
+export function normalizeOrderGeometry(args: {
+  spec: SizingSpec | null | undefined;
+  direction: "long" | "short";
+  entryPrice: number;
+  stopLoss: number;
+  tp1: number;
+  tp2: number;
+  tp3: number | null;
+}): NormalizedGeometry {
+  const at = (price: number, role: OrderPriceRole) =>
+    normalizeToTick({ price, spec: args.spec, role, direction: args.direction });
+
+  const entry = at(args.entryPrice, "entry_limit");
+  const stop = at(args.stopLoss, "stop_loss");
+  const tp1 = at(args.tp1, "take_profit");
+  const tp2 = at(args.tp2, "take_profit");
+  const tp3 = args.tp3 === null ? null : at(args.tp3, "take_profit");
+
+  return {
+    entryPrice: entry.price,
+    stopLoss: stop.price,
+    tp1: tp1.price,
+    tp2: tp2.price,
+    tp3: tp3 === null ? null : tp3.price,
+    tick: entry.tick,
+    source: entry.source,
+    moved: entry.moved || stop.moved || tp1.moved || tp2.moved || (tp3?.moved ?? false),
+  };
 }
 
 /** Decimals implied by a tick size (0.001 -> 3, 0.25 -> 2). */

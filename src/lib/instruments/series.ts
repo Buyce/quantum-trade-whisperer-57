@@ -166,7 +166,10 @@ export function validateSeries(args: {
         detail: `the newest ${timeframe} candle opened ${Math.round(ageMs / 60_000)} minutes ago and has not closed`,
       });
     }
-    if (ageMs > intervalMs * STALE_AFTER_INTERVALS && !straddlesWeekend(previousMs, now.getTime())) {
+    if (
+      ageMs > intervalMs * STALE_AFTER_INTERVALS &&
+      !straddlesWeekend(previousMs, now.getTime())
+    ) {
       findings.push({
         problem: "stale_series",
         detail: `the newest ${timeframe} candle is ${Math.round(ageMs / 60_000)} minutes old`,

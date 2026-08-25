@@ -54,10 +54,10 @@ import { isAccountSizingRefusal } from "@/lib/sizing/service.server";
 import {
   INSTRUMENT_NOT_APPROVED,
   describeStage,
-  mayExecute,
-  stageOf,
+  lifecycleAllows,
 } from "@/lib/instruments/lifecycle";
 import { readLifecycleView } from "@/lib/instruments/lifecycle.server";
+import { normalizeOrderGeometry } from "@/lib/instruments/precision";
 
 type Db = Pick<SupabaseClient, "from" | "rpc">;
 
@@ -105,7 +105,13 @@ export interface RevalidationApproved {
   direct: DirectTarget | null;
   /** The authoritative quantity actually authorized, with its provenance. */
   quantity: OrderQuantity;
-  /** The plan the order was built from, for the direct submission path. */
+  /**
+   * The plan the order was built from, for the direct submission path.
+   *
+   * `entryPrice` / `stopLoss` / `tp1` are the SUBMITTED (broker-grid) prices that
+   * sizing was re-derived from. The `published*` fields keep the signal's own
+   * prices so reconciliation can explain any snap (Phase A2A, R2-FIX).
+   */
   plan: {
     signalId: string;
     instrument: string;
@@ -115,6 +121,12 @@ export interface RevalidationApproved {
     entryPrice: number;
     stopLoss: number;
     tp1: number;
+    publishedEntryPrice: number;
+    publishedStopLoss: number;
+    publishedTp1: number;
+    priceGridTick: number | null;
+    priceGridSource: "tick_size" | "point" | "unnormalized";
+    priceGridMoved: boolean;
   };
   /** Always reported; only blocks when the user opted in. */
   exposure: ExposureVerdict | null;
@@ -335,13 +347,19 @@ export async function revalidateDelivery(
    * revokes execution instantly for a pair that was approved yesterday. This gate
    * is here rather than only at enqueue time because a delivery already sitting
    * in the queue must respect a suspension decided after it was enqueued.
+   *
+   * `lifecycleAllows` — not `view.enforced` — is the authority, so an UNREADABLE
+   * stage refuses everything outside the frozen Wave 0 universe instead of
+   * silently degrading to "allowed" (Phase A2A, R3-FIX).
    */
-  if (lifecycle.enforced) {
-    const stage = stageOf(signal.instrument, lifecycle.stages);
-    if (!mayExecute(stage)) {
+  {
+    const gate = lifecycleAllows(lifecycle, signal.instrument, "execute");
+    if (!gate.allowed) {
       return reject(
         INSTRUMENT_NOT_APPROVED,
-        `${signal.instrument} is at lifecycle stage "${stage}" (${describeStage(stage)})`,
+        lifecycle.degraded
+          ? `the lifecycle stage for ${signal.instrument} could not be read`
+          : `${signal.instrument} is at lifecycle stage "${gate.stage}" (${describeStage(gate.stage)})`,
       );
     }
   }
@@ -407,8 +425,8 @@ export async function revalidateDelivery(
     rrRatio: Number(signal.rr_ratio),
     confidence: Number(signal.confidence_score),
   };
-  const action: "buy_limit" | "sell_limit" =
-    signal.direction === "long" ? "buy_limit" : "sell_limit";
+  const planDirection: "long" | "short" = signal.direction === "long" ? "long" : "short";
+  const action: "buy_limit" | "sell_limit" = planDirection === "long" ? "buy_limit" : "sell_limit";
 
   let quote: Awaited<ReturnType<typeof fetchQuote>> = null;
   try {
@@ -493,17 +511,50 @@ export async function revalidateDelivery(
       return reject("account_equity_unavailable");
     }
   }
+  // ---- 6a. Broker price grid (Phase A2A, R2-FIX) ---------------------------
+  // Every price that can reach a broker is snapped onto that broker's own tick
+  // grid BY ROLE before anything is derived from it, and every downstream check —
+  // stops level, risk-per-unit, quantity, margin, the order itself and the
+  // approved plan — uses the SNAPPED geometry. Sizing a plan at one price and
+  // submitting another is how a "1% risk" order becomes something else.
+  const submitted = normalizeOrderGeometry({
+    spec,
+    direction: planDirection,
+    entryPrice: plan.entryPrice,
+    stopLoss: plan.stopLoss,
+    tp1: plan.tp1,
+    tp2: plan.tp2,
+    tp3: plan.tp3,
+  });
+  // A real broker destination without a known grid is refused rather than sent
+  // an off-grid price: we cannot prove the order would be accepted, and we will
+  // not invent a tick size.
+  if (destination === "metaapi_direct" && submitted.tick === null) {
+    return reject(
+      "no_execution_grid",
+      `no tick size or point is stored for ${signal.instrument} on this account`,
+    );
+  }
+  const execPlan = {
+    ...plan,
+    entryPrice: submitted.entryPrice,
+    stopLoss: submitted.stopLoss,
+    tp1: submitted.tp1,
+    tp2: submitted.tp2,
+    tp3: submitted.tp3,
+  };
+
   if (spec) {
     const minDistance = minStopDistance(spec);
-    if (minDistance !== null && Math.abs(plan.entryPrice - plan.stopLoss) < minDistance) {
+    if (minDistance !== null && Math.abs(execPlan.entryPrice - execPlan.stopLoss) < minDistance) {
       return reject("stop_below_broker_stops_level", String(minDistance));
     }
   }
 
   const sizingRequest = {
     instrument: signal.instrument,
-    entryPrice: plan.entryPrice,
-    stopLoss: plan.stopLoss,
+    entryPrice: execPlan.entryPrice,
+    stopLoss: execPlan.stopLoss,
     signalId: signal.id,
   };
   const sizing = directTarget
@@ -576,16 +627,25 @@ export async function revalidateDelivery(
     }
   }
 
-  const order = buildBridgeOrder(plan, quantity, policy);
+  // The order carries the SNAPPED geometry; the approved plan records both, so a
+  // later reconciliation can explain any difference between the published signal
+  // and what the broker was actually asked for.
+  const order = buildBridgeOrder(execPlan, quantity, policy);
   const approvedPlan = {
     signalId: signal.id,
     instrument: signal.instrument,
     direction: String(signal.direction),
     grade: String(signal.grade),
     detectedAt: signal.detected_at,
-    entryPrice: plan.entryPrice,
-    stopLoss: plan.stopLoss,
-    tp1: plan.tp1,
+    entryPrice: execPlan.entryPrice,
+    stopLoss: execPlan.stopLoss,
+    tp1: execPlan.tp1,
+    publishedEntryPrice: plan.entryPrice,
+    publishedStopLoss: plan.stopLoss,
+    publishedTp1: plan.tp1,
+    priceGridTick: submitted.tick,
+    priceGridSource: submitted.source,
+    priceGridMoved: submitted.moved,
   };
 
   // ---- 7a. Direct broker destination ---------------------------------------

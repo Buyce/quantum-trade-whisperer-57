@@ -1,4 +1,4 @@
-import { priceDecimals } from "@/lib/instruments/precision";
+import { buildStructureKey } from "@/lib/scanner/structure-key";
 import { clamp, detectAbc } from "./indicators";
 
 import { directionalHeadroomAtr, gradeSetup, readTimeframe, scoreConfluence } from "./grading";
@@ -608,15 +608,12 @@ export function evaluateSetup(input: BuildProfileInput): SetupEvaluation {
  * timestamps and the structural stop anchor. Two scans of the same lingering
  * structure produce the same key; a genuinely new leg produces a new one.
  *
- * The stop anchor is rendered at the INSTRUMENT's own price precision, not a
- * fixed five decimals (Phase A1, Finding 6). Five decimals is wrong in both
- * directions once the universe is not all 5-digit FX: on XAUUSD (2 digits) it
- * makes identity sensitive to sub-tick noise, so one lingering structure can mint
- * a new key — and a new published signal — on every 15-minute cycle; on a 3-digit
- * JPY pair it pads with zeroes that carry no information.
- *
- * `priceDecimals` prefers the broker's reported digits and falls back to the
- * registry value, so identity follows the same grid the broker prices on.
+ * Rendering lives in `@/lib/scanner/structure-key` and is version-pinned at five
+ * decimals for EVERY instrument (Phase A2A, R1-FIX). Identity must not depend on
+ * broker-reported digits: the live `scanned_signals` rows — including XAUUSD —
+ * were all written with a five-decimal stop anchor, so an instrument-aware
+ * renderer would stop matching them and could republish a lingering structure on
+ * every cycle.
  */
 export function structureKeyOf(args: {
   instrument: string;
@@ -625,16 +622,14 @@ export function structureKeyOf(args: {
   bTime: string;
   stopLoss: number;
 }): string {
-  const decimals = priceDecimals(args.instrument);
-  return [
-    args.instrument,
-    args.direction,
-    args.aTime,
-    args.bTime,
-    args.stopLoss.toFixed(decimals),
-  ].join("|");
+  return buildStructureKey({
+    instrument: args.instrument,
+    direction: args.direction,
+    aTime: args.aTime,
+    bTime: args.bTime,
+    stopLoss: args.stopLoss,
+  });
 }
-
 
 function describe(read: TimeframeRead, headroomAtr?: number): string {
   if (read.bias === "neutral") return "conflicting";

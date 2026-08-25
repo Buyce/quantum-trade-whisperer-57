@@ -153,6 +153,66 @@ export function allows(stage: InstrumentStage, capability: LifecycleCapability):
 
 export const LIFECYCLE_CAPABILITIES = Object.keys(CAPABILITY_GATES) as LifecycleCapability[];
 
+/**
+ * ---------------------------------------------------------------------------
+ * The ONE decision every gate must ask (Phase A2A, R3-FIX).
+ *
+ * Reading `view.enforced` directly is not sufficient, because it collapses three
+ * different situations into one boolean:
+ *
+ *   1. enforcement ON and the stages were read  → the stage decides;
+ *   2. enforcement OFF and the read succeeded   → legacy behaviour: the frozen
+ *      Wave 0 universe is what production already does, so Wave 0 proceeds;
+ *   3. the read FAILED (degraded)               → we do not know the stage.
+ *
+ * Case 3 is the dangerous one. Falling back to "not enforced ⇒ allowed" would let
+ * an instrument that is only under validation reach publication or a broker the
+ * moment the lifecycle table hiccups. So a degraded read FAILS CLOSED for every
+ * symbol outside the frozen Wave 0 set, and only lets Wave 0 through — Wave 0 is
+ * the universe that was live before lifecycle existed, so allowing it changes
+ * nothing, while refusing it would take the live product down for an outage that
+ * has nothing to do with it.
+ */
+export interface LifecycleGateInput {
+  enforced: boolean;
+  degraded: boolean;
+  stages: StageMap | null | undefined;
+}
+
+export interface LifecycleGateVerdict {
+  allowed: boolean;
+  stage: InstrumentStage;
+  /** Populated only when refused; safe to log and to store as a reason. */
+  reason: string | null;
+}
+
+export function lifecycleAllows(
+  view: LifecycleGateInput,
+  symbol: string,
+  capability: LifecycleCapability,
+): LifecycleGateVerdict {
+  const stage = stageOf(symbol, view.stages);
+
+  if (view.degraded) {
+    const wave0 = WAVE0_SYMBOLS.includes(symbol);
+    return {
+      allowed: wave0,
+      stage,
+      reason: wave0
+        ? null
+        : `lifecycle stage for ${symbol} is unreadable, so ${capability} is refused`,
+    };
+  }
+
+  if (!view.enforced) return { allowed: true, stage, reason: null };
+
+  const allowed = allows(stage, capability);
+  return {
+    allowed,
+    stage,
+    reason: allowed ? null : `${symbol} is at stage "${stage}", which does not allow ${capability}`,
+  };
+}
 
 /** Machine-readable refusal reason, reused verbatim by every gate. */
 export const INSTRUMENT_NOT_APPROVED = "instrument_not_approved" as const;
