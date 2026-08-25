@@ -15,6 +15,8 @@ import { describe, expect, it } from "vitest";
 import { buildTradeProfile, evaluateSetup } from "../profile";
 import { buildTradeProfile as frozenBuildTradeProfile } from "@/test/fixtures/pre-p7/profile";
 import { CANDLE_SCENARIOS } from "@/test/fixtures/pre-p7/candle-sets";
+import { priceDecimals } from "@/lib/instruments/precision";
+
 
 /**
  * Every persisted scanner field, compared value-for-value.
