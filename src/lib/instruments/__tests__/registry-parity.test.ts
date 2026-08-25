@@ -83,14 +83,27 @@ describe("instrument registry parity", () => {
 
   it("[INVARIANT] keeps every definition internally consistent", () => {
     for (const d of INSTRUMENT_DEFINITIONS) {
-      expect(d.symbol).toBe(`${d.base}${d.quote}`.replace("XAUUSD", "XAUUSD"));
-      expect(d.contractSize).toBeGreaterThan(0);
-      expect(d.minLot).toBeGreaterThan(0);
-      expect(d.lotStep).toBeGreaterThan(0);
-      if (d.wave === 1) expect(d.spreadFloor).toBeNull();
+      // FX and metals are base+quote pairs. A CFD ticker (USOIL, NAS100) is a
+      // broker product name, not a currency concatenation.
+      if (d.assetClass === "fx" || d.assetClass === "metal") {
+        expect(d.symbol).toBe(`${d.base}${d.quote}`);
+      }
+      // Wave 2 contract geometry is `null` until the broker states it; a guessed
+      // contract size is a guessed position size.
+      if (d.wave === 2) {
+        expect(d.contractSize).toBeNull();
+        expect(d.minLot).toBeNull();
+        expect(d.lotStep).toBeNull();
+      } else {
+        expect(d.contractSize).toBeGreaterThan(0);
+        expect(d.minLot).toBeGreaterThan(0);
+        expect(d.lotStep).toBeGreaterThan(0);
+      }
+      if (d.wave !== 0) expect(d.spreadFloor).toBeNull();
     }
   });
 });
+
 
 describe("lifecycle stage semantics", () => {
   const stages: InstrumentStage[] = [
