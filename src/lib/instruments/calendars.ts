@@ -119,6 +119,17 @@ export function calendar(key: string): MarketCalendar | undefined {
   return BY_KEY.get(key);
 }
 
+const BY_ASSET_CLASS = new Map(MARKET_CALENDARS.map((c) => [c.assetClass, c]));
+
+/**
+ * The calendar an asset class is judged against. The database table
+ * `instrument_calendar_bindings` records the same binding per symbol so a stored
+ * measurement can be re-read against the exact version that judged it.
+ */
+export function calendarForAssetClass(assetClass: AssetClass): MarketCalendar | undefined {
+  return BY_ASSET_CLASS.get(assetClass);
+}
+
 /**
  * May this calendar authorise a measurement?
  *
