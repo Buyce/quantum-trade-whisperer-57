@@ -4267,6 +4267,36 @@ export type Database = {
         }
         Returns: boolean
       }
+      claim_and_enrol_model_shadow: {
+        Args: {
+          _atr: number
+          _claim_model_version: number
+          _cooldown_minutes: number
+          _detected_at: string
+          _direction: string
+          _entry_price: number
+          _entry_source?: string
+          _grade: string
+          _instrument: string
+          _max_r: number
+          _model_version: number
+          _observation_key: string
+          _quality_grade: string
+          _risk_price: number
+          _stop_anchor?: string
+          _stop_loss: number
+          _strategy_family: string
+          _structure_key: string
+          _tp1: number
+          _tp1_r: number
+          _tp2: number
+          _tp2_r: number
+          _tp3: number
+          _tp3_r: number
+          _trading_session: string
+        }
+        Returns: Json
+      }
       claim_execution_delivery: {
         Args: { lease_seconds?: number }
         Returns: {
@@ -4317,6 +4347,19 @@ export type Database = {
         Returns: boolean
       }
       claim_weekly_report: { Args: { _week: string }; Returns: boolean }
+      enrol_research_candidate_shadow: {
+        Args: {
+          _candidate_id: string
+          _claim_model_version?: number
+          _cohort?: string
+          _cooldown_minutes?: number
+          _execution_policy?: string
+          _expected_plan_version?: number
+          _plan_origin?: string
+          _replay_version?: number
+        }
+        Returns: Json
+      }
       expire_execution_leases: { Args: never; Returns: number }
       get_admin_author_split: { Args: never; Returns: Json }
       get_admin_candidate_funnel: { Args: never; Returns: Json }
@@ -4326,6 +4369,10 @@ export type Database = {
       get_admin_instrument_diagnostics: { Args: never; Returns: Json }
       get_admin_intelligence: { Args: never; Returns: Json }
       get_admin_payoff_research: { Args: never; Returns: Json }
+      instrument_capability_allowed: {
+        Args: { _capability: string; _instrument: string }
+        Returns: Json
+      }
       is_admin: { Args: never; Returns: boolean }
       maintain_scan_queue: { Args: never; Returns: Json }
       maintain_shadow_queue: { Args: never; Returns: Json }
