@@ -464,6 +464,7 @@ export async function revalidateDelivery(
   // in section 6, so this first pass asserts the side only and section 6a-bis
   // re-asks with the broker's own distance.
   const marketPrice = action === "buy_limit" ? quote.ask : quote.bid;
+  console.log("DBG", action, plan.entryPrice, marketPrice, quote.bid, quote.ask);
   if (!pendingLimitSideValid({ action, entry: plan.entryPrice }, marketPrice)) {
     return reject("limit_price_not_on_pending_side", `market ${marketPrice} vs ${plan.entryPrice}`);
   }
