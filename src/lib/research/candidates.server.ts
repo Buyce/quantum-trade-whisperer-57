@@ -53,6 +53,12 @@ export interface CaptureCandidateArgs {
   v1Decision: string;
   /** Set only when V1 published this candidate as a live signal. */
   publishedSignalId: string | null;
+  /**
+   * Detection provenance (R7/R8): candle policy, as-of bar time and the provider
+   * symbol the numbers came from. Omitted stores NULLs, which marks the row as
+   * pre-provenance rather than pretending a policy was recorded.
+   */
+  provenance?: DetectionProvenance | null;
 }
 
 /**
