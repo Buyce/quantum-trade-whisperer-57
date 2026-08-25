@@ -316,10 +316,13 @@ export function pendingLimitSideValid(
   price: number,
   minDistance = 0,
 ): boolean {
-  if (!(price > 0) || !(order.entry > 0) || !(minDistance >= 0)) return false;
-  return order.action === "buy_limit"
-    ? price - order.entry >= minDistance
-    : order.entry - price >= minDistance;
+  if (!(price > 0) || !(order.entry > 0)) return false;
+  if (!Number.isFinite(minDistance) || minDistance < 0) return false;
+  // The market must be strictly on the far side: sitting exactly ON the limit is
+  // not a pending order that waits, it is one that fills at an unplanned moment
+  // or is refused by the broker outright.
+  const gap = order.action === "buy_limit" ? price - order.entry : order.entry - price;
+  return gap > 0 && gap >= minDistance;
 }
 
 export function spreadAcceptable(
