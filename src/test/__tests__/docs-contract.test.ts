@@ -25,15 +25,37 @@ function read(rel: string): string {
   return readFileSync(join(ROOT, rel), "utf8");
 }
 
-const DOC_FILES = [
-  "README.md",
-  "AGENTS.md",
-  ...readdirSync(join(ROOT, "docs"))
-    .filter((f) => f.endsWith(".md"))
-    .map((f) => `docs/${f}`),
-];
+/** Every markdown file under `docs/`, at any depth (so `docs/audits/**` counts). */
+function markdownUnder(dir: string): string[] {
+  return readdirSync(join(ROOT, dir), { withFileTypes: true }).flatMap((e) =>
+    e.isDirectory()
+      ? markdownUnder(`${dir}/${e.name}`)
+      : e.name.endsWith(".md")
+        ? [`${dir}/${e.name}`]
+        : [],
+  );
+}
+
+const DOC_FILES = ["README.md", "AGENTS.md", ...markdownUnder("docs")];
 
 const DOCS = DOC_FILES.map((rel) => ({ rel, text: read(rel) }));
+
+/**
+ * Dated audit snapshots are frozen evidence for a named checkout. Truthfulness
+ * gates (no credentials, no preview host as production) still apply to them, but
+ * the feature-reference structure does not: retrofitting headings onto a
+ * historical record would misrepresent what was actually observed.
+ */
+const DATED_AUDITS = DOC_FILES.filter((rel) => rel.startsWith("docs/audits/"));
+
+/** Documents that carry the full feature-reference contract. */
+const FEATURE_REFERENCES = DOC_FILES.filter(
+  (rel) =>
+    rel.startsWith("docs/") &&
+    !DATED_AUDITS.includes(rel) &&
+    !["docs/README.md", "docs/LINK-AUDIT.md"].includes(rel),
+);
+
 
 describe("documentation contract: URLs", () => {
   it("[INVARIANT] names the canonical production URL in the README", () => {
