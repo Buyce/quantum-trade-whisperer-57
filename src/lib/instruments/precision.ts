@@ -140,6 +140,6 @@ export function tickDecimals(tick: number): number {
   const text = tick.toExponential();
   const [mantissa, exponent] = text.split("e");
   const exp = Number(exponent);
-  const mantissaDecimals = (mantissa.split(".")[1] ?? "").replace(/0+$/, "").length;
+  const mantissaDecimals = ((mantissa ?? "").split(".")[1] ?? "").replace(/0+$/, "").length;
   return Math.max(0, mantissaDecimals - exp);
 }
