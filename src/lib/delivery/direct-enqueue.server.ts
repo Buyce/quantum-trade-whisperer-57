@@ -69,6 +69,50 @@ interface SettingsRow {
   auto_intel_min_win_pct: number | string | null;
   auto_intel_min_sample: number | null;
   auto_execute_c_grade: boolean | null;
+  maximum_active_signal_orders: number | null;
+}
+
+/**
+ * Delivery states that still represent a live automatic order for ceiling
+ * purposes: queued, in-flight or accepted. A refused or failed row consumed no
+ * order, so it must not permanently spend the owner's ceiling.
+ */
+const OCCUPYING_STATES = ["pending", "claimed", "sent", "acknowledged", "unknown"] as const;
+
+/** UTC-day start, matching the cap semantics used everywhere else. */
+function dayStartIso(nowMs: number): string {
+  const d = new Date(nowMs);
+  d.setUTCHours(0, 0, 0, 0);
+  return d.toISOString();
+}
+
+/**
+ * How many automatic orders each of these owners currently occupies.
+ *
+ * A ceiling, never a quota. An unreadable count fails CLOSED (treated as at the
+ * ceiling) rather than silently permitting unbounded orders.
+ */
+export async function occupiedOrderCounts(
+  db: SupabaseClient,
+  userIds: string[],
+  nowMs: number,
+): Promise<{ counts: Map<string, number>; readable: boolean }> {
+  const counts = new Map<string, number>();
+  if (userIds.length === 0) return { counts, readable: true };
+  const { data, error } = await db
+    .from("execution_deliveries")
+    .select("user_id, state, enqueued_at")
+    .in("user_id", userIds)
+    .in("state", OCCUPYING_STATES as unknown as string[])
+    .gte("enqueued_at", dayStartIso(nowMs));
+  if (error) {
+    console.error("occupied order counts unreadable", error.message);
+    return { counts, readable: false };
+  }
+  for (const row of (data ?? []) as { user_id: string }[]) {
+    counts.set(row.user_id, (counts.get(row.user_id) ?? 0) + 1);
+  }
+  return { counts, readable: true };
 }
 
 export interface DirectEnqueueOutcome {
@@ -167,7 +211,7 @@ async function runDirectEnqueue(
   const { data: settingsRows, error: settingsError } = await db
     .from("scanner_settings")
     .select(
-      "user_id, instruments, sessions, alert_min_grade, daily_setup_cap, execution_config_version, auto_intel_gate_enabled, auto_intel_min_win_pct, auto_intel_min_sample, auto_execute_c_grade",
+      "user_id, instruments, sessions, alert_min_grade, daily_setup_cap, execution_config_version, auto_intel_gate_enabled, auto_intel_min_win_pct, auto_intel_min_sample, auto_execute_c_grade, maximum_active_signal_orders",
     )
     .in("user_id", userIds);
   if (settingsError) return await empty("settings_unreadable", settingsError.message);
@@ -224,6 +268,12 @@ async function runDirectEnqueue(
 
   const rows: Record<string, unknown>[] = [];
   let filtered = 0;
+
+  // Per-owner ceiling on concurrent automatic orders. It can only ever REFUSE:
+  // reaching it is never a reason to place an order, and an unreadable count is
+  // treated as "at the ceiling".
+  const occupancy = await occupiedOrderCounts(db, userIds, nowMs);
+  const occupied = new Map(occupancy.counts);
 
   for (const account of armed) {
     const row = settingsByUser.get(account.user_id);
@@ -317,6 +367,27 @@ async function runDirectEnqueue(
         continue;
       }
     }
+
+    // Owner's concurrent-order ceiling.
+    const ceiling = Number(row.maximum_active_signal_orders ?? 3);
+    const used = occupied.get(account.user_id) ?? 0;
+    if (!occupancy.readable || used >= ceiling) {
+      filtered += 1;
+      decisions.push({
+        user_id: account.user_id,
+        signal_id: signal.id,
+        instrument: signal.instrument,
+        grade: signal.grade,
+        decision: occupancy.readable
+          ? "active_order_limit_reached"
+          : "active_order_count_unreadable",
+        detail: occupancy.readable ? `${used} of ${ceiling} automatic orders in use today` : null,
+        enqueued: 0,
+        filtered: 1,
+      });
+      continue;
+    }
+    occupied.set(account.user_id, used + 1);
 
     rows.push({
       user_id: account.user_id,

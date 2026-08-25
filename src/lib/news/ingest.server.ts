@@ -295,7 +295,7 @@ export async function runNewsIngestion(input: {
       retryCount: 0,
       responseStatus: null,
       errorClass: "adapter_threw",
-      errorNote: safeNote(error, [process.env["FRED_API_KEY"], process.env["EIA_API_KEY"]]),
+      errorNote: safeNote(error, [process.env["FRED_API_KEY"]]),
       cursor: null,
       staleAsOf: null,
     };

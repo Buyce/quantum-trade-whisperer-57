@@ -200,6 +200,12 @@ export interface ScannerSettingsRow {
    * revalidation. C-Grade alerts are governed separately by alert_min_grade.
    */
   auto_execute_c_grade: boolean;
+  /**
+   * Ceiling (0-10) on how many automatic orders may be occupied at once, never a
+   * quota: nothing is ever ordered to reach it. Subordinate to the daily setup
+   * cap, risk per trade, lot ceiling, exposure limit and pre-send revalidation.
+   */
+  maximum_active_signal_orders: number;
 }
 
 export type OrderStrategy = "smart_adaptive" | "strict_retest";

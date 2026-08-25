@@ -28,6 +28,11 @@ export const ENQUEUE_DECISION_COPY: Record<string, string> = {
     "Too few resolved replay samples behind this regime to satisfy your intelligence gate. This is a missing measurement, not a prediction.",
   enqueue_attempt_failed:
     "The automatic-order check itself failed, so no order was placed. This is a system fault, not a decision about the setup.",
+  active_order_limit_reached:
+    "Your limit for simultaneous automatic orders is already in use today.",
+  active_order_count_unreadable:
+    "Your current automatic orders could not be counted, so nothing was queued.",
+  instrument_not_approved: "This instrument is not approved for execution yet.",
 };
 
 export function describeEnqueueDecision(decision: string): string {

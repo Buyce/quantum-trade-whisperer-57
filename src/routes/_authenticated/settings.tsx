@@ -114,6 +114,7 @@ function SettingsPage() {
   // Optional intelligence gate on automatic orders. Off unless the user says so.
   const [intelGate, setIntelGate] = useState(false);
   const [autoCGrade, setAutoCGrade] = useState(false);
+  const [maxActiveOrders, setMaxActiveOrders] = useState(3);
   const [intelMinWin, setIntelMinWin] = useState("");
   const [intelMinSample, setIntelMinSample] = useState("30");
   const [equityAsOf, setEquityAsOf] = useState<string | null>(null);
@@ -226,6 +227,7 @@ function SettingsPage() {
     setRiskAckHigh(s.risk_ack_high === true);
     setIntelGate(s.auto_intel_gate_enabled === true);
     setAutoCGrade(s.auto_execute_c_grade === true);
+    setMaxActiveOrders(Number(s.maximum_active_signal_orders ?? 3));
     setIntelMinWin(
       s.auto_intel_min_win_pct == null ? "" : String(Number(s.auto_intel_min_win_pct)),
     );
@@ -298,6 +300,9 @@ function SettingsPage() {
         // C-Grade automatic orders: the user's own choice, never inferred. Only
         // meaningful when the alert tier already includes C.
         auto_execute_c_grade: autoCGrade,
+        // Ceiling on simultaneous automatic orders, never a quota: fewer
+        // qualifying setups simply means fewer orders.
+        maximum_active_signal_orders: Math.round(clamp(maxActiveOrders, 0, 10)),
         auto_intel_min_win_pct:
           Number.isFinite(Number(intelMinWin)) && intelMinWin.trim() !== ""
             ? clamp(Number(intelMinWin), 0, 100)
@@ -566,6 +571,30 @@ function SettingsPage() {
                   limits and the intelligence gate.
                 </p>
               ) : null}
+            </div>
+
+            <div className="border-t border-border pt-4">
+              <Label className="text-xs" htmlFor="max-active-orders">
+                Simultaneous automatic orders
+              </Label>
+              <Input
+                id="max-active-orders"
+                type="number"
+                min={0}
+                max={10}
+                value={maxActiveOrders}
+                onChange={(e) =>
+                  setMaxActiveOrders(Math.max(0, Math.min(10, Number(e.target.value) || 0)))
+                }
+                className="mt-1 max-w-[8rem]"
+              />
+              <p className="mt-2 text-xs text-muted-foreground">
+                A ceiling, not a target: 0 stops automatic orders entirely, 10 is the maximum. The
+                terminal considers your eligible active setups in feed order — highest tier first,
+                then most recent — and never places an order to reach a number. If three setups
+                qualify it places at most three; if none qualify it places none. Your daily setup
+                cap, risk per trade, lot ceiling and exposure limit all still apply on top of this.
+              </p>
             </div>
           </section>
 

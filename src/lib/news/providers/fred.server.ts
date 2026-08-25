@@ -140,7 +140,7 @@ export const FRED_UNSUPPORTED: readonly UnsupportedScope[] = [
   {
     currency: "USD",
     family: "energy_inventory" as const,
-    note: "energy inventory data comes from EIA, not FRED",
+    note: "FRED does not publish an energy inventory release schedule, and no energy provider is integrated",
   },
   {
     currency: "USD",

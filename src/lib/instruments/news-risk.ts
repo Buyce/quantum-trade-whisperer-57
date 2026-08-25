@@ -2,7 +2,7 @@
  * News-risk categories per instrument (Wave 2).
  *
  * The existing policy — no new trade around a high-impact event — was written with
- * FX events in mind. An oil CFD's dominant scheduled risk is the EIA inventory
+ * FX events in mind. An oil CFD's dominant scheduled risk is the weekly petroleum inventory
  * report and an OPEC decision; an index's is US macro and earnings season. Applying
  * the FX event list to them would be a false claim of coverage.
  *
