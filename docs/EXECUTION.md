@@ -95,7 +95,8 @@ Resolution of those states is manual or dry-run.
   dry/live authorisation, risk inputs that determine quantity, and the eligibility
   settings `instruments`, `sessions`, `alert_min_grade`, `daily_setup_cap`. The
   version is snapshotted at enqueue; at dispatch a mismatch is rejected with
-  `configuration_changed_since_enqueue`. An old signal is never silently sent under
+  `configuration_changed_since_enqueue`, `intelligence_gate_below_threshold`,
+`intelligence_gate_sample_insufficient`. An old signal is never silently sent under
   new authorisation.
 - **Server-only authorisation writes.** Database column privileges prevent an
   authenticated browser/REST client from reading or replacing the bridge secret
@@ -112,6 +113,12 @@ Resolution of those states is manual or dry-run.
   explicit quantity, so it is eligible for automatic live execution.
   **PineConnector remains dry-run only** for automatic execution because its
   quantity/risk field contract is not verified; its sizing syntax is not guessed.
+- **Live-host allow-list is owner-managed and fails closed.** A live POST may only
+  go to a host on `execution_controls.allowed_live_hosts`. Live execution cannot be
+  enabled while `force_dry_run` is on or while the list is empty, automatic live
+  orders cannot be armed unless live execution is already on, and removing the last
+  allowed host disarms both. Hosts must be plain lowercase hostnames — a URL, path,
+  port or wildcard is rejected on save.
 - **Live-host allow-list** plus server-side URL validation at both save and
   dispatch, and `redirect: "manual"` everywhere.
 - **Connectivity test.** The test webhook validates the URL immediately before the
@@ -149,7 +156,8 @@ Every refusal has a named reason, including
 `instrument_disabled`, `webhook_not_configured`, `webhook_not_validated`,
 `endpoint_rejected`, `not_alert_eligible`, `signal_missing`, `signal_not_active`,
 `tif_expired`, `quote_unavailable`, `policy_unsupported`,
-`configuration_changed_since_enqueue`.
+`configuration_changed_since_enqueue`, `intelligence_gate_below_threshold`,
+`intelligence_gate_sample_insufficient`.
 
 ## User-facing meaning
 
@@ -169,6 +177,7 @@ read only the facts the provider returns, and missing facts remain unavailable.
 ## Implementation
 
 `src/lib/delivery/execution.ts`, `revalidate.server.ts`, `dispatch.server.ts`,
+`direct-enqueue.server.ts`, `intel-gate.ts`, `enqueue-log.ts`,
 `hmac.ts`, `outbound-url.server.ts`, `exposure.ts`, `eligibility.ts`,
 `src/lib/execution/direct.server.ts`, `src/lib/evidence/reconcile.server.ts`,
 `src/lib/execution.functions.ts`, `src/lib/webhook-test.functions.ts`,
@@ -177,4 +186,6 @@ read only the facts the provider returns, and missing facts remain unavailable.
 ## Tests
 
 `src/lib/delivery/__tests__/execution-safety.test.ts`,
-`src/lib/delivery/__tests__/control-plane.test.ts`.
+`src/lib/delivery/__tests__/control-plane.test.ts`,
+`src/lib/delivery/__tests__/direct-enqueue.test.ts`,
+`src/lib/delivery/__tests__/intel-gate.test.ts`.
