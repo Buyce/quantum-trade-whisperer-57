@@ -42,8 +42,16 @@ Prove each scheduled worker writes production rows: sampler attempts, spread sam
 ### 5. Outcome resolution, calibration and holdout infrastructure
 Verify and complete the candidate-to-outcome state machine (pending entry, entered, target, stop, expired unfilled, cancelled, ambiguous, suspended-missing-data, terminal failure) with conservative same-candle ambiguity handling and ambiguity excluded from metrics that need a known result. Build the time-ordered calibration/holdout cohort separation and leakage guards (revised events, later mappings/specs, later candles, future sessions, correlated instruments) so that when evidence exists the evaluation is already honest. All dark.
 
-### 6. Gates that stay closed today
-Shadow, signals, alerts, demo execution and live execution all remain prohibited: their preconditions are real elapsed market evidence, and today AUDUSD has none. The path is built and tested; nothing is activated. Live-money execution needs a separate written authorization naming account, instrument, cohort, risk per trade, daily risk, exposure, order cap, mode, approver, duration and rollback conditions.
+### 6. Open the gate — live data flows, demo-only automatic execution
+Per your instruction the progression is opened rather than held, with money risk still structurally impossible:
+
+- **Shadow evaluation on** for AUDUSD (and each Wave 1 instrument as it clears data_validation), so live market data starts producing real research decisions immediately.
+- **Customer signals and alerts on** for an instrument only once its own readiness evidence passes; an instrument with no evidence yet publishes nothing rather than publishing on thin data. Feed and alert thresholds stay as configured today.
+- **Automatic execution enabled for demo destinations only.** `live_execution_enabled` stays false, live orders keep their allow-list and confirmation gates, and demo-only enforcement is proved at the enqueue decision, the pre-send revalidation and the destination-mode check — three independent places, each with a test, so a live account cannot inherit the opening. Every refused attempt still writes a decision row with a plain reason.
+- Grade, instrument, session, daily-cap, risk, exposure, intelligence-gate and news-coverage gates all continue to apply; the C-grade opt-in stays user-level and default off.
+- Rollback is one audited `set_execution_control` call per switch, with expected-previous and reason recorded.
+
+Live-money execution remains outside this authorization and needs separate written approval naming account, instrument, cohort, risk per trade, daily risk, exposure, order cap, mode, approver, duration and rollback conditions.
 
 ### 7. Documentation and tests, continuously
 New/updated: `docs/NEWS-AND-EVENTS.md`, `docs/CALIBRATION.md`, `docs/OUTCOME-RESOLUTION.md`, `docs/FEATURE-FLAGS.md`, `docs/TELEMETRY.md`, plus updates to `ARCHITECTURE.md`, `INSTRUMENT-LIFECYCLE.md`, `MULTI-ASSET.md`, `OPERATIONS.md`, `SECURITY.md`, `MCP.md`, and a new dated audit report (existing reports preserved). Every capability is labelled implemented / deployed dark / active / evidence accumulating / blocked. Tests: CI parity, news ingestion idempotency/revision/cancellation/staleness/unknown coverage, detection-time news provenance, sampler runtime writes, missingness denominator, asset-class spread units, outcome transitions and gaps, ambiguity, resolver isolation, calibration/holdout separation and leakage, and RLS/grant coverage for every new object.
