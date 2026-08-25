@@ -39,8 +39,9 @@ broker connection.
 
 ### Which setups reach an armed account
 
-Enqueue for an armed broker account happens in the publication path
-(`src/lib/delivery/direct-enqueue.server.ts`), not in a database trigger, so it
+Enqueue for an armed broker account happens in `direct-enqueue.server.ts`, not in a
+database trigger, and it is attempted from **two** places: the publication path, and
+the active-signal reconciler below. Both call the same function, so it
 uses the same `evaluateEligibility` rules as alerts: the owner's instruments,
 sessions, `alert_min_grade` and daily cap, counted over the whole UTC-day frame.
 C-Grade is refused unless the owner has explicitly switched on
@@ -49,6 +50,36 @@ automatic orders_) **and** their alert tier already includes C; the opt-in bypas
 nothing else, and C-Grade never consumes the daily setup cap. An owner with no
 settings row gets no order rather than a guessed default. Automatic orders therefore never reach an instrument,
 session or grade the owner did not select.
+
+### Active-signal reconciliation
+
+Publication is a single instant, and an owner's execution readiness is not. Arming
+an account a minute after a setup published, reconnecting a broker, correcting an
+instrument list, or a worker being briefly unavailable all used to mean the setup
+stayed active and valid forever with **no order and no second attempt**. The
+reconciler (`src/lib/delivery/reconcile-active.server.ts`, worker route
+`/api/public/worker/reconcile-active`) is that second attempt, and every later one.
+
+It is not a second rule set. It selects still-entryable active signals — status
+`active`, not expired — ranks them the way the feed already reads (grade first, then
+newest, with a stable id tie-breaker), bounds the pass, and hands each to the same
+authoritative enqueue path, leaving the same decision trail. Idempotency is
+database-backed: deliveries upsert on `(user_id, signal_id, bridge_profile)` with
+duplicates ignored, so repeated passes and concurrent workers cannot double-order.
+It reads no alert state — a missed alert never blocks an order and a delivered alert
+never authorises one — and it submits nothing to a broker: the dispatcher still does
+that, after its own pre-send revalidation.
+
+### Concurrent-order ceiling
+
+`scanner_settings.maximum_active_signal_orders` (0-10, default 3) caps how many
+automatic orders an owner may have occupied at once — counting today's `pending`,
+`claimed`, `sent`, `acknowledged` and `unknown` deliveries. It is a **ceiling, never
+a quota**: reaching it refuses further orders, and being below it is never a reason
+to place one. Fewer qualifying setups simply means fewer orders. A count that cannot
+be read fails closed (`active_order_count_unreadable`) rather than permitting
+unbounded orders, and it sits on top of — never instead of — the daily setup cap,
+risk per trade, lot ceiling and exposure limit.
 
 On top of eligibility there is one optional, off-by-default, reduce-only rule:
 the **intelligence gate** (`src/lib/delivery/intel-gate.ts`). When an owner sets a
