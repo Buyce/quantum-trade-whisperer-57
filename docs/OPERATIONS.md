@@ -95,8 +95,16 @@ Not cycling ⇒ check the cron caller, the worker queue and the MetaApi budget.
 `worker/dispatch` and `worker/process` are being called and returning 2xx.
 
 **MetaApi timeout.** Every fetch is wrapped in an 8-second timeout; on expiry the
-pair is skipped, flagged temporarily unavailable, and the scanner advances. Repeated
-timeouts on one instrument point at the upstream data bug, not at the scanner.
+pair is skipped, flagged temporarily unavailable, and the scanner advances. Shadow
+replay keeps the setup open and leaves its cursor unchanged until a real M15 candle
+batch is available. Repeated timeouts on one instrument point at the upstream data
+bug, not at the scanner or replay maths.
+
+**Shadow replay degraded.** `DEGRADED` means the latest replay pass was allowed to
+run but could not fetch usable provider candles for every attempted instrument.
+It is missing data, not a win/loss/no-trade result, and it does not pause live
+scan cycles or delivery gates. `BREAKER TRIPPED` means repeated failed replay
+passes have entered cooldown.
 
 **Stale broker specs.** Sizing refuses with `stale_spec` rather than sizing on old
 data. Re-run `cron/refresh-specs`.
