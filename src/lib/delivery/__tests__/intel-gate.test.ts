@@ -161,7 +161,7 @@ describe("enqueueDirectDeliveries with the gate", () => {
     // order occupancy from the same table is a read, so the invariant is written
     // against writes specifically.
     expect(
-      f.calls.some((c) => c.table === "execution_deliveries" && c.op === "upsert"),
+      f.calls.some((c) => c.table === "execution_deliveries" && c.op !== "select"),
     ).toBe(false);
     const row = decisionRows(f.calls)[0] as Record<string, unknown>;
     expect(row["decision"]).toBe("intelligence_gate_below_threshold");
