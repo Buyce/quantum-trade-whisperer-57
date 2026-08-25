@@ -107,6 +107,7 @@ interface FakeOptions {
   v2Enabled?: boolean;
   claim?: boolean;
   duplicate?: boolean;
+  lifecycleStage?: string;
   shadowInsertError?: string;
 }
 
@@ -129,7 +130,7 @@ function fakeDb(opts: FakeOptions) {
       return { data: { lifecycle_enforced: true }, error: null };
     }
     if (table === "instrument_lifecycle" && op === "select") {
-      return { data: [{ symbol: "EURUSD", stage: "shadow" }], error: null };
+      return { data: [{ symbol: "EURUSD", stage: opts.lifecycleStage ?? "shadow" }], error: null };
     }
     if (table === "scanned_signals" && op === "select") {
       return { data: opts.duplicate ? [{ id: "existing" }] : [], error: null };
@@ -284,7 +285,12 @@ describe("V2 shadow enrolment gating", () => {
       direction: "long",
       structureKey: "EURUSD|long|v1",
     };
-    const { db, recorded } = fakeDb({ v2Enabled: true, claim: true, duplicate: true });
+    const { db, recorded } = fakeDb({
+      v2Enabled: true,
+      claim: true,
+      duplicate: true,
+      lifecycleStage: "signals_only",
+    });
     const job = await processNextJob(db);
     expect(job?.status).toBe("duplicate");
     expect(shadowEnrolments(recorded)).toHaveLength(1);
