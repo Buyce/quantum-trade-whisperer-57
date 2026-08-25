@@ -16,12 +16,7 @@
 import { WAVE0_SYMBOLS } from "./registry";
 
 export type InstrumentStage =
-  | "disabled"
-  | "data_validation"
-  | "shadow"
-  | "signals_only"
-  | "execution_approved"
-  | "suspended";
+  "disabled" | "data_validation" | "shadow" | "signals_only" | "execution_approved" | "suspended";
 
 /**
  * Monotonic capability rank. `suspended` is deliberately NOT on this ladder: it

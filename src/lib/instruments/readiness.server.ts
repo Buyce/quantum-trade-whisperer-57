@@ -104,7 +104,8 @@ export async function checkInstrumentReadiness(
   checks.push({
     name: "candles",
     ok: missing.length === 0,
-    detail: missing.length === 0 ? "H4, H1 and M15 all returned gradable history" : missing.join("; "),
+    detail:
+      missing.length === 0 ? "H4, H1 and M15 all returned gradable history" : missing.join("; "),
   });
 
   // ---- 4. A fresh, well-formed quote ---------------------------------------

@@ -1,7 +1,7 @@
 # Instrument lifecycle
 
 An instrument earns its way into the product one capability at a time. Being
-*defined* in the code does not make an instrument scannable; being scanned does
+_defined_ in the code does not make an instrument scannable; being scanned does
 not make it publishable; being publishable does not make it executable. Each of
 those is a separate, explicit database decision.
 
@@ -12,11 +12,11 @@ symbol, label, base/quote currencies, contract size, minimum lot, lot step,
 fallback digits and the validated stop-distance floor. Everything else derives
 from it:
 
-| Consumer                  | What it takes from the registry     |
-| ------------------------- | ----------------------------------- |
-| `lib/scanner/types.ts`    | the scan universe, stop floors      |
-| `lib/risk.ts`             | contract specifications             |
-| `lib/db-types.ts`         | labels, the settings instrument list |
+| Consumer               | What it takes from the registry      |
+| ---------------------- | ------------------------------------ |
+| `lib/scanner/types.ts` | the scan universe, stop floors       |
+| `lib/risk.ts`          | contract specifications              |
+| `lib/db-types.ts`      | labels, the settings instrument list |
 
 Wave 0 is `XAUUSD`, `GBPAUD`, `EURUSD`. Wave 1 admits `GBPUSD`, `USDJPY`,
 `AUDUSD`, `USDCAD`, `USDCHF` as definitions only.
