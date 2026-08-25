@@ -21,6 +21,7 @@
  * about this already-published signal".
  */
 import { GRADE_RANK, isWithinRetention, type Grade } from "@/lib/db-types";
+import { WAVE0_SYMBOLS } from "@/lib/instruments/registry";
 
 export type EligibilityChannel = "feed" | "alert";
 
@@ -85,7 +86,12 @@ export function baseEligibility(
   channel: EligibilityChannel,
   now: number,
 ): EligibilityResult {
-  if (settings.instruments.length && !settings.instruments.includes(signal.instrument)) {
+  // An empty preference means "the Wave 0 universe", NOT "whatever the scanner
+  // happens to cover". Treating it as "all" would silently opt every existing
+  // user into each newly promoted pair; joining a new pair must stay a deliberate
+  // choice, so the default set is pinned.
+  const allowed = settings.instruments.length ? settings.instruments : WAVE0_SYMBOLS;
+  if (!allowed.includes(signal.instrument)) {
     return { eligible: false, reason: "instrument_filtered" };
   }
   const min = channelMinGrade(settings, channel);

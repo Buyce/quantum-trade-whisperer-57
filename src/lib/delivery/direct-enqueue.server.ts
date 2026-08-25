@@ -32,6 +32,13 @@ import {
 } from "./eligibility";
 import { evaluateIntelGate, gateConfigured, type IntelGateSettings } from "./intel-gate";
 import { recordEnqueueDecisions, type EnqueueDecisionRow } from "./enqueue-log.server";
+import {
+  INSTRUMENT_NOT_APPROVED,
+  describeStage,
+  mayExecute,
+  stageOf,
+} from "@/lib/instruments/lifecycle";
+import { readLifecycleView } from "@/lib/instruments/lifecycle.server";
 
 export interface DirectEnqueueSignal {
   id: string;
@@ -105,6 +112,20 @@ export async function enqueueDirectDeliveries(
 
   // C-Grade is never automatically executed. Unchanged rule.
   if (signal.grade === "C") return await empty("c_grade_never_executes");
+
+  // Lifecycle: only an instrument approved for execution may be enqueued at all.
+  // The pre-send gate repeats this check, because a suspension can land after a
+  // delivery is already queued — this one just avoids queuing work that cannot ship.
+  const lifecycle = await readLifecycleView(db as unknown as SupabaseClient);
+  if (lifecycle.enforced) {
+    const stage = stageOf(signal.instrument, lifecycle.stages);
+    if (!mayExecute(stage)) {
+      return await empty(
+        INSTRUMENT_NOT_APPROVED,
+        `${signal.instrument} is at lifecycle stage "${stage}" (${describeStage(stage)})`,
+      );
+    }
+  }
 
   const { data: controlRows, error: controlError } = await db
     .from("execution_controls")

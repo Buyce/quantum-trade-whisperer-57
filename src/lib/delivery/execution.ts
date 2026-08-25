@@ -69,13 +69,16 @@ export type RejectReason =
   | "account_equity_unavailable"
   | "account_equity_stale"
   | "account_currency_unavailable"
-  | "account_not_armed";
+  | "account_not_armed"
+  | "instrument_not_approved";
 
 export const REJECT_COPY: Record<RejectReason, string> = {
   live_execution_globally_disabled: "Live execution is disabled system-wide.",
   user_execution_disabled: "You have not enabled execution for your account.",
   bridge_disabled: "This bridge profile is temporarily disabled.",
   instrument_disabled: "Execution is temporarily disabled for this instrument.",
+  instrument_not_approved:
+    "This instrument is not approved for automatic execution yet. It is still being measured, so no order was sent.",
   webhook_not_configured: "No bridge URL is saved.",
   webhook_not_validated: "Your bridge URL has not passed endpoint validation.",
   endpoint_rejected: "Your bridge URL failed endpoint validation at send time.",

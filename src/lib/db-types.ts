@@ -2,6 +2,8 @@
  * Row shapes for the P-Trades tables. Declared locally so the app compiles
  * independently of generated type regeneration.
  */
+import { WAVE0_SYMBOLS, instrumentLabels } from "@/lib/instruments/registry";
+
 export type Grade = "A+" | "A" | "B" | "C";
 export type Direction = "long" | "short";
 export type DecisionKind = "taken" | "skipped";
@@ -247,13 +249,17 @@ export const SESSION_LABELS: Record<string, string> = {
   new_york: "New York",
 };
 
-export const INSTRUMENT_LABELS: Record<string, string> = {
-  XAUUSD: "Gold",
-  GBPAUD: "GBP/AUD",
-  EURUSD: "EUR/USD",
-};
+/**
+ * Display names for every instrument the registry knows about, including pairs
+ * still in measurement — a label is safe to know, offering the pair is not.
+ */
+export const INSTRUMENT_LABELS: Record<string, string> = instrumentLabels();
 
-export const ALL_INSTRUMENTS: string[] = ["XAUUSD", "GBPAUD", "EURUSD"];
+/**
+ * The instruments the settings UI offers. Pinned to Wave 0 so no existing user is
+ * silently opted into a pair that has not completed its lifecycle gates.
+ */
+export const ALL_INSTRUMENTS: string[] = [...WAVE0_SYMBOLS];
 export const ALL_TIMEFRAMES: string[] = ["H4", "H1", "M15"];
 export const ALL_SESSIONS: string[] = [
   "sydney",
