@@ -280,15 +280,45 @@ export interface AdminExecutionSwitches {
   liveExecutionEnabled: boolean;
   liveAutoEnabled: boolean;
   executionPolicy: string;
+  /** Hosts an outbound LIVE webhook POST may be sent to. Empty = nothing may go out. */
+  allowedLiveHosts: string[];
   updatedAt: string | null;
+}
+
+const SWITCH_COLUMNS =
+  "demo_auto_enabled, force_dry_run, live_execution_enabled, live_auto_enabled, execution_policy, allowed_live_hosts, updated_at";
+
+interface SwitchRow {
+  demo_auto_enabled?: boolean;
+  force_dry_run?: boolean;
+  live_execution_enabled?: boolean;
+  live_auto_enabled?: boolean;
+  execution_policy?: string;
+  allowed_live_hosts?: string[] | null;
+  updated_at?: string;
+}
+
+/**
+ * Defaults are the SAFE reading of a missing value: nothing armed, dry-run on,
+ * no host allowed. An unreadable control is never read as permission.
+ */
+function mapSwitches(row: SwitchRow | null): AdminExecutionSwitches {
+  return {
+    demoAutoEnabled: row?.demo_auto_enabled === true,
+    forceDryRun: row?.force_dry_run !== false,
+    liveExecutionEnabled: row?.live_execution_enabled === true,
+    liveAutoEnabled: row?.live_auto_enabled === true,
+    executionPolicy: row?.execution_policy ?? "single_exit_first_target",
+    allowedLiveHosts: row?.allowed_live_hosts ?? [],
+    updatedAt: row?.updated_at ?? null,
+  };
 }
 
 /**
  * Owner-only read of the system-wide execution capabilities.
  *
  * These are the switches that decide whether an armed account may actually
- * submit orders. They are read straight from `execution_controls` — no defaults
- * are invented, an unreadable row reports the SAFE value (off / dry-run).
+ * receive an order, and whether a webhook bridge may POST for real.
  */
 export const getAdminExecutionSwitches = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -299,53 +329,89 @@ export const getAdminExecutionSwitches = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data, error } = await supabaseAdmin
       .from("execution_controls")
-      .select(
-        "demo_auto_enabled, force_dry_run, live_execution_enabled, live_auto_enabled, execution_policy, updated_at",
-      )
+      .select(SWITCH_COLUMNS)
       .eq("id", true)
       .maybeSingle();
     if (error) throw new Error(error.message);
-    const row = data as {
-      demo_auto_enabled?: boolean;
-      force_dry_run?: boolean;
-      live_execution_enabled?: boolean;
-      live_auto_enabled?: boolean;
-      execution_policy?: string;
-      updated_at?: string;
-    } | null;
-
-    return {
-      demoAutoEnabled: row?.demo_auto_enabled === true,
-      forceDryRun: row?.force_dry_run !== false,
-      liveExecutionEnabled: row?.live_execution_enabled === true,
-      liveAutoEnabled: row?.live_auto_enabled === true,
-      executionPolicy: row?.execution_policy ?? "single_exit_first_target",
-      updatedAt: row?.updated_at ?? null,
-    };
+    return mapSwitches(data as SwitchRow | null);
   });
 
 /**
- * Owner-only write of the DEMO-side execution capabilities.
+ * Owner-only write of the system-wide execution capabilities.
  *
- * Only `demo_auto_enabled` and `force_dry_run` are writable here on purpose:
- * arming REAL money remains a separate, deliberate act outside this panel, so
- * this control can never turn live execution on by accident. Turning a switch
- * off is always accepted. Live switches are untouched by this control.
+ * Demo switches are ordinary toggles. The LIVE switches are deliberately harder:
+ *
+ *  - Live execution cannot be enabled while `force_dry_run` is on, and cannot be
+ *    enabled with an empty host allow-list — an armed switch with no destination
+ *    is a trap, not a feature.
+ *  - Hosts are normalised to bare lowercase hostnames and must be plain
+ *    hostnames; a URL, a path, a port or a wildcard is rejected here so the
+ *    allow-list can never be widened by a sloppy entry. Per-request SSRF
+ *    validation at dispatch is unchanged and still authoritative.
+ *  - Turning anything OFF is always accepted, with no preconditions.
  */
 export const setAdminExecutionSwitches = createServerFn({ method: "POST" })
+  .validator(
+    (input: {
+      demoAutoEnabled?: boolean;
+      forceDryRun?: boolean;
+      liveExecutionEnabled?: boolean;
+      liveAutoEnabled?: boolean;
+      allowedLiveHosts?: string[];
+    }) => input,
+  )
   .middleware([requireSupabaseAuth])
-  .validator((input: { demoAutoEnabled?: boolean; forceDryRun?: boolean }) => input)
   .handler(async ({ data, context }): Promise<AdminExecutionSwitches> => {
     const email = String(context.claims["email"] ?? "").toLowerCase();
     if (email !== OWNER_EMAIL) throw new Error("Forbidden");
 
-    const patch: Record<string, boolean> = {};
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: currentRow, error: currentError } = await supabaseAdmin
+      .from("execution_controls")
+      .select(SWITCH_COLUMNS)
+      .eq("id", true)
+      .maybeSingle();
+    if (currentError) throw new Error(currentError.message);
+    const current = mapSwitches(currentRow as SwitchRow | null);
+
+    const patch: Record<string, unknown> = {};
     if (typeof data.demoAutoEnabled === "boolean")
       patch["demo_auto_enabled"] = data.demoAutoEnabled;
     if (typeof data.forceDryRun === "boolean") patch["force_dry_run"] = data.forceDryRun;
+
+    let hosts = current.allowedLiveHosts;
+    if (Array.isArray(data.allowedLiveHosts)) {
+      hosts = normaliseHosts(data.allowedLiveHosts);
+      patch["allowed_live_hosts"] = hosts;
+    }
+
+    const dryRunAfter =
+      typeof data.forceDryRun === "boolean" ? data.forceDryRun : current.forceDryRun;
+
+    if (typeof data.liveExecutionEnabled === "boolean") {
+      if (data.liveExecutionEnabled) {
+        if (dryRunAfter)
+          throw new Error("Turn the system-wide dry-run lock off before enabling live execution.");
+        if (hosts.length === 0)
+          throw new Error("Add at least one allowed live host before enabling live execution.");
+      }
+      patch["live_execution_enabled"] = data.liveExecutionEnabled;
+    }
+
+    if (typeof data.liveAutoEnabled === "boolean") {
+      if (data.liveAutoEnabled) {
+        const liveExecAfter =
+          typeof data.liveExecutionEnabled === "boolean"
+            ? data.liveExecutionEnabled
+            : current.liveExecutionEnabled;
+        if (!liveExecAfter)
+          throw new Error("Enable live execution before arming automatic live orders.");
+      }
+      patch["live_auto_enabled"] = data.liveAutoEnabled;
+    }
+
     if (Object.keys(patch).length === 0) throw new Error("Nothing to change.");
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin
       .from("execution_controls")
       .update(patch as never)
@@ -354,27 +420,63 @@ export const setAdminExecutionSwitches = createServerFn({ method: "POST" })
 
     const { data: fresh, error: readError } = await supabaseAdmin
       .from("execution_controls")
-      .select(
-        "demo_auto_enabled, force_dry_run, live_execution_enabled, live_auto_enabled, execution_policy, updated_at",
-      )
+      .select(SWITCH_COLUMNS)
       .eq("id", true)
       .maybeSingle();
     if (readError) throw new Error(readError.message);
-    const row = fresh as {
-      demo_auto_enabled?: boolean;
-      force_dry_run?: boolean;
-      live_execution_enabled?: boolean;
-      live_auto_enabled?: boolean;
-      execution_policy?: string;
-      updated_at?: string;
-    } | null;
-
-    return {
-      demoAutoEnabled: row?.demo_auto_enabled === true,
-      forceDryRun: row?.force_dry_run !== false,
-      liveExecutionEnabled: row?.live_execution_enabled === true,
-      liveAutoEnabled: row?.live_auto_enabled === true,
-      executionPolicy: row?.execution_policy ?? "single_exit_first_target",
-      updatedAt: row?.updated_at ?? null,
-    };
+    return mapSwitches(fresh as SwitchRow | null);
   });
+
+function normaliseHosts(input: string[]): string[] {
+  const out: string[] = [];
+  for (const raw of input) {
+    const host = String(raw).trim().toLowerCase();
+    if (host === "") continue;
+    if (!/^[a-z0-9.-]+\.[a-z]{2,}$/.test(host))
+      throw new Error(`"${raw}" is not a plain hostname (example: hooks.example.com).`);
+    if (!out.includes(host)) out.push(host);
+  }
+  return out;
+}
+
+export interface AdminEnqueueDecision {
+  at: string;
+  instrument: string | null;
+  grade: string | null;
+  decision: string;
+  detail: string | null;
+  enqueued: number;
+  filtered: number;
+}
+
+/**
+ * Owner-only read of the most recent automatic-order decisions across all users.
+ *
+ * Pseudonymous by construction: user identity is never returned, because the
+ * operational question is "did the engine decide, and what did it decide",
+ * not "who".
+ */
+export const getAdminEnqueueDecisions = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<AdminEnqueueDecision[]> => {
+    const email = String(context.claims["email"] ?? "").toLowerCase();
+    if (email !== OWNER_EMAIL) throw new Error("Forbidden");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await supabaseAdmin
+      .from("execution_enqueue_decisions")
+      .select("created_at, instrument, grade, decision, detail, enqueued, filtered")
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (error) throw new Error(error.message);
+    return ((data ?? []) as Record<string, unknown>[]).map((row) => ({
+      at: String(row["created_at"]),
+      instrument: (row["instrument"] as string | null) ?? null,
+      grade: (row["grade"] as string | null) ?? null,
+      decision: String(row["decision"]),
+      detail: (row["detail"] as string | null) ?? null,
+      enqueued: Number(row["enqueued"] ?? 0),
+      filtered: Number(row["filtered"] ?? 0),
+    }));
+  });
+
