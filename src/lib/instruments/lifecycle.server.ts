@@ -87,8 +87,21 @@ export async function writeDataHealth(
 }
 
 /**
- * Stage transitions are service-role only and ALWAYS append history first, so an
- * approval can never exist without its reason.
+ * Stage transitions — service-role only, and ATOMIC (Phase A1, Finding 4).
+ *
+ * The previous implementation inserted the history row and then updated the
+ * stage in a second round trip. A failure between the two left an approval record
+ * for a transition that never happened, and two concurrent callers could both read
+ * the same `from_stage` and both "succeed".
+ *
+ * Everything is now delegated to `public.transition_instrument_stage`, which in ONE
+ * transaction locks the lifecycle row, verifies the caller's expected current
+ * stage, validates the destination against the allowed-transition graph, requires a
+ * non-empty reason and approver, writes the history row and updates the stage —
+ * committing both or neither.
+ *
+ * ROLLBACKS USE THIS SAME PATH. A direct `update` on `instrument_lifecycle` is not
+ * an acceptable rollback: it produces no audit trail.
  */
 export async function transitionStage(
   db: SupabaseClient,
@@ -97,37 +110,35 @@ export async function transitionStage(
     to: InstrumentStage;
     reason: string;
     approver: string;
+    /**
+     * The stage the caller believes the instrument is at. Supplying it turns the
+     * transition into a compare-and-set; omitting it accepts whatever the current
+     * stage is, which is only appropriate for an emergency suspension.
+     */
+    expectedFrom?: InstrumentStage | null;
     evidence?: unknown;
     strategyModelVersion?: number;
     codeHash?: string;
     rollbackTarget?: InstrumentStage;
   },
-): Promise<{ ok: boolean; error?: string }> {
-  const { data: current, error: readError } = await db
-    .from("instrument_lifecycle")
-    .select("stage")
-    .eq("symbol", args.symbol)
-    .maybeSingle();
-  if (readError) return { ok: false, error: readError.message };
-  const from = (current as { stage?: string } | null)?.stage ?? null;
-
-  const { error: historyError } = await db.from("instrument_lifecycle_transitions").insert({
-    symbol: args.symbol,
-    from_stage: from,
-    to_stage: args.to,
-    reason: args.reason,
-    approver: args.approver,
-    evidence: args.evidence ?? null,
-    strategy_model_version: args.strategyModelVersion ?? null,
-    code_hash: args.codeHash ?? null,
-    rollback_target: args.rollbackTarget ?? (isStage(from) ? from : null),
+): Promise<{ ok: boolean; from?: InstrumentStage; noop?: boolean; error?: string }> {
+  const { data, error } = await db.rpc("transition_instrument_stage", {
+    _symbol: args.symbol,
+    _expected_from: args.expectedFrom ?? null,
+    _to: args.to,
+    _reason: args.reason,
+    _approver: args.approver,
+    _evidence: (args.evidence ?? null) as never,
+    _rollback_target: args.rollbackTarget ?? null,
+    _strategy_model_version: args.strategyModelVersion ?? null,
+    _code_hash: args.codeHash ?? null,
   });
-  if (historyError) return { ok: false, error: historyError.message };
-
-  const { error } = await db
-    .from("instrument_lifecycle")
-    .update({ stage: args.to })
-    .eq("symbol", args.symbol);
   if (error) return { ok: false, error: error.message };
-  return { ok: true };
+  const result = (data ?? {}) as { from?: string; noop?: boolean };
+  return {
+    ok: true,
+    ...(isStage(result.from) ? { from: result.from } : {}),
+    ...(typeof result.noop === "boolean" ? { noop: result.noop } : {}),
+  };
 }
+
