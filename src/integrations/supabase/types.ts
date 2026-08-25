@@ -900,6 +900,179 @@ export type Database = {
         }
         Relationships: []
       }
+      economic_event_revisions: {
+        Row: {
+          actual_published_at: string | null
+          actual_value: number | null
+          change_kind: string
+          created_at: string
+          diagnostics: Json
+          event_id: string
+          event_status: string
+          forecast_value: number | null
+          id: number
+          mapping_version: string
+          observed_at: string
+          payload_checksum: string
+          previous_value: number | null
+          provider_updated_at: string | null
+          revision: number
+          scheduled_at: string | null
+          scheduled_date: string | null
+          source_version: string
+          timestamp_precision: string
+        }
+        Insert: {
+          actual_published_at?: string | null
+          actual_value?: number | null
+          change_kind: string
+          created_at?: string
+          diagnostics?: Json
+          event_id: string
+          event_status: string
+          forecast_value?: number | null
+          id?: number
+          mapping_version: string
+          observed_at?: string
+          payload_checksum: string
+          previous_value?: number | null
+          provider_updated_at?: string | null
+          revision: number
+          scheduled_at?: string | null
+          scheduled_date?: string | null
+          source_version: string
+          timestamp_precision: string
+        }
+        Update: {
+          actual_published_at?: string | null
+          actual_value?: number | null
+          change_kind?: string
+          created_at?: string
+          diagnostics?: Json
+          event_id?: string
+          event_status?: string
+          forecast_value?: number | null
+          id?: number
+          mapping_version?: string
+          observed_at?: string
+          payload_checksum?: string
+          previous_value?: number | null
+          provider_updated_at?: string | null
+          revision?: number
+          scheduled_at?: string | null
+          scheduled_date?: string | null
+          source_version?: string
+          timestamp_precision?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "economic_event_revisions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "economic_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      economic_events: {
+        Row: {
+          actual_published_at: string | null
+          actual_value: number | null
+          affected_correlation_groups: string[]
+          affected_instruments: string[]
+          canonical_event_id: string
+          countries: string[]
+          created_at: string
+          currencies: string[]
+          diagnostics: Json
+          event_family: string
+          event_status: string
+          field_provenance: Json
+          forecast_value: number | null
+          id: string
+          importance: string
+          ingested_at: string
+          mapping_version: string
+          original_scheduled_at: string | null
+          payload_checksum: string
+          previous_value: number | null
+          provider: string
+          provider_event_key: string
+          provider_updated_at: string | null
+          revision: number
+          scheduled_at: string | null
+          scheduled_date: string | null
+          source_version: string
+          timestamp_precision: string
+          units: string | null
+          updated_at: string
+        }
+        Insert: {
+          actual_published_at?: string | null
+          actual_value?: number | null
+          affected_correlation_groups?: string[]
+          affected_instruments?: string[]
+          canonical_event_id: string
+          countries?: string[]
+          created_at?: string
+          currencies?: string[]
+          diagnostics?: Json
+          event_family: string
+          event_status?: string
+          field_provenance?: Json
+          forecast_value?: number | null
+          id?: string
+          importance?: string
+          ingested_at?: string
+          mapping_version: string
+          original_scheduled_at?: string | null
+          payload_checksum: string
+          previous_value?: number | null
+          provider: string
+          provider_event_key: string
+          provider_updated_at?: string | null
+          revision?: number
+          scheduled_at?: string | null
+          scheduled_date?: string | null
+          source_version: string
+          timestamp_precision?: string
+          units?: string | null
+          updated_at?: string
+        }
+        Update: {
+          actual_published_at?: string | null
+          actual_value?: number | null
+          affected_correlation_groups?: string[]
+          affected_instruments?: string[]
+          canonical_event_id?: string
+          countries?: string[]
+          created_at?: string
+          currencies?: string[]
+          diagnostics?: Json
+          event_family?: string
+          event_status?: string
+          field_provenance?: Json
+          forecast_value?: number | null
+          id?: string
+          importance?: string
+          ingested_at?: string
+          mapping_version?: string
+          original_scheduled_at?: string | null
+          payload_checksum?: string
+          previous_value?: number | null
+          provider?: string
+          provider_event_key?: string
+          provider_updated_at?: string | null
+          revision?: number
+          scheduled_at?: string | null
+          scheduled_date?: string | null
+          source_version?: string
+          timestamp_precision?: string
+          units?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       executed_trades: {
         Row: {
           actual_entry_at: string | null
@@ -2276,6 +2449,201 @@ export type Database = {
           notes?: string | null
           retired_at?: string | null
           version?: number
+        }
+        Relationships: []
+      }
+      news_coverage_snapshots: {
+        Row: {
+          computed_at: string
+          country: string | null
+          coverage_state: string
+          created_at: string
+          currency: string | null
+          event_family: string
+          events_with_exact_time: number
+          freshness_seconds: number | null
+          id: number
+          last_successful_run_at: string | null
+          latest_event_at: string | null
+          mapping_version: string | null
+          note: string | null
+          provider: string
+          scheduled_events: number
+          source_version: string | null
+        }
+        Insert: {
+          computed_at?: string
+          country?: string | null
+          coverage_state: string
+          created_at?: string
+          currency?: string | null
+          event_family: string
+          events_with_exact_time?: number
+          freshness_seconds?: number | null
+          id?: number
+          last_successful_run_at?: string | null
+          latest_event_at?: string | null
+          mapping_version?: string | null
+          note?: string | null
+          provider: string
+          scheduled_events?: number
+          source_version?: string | null
+        }
+        Update: {
+          computed_at?: string
+          country?: string | null
+          coverage_state?: string
+          created_at?: string
+          currency?: string | null
+          event_family?: string
+          events_with_exact_time?: number
+          freshness_seconds?: number | null
+          id?: number
+          last_successful_run_at?: string | null
+          latest_event_at?: string | null
+          mapping_version?: string | null
+          note?: string | null
+          provider?: string
+          scheduled_events?: number
+          source_version?: string | null
+        }
+        Relationships: []
+      }
+      news_ingestion_runs: {
+        Row: {
+          batch_status: string
+          completed_at: string | null
+          created_at: string
+          duplicates: number
+          duration_ms: number | null
+          error_class: string | null
+          error_note: string | null
+          events_received: number
+          id: number
+          inserts: number
+          invalid_events: number
+          job: string
+          provider: string
+          request_count: number
+          response_status: number | null
+          retry_count: number
+          revisions: number
+          scheduled_at: string | null
+          started_at: string
+          updates: number
+          window_from: string | null
+          window_to: string | null
+          worker_version: string
+        }
+        Insert: {
+          batch_status?: string
+          completed_at?: string | null
+          created_at?: string
+          duplicates?: number
+          duration_ms?: number | null
+          error_class?: string | null
+          error_note?: string | null
+          events_received?: number
+          id?: number
+          inserts?: number
+          invalid_events?: number
+          job: string
+          provider: string
+          request_count?: number
+          response_status?: number | null
+          retry_count?: number
+          revisions?: number
+          scheduled_at?: string | null
+          started_at?: string
+          updates?: number
+          window_from?: string | null
+          window_to?: string | null
+          worker_version: string
+        }
+        Update: {
+          batch_status?: string
+          completed_at?: string | null
+          created_at?: string
+          duplicates?: number
+          duration_ms?: number | null
+          error_class?: string | null
+          error_note?: string | null
+          events_received?: number
+          id?: number
+          inserts?: number
+          invalid_events?: number
+          job?: string
+          provider?: string
+          request_count?: number
+          response_status?: number | null
+          retry_count?: number
+          revisions?: number
+          scheduled_at?: string | null
+          started_at?: string
+          updates?: number
+          window_from?: string | null
+          window_to?: string | null
+          worker_version?: string
+        }
+        Relationships: []
+      }
+      news_policy_evaluations: {
+        Row: {
+          boundary: string
+          coverage_state: string
+          created_at: string
+          decision: string
+          delivery_id: number | null
+          evaluated_at: string
+          event_ids: string[]
+          id: number
+          instrument: string
+          mode: string
+          news_policy_version: string
+          news_snapshot_version: string
+          reason: string | null
+          required_currencies: string[]
+          required_families: string[]
+          signal_id: string | null
+          wave: number | null
+        }
+        Insert: {
+          boundary: string
+          coverage_state: string
+          created_at?: string
+          decision: string
+          delivery_id?: number | null
+          evaluated_at?: string
+          event_ids?: string[]
+          id?: number
+          instrument: string
+          mode: string
+          news_policy_version: string
+          news_snapshot_version: string
+          reason?: string | null
+          required_currencies?: string[]
+          required_families?: string[]
+          signal_id?: string | null
+          wave?: number | null
+        }
+        Update: {
+          boundary?: string
+          coverage_state?: string
+          created_at?: string
+          decision?: string
+          delivery_id?: number | null
+          evaluated_at?: string
+          event_ids?: string[]
+          id?: number
+          instrument?: string
+          mode?: string
+          news_policy_version?: string
+          news_snapshot_version?: string
+          reason?: string | null
+          required_currencies?: string[]
+          required_families?: string[]
+          signal_id?: string | null
+          wave?: number | null
         }
         Relationships: []
       }
@@ -4593,6 +4961,7 @@ export type Database = {
       get_admin_filter_lift: { Args: never; Returns: Json }
       get_admin_instrument_diagnostics: { Args: never; Returns: Json }
       get_admin_intelligence: { Args: never; Returns: Json }
+      get_admin_news: { Args: never; Returns: Json }
       get_admin_payoff_research: { Args: never; Returns: Json }
       instrument_capability_allowed: {
         Args: { _capability: string; _instrument: string }
@@ -4612,6 +4981,7 @@ export type Database = {
       }
       prune_v2_structure_claims: { Args: never; Returns: number }
       purge_expired_signals: { Args: never; Returns: number }
+      purge_news_data: { Args: never; Returns: Json }
       purge_telemetry: { Args: never; Returns: Json }
       recompute_filter_lift: {
         Args: { _horizon_hours?: number }

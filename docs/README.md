@@ -23,6 +23,7 @@ and is never updated retroactively.
 7. [MULTI-ASSET.md](MULTI-ASSET.md) — asset classes, calendars, units and the Wave 2 disposition
 8. [SIGNALS-AND-GRADES.md](SIGNALS-AND-GRADES.md)
 9. [ALERTS-AND-ELIGIBILITY.md](ALERTS-AND-ELIGIBILITY.md)
+10. [NEWS-AND-EVENTS.md](NEWS-AND-EVENTS.md) — official event sources, coverage states and the dark news policy
 
 **Money and measurement**
 
