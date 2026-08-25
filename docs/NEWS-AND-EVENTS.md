@@ -9,14 +9,20 @@ calendar from being mistaken for a clear one.
 | Provider                 | What it proves                                                                                                                                | What it cannot prove                                                                                                                                                       |
 | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **FRED** (St. Louis Fed) | Which US statistical releases exist (stable numeric release ids) and which **calendar dates** they are scheduled for, including future dates. | The intraday release **time**. `/fred/releases/dates` returns a bare date, so no exact instant exists. Actual/forecast/previous values are not requested by the adapter.   |
-| **EIA** v2               | Weekly US petroleum stock **published values**, keyed by week-ending period.                                                                  | The Weekly Petroleum Status Report **publication schedule**, including holiday-adjusted release times — it is not served by the API. No forward EIA event is ever emitted. |
+
+FRED is currently the **only** integrated provider. The interface stays
+provider-neutral so an authorized provider can be added without changing the
+ingestion contract.
 
 Deliberately absent:
 
+- **Energy inventories.** No energy provider is integrated: the owner holds no
+  valid EIA credential, so `energy_inventory` coverage is honestly `unsupported`
+  and USOIL / UKOIL fail closed wherever energy coverage is required. No energy
+  event row exists, and none is ever inferred.
 - **OPEC** has no machine-readable announcement feed, so `opec_supply` is declared
   `unsupported`. It is never silently treated as covered.
-- **Non-USD currencies** (EUR, GBP, JPY, AUD, CAD, CHF) are declared `unsupported`
-  by both providers. GBPUSD's GBP-side risk is therefore visibly uncovered rather
+- **Non-USD currencies** (EUR, GBP, JPY, AUD, CAD, CHF) are declared `unsupported`. GBPUSD's GBP-side risk is therefore visibly uncovered rather
   than inherited from the USD side.
 - **Equity earnings calendars** for NAS100 are not sourced.
 - Commercial scrapers (Forex Factory, Investing.com and similar) are not used.
@@ -89,13 +95,14 @@ Identity comes from stable provider ids, never a mutable title, so a provider
 renaming "CPI" to "Consumer Price Index" cannot create a second event.
 
 A per-provider breaker derived from the ledger (5 consecutive failed runs inside 30
-minutes) skips a provider rather than hammering it. Providers are independent: an
-EIA credential failure never stops FRED.
+minutes) skips a provider rather than hammering it. Providers are independent: one provider
+failing never suppresses or substitutes another.
 
 ## Credentials
 
-`FRED_API_KEY` and `EIA_API_KEY` are backend secrets read inside handlers only.
-Both APIs accept the key **only as a query parameter**, which makes the request URL
+`FRED_API_KEY` is a backend secret read inside handlers only, and it is rotated
+through secret management — never entered in the app or committed. FRED accepts the
+key **only as a query parameter**, which makes the request URL
 itself a secret — so every log line, error note and ledger row goes through
 `redactUrl` / `safeNote` first. No credential appears in the database, the admin
 panel, or any response.

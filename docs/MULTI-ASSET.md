@@ -90,7 +90,7 @@ may never crowd out Wave 0.
 exposure; no correlation coefficient is claimed, because none has been measured.
 
 News-risk families are recorded per instrument — central bank/inflation/employment
-for FX and metals, EIA inventories and OPEC supply for energy, US macro and
+for FX and metals, petroleum inventories and OPEC supply for energy, US macro and
 earnings season for the index. With no event source covering a family, coverage is
 **unknown**, and unknown suppresses new entries rather than clearing them.
 
