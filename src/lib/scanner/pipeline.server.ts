@@ -32,7 +32,7 @@ import { isTransientMetaApiReadFailure } from "@/lib/metaapi/errors";
 import { fetchCandles, MetaApiNotConfiguredError } from "./metaapi.server";
 import {
   CANDLE_LIMITS,
-  ENTRY_PRICE_DECIMALS,
+  
   INSTRUMENTS,
   SIGNAL_MAX_AGE_HOURS,
   STRUCTURE_COOLDOWN_MINUTES,
@@ -41,8 +41,19 @@ import {
   type Timeframe,
 } from "./types";
 import { REGISTRY_SYMBOLS } from "@/lib/instruments/registry";
-import { describeStage, mayPublish, mayScan, stageOf } from "@/lib/instruments/lifecycle";
+import {
+  describeStage,
+  mayCaptureResearch,
+  mayEvaluateStrategy,
+  mayPublish,
+  mayScan,
+  stageOf,
+} from "@/lib/instruments/lifecycle";
 import { readLifecycleView } from "@/lib/instruments/lifecycle.server";
+// The session ALGORITHM version, stamped on every research row so a later change
+// to session boundaries cannot silently redefine older measurements.
+import { SESSION_VERSION } from "./session";
+
 
 const TIMEFRAMES: Timeframe[] = ["H4", "H1", "M15"];
 
@@ -121,12 +132,20 @@ export async function enqueueScanCycle(db: SupabaseClient) {
 
 /**
  * Duplicate suppression is enforced by the partial unique index
- * `scanned_signals_active_unique` on (instrument, direction, round(entry_price, 5))
- * WHERE status = 'active'. The pre-flight SELECT that used to live here pulled up
- * to 200 rows per job to reach the same verdict the index reaches for free, and
- * it could not close the race window anyway — so the insert's 23505 is now the
- * single source of truth.
+ * `scanned_signals_active_structure` on (structure_key) WHERE status = 'active'
+ * AND structure_key IS NOT NULL — verified against the live database, not assumed.
+ *
+ * An earlier version of this comment described an index on
+ * (instrument, direction, round(entry_price, 5)). That index does not exist, and
+ * the identity it described was weaker: it treated two different ABC legs that
+ * happened to share an entry price as the same structure. Identity is the
+ * structure key (instrument, direction, swing A/B timestamps, stop anchor).
+ *
+ * The pre-flight SELECT that used to live here pulled up to 200 rows per job to
+ * reach the same verdict the index reaches for free, and it could not close the
+ * race window anyway — so the insert's 23505 is the single source of truth.
  */
+
 
 /** Serialize thrown values — Supabase/PostgREST errors are plain objects, not Errors. */
 export function describeError(err: unknown): string {
@@ -293,16 +312,38 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
   let v1VolatilityIndex: number | null = null;
   let publishedSignalId: string | null = null;
 
+  /**
+   * Why a qualifying V1 structure was withheld, set at the exact branch that
+   * withheld it (Phase A1, Finding 2).
+   *
+   * `skipped` used to collapse "lifecycle held it back", "no validated stop floor"
+   * and "no structure at all" into one bucket, and `duplicate` was recorded as
+   * `suppressed_cooldown` whether it was the cooldown window or the identical
+   * active structure. Both mislabelled rows as strategy no-trades, which is the
+   * one thing the rejection denominator must never contain.
+   */
+  let v1Suppression: { disposition: Disposition; reason: string } | null = null;
+
   /** V1 status -> (decision, disposition) for the research ledger. */
   const v1Cell = (
     status: JobResult["status"],
   ): { decision: "candidate" | "no_trade" | "error"; disposition: Disposition } => {
     if (status === "published") return { decision: "candidate", disposition: "published" };
+    // A withheld structure IS a candidate: the model produced a setup, and an
+    // operational rule stopped it. `decision` stays `candidate` so no downstream
+    // count can read it as a rejection.
+    if (v1Suppression)
+      return { decision: "candidate", disposition: v1Suppression.disposition };
     if (status === "duplicate")
-      return { decision: "candidate", disposition: "suppressed_cooldown" };
-    if (status === "failed") return { decision: "error", disposition: "none" };
+      return { decision: "candidate", disposition: "suppressed_duplicate" };
+    if (status === "failed") return { decision: "error", disposition: "evaluation_error" };
+    if (status === "stale") return { decision: "no_trade", disposition: "job_stale" };
+    if (status === "skipped")
+      return { decision: "no_trade", disposition: "operationally_skipped" };
+    // The only remaining case is a genuine strategy verdict.
     return { decision: "no_trade", disposition: "none" };
   };
+
 
   const finish = async (status: JobResult["status"], detail?: string) => {
     const stamp = new Date().toISOString();
@@ -317,9 +358,16 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
       })
       .eq("id", job.id);
 
-    // Research ledger. Isolated and bounded inside recordObservations: it can
-    // neither throw into, nor slow down, the production job above.
-    if (observed) {
+    /**
+     * Research ledger. Isolated and bounded inside recordObservations: it can
+     * neither throw into, nor slow down, the production job above.
+     *
+     * `mayCaptureResearch` is consulted here, not only at the strategy boundary:
+     * an instrument at `data_validation` produces NO measurement rows at all,
+     * because its inputs have not been proven trustworthy yet and a ledger seeded
+     * with unvalidated inputs is worse than an empty one.
+     */
+    if (observed && (!lifecycleEnforced || mayCaptureResearch(instrumentStage))) {
       const key = observationKey(job.run_id, job.instrument);
       const cell = v1Cell(status);
       const rows = [
@@ -336,8 +384,12 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
           // Terminal stage, gates and features, so a no_trade observation is
           // reconstructable rather than a prose reason string.
           evaluation: v1Evaluation,
+          suppressionReason: v1Suppression?.reason ?? null,
+          lifecycleStage: instrumentStage,
+          sessionVersion: SESSION_VERSION,
         }),
       ];
+
       if (v2) {
         rows.push(
           v2ObservationRow({
@@ -439,6 +491,28 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
     const session = sessionOf(now);
 
     /**
+     * Strategy-evaluation gate (Phase A1, Finding 1).
+     *
+     * Candles have now been fetched and the data-health row updated, which is the
+     * ENTIRE purpose of `data_validation`. Running V1/V2/V3 here would grade data
+     * whose mapping, specification and series integrity have not been proven, and
+     * every resulting row would enter the research ledger as if it had been.
+     *
+     * So the strategy boundary — not the publication boundary — is where an
+     * instrument below `shadow` stops. `observed` stays true, but the capture gate
+     * in `finish` refuses to write measurement rows for this stage, so nothing is
+     * recorded except the job outcome.
+     */
+    if (lifecycleEnforced && !mayEvaluateStrategy(instrumentStage)) {
+      return await finish(
+        "skipped",
+        `${job.instrument} is at lifecycle stage "${instrumentStage}" (${describeStage(instrumentStage)}) — candles were fetched and validated, and no strategy was run`,
+      );
+    }
+
+
+
+    /**
      * V2 research evaluation, hoisted ABOVE every V1 return so the research
      * cohort is one row per fetched observation rather than one row per V1
      * publication. Pure computation on the identical candle snapshot V1 grades;
@@ -529,19 +603,29 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
     /**
      * Lifecycle publication gate.
      *
-     * An instrument below `signals_only` is measured, never shown: the research
-     * observation for this job is already captured by `finish` (`observed` is
-     * true by this point), so a suppressed pair still accumulates the outcomes
-     * its promotion decision will be based on. The status is `skipped`, NOT
-     * `no_trade` — a structure WAS found, and mislabelling it would corrupt both
-     * the cron summary and the no-trade rate.
+     * An instrument at `shadow` is measured, never shown: the research observation
+     * for this job is captured by `finish`, so a suppressed pair still accumulates
+     * the outcomes its promotion decision will be based on.
+     *
+     * The stage is RE-READ here rather than reused from the top of the job. A scan
+     * job spans several provider round trips, and a suspension issued in that
+     * window must take effect at the publication boundary, not at the next job.
      */
-    if (lifecycleEnforced && !mayPublish(instrumentStage)) {
+    const publishStage = stageOf(job.instrument, (await readLifecycleView(db)).stages);
+    if (lifecycleEnforced && !mayPublish(publishStage)) {
+      // `suppressed_lifecycle`, never `no_trade`: a structure WAS found, and
+      // labelling it as a rejection would corrupt the no-trade rate and every
+      // filter-lift denominator derived from it.
+      v1Suppression = {
+        disposition: "suppressed_lifecycle",
+        reason: `lifecycle_stage:${publishStage}`,
+      };
       return await finish(
         "skipped",
-        `${job.instrument} is at lifecycle stage "${instrumentStage}" (${describeStage(instrumentStage)}) — measured, not published`,
+        `${job.instrument} is at lifecycle stage "${publishStage}" (${describeStage(publishStage)}) — measured, not published`,
       );
     }
+
 
     /**
      * A published setup's stop must sit outside real execution cost. Wave 0 has
@@ -550,11 +634,18 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
      * cannot justify.
      */
     if (!hasValidatedSpreadFloor(job.instrument)) {
+      // Operational refusal, not a strategy judgement: the model DID produce a
+      // setup, so the row must not land in the rejection denominator.
+      v1Suppression = {
+        disposition: "operationally_skipped",
+        reason: "no_validated_spread_floor",
+      };
       return await finish(
         "skipped",
         `${job.instrument} has no validated stop floor yet — publication withheld`,
       );
     }
+
 
     // No global ceiling: every qualifying setup publishes. Each account applies
     // its own daily cap (scanner_settings.daily_setup_cap, 0 = unlimited) to

@@ -21,8 +21,71 @@ import type { V3Evaluation } from "@/lib/scanner/v3/profile.v3";
 /** Hard ceiling for all research writes of one job, in milliseconds. */
 export const RESEARCH_WRITE_DEADLINE_MS = 500;
 
+/**
+ * Disposition — WHAT HAPPENED to an evaluated observation (Phase A1, Finding 2).
+ *
+ * These values must stay MUTUALLY EXCLUSIVE and EXHAUSTIVE, because the statistics
+ * layer derives the strategy no-trade rate from `decision`, and every non-`none`
+ * disposition is a reason a row must be excluded from a rejection denominator.
+ *
+ *   published            — a qualifying setup reached `scanned_signals`.
+ *   shadow_enrolled      — a research plan is being forward-tracked.
+ *   observation_only     — evaluated and recorded, never forward-tracked.
+ *   suppressed_cooldown  — qualifying, withheld by the structure cooldown.
+ *   suppressed_duplicate — qualifying, an identical active setup already exists.
+ *   suppressed_lifecycle — qualifying, withheld because the instrument's lifecycle
+ *                          stage does not permit publication. NOT a rejection.
+ *   evaluation_error     — the model crashed; no verdict exists.
+ *   data_unavailable     — the provider did not return usable market data.
+ *   job_stale            — the scan cycle was superseded before grading.
+ *   operationally_skipped— withheld by an operational rule that is not a strategy
+ *                          judgement (for example a missing validated stop floor).
+ *   none                 — a genuine strategy verdict with nothing suppressing it.
+ */
 export type Disposition =
-  "published" | "shadow_enrolled" | "observation_only" | "suppressed_cooldown" | "none";
+  | "published"
+  | "shadow_enrolled"
+  | "observation_only"
+  | "suppressed_cooldown"
+  | "suppressed_duplicate"
+  | "suppressed_lifecycle"
+  | "evaluation_error"
+  | "data_unavailable"
+  | "job_stale"
+  | "operationally_skipped"
+  | "none";
+
+/**
+ * Dispositions that mean "a qualifying structure existed but was withheld".
+ *
+ * A row carrying one of these may NEVER be counted as a strategy rejection or a
+ * no-trade, whatever its `decision` column says.
+ */
+export const SUPPRESSED_DISPOSITIONS: readonly Disposition[] = [
+  "suppressed_cooldown",
+  "suppressed_duplicate",
+  "suppressed_lifecycle",
+];
+
+/** Dispositions that mean "no verdict was produced at all". */
+export const NON_VERDICT_DISPOSITIONS: readonly Disposition[] = [
+  "evaluation_error",
+  "data_unavailable",
+  "job_stale",
+  "operationally_skipped",
+];
+
+/** True when the row represents a genuine strategy no-trade judgement. */
+export function isStrategyNoTrade(row: {
+  decision: string;
+  disposition: Disposition;
+}): boolean {
+  return (
+    row.decision === "no_trade" &&
+    !SUPPRESSED_DISPOSITIONS.includes(row.disposition) &&
+    !NON_VERDICT_DISPOSITIONS.includes(row.disposition)
+  );
+}
 
 export interface ObservationRow {
   run_id: string | null;
@@ -39,7 +102,15 @@ export interface ObservationRow {
   latency_ms: number | null;
   signal_id: string | null;
   profile: unknown;
+  /** Why the row was withheld, when it was. Null for `none`/`published`. */
+  suppression_reason?: string | null;
+  /** Lifecycle stage the instrument was at when the observation was made. */
+  lifecycle_stage_at_detection?: string | null;
+  /** Session algorithm version that produced `trading_session` semantics. */
+  session_version?: number | null;
+  canonical_instrument?: string | null;
 }
+
 
 /** Counts research failures so the admin panel can see telemetry health. */
 let failureCount = 0;
@@ -307,7 +378,12 @@ export function v1ObservationRow(args: {
   latencyMs: number | null;
   signalId?: string | null;
   evaluation?: SetupEvaluation | null;
+  /** Provenance (Phase A1). All optional; omitted means "not recorded". */
+  suppressionReason?: string | null;
+  lifecycleStage?: string | null;
+  sessionVersion?: number | null;
 }): ObservationRow {
+
   const ev = args.evaluation ?? null;
   return {
     run_id: args.runId,
@@ -334,7 +410,12 @@ export function v1ObservationRow(args: {
           hasProposedProfile: ev.proposedProfile !== null,
         }
       : null,
+    suppression_reason: args.suppressionReason ?? null,
+    lifecycle_stage_at_detection: args.lifecycleStage ?? null,
+    session_version: args.sessionVersion ?? null,
+    canonical_instrument: args.instrument,
   };
+
 }
 
 /**

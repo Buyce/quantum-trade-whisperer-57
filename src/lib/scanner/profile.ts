@@ -1,4 +1,6 @@
+import { priceDecimals } from "@/lib/instruments/precision";
 import { clamp, detectAbc } from "./indicators";
+
 import { directionalHeadroomAtr, gradeSetup, readTimeframe, scoreConfluence } from "./grading";
 import {
   CONFIDENCE_WEIGHTS,
@@ -605,6 +607,16 @@ export function evaluateSetup(input: BuildProfileInput): SetupEvaluation {
  * Stable identity of one ABC leg: instrument, direction, the swing A/B candle
  * timestamps and the structural stop anchor. Two scans of the same lingering
  * structure produce the same key; a genuinely new leg produces a new one.
+ *
+ * The stop anchor is rendered at the INSTRUMENT's own price precision, not a
+ * fixed five decimals (Phase A1, Finding 6). Five decimals is wrong in both
+ * directions once the universe is not all 5-digit FX: on XAUUSD (2 digits) it
+ * makes identity sensitive to sub-tick noise, so one lingering structure can mint
+ * a new key — and a new published signal — on every 15-minute cycle; on a 3-digit
+ * JPY pair it pads with zeroes that carry no information.
+ *
+ * `priceDecimals` prefers the broker's reported digits and falls back to the
+ * registry value, so identity follows the same grid the broker prices on.
  */
 export function structureKeyOf(args: {
   instrument: string;
@@ -613,10 +625,16 @@ export function structureKeyOf(args: {
   bTime: string;
   stopLoss: number;
 }): string {
-  return [args.instrument, args.direction, args.aTime, args.bTime, args.stopLoss.toFixed(5)].join(
-    "|",
-  );
+  const decimals = priceDecimals(args.instrument);
+  return [
+    args.instrument,
+    args.direction,
+    args.aTime,
+    args.bTime,
+    args.stopLoss.toFixed(decimals),
+  ].join("|");
 }
+
 
 function describe(read: TimeframeRead, headroomAtr?: number): string {
   if (read.bias === "neutral") return "conflicting";

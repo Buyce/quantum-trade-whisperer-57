@@ -1,21 +1,31 @@
 /**
- * Instrument readiness (Phase A / A5) — the `disabled -> data_validation` gate.
+ * Instrument readiness (Phase A / A5, hardened in A1) — the
+ * `disabled -> data_validation` gate.
  *
- * A pair is not "supported" because someone added its name to a list. Before it
- * may be scanned at all, five things must be TRUE and each is checked against the
- * real provider or the real database, never assumed:
+ * A pair is not "supported" because someone added its name to a list. Five
+ * components must each be TRUE, and each is checked against the real provider or
+ * the real database, never assumed:
  *
- *   1. mapping    — the broker exposes a symbol we can resolve unambiguously;
- *   2. spec       — `broker_symbol_specs` holds digits/point/lot bounds for it;
- *   3. candles    — all three timeframes return enough history to grade;
- *   4. quote      — a fresh, well-formed bid/ask exists;
- *   5. conversion — risk in the quote currency can be converted to USD.
+ *   1. mapping    — which provider symbol this canonical instrument resolves to,
+ *                   for which scope, verified when, and how confidently
+ *                   (`mapping.server.ts`). A stored specification is NOT proof of
+ *                   an unambiguous mapping — that conflation was Finding 5.
+ *   2. spec       — the provider's own digits/point/tick/lot facts, reported field
+ *                   by field rather than as one boolean.
+ *   3. candles    — all three timeframes return a series that is long enough AND
+ *                   ordered, unduplicated, gap-free and geometrically valid
+ *                   (`series.ts`).
+ *   4. quote      — a well-formed bid/ask with a positive spread and a trustworthy
+ *                   provider-side timestamp.
+ *   5. conversion — risk in the quote currency can reach EVERY supported account
+ *                   currency, not just USD.
  *
- * The check also DERIVES a stop-floor candidate from the broker's own point size
- * and the observed spread. Wave 0's floors are frozen literals that were validated
- * historically; a new pair must earn one the same way rather than inherit a shared
- * default. `spreadFloorCandidate` is a measurement to be reviewed, not an
- * automatic promotion: nothing here changes a stage.
+ * Components are reported SEPARATELY. `ready` is their conjunction, but a caller
+ * that wants to know why must never have to guess.
+ *
+ * The check also DERIVES a stop-floor candidate from the provider's own point size
+ * and the observed spread. That is evidence attached to a promotion decision, not
+ * an automatic promotion: nothing here changes a stage or a flag.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { instrumentDefinition } from "./registry";
@@ -26,17 +36,39 @@ import { REVALIDATION_QUOTE_MAX_AGE_MS } from "@/lib/delivery/execution";
 import { quoteSourceFresh, validQuoteGeometry } from "@/lib/metaapi/quote";
 import { CANDLE_LIMITS, TIMEFRAMES } from "@/lib/scanner/types";
 import { writeDataHealth } from "./lifecycle.server";
+import { resolveMapping, type MappingResolution } from "./mapping.server";
+import { validateSeries, type SeriesReport } from "./series";
+
+export type ReadinessComponent = "mapping" | "spec" | "candles" | "quote" | "conversion";
 
 export interface ReadinessCheck {
-  name: "mapping" | "spec" | "candles" | "quote" | "conversion";
+  name: ReadinessComponent;
   ok: boolean;
   detail: string;
+}
+
+/** Account currencies P-Trades must be able to express risk in. */
+export const SUPPORTED_ACCOUNT_CURRENCIES = ["USD", "EUR", "GBP", "AUD"] as const;
+
+export interface ConversionCell {
+  accountCurrency: string;
+  route: "parity" | "direct" | "inverse" | "usd_cross" | "unsupported";
+  symbols: string[];
+  ok: boolean;
 }
 
 export interface ReadinessReport {
   symbol: string;
   ready: boolean;
   checks: ReadinessCheck[];
+  /** Full mapping answer, so the caller never has to re-derive scope/freshness. */
+  mapping: MappingResolution | null;
+  /** Per-field specification presence. Absent fields are named, not summarised. */
+  specFields: Record<string, boolean>;
+  /** One entry per timeframe, with the exact series problems found. */
+  series: SeriesReport[];
+  /** One entry per supported account currency. */
+  conversion: ConversionCell[];
   /**
    * Derived minimum stop buffer in price terms, or null when it could not be
    * measured. NEVER written into code automatically — it is evidence attached to
@@ -57,7 +89,11 @@ export async function checkInstrumentReadiness(
   symbol: string,
 ): Promise<ReadinessReport> {
   const checks: ReadinessCheck[] = [];
+  const series: SeriesReport[] = [];
+  const conversion: ConversionCell[] = [];
+  let specFields: Record<string, boolean> = {};
   let spreadFloorCandidate: number | null = null;
+  const now = new Date();
 
   const definition = instrumentDefinition(symbol);
   if (!definition) {
@@ -65,77 +101,143 @@ export async function checkInstrumentReadiness(
       symbol,
       ready: false,
       checks: [{ name: "mapping", ok: false, detail: "symbol is not in the instrument registry" }],
+      mapping: null,
+      specFields: {},
+      series: [],
+      conversion: [],
       spreadFloorCandidate: null,
-      checkedAt: new Date().toISOString(),
+      checkedAt: now.toISOString(),
     };
   }
 
-  // ---- 2. Broker specification (also proves the mapping resolved) -----------
-  const spec = await loadBrokerSpec(db, symbol);
+  // ---- 1. Mapping: which provider symbol, which scope, verified when ---------
+  const mapping = await resolveMapping(db, { canonical: symbol, accountId: null, now });
   checks.push({
     name: "mapping",
-    ok: spec !== null,
-    detail:
-      spec !== null
-        ? `broker exposes ${symbol}`
-        : `no stored broker specification for ${symbol}; run the specification refresh first`,
-  });
-  const specComplete =
-    spec !== null && spec.point !== null && spec.point > 0 && spec.contractSize > 0;
-  checks.push({
-    name: "spec",
-    ok: specComplete,
-    detail: specComplete
-      ? `point=${spec!.point}, contract size=${spec!.contractSize}`
-      : "the stored specification is missing a usable point size or contract size",
+    ok: mapping.usable,
+    detail: mapping.usable
+      ? `resolved to provider symbol ${mapping.providerSymbol} (${mapping.status}), verified ${mapping.verifiedAt ?? "unknown"}`
+      : `${mapping.refusal}: ${mapping.detail}`,
   });
 
-  // ---- 3. Candle coverage across all three timeframes -----------------------
-  const missing: string[] = [];
+  // ---- 2. Specification, field by field -------------------------------------
+  const spec = await loadBrokerSpec(db, symbol);
+  specFields = {
+    digits: typeof spec?.digits === "number",
+    point: typeof spec?.point === "number" && (spec?.point ?? 0) > 0,
+    tickSize: typeof spec?.tickSize === "number" && (spec?.tickSize ?? 0) > 0,
+    contractSize: (spec?.contractSize ?? 0) > 0,
+    minLot: (spec?.minLot ?? 0) > 0,
+    lotStep: (spec?.lotStep ?? 0) > 0,
+    maxLot: typeof spec?.maxLot === "number",
+    stopsLevel: typeof spec?.stopsLevel === "number",
+    tradeMode: typeof spec?.tradeMode === "string",
+  };
+  /**
+   * Required for a stage change: without point/contract size/lot bounds there is
+   * no honest sizing, and without digits there is no honest price grid. `maxLot`,
+   * `stopsLevel` and `tradeMode` are reported but not required, because a provider
+   * may legitimately omit them and the sizing path already treats them as unknown
+   * rather than zero.
+   */
+  const specRequired: (keyof typeof specFields)[] = [
+    "digits",
+    "point",
+    "contractSize",
+    "minLot",
+    "lotStep",
+  ];
+  const specMissing = specRequired.filter((f) => !specFields[f]);
+  checks.push({
+    name: "spec",
+    ok: spec !== null && specMissing.length === 0,
+    detail:
+      spec === null
+        ? "no stored provider specification; run the specification refresh first"
+        : specMissing.length === 0
+          ? `digits=${spec.digits}, point=${spec.point}, tick=${spec.tickSize ?? "n/a"}, contract=${spec.contractSize}`
+          : `specification is missing: ${specMissing.join(", ")}`,
+  });
+
+  // ---- 3. Candle coverage AND series integrity across all three timeframes ---
+  const seriesProblems: string[] = [];
   for (const tf of TIMEFRAMES) {
+    const required = Math.floor(CANDLE_LIMITS[tf] * MIN_CANDLE_RATIO);
     try {
       const candles = await fetchCandles(symbol, tf, CANDLE_LIMITS[tf]);
-      const need = Math.floor(CANDLE_LIMITS[tf] * MIN_CANDLE_RATIO);
-      if (candles.length < need) missing.push(`${tf} returned ${candles.length}/${need}`);
+      const report = validateSeries({ timeframe: tf, candles, required, now });
+      series.push(report);
+      if (!report.ok) {
+        seriesProblems.push(
+          `${tf}: ${report.findings
+            .filter((f) => f.problem !== "incomplete_current_candle")
+            .map((f) => f.problem)
+            .join(", ")}`,
+        );
+      }
     } catch (err) {
-      missing.push(`${tf} failed: ${err instanceof Error ? err.message : String(err)}`);
+      series.push({
+        timeframe: tf,
+        count: 0,
+        required,
+        ok: false,
+        findings: [
+          { problem: "empty", detail: err instanceof Error ? err.message : String(err) },
+        ],
+        lastCandleAt: null,
+        missingIntervals: 0,
+      });
+      seriesProblems.push(`${tf} fetch failed`);
     }
   }
   checks.push({
     name: "candles",
-    ok: missing.length === 0,
+    ok: seriesProblems.length === 0,
     detail:
-      missing.length === 0 ? "H4, H1 and M15 all returned gradable history" : missing.join("; "),
+      seriesProblems.length === 0
+        ? "H4, H1 and M15 all returned an ordered, gap-free, gradable series"
+        : seriesProblems.join("; "),
   });
 
   // ---- 4. A fresh, well-formed quote ---------------------------------------
   try {
     const quote = await fetchQuote(symbol);
     const geometryOk = quote !== null && validQuoteGeometry(quote.bid, quote.ask);
-    // The SAME staleness rule the pre-send gate uses, and it reads the broker's
+    const spread = quote ? Number(quote.ask) - Number(quote.bid) : Number.NaN;
+    const positiveSpread = Number.isFinite(spread) && spread > 0;
+    // The SAME staleness rule the pre-send gate uses, read from the provider's
     // own source timestamp — never local time.
     const fresh =
       quote !== null && quoteSourceFresh(quote.sourceTime, REVALIDATION_QUOTE_MAX_AGE_MS);
+    // A source timestamp in the future is not "fresh", it is unusable: it would
+    // make every later staleness comparison pass.
+    const notFuture =
+      quote === null ||
+      !quote.sourceTime ||
+      new Date(quote.sourceTime).getTime() - now.getTime() <= 60_000;
+
     checks.push({
       name: "quote",
-      ok: geometryOk && fresh,
+      ok: geometryOk && positiveSpread && fresh && notFuture,
       detail: !quote
         ? "no quote was returned"
         : !geometryOk
           ? "the quote geometry was invalid (bid/ask not usable)"
-          : !fresh
-            ? "the quote's own source timestamp was too old to trust"
-            : `bid=${quote.bid}, ask=${quote.ask}`,
+          : !positiveSpread
+            ? "the quote had a zero or inverted spread"
+            : !notFuture
+              ? "the quote's own source timestamp is in the future"
+              : !fresh
+                ? "the quote's own source timestamp was too old to trust"
+                : `bid=${quote.bid}, ask=${quote.ask}, spread=${spread}`,
     });
 
-    if (geometryOk && fresh && specComplete) {
-      const spread = Math.abs(Number(quote.ask) - Number(quote.bid));
+    if (geometryOk && positiveSpread && fresh && specFields["point"]) {
       const pointFloor = spec!.point! * 10;
-      if (spread > 0) {
-        spreadFloorCandidate = Number(
-          Math.max(spread * SPREAD_FLOOR_MULTIPLE, pointFloor).toPrecision(4),
-        );
-      }
+
+      spreadFloorCandidate = Number(
+        Math.max(spread * SPREAD_FLOOR_MULTIPLE, pointFloor).toPrecision(4),
+      );
     }
   } catch (err) {
     checks.push({
@@ -145,17 +247,34 @@ export async function checkInstrumentReadiness(
     });
   }
 
-  // ---- 5. Risk-currency conversion route -----------------------------------
-  const plan = planConversion(definition.quote, "USD");
-  const convertible = plan.kind !== "unsupported";
+  // ---- 5. Conversion route for EVERY supported account currency -------------
+  for (const accountCurrency of SUPPORTED_ACCOUNT_CURRENCIES) {
+    const plan = planConversion(definition.quote, accountCurrency);
+    const route: ConversionCell["route"] =
+      plan.kind === "unsupported"
+        ? "unsupported"
+        : plan.kind === "parity"
+          ? "parity"
+          : plan.kind === "direct"
+            ? "direct"
+            : plan.kind === "inverse"
+              ? "inverse"
+              : "usd_cross";
+    conversion.push({
+      accountCurrency,
+      route,
+      symbols: plan.symbols,
+      ok: plan.kind !== "unsupported",
+    });
+  }
+  const unsupported = conversion.filter((c) => !c.ok).map((c) => c.accountCurrency);
   checks.push({
     name: "conversion",
-    ok: convertible,
-    detail: convertible
-      ? plan.symbols.length === 0
-        ? "risk is already denominated in USD"
-        : `convertible via ${plan.symbols.join(", ")}`
-      : `no supported conversion route from ${definition.quote} to USD`,
+    ok: unsupported.length === 0,
+    detail:
+      unsupported.length === 0
+        ? `${definition.quote} risk converts to ${conversion.map((c) => `${c.accountCurrency} (${c.route})`).join(", ")}`
+        : `no supported conversion route from ${definition.quote} to ${unsupported.join(", ")}`,
   });
 
   const ready = checks.every((c) => c.ok);
@@ -163,8 +282,12 @@ export async function checkInstrumentReadiness(
     symbol,
     ready,
     checks,
+    mapping,
+    specFields,
+    series,
+    conversion,
     spreadFloorCandidate,
-    checkedAt: new Date().toISOString(),
+    checkedAt: now.toISOString(),
   };
 
   await writeDataHealth(

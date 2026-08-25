@@ -57,13 +57,68 @@ export function stageOf(symbol: string, stages: StageMap | null | undefined): In
   return isStage(stage) ? stage : fallbackStage(symbol);
 }
 
-/** `suspended` scans nothing; `disabled` scans nothing. */
-export function mayScan(stage: InstrumentStage): boolean {
+/**
+ * ---------------------------------------------------------------------------
+ * Capability model (Phase A1).
+ *
+ * Every capability is derived from the SAME rank ladder, so no two gates can
+ * disagree about what a stage means. `mayScan` is kept as the historical alias
+ * of `mayCollectData` because the scan universe is exactly "who may fetch data".
+ *
+ *   stage             | collect | evaluate | capture | resolve | publish | alert | execute
+ *   ------------------+---------+----------+---------+---------+---------+-------+--------
+ *   disabled          |    no   |    no    |   no    |   no    |   no    |  no   |   no
+ *   suspended         |    no   |    no    |   no    |   no    |   no    |  no   |   no
+ *   data_validation   |   yes   |    no    |   no    |   no    |   no    |  no   |   no
+ *   shadow            |   yes   |   yes    |  yes    |  yes    |   no    |  no   |   no
+ *   signals_only      |   yes   |   yes    |  yes    |  yes    |  yes    | yes   |   no
+ *   execution_approved|   yes   |   yes    |  yes    |  yes    |  yes    | yes   |  yes
+ *
+ * The `data_validation` / `shadow` split is the reason the granular capabilities
+ * exist: `data_validation` proves the DATA (mapping, specification, candles,
+ * quotes, conversion) is trustworthy, and running strategy code on data that has
+ * not been proven yet would seed the research ledger with rows whose inputs were
+ * never validated. Research measurement therefore starts at `shadow`.
+ *
+ * Every capability must be consulted at its own action boundary. A stage read at
+ * the top of a long job is stale by the time the job reaches the broker.
+ */
+
+/** Fetch candles/quotes/specs for validation. Does NOT authorise strategy code. */
+export function mayCollectData(stage: InstrumentStage): boolean {
   return RANK[stage] >= RANK.data_validation;
 }
 
-/** Writing to `scanned_signals`, and therefore the feed and every alert channel. */
+/**
+ * Historical alias of `mayCollectData`: the scan universe is "who may fetch".
+ * `suspended` scans nothing; `disabled` scans nothing.
+ */
+export function mayScan(stage: InstrumentStage): boolean {
+  return mayCollectData(stage);
+}
+
+/** Run V1/V2/V3 grading on fetched candles. */
+export function mayEvaluateStrategy(stage: InstrumentStage): boolean {
+  return RANK[stage] >= RANK.shadow;
+}
+
+/** Write immutable candidate/evaluation evidence to `research_candidates`. */
+export function mayCaptureResearch(stage: InstrumentStage): boolean {
+  return RANK[stage] >= RANK.shadow;
+}
+
+/** Enrol/track forward outcomes in `shadow_executions`. */
+export function mayResolveResearch(stage: InstrumentStage): boolean {
+  return RANK[stage] >= RANK.shadow;
+}
+
+/** Writing to `scanned_signals`, and therefore the feed. */
 export function mayPublish(stage: InstrumentStage): boolean {
+  return RANK[stage] >= RANK.signals_only;
+}
+
+/** Push/email fan-out. Separate from publication so alerts can be held back. */
+export function mayAlert(stage: InstrumentStage): boolean {
   return RANK[stage] >= RANK.signals_only;
 }
 
@@ -71,6 +126,33 @@ export function mayPublish(stage: InstrumentStage): boolean {
 export function mayExecute(stage: InstrumentStage): boolean {
   return stage === "execution_approved";
 }
+
+export type LifecycleCapability =
+  | "collect_data"
+  | "evaluate_strategy"
+  | "capture_research"
+  | "resolve_research"
+  | "publish"
+  | "alert"
+  | "execute";
+
+const CAPABILITY_GATES: Record<LifecycleCapability, (stage: InstrumentStage) => boolean> = {
+  collect_data: mayCollectData,
+  evaluate_strategy: mayEvaluateStrategy,
+  capture_research: mayCaptureResearch,
+  resolve_research: mayResolveResearch,
+  publish: mayPublish,
+  alert: mayAlert,
+  execute: mayExecute,
+};
+
+/** Single lookup used by tests and diagnostics to render the whole matrix. */
+export function allows(stage: InstrumentStage, capability: LifecycleCapability): boolean {
+  return CAPABILITY_GATES[capability](stage);
+}
+
+export const LIFECYCLE_CAPABILITIES = Object.keys(CAPABILITY_GATES) as LifecycleCapability[];
+
 
 /** Machine-readable refusal reason, reused verbatim by every gate. */
 export const INSTRUMENT_NOT_APPROVED = "instrument_not_approved" as const;

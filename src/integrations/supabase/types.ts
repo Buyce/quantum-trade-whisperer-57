@@ -1587,6 +1587,7 @@ export type Database = {
           created_at: string
           day_of_week: number
           id: string
+          session_version: number | null
           signal_id: string
           time_of_day: number
           trading_session: string
@@ -1596,6 +1597,7 @@ export type Database = {
           created_at?: string
           day_of_week: number
           id?: string
+          session_version?: number | null
           signal_id: string
           time_of_day: number
           trading_session: string
@@ -1605,6 +1607,7 @@ export type Database = {
           created_at?: string
           day_of_week?: number
           id?: string
+          session_version?: number | null
           signal_id?: string
           time_of_day?: number
           trading_session?: string
@@ -1658,6 +1661,9 @@ export type Database = {
       }
       model_observations: {
         Row: {
+          candle_as_of: string | null
+          candle_source: string | null
+          canonical_instrument: string | null
           code_hash: string | null
           decision: string
           direction: string | null
@@ -1667,15 +1673,26 @@ export type Database = {
           id: string
           instrument: string
           latency_ms: number | null
+          lifecycle_stage_at_detection: string | null
+          mapping_verified_at: string | null
           model_version: number
           observation_key: string | null
           observed_at: string
           profile: Json | null
+          provider_symbol: string | null
+          quote_as_of: string | null
           reason: string | null
+          research_cohort: string | null
           run_id: string | null
+          session_version: number | null
           signal_id: string | null
+          spec_as_of: string | null
+          suppression_reason: string | null
         }
         Insert: {
+          candle_as_of?: string | null
+          candle_source?: string | null
+          canonical_instrument?: string | null
           code_hash?: string | null
           decision: string
           direction?: string | null
@@ -1685,15 +1702,26 @@ export type Database = {
           id?: string
           instrument: string
           latency_ms?: number | null
+          lifecycle_stage_at_detection?: string | null
+          mapping_verified_at?: string | null
           model_version: number
           observation_key?: string | null
           observed_at?: string
           profile?: Json | null
+          provider_symbol?: string | null
+          quote_as_of?: string | null
           reason?: string | null
+          research_cohort?: string | null
           run_id?: string | null
+          session_version?: number | null
           signal_id?: string | null
+          spec_as_of?: string | null
+          suppression_reason?: string | null
         }
         Update: {
+          candle_as_of?: string | null
+          candle_source?: string | null
+          canonical_instrument?: string | null
           code_hash?: string | null
           decision?: string
           direction?: string | null
@@ -1703,13 +1731,21 @@ export type Database = {
           id?: string
           instrument?: string
           latency_ms?: number | null
+          lifecycle_stage_at_detection?: string | null
+          mapping_verified_at?: string | null
           model_version?: number
           observation_key?: string | null
           observed_at?: string
           profile?: Json | null
+          provider_symbol?: string | null
+          quote_as_of?: string | null
           reason?: string | null
+          research_cohort?: string | null
           run_id?: string | null
+          session_version?: number | null
           signal_id?: string | null
+          spec_as_of?: string | null
+          suppression_reason?: string | null
         }
         Relationships: [
           {
@@ -2219,6 +2255,9 @@ export type Database = {
       research_candidates: {
         Row: {
           atr: number | null
+          candle_as_of: string | null
+          candle_source: string | null
+          canonical_instrument: string | null
           cf_grade: string | null
           cf_max_r: number | null
           cf_plan_version: number | null
@@ -2244,14 +2283,21 @@ export type Database = {
           grade: string | null
           id: string
           instrument: string
+          lifecycle_stage_at_detection: string | null
           manifest_hash: string
+          mapping_verified_at: string | null
           max_r: number | null
           observation_key: string | null
           plan_origin: string | null
+          provider_symbol: string | null
           published_signal_id: string | null
+          quote_as_of: string | null
+          research_cohort: string | null
           research_plan_version: number | null
           risk_price: number | null
           run_id: string | null
+          session_version: number | null
+          spec_as_of: string | null
           stop_loss: number | null
           strategy_version: number
           structure_key: string | null
@@ -2268,6 +2314,9 @@ export type Database = {
         }
         Insert: {
           atr?: number | null
+          candle_as_of?: string | null
+          candle_source?: string | null
+          canonical_instrument?: string | null
           cf_grade?: string | null
           cf_max_r?: number | null
           cf_plan_version?: number | null
@@ -2293,14 +2342,21 @@ export type Database = {
           grade?: string | null
           id?: string
           instrument: string
+          lifecycle_stage_at_detection?: string | null
           manifest_hash: string
+          mapping_verified_at?: string | null
           max_r?: number | null
           observation_key?: string | null
           plan_origin?: string | null
+          provider_symbol?: string | null
           published_signal_id?: string | null
+          quote_as_of?: string | null
+          research_cohort?: string | null
           research_plan_version?: number | null
           risk_price?: number | null
           run_id?: string | null
+          session_version?: number | null
+          spec_as_of?: string | null
           stop_loss?: number | null
           strategy_version?: number
           structure_key?: string | null
@@ -2317,6 +2373,9 @@ export type Database = {
         }
         Update: {
           atr?: number | null
+          candle_as_of?: string | null
+          candle_source?: string | null
+          canonical_instrument?: string | null
           cf_grade?: string | null
           cf_max_r?: number | null
           cf_plan_version?: number | null
@@ -2342,14 +2401,21 @@ export type Database = {
           grade?: string | null
           id?: string
           instrument?: string
+          lifecycle_stage_at_detection?: string | null
           manifest_hash?: string
+          mapping_verified_at?: string | null
           max_r?: number | null
           observation_key?: string | null
           plan_origin?: string | null
+          provider_symbol?: string | null
           published_signal_id?: string | null
+          quote_as_of?: string | null
+          research_cohort?: string | null
           research_plan_version?: number | null
           risk_price?: number | null
           run_id?: string | null
+          session_version?: number | null
+          spec_as_of?: string | null
           stop_loss?: number | null
           strategy_version?: number
           structure_key?: string | null
@@ -2689,6 +2755,39 @@ export type Database = {
           webhook_url?: string | null
           webhook_validated_at?: string | null
           webhook_validation_reason?: string | null
+        }
+        Relationships: []
+      }
+      session_definitions: {
+        Row: {
+          algorithm: string
+          boundaries: Json
+          created_at: string
+          dst_aware: boolean
+          name: string
+          notes: string | null
+          timezone_model: string
+          version: number
+        }
+        Insert: {
+          algorithm: string
+          boundaries: Json
+          created_at?: string
+          dst_aware?: boolean
+          name: string
+          notes?: string | null
+          timezone_model: string
+          version: number
+        }
+        Update: {
+          algorithm?: string
+          boundaries?: Json
+          created_at?: string
+          dst_aware?: boolean
+          name?: string
+          notes?: string | null
+          timezone_model?: string
+          version?: number
         }
         Relationships: []
       }
@@ -3646,6 +3745,20 @@ export type Database = {
         Returns: undefined
       }
       release_weekly_report: { Args: { _week: string }; Returns: undefined }
+      transition_instrument_stage: {
+        Args: {
+          _approver: string
+          _code_hash?: string
+          _evidence?: Json
+          _expected_from: string
+          _reason: string
+          _rollback_target?: string
+          _strategy_model_version?: number
+          _symbol: string
+          _to: string
+        }
+        Returns: Json
+      }
     }
     Enums: {
       decision_kind: "taken" | "skipped"
