@@ -167,14 +167,18 @@ export async function processNextDelivery(
    * delivery is rejected without a POST if execution is no longer authorised.
    * A degraded read refuses everything outside the frozen Wave 0 universe.
    */
+  // The ORDER's instrument is the authority here: it is the symbol that would
+  // actually be submitted, so the gate cannot be bypassed by a plan/order
+  // mismatch.
+  const submittedInstrument = approved.order.instrument;
   const finalGate = await assertCapability(
     db as unknown as SupabaseClient,
-    approved.plan.instrument,
+    submittedInstrument,
     "execute",
   );
   if (!finalGate.allowed) {
     const reason = `${INSTRUMENT_NOT_APPROVED}: ${
-      finalGate.reason ?? `${approved.plan.instrument} is not approved for execution`
+      finalGate.reason ?? `${submittedInstrument} is not approved for execution`
     }`;
     await settle(db, delivery.id, {
       state: "rejected",
