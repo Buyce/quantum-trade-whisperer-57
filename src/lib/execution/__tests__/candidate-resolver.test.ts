@@ -11,7 +11,9 @@ vi.mock("@/lib/scanner/metaapi.server", () => ({
   fetchCandles: (...args: unknown[]) => fetchCandles(...args),
 }));
 
-const { resolveShadowExecutions } = await import("../shadow_resolve.server");
+const { allFetchesFailedMessage, replayCandleDepthForRows, resolveShadowExecutions } = await import(
+  "../shadow_resolve.server"
+);
 
 const DETECTED = "2026-08-20T08:00:00.000Z";
 
@@ -173,5 +175,80 @@ describe("candidate resolution capacity and provider budget", () => {
     expect(s.calls.some((c) => c.op === "select" && c.eq["cohort"] === "research_candidate")).toBe(
       false,
     );
+  });
+
+  it("[INVARIANT] replay candle requests are bounded from the row cursor, not fixed at deep history", async () => {
+    const fresh = row("fresh");
+    fresh.detected_at = new Date().toISOString();
+    fresh.replay_cursor = fresh.detected_at;
+    const s = setup({ production: [fresh], candidates: [] });
+
+    await resolveShadowExecutions(s.db);
+
+    expect(fetchCandles.mock.calls[0]?.[2]).toBe(replayCandleDepthForRows([fresh]));
+    expect(fetchCandles.mock.calls[0]?.[2]).toBeLessThan(200);
+  });
+
+  it("[INVARIANT] very stale replay rows cap at the live-scanner pressure ceiling", () => {
+    const now = Date.parse("2026-08-25T12:00:00.000Z");
+    expect(
+      replayCandleDepthForRows(
+        [{ detected_at: "2026-08-01T00:00:00.000Z", replay_cursor: "2026-08-01T00:00:00.000Z" }],
+        now,
+      ),
+    ).toBe(200);
+  });
+
+  it("[INVARIANT] provider candle failure preserves open rows and records a truthful failed fetch", async () => {
+    fetchCandles.mockRejectedValueOnce(new Error("MetaApi request for EURUSD M15 exceeded 8000ms"));
+    const open = row("p1");
+    const s = setup({ production: [open], candidates: [] });
+
+    const summary = await resolveShadowExecutions(s.db);
+
+    expect(summary.fetchFailures).toBe(1);
+    expect(summary.advanced).toBe(0);
+    expect(summary.resolved).toBe(0);
+    expect(summary.instruments[0]).toMatchObject({ instrument: "EURUSD", candles: 0 });
+    expect(s.calls.some((c) => c.table === "shadow_executions" && c.op === "update")).toBe(false);
+  });
+
+  it("[UNIT] all-fetch-failed summary includes bounded per-instrument reasons", () => {
+    const message = allFetchesFailedMessage({
+      scanned: 2,
+      advanced: 0,
+      resolved: 0,
+      instruments: [
+        { instrument: "EURUSD", candles: 0, requested: 98, error: "timeout after 8000ms" },
+        { instrument: "XAUUSD", candles: 0, requested: 98, error: "HTTP 504" },
+      ],
+      fetchFailures: 2,
+      researchScanned: 0,
+      researchAdvanced: 0,
+      candidateScanned: 0,
+      candidateAdvanced: 0,
+      candidateBacklogNoCandles: 0,
+    });
+
+    expect(message).toContain("All instrument candle fetches failed");
+    expect(message).toContain("EURUSD: timeout after 8000ms");
+    expect(message).toContain("XAUUSD: HTTP 504");
+  });
+
+  it("[UNIT] lifecycle or mapping refusals alone are not treated as provider-wide fetch failure", () => {
+    expect(
+      allFetchesFailedMessage({
+        scanned: 1,
+        advanced: 0,
+        resolved: 0,
+        instruments: [{ instrument: "AUDUSD", candles: 0, error: "not in service" }],
+        fetchFailures: 0,
+        researchScanned: 0,
+        researchAdvanced: 0,
+        candidateScanned: 0,
+        candidateAdvanced: 0,
+        candidateBacklogNoCandles: 0,
+      }),
+    ).toBeNull();
   });
 });
