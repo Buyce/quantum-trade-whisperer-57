@@ -157,7 +157,15 @@ describe("pre-Prompt-7 characterization — frozen baseline vs current V1", () =
           expect(v === null || v === undefined || typeof v === "number").toBe(true);
         }
       } else {
-        expect(evaluation.proposedProfile).toEqual(frozen);
+        // Field-by-field rather than deep-equal, for the one documented
+        // `structureKey` divergence pinned by its own case above.
+        const plan = evaluation.proposedProfile!;
+        for (const field of PROFILE_FIELDS) {
+          expect({ field, value: plan[field] }).toEqual({ field, value: frozen[field] });
+        }
+        expect(plan.confidence).toEqual(frozen.confidence);
+        expect(plan.pillars).toEqual(frozen.pillars);
+
       }
     },
   );
