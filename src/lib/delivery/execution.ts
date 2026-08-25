@@ -277,6 +277,10 @@ export function buildBridgeOrder(
  * True when the live broker price is still on the tradable side of the slippage
  * ceiling. Beyond it the payoff the grade was based on no longer holds, so the
  * order is rejected rather than slipped in.
+ *
+ * This is the MARKET-ENTRY rule: it is what a trader entering at market must
+ * respect, and it is what the feed and the alerts state. It is NOT the rule for
+ * a pending limit order — see `pendingLimitSideValid`.
  */
 export function withinMaxAcceptableEntry(
   order: Pick<BridgeOrder, "action" | "maxAcceptableEntry">,
@@ -285,6 +289,31 @@ export function withinMaxAcceptableEntry(
   return order.action === "buy_limit"
     ? price <= order.maxAcceptableEntry
     : price >= order.maxAcceptableEntry;
+}
+
+/**
+ * True when a PENDING limit order can legitimately rest at its planned price.
+ *
+ * P-Trades submits pending limits, never market orders. A buy limit must sit
+ * BELOW the current ask (and a sell limit above the current bid) by at least the
+ * broker's minimum distance; the market having run away above a buy limit is
+ * harmless — the order simply waits and can only ever fill at the planned price
+ * or better. The dangerous case is the market already at or through the limit,
+ * where the order would fill at an unplanned price or be refused outright.
+ *
+ * `minDistance` is the broker-reported minimum, or 0 when only the side is being
+ * asserted. It is never guessed: a caller that requires the broker's distance and
+ * cannot read it must refuse instead of passing a substitute.
+ */
+export function pendingLimitSideValid(
+  order: Pick<BridgeOrder, "action" | "entry">,
+  price: number,
+  minDistance = 0,
+): boolean {
+  if (!(price > 0) || !(order.entry > 0) || !(minDistance >= 0)) return false;
+  return order.action === "buy_limit"
+    ? price - order.entry >= minDistance
+    : order.entry - price >= minDistance;
 }
 
 export function spreadAcceptable(
