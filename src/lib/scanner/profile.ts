@@ -1,4 +1,6 @@
+import { priceDecimals } from "@/lib/instruments/precision";
 import { clamp, detectAbc } from "./indicators";
+
 import { directionalHeadroomAtr, gradeSetup, readTimeframe, scoreConfluence } from "./grading";
 import {
   CONFIDENCE_WEIGHTS,
