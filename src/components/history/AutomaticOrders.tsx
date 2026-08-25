@@ -33,6 +33,7 @@ const STATUS_STYLES: Record<BrokerOrderStatusKind, string> = {
   open_at_broker: "border-warning/40 bg-warning/10 text-warning",
   closed_at_broker: "border-success/40 bg-success/10 text-success",
   rejected: "border-destructive/40 bg-destructive/10 text-destructive",
+  not_sent: "border-border bg-muted/40 text-muted-foreground",
   failed: "border-destructive/40 bg-destructive/10 text-destructive",
   unknown: "border-warning/40 bg-warning/10 text-warning",
 };
@@ -219,7 +220,9 @@ function OrderCard({ row }: { row: BrokerOrderView }) {
       </div>
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2.5 text-xs sm:px-4">
-        <span className="label-xs">Broker result</span>
+        <span className="label-xs">
+          {row.status.kind === "not_sent" ? "P-Trades check" : "Broker result"}
+        </span>
         {row.broker ? (
           <>
             <span className="num text-foreground">

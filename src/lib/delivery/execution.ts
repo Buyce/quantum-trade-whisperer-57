@@ -56,6 +56,8 @@ export type RejectReason =
   | "quote_stale"
   | "spread_too_wide"
   | "price_beyond_max_acceptable_entry"
+  | "limit_price_not_on_pending_side"
+  | "limit_distance_unavailable"
   | "market_closed"
   | "stop_below_broker_stops_level"
   | "risk_guardrail"
@@ -93,6 +95,10 @@ export const REJECT_COPY: Record<RejectReason, string> = {
   quote_stale: "The broker price was too old to revalidate the setup.",
   spread_too_wide: "The spread was too wide relative to the planned risk.",
   price_beyond_max_acceptable_entry: "Price had already run beyond the maximum acceptable entry.",
+  limit_price_not_on_pending_side:
+    "The market had already reached the planned entry, so a pending limit order could not rest there at its planned price.",
+  limit_distance_unavailable:
+    "Your broker has not published a minimum order distance for this symbol, so a pending limit price could not be validated. No distance is assumed.",
   market_closed: "The market was closed.",
   stop_below_broker_stops_level: "The stop is closer than your broker's minimum stop distance.",
   risk_guardrail: "A position-size guardrail blocked the order.",
@@ -277,6 +283,10 @@ export function buildBridgeOrder(
  * True when the live broker price is still on the tradable side of the slippage
  * ceiling. Beyond it the payoff the grade was based on no longer holds, so the
  * order is rejected rather than slipped in.
+ *
+ * This is the MARKET-ENTRY rule: it is what a trader entering at market must
+ * respect, and it is what the feed and the alerts state. It is NOT the rule for
+ * a pending limit order — see `pendingLimitSideValid`.
  */
 export function withinMaxAcceptableEntry(
   order: Pick<BridgeOrder, "action" | "maxAcceptableEntry">,
@@ -285,6 +295,34 @@ export function withinMaxAcceptableEntry(
   return order.action === "buy_limit"
     ? price <= order.maxAcceptableEntry
     : price >= order.maxAcceptableEntry;
+}
+
+/**
+ * True when a PENDING limit order can legitimately rest at its planned price.
+ *
+ * P-Trades submits pending limits, never market orders. A buy limit must sit
+ * BELOW the current ask (and a sell limit above the current bid) by at least the
+ * broker's minimum distance; the market having run away above a buy limit is
+ * harmless — the order simply waits and can only ever fill at the planned price
+ * or better. The dangerous case is the market already at or through the limit,
+ * where the order would fill at an unplanned price or be refused outright.
+ *
+ * `minDistance` is the broker-reported minimum, or 0 when only the side is being
+ * asserted. It is never guessed: a caller that requires the broker's distance and
+ * cannot read it must refuse instead of passing a substitute.
+ */
+export function pendingLimitSideValid(
+  order: Pick<BridgeOrder, "action" | "entry">,
+  price: number,
+  minDistance = 0,
+): boolean {
+  if (!(price > 0) || !(order.entry > 0)) return false;
+  if (!Number.isFinite(minDistance) || minDistance < 0) return false;
+  // The market must be strictly on the far side: sitting exactly ON the limit is
+  // not a pending order that waits, it is one that fills at an unplanned moment
+  // or is refused by the broker outright.
+  const gap = order.action === "buy_limit" ? price - order.entry : order.entry - price;
+  return gap > 0 && gap >= minDistance;
 }
 
 export function spreadAcceptable(

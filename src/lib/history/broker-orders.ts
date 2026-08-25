@@ -14,6 +14,7 @@
  * This module is pure mapping so it can be tested without a database.
  */
 import type { Grade } from "@/lib/db-types";
+import { REJECT_COPY, type RejectReason } from "@/lib/delivery/execution";
 import { journalRView, type JournalRView } from "@/lib/journal/display";
 import type { RBasis } from "@/lib/journal/r-math";
 
@@ -77,6 +78,7 @@ export type BrokerOrderStatusKind =
   | "open_at_broker"
   | "closed_at_broker"
   | "rejected"
+  | "not_sent"
   | "failed"
   | "unknown";
 
@@ -130,6 +132,21 @@ export interface BrokerOrderView {
 
 const GRADES = new Set(["A+", "A", "B", "C"]);
 
+/**
+ * Plain-language text for a P-Trades pre-send refusal. The named reason may carry
+ * a `: detail` suffix; the reason itself is translated and the detail is kept, so
+ * nothing is invented and nothing is hidden.
+ */
+function engineRefusalCopy(reason: string | null): string | null {
+  if (!reason) return "P-Trades did not submit this order and recorded no reason.";
+  const [name, ...rest] = reason.split(":");
+  const key = (name ?? "").trim() as RejectReason;
+  const copy = REJECT_COPY[key];
+  const detail = rest.join(":").trim();
+  if (!copy) return reason;
+  return detail ? `${copy} (${detail})` : copy;
+}
+
 function grade(value: string | null | undefined): Grade | "Unknown" {
   return value && GRADES.has(value) ? (value as Grade) : "Unknown";
 }
@@ -151,7 +168,10 @@ function accountType(value: string | null | undefined): BrokerOrderView["account
  * "awaiting broker confirmation", never a fill.
  */
 export function brokerOrderStatus(
-  delivery: Pick<BrokerOrderDeliveryRow, "state" | "reason" | "broker_retcode_string">,
+  delivery: Pick<
+    BrokerOrderDeliveryRow,
+    "state" | "reason" | "broker_retcode_string" | "submitted_at"
+  >,
   evidence: Pick<BrokerOrderEvidenceRow, "state"> | null,
 ): BrokerOrderStatus {
   if (evidence) {
@@ -168,6 +188,18 @@ export function brokerOrderStatus(
   }
 
   const detail = delivery.broker_retcode_string ?? delivery.reason ?? null;
+  // A refusal that never left P-Trades is not the broker's verdict. Only a row
+  // carrying a broker return code, or a recorded submission, may be attributed to
+  // the broker at all.
+  const submittedToBroker =
+    delivery.broker_retcode_string !== null || delivery.submitted_at !== null;
+  if (!submittedToBroker && (delivery.state === "rejected" || delivery.state === "unknown")) {
+    return {
+      kind: "not_sent",
+      label: "Not sent — refused by P-Trades",
+      detail: engineRefusalCopy(delivery.reason),
+    };
+  }
   switch (delivery.state) {
     case "pending":
       return {

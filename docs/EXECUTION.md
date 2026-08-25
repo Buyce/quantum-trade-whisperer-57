@@ -189,8 +189,33 @@ Every refusal has a named reason, including
 `instrument_disabled`, `webhook_not_configured`, `webhook_not_validated`,
 `endpoint_rejected`, `not_alert_eligible`, `signal_missing`, `signal_not_active`,
 `tif_expired`, `quote_unavailable`, `policy_unsupported`,
+`limit_price_not_on_pending_side`, `limit_distance_unavailable`,
 `configuration_changed_since_enqueue`, `intelligence_gate_below_threshold`,
 `intelligence_gate_sample_insufficient`.
+
+### Pending-limit price validation
+
+P-Trades submits **pending limit orders only**. A pending limit is therefore
+validated on its own terms, twice — once on published geometry and again on the
+snapped geometry that will actually be submitted:
+
+- the market must still be strictly on the far side of the planned entry (ask
+  above a buy limit, bid below a sell limit), and
+- for a connected broker account, at least the broker's own published minimum
+  order distance away. That distance is **read, never assumed**: an unreadable or
+  absent distance on a direct destination is refused as
+  `limit_distance_unavailable`.
+
+The do-not-chase ceiling (`max_acceptable_entry`,
+`price_beyond_max_acceptable_entry`) remains the **market-entry** rule, which is
+what the feed and the alerts state. It is not applied to a resting limit, because
+a market that has run away above a buy limit cannot produce a worse fill — the
+order simply waits, and can only ever fill at the planned price or better.
+
+A refusal recorded before submission is a P-Trades refusal, not a broker verdict.
+History labels those rows "Not sent — refused by P-Trades" with the plain-language
+reason, and reserves "Rejected by broker" for rows that carry a broker return code
+or a recorded submission.
 
 ## User-facing meaning
 

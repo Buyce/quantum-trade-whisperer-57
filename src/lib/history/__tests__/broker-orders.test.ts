@@ -104,7 +104,40 @@ describe("automatic broker orders", () => {
 
   it("[INVARIANT] treats an unknown delivery state as an explicit non-claim", () => {
     expect(
-      brokerOrderStatus({ state: "weird", reason: null, broker_retcode_string: null }, null),
+      brokerOrderStatus(
+        { state: "weird", reason: null, broker_retcode_string: null, submitted_at: null },
+        null,
+      ),
     ).toMatchObject({ kind: "unknown" });
+  });
+
+  it("[INVARIANT] never attributes a P-Trades pre-send refusal to the broker", () => {
+    const status = brokerOrderStatus(
+      {
+        state: "rejected",
+        reason: "limit_price_not_on_pending_side: market 4649 vs 4634",
+        broker_retcode_string: null,
+        submitted_at: null,
+      },
+      null,
+    );
+    expect(status.kind).toBe("not_sent");
+    expect(status.label).toBe("Not sent — refused by P-Trades");
+    expect(status.detail).toContain("pending limit order could not rest");
+    expect(status.detail).toContain("market 4649 vs 4634");
+  });
+
+  it("[INVARIANT] still names the broker when a broker return code exists", () => {
+    const status = brokerOrderStatus(
+      {
+        state: "rejected",
+        reason: "broker_rejected",
+        broker_retcode_string: "TRADE_RETCODE_INVALID_STOPS",
+        submitted_at: "2026-08-24T10:00:00Z",
+      },
+      null,
+    );
+    expect(status.kind).toBe("rejected");
+    expect(status.label).toBe("Rejected by broker");
   });
 });
