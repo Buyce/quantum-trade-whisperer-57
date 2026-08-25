@@ -171,6 +171,18 @@ export function brokerOrderStatus(
   }
 
   const detail = delivery.broker_retcode_string ?? delivery.reason ?? null;
+  // A refusal that never left P-Trades is not the broker's verdict. Only a row
+  // carrying a broker return code, or a recorded submission, may be attributed to
+  // the broker at all.
+  const submittedToBroker =
+    delivery.broker_retcode_string !== null || delivery.submitted_at !== null;
+  if (!submittedToBroker && (delivery.state === "rejected" || delivery.state === "unknown")) {
+    return {
+      kind: "not_sent",
+      label: "Not sent — refused by P-Trades",
+      detail: engineRefusalCopy(delivery.reason),
+    };
+  }
   switch (delivery.state) {
     case "pending":
       return {
