@@ -204,94 +204,73 @@ describe("Stage 4 candidate enrolment — executability", () => {
 });
 
 describe("Stage 4 candidate enrolment — provenance and identity", () => {
-  it("[INVARIANT] the execution row carries cohort, Replay-V1 and the explicit legacy policy", async () => {
+  it("[INVARIANT] the atomic RPC carries cohort, Replay-V1 and the explicit legacy policy", async () => {
     const s = scenario({});
     const summary = await enrolPendingCandidates(s.db);
     expect(summary.enrolled).toBe(1);
-    const payload = insertOf(s.calls)!;
-    expect(payload["cohort"]).toBe(CANDIDATE_COHORT);
-    expect(payload["replay_version"]).toBe(1);
-    expect(payload["execution_policy"]).toBe(CANDIDATE_EXECUTION_POLICY);
-    expect(payload["research_candidate_id"]).toBe("cand-1");
-    expect(payload["signal_id"]).toBeNull();
-    expect(payload["model_version"]).toBe(1);
-    expect(payload["observation_key"]).toBe("run-1|EURUSD");
-    expect(payload["plan_origin"]).toBe(CANDIDATE_PLAN_ORIGIN);
+    const rpc = enrolRpcOf(s)!;
+    const args = rpc.args as Record<string, unknown>;
+    expect(args["_cohort"]).toBe(CANDIDATE_COHORT);
+    expect(args["_replay_version"]).toBe(1);
+    expect(args["_execution_policy"]).toBe(CANDIDATE_EXECUTION_POLICY);
+    expect(args["_candidate_id"]).toBe("cand-1");
+    expect(args["_plan_origin"]).toBe(CANDIDATE_PLAN_ORIGIN);
+    expect(insertOf(s.calls)).toBeNull();
   });
 
-  it("[INVARIANT] no geometry is invented: every plan value comes from the candidate", async () => {
+  it("[INVARIANT] geometry is not invented client-side: only the candidate id crosses the boundary", async () => {
     const c = executable();
     const s = scenario({ candidates: [c] });
     await enrolPendingCandidates(s.db);
-    const p = insertOf(s.calls)!;
-    expect(p["entry_price"]).toBe(c.entry_price);
-    expect(p["stop_loss"]).toBe(c.stop_loss);
-    expect(p["risk_price"]).toBe(c.risk_price);
-    expect(p["atr"]).toBe(c.atr);
-    // The execution replays the COMMON research ladder, never a production one.
-    expect(p["tp1"]).toBe(c.cf_tp1);
-    expect(p["tp2"]).toBe(c.cf_tp2);
-    expect(p["tp3"]).toBe(c.cf_tp3);
-    expect(p["tp1_r"]).toBe(c.cf_tp1_r);
-    expect(p["tp2_r"]).toBe(c.cf_tp2_r);
-    expect(p["tp3_r"]).toBe(c.cf_tp3_r);
-    expect(p["max_r"]).toBe(c.cf_max_r);
-    expect(p["grade"]).toBe(c.cf_grade);
-    // A research ladder is not a graded production plan.
-    expect(p["confidence_score"]).toBeNull();
+    const args = enrolRpcOf(s)!.args as Record<string, unknown>;
+    expect(args["_candidate_id"]).toBe(c.id);
+    for (const key of [
+      "entry_price",
+      "stop_loss",
+      "risk_price",
+      "atr",
+      "tp1",
+      "tp2",
+      "tp3",
+      "grade",
+    ]) {
+      expect(key in args).toBe(false);
+    }
+    expect(insertOf(s.calls)).toBeNull();
   });
 
-  it("[INVARIANT] both filter arms are replayed under one identical ladder policy", async () => {
+  it("[INVARIANT] both filter arms are replayed under one identical atomic policy", async () => {
     const fail = scenario({ candidates: [executable()] });
     await enrolPendingCandidates(fail.db);
     const pass = scenario({ candidates: [published()] });
     const summary = await enrolPendingCandidates(pass.db);
     expect(summary.enrolled).toBe(1);
 
-    const a = insertOf(fail.calls)!;
-    const b = insertOf(pass.calls)!;
-    for (const key of ["plan_origin", "execution_policy", "replay_version", "cohort"] as const) {
+    const a = enrolRpcOf(fail)!.args as Record<string, unknown>;
+    const b = enrolRpcOf(pass)!.args as Record<string, unknown>;
+    for (const key of ["_plan_origin", "_execution_policy", "_replay_version", "_cohort"] as const) {
       expect(b[key]).toBe(a[key]);
     }
-    // Identical ladder multiples on both arms: the comparison measures the gate,
-    // not two different target ladders.
-    expect([b["tp1_r"], b["tp2_r"], b["tp3_r"], b["max_r"]]).toEqual([
-      a["tp1_r"],
-      a["tp2_r"],
-      a["tp3_r"],
-      a["max_r"],
-    ]);
   });
 
   it("[INVARIANT] claims use the candidate namespace, never a V2/V3 claim slot", async () => {
     const s = scenario({});
     await enrolPendingCandidates(s.db);
-    const claims = s.rpcCalls.filter((r) => r.fn === "claim_v2_structure");
-    expect(claims).toHaveLength(1);
-    const args = claims[0]!.args as { _model_version: number; _structure_key: string };
-    expect(args._model_version).toBe(CANDIDATE_CLAIM_NAMESPACE);
-    expect(args._model_version).not.toBe(2);
-    expect(args._model_version).not.toBe(3);
-    expect(args._structure_key.startsWith("candidate:")).toBe(true);
+    const args = enrolRpcOf(s)!.args as Record<string, unknown>;
+    expect(args["_claim_model_version"]).toBe(CANDIDATE_CLAIM_NAMESPACE);
+    expect(args["_claim_model_version"]).not.toBe(2);
+    expect(args["_claim_model_version"]).not.toBe(3);
   });
 
-  it("[INVARIANT] enrolled_plan_id is written only after the execution row exists, and only while still NULL", async () => {
+  it("[INVARIANT] enrolled_plan_id bookkeeping is owned by the atomic RPC", async () => {
     const s = scenario({});
     await enrolPendingCandidates(s.db);
-    const insertIdx = s.calls.findIndex(
-      (c) => c.table === "shadow_executions" && c.op === "insert",
-    );
-    const updateIdx = s.calls.findIndex(
-      (c) => c.table === "research_candidates" && c.op === "update",
-    );
-    expect(insertIdx).toBeGreaterThanOrEqual(0);
-    expect(updateIdx).toBeGreaterThan(insertIdx);
-    const update = s.calls[updateIdx]!;
-    expect(update.is["enrolled_plan_id"]).toBeNull();
-    expect(update.payload!["enrolled_plan_id"]).toBe(insertOf(s.calls)!["plan_id"]);
+    expect(s.calls.some((c) => c.table === "shadow_executions" && c.op === "insert")).toBe(false);
+    expect(s.calls.some((c) => c.table === "research_candidates" && c.op === "update")).toBe(false);
+    expect(enrolRpcOf(s)).toBeTruthy();
   });
 
-  it("[INVARIANT] a failed execution insert leaves the candidate unenrolled", async () => {
+  it("[INVARIANT] a failed atomic enrolment leaves the candidate unenrolled", async () => {
     const s = scenario({ insertError: "boom" });
     const summary = await enrolPendingCandidates(s.db);
     expect(summary.enrolled).toBe(0);
@@ -300,35 +279,31 @@ describe("Stage 4 candidate enrolment — provenance and identity", () => {
   });
 
   it("[INVARIANT] a duplicate identity is idempotent: no second enrolment, no failure", async () => {
-    const s = scenario({ insertError: "duplicate key value violates unique constraint" });
+    const s = scenario({ existingPlanId: "plan-existing" });
     const summary = await enrolPendingCandidates(s.db);
     expect(summary.enrolled).toBe(0);
+    expect(summary.reconciled).toBe(1);
     expect(summary.failed).toBe(0);
     expect(s.calls.some((c) => c.table === "research_candidates" && c.op === "update")).toBe(false);
   });
 
-  it("[INVARIANT] a crashed retry adopts the existing execution instead of creating a second one", async () => {
-    // The database already holds this candidate's execution: an earlier attempt
-    // inserted it and died before bookkeeping.
+  it("[INVARIANT] a crashed retry adopts the existing execution inside the RPC", async () => {
     const s = scenario({ existingPlanId: "plan-existing" });
     const summary = await enrolPendingCandidates(s.db);
     expect(summary.reconciled).toBe(1);
     expect(summary.enrolled).toBe(0);
     expect(summary.failed).toBe(0);
     expect(insertOf(s.calls)).toBeNull();
-    const update = s.calls.find((c) => c.table === "research_candidates" && c.op === "update")!;
-    expect(update.payload!["enrolled_plan_id"]).toBe("plan-existing");
-    expect(update.is["enrolled_plan_id"]).toBeNull();
   });
 
   it("[INVARIANT] reconciliation is scoped to the exact research execution identity", async () => {
     const s = scenario({ existingPlanId: "plan-existing" });
     await enrolPendingCandidates(s.db);
-    const read = s.calls.find((c) => c.table === "shadow_executions" && c.op === "select")!;
-    expect(read.eq["research_candidate_id"]).toBe("cand-1");
-    expect(read.eq["replay_version"]).toBe(1);
-    expect(read.eq["execution_policy"]).toBe(CANDIDATE_EXECUTION_POLICY);
-    expect(read.eq["plan_origin"]).toBe(CANDIDATE_PLAN_ORIGIN);
+    const args = enrolRpcOf(s)!.args as Record<string, unknown>;
+    expect(args["_candidate_id"]).toBe("cand-1");
+    expect(args["_replay_version"]).toBe(1);
+    expect(args["_execution_policy"]).toBe(CANDIDATE_EXECUTION_POLICY);
+    expect(args["_plan_origin"]).toBe(CANDIDATE_PLAN_ORIGIN);
   });
 
   it("[INVARIANT] a lost claim enrols nothing at all", async () => {
