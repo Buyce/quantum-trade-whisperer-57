@@ -12,6 +12,7 @@
  *    users.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { assertCapability } from "@/lib/instruments/lifecycle.server";
 import type { SetupEvaluation } from "@/lib/scanner/profile";
 import { MODEL_V2_CODE_HASH, MODEL_V2_VERSION } from "@/lib/scanner/v2/manifest";
 import type { V2Evaluation } from "@/lib/scanner/v2/profile.v2";
@@ -184,12 +185,25 @@ export async function recordObservations(
 ): Promise<number> {
   if (!rows.length) return 0;
   try {
-    const identified = rows.every((r) => r.run_id);
+    const allowedRows: ObservationRow[] = [];
+    const instruments = [...new Set(rows.map((r) => r.instrument))];
+    for (const instrument of instruments) {
+      const gate = await bounded(assertCapability(db, instrument, "capture_research"), deadlineMs);
+      if (gate === "deadline") {
+        await noteResearchFailure(db, "observation lifecycle gate exceeded deadline", deadlineMs);
+        continue;
+      }
+      if (!gate.allowed) continue;
+      allowedRows.push(...rows.filter((r) => r.instrument === instrument));
+    }
+    if (!allowedRows.length) return 0;
+
+    const identified = allowedRows.every((r) => r.run_id);
     const query = identified
       ? db
           .from("model_observations")
-          .upsert(rows, { onConflict: "run_id,instrument,model_version" })
-      : db.from("model_observations").insert(rows);
+          .upsert(allowedRows, { onConflict: "run_id,instrument,model_version" })
+      : db.from("model_observations").insert(allowedRows);
     const result = await bounded(
       query.then((r) => r),
       deadlineMs,
@@ -206,7 +220,7 @@ export async function recordObservations(
       );
       return 0;
     }
-    return rows.length;
+    return allowedRows.length;
   } catch (err) {
     await noteResearchFailure(
       db,
