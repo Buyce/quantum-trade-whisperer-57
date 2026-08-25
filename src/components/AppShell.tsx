@@ -51,7 +51,6 @@ const DESKTOP_NAV = [
   { to: "/guide", label: "Guide", short: "Guide", icon: BookOpen },
 ] as const;
 
-
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();

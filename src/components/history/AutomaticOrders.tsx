@@ -112,8 +112,9 @@ export function AutomaticOrders({ userId }: { userId: string | undefined }) {
 
       {rows.length >= BROKER_ORDER_PAGE_SIZE ? (
         <p className="rounded-md border border-warning/40 bg-warning/10 px-4 py-3 text-xs text-muted-foreground">
-          This screen shows the newest {BROKER_ORDER_PAGE_SIZE} automatic orders. Older orders remain
-          stored and are still valued by Performance, but are not in this view or its exports.
+          This screen shows the newest {BROKER_ORDER_PAGE_SIZE} automatic orders. Older orders
+          remain stored and are still valued by Performance, but are not in this view or its
+          exports.
         </p>
       ) : null}
 

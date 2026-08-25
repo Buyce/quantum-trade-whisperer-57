@@ -49,7 +49,10 @@ export function EnqueueDecisionPanel() {
       ) : (
         <ul className="space-y-1.5">
           {rows.map((row, i) => (
-            <li key={`${row.at}-${i}`} className="flex flex-wrap items-baseline gap-x-2 text-[11px]">
+            <li
+              key={`${row.at}-${i}`}
+              className="flex flex-wrap items-baseline gap-x-2 text-[11px]"
+            >
               <span className="w-16 shrink-0 text-muted-foreground">{timeAgo(row.at)}</span>
               <span className="font-mono text-foreground">{row.instrument ?? "system"}</span>
               {row.grade ? <span className="text-muted-foreground">{row.grade}</span> : null}

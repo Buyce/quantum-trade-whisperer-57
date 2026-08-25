@@ -4,14 +4,14 @@
 
 The landing page still describes the Build 1 terminal. Verified against the code:
 
-| Claim on the page | Reality in the code |
-| --- | --- |
-| "Max setups per day: 15" stat tile | The global cap was removed. `scanner_settings.daily_setup_cap` defaults to 0 = unlimited, and each user sets their own cap; C-grade setups never count against it. |
-| "Maximum 15 setups a day" in the Trade Assistant card | Same as above — misleading. |
-| "Setups graded A, B or C" | Four tiers exist: **A+, A, B, C** (institutional confluence tier added). |
-| "1:1 / 1:2 / 1:3 targets" | TP3 is dynamic: the unbroken H4 structural barrier overrides the 1:3 default when it is closer. |
-| "weighted confidence score" (unexplained) | Weighting is now 35% trend alignment, 25% order block, 20% momentum, 20% volatility. |
-| Feature grid (4 cards) | Missing every major system built since: shadow replay engine, Bayesian learning engine, per-user risk sizing, AI/agent access over MCP, push + email + webhook alerts, verified trade journal with provenance, weekly comparison report, live market-hours status, installable PWA. |
+| Claim on the page                                     | Reality in the code                                                                                                                                                                                                                                                                 |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "Max setups per day: 15" stat tile                    | The global cap was removed. `scanner_settings.daily_setup_cap` defaults to 0 = unlimited, and each user sets their own cap; C-grade setups never count against it.                                                                                                                  |
+| "Maximum 15 setups a day" in the Trade Assistant card | Same as above — misleading.                                                                                                                                                                                                                                                         |
+| "Setups graded A, B or C"                             | Four tiers exist: **A+, A, B, C** (institutional confluence tier added).                                                                                                                                                                                                            |
+| "1:1 / 1:2 / 1:3 targets"                             | TP3 is dynamic: the unbroken H4 structural barrier overrides the 1:3 default when it is closer.                                                                                                                                                                                     |
+| "weighted confidence score" (unexplained)             | Weighting is now 35% trend alignment, 25% order block, 20% momentum, 20% volatility.                                                                                                                                                                                                |
+| Feature grid (4 cards)                                | Missing every major system built since: shadow replay engine, Bayesian learning engine, per-user risk sizing, AI/agent access over MCP, push + email + webhook alerts, verified trade journal with provenance, weekly comparison report, live market-hours status, installable PWA. |
 
 Correct as-is and kept: 3 instruments (XAUUSD, GBPAUD, EURUSD), 3 timeframes (H4/H1/M15), 15-minute scan cadence, "No Trade" default philosophy, ATR-buffered structural stops, expectancy in R.
 

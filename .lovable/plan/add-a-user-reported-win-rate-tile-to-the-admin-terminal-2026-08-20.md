@@ -13,6 +13,7 @@ The existing "Taken win rate" tile is shadow-engine replay outcomes for signals 
 ## Definition of the new metric
 
 Source: `executed_trades` rows with `user_decision = 'taken'` and `outcome` in `win` / `loss` / `breakeven` (open trades excluded).
+
 - win rate = wins / resolved
 - mean R = average of `realized_r_multiple` where present
 - Aggregate only; no per-user rows, no user ids leave the server.

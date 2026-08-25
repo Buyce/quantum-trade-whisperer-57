@@ -213,7 +213,6 @@ export function planDisconnect(input: DisconnectInput): DisconnectPlan {
   };
 }
 
-
 /** Never show a full broker login. */
 export function maskLogin(login: string | number | null | undefined): string | null {
   if (login === null || login === undefined) return null;

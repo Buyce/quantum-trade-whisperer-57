@@ -95,7 +95,10 @@ export async function enqueueDirectDeliveries(
     filtered: 0,
   });
 
-  const empty = async (reason: string, detail: string | null = null): Promise<DirectEnqueueOutcome> => {
+  const empty = async (
+    reason: string,
+    detail: string | null = null,
+  ): Promise<DirectEnqueueOutcome> => {
     await recordEnqueueDecisions(db, [systemDecision(reason, detail)]);
     return { enqueued: 0, filtered: 0, reason };
   };
@@ -109,8 +112,7 @@ export async function enqueueDirectDeliveries(
     .limit(1);
   if (controlError) return await empty("execution_controls_unreadable", controlError.message);
   const controls = (controlRows ?? [])[0] as
-    | { demo_auto_enabled: boolean | null; live_auto_enabled: boolean | null }
-    | undefined;
+    { demo_auto_enabled: boolean | null; live_auto_enabled: boolean | null } | undefined;
   const demoAuto = controls?.demo_auto_enabled === true;
   const liveAuto = controls?.live_auto_enabled === true;
   if (!demoAuto && !liveAuto) return await empty("automatic_execution_disabled");

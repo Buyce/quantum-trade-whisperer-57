@@ -39,4 +39,3 @@ Skipped decisions carry no value once the setup is gone, so:
 - New route `src/routes/_authenticated/history.tsx` reading `executed_trades` filtered to `user_decision = 'taken'` joined to `scanned_signals`, using the existing browser client and query patterns; add a nav link in `src/components/AppShell.tsx`, plus its own `head()` metadata.
 - Migration: update `purge_expired_signals()` so the "referenced by a trade" exclusion only counts `user_decision = 'taken'`, and delete `executed_trades` rows with `user_decision = 'skipped'` for signals past their retention window before deleting the signals.
 - No scanner or grading changes, no seeding or mock rows.
-

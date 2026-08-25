@@ -42,7 +42,7 @@ Broker leverage:        1:100  (read from your broker)
 
 ## 4. Nothing weakens the existing safety gates
 
-Order placement still requires, unchanged: broker-confirmed DEMO for Demo Auto, READY and un-conflicted connection, trading allowed, not investor mode, resolved broker symbol, fresh broker equity, margin check, account exposure boundary, system-wide Demo Auto on, and pre-send revalidation. The new rules can only *reduce* what is sent, never authorise something previously refused. Live execution stays off.
+Order placement still requires, unchanged: broker-confirmed DEMO for Demo Auto, READY and un-conflicted connection, trading allowed, not investor mode, resolved broker symbol, fresh broker equity, margin check, account exposure boundary, system-wide Demo Auto on, and pre-send revalidation. The new rules can only _reduce_ what is sent, never authorise something previously refused. Live execution stays off.
 
 ## Technical notes
 

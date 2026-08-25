@@ -14,7 +14,7 @@ Chain, as currently implemented:
 Separately, rejections differ in kind and are currently treated identically:
 
 - `no_candles`, `m15_neutral`, `no_grade`, `no_abc`, `risk_undefined` — no ABC leg and/or no derived entry/stop exist. Nothing executable can be formed without inventing prices.
-- `risk_too_wide`, `no_headroom`, `unreachable_r` — the geometry block already ran: `entry_price`, `stop_loss`, `risk_price`, `atr`, `structure_key` and `direction` are all genuinely derived. Only a *filter* rejected the setup.
+- `risk_too_wide`, `no_headroom`, `unreachable_r` — the geometry block already ran: `entry_price`, `stop_loss`, `risk_price`, `atr`, `structure_key` and `direction` are all genuinely derived. Only a _filter_ rejected the setup.
 
 ## What to build
 

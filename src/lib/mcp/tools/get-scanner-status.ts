@@ -21,7 +21,7 @@ export default defineTool({
       supabase
         .from("scanner_settings")
         .select(
-          "instruments, timeframes, sessions, min_grade, alert_min_grade, daily_setup_cap, notify_push, notify_email",
+          "instruments, sessions, min_grade, alert_min_grade, daily_setup_cap, notify_push, notify_email",
         )
         .maybeSingle(),
     ]);

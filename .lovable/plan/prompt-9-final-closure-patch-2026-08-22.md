@@ -18,6 +18,7 @@ In `update-trade-outcome.ts`, before computing `hasPrices`, detect XOR of `actua
 ## 3. Truthful journal wording
 
 `src/routes/_authenticated/history.tsx`:
+
 - Badge text `Verified · you` / `Verified · agent` becomes `Self-reported · you` / `Self-reported · agent`; tooltips say self-reported, not broker verified.
 - Rename the internal helper/state from unverified framing to price-backed framing and change user-visible copy: "no fill prices" panel says those results have **execution prices missing** and are excluded from your **price-backed** win rate (not "verified win rate"); the filter button reads "Show only trades missing prices".
 - Sweep `src/routes/connect.tsx` and `src/lib/email-templates/verify-trade-prices.tsx` for the same "verified/unverified" implications and replace with self-reported / price-backed / execution prices missing.

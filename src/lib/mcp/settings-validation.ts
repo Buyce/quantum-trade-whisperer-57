@@ -17,9 +17,19 @@ export const SESSION_CHOICES = [
 export const GRADE_CHOICES = ["A+", "A", "B", "C"] as const;
 export const CURRENCY_CHOICES = ["USD", "EUR", "GBP", "AUD"] as const;
 
+/**
+ * Explains, in the tool result itself, why a `timeframes` write did nothing.
+ * Exported so the tool description, the deprecation test and the assistant all
+ * quote the same sentence.
+ */
+export const DEPRECATED_TIMEFRAMES_WARNING =
+  "timeframes is deprecated and was not applied: every setup is a single multi-timeframe structure covering H4, H1 and M15, so timeframes are not a filter.";
+
 export interface SettingsInput {
   instruments?: string[] | undefined;
+  /** @deprecated Accepted for compatibility, never written. See DEPRECATED_TIMEFRAMES_WARNING. */
   timeframes?: string[] | undefined;
+
   sessions?: string[] | undefined;
   min_grade?: string | undefined;
   alert_min_grade?: string | undefined;
@@ -112,10 +122,15 @@ export function validateSettings(
     const v = filterList(input.instruments, INSTRUMENT_CHOICES, "instruments", warnings);
     if (v) patch["instruments"] = v;
   }
+  // `timeframes` is deprecated, not merely unused. Every published setup is a
+  // single multi-timeframe structure spanning H4, H1 and M15, and no eligibility
+  // path has ever read this field — so accepting a write would leave the agent
+  // believing it had applied a filter that does not exist. It is refused loudly
+  // and never written; the column stays dormant for backwards compatibility.
   if (input.timeframes) {
-    const v = filterList(input.timeframes, TIMEFRAME_CHOICES, "timeframes", warnings);
-    if (v) patch["timeframes"] = v;
+    warnings.push(DEPRECATED_TIMEFRAMES_WARNING);
   }
+
   if (input.sessions) {
     const v = filterList(input.sessions, SESSION_CHOICES, "sessions", warnings);
     if (v) patch["sessions"] = v;

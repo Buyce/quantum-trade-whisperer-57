@@ -137,7 +137,6 @@ function AccountsPage() {
   return (
     <>
       <div className="mx-auto max-w-[1100px]">
-
         <header className="mb-5">
           <h1 className="text-lg font-semibold tracking-tight sm:text-xl">Broker Accounts</h1>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{capabilityNote(list)}</p>
@@ -253,7 +252,6 @@ function AccountsPage() {
       </div>
     </>
   );
-
 }
 
 /**

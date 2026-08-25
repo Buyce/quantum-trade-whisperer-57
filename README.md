@@ -216,7 +216,7 @@ commits pushed to `main` sync both ways.
 | [docs/BROKER-EVIDENCE.md](docs/BROKER-EVIDENCE.md)                       | Association and Performance provenance  |
 | [docs/METASTATS.md](docs/METASTATS.md)                                   | Broker statistics telemetry             |
 | [docs/RISK-GUARDIAN.md](docs/RISK-GUARDIAN.md)                           | Drawdown trackers and limitations       |
-| [docs/PROMPT-14-VERIFICATION.md](docs/PROMPT-14-VERIFICATION.md)         | Closure checks and demo smoke result    |
+| [docs/audits/](docs/audits/)                                             | Dated audit snapshots (historical evidence, not current status) |
 | [docs/MCP.md](docs/MCP.md)                                               | Assistant tools and permissions         |
 | [docs/SECURITY.md](docs/SECURITY.md)                                     | Auth, RLS, egress, secrets              |
 | [docs/OPERATIONS.md](docs/OPERATIONS.md)                                 | Cron schedule, runbooks                 |

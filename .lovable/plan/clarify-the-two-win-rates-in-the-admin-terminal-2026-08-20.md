@@ -6,12 +6,13 @@ Both numbers are computed correctly — they just measure different things over 
 
 Verified against live rows:
 
-| Metric | Source | n | Win rate |
-|---|---|---|---|
-| Discipline index → Taken | Shadow replay outcome for signals users marked taken | 25 decisions, 14 filled | 21.4% (wins / filled) |
-| User-reported win rate | Users' own logged outcomes in Trade History | 19 resolved | 47.4% (wins / resolved) |
+| Metric                   | Source                                               | n                       | Win rate                |
+| ------------------------ | ---------------------------------------------------- | ----------------------- | ----------------------- |
+| Discipline index → Taken | Shadow replay outcome for signals users marked taken | 25 decisions, 14 filled | 21.4% (wins / filled)   |
+| User-reported win rate   | Users' own logged outcomes in Trade History          | 19 resolved             | 47.4% (wins / resolved) |
 
 Why they diverge:
+
 - The discipline row counts only shadow-filled replays; 11 of the 25 taken signals never filled in replay and are excluded from its win rate.
 - The user-reported row counts whatever outcome the user logged, at the user's real entry/exit — which differs from the deterministic replay (users often close manually at partial targets, so more get logged as wins).
 

@@ -23,15 +23,18 @@ The momentum pillar only scores for a long when M15 RSI dips to 40 or below (or 
 ## Proposed fix
 
 Phase 1 — redefine the barrier check (unblocks A)
-- Measure room to the *next* opposing H4 structure in the trade's direction (swing high above for longs / swing low below for shorts, using pivot detection), instead of distance to the extreme of the whole 60-bar window.
+
+- Measure room to the _next_ opposing H4 structure in the trade's direction (swing high above for longs / swing low below for shorts, using pivot detection), instead of distance to the extreme of the whole 60-bar window.
 - Keep the veto only when the trade genuinely has less than 2.5 ATR of headroom to that opposing level, or when the already-computed `maxR` reachability is thin.
 - Consequence: A becomes achievable on aligned continuation structures with real room, and stays blocked when price is jammed under resistance.
 
 Phase 2 — rescale the momentum pillar (unblocks A+)
+
 - Score momentum on pullback exhaustion relative to trend, not absolute oversold: RSI returning toward the mid-band from an extreme (e.g. long: RSI dipping into 40-55 then turning up), plus the existing divergence path retained as a full-credit alternative.
 - Keep the 70 pass threshold and all four pillar weights unchanged so confidence scores stay comparable.
 
 Phase 3 — validation before anything publishes differently
+
 - Re-run both revised gates in read-only mode over the last 30 days of stored candles/signals and report how many of the 88 historical signals would have graded A and A+.
 - Only keep the change if A stays selective (target roughly 10-20% of signals, not a majority). If it floods, tighten the headroom multiple rather than reverting.
 - Watch the shadow engine's fill/win split by grade for the following week to confirm A/A+ actually outperform B before treating them as the top tier.

@@ -8,7 +8,26 @@ import tseslint from "typescript-eslint";
 export default tseslint.config(
   // `src/test/fixtures/pre-p7` is vendored verbatim from commit ab44ff6 as the
   // frozen characterization baseline; it must never be reformatted or "fixed".
-  { ignores: ["dist", ".output", ".vinxi", "src/test/fixtures/pre-p7"] },
+  //
+  // The remaining entries are platform-generated integration files. They are
+  // rewritten from templates outside this repository, so any lint or formatting
+  // fix applied here is silently reverted on the next regeneration — which is
+  // exactly how `verify` ended up permanently red on four MCP route files and a
+  // `prefer-const` in the preview auth storage shim. Excluding them keeps the
+  // gate honest: it reports only code this repository actually controls.
+  {
+    ignores: [
+      "dist",
+      ".output",
+      ".vinxi",
+      "src/test/fixtures/pre-p7",
+      "src/integrations/supabase/previewAuthStorage.ts",
+      "src/routes/mcp.ts",
+      "src/routes/\\[.mcp\\]/**",
+      "src/routes/\\[.well-known\\]/**",
+    ],
+  },
+
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],

@@ -18,11 +18,11 @@ Cycles landed at 10:15, 10:30, 10:45, 11:00 (plus a manual 10:58 run), all autho
 
 **5. Pipeline dry-run — this is where signals die.**
 
-| Instrument | H4 / H1 / M15 bias | Grade | Rejected at |
-|---|---|---|---|
-| XAUUSD | bullish / neutral / neutral | none | M15 bias neutral → No Trade |
-| EURUSD | bullish / neutral / neutral | none | M15 bias neutral → No Trade |
-| GBPAUD | neutral / bearish / bearish | B | `barrierRoom <= 0` → discarded |
+| Instrument | H4 / H1 / M15 bias          | Grade | Rejected at                    |
+| ---------- | --------------------------- | ----- | ------------------------------ |
+| XAUUSD     | bullish / neutral / neutral | none  | M15 bias neutral → No Trade    |
+| EURUSD     | bullish / neutral / neutral | none  | M15 bias neutral → No Trade    |
+| GBPAUD     | neutral / bearish / bearish | B     | `barrierRoom <= 0` → discarded |
 
 XAUUSD and EURUSD are a **correct** No-Trade: the M15 EMA stack (20/50/200) is not stacked, so there is no directional structure to trade. Nothing to fix there.
 
@@ -36,7 +36,7 @@ GBPAUD is a genuine defect. It produced a valid B-Grade short — entry 1.90431,
 barrier = (h4.bias === "bearish") ? rangeLow : rangeHigh
 ```
 
-`buildTradeProfile` then measures room as `(h4.barrierPrice − entry) × sign`. For a short trade, `sign = −1`, so room is only positive if the barrier sits *below* entry. But whenever H4 is neutral or bullish, the barrier is the range **high** — above entry — so room is negative and `barrierRoom <= 0` rejects the setup before any target is built.
+`buildTradeProfile` then measures room as `(h4.barrierPrice − entry) × sign`. For a short trade, `sign = −1`, so room is only positive if the barrier sits _below_ entry. But whenever H4 is neutral or bullish, the barrier is the range **high** — above entry — so room is negative and `barrierRoom <= 0` rejects the setup before any target is built.
 
 Consequence: **a short can only ever publish when H4 is itself bearish.** The database confirms it — 63 long signals vs 3 short. Today's markets are H4-bullish across the board, so the one qualifying structure was a short and it was silently discarded.
 

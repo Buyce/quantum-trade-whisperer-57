@@ -27,11 +27,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { PanelShell, timeAgo } from "@/components/admin/AdminPanels";
 
-type SwitchField =
-  | "demoAutoEnabled"
-  | "forceDryRun"
-  | "liveExecutionEnabled"
-  | "liveAutoEnabled";
+type SwitchField = "demoAutoEnabled" | "forceDryRun" | "liveExecutionEnabled" | "liveAutoEnabled";
 
 type Pending = { field: SwitchField; next: boolean } | null;
 
@@ -220,7 +216,10 @@ export function ExecutionSwitchPanel() {
           ) : (
             <ul className="flex flex-wrap gap-2">
               {data.allowedLiveHosts.map((host) => (
-                <li key={host} className="flex items-center gap-1 rounded-sm border border-border px-2 py-0.5 text-[11px]">
+                <li
+                  key={host}
+                  className="flex items-center gap-1 rounded-sm border border-border px-2 py-0.5 text-[11px]"
+                >
                   <span className="font-mono">{host}</span>
                   <button
                     type="button"

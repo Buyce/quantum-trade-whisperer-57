@@ -1,6 +1,6 @@
 # Learning Engine — Display-Only Promotion + Per-Bucket Confidence Floor
 
-Two changes, both confined to how the Bayesian priors are *selected* and *presented*. Grading, alert fan-out, entry pricing, the daily cap and the webhook payload stay untouched — no trade is placed, blocked or repriced by the learning engine after this work.
+Two changes, both confined to how the Bayesian priors are _selected_ and _presented_. Grading, alert fan-out, entry pricing, the daily cap and the webhook payload stay untouched — no trade is placed, blocked or repriced by the learning engine after this work.
 
 ## Part 1 — Per-bucket confidence floor
 
@@ -10,13 +10,13 @@ Today a tier-3 (exact regime: instrument + direction + session + volatility buck
 - A tier-3 bucket below the floor is skipped and the lookup falls back to tier 2 (instrument + direction), then tier 1 (global) — the same honest-fallback chain that exists now, just entered earlier.
 - The model-explain drawer reports when a fallback happened because the exact bucket was under the floor, and names the sample count it had. It never hides the reason.
 
-Shrinkage stays exactly as it is (k = 30, computed in SQL). The floor governs *which tier is allowed to speak*, not the maths.
+Shrinkage stays exactly as it is (k = 30, computed in SQL). The floor governs _which tier is allowed to speak_, not the maths.
 
 ## Part 2 — Display-only promotion at the fill gate
 
 The fill gate clears at 150 resolved shadow samples (currently 147). When it clears, the priors get promoted in the UI only.
 
-**Fix a real defect first.** The signal card currently checks the win gate against the *resolved* sample count instead of the *filled* count, so once resolved passes 200 the win rate would be wrongly labelled active while sitting on far fewer filled samples. Each published signal will store the filled-sample count and the tier that answered, alongside the resolved count it already stores, so both gates are evaluated against the right denominator.
+**Fix a real defect first.** The signal card currently checks the win gate against the _resolved_ sample count instead of the _filled_ count, so once resolved passes 200 the win rate would be wrongly labelled active while sitting on far fewer filled samples. Each published signal will store the filled-sample count and the tier that answered, alongside the resolved count it already stores, so both gates are evaluated against the right denominator.
 
 **Intelligence Panel changes**
 

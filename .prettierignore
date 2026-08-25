@@ -12,3 +12,12 @@ src/integrations/supabase/types.ts
 # ab44ff687df4892745a47ffa1f3b737f04b478e0. Reformatting them would break the
 # characterization baseline they exist to preserve.
 src/test/fixtures/pre-p7
+
+# Platform-generated integration files. Regeneration overwrites them from
+# templates outside this repository, so a formatting pass here does not stick;
+# checking them only produced a permanently red gate.
+src/integrations/supabase/previewAuthStorage.ts
+src/routes/mcp.ts
+src/routes/\[.mcp\]/**
+src/routes/\[.well-known\]/**
+

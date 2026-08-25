@@ -5,13 +5,13 @@
 Confirmed by direct queries just now:
 
 - `scan_queue` has **57 jobs stuck in `pending`**, the oldest enqueued at **10:15 UTC** — a 4.5-hour backlog.
-- The worker is alive (last job finished 14:45 UTC) but it is draining the *backlog* in FIFO order, so it is grading candles for cycles that expired hours ago while the newest cycle waits behind them.
+- The worker is alive (last job finished 14:45 UTC) but it is draining the _backlog_ in FIFO order, so it is grading candles for cycles that expired hours ago while the newest cycle waits behind them.
 - Over the previous 24h, **69 jobs died with `Worker lease expired: job abandoned in processing`** — roughly 2-6 per hour, every hour, until 10:00 when the queue tipped into permanent backlog instead.
 - The last published signal is from 13:45 UTC. Broker feed is healthy (all three instruments `available`), and the 11 MetaApi 504s are unrelated transient broker timeouts.
 
 ## Root cause
 
-Each 15-minute cycle enqueues 3 jobs in one statement. The `scan_queue` insert trigger fires **one** worker kick per statement, and one worker pass drains at most 3 jobs *or* 20 seconds of wall clock, whichever comes first. A single job can spend up to 3 x 8s on candle fetches, so any slow cycle exits with `budgetExhausted: true` and **nobody kicks the worker again** — there is no drain cron and no self re-kick. Leftovers sit in `pending` until the next cycle's kick, which then has even less budget. The backlog compounds; the lease-expiry failures are the same defect surfacing as abandoned in-flight jobs.
+Each 15-minute cycle enqueues 3 jobs in one statement. The `scan_queue` insert trigger fires **one** worker kick per statement, and one worker pass drains at most 3 jobs _or_ 20 seconds of wall clock, whichever comes first. A single job can spend up to 3 x 8s on candle fetches, so any slow cycle exits with `budgetExhausted: true` and **nobody kicks the worker again** — there is no drain cron and no self re-kick. Leftovers sit in `pending` until the next cycle's kick, which then has even less budget. The backlog compounds; the lease-expiry failures are the same defect surfacing as abandoned in-flight jobs.
 
 ## The fix
 

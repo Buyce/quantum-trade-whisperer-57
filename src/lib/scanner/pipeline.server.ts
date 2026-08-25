@@ -632,7 +632,6 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
       console.error(`[pipeline] ${job.instrument} direct enqueue failed:`, describeError(execErr));
     }
 
-
     return await finish("published", `${profile.grade}-grade ${profile.direction}`);
   } catch (err) {
     const message = describeError(err);

@@ -21,7 +21,7 @@ New component `src/components/MarketTicker.tsx`:
 
 - Extend the existing instrument-health query to also select `updated_at`.
 - New small component (in `src/components/MarketTicker.tsx`'s sibling file or inline in the feed) showing a pulsing green dot plus text:
-`Last background scan completed at: 14:31 — Next scan in ~7 mins.`
+  `Last background scan completed at: 14:31 — Next scan in ~7 mins.`
 - Time formatted in the user's local timezone; the "next scan" figure is derived client-side from the 15-minute cadence (minutes remaining until the next quarter-hour after the last scan), recomputed on a lightweight 30s interval.
 - If the timestamp is missing or older than ~45 minutes, the dot switches to amber and the copy reads that the last scan was delayed, instead of claiming a fresh heartbeat.
 - Placed inside the "Capital Preservation Mode / No Trade" empty state block on the feed, below the explanatory copy.
@@ -35,9 +35,8 @@ Files touched:
 - `src/routes/_authenticated/feed.tsx` — render the heartbeat in the empty state, render the ticker bar, add bottom spacing.
 - `src/styles.css` — add a subtle pulse keyframe utility if none exists.
 
-No migrations, no server functions, no changes to `src/lib/scanner/*` or the cron/worker routes. The zero-hallucination rule is preserved: the empty state stays the empty state, only annotated with real scanner metadata.  
-  
-  
+No migrations, no server functions, no changes to `src/lib/scanner/*` or the cron/worker routes. The zero-hallucination rule is preserved: the empty state stays the empty state, only annotated with real scanner metadata.
+
 The Live Heartbeat plan is APPROVED. Please execute the plan as outlined:
 
 1. Update `src/lib/queries.ts` to include `updated_at` in the instrument-health SELECT query.

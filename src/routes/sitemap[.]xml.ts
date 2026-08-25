@@ -14,10 +14,14 @@ export const Route = createFileRoute("/sitemap.xml")({
     handlers: {
       GET: async () => {
         // Only public, indexable routes. The terminal routes under
-        // /_authenticated are noindex and gated behind sign-in.
+        // /_authenticated are noindex and gated behind sign-in. /auth is
+        // deliberately absent: it sends `robots: noindex`, and advertising a
+        // noindex URL in the sitemap is a self-contradicting instruction to
+        // crawlers. (robots.txt still allows /auth, so the noindex tag can be
+        // read at all.)
         const entries: SitemapEntry[] = [
           { path: "/", changefreq: "weekly", priority: "1.0" },
-          { path: "/auth", changefreq: "monthly", priority: "0.5" },
+          { path: "/connect", changefreq: "monthly", priority: "0.7" },
         ];
 
         const urls = entries.map((e) =>

@@ -50,7 +50,10 @@ export function AutoOrderDecisions() {
       ) : (
         <ul className="mt-2 space-y-2">
           {(decisions.data ?? []).map((d, i) => (
-            <li key={`${d.at}-${i}`} className="border-b border-border/40 pb-2 last:border-b-0 last:pb-0">
+            <li
+              key={`${d.at}-${i}`}
+              className="border-b border-border/40 pb-2 last:border-b-0 last:pb-0"
+            >
               <div className="flex flex-wrap items-baseline gap-x-2">
                 <span className="text-xs font-medium text-foreground">
                   {d.instrument ? (INSTRUMENT_LABELS[d.instrument] ?? d.instrument) : "System"}

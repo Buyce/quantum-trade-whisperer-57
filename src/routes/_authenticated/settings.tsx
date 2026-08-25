@@ -14,7 +14,6 @@ import { saveSettings, settingsQuery } from "@/lib/queries";
 import {
   ALL_INSTRUMENTS,
   ALL_SESSIONS,
-  ALL_TIMEFRAMES,
   SESSION_LABELS,
   INSTRUMENT_LABELS,
   ORDER_TIF_MINUTES,
@@ -52,7 +51,7 @@ export const Route = createFileRoute("/_authenticated/settings")({
       {
         name: "description",
         content:
-          "Configure instruments, timeframes, grade filters, notification delivery and the notify.getptrades.com sender domain.",
+          "Configure instruments, grade filters, notification delivery and the notify.getptrades.com sender domain.",
       },
       { property: "og:title", content: "Settings — P-Trades Hub" },
       {
@@ -85,7 +84,6 @@ function SettingsPage() {
   const settings = useQuery(settingsQuery(user?.id));
 
   const [instruments, setInstruments] = useState<string[]>([...ALL_INSTRUMENTS]);
-  const [timeframes, setTimeframes] = useState<string[]>([...ALL_TIMEFRAMES]);
   const [sessions, setSessions] = useState<string[]>([...ALL_SESSIONS]);
   const [minGrade, setMinGrade] = useState<Grade>("C");
   const [alertMinGrade, setAlertMinGrade] = useState<Grade>("B");
@@ -204,7 +202,6 @@ function SettingsPage() {
     const s = settings.data;
     if (!s) return;
     setInstruments(s.instruments);
-    setTimeframes(s.timeframes);
     setSessions(s.sessions);
     setMinGrade(s.min_grade);
     setAlertMinGrade(s.alert_min_grade ?? "B");
@@ -227,7 +224,9 @@ function SettingsPage() {
     setRiskPercent(String(Number(s.risk_per_trade_percent ?? 1)));
     setRiskAckHigh(s.risk_ack_high === true);
     setIntelGate(s.auto_intel_gate_enabled === true);
-    setIntelMinWin(s.auto_intel_min_win_pct == null ? "" : String(Number(s.auto_intel_min_win_pct)));
+    setIntelMinWin(
+      s.auto_intel_min_win_pct == null ? "" : String(Number(s.auto_intel_min_win_pct)),
+    );
     setIntelMinSample(String(Number(s.auto_intel_min_sample ?? 30)));
     setEquityAsOf(s.equity_as_of ?? null);
     setMaxLots(String(Number(s.max_position_size ?? 0)));
@@ -275,7 +274,6 @@ function SettingsPage() {
       await saveSettings({
         user_id: user.id,
         instruments,
-        timeframes,
         sessions,
         min_grade: minGrade,
         alert_min_grade: alertMinGrade,
@@ -295,9 +293,10 @@ function SettingsPage() {
         // Gate inputs: an empty or non-numeric threshold is stored as NULL so the
         // gate stays unconfigured rather than silently blocking every order.
         auto_intel_gate_enabled: intelGate,
-        auto_intel_min_win_pct: Number.isFinite(Number(intelMinWin)) && intelMinWin.trim() !== ""
-          ? clamp(Number(intelMinWin), 0, 100)
-          : null,
+        auto_intel_min_win_pct:
+          Number.isFinite(Number(intelMinWin)) && intelMinWin.trim() !== ""
+            ? clamp(Number(intelMinWin), 0, 100)
+            : null,
         auto_intel_min_sample: Math.round(clamp(num(intelMinSample, 30), 1, 100000)),
         // Provenance: user-entered balance, timestamped when it changes.
         ...(equityChanged || !equityAsOf ? { equity_as_of: new Date().toISOString() } : {}),
@@ -403,11 +402,8 @@ function SettingsPage() {
 
           <AutoOrderDecisions />
 
-
-
           <section className="space-y-5 rounded-md border border-border bg-card p-4">
             <h2 className="label-xs">Feed filters — what you see</h2>
-
 
             <div>
               <Label className="text-xs">Instruments</Label>
@@ -425,19 +421,20 @@ function SettingsPage() {
               </div>
             </div>
 
+            {/*
+              Timeframes were once presented as selectable "timeframes of
+              interest", but no eligibility path ever read them: a published
+              setup is one multi-timeframe structure built from H4, H1 and M15
+              together, so there is nothing to select between. The chips are
+              replaced by a statement of what actually happens.
+            */}
             <div>
-              <Label className="text-xs">Timeframes of interest</Label>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {ALL_TIMEFRAMES.map((t) => (
-                  <Chip
-                    key={t}
-                    active={timeframes.includes(t)}
-                    onClick={() => toggle(timeframes, t, setTimeframes)}
-                  >
-                    {t}
-                  </Chip>
-                ))}
-              </div>
+              <Label className="text-xs">Timeframes</Label>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Every scan evaluates <span className="num">H4</span>,{" "}
+                <span className="num">H1</span> and <span className="num">M15</span> together — a
+                setup is one multi-timeframe structure, so timeframes are not a filter.
+              </p>
             </div>
 
             <div>
@@ -534,7 +531,6 @@ function SettingsPage() {
                 set it to “C and above” if you want to be alerted on every tier. C-Grade is never
                 executed automatically.
               </p>
-
             </div>
           </section>
 
@@ -729,8 +725,6 @@ function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="notifications" className="space-y-4">
-
-
           <PushSection enabled={push} onEnabledChange={setPush} />
 
           <section className="space-y-4 rounded-md border border-border bg-card p-4">

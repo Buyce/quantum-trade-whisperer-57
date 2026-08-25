@@ -31,18 +31,16 @@ No meaningful impact. RSI, ATR, an ATR moving average, and order-block sweeps ar
 
 The model is compatible, and it maps cleanly onto structures that already exist — two pillars are already half-built:
 
-
 | Pillar                  | Current state                                                                  | Work needed                                                 |
 | ----------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------------------- |
 | 1. Trend alignment      | Already computed as `allAligned` / `alignmentScore` in `grading.ts`            | Reuse as-is, expose as a pillar                             |
 | 2. Order block retest   | Not built. Point C exists in `detectAbc`; `atPointC` is a crude midpoint proxy | New H1/H4 order-block detector + containment test           |
 | 3. Momentum exhaustion  | Not built. No RSI in `indicators.ts`                                           | Add RSI + divergence check at Point C                       |
-| 4. Volatility expansion | Partly built. Confidence uses an M15/H1 ATR *ratio*, not ATR vs its own MA     | Add ATR moving average, switch the test to ATR ≥ ATR-MA(20) |
-
+| 4. Volatility expansion | Partly built. Confidence uses an M15/H1 ATR _ratio_, not ATR vs its own MA     | Add ATR moving average, switch the test to ATR ≥ ATR-MA(20) |
 
 Cleaner implementation than a bolt-on, based on the existing structure:
 
-1. Keep the existing tier logic (`A`/`B`/`C`) as the *structural* grade and layer confluence on top, rather than rewriting `gradeSetup`. A+ is then defined as "grade A **and** all four pillars pass" — a strict superset, so historical A rows remain semantically valid and the performance dashboard stays comparable across time.
+1. Keep the existing tier logic (`A`/`B`/`C`) as the _structural_ grade and layer confluence on top, rather than rewriting `gradeSetup`. A+ is then defined as "grade A **and** all four pillars pass" — a strict superset, so historical A rows remain semantically valid and the performance dashboard stays comparable across time.
 2. Persist pillars as four numeric 0–100 columns plus a `pillars_passed` integer, not as booleans. Booleans lose the near-miss information that makes the confidence score meaningful, and numeric columns let `/performance` chart pillar-level predictiveness later.
 3. Rebalance the confidence weights once, in one place (`CONFIDENCE_WEIGHTS` in `types.ts`), to 35% trend / 25% order block / 20% momentum / 20% volatility-expansion, and fold R:R in as a multiplier cap rather than a fifth weight. This keeps a single scoring source of truth instead of two competing models.
 4. Keep every new indicator in `src/lib/scanner/indicators.ts` as a pure function so it stays unit-testable and free of any server/database import.

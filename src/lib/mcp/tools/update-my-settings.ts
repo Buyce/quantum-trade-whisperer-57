@@ -10,7 +10,14 @@ export default defineTool({
     "Change the signed-in user's own feed filters, alert grade, daily cap (0 = unlimited; the cap governs feed and alert eligibility, each channel using its own grade threshold), notification preferences and risk profile. Only the fields you pass are changed; values outside safe bounds are clamped and reported back. Webhook URL and secret cannot be changed by an agent. Changing any risk field (account_equity, account_currency, risk_per_trade_percent, max_position_size, leverage, max_stop_loss_percent) additionally requires confirm_risk_change: true, which asserts the user explicitly approved that change in this conversation; never set it on your own initiative.",
   inputSchema: {
     instruments: z.array(z.string()).optional().describe("Subset of XAUUSD, GBPAUD, EURUSD."),
-    timeframes: z.array(z.string()).optional().describe("Subset of H4, H1, M15."),
+    // Kept in the schema only so an older agent gets an explanation instead of
+    // a schema error; the validator refuses it and never writes the column.
+    timeframes: z
+      .array(z.string())
+      .optional()
+      .describe(
+        "Deprecated and ignored: every setup covers H4, H1 and M15 together, so timeframes are not a filter. Do not send.",
+      ),
     sessions: z
       .array(z.string())
       .optional()
@@ -102,7 +109,7 @@ export default defineTool({
       .update(patch)
       .eq("user_id", userId)
       .select(
-        "instruments, timeframes, sessions, min_grade, alert_min_grade, daily_setup_cap, notify_push, notify_email, account_equity, account_currency, risk_per_trade_percent, max_position_size, leverage, max_stop_loss_percent, equity_as_of, risk_ack_high",
+        "instruments, sessions, min_grade, alert_min_grade, daily_setup_cap, notify_push, notify_email, account_equity, account_currency, risk_per_trade_percent, max_position_size, leverage, max_stop_loss_percent, equity_as_of, risk_ack_high",
       );
 
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
