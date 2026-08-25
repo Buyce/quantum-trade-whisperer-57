@@ -271,10 +271,48 @@ export const SESSION_LABELS: Record<string, string> = {
 export const INSTRUMENT_LABELS: Record<string, string> = instrumentLabels();
 
 /**
- * The instruments the settings UI offers. Pinned to Wave 0 so no existing user is
- * silently opted into a pair that has not completed its lifecycle gates.
+ * Fail-closed instrument list: what the settings UI offers when lifecycle stages
+ * cannot be read at all. Wave 0 only, so a lifecycle outage can never silently
+ * offer a pair that has not completed its gates.
  */
 export const ALL_INSTRUMENTS: string[] = [...WAVE0_SYMBOLS];
+
+/** How the terminal describes an instrument to the user. */
+export type InstrumentCapability = "publishable" | "measuring" | "unavailable";
+
+/**
+ * The instruments a user may select, derived from lifecycle stage rather than a
+ * frozen constant: a pair appears the moment it is legitimately promoted to a
+ * publishing stage, and never before. An unreadable/empty stage read falls back
+ * to Wave 0.
+ */
+export function publishableInstruments(
+  stages: ReadonlyArray<{ symbol: string; stage: string }> | null | undefined,
+): string[] {
+  if (!stages || stages.length === 0) return [...ALL_INSTRUMENTS];
+  const allowed = new Set(
+    stages.filter((r) => isStage(r.stage) && mayPublish(r.stage)).map((r) => r.symbol),
+  );
+  return REGISTRY_SYMBOLS.filter((s) => allowed.has(s));
+}
+
+/**
+ * What an instrument is allowed to do for the user, independent of whether its
+ * broker feed is currently reachable. `measuring` means the scanner studies it
+ * but nothing it produces may reach a feed, an alert or an order.
+ */
+export function instrumentCapability(
+  symbol: string,
+  stages: ReadonlyArray<{ symbol: string; stage: string }> | null | undefined,
+): InstrumentCapability {
+  const raw = stages?.find((r) => r.symbol === symbol)?.stage;
+  if (!isStage(raw)) {
+    return WAVE0_SYMBOLS.includes(symbol) ? "publishable" : "unavailable";
+  }
+  if (mayPublish(raw)) return "publishable";
+  if (mayScan(raw)) return "measuring";
+  return "unavailable";
+}
 export const ALL_TIMEFRAMES: string[] = ["H4", "H1", "M15"];
 export const ALL_SESSIONS: string[] = [
   "sydney",
