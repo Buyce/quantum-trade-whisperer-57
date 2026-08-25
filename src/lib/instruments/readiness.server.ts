@@ -295,10 +295,10 @@ export async function checkInstrumentReadiness(
           detail: !legQuote
             ? "the provider returned no quote for the conversion leg"
             : !geometryOk
-            ? "the conversion leg quote was malformed or crossed"
-            : !fresh
-              ? "the conversion leg quote's own source timestamp was too old to trust"
-              : `bid=${legQuote.bid}, ask=${legQuote.ask}`,
+              ? "the conversion leg quote was malformed or crossed"
+              : !fresh
+                ? "the conversion leg quote's own source timestamp was too old to trust"
+                : `bid=${legQuote.bid}, ask=${legQuote.ask}`,
         };
       } catch (err) {
         result = {
@@ -359,7 +359,9 @@ export async function checkInstrumentReadiness(
             unsupported.length
               ? `no supported conversion route from ${definition.quote} to ${unsupported.join(", ")}`
               : null,
-            unverified.length ? `conversion legs not verifiable for ${unverified.join(", ")}` : null,
+            unverified.length
+              ? `conversion legs not verifiable for ${unverified.join(", ")}`
+              : null,
           ]
             .filter(Boolean)
             .join("; "),

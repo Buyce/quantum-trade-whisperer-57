@@ -248,7 +248,12 @@ describe("Stage 4 candidate enrolment — provenance and identity", () => {
 
     const a = enrolRpcOf(fail)!.args as Record<string, unknown>;
     const b = enrolRpcOf(pass)!.args as Record<string, unknown>;
-    for (const key of ["_plan_origin", "_execution_policy", "_replay_version", "_cohort"] as const) {
+    for (const key of [
+      "_plan_origin",
+      "_execution_policy",
+      "_replay_version",
+      "_cohort",
+    ] as const) {
       expect(b[key]).toBe(a[key]);
     }
   });

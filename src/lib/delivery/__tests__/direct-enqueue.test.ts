@@ -225,7 +225,7 @@ describe("enqueueDirectDeliveries", () => {
         decision: "enqueue_attempt_failed",
         enqueued: 0,
       });
-      expect(String(rows[0]?.['detail'])).toContain("control read unavailable");
+      expect(String(rows[0]?.["detail"])).toContain("control read unavailable");
     },
   );
 });

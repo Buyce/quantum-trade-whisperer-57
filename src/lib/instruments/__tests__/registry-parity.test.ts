@@ -104,7 +104,6 @@ describe("instrument registry parity", () => {
   });
 });
 
-
 describe("lifecycle stage semantics", () => {
   const stages: InstrumentStage[] = [
     "disabled",

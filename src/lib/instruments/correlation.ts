@@ -39,9 +39,7 @@ export interface GroupedExposure {
  * lose together), which is the conservative reading; the naive sum is retained so
  * the Admin diagnostic can show what a per-instrument view would have claimed.
  */
-export function groupExposure(
-  risks: { instrument: string; risk: number }[],
-): GroupedExposure[] {
+export function groupExposure(risks: { instrument: string; risk: number }[]): GroupedExposure[] {
   const byGroup = new Map<string, GroupedExposure>();
   for (const { instrument, risk } of risks) {
     const groupKey = correlationGroupOf(instrument);

@@ -28,9 +28,7 @@ export function DayGradeMix({
   isError?: boolean;
 }) {
   if (isLoading)
-    return (
-      <p className="text-xs text-muted-foreground">Reading today's published grade mix…</p>
-    );
+    return <p className="text-xs text-muted-foreground">Reading today's published grade mix…</p>;
   if (isError || !frame)
     return (
       <p className="text-xs text-muted-foreground">
@@ -43,9 +41,7 @@ export function DayGradeMix({
 
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-border bg-card px-3 py-2 text-xs">
-      <span className="text-muted-foreground">
-        Published this UTC day, before your filters:
-      </span>
+      <span className="text-muted-foreground">Published this UTC day, before your filters:</span>
       {GRADES.map((g) => (
         <span key={g} className="num text-foreground">
           {g} <span className={mix[g] === 0 ? "text-muted-foreground" : ""}>{mix[g]}</span>

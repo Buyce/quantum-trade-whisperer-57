@@ -6,14 +6,14 @@ testing is finished.
 
 ## 1. Starting and ending state
 
-| Item | Value |
-| --- | --- |
-| Starting HEAD | `dbba003` |
-| Migrations before | 115 |
-| Migrations added | audited `set_execution_control`, admin `get_admin_commissioning`, plus three privilege-revocation migrations |
-| Tests | 1173 passed, 2 expected fail, 0 failed, 98 files, ~11s |
-| Typecheck | clean |
-| Build | OK |
+| Item              | Value                                                                                                        |
+| ----------------- | ------------------------------------------------------------------------------------------------------------ |
+| Starting HEAD     | `dbba003`                                                                                                    |
+| Migrations before | 115                                                                                                          |
+| Migrations added  | audited `set_execution_control`, admin `get_admin_commissioning`, plus three privilege-revocation migrations |
+| Tests             | 1173 passed, 2 expected fail, 0 failed, 98 files, ~11s                                                       |
+| Typecheck         | clean                                                                                                        |
+| Build             | OK                                                                                                           |
 
 The two expected-fail tests are the pre-existing `*.v2.test.ts` intended-behaviour
 cases: they document desired V2 semantics that current V1 deliberately does not
@@ -37,11 +37,11 @@ All three transitions went through `set_execution_control`, which requires an
 actor, a reason and the expected previous value, and writes
 `execution_control_changes`:
 
-| At (UTC) | Old | New | Reason |
-| --- | --- | --- | --- |
-| 13:44:17 | false | true | Accelerated Wave 1/Wave 2 validation commissioning; expansion instruments remain disabled during the no-op proof |
-| 13:44:26 | true | false | Rollback drill step 1 |
-| 13:44:26 | false | true | Rollback drill step 2 |
+| At (UTC) | Old   | New   | Reason                                                                                                           |
+| -------- | ----- | ----- | ---------------------------------------------------------------------------------------------------------------- |
+| 13:44:17 | false | true  | Accelerated Wave 1/Wave 2 validation commissioning; expansion instruments remain disabled during the no-op proof |
+| 13:44:26 | true  | false | Rollback drill step 1                                                                                            |
+| 13:44:26 | false | true  | Rollback drill step 2                                                                                            |
 
 Rollback was clean: Wave 0 stages unchanged, no expansion job created, no
 execution regression. End state `lifecycle_enforced = true`.
@@ -67,13 +67,13 @@ H4/H1/M15 series, live quote, conversion legs, breaker and capacity.
 
 ### Wave 1
 
-| Instrument | Provider symbol | Spec | Result | Blocker |
-| --- | --- | --- | --- | --- |
-| AUDUSD | `AUDUSD` (exact) | complete | **data_validation** | none |
-| GBPUSD | `GBPUSD` (exact) | complete | stays disabled | H4/H1 candle fetch exceeded the 8s provider timeout |
-| USDCHF | `USDCHF` (exact) | complete | stays disabled | H4/H1 candle fetch timeout |
-| USDCAD | `USDCAD` (exact) | complete | stays disabled | candle fetch timeout, no fresh quote in the window |
-| USDJPY | `USDJPY` (exact) | complete | stays disabled | H4/H1 candle fetch timeout |
+| Instrument | Provider symbol  | Spec     | Result              | Blocker                                             |
+| ---------- | ---------------- | -------- | ------------------- | --------------------------------------------------- |
+| AUDUSD     | `AUDUSD` (exact) | complete | **data_validation** | none                                                |
+| GBPUSD     | `GBPUSD` (exact) | complete | stays disabled      | H4/H1 candle fetch exceeded the 8s provider timeout |
+| USDCHF     | `USDCHF` (exact) | complete | stays disabled      | H4/H1 candle fetch timeout                          |
+| USDCAD     | `USDCAD` (exact) | complete | stays disabled      | candle fetch timeout, no fresh quote in the window  |
+| USDJPY     | `USDJPY` (exact) | complete | stays disabled      | H4/H1 candle fetch timeout                          |
 
 Mapping and specification are proven for all five. The only blocker for the four
 is provider latency on H4/H1 history — the same 8s timeout Wave 0 is currently
@@ -81,12 +81,12 @@ hitting on XAUUSD/EURUSD H4. It is retryable, not a mapping or spec defect.
 
 ### Wave 2
 
-| Instrument | Discovery | Result | Blocker |
-| --- | --- | --- | --- |
-| XAGUSD | candidate accepted, spec refreshed | stays disabled | candle fetch timeout |
-| NAS100 | **ambiguous** | stays disabled | no unambiguous provider symbol, therefore no specification |
-| USOIL | **ambiguous** | stays disabled | no unambiguous provider symbol, therefore no specification |
-| UKOIL | **missing** | stays disabled | no matching provider symbol |
+| Instrument | Discovery                          | Result         | Blocker                                                    |
+| ---------- | ---------------------------------- | -------------- | ---------------------------------------------------------- |
+| XAGUSD     | candidate accepted, spec refreshed | stays disabled | candle fetch timeout                                       |
+| NAS100     | **ambiguous**                      | stays disabled | no unambiguous provider symbol, therefore no specification |
+| USOIL      | **ambiguous**                      | stays disabled | no unambiguous provider symbol, therefore no specification |
+| UKOIL      | **missing**                        | stays disabled | no matching provider symbol                                |
 
 No alias was chosen between ambiguous candidates and no specification, calendar
 or spread floor was invented.
@@ -129,13 +129,13 @@ commissioning RPCs are service-role only.
 
 ## 10. Earliest evidence-review dates
 
-| Instrument | Earliest legitimate review |
-| --- | --- |
-| Wave 0 (XAUUSD, GBPAUD, EURUSD) | baseline from 2026-08-25T12:15Z; full week on/after 2026-09-01 |
-| AUDUSD | data_validation from 2026-08-25T14:00Z; full week on/after 2026-09-01 |
-| GBPUSD, USDCHF, USDCAD, USDJPY | one week after a successful transition, which has not happened yet |
-| XAGUSD | one week after transition; still blocked on candle fetch |
-| NAS100, USOIL, UKOIL | blocked before the clock starts: provider symbol must be disambiguated first |
+| Instrument                      | Earliest legitimate review                                                   |
+| ------------------------------- | ---------------------------------------------------------------------------- |
+| Wave 0 (XAUUSD, GBPAUD, EURUSD) | baseline from 2026-08-25T12:15Z; full week on/after 2026-09-01               |
+| AUDUSD                          | data_validation from 2026-08-25T14:00Z; full week on/after 2026-09-01        |
+| GBPUSD, USDCHF, USDCAD, USDJPY  | one week after a successful transition, which has not happened yet           |
+| XAGUSD                          | one week after transition; still blocked on candle fetch                     |
+| NAS100, USOIL, UKOIL            | blocked before the clock starts: provider symbol must be disambiguated first |
 
 ## 11. Next operational steps
 

@@ -20,9 +20,8 @@ export const Route = createFileRoute("/api/public/cron/instrument-readiness")({
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { readTelemetryControls } = await import("@/lib/telemetry/controls.server");
-        const { snapshotInstrumentReadiness } = await import(
-          "@/lib/instruments/readiness-snapshot.server"
-        );
+        const { snapshotInstrumentReadiness } =
+          await import("@/lib/instruments/readiness-snapshot.server");
         const { fetchQuote } = await import("@/lib/metaapi/market.server");
 
         const controls = await readTelemetryControls(supabaseAdmin);

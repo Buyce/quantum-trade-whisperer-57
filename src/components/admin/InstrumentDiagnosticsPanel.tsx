@@ -113,7 +113,8 @@ export function InstrumentDiagnosticsPanel() {
                   </span>
                   <span className="text-foreground">
                     {(run["succeeded_instruments"] as unknown as string[] | null)?.length ?? 0}/
-                    {(run["expected_instruments"] as unknown as string[] | null)?.length ?? 0} measured
+                    {(run["expected_instruments"] as unknown as string[] | null)?.length ?? 0}{" "}
+                    measured
                   </span>
                   <span className="text-muted-foreground">
                     {Number(run["request_count"] ?? 0)} req
@@ -190,7 +191,9 @@ export function InstrumentDiagnosticsPanel() {
             <ul className="space-y-1">
               {latest_readiness.map((row) => (
                 <li key={String(row["instrument"])} className="flex flex-wrap gap-x-2 text-[11px]">
-                  <span className="w-20 font-mono text-foreground">{String(row["instrument"])}</span>
+                  <span className="w-20 font-mono text-foreground">
+                    {String(row["instrument"])}
+                  </span>
                   <span className={row["ready"] === true ? "text-success" : "text-warning"}>
                     {row["ready"] === true ? "ready" : "not ready"}
                   </span>

@@ -43,10 +43,7 @@ import { REGISTRY_SYMBOLS } from "@/lib/instruments/registry";
 import { describeStage, lifecycleAllows, stageOf } from "@/lib/instruments/lifecycle";
 import { readLifecycleView } from "@/lib/instruments/lifecycle.server";
 import { resolveFetchSymbol } from "@/lib/instruments/fetch-authority.server";
-import {
-  buildDetectionProvenance,
-  type DetectionProvenance,
-} from "@/lib/instruments/provenance";
+import { buildDetectionProvenance, type DetectionProvenance } from "@/lib/instruments/provenance";
 // The session ALGORITHM version, stamped on every research row so a later change
 // to session boundaries cannot silently redefine older measurements.
 import { SESSION_VERSION } from "./session";

@@ -45,7 +45,8 @@ describe("spread sample classification", () => {
     expect(classifyQuote({ ...base, bid: 0, ask: 1.1 }).quality).toBe("malformed");
     expect(classifyQuote({ ...base, bid: 1.1, ask: Number.NaN }).quality).toBe("malformed");
     expect(
-      classifyQuote({ now: NOW, marketClosed: false, sourceTime: null, bid: 1.1, ask: 1.2 }).quality,
+      classifyQuote({ now: NOW, marketClosed: false, sourceTime: null, bid: 1.1, ask: 1.2 })
+        .quality,
     ).toBe("malformed");
   });
 
@@ -80,8 +81,7 @@ describe("spread metrics", () => {
 
   it("[INVARIANT] a zero or absent ATR never produces a fabricated fraction", () => {
     expect(
-      spreadMetrics({ bid: 1.1, ask: 1.1002, point: 0.00001, digits: 5, atr: 0 })
-        .spreadAtrFraction,
+      spreadMetrics({ bid: 1.1, ask: 1.1002, point: 0.00001, digits: 5, atr: 0 }).spreadAtrFraction,
     ).toBeNull();
   });
 });

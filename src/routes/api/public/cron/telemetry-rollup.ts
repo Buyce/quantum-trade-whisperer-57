@@ -18,8 +18,12 @@ export const Route = createFileRoute("/api/public/cron/telemetry-rollup")({
         if (!authorizeCronRequest(request)) return unauthorizedResponse();
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        const { runSpreadAggregation, runTelemetryRetention, recordCapacitySample, readResolverHealth } =
-          await import("@/lib/telemetry/workers.server");
+        const {
+          runSpreadAggregation,
+          runTelemetryRetention,
+          recordCapacitySample,
+          readResolverHealth,
+        } = await import("@/lib/telemetry/workers.server");
 
         const startedAt = Date.now();
         const [aggregation, retention, resolver] = await Promise.allSettled([
@@ -43,7 +47,8 @@ export const Route = createFileRoute("/api/public/cron/telemetry-rollup")({
         });
 
         const rejected = [aggregation, retention].filter((r) => r.status === "rejected");
-        for (const r of rejected) console.error("[cron/telemetry-rollup]", (r as PromiseRejectedResult).reason);
+        for (const r of rejected)
+          console.error("[cron/telemetry-rollup]", (r as PromiseRejectedResult).reason);
 
         return Response.json(
           {
