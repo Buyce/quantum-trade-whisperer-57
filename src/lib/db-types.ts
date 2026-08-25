@@ -192,6 +192,14 @@ export interface ScannerSettingsRow {
   auto_intel_gate_enabled: boolean;
   auto_intel_min_win_pct: number | null;
   auto_intel_min_sample: number;
+  /**
+   * Owner opt-in for C-Grade AUTOMATIC ORDERS. False by default, which keeps the
+   * historical unconditional refusal. True does not authorise anything on its
+   * own: a C-Grade setup still faces the alert tier, instruments, sessions,
+   * risk, lot ceiling, exposure, the intelligence gate and pre-send
+   * revalidation. C-Grade alerts are governed separately by alert_min_grade.
+   */
+  auto_execute_c_grade: boolean;
 }
 
 export type OrderStrategy = "smart_adaptive" | "strict_retest";

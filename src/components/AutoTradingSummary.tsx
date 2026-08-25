@@ -27,14 +27,25 @@ export interface AutoTradingSummaryProps {
   currency: string;
   riskPercent: string;
   maxLots: string;
+  /** The owner's C-Grade automatic-order opt-in. Off means C never executes. */
+  autoExecuteCGrade?: boolean;
 }
 
 const GRADE_COPY: Record<string, string> = {
   "A+": "A+ only",
   A: "A and above",
   B: "B and above",
-  C: "B and above (C is never executed automatically)",
+  C: "C and above",
 };
+
+/** States the executable tier literally, including the C-Grade opt-in. */
+export function describeExecutableTier(alertMinGrade: Grade, autoExecuteCGrade: boolean): string {
+  const base = GRADE_COPY[alertMinGrade] ?? alertMinGrade;
+  if (alertMinGrade !== "C") return base;
+  return autoExecuteCGrade
+    ? "C and above (C-Grade automatic orders allowed)"
+    : "C and above for alerts — B and above for automatic orders";
+}
 
 /** Armed = the account is set to place orders automatically right now. */
 export function armedAccounts(accounts: ConnectedAccountView[]): ConnectedAccountView[] {
@@ -51,8 +62,17 @@ function Line({ label, children }: { label: string; children: React.ReactNode })
 }
 
 export function AutoTradingSummary(props: AutoTradingSummaryProps) {
-  const { instruments, sessions, alertMinGrade, cap, equity, currency, riskPercent, maxLots } =
-    props;
+  const {
+    instruments,
+    sessions,
+    alertMinGrade,
+    cap,
+    equity,
+    currency,
+    riskPercent,
+    maxLots,
+    autoExecuteCGrade = false,
+  } = props;
   const loadAccounts = useServerFn(listConnectedAccounts);
   const accounts = useQuery({
     queryKey: ["connected-accounts", "auto-summary"],
@@ -127,7 +147,7 @@ export function AutoTradingSummary(props: AutoTradingSummaryProps) {
             ? "none selected — nothing is eligible"
             : instruments.map((i) => INSTRUMENT_LABELS[i] ?? i).join(", ")}
         </Line>
-        <Line label="Grade">{GRADE_COPY[alertMinGrade] ?? alertMinGrade}</Line>
+        <Line label="Grade">{describeExecutableTier(alertMinGrade, autoExecuteCGrade)}</Line>
         <Line label="Sessions">
           {sessions.length === 0
             ? "none selected — nothing is eligible"

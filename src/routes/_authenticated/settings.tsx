@@ -113,6 +113,7 @@ function SettingsPage() {
   const [riskAckHigh, setRiskAckHigh] = useState(false);
   // Optional intelligence gate on automatic orders. Off unless the user says so.
   const [intelGate, setIntelGate] = useState(false);
+  const [autoCGrade, setAutoCGrade] = useState(false);
   const [intelMinWin, setIntelMinWin] = useState("");
   const [intelMinSample, setIntelMinSample] = useState("30");
   const [equityAsOf, setEquityAsOf] = useState<string | null>(null);
@@ -224,6 +225,7 @@ function SettingsPage() {
     setRiskPercent(String(Number(s.risk_per_trade_percent ?? 1)));
     setRiskAckHigh(s.risk_ack_high === true);
     setIntelGate(s.auto_intel_gate_enabled === true);
+    setAutoCGrade(s.auto_execute_c_grade === true);
     setIntelMinWin(
       s.auto_intel_min_win_pct == null ? "" : String(Number(s.auto_intel_min_win_pct)),
     );
@@ -293,6 +295,9 @@ function SettingsPage() {
         // Gate inputs: an empty or non-numeric threshold is stored as NULL so the
         // gate stays unconfigured rather than silently blocking every order.
         auto_intel_gate_enabled: intelGate,
+        // C-Grade automatic orders: the user's own choice, never inferred. Only
+        // meaningful when the alert tier already includes C.
+        auto_execute_c_grade: autoCGrade,
         auto_intel_min_win_pct:
           Number.isFinite(Number(intelMinWin)) && intelMinWin.trim() !== ""
             ? clamp(Number(intelMinWin), 0, 100)
@@ -389,6 +394,7 @@ function SettingsPage() {
             currency={currency}
             riskPercent={riskPercent}
             maxLots={maxLots}
+            autoExecuteCGrade={autoCGrade}
           />
 
           <AutoIntelGate
@@ -528,9 +534,38 @@ function SettingsPage() {
               <p className="mt-1 text-xs text-muted-foreground">
                 Which tiers may trigger push and email alerts — and, on an account you have armed,
                 which tiers may become automatic orders. Independent of your feed minimum grade —
-                set it to “C and above” if you want to be alerted on every tier. C-Grade is never
-                executed automatically.
+                set it to “C and above” if you want to be alerted on every tier. C-Grade automatic
+                orders additionally require the switch below.
               </p>
+            </div>
+
+            <div className="border-t border-border pt-4">
+              <Row
+                id="auto-c-grade"
+                title="Allow C-Grade automatic orders"
+                desc="Off by default. When off, a C-Grade setup can still alert you but is never sent to an armed account. Turning it on does not authorise anything on its own: a C-Grade order must still pass your alert tier, instruments, sessions, risk per trade, lot ceiling, exposure limit, the intelligence gate if you use it, and the pre-send broker re-check."
+                checked={autoCGrade}
+                onChange={(v) => {
+                  if (v && alertMinGrade !== "C") {
+                    toast.error(
+                      "Set your alert minimum grade to “C and above” first — C-Grade setups cannot reach an armed account while your tier excludes them.",
+                    );
+                    return;
+                  }
+                  if (v)
+                    toast.warning(
+                      "C-Grade is the lowest-confluence tier. Automatic C-Grade orders will be placed on your armed account when every other rule passes.",
+                    );
+                  setAutoCGrade(v);
+                }}
+              />
+              {autoCGrade ? (
+                <p className="mt-2 text-xs text-warning">
+                  C-Grade automatic orders are enabled. C-Grade setups do not count against your
+                  daily setup cap, so this tier is bounded only by your instruments, sessions, risk
+                  limits and the intelligence gate.
+                </p>
+              ) : null}
             </div>
           </section>
 
@@ -1017,8 +1052,21 @@ function SettingsPage() {
             {scanReport && (
               <div className="space-y-1 rounded border border-border bg-background p-3 font-mono text-xs">
                 <p className="text-muted-foreground">
-                  run {scanReport.runId.slice(0, 8)} · {scanReport.enqueued} enqueued
+                  run {scanReport.runId.slice(0, 8)} · {scanReport.enqueued} enqueued ·{" "}
+                  {scanReport.processed.length} reported
+                  {scanReport.claimedByWorker > 0
+                    ? ` · ${scanReport.claimedByWorker} completed by the background worker`
+                    : ""}
+                  {scanReport.stillPending > 0
+                    ? ` · ${scanReport.stillPending} still queued`
+                    : ""}
                 </p>
+                {scanReport.reconcileError ? (
+                  <p className="text-warning">
+                    This run's queue rows could not be re-read ({scanReport.reconcileError}), so the
+                    list below is only what this request observed, not the whole run.
+                  </p>
+                ) : null}
                 {scanReport.processed.length === 0 && (
                   <p className="text-muted-foreground">No jobs processed.</p>
                 )}
@@ -1036,6 +1084,9 @@ function SettingsPage() {
                     >
                       {p.status}
                     </span>
+                    {p.byBackgroundWorker ? (
+                      <span className="text-muted-foreground"> (background worker)</span>
+                    ) : null}
                     {p.detail ? <span className="text-muted-foreground"> — {p.detail}</span> : null}
                   </p>
                 ))}
