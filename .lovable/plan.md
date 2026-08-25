@@ -30,12 +30,13 @@ Audited at HEAD `11f167c` ("Fixed settings reload bug"). Everything below was ch
 
 ## 3. Newly discovered issues
 
-- **N1** `src/routes/index.tsx:78` hardcodes "Twelve MCP tools"; the tool count is derivable from the registry. Same drift class as finding 7.
-- **N2** `docs/PROMPT-14-VERIFICATION.md` contains corrupted text: "**Result: n.**" and "were n because PostgreSQL `initdb` is unavailable" — a bad find/replace ate "NOT RUN"/"skipped".
-- **N3** `robots.txt` allows `/` for all agents while `/auth` is `noindex`; sitemap and robots disagree about `/auth`.
+- **N1** `src/routes/index.tsx:78` hardcodes "Twelve MCP tools" in marketing copy. The homepage must **not** import or dynamically couple to the server MCP registry; either drop the number from the copy or pin it with a contract test.
+- **N2** *Withdrawn.* My initial reading of corrupted "NOT RUN" text in `docs/PROMPT-14-VERIFICATION.md` was a tooling error on my side (a ripgrep `-r` replace flag). `git status` shows the file unmodified and lines 14, 47 and 64 contain the correct `NOT RUN` wording. No defect.
+- **N3** *Corrected.* `robots.txt` allowing `/auth` is fully compatible with page-level `noindex` — a crawler must be allowed to fetch the page to read the directive. The only real issue is the **sitemap** advertising a `noindex` URL. Remove `/auth` from the sitemap; leave `robots.txt` unchanged.
 - **N4** `docs/README.md` reading order lists 22 entries but `docs/` has 25 files — CHARACTERISATION and DB-TESTS are listed as historical while LINK-AUDIT sits in the numbered canonical list.
-- **N5** No test asserts sitemap contents against indexable routes, nor that every route's `head()` has title/description/og pairs — both drift classes are currently unguarded.
+- **N5** No test asserts sitemap contents against indexable routes, nor that public indexable routes carry complete head metadata — both drift classes are currently unguarded.
 - **N6** `src/lib/mcp/tools/get-scanner-status.ts:24` and `get-my-settings.ts` return `timeframes` as part of "your active filters", which is the same untruth as finding 4 in assistant-visible text.
+
 
 ## 4. Remediation workstreams
 
