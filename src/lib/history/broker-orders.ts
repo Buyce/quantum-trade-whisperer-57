@@ -172,6 +172,19 @@ function accountType(value: string | null | undefined): BrokerOrderView["account
   return null;
 }
 
+/** Where the order was addressed, from the ledger's own destination field. */
+export function brokerOrderDestination(
+  destinationType: string | null | undefined,
+): BrokerOrderDestination {
+  if (destinationType === "metaapi_direct") {
+    return { kind: "broker_account", label: "Connected broker account" };
+  }
+  if (destinationType === "bridge_json" || destinationType === "bridge_form") {
+    return { kind: "webhook_bridge", label: "Your webhook bridge" };
+  }
+  return { kind: "unknown", label: "Destination not recorded" };
+}
+
 /**
  * What the user is told about this order.
  *
