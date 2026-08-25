@@ -319,6 +319,7 @@ export async function runSpreadSampler(db: SupabaseClient, now = new Date()): Pr
     stageSkipped,
     breakerSkipped,
     mappingRefused,
+    calendarRefused,
     requestCount,
     durationMs,
   };
