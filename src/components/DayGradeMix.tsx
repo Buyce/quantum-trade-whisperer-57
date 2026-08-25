@@ -8,7 +8,9 @@
  * heartbeat remains the only authority on whether the engine is cycling.
  */
 import type { EligibilitySignal } from "@/lib/delivery/eligibility";
-import { GRADES, type Grade } from "@/lib/db-types";
+import type { Grade } from "@/lib/db-types";
+
+const GRADES = ["A+", "A", "B", "C"] as const satisfies readonly Grade[];
 
 export function gradeMix(frame: EligibilitySignal[]): Record<Grade, number> {
   const mix = { "A+": 0, A: 0, B: 0, C: 0 } as Record<Grade, number>;
@@ -44,7 +46,7 @@ export function DayGradeMix({
       <span className="text-muted-foreground">
         Published this UTC day, before your filters:
       </span>
-      {(GRADES as readonly Grade[]).map((g) => (
+      {GRADES.map((g) => (
         <span key={g} className="num text-foreground">
           {g} <span className={mix[g] === 0 ? "text-muted-foreground" : ""}>{mix[g]}</span>
         </span>
