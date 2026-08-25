@@ -7,12 +7,15 @@
  * signal, and no coupling to alerts.
  */
 import { describe, expect, it } from "vitest";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 import {
   isReconcilable,
   rankActiveSignals,
+  reconcileActiveSignals,
   type ActiveSignalRow,
 } from "../reconcile-active.server";
+import { createFakeSupabase, type FakeCall } from "@/test/fakes/supabase";
 
 function signal(over: Partial<ActiveSignalRow> & { id: string }): ActiveSignalRow {
   return {
@@ -136,5 +139,56 @@ describe("architecture boundaries", () => {
     );
     expect(enqueue).toContain('onConflict: "user_id,signal_id,bridge_profile"');
     expect(enqueue).toContain("ignoreDuplicates: true");
+  });
+});
+
+describe("stale active-signal reconciliation", () => {
+  it("[INVARIANT] records an expired-window decision once instead of creating a delivery", async () => {
+    const f = createFakeSupabase((call: FakeCall) => {
+      if (call.table === "scanned_signals") {
+        return {
+          data: [signal({ id: "old", detected_at: "2026-08-25T11:00:00.000Z" })],
+          error: null,
+        };
+      }
+      if (call.table === "execution_enqueue_decisions" && call.op === "select") {
+        return { data: [], error: null };
+      }
+      return { data: [], error: null };
+    });
+    const out = await reconcileActiveSignals(f.client as SupabaseClient, NOW);
+    expect(out).toMatchObject({ considered: 0, attempted: 0, filtered: 1 });
+    expect(out.results).toEqual([
+      { signalId: "old", instrument: "EURUSD", enqueued: 0, reason: "execution_window_expired" },
+    ]);
+    expect(f.calls.some((c) => c.table === "execution_deliveries")).toBe(false);
+    const payload = f.calls.find((c) => c.table === "execution_enqueue_decisions" && c.op === "insert")
+      ?.payload as unknown as Record<string, unknown>[];
+    expect(payload[0]).toMatchObject({
+      signal_id: "old",
+      decision: "execution_window_expired",
+      enqueued: 0,
+      filtered: 1,
+    });
+  });
+
+  it("[INVARIANT] does not repeat the expired-window decision every pass", async () => {
+    const f = createFakeSupabase((call: FakeCall) => {
+      if (call.table === "scanned_signals") {
+        return {
+          data: [signal({ id: "old", detected_at: "2026-08-25T11:00:00.000Z" })],
+          error: null,
+        };
+      }
+      if (call.table === "execution_enqueue_decisions" && call.op === "select") {
+        return { data: [{ signal_id: "old" }], error: null };
+      }
+      return { data: [], error: null };
+    });
+    const out = await reconcileActiveSignals(f.client as SupabaseClient, NOW);
+    expect(out).toMatchObject({ considered: 0, attempted: 0, filtered: 0 });
+    expect(f.calls.some((c) => c.table === "execution_enqueue_decisions" && c.op === "insert")).toBe(
+      false,
+    );
   });
 });

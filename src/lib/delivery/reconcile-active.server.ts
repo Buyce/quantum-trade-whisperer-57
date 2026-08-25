@@ -30,9 +30,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { GRADE_RANK, type Grade } from "@/lib/db-types";
 import {
   enqueueDirectDeliveries,
+  executionWindowAgeMinutes,
   executionWindowExpired,
   type DirectEnqueueSignal,
 } from "./direct-enqueue.server";
+import { recordEnqueueDecisions } from "./enqueue-log.server";
 
 /** Hard bound on how many active signals one pass may consider. */
 export const RECONCILE_MAX_SIGNALS = 25;
@@ -87,6 +89,59 @@ export function isReconcilable(row: ActiveSignalRow, nowMs: number): boolean {
   return true;
 }
 
+async function recordWindowExpiredSignals(
+  db: SupabaseClient,
+  rows: ActiveSignalRow[],
+  nowMs: number,
+): Promise<ReconcileOutcome["results"]> {
+  if (rows.length === 0) return [];
+  const signalIds = rows.map((row) => row.id);
+  const { data, error } = await db
+    .from("execution_enqueue_decisions")
+    .select("signal_id")
+    .eq("decision", "execution_window_expired")
+    .in("signal_id", signalIds);
+  if (error) {
+    console.error("[reconcile-active] expiry decisions unreadable", error.message);
+    return rows.map((row) => ({
+      signalId: row.id,
+      instrument: row.instrument,
+      enqueued: 0,
+      reason: "execution_window_expired",
+    }));
+  }
+  const alreadyRecorded = new Set(
+    ((data ?? []) as { signal_id: string | null }[])
+      .map((row) => row.signal_id)
+      .filter((id): id is string => typeof id === "string"),
+  );
+  const missing = rows.filter((row) => !alreadyRecorded.has(row.id));
+  if (missing.length > 0) {
+    await recordEnqueueDecisions(
+      db,
+      missing.map((row) => {
+        const age = executionWindowAgeMinutes({ detectedAt: row.detected_at }, nowMs);
+        return {
+          user_id: null,
+          signal_id: row.id,
+          instrument: row.instrument,
+          grade: row.grade,
+          decision: "execution_window_expired",
+          detail: age === null ? null : `${age} minutes old`,
+          enqueued: 0,
+          filtered: 1,
+        };
+      }),
+    );
+  }
+  return missing.map((row) => ({
+    signalId: row.id,
+    instrument: row.instrument,
+    enqueued: 0,
+    reason: "execution_window_expired",
+  }));
+}
+
 /**
  * One bounded reconciliation pass.
  *
@@ -118,9 +173,20 @@ export async function reconcileActiveSignals(
     return outcome;
   }
 
-  const candidates = rankActiveSignals(
-    ((data ?? []) as ActiveSignalRow[]).filter((row) => isReconcilable(row, nowMs)),
-  ).slice(0, maxSignals);
+  const activeRows = ((data ?? []) as ActiveSignalRow[]).filter(
+    (row) => row.status === "active" && (row.expired_at === null || new Date(row.expired_at).getTime() > nowMs),
+  );
+  const windowExpired = activeRows.filter((row) =>
+    executionWindowExpired({ detectedAt: row.detected_at }, nowMs),
+  );
+  const expiredResults = await recordWindowExpiredSignals(db, windowExpired, nowMs);
+  outcome.filtered += expiredResults.length;
+  outcome.results.push(...expiredResults);
+
+  const candidates = rankActiveSignals(activeRows.filter((row) => isReconcilable(row, nowMs))).slice(
+    0,
+    maxSignals,
+  );
   outcome.considered = candidates.length;
 
   // Session for the cap/eligibility frame comes from the same market context the
