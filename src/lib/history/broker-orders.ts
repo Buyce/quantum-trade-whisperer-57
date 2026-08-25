@@ -132,6 +132,21 @@ export interface BrokerOrderView {
 
 const GRADES = new Set(["A+", "A", "B", "C"]);
 
+/**
+ * Plain-language text for a P-Trades pre-send refusal. The named reason may carry
+ * a `: detail` suffix; the reason itself is translated and the detail is kept, so
+ * nothing is invented and nothing is hidden.
+ */
+function engineRefusalCopy(reason: string | null): string | null {
+  if (!reason) return "P-Trades did not submit this order and recorded no reason.";
+  const [name, ...rest] = reason.split(":");
+  const key = name.trim() as RejectReason;
+  const copy = REJECT_COPY[key];
+  const detail = rest.join(":").trim();
+  if (!copy) return reason;
+  return detail ? `${copy} (${detail})` : copy;
+}
+
 function grade(value: string | null | undefined): Grade | "Unknown" {
   return value && GRADES.has(value) ? (value as Grade) : "Unknown";
 }
