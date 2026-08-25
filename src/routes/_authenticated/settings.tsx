@@ -442,6 +442,14 @@ function SettingsPage() {
                 measuring show as “measuring” on the Feed and become selectable once they are
                 promoted.
               </p>
+              <GuideDetail
+                className="mt-2"
+                title="Why some instruments are missing"
+                what="Every instrument sits at one of three user-visible states: measuring (studied against live broker data, no signals), signal-only (published to your feed and alerts, never sent to a broker), and execution-approved (eligible for automatic orders as well)."
+                why="Offering a measuring pair would promise setups the engine is forbidden to publish for it."
+                todo="Select from the instruments listed here; a measuring pair appears automatically once it is promoted."
+                assume="A reachable broker feed on the Feed page does not mean an instrument is tradeable for you."
+              />
             </div>
 
             {/*
