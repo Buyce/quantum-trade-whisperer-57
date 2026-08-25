@@ -14,7 +14,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { RotateCcw } from "lucide-react";
 import { getAdminEngineStatus, resetShadowBreaker } from "@/lib/admin.functions";
-import { classifyEngineError, classifyScanHealth, cooldownRemaining } from "@/lib/engine-status";
+import {
+  classifyEngineError,
+  classifyReplayHealth,
+  classifyScanHealth,
+  cooldownRemaining,
+} from "@/lib/engine-status";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
@@ -62,6 +67,7 @@ export function EngineStatusPanel() {
   const scanClass = classifyEngineError(scan.last_error);
   const breakerClass = classifyEngineError(breaker?.last_error ?? null);
   const health = classifyScanHealth(scan);
+  const replayHealth = classifyReplayHealth(breaker);
   const cooldown = cooldownRemaining(breaker?.paused_until ?? null);
 
   const scanSub =
@@ -88,7 +94,7 @@ export function EngineStatusPanel() {
         />
         <StatCard
           label="Shadow replay engine"
-          value={breaker?.paused ? "BREAKER TRIPPED" : "RUNNING"}
+          value={replayHealth.value}
           sub={
             breaker?.paused
               ? cooldown
@@ -96,9 +102,7 @@ export function EngineStatusPanel() {
                 : `probe pass due now · ${breaker.consecutive_failures} consecutive failed passes`
               : `last run ${timeAgo(breaker?.last_run_at ?? null)} · ${breaker?.consecutive_failures ?? 0} consecutive failures`
           }
-          tone={
-            breaker?.paused ? "bad" : (breaker?.consecutive_failures ?? 0) > 0 ? "warn" : "good"
-          }
+          tone={replayHealth.tone}
           hint="Statistics/replay only. Live signal scanning and delivery are unaffected by this flag."
         />
       </div>
