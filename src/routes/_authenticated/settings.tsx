@@ -572,6 +572,30 @@ function SettingsPage() {
                 </p>
               ) : null}
             </div>
+
+            <div className="border-t border-border pt-4">
+              <Label className="text-xs" htmlFor="max-active-orders">
+                Simultaneous automatic orders
+              </Label>
+              <Input
+                id="max-active-orders"
+                type="number"
+                min={0}
+                max={10}
+                value={maxActiveOrders}
+                onChange={(e) =>
+                  setMaxActiveOrders(Math.max(0, Math.min(10, Number(e.target.value) || 0)))
+                }
+                className="mt-1 max-w-[8rem]"
+              />
+              <p className="mt-2 text-xs text-muted-foreground">
+                A ceiling, not a target: 0 stops automatic orders entirely, 10 is the maximum. The
+                terminal considers your eligible active setups in feed order — highest tier first,
+                then most recent — and never places an order to reach a number. If three setups
+                qualify it places at most three; if none qualify it places none. Your daily setup
+                cap, risk per trade, lot ceiling and exposure limit all still apply on top of this.
+              </p>
+            </div>
           </section>
 
           <SaveBar saving={saving} loadFailed={settings.isError} onSave={() => void onSave()} />
