@@ -117,6 +117,22 @@ even eligible for consideration. The first `disabled → data_validation` decisi
 follows that review, and each instrument then needs its own completed trading days
 of evidence before a shadow gate is discussed.
 
+## Non-guarantees
+
+- An asset class is **not** a claim of strategy validity. `energy` and `index`
+  manifests exist to record that the assumptions are unverified, not to bless them.
+- A recorded calendar is **not** the broker's schedule. It is our best sourced
+  version of it; a `venue_local` calendar is explicitly not authoritative and does
+  not permit measurement.
+- A discovered alias candidate is **not** a mapping, and a complete specification
+  is not an approval to trade.
+- A correlation group is a structural grouping, **not** a measured correlation
+  coefficient. It bounds exposure conservatively; it does not predict co-movement.
+- Passing capacity projection does **not** mean the provider will serve the
+  requests; it only means the arithmetic fits the budget.
+- Appearing in the registry does **not** make an instrument tradeable. All four
+  Wave 2 instruments remain `disabled`.
+
 ## Tests
 
 `src/lib/instruments/__tests__/wave2-multi-asset.test.ts` pins the refusals: no pip

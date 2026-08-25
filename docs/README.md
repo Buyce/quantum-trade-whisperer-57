@@ -20,6 +20,7 @@ and is never updated retroactively.
 4. [ARCHITECTURE.md](ARCHITECTURE.md)
 5. [SCANNER.md](SCANNER.md)
 6. [INSTRUMENT-LIFECYCLE.md](INSTRUMENT-LIFECYCLE.md)
+7. [MULTI-ASSET.md](MULTI-ASSET.md) — asset classes, calendars, units and the Wave 2 disposition
 7. [SIGNALS-AND-GRADES.md](SIGNALS-AND-GRADES.md)
 8. [ALERTS-AND-ELIGIBILITY.md](ALERTS-AND-ELIGIBILITY.md)
 
