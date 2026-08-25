@@ -12,6 +12,7 @@
  * shadow executions.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { assertCapability } from "@/lib/instruments/lifecycle.server";
 import { MODEL_V2_VERSION } from "@/lib/scanner/v2/manifest";
 import type { V2Profile } from "@/lib/scanner/v2/profile.v2";
 import { noteResearchFailure, RESEARCH_WRITE_DEADLINE_MS } from "./observations.server";
@@ -49,6 +50,16 @@ export async function enrolV2Shadow(
   deadlineMs = RESEARCH_WRITE_DEADLINE_MS,
 ): Promise<boolean> {
   const p = args.profile;
+  /**
+   * Lifecycle research gate (Phase A2A, R6-FIX).
+   *
+   * A shadow row is immutable evidence, so the stage is re-read at the write
+   * boundary itself: an instrument suspended or demoted after the scan job began
+   * must not add rows to the research ledger. A degraded read refuses everything
+   * outside the frozen Wave 0 universe.
+   */
+  const gate = await assertCapability(db, p.instrument, "resolve_research");
+  if (!gate.allowed) return false;
   try {
     const insert = db.from("shadow_executions").insert({
       // Research rows are never backed by a published signal.
@@ -160,6 +171,16 @@ export async function enrolV3Shadow(
   deadlineMs = RESEARCH_WRITE_DEADLINE_MS,
 ): Promise<boolean> {
   const p = args.profile;
+  /**
+   * Lifecycle research gate (Phase A2A, R6-FIX).
+   *
+   * A shadow row is immutable evidence, so the stage is re-read at the write
+   * boundary itself: an instrument suspended or demoted after the scan job began
+   * must not add rows to the research ledger. A degraded read refuses everything
+   * outside the frozen Wave 0 universe.
+   */
+  const gate = await assertCapability(db, p.instrument, "resolve_research");
+  if (!gate.allowed) return false;
   try {
     const insert = db.from("shadow_executions").insert({
       // Research rows are never backed by a published signal.

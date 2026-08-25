@@ -12,7 +12,15 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { REGISTRY_SYMBOLS } from "./registry";
-import { fallbackStage, isStage, type InstrumentStage, type StageMap } from "./lifecycle";
+import {
+  fallbackStage,
+  isStage,
+  lifecycleAllows,
+  type InstrumentStage,
+  type LifecycleCapability,
+  type LifecycleGateVerdict,
+  type StageMap,
+} from "./lifecycle";
 
 export interface LifecycleView {
   enforced: boolean;
@@ -140,4 +148,28 @@ export async function transitionStage(
     ...(isStage(result.from) ? { from: result.from } : {}),
     ...(typeof result.noop === "boolean" ? { noop: result.noop } : {}),
   };
+}
+
+/**
+ * A FRESH capability decision, taken at the exact moment of an irreversible act
+ * (Phase A2A, R3-FIX / R6-FIX).
+ *
+ * `readLifecycleView` is normally called once per worker pass, which is correct
+ * for planning but not for the boundary itself: a suspension decided while a
+ * delivery was being revalidated, or while a batch of research rows was being
+ * assembled, must be honoured by the very next side effect. This helper re-reads
+ * the stage and returns the verdict, and — like every other lifecycle gate — a
+ * degraded read refuses everything outside the frozen Wave 0 universe rather
+ * than degrading to "allowed".
+ *
+ * It costs one extra round trip. That is the correct price for the last decision
+ * before a broker order or an immutable research row.
+ */
+export async function assertCapability(
+  db: SupabaseClient,
+  symbol: string,
+  capability: LifecycleCapability,
+): Promise<LifecycleGateVerdict> {
+  const view = await readLifecycleView(db);
+  return lifecycleAllows(view, symbol, capability);
 }

@@ -27,6 +27,7 @@
  *    affect production scanner or resolver state.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { assertCapability } from "@/lib/instruments/lifecycle.server";
 import { REPLAY_V1_VERSION } from "@/lib/execution/replay-registry";
 import { RESEARCH_PLAN_VERSION } from "./counterfactual-plan";
 import { noteResearchFailure, RESEARCH_WRITE_DEADLINE_MS } from "./observations.server";
@@ -249,6 +250,8 @@ export interface CandidateEnrolmentSummary {
   budget: number;
   considered: number;
   skippedNotExecutable: number;
+  /** Refused by the instrument lifecycle at the write boundary. */
+  skippedNotApproved: number;
   enrolled: number;
   enrolledCounterfactual: number;
   /** Existing execution adopted after a duplicate insert — no new row created. */
@@ -261,6 +264,7 @@ const EMPTY: CandidateEnrolmentSummary = {
   budget: 0,
   considered: 0,
   skippedNotExecutable: 0,
+  skippedNotApproved: 0,
   enrolled: 0,
   enrolledCounterfactual: 0,
   reconciled: 0,
@@ -305,6 +309,7 @@ export async function enrolPendingCandidates(
       budget,
       considered: rows.length,
       skippedNotExecutable: 0,
+      skippedNotApproved: 0,
       enrolled: 0,
       enrolledCounterfactual: 0,
       reconciled: 0,
@@ -333,6 +338,18 @@ export async function enrolPendingCandidates(
           continue;
         }
         summary.reconciled += 1;
+        continue;
+      }
+
+      /**
+       * Lifecycle research gate (Phase A2A, R6-FIX). Re-read per candidate, at
+       * the write boundary, because a batch assembled minutes ago may name an
+       * instrument that has since been suspended or demoted. Checked BEFORE the
+       * claim so a refused candidate stays enrollable once the stage recovers.
+       */
+      const stageGate = await assertCapability(db, c.instrument, "resolve_research");
+      if (!stageGate.allowed) {
+        summary.skippedNotApproved += 1;
         continue;
       }
 

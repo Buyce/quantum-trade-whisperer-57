@@ -6,6 +6,7 @@
  * written only when their state actually advanced.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { assertCapability } from "@/lib/instruments/lifecycle.server";
 import { fetchCandles } from "@/lib/scanner/metaapi.server";
 import { describeError } from "@/lib/scanner/pipeline.server";
 import { ACTIVE_MODEL_VERSION } from "@/lib/versioning";
@@ -402,6 +403,26 @@ export async function resolveShadowExecutions(db: SupabaseClient): Promise<Resol
   }
 
   for (const [instrument, group] of byInstrument) {
+    /**
+     * Lifecycle data gate (Phase A2A, R6-FIX).
+     *
+     * Replay needs candles, and fetching candles is exactly `collect_data`, so a
+     * disabled or suspended instrument is not fetched at all. Already-open rows
+     * are deliberately NOT abandoned: they keep their cursor and resume from it
+     * when the instrument is fetchable again, because discarding a forward
+     * outcome would silently bias the research ledger.
+     */
+    const dataGate = await assertCapability(db, instrument, "collect_data");
+    if (!dataGate.allowed) {
+      summary.instruments.push({
+        instrument,
+        candles: 0,
+        error: dataGate.reason ?? "not in service",
+      });
+      summary.candidateBacklogNoCandles += (candidateByInstrument.get(instrument) ?? []).length;
+      continue;
+    }
+
     let candles;
     try {
       candles = await fetchCandles(instrument, "M15", CANDLE_DEPTH);

@@ -14,6 +14,8 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { submitDirectOrder } from "@/lib/execution/direct.server";
+import { INSTRUMENT_NOT_APPROVED } from "@/lib/instruments/lifecycle";
+import { assertCapability } from "@/lib/instruments/lifecycle.server";
 import { PAYLOAD_VERSION, requestFingerprint, signBody } from "./hmac";
 import { revalidateDelivery, type DeliveryRow } from "./revalidate.server";
 import {
@@ -152,6 +154,38 @@ export async function processNextDelivery(
       settled_at: new Date().toISOString(),
     });
     return { deliveryId: delivery.id, state: "rejected", reason, dryRun: delivery.dry_run };
+  }
+
+  /**
+   * The LAST lifecycle read, taken here rather than only in revalidation
+   * (Phase A2A, R3-FIX).
+   *
+   * Revalidation is followed by several awaited round trips — settlement writes,
+   * a broker equity snapshot, a resize — before anything irreversible happens. An
+   * emergency suspension decided inside that window must still be honoured, so
+   * the stage is re-read immediately before the submission boundary and the
+   * delivery is rejected without a POST if execution is no longer authorised.
+   * A degraded read refuses everything outside the frozen Wave 0 universe.
+   */
+  // The ORDER's instrument is the authority here: it is the symbol that would
+  // actually be submitted, so the gate cannot be bypassed by a plan/order
+  // mismatch.
+  const submittedInstrument = approved.order.instrument;
+  const finalGate = await assertCapability(
+    db as unknown as SupabaseClient,
+    submittedInstrument,
+    "execute",
+  );
+  if (!finalGate.allowed) {
+    const reason = `${INSTRUMENT_NOT_APPROVED}: ${
+      finalGate.reason ?? `${submittedInstrument} is not approved for execution`
+    }`;
+    await settle(db, delivery.id, {
+      state: "rejected",
+      reason,
+      settled_at: new Date().toISOString(),
+    });
+    return { deliveryId: delivery.id, state: "rejected", reason, dryRun: approved.dryRun };
   }
 
   // ---- Direct broker destination (Prompt 14 Stage 3) -----------------------
