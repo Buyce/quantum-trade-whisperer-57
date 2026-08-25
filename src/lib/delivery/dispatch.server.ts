@@ -14,6 +14,8 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { submitDirectOrder } from "@/lib/execution/direct.server";
+import { INSTRUMENT_NOT_APPROVED } from "@/lib/instruments/lifecycle";
+import { assertCapability } from "@/lib/instruments/lifecycle.server";
 import { PAYLOAD_VERSION, requestFingerprint, signBody } from "./hmac";
 import { revalidateDelivery, type DeliveryRow } from "./revalidate.server";
 import {
