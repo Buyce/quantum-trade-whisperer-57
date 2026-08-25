@@ -1,29 +1,55 @@
-# Fix the three unreadable Admin Intelligence panels
+# Plan: Shadow replay engine repair
 
-Three panels — Instrument lifecycle and telemetry, Commissioning status, Economic events — show "diagnostics could not be read". The cause is confirmed, not guessed.
+## What the audit confirmed
 
-## What is actually wrong
+- The replay queue is not backed up: all `shadow_queue` jobs are done/enrolled.
+- The production replay set has 484 resolved rows and 1 open EURUSD row.
+- The replay engine is not paused, but its last run recorded `All instrument candle fetches failed` and 1 consecutive failure.
+- Production server logs show a live provider timeout pattern across scanner candle reads, for example `MetaApi request for ... exceeded 8000ms and was aborted`.
+- The shadow resolver currently fetches up to 1000 M15 candles in one provider call per open production instrument. The live scanner uses much smaller batches: H4/H1 300 and M15 200.
+- The Admin tile labels shadow replay as `RUNNING` whenever the breaker is not paused, even when the latest replay pass failed.
 
-Those three panels are the only ones that fetch their data with the service-role backend client. Their database functions each start with an owner check based on the signed-in user's email taken from the session token. A service-role call carries no user session, so the email is empty, the check fails, and the database returns `forbidden`.
+## Goal
 
-Verified directly: calling `get_admin_instrument_diagnostics` and `get_admin_news` with the service key returns `400 / "forbidden"`. Every panel that works today (engine status, intelligence tiles, candidate funnel, payoff) calls its function with the signed-in owner's identity instead.
+Make shadow replay resilient and truthful without fabricating candles, backfilling outcomes, changing grading, changing lifecycle stages, or touching live execution.
 
-A second, smaller issue: `get_admin_instrument_diagnostics` is the only one of the three not executable by signed-in users at all, so switching identity alone would still fail for it.
+## Implementation steps
 
-## The fix
+1. **Reduce replay candle fetch pressure safely**
+   - Replace the fixed 1000-candle replay batch with bounded windows derived from the open rows that need resolution.
+   - Keep enough candles to cover the replay horizon, but do not request excessive history for a row whose cursor is already near the current market.
+   - Keep one fetch per instrument per pass; do not add candidate/research fetches.
 
-1. Read the three diagnostics functions with the owner's own session identity (the same path the working panels use), keeping the existing server-side owner-email check before any database call. The privileged client stays reserved for genuinely service-role-only work such as the payoff recompute and telemetry-control reads.
-2. One migration: allow signed-in users to execute `get_admin_instrument_diagnostics`, revoked from anonymous/public. The in-database owner guard is unchanged and remains the actual gate, so this grants nothing to non-owners.
-3. Make the three failure states diagnosable: when a read does fail, the panel shows the real error text instead of a generic sentence, so the next failure is not another blind panel.
+2. **Preserve replay correctness on missing candles**
+   - If the provider times out or returns no usable candles, leave the row open and keep its replay cursor unchanged.
+   - Do not mark the setup as loss, win, expired, no-trade, or never-filled from missing data.
 
-Nothing about grading, alerts, the scanner, execution switches, lifecycle stages or any user-facing page changes.
+3. **Record more useful replay failure detail**
+   - When all instrument fetches fail, store a concise per-instrument reason instead of only the generic message.
+   - Keep provider error text sanitized and bounded.
+   - Surface whether the last replay pass scanned rows but fetched zero candles.
 
-## Two things on that screen that are not bugs
+4. **Fix the Admin status semantics**
+   - Add a replay-health classifier separate from the live scanner classifier.
+   - Show `DEGRADED` when the last replay run failed but the breaker is not paused.
+   - Show `RUNNING` only when the latest replay pass did not record a current error.
+   - Keep `BREAKER TRIPPED` for paused/cooldown state.
 
-- "Replay: market-data fetch failed at the provider" — a truthful report of upstream candle-fetch failures on the replay engine. Left as-is; it is the intended honest message.
-- "Last research error: observation write exceeded deadline" — a durable health note from research capture (which is dark/off), also truthful. Left as-is.
-- The older "C-Grade setups are never executed automatically" decision rows are historical rows written before the C-grade opt-in shipped; new decisions use the current wording. No back-editing of recorded decisions.
+5. **Fix provider-observation vocabulary drift**
+   - Align the code-side observation outcomes with the database constraint so 429/auth observations are recorded instead of silently discarded.
+   - This improves future diagnostics without changing trading behaviour.
 
-## Verification
+6. **Tests and documentation**
+   - Add unit tests for replay fetch sizing, all-fetch-failed summary detail, cursor preservation, and Admin replay status labels.
+   - Update the operations/research docs to explain: provider timeout means unresolved replay data, not a replay-calculation result.
 
-Reload `/admin/intelligence` as the owner and confirm the three panels render live rows (or an explicit empty state where there genuinely are no rows), then run lint, typecheck, build and the full test suite.
+## Non-goals / safety locks
+
+- No generated candles, no synthetic shadow outcomes, no seed rows.
+- No promotion of Wave 1 or Wave 2 instruments.
+- No alert, MCP, demo-order, or live-order side effects.
+- No change to ABC grading, C-grade permissions, sizing, or execution controls.
+
+## Expected result
+
+The open EURUSD replay row will remain unresolved until real M15 candles can be fetched, but the engine will avoid unnecessarily heavy replay fetches and the Admin tab will report the exact state: provider data unavailable/degraded rather than implying the replay math itself produced a result.
