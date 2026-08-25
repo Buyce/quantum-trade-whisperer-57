@@ -261,7 +261,9 @@ describe("V2 shadow enrolment gating", () => {
   it("[UNIT] a lost structure claim produces no enrolment", async () => {
     const { db, recorded } = fakeDb({ v2Enabled: true, claim: false });
     await processNextJob(db);
-    expect(shadowEnrolments(recorded)).toHaveLength(1);
+    const enrolments = shadowEnrolments(recorded);
+    expect(enrolments).toHaveLength(1);
+    expect(enrolments[0]?.payload).toMatchObject({ _claim_model_version: 2 });
   });
 
   it("[UNIT] the mean-reversion family is observation-only and never enrols", async () => {
