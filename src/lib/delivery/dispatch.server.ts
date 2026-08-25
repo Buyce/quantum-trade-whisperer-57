@@ -154,10 +154,39 @@ export async function processNextDelivery(
     return { deliveryId: delivery.id, state: "rejected", reason, dryRun: delivery.dry_run };
   }
 
+  /**
+   * The LAST lifecycle read, taken here rather than only in revalidation
+   * (Phase A2A, R3-FIX).
+   *
+   * Revalidation is followed by several awaited round trips — settlement writes,
+   * a broker equity snapshot, a resize — before anything irreversible happens. An
+   * emergency suspension decided inside that window must still be honoured, so
+   * the stage is re-read immediately before the submission boundary and the
+   * delivery is rejected without a POST if execution is no longer authorised.
+   * A degraded read refuses everything outside the frozen Wave 0 universe.
+   */
+  const finalGate = await assertCapability(
+    db as unknown as SupabaseClient,
+    approved.plan.instrument,
+    "execute",
+  );
+  if (!finalGate.allowed) {
+    const reason = `${INSTRUMENT_NOT_APPROVED}: ${
+      finalGate.reason ?? `${approved.plan.instrument} is not approved for execution`
+    }`;
+    await settle(db, delivery.id, {
+      state: "rejected",
+      reason,
+      settled_at: new Date().toISOString(),
+    });
+    return { deliveryId: delivery.id, state: "rejected", reason, dryRun: approved.dryRun };
+  }
+
   // ---- Direct broker destination (Prompt 14 Stage 3) -----------------------
   // Constructed and submitted by us, so there is no endpoint, no signature and
   // no outbound POST. The submission path settles the row itself.
   if (approved.destination === "metaapi_direct" && approved.direct) {
+
     const result = await submitDirectOrder(
       db,
       { id: delivery.id, dry_run: approved.dryRun },
