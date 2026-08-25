@@ -206,7 +206,6 @@ export function brokerOrderStatus(
       };
     case "rejected":
       return { kind: "rejected", label: "Rejected by broker", detail };
-    // eslint-disable-next-line no-fallthrough
     case "failed":
       return { kind: "failed", label: "Not submitted", detail };
     default:
