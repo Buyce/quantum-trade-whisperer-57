@@ -71,7 +71,7 @@ describe("evaluateIntelGate", () => {
     expect(v.filledN).toBe(200);
   });
 
-  it("passes a measured rate at or above the threshold and reports the numbers", () => {
+  it("[INVARIANT] passes a measured rate at or above the threshold and reports the numbers", () => {
     const v = evaluateIntelGate({ enabled: true, minWinPct: 60, minSample: 30 }, STATS, {
       instrument: "XAUUSD",
       direction: "long",
@@ -81,7 +81,7 @@ describe("evaluateIntelGate", () => {
     expect(v).toMatchObject({ allowed: true, reason: "gate_passed", winPct: 62, filledN: 200 });
   });
 
-  it("refuses a measured rate below the threshold", () => {
+  it("[INVARIANT] refuses a measured rate below the threshold", () => {
     const v = evaluateIntelGate({ enabled: true, minWinPct: 70, minSample: 30 }, STATS, {
       instrument: "XAUUSD",
       direction: "long",
