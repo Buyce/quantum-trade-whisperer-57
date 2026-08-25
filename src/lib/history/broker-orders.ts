@@ -14,6 +14,7 @@
  * This module is pure mapping so it can be tested without a database.
  */
 import type { Grade } from "@/lib/db-types";
+import { REJECT_COPY, type RejectReason } from "@/lib/delivery/execution";
 import { journalRView, type JournalRView } from "@/lib/journal/display";
 import type { RBasis } from "@/lib/journal/r-math";
 
