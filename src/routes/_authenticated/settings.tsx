@@ -282,7 +282,9 @@ function SettingsPage() {
     try {
       await saveSettings({
         user_id: user.id,
-        instruments,
+        // Never persist a symbol the lifecycle does not allow to publish, even if
+        // it was selected before a stage change.
+        instruments: instruments.filter((i) => selectableInstruments.includes(i)),
         sessions,
         min_grade: minGrade,
         alert_min_grade: alertMinGrade,
@@ -435,6 +437,11 @@ function SettingsPage() {
                   </Chip>
                 ))}
               </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Only instruments cleared to publish appear here. Pairs the scanner is still
+                measuring show as “measuring” on the Feed and become selectable once they are
+                promoted.
+              </p>
             </div>
 
             {/*
