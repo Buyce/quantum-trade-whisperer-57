@@ -20,6 +20,7 @@ cadence rather than asserting a crontab line.
 | `worker/dispatch`           | frequent         | hand queued jobs to workers                                       |
 | `worker/process`            | frequent         | one instrument x timeframe per invocation                         |
 | `worker/shadow`             | frequent         | shadow replay work                                                |
+| `worker/reconcile-active`   | every 5 minutes  | second attempt at automatic orders for still-active setups         |
 | `cron/shadow-resolve`       | periodic         | resolve shadow executions from stored candles                     |
 | `cron/refresh-specs`        | daily, 02:40 UTC | refresh broker symbol specs on a separate 24h budget              |
 | `cron/verify-reminders`     | daily            | remind users to backfill actual prices                            |
