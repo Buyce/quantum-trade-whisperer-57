@@ -51,6 +51,13 @@ import type { DeliveryDestination } from "@/lib/execution/direct";
 import { loadDirectTarget, type DirectTarget } from "@/lib/execution/direct.server";
 import { resolveBenchmarkDesignation } from "@/lib/benchmark/policy.server";
 import { isAccountSizingRefusal } from "@/lib/sizing/service.server";
+import {
+  INSTRUMENT_NOT_APPROVED,
+  describeStage,
+  mayExecute,
+  stageOf,
+} from "@/lib/instruments/lifecycle";
+import { readLifecycleView } from "@/lib/instruments/lifecycle.server";
 
 type Db = Pick<SupabaseClient, "from" | "rpc">;
 
@@ -195,6 +202,9 @@ export async function revalidateDelivery(
     return reject("live_execution_globally_disabled", "execution controls unreadable");
   }
   const controls = controlsRow as ControlsRow;
+  // Read once per delivery so the instrument gate below and any diagnostic copy
+  // agree. A degraded read reports enforcement OFF, which preserves Wave 0.
+  const lifecycle = await readLifecycleView(db as unknown as SupabaseClient);
   // A globally disabled system must not POST — but it MUST still be able to
   // validate end to end. `live_execution_enabled = false` therefore forces
   // dry-run rather than aborting the pipeline. Unreadable controls above still
@@ -315,6 +325,25 @@ export async function revalidateDelivery(
   if (signal.status !== "active") return reject("signal_not_active", signal.status);
   if ((controls.disabled_instruments ?? []).includes(signal.instrument)) {
     return reject("instrument_disabled", signal.instrument);
+  }
+
+  /**
+   * Lifecycle execution gate — the LAST word before an order is built.
+   *
+   * Only `execution_approved` may reach a broker. A pair at `signals_only` is
+   * publishable and alertable but must never be auto-traded, and `suspended`
+   * revokes execution instantly for a pair that was approved yesterday. This gate
+   * is here rather than only at enqueue time because a delivery already sitting
+   * in the queue must respect a suspension decided after it was enqueued.
+   */
+  if (lifecycle.enforced) {
+    const stage = stageOf(signal.instrument, lifecycle.stages);
+    if (!mayExecute(stage)) {
+      return reject(
+        INSTRUMENT_NOT_APPROVED,
+        `${signal.instrument} is at lifecycle stage "${stage}" (${describeStage(stage)})`,
+      );
+    }
   }
 
   const ageMs = now - new Date(signal.detected_at).getTime();

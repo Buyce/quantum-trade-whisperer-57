@@ -1029,6 +1029,7 @@ export type Database = {
           execution_policy: string
           force_dry_run: boolean
           id: boolean
+          lifecycle_enforced: boolean
           live_auto_enabled: boolean
           live_confirm_enabled: boolean
           live_execution_enabled: boolean
@@ -1044,6 +1045,7 @@ export type Database = {
           execution_policy?: string
           force_dry_run?: boolean
           id?: boolean
+          lifecycle_enforced?: boolean
           live_auto_enabled?: boolean
           live_confirm_enabled?: boolean
           live_execution_enabled?: boolean
@@ -1059,6 +1061,7 @@ export type Database = {
           execution_policy?: string
           force_dry_run?: boolean
           id?: boolean
+          lifecycle_enforced?: boolean
           live_auto_enabled?: boolean
           live_confirm_enabled?: boolean
           live_execution_enabled?: boolean
@@ -1459,6 +1462,9 @@ export type Database = {
       instrument_health: {
         Row: {
           available: boolean
+          breaker_open_until: string | null
+          consecutive_failures: number
+          failure_scope: string | null
           instrument: string
           last_error: string | null
           unavailable_until: string | null
@@ -1466,6 +1472,9 @@ export type Database = {
         }
         Insert: {
           available?: boolean
+          breaker_open_until?: string | null
+          consecutive_failures?: number
+          failure_scope?: string | null
           instrument: string
           last_error?: string | null
           unavailable_until?: string | null
@@ -1473,12 +1482,105 @@ export type Database = {
         }
         Update: {
           available?: boolean
+          breaker_open_until?: string | null
+          consecutive_failures?: number
+          failure_scope?: string | null
           instrument?: string
           last_error?: string | null
           unavailable_until?: string | null
           updated_at?: string
         }
         Relationships: []
+      }
+      instrument_lifecycle: {
+        Row: {
+          created_at: string
+          data_health: string | null
+          stage: Database["public"]["Enums"]["instrument_stage"]
+          symbol: string
+          updated_at: string
+          wave: number
+        }
+        Insert: {
+          created_at?: string
+          data_health?: string | null
+          stage?: Database["public"]["Enums"]["instrument_stage"]
+          symbol: string
+          updated_at?: string
+          wave?: number
+        }
+        Update: {
+          created_at?: string
+          data_health?: string | null
+          stage?: Database["public"]["Enums"]["instrument_stage"]
+          symbol?: string
+          updated_at?: string
+          wave?: number
+        }
+        Relationships: []
+      }
+      instrument_lifecycle_transitions: {
+        Row: {
+          approver: string | null
+          code_hash: string | null
+          created_at: string
+          evidence: Json | null
+          from_stage: Database["public"]["Enums"]["instrument_stage"] | null
+          id: number
+          reason: string
+          rollback_target:
+            | Database["public"]["Enums"]["instrument_stage"]
+            | null
+          strategy_model_version: number | null
+          symbol: string
+          to_stage: Database["public"]["Enums"]["instrument_stage"]
+        }
+        Insert: {
+          approver?: string | null
+          code_hash?: string | null
+          created_at?: string
+          evidence?: Json | null
+          from_stage?: Database["public"]["Enums"]["instrument_stage"] | null
+          id?: number
+          reason: string
+          rollback_target?:
+            | Database["public"]["Enums"]["instrument_stage"]
+            | null
+          strategy_model_version?: number | null
+          symbol: string
+          to_stage: Database["public"]["Enums"]["instrument_stage"]
+        }
+        Update: {
+          approver?: string | null
+          code_hash?: string | null
+          created_at?: string
+          evidence?: Json | null
+          from_stage?: Database["public"]["Enums"]["instrument_stage"] | null
+          id?: number
+          reason?: string
+          rollback_target?:
+            | Database["public"]["Enums"]["instrument_stage"]
+            | null
+          strategy_model_version?: number | null
+          symbol?: string
+          to_stage?: Database["public"]["Enums"]["instrument_stage"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "instrument_lifecycle_transitions_symbol_fkey"
+            columns: ["symbol"]
+            isOneToOne: false
+            referencedRelation: "instrument_lifecycle"
+            referencedColumns: ["symbol"]
+          },
+          {
+            foreignKeyName: "instrument_lifecycle_transitions_symbol_fkey"
+            columns: ["symbol"]
+            isOneToOne: false
+            referencedRelation: "instrument_stages"
+            referencedColumns: ["symbol"]
+          },
+        ]
       }
       market_context: {
         Row: {
@@ -3200,6 +3302,21 @@ export type Database = {
       }
     }
     Views: {
+      instrument_stages: {
+        Row: {
+          stage: Database["public"]["Enums"]["instrument_stage"] | null
+          symbol: string | null
+        }
+        Insert: {
+          stage?: Database["public"]["Enums"]["instrument_stage"] | null
+          symbol?: string | null
+        }
+        Update: {
+          stage?: Database["public"]["Enums"]["instrument_stage"] | null
+          symbol?: string | null
+        }
+        Relationships: []
+      }
       shadow_executions_production: {
         Row: {
           adjudication: string | null
@@ -3532,6 +3649,13 @@ export type Database = {
     }
     Enums: {
       decision_kind: "taken" | "skipped"
+      instrument_stage:
+        | "disabled"
+        | "data_validation"
+        | "shadow"
+        | "signals_only"
+        | "execution_approved"
+        | "suspended"
       signal_grade: "A" | "B" | "C" | "A+"
       tf_code: "H4" | "H1" | "M15"
       trade_direction: "long" | "short"
@@ -3664,6 +3788,14 @@ export const Constants = {
   public: {
     Enums: {
       decision_kind: ["taken", "skipped"],
+      instrument_stage: [
+        "disabled",
+        "data_validation",
+        "shadow",
+        "signals_only",
+        "execution_approved",
+        "suspended",
+      ],
       signal_grade: ["A", "B", "C", "A+"],
       tf_code: ["H4", "H1", "M15"],
       trade_direction: ["long", "short"],

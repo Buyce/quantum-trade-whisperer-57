@@ -12,6 +12,7 @@
  * rather than a plausible-looking number. A missing FX conversion rate or an
  * unset account equity produces no lot size at all.
  */
+import { contractSpecs } from "@/lib/instruments/registry";
 
 /** Instrument contract specifications, as quoted by the broker. */
 export interface ContractSpec {
@@ -25,13 +26,16 @@ export interface ContractSpec {
   minLot: number;
 }
 
-export const CONTRACT_SPECS: Record<string, ContractSpec> = {
-  // Gold is quoted per troy ounce; one lot is 100oz.
-  XAUUSD: { contractSize: 100, base: "XAU", quote: "USD", lotStep: 0.01, minLot: 0.01 },
-  EURUSD: { contractSize: 100_000, base: "EUR", quote: "USD", lotStep: 0.01, minLot: 0.01 },
-  // Cross pair: risk lands in AUD, so an account in USD needs an AUDUSD rate.
-  GBPAUD: { contractSize: 100_000, base: "GBP", quote: "AUD", lotStep: 0.01, minLot: 0.01 },
-};
+/**
+ * Static fallback specifications, derived from the instrument registry.
+ *
+ * These are identity facts (contract size, lot step, quote currency), NOT broker
+ * truth: whenever a broker spec has been fetched it wins, and the stops-level
+ * check below only ever runs on broker data. Gold is quoted per troy ounce, so
+ * one lot is 100oz; the cross pair GBPAUD denominates risk in AUD, which is why a
+ * USD account needs an AUDUSD conversion rate.
+ */
+export const CONTRACT_SPECS: Record<string, ContractSpec> = contractSpecs();
 
 export interface RiskProfile {
   accountEquity: number;

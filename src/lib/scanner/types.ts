@@ -1,10 +1,21 @@
+import { WAVE0_SYMBOLS, spreadFloors } from "@/lib/instruments/registry";
+
 export type Timeframe = "H4" | "H1" | "M15";
 /** A+ is the four-rule-confluence tier: an A structure with all 4 pillars. */
 export type Grade = "A+" | "A" | "B" | "C";
 export type Direction = "long" | "short";
 export type Bias = "bullish" | "bearish" | "neutral";
 
-export const INSTRUMENTS = ["XAUUSD", "GBPAUD", "EURUSD"] as const;
+/**
+ * The scan universe.
+ *
+ * Derived from the instrument registry rather than written out here, but still
+ * pinned to Wave 0: a Wave 1 pair joins the scan cycle only once its lifecycle
+ * stage reaches `data_validation`, which the scan enqueue path checks at run
+ * time. Widening this constant would opt every user in silently, so it stays
+ * frozen.
+ */
+export const INSTRUMENTS: readonly string[] = WAVE0_SYMBOLS;
 export const TIMEFRAMES: Timeframe[] = ["H4", "H1", "M15"];
 
 /**
@@ -152,13 +163,21 @@ export const ORDER_TIF_MINUTES = 30;
 export const STOP_M15_ATR_MULTIPLIER = 1.2;
 export const STOP_H1_ATR_FLOOR = 0.5;
 
-/** Minimum stop buffer in absolute price terms — realistic spread + slippage. */
-export const SPREAD_FLOOR: Record<string, number> = {
-  EURUSD: 0.00015,
-  GBPAUD: 0.0003,
-  XAUUSD: 0.3,
-};
+/**
+ * Minimum stop buffer in absolute price terms — realistic spread + slippage.
+ *
+ * Only instruments with an explicit, validated floor appear here (Wave 0 today).
+ * A pair without one must not reach publication on the shared default: the
+ * readiness check derives its floor from the broker's own point size and a
+ * measured spread before the pair may leave `disabled`.
+ */
+export const SPREAD_FLOOR: Record<string, number> = spreadFloors();
 export const DEFAULT_SPREAD_FLOOR = 0.0002;
+
+/** True when this instrument's stop floor is validated rather than defaulted. */
+export function hasValidatedSpreadFloor(instrument: string): boolean {
+  return Object.prototype.hasOwnProperty.call(SPREAD_FLOOR, instrument);
+}
 
 /** Risk wider than this many M15 ATR is rejected as No-Trade, not published. */
 export const MAX_RISK_ATR = 3;

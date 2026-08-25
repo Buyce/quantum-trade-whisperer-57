@@ -36,9 +36,13 @@ import {
   INSTRUMENTS,
   SIGNAL_MAX_AGE_HOURS,
   STRUCTURE_COOLDOWN_MINUTES,
+  hasValidatedSpreadFloor,
   type Candle,
   type Timeframe,
 } from "./types";
+import { REGISTRY_SYMBOLS } from "@/lib/instruments/registry";
+import { describeStage, mayPublish, mayScan, stageOf } from "@/lib/instruments/lifecycle";
+import { readLifecycleView } from "@/lib/instruments/lifecycle.server";
 
 const TIMEFRAMES: Timeframe[] = ["H4", "H1", "M15"];
 
@@ -86,11 +90,26 @@ export async function expireStaleSignals(db: SupabaseClient): Promise<{
   return { expired: (data ?? []).length, error: null };
 }
 
+/**
+ * The instruments this cycle scans.
+ *
+ * While lifecycle enforcement is OFF this is exactly the frozen Wave 0 universe,
+ * so Phase A cannot change a single scan cycle. Once enforcement is ON the
+ * lifecycle table decides: any instrument at `data_validation` or beyond is
+ * scanned (which is how a new pair starts collecting measurable outcomes), and a
+ * `suspended` or `disabled` instrument is dropped even if it is Wave 0.
+ */
+export async function scanUniverse(db: SupabaseClient): Promise<string[]> {
+  const view = await readLifecycleView(db);
+  if (!view.enforced) return [...INSTRUMENTS];
+  return REGISTRY_SYMBOLS.filter((symbol) => mayScan(stageOf(symbol, view.stages)));
+}
+
 /** Enqueue one job per monitored instrument for this scan cycle. */
 export async function enqueueScanCycle(db: SupabaseClient) {
   const { expired, error: expireError } = await expireStaleSignals(db);
   const runId = crypto.randomUUID();
-  const rows = INSTRUMENTS.map((instrument) => ({
+  const rows = (await scanUniverse(db)).map((instrument) => ({
     run_id: runId,
     instrument,
     status: "pending",
@@ -137,6 +156,9 @@ async function writeHealth(
     available: boolean;
     last_error: string | null;
     unavailable_until: string | null;
+    consecutive_failures?: number;
+    failure_scope?: string | null;
+    breaker_open_until?: string | null;
   },
 ) {
   const { error } = await db
@@ -145,12 +167,50 @@ async function writeHealth(
   if (error) console.error("[pipeline] instrument_health write failed:", describeError(error));
 }
 
-async function flagInstrument(db: SupabaseClient, instrument: string, message: string) {
+/**
+ * Per-instrument failure isolation (Phase A / A6).
+ *
+ * Failures used to be counted only per pass, so one instrument that a broker
+ * cannot serve looked the same as a dead provider. The counter and breaker now
+ * live on the instrument's own health row: three consecutive failures open a
+ * back-off window for THAT symbol, and every other symbol keeps scanning at full
+ * cadence. `failure_scope` records whether the failure looked instrument-local or
+ * provider-wide, so a widening outage stays visible instead of being attributed
+ * to eight independent pairs.
+ */
+const BREAKER_TRIP_AFTER = 3;
+const BREAKER_BACKOFF_MINUTES = [15, 30, 60] as const;
+
+function backoffMs(failures: number): number {
+  const index = Math.min(
+    failures - BREAKER_TRIP_AFTER,
+    BREAKER_BACKOFF_MINUTES.length - 1,
+  );
+  return BREAKER_BACKOFF_MINUTES[Math.max(0, index)]! * 60_000;
+}
+
+async function flagInstrument(
+  db: SupabaseClient,
+  instrument: string,
+  message: string,
+  scope: "instrument" | "provider" = "instrument",
+) {
+  const { data } = await db
+    .from("instrument_health")
+    .select("consecutive_failures")
+    .eq("instrument", instrument)
+    .maybeSingle();
+  const failures = Number((data as { consecutive_failures?: number } | null)?.consecutive_failures ?? 0) + 1;
+  const tripped = failures >= BREAKER_TRIP_AFTER;
+
   await writeHealth(db, {
     instrument,
     available: false,
     last_error: message.slice(0, 500),
     unavailable_until: new Date(Date.now() + 30 * 60_000).toISOString(),
+    consecutive_failures: failures,
+    failure_scope: scope,
+    breaker_open_until: tripped ? new Date(Date.now() + backoffMs(failures)).toISOString() : null,
   });
 }
 
@@ -160,6 +220,9 @@ async function clearInstrument(db: SupabaseClient, instrument: string) {
     available: true,
     last_error: null,
     unavailable_until: null,
+    consecutive_failures: 0,
+    failure_scope: null,
+    breaker_open_until: null,
   });
 }
 
@@ -197,6 +260,13 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
     | undefined
     | null;
   if (!job) return null;
+
+  // Read once per job: the gate below must use one consistent verdict, and a
+  // degraded read falls back to the frozen Wave 0 stage rather than blocking.
+  const lifecycle = await readLifecycleView(db);
+  const lifecycleEnforced = lifecycle.enforced;
+  const instrumentStage = stageOf(job.instrument, lifecycle.stages);
+
 
   /**
    * Research state for this observation. Populated only once candles have been
@@ -455,6 +525,36 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
     if (!profile) return await finish("no_trade", "No structure satisfied the ABC grading rules");
     v1Grade = profile.grade;
     v1Direction = profile.direction;
+
+    /**
+     * Lifecycle publication gate.
+     *
+     * An instrument below `signals_only` is measured, never shown: the research
+     * observation for this job is already captured by `finish` (`observed` is
+     * true by this point), so a suppressed pair still accumulates the outcomes
+     * its promotion decision will be based on. The status is `skipped`, NOT
+     * `no_trade` — a structure WAS found, and mislabelling it would corrupt both
+     * the cron summary and the no-trade rate.
+     */
+    if (lifecycleEnforced && !mayPublish(instrumentStage)) {
+      return await finish(
+        "skipped",
+        `${job.instrument} is at lifecycle stage "${instrumentStage}" (${describeStage(instrumentStage)}) — measured, not published`,
+      );
+    }
+
+    /**
+     * A published setup's stop must sit outside real execution cost. Wave 0 has
+     * validated floors; a pair promoted without one would silently inherit the
+     * shared default, which is a guess. Refuse rather than publish a stop we
+     * cannot justify.
+     */
+    if (!hasValidatedSpreadFloor(job.instrument)) {
+      return await finish(
+        "skipped",
+        `${job.instrument} has no validated stop floor yet — publication withheld`,
+      );
+    }
 
     // No global ceiling: every qualifying setup publishes. Each account applies
     // its own daily cap (scanner_settings.daily_setup_cap, 0 = unlimited) to
