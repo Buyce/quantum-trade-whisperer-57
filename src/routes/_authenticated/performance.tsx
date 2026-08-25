@@ -46,6 +46,8 @@ export const Route = createFileRoute("/_authenticated/performance")({
         property: "og:description",
         content: "Provenance-labelled R-multiple expectancy analytics.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
       { name: "robots", content: "noindex" },
     ],
   }),
