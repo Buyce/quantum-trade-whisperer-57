@@ -52,10 +52,10 @@ login page, and is removed locally without any provider mutation.
 Two read-only observation surfaces hang off a connected account. Both describe
 what a broker reported; neither is a control that can stop an order.
 
-| Surface       | What it reports                                                                        | State when the account does not report it |
-| ------------- | -------------------------------------------------------------------------------------- | ----------------------------------------- |
-| MetaStats     | Broker-side trade history and account metrics, gated by provider feature availability   | `unavailable` — never back-filled from Settings |
-| Risk Guardian | Drawdown-tracker breach events, deduplicated per event and timestamped by the broker     | `unavailable`, with no breach implied     |
+| Surface       | What it reports                                                                       | State when the account does not report it       |
+| ------------- | ------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| MetaStats     | Broker-side trade history and account metrics, gated by provider feature availability | `unavailable` — never back-filled from Settings |
+| Risk Guardian | Drawdown-tracker breach events, deduplicated per event and timestamped by the broker  | `unavailable`, with no breach implied           |
 
 Both surfaces expose three honest states: `processing` while the provider is still
 computing, `unavailable` when the account or plan does not offer the feature, and
@@ -96,4 +96,3 @@ names the reason. A refusal is never downgraded into a default value.
 
 `src/lib/accounts/__tests__/*`, `src/lib/telemetry/__tests__/*`,
 `src/test/__tests__/docs-contract.test.ts`.
-
