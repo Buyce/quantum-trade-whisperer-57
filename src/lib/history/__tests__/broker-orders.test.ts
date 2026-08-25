@@ -141,3 +141,24 @@ describe("automatic broker orders", () => {
     expect(status.label).toBe("Rejected by broker");
   });
 });
+
+describe("brokerOrderDestination", () => {
+  it("[UNIT] names the connected broker account for a direct delivery", () => {
+    expect(brokerOrderDestination("metaapi_direct")).toEqual({
+      kind: "broker_account",
+      label: "Connected broker account",
+    });
+  });
+
+  it("[UNIT] names the webhook bridge, so a bridge dry-run is not read as the broker account", () => {
+    expect(brokerOrderDestination("bridge_json").kind).toBe("webhook_bridge");
+    expect(brokerOrderDestination("bridge_form").kind).toBe("webhook_bridge");
+  });
+
+  it("[UNIT] claims nothing when the destination was not recorded", () => {
+    expect(brokerOrderDestination(null)).toEqual({
+      kind: "unknown",
+      label: "Destination not recorded",
+    });
+  });
+});
