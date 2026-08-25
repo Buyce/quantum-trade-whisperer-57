@@ -101,6 +101,12 @@ export interface BrokerOrderView {
   enqueuedAt: string;
   /** Broker-reported account classification, or null when the broker has not said. */
   accountType: "demo" | "real" | "unknown" | null;
+  /**
+   * WHERE this order was addressed. A webhook bridge row is not the connected
+   * broker account, so a dry-run bridge row must never read as "your demo
+   * account did nothing".
+   */
+  destination: BrokerOrderDestination;
   dryRun: boolean;
   status: BrokerOrderStatus;
   submitted: {
