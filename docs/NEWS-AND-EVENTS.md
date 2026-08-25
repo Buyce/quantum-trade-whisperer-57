@@ -110,3 +110,20 @@ panel, or any response.
   admin reads go through `get_admin_news()`).
 - Retention: `purge_news_data()` — events 400 days, runs and coverage 90 days,
   evaluations 180 days.
+
+## Why no exact release times (official-source survey, 2026-08-25)
+
+A survey of official sources — Fed/FOMC, BLS, BEA, US Census, ECB, BoE, BoC,
+StatCan, RBA, ABS, SNB, Swiss FSO, BoJ, e-Stat, EIA, OPEC, Nasdaq and NYSE —
+found that **no free official source publishes a structured (JSON/ICS) forward
+calendar combining event, country, exact time and timezone**. Release times are
+either conventions stated in prose (BLS/Census 8:30am ET, EIA WPSR Wed 10:30am ET)
+or times printed in HTML tables, never a machine-readable field. The EIA Weekly
+Petroleum Status Report schedule, including its holiday shifts, exists only as an
+HTML table; OPEC publishes no announcement feed or API at all. Consensus/forecast
+values do not exist in official data by definition.
+
+That is the reason this system stores events as `date_only` and refuses to open a
+timed suppression window from them, rather than assuming a conventional time.
+Closing the gap requires either an official structured feed appearing, or an
+explicit decision to ingest a licensed commercial calendar — not an inferred time.
