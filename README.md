@@ -199,32 +199,32 @@ commits pushed to `main` sync both ways.
 
 ## 8. Documentation index
 
-| Document                                                                 | Covers                                  |
-| ------------------------------------------------------------------------ | --------------------------------------- |
-| [docs/README.md](docs/README.md)                                         | Index and reading order                 |
-| [docs/PRODUCT.md](docs/PRODUCT.md)                                       | What the product does, for whom         |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)                             | Planes, data flow, isolation rules      |
-| [docs/SCANNER.md](docs/SCANNER.md)                                       | Cron, queue, workers, MetaApi budget    |
-| [docs/SIGNALS-AND-GRADES.md](docs/SIGNALS-AND-GRADES.md)                 | Grading, profile, lifecycle             |
-| [docs/RISK-SIZING.md](docs/RISK-SIZING.md)                               | Lots, cash risk, margin estimate        |
-| [docs/JOURNAL-AND-R.md](docs/JOURNAL-AND-R.md)                           | Canonical R and provenance              |
-| [docs/PERFORMANCE-AND-STATISTICS.md](docs/PERFORMANCE-AND-STATISTICS.md) | Expectancy, evidence standard           |
-| [docs/RESEARCH-AND-SHADOW.md](docs/RESEARCH-AND-SHADOW.md)               | Replay, candidates, isolation           |
-| [docs/ALERTS-AND-ELIGIBILITY.md](docs/ALERTS-AND-ELIGIBILITY.md)         | Feed/alert rules, daily cap             |
-| [docs/EXECUTION.md](docs/EXECUTION.md)                                   | Delivery state machine and safety locks |
-| [docs/BROKER-ACCOUNTS.md](docs/BROKER-ACCOUNTS.md)                       | MetaTrader connection and account modes |
-| [docs/BROKER-EVIDENCE.md](docs/BROKER-EVIDENCE.md)                       | Association and Performance provenance  |
-| [docs/METASTATS.md](docs/METASTATS.md)                                   | Broker statistics telemetry             |
-| [docs/RISK-GUARDIAN.md](docs/RISK-GUARDIAN.md)                           | Drawdown trackers and limitations       |
+| Document                                                                 | Covers                                                          |
+| ------------------------------------------------------------------------ | --------------------------------------------------------------- |
+| [docs/README.md](docs/README.md)                                         | Index and reading order                                         |
+| [docs/PRODUCT.md](docs/PRODUCT.md)                                       | What the product does, for whom                                 |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)                             | Planes, data flow, isolation rules                              |
+| [docs/SCANNER.md](docs/SCANNER.md)                                       | Cron, queue, workers, MetaApi budget                            |
+| [docs/SIGNALS-AND-GRADES.md](docs/SIGNALS-AND-GRADES.md)                 | Grading, profile, lifecycle                                     |
+| [docs/RISK-SIZING.md](docs/RISK-SIZING.md)                               | Lots, cash risk, margin estimate                                |
+| [docs/JOURNAL-AND-R.md](docs/JOURNAL-AND-R.md)                           | Canonical R and provenance                                      |
+| [docs/PERFORMANCE-AND-STATISTICS.md](docs/PERFORMANCE-AND-STATISTICS.md) | Expectancy, evidence standard                                   |
+| [docs/RESEARCH-AND-SHADOW.md](docs/RESEARCH-AND-SHADOW.md)               | Replay, candidates, isolation                                   |
+| [docs/ALERTS-AND-ELIGIBILITY.md](docs/ALERTS-AND-ELIGIBILITY.md)         | Feed/alert rules, daily cap                                     |
+| [docs/EXECUTION.md](docs/EXECUTION.md)                                   | Delivery state machine and safety locks                         |
+| [docs/BROKER-ACCOUNTS.md](docs/BROKER-ACCOUNTS.md)                       | MetaTrader connection and account modes                         |
+| [docs/BROKER-EVIDENCE.md](docs/BROKER-EVIDENCE.md)                       | Association and Performance provenance                          |
+| [docs/METASTATS.md](docs/METASTATS.md)                                   | Broker statistics telemetry                                     |
+| [docs/RISK-GUARDIAN.md](docs/RISK-GUARDIAN.md)                           | Drawdown trackers and limitations                               |
 | [docs/audits/](docs/audits/)                                             | Dated audit snapshots (historical evidence, not current status) |
-| [docs/MCP.md](docs/MCP.md)                                               | Assistant tools and permissions         |
-| [docs/SECURITY.md](docs/SECURITY.md)                                     | Auth, RLS, egress, secrets              |
-| [docs/OPERATIONS.md](docs/OPERATIONS.md)                                 | Cron schedule, runbooks                 |
-| [docs/TESTING.md](docs/TESTING.md)                                       | Taxonomy and gates                      |
-| [docs/DATA-PROVENANCE.md](docs/DATA-PROVENANCE.md)                       | Every field's origin                    |
-| [docs/GLOSSARY.md](docs/GLOSSARY.md)                                     | Canonical terminology                   |
-| [docs/CHARACTERISATION.md](docs/CHARACTERISATION.md)                     | Historical V1 behaviour ledger          |
-| [docs/DB-TESTS.md](docs/DB-TESTS.md)                                     | Database regression layer               |
+| [docs/MCP.md](docs/MCP.md)                                               | Assistant tools and permissions                                 |
+| [docs/SECURITY.md](docs/SECURITY.md)                                     | Auth, RLS, egress, secrets                                      |
+| [docs/OPERATIONS.md](docs/OPERATIONS.md)                                 | Cron schedule, runbooks                                         |
+| [docs/TESTING.md](docs/TESTING.md)                                       | Taxonomy and gates                                              |
+| [docs/DATA-PROVENANCE.md](docs/DATA-PROVENANCE.md)                       | Every field's origin                                            |
+| [docs/GLOSSARY.md](docs/GLOSSARY.md)                                     | Canonical terminology                                           |
+| [docs/CHARACTERISATION.md](docs/CHARACTERISATION.md)                     | Historical V1 behaviour ledger                                  |
+| [docs/DB-TESTS.md](docs/DB-TESTS.md)                                     | Database regression layer                                       |
 
 ## 9. Disclaimer
 

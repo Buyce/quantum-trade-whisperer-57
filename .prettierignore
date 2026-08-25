@@ -21,3 +21,6 @@ src/routes/mcp.ts
 src/routes/\[.mcp\]/**
 src/routes/\[.well-known\]/**
 
+
+# Platform-managed: rewritten outside repo control
+.lovable/
