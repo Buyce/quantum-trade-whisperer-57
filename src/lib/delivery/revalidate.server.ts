@@ -558,15 +558,23 @@ export async function revalidateDelivery(
   // that spread acceptability is measured against, so both gates are re-asked
   // here against the geometry that will actually be submitted. Neither check is
   // relaxed: whichever geometry fails, the delivery is refused.
-  if (!spreadAcceptable({ entry: execPlan.entryPrice, stopLoss: execPlan.stopLoss }, quote.bid, quote.ask)) {
+  if (
+    !spreadAcceptable(
+      { entry: execPlan.entryPrice, stopLoss: execPlan.stopLoss },
+      quote.bid,
+      quote.ask,
+    )
+  ) {
     return reject("spread_too_wide", "measured against the submitted broker-grid geometry");
   }
   if (
-    !withinMaxAcceptableEntry({ action, maxAcceptableEntry: execPlan.maxAcceptableEntry }, marketPrice)
+    !withinMaxAcceptableEntry(
+      { action, maxAcceptableEntry: execPlan.maxAcceptableEntry },
+      marketPrice,
+    )
   ) {
     return reject("price_beyond_max_acceptable_entry", String(marketPrice));
   }
-
 
   const sizingRequest = {
     instrument: signal.instrument,

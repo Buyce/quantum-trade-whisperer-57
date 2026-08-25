@@ -44,13 +44,21 @@ function fakeDb(args: { enforced: boolean | null; stages: StageRow[] | null }) {
 
 describe("last-moment lifecycle gate", () => {
   it("[INVARIANT] refuses execution for a Wave 1 symbol when the stage cannot be read", async () => {
-    const gate = await assertCapability(fakeDb({ enforced: true, stages: null }), "USDJPY", "execute");
+    const gate = await assertCapability(
+      fakeDb({ enforced: true, stages: null }),
+      "USDJPY",
+      "execute",
+    );
     expect(gate.allowed).toBe(false);
     expect(gate.reason).toContain("USDJPY");
   });
 
   it("[INVARIANT] an unreadable stage still lets the frozen Wave 0 universe trade", async () => {
-    const gate = await assertCapability(fakeDb({ enforced: null, stages: null }), "EURUSD", "execute");
+    const gate = await assertCapability(
+      fakeDb({ enforced: null, stages: null }),
+      "EURUSD",
+      "execute",
+    );
     expect(gate.allowed).toBe(true);
   });
 

@@ -192,7 +192,6 @@ export async function processNextDelivery(
   // Constructed and submitted by us, so there is no endpoint, no signature and
   // no outbound POST. The submission path settles the row itself.
   if (approved.destination === "metaapi_direct" && approved.direct) {
-
     const result = await submitDirectOrder(
       db,
       { id: delivery.id, dry_run: approved.dryRun },

@@ -414,7 +414,11 @@ export async function resolveShadowExecutions(db: SupabaseClient): Promise<Resol
      */
     const dataGate = await assertCapability(db, instrument, "collect_data");
     if (!dataGate.allowed) {
-      summary.instruments.push({ instrument, candles: 0, error: dataGate.reason ?? "not in service" });
+      summary.instruments.push({
+        instrument,
+        candles: 0,
+        error: dataGate.reason ?? "not in service",
+      });
       summary.candidateBacklogNoCandles += (candidateByInstrument.get(instrument) ?? []).length;
       continue;
     }
