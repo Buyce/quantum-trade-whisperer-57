@@ -378,7 +378,12 @@ export function v1ObservationRow(args: {
   latencyMs: number | null;
   signalId?: string | null;
   evaluation?: SetupEvaluation | null;
+  /** Provenance (Phase A1). All optional; omitted means "not recorded". */
+  suppressionReason?: string | null;
+  lifecycleStage?: string | null;
+  sessionVersion?: number | null;
 }): ObservationRow {
+
   const ev = args.evaluation ?? null;
   return {
     run_id: args.runId,
