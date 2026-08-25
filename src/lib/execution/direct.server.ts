@@ -347,7 +347,11 @@ export async function submitDirectOrder(
    * the MetaApi call. The `sent` evidence remains as the immutable attempt
    * boundary, but no broker request is made when this last read refuses.
    */
-  const finalGate = await assertCapability(db as unknown as SupabaseClient, plan.instrument, "execute");
+  const finalGate = await assertCapability(
+    db as unknown as SupabaseClient,
+    plan.instrument,
+    "execute",
+  );
   if (!finalGate.allowed) {
     const reason = `${INSTRUMENT_NOT_APPROVED}: ${
       finalGate.reason ?? `${plan.instrument} is not approved for execution`

@@ -10,11 +10,7 @@
  */
 import { describe, expect, it } from "vitest";
 
-import {
-  buildDetectionProvenance,
-  comparableProvenance,
-  provenanceColumns,
-} from "../provenance";
+import { buildDetectionProvenance, comparableProvenance, provenanceColumns } from "../provenance";
 import { LIVE_CANDLE_POLICY_VERSION, RESEARCH_CANDLE_POLICY_VERSION } from "../candle-policy";
 
 const bar = (timeframe: string, lastBarTime: string | null, bars = 200) => ({

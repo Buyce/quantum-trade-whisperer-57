@@ -21,12 +21,7 @@ import { fetchSymbols, fetchTypedSymbolSpecification } from "@/lib/metaapi/specs
 import { assetClassOf, instrumentDefinition } from "./registry";
 
 export type DiscoveryOutcome =
-  | "candidate"
-  | "ambiguous"
-  | "missing"
-  | "spec_unusable"
-  | "trade_mode_unusable"
-  | "error";
+  "candidate" | "ambiguous" | "missing" | "spec_unusable" | "trade_mode_unusable" | "error";
 
 export interface DiscoveryResult {
   canonical: string;
@@ -92,7 +87,12 @@ function num(value: unknown): number | null {
 export function evaluateSpec(
   canonical: string,
   spec: SpecView | null,
-): { ok: boolean; outcome: DiscoveryOutcome; reason: string | null; fields: Record<string, boolean> } {
+): {
+  ok: boolean;
+  outcome: DiscoveryOutcome;
+  reason: string | null;
+  fields: Record<string, boolean>;
+} {
   if (!spec) {
     return {
       ok: false,

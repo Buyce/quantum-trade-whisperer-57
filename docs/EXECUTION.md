@@ -44,8 +44,8 @@ Enqueue for an armed broker account happens in the publication path
 uses the same `evaluateEligibility` rules as alerts: the owner's instruments,
 sessions, `alert_min_grade` and daily cap, counted over the whole UTC-day frame.
 C-Grade is refused unless the owner has explicitly switched on
-`scanner_settings.auto_execute_c_grade` (default off, in *Rules, alerts &
-automatic orders*) **and** their alert tier already includes C; the opt-in bypasses
+`scanner_settings.auto_execute_c_grade` (default off, in _Rules, alerts &
+automatic orders_) **and** their alert tier already includes C; the opt-in bypasses
 nothing else, and C-Grade never consumes the daily setup cap. An owner with no
 settings row gets no order rather than a guessed default. Automatic orders therefore never reach an instrument,
 session or grade the owner did not select.

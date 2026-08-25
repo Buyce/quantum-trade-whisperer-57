@@ -13,12 +13,12 @@ Every registry entry now carries an `assetClass` and a `priceUnit`. Those two
 fields select the market calendar, the reporting unit, the sizing route and the
 strategy manifest.
 
-| Asset class | Instruments                        | Reporting unit |
-| ----------- | ---------------------------------- | -------------- |
-| `fx`        | EURUSD, GBPAUD + the Wave 1 pairs  | pips           |
-| `metal`     | XAUUSD, XAGUSD                     | price units    |
-| `energy`    | USOIL, UKOIL                       | price units    |
-| `index`     | NAS100                             | index points   |
+| Asset class | Instruments                       | Reporting unit |
+| ----------- | --------------------------------- | -------------- |
+| `fx`        | EURUSD, GBPAUD + the Wave 1 pairs | pips           |
+| `metal`     | XAUUSD, XAGUSD                    | price units    |
+| `energy`    | USOIL, UKOIL                      | price units    |
+| `index`     | NAS100                            | index points   |
 
 ## The pip rule is dead outside FX
 
@@ -65,12 +65,12 @@ result in `instrument_alias_discovery`:
 
 | Outcome               | Meaning                                                        |
 | --------------------- | -------------------------------------------------------------- |
-| `candidate`           | exactly one instrument, with a complete usable specification    |
-| `ambiguous`           | two or more distinct tickers matched; an operator must choose   |
-| `missing`             | the broker exposes nothing matching                             |
-| `spec_unusable`       | partial geometry, or a settlement currency we did not plan for   |
-| `trade_mode_unusable` | broker reports the symbol close-only or disabled                |
-| `error`               | the provider call failed                                        |
+| `candidate`           | exactly one instrument, with a complete usable specification   |
+| `ambiguous`           | two or more distinct tickers matched; an operator must choose  |
+| `missing`             | the broker exposes nothing matching                            |
+| `spec_unusable`       | partial geometry, or a settlement currency we did not plan for |
+| `trade_mode_unusable` | broker reports the symbol close-only or disabled               |
+| `error`               | the provider call failed                                       |
 
 Discovery never writes a mapping. A candidate is evidence for an operator
 decision, not an activation.
@@ -105,12 +105,12 @@ wired to nothing until an instrument legitimately reaches `shadow`.
 
 ## Disposition
 
-| Instrument | Stage      | Blocker                                                                     |
-| ---------- | ---------- | --------------------------------------------------------------------------- |
-| XAGUSD     | `disabled` | no broker mapping or specification; no measured spread floor                 |
+| Instrument | Stage      | Blocker                                                                           |
+| ---------- | ---------- | --------------------------------------------------------------------------------- |
+| XAGUSD     | `disabled` | no broker mapping or specification; no measured spread floor                      |
 | USOIL      | `disabled` | as above, plus an unsourced venue-local calendar and invalid strategy assumptions |
-| UKOIL      | `disabled` | as above                                                                     |
-| NAS100     | `disabled` | as above                                                                     |
+| UKOIL      | `disabled` | as above                                                                          |
+| NAS100     | `disabled` | as above                                                                          |
 
 Wave 1 has not yet passed its own evidence checkpoint, so no Wave 2 promotion is
 even eligible for consideration. The first `disabled → data_validation` decision

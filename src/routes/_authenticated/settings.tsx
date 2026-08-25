@@ -1057,9 +1057,7 @@ function SettingsPage() {
                   {scanReport.claimedByWorker > 0
                     ? ` · ${scanReport.claimedByWorker} completed by the background worker`
                     : ""}
-                  {scanReport.stillPending > 0
-                    ? ` · ${scanReport.stillPending} still queued`
-                    : ""}
+                  {scanReport.stillPending > 0 ? ` · ${scanReport.stillPending} still queued` : ""}
                 </p>
                 {scanReport.reconcileError ? (
                   <p className="text-warning">

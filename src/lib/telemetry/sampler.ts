@@ -47,12 +47,7 @@ export const SAMPLE_FUTURE_SKEW_MS = 30_000;
 export const ATR_SNAPSHOT_MAX_AGE_MS = 90 * 60_000;
 
 export type SampleQuality =
-  | "valid"
-  | "stale"
-  | "future_dated"
-  | "closed_market"
-  | "malformed"
-  | "inverted";
+  "valid" | "stale" | "future_dated" | "closed_market" | "malformed" | "inverted";
 
 export type MarketState = "open" | "closed" | "unknown";
 
@@ -158,7 +153,8 @@ export function spreadMetrics(input: SpreadMetricsInput): SpreadMetrics {
   const spreadPoints = point ? round(spreadPrice / point) : null;
   // One pip is ten points on a 3- or 5-digit FX quote. Without broker digits the
   // pip is undefined, and an undefined unit is reported as such.
-  const pipless = input.assetClass !== undefined && input.assetClass !== null && input.assetClass !== "fx";
+  const pipless =
+    input.assetClass !== undefined && input.assetClass !== null && input.assetClass !== "fx";
   const pipSize = pipless
     ? null
     : point && (input.digits === 3 || input.digits === 5)
@@ -167,8 +163,7 @@ export function spreadMetrics(input: SpreadMetricsInput): SpreadMetrics {
         ? point
         : null;
   const spreadPips = pipSize ? round(spreadPrice / pipSize) : null;
-  const spreadAtrFraction =
-    input.atr && input.atr > 0 ? round(spreadPrice / input.atr, 5) : null;
+  const spreadAtrFraction = input.atr && input.atr > 0 ? round(spreadPrice / input.atr, 5) : null;
 
   return { mid, spreadPrice, spreadPoints, spreadPips, spreadAtrFraction };
 }

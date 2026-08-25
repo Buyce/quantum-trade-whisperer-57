@@ -14,20 +14,20 @@ authenticated by the shared cron secret. Schedules are held in the database
 scheduler, not in the repository, so the table below names each job's purpose and
 cadence rather than asserting a crontab line.
 
-| Endpoint                | Cadence          | Work                                                 |
-| ----------------------- | ---------------- | ---------------------------------------------------- |
-| `cron/scan`             | every 15 minutes | enqueue scan jobs; sweep stale signals               |
-| `worker/dispatch`       | frequent         | hand queued jobs to workers                          |
-| `worker/process`        | frequent         | one instrument x timeframe per invocation            |
-| `worker/shadow`         | frequent         | shadow replay work                                   |
-| `cron/shadow-resolve`   | periodic         | resolve shadow executions from stored candles        |
-| `cron/refresh-specs`    | daily, 02:40 UTC | refresh broker symbol specs on a separate 24h budget |
-| `cron/verify-reminders` | daily            | remind users to backfill actual prices               |
-| `cron/weekly-report`    | weekly           | weekly shadow/performance report email               |
-| `cron/purge-accounts`   | daily            | hard-delete accounts past their restore window       |
-| `cron/sample-spreads`   | every 15 minutes | one broker quote per authorised instrument, classified and stored |
-| `cron/telemetry-rollup` | hourly           | spread aggregation, telemetry retention, resolver health |
-| `cron/instrument-readiness` | daily, 03:10 UTC | readiness snapshot with live conversion proof     |
+| Endpoint                    | Cadence          | Work                                                              |
+| --------------------------- | ---------------- | ----------------------------------------------------------------- |
+| `cron/scan`                 | every 15 minutes | enqueue scan jobs; sweep stale signals                            |
+| `worker/dispatch`           | frequent         | hand queued jobs to workers                                       |
+| `worker/process`            | frequent         | one instrument x timeframe per invocation                         |
+| `worker/shadow`             | frequent         | shadow replay work                                                |
+| `cron/shadow-resolve`       | periodic         | resolve shadow executions from stored candles                     |
+| `cron/refresh-specs`        | daily, 02:40 UTC | refresh broker symbol specs on a separate 24h budget              |
+| `cron/verify-reminders`     | daily            | remind users to backfill actual prices                            |
+| `cron/weekly-report`        | weekly           | weekly shadow/performance report email                            |
+| `cron/purge-accounts`       | daily            | hard-delete accounts past their restore window                    |
+| `cron/sample-spreads`       | every 15 minutes | one broker quote per authorised instrument, classified and stored |
+| `cron/telemetry-rollup`     | hourly           | spread aggregation, telemetry retention, resolver health          |
+| `cron/instrument-readiness` | daily, 03:10 UTC | readiness snapshot with live conversion proof                     |
 
 ### Operational telemetry (Wave 0 only)
 

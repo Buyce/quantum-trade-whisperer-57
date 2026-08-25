@@ -37,9 +37,7 @@ export type CommissioningBlocker =
 
 /** Notes recorded with the decision but not blocking a DATA-only stage. */
 export type CommissioningNote =
-  | "calendar_unverified"
-  | "conversion_not_verified"
-  | "spread_floor_unknown";
+  "calendar_unverified" | "conversion_not_verified" | "spread_floor_unknown";
 
 export interface CommissioningInput {
   symbol: string;

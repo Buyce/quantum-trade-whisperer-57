@@ -149,7 +149,10 @@ async function breakerOpen(db: SupabaseClient, symbol: string, now: Date): Promi
  * Run one sampling slot. Returns a description of what happened; it never throws
  * for an ordinary provider or stage refusal, because a refusal IS the result.
  */
-export async function runSpreadSampler(db: SupabaseClient, now = new Date()): Promise<SamplerOutcome> {
+export async function runSpreadSampler(
+  db: SupabaseClient,
+  now = new Date(),
+): Promise<SamplerOutcome> {
   const startedAt = Date.now();
   const controls = await readTelemetryControls(db);
   if (controls.degraded) return { ran: false, reason: "controls_unreadable" };

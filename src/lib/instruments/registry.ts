@@ -79,7 +79,6 @@ export interface InstrumentDefinition {
 }
 
 export const INSTRUMENT_DEFINITIONS: readonly InstrumentDefinition[] = [
-
   {
     symbol: "XAUUSD",
     label: "Gold",
@@ -265,7 +264,6 @@ export const INSTRUMENT_DEFINITIONS: readonly InstrumentDefinition[] = [
   },
 ] as const;
 
-
 const BY_SYMBOL = new Map(INSTRUMENT_DEFINITIONS.map((d) => [d.symbol, d]));
 
 export function instrumentDefinition(symbol: string): InstrumentDefinition | undefined {
@@ -342,7 +340,6 @@ export function contractSpecs(): Record<
   }
   return out;
 }
-
 
 /** Only symbols with an explicit, validated floor appear here. */
 export function spreadFloors(): Record<string, number> {

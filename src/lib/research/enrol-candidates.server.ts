@@ -301,7 +301,11 @@ export async function enrolPendingCandidates(
       const result = await enrolCandidateAtomically(db, c.id);
       if ("error" in result) {
         summary.failed += 1;
-        await noteResearchFailure(db, `candidate enrolment rpc failed: ${result.error}`, deadlineMs);
+        await noteResearchFailure(
+          db,
+          `candidate enrolment rpc failed: ${result.error}`,
+          deadlineMs,
+        );
         continue;
       }
       if (result.inserted === true) {
