@@ -47,6 +47,14 @@ vi.mock("@/lib/metaapi/trade.server", () => ({
   submitPendingOrder: (...args: unknown[]) => submitPendingOrder(...args),
 }));
 
+vi.mock("@/lib/instruments/lifecycle.server", () => ({
+  assertCapability: vi.fn(async () => ({
+    allowed: true,
+    stage: "execution_approved",
+    reason: null,
+  })),
+}));
+
 vi.mock("@/integrations/supabase/client.server", () => ({
   supabaseAdmin: {
     from() {
