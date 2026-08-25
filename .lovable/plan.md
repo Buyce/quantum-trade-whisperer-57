@@ -95,26 +95,27 @@ Also replace LINK-AUDIT's "all 18 documents" with "every document listed in the 
 ## 7. Acceptance criteria
 
 1. Clicking "Create an account" opens the registration tab, with a signup-specific title, working Google sign-in, and safe `next` preserved across refresh and confirmation return.
-2. No user-facing or assistant-facing setting is presented as a filter unless it appears in `EligibilitySettings`; a test enforces this.
-3. Homepage execution wording states notification-only alerts *and* separately gated, armed, dry-run-first optional execution, with no default-on or guarantee implication.
+2. No user-facing or assistant-facing setting is presented as a filter unless it appears in `EligibilitySettings`; a test enforces this, and a `timeframes` patch returns an explicit deprecation warning rather than being silently accepted or silently dropped.
+3. Homepage execution wording is true independently of any runtime gate state: notification-only alerts, execution as a separately gated, explicitly armed, dry-run-first system that refuses on missing broker facts — with no "off by default" claim, no guarantee, and no implication that every account qualifies for every mode.
 4. The Guide explains MetaStats, availability flags, all telemetry states, Risk Guardian's monitoring scope, drawdown breaches, missing figures, deduplication and the "no breach ≠ no risk" limit.
-5. Dated verification evidence lives in an audit directory, is titled as a snapshot, retains `NOT RUN`, and no canonical doc implies broker execution has been smoke-tested.
-6. `/sitemap.xml` contains only indexable public routes; `/auth` absent, `/connect` present with canonical; no `summary_large_image` without an image; landing has one `<main>`.
-7. `.gitignore` blocks future `.env*`; `.env.example` documents key names; no secret value appears in code, tests, docs or messages.
-8. No documentation states a numeric document, test or tool count that development will drift.
+5. Dated verification evidence lives under `docs/audits/`, is titled as a dated snapshot, retains `NOT RUN` verbatim, is excluded from the feature-reference contract, and every inbound reference resolves under recursive link validation.
+6. `/sitemap.xml` lists only public indexable routes (`/` and `/connect`); `/auth` is absent from the sitemap and still reachable in `robots.txt`; `/connect` has a self-referencing canonical; no `summary_large_image` is declared without an image; the landing page has exactly one `<main>`.
+7. `.gitignore` blocks every future `.env*`; `.env.example` documents key names only; the tracked-`.env` question is closed with a recorded decision; no secret value appears anywhere.
+8. Every numeric claim in copy or documentation is either removed or pinned by a test; no page imports the server MCP registry.
 9. `bun run verify` and GitHub Actions are green on the final commit.
 
 ## 8. Risks and open decisions
 
 | Decision | Recommendation |
 |---|---|
-| Timeframes: remove vs implement | **Remove from UI/MCP, keep the column.** A per-timeframe filter would misdescribe a confluence signal. |
-| Execution prominence on the homepage | **One qualified strip item plus a short broker-accounts block** — visible, never marketed as live trading. |
+| Timeframes: remove vs implement | **Deprecate per W2** — remove from UI/MCP with an explicit rejection warning, retain the dormant column. A per-timeframe filter would misdescribe a confluence signal. |
+| Execution prominence on the homepage | **One architecture-level strip item plus a short broker-accounts block** — visible, gate-state-independent, never marketed as live trading. |
 | Agent-led password registration | **Keep the endpoint, remove it from general guidance**; prefer self-service `/auth`. A one-time signup token is the better long-term design — separate workstream. |
-| Dated verification in canonical docs | **Move to `docs/audits/`** and replace with a repeatable procedure. |
+| Dated verification in canonical docs | **Move to `docs/audits/` verbatim**, with recursive link validation and contract exclusion. |
 | MetaStats / Risk Guardian on the homepage | **Guide + PRODUCT.md primary**; one homepage sentence only. |
-| `/connect` indexed? | **Yes, index it** with a canonical — it is a legitimate acquisition page. |
-| Untracking `.env` | **Defer** pending confirmation the platform build does not consume it. |
+| `/connect` indexed? | **Yes, index it** with a self-referencing canonical — it is a legitimate acquisition page. |
+| Tracked `.env` | **Verify then act (W9):** confirm production env injection, then untrack; only keep it tracked if the platform build provably needs it. |
+| Homepage MCP tool count | **Keep "Twelve", pin it with a contract test** — the test imports the registry, the page never does. |
 
 ## 9. Readiness verdict
 
