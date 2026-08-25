@@ -85,7 +85,7 @@ export interface DirectEnqueueOutcome {
  * accept this signal. Safe to call twice: the `(user_id, signal_id,
  * bridge_profile)` conflict key makes the insert idempotent.
  */
-export async function enqueueDirectDeliveries(
+async function runDirectEnqueue(
   db: SupabaseClient,
   signal: DirectEnqueueSignal,
   nowMs: number = Date.now(),
