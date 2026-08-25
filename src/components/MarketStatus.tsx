@@ -34,7 +34,13 @@ export function feedChipLabel(available: boolean, capability: InstrumentCapabili
  * boundaries the scanner uses) and instrument state is read from the
  * instrument_health rows the scanner already writes.
  */
-export function MarketStatus({ health }: { health?: MarketStatusHealth[] }) {
+export function MarketStatus({
+  health,
+  stages,
+}: {
+  health?: MarketStatusHealth[];
+  stages?: InstrumentStageRow[];
+}) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 30_000);
