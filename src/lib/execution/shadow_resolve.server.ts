@@ -74,6 +74,11 @@ interface ShadowRow {
   replay_version: number;
 }
 
+export interface ReplayFetchRow {
+  detected_at: string;
+  replay_cursor: string | null;
+}
+
 export interface ResolveSummary {
   scanned: number;
   advanced: number;
@@ -94,7 +99,7 @@ export interface ResolveSummary {
   candidateBacklogNoCandles: number;
 }
 
-export function replayCandleDepthForRows(rows: Pick<ShadowRow, "detected_at" | "replay_cursor">[], nowMs = Date.now()): number {
+export function replayCandleDepthForRows(rows: ReplayFetchRow[], nowMs = Date.now()): number {
   if (rows.length === 0) return 0;
   const verticalBars = Math.ceil((SIGNAL_MAX_AGE_HOURS * 60) / 15);
   const tifBars = Math.ceil(ORDER_TIF_MINUTES / 15);
