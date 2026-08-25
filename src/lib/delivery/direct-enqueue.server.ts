@@ -99,11 +99,15 @@ export async function occupiedOrderCounts(
 ): Promise<{ counts: Map<string, number>; readable: boolean }> {
   const counts = new Map<string, number>();
   if (userIds.length === 0) return { counts, readable: true };
+  // A dry-run row never reaches a broker and can hold no order, so it must not
+  // spend the owner's ceiling. Without this, an outbound webhook delivery that
+  // was only validated and signed could silently block a real demo order.
   const { data, error } = await db
     .from("execution_deliveries")
-    .select("user_id, state, enqueued_at")
+    .select("user_id, state, enqueued_at, dry_run")
     .in("user_id", userIds)
     .in("state", OCCUPYING_STATES as unknown as string[])
+    .neq("dry_run", true)
     .gte("enqueued_at", dayStartIso(nowMs));
   if (error) {
     console.error("occupied order counts unreadable", error.message);
