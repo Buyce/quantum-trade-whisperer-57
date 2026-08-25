@@ -584,19 +584,29 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
     /**
      * Lifecycle publication gate.
      *
-     * An instrument below `signals_only` is measured, never shown: the research
-     * observation for this job is already captured by `finish` (`observed` is
-     * true by this point), so a suppressed pair still accumulates the outcomes
-     * its promotion decision will be based on. The status is `skipped`, NOT
-     * `no_trade` — a structure WAS found, and mislabelling it would corrupt both
-     * the cron summary and the no-trade rate.
+     * An instrument at `shadow` is measured, never shown: the research observation
+     * for this job is captured by `finish`, so a suppressed pair still accumulates
+     * the outcomes its promotion decision will be based on.
+     *
+     * The stage is RE-READ here rather than reused from the top of the job. A scan
+     * job spans several provider round trips, and a suspension issued in that
+     * window must take effect at the publication boundary, not at the next job.
      */
-    if (lifecycleEnforced && !mayPublish(instrumentStage)) {
+    const publishStage = stageOf(job.instrument, (await readLifecycleView(db)).stages);
+    if (lifecycleEnforced && !mayPublish(publishStage)) {
+      // `suppressed_lifecycle`, never `no_trade`: a structure WAS found, and
+      // labelling it as a rejection would corrupt the no-trade rate and every
+      // filter-lift denominator derived from it.
+      v1Suppression = {
+        disposition: "suppressed_lifecycle",
+        reason: `lifecycle_stage:${publishStage}`,
+      };
       return await finish(
         "skipped",
-        `${job.instrument} is at lifecycle stage "${instrumentStage}" (${describeStage(instrumentStage)}) — measured, not published`,
+        `${job.instrument} is at lifecycle stage "${publishStage}" (${describeStage(publishStage)}) — measured, not published`,
       );
     }
+
 
     /**
      * A published setup's stop must sit outside real execution cost. Wave 0 has
