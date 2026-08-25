@@ -39,14 +39,14 @@ describe("user-visible instrument capability", () => {
     expect(publishableInstruments([])).toEqual(ALL_INSTRUMENTS);
   });
 
-  it("a promoted signals_only pair becomes selectable without a code change", () => {
+  it("[UNIT] a promoted signals_only pair becomes selectable without a code change", () => {
     const promoted = DEPLOYED.map((r) =>
       r.symbol === "GBPUSD" ? { symbol: "GBPUSD", stage: "signals_only" } : r,
     );
     expect(publishableInstruments(promoted)).toContain("GBPUSD");
   });
 
-  it("capability distinguishes measuring from publishable and out of service", () => {
+  it("[UNIT] capability distinguishes measuring from publishable and out of service", () => {
     expect(instrumentCapability("EURUSD", DEPLOYED)).toBe("publishable");
     expect(instrumentCapability("USDJPY", DEPLOYED)).toBe("measuring");
     expect(instrumentCapability("NAS100", DEPLOYED)).toBe("unavailable");
