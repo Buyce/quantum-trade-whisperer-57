@@ -61,10 +61,10 @@ async function atomicModelShadowEnrolment(
     stopLoss: number;
     tp1: number;
     tp2: number;
-    tp3: number;
+    tp3: number | null;
     tp1R: number;
     tp2R: number;
-    tp3R: number;
+    tp3R: number | null;
     maxR: number;
     atr: number;
     session: string | null;

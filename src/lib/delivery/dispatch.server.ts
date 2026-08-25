@@ -196,6 +196,7 @@ export async function processNextDelivery(
       db,
       { id: delivery.id, dry_run: approved.dryRun },
       {
+        instrument: approved.plan.instrument,
         signalId: approved.plan.signalId,
         direction: approved.plan.direction,
         entryPrice: approved.plan.entryPrice,
