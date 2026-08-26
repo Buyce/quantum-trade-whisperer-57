@@ -56,7 +56,11 @@ export function isSameOrderPlan(
   if (candidate.entry === null || existing.entry === null) return false;
   if (!Number.isFinite(candidate.entry) || !Number.isFinite(existing.entry)) return false;
   const tolerance = tickSize !== null && Number.isFinite(tickSize) && tickSize > 0 ? tickSize : 0;
-  return Math.abs(candidate.entry - existing.entry) <= tolerance;
+  // Binary floating point makes an exact one-tick difference land a hair above
+  // the tick, so the comparison allows a tiny relative slack. It is far below a
+  // tick and cannot merge two genuinely different prices.
+  const slack = Math.max(Math.abs(candidate.entry), Math.abs(existing.entry)) * 1e-9;
+  return Math.abs(candidate.entry - existing.entry) <= tolerance + slack;
 }
 
 /**
