@@ -172,6 +172,7 @@ export function ExecutionSwitchPanel() {
   return (
     <PanelShell
       title="Execution switches"
+      defaultOpen
       right={
         <span className="text-[11px] text-muted-foreground">
           {data.executionPolicy} ·{" "}

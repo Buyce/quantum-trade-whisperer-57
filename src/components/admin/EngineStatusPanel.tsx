@@ -78,6 +78,7 @@ export function EngineStatusPanel() {
   return (
     <PanelShell
       title="Engine status"
+      defaultOpen
       right={
         <span className="text-[10px] text-muted-foreground">
           two independent engines · the replay breaker never pauses live scanning
