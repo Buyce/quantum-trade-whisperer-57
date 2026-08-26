@@ -176,6 +176,7 @@ describe("destination-account preflight", () => {
     const f = db();
     fetchAccountFacts.mockResolvedValue({
       observedAt: new Date(NOW).toISOString(),
+      type: "demo",
       info: {
         tradeAllowed: true,
         investorMode: false,
@@ -220,6 +221,7 @@ describe("destination-account preflight", () => {
     const f = db();
     fetchAccountFacts.mockResolvedValue({
       observedAt: new Date(NOW).toISOString(),
+      type: "demo",
       info: {
         tradeAllowed: true,
         investorMode: false,
