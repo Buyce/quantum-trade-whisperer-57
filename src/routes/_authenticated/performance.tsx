@@ -528,10 +528,16 @@ function AutomaticOrderSummaryPanel({
         <SummaryCell label="Delivery rows" value={summary?.deliveryRows ?? 0} />
         <SummaryCell label="Blocked before broker" value={summary?.blockedBeforeBroker ?? 0} />
         <SummaryCell label="Submitted to broker" value={summary?.submittedToBroker ?? 0} />
+        <SummaryCell label="Resting at broker" value={summary?.restingAtBroker ?? 0} />
         <SummaryCell label="Broker open" value={summary?.brokerOpen ?? 0} />
         <SummaryCell label="Broker closed" value={summary?.brokerClosed ?? 0} />
         <SummaryCell label="Dry runs" value={summary?.dryRuns ?? 0} />
       </div>
+      <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+        Resting at broker means the broker accepted a pending order and price has not reached its
+        entry yet, so it is not a trade and carries no result.
+      </p>
+
       <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
         <span>
           Closed broker R: {rStats?.wins ?? 0} win, {rStats?.losses ?? 0} loss,{" "}
