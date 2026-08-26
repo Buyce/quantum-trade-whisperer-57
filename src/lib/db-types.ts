@@ -237,8 +237,15 @@ export const AUTO_ORDER_WINDOW_DEFAULT_MINUTES = 180;
 export const AUTO_ORDER_WINDOW_MAX_MINUTES = 360;
 export const AUTO_ORDER_WINDOW_MIN_MINUTES = 0;
 
-/** Clamps any stored or supplied window into the supported range. */
+/**
+ * Clamps any stored or supplied window into the supported range. An absent value
+ * means "not configured" and yields the default — never 0, which would silently
+ * switch automatic orders off.
+ */
 export function clampAutoOrderWindowMinutes(value: unknown): number {
+  if (value === null || value === undefined || value === "") {
+    return AUTO_ORDER_WINDOW_DEFAULT_MINUTES;
+  }
   const n = Number(value);
   if (!Number.isFinite(n)) return AUTO_ORDER_WINDOW_DEFAULT_MINUTES;
   return Math.min(
