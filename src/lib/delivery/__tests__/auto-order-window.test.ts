@@ -17,7 +17,7 @@ import {
   executionWindowExpired,
   enqueueDirectDeliveries,
 } from "@/lib/delivery/direct-enqueue.server";
-import { createFakeSupabase, type FakeCall } from "@/test/helpers/fake-supabase";
+import { createFakeSupabase, type FakeCall } from "@/test/fakes/supabase";
 
 describe("automatic-order window bounds", () => {
   it("[UNIT] defaults to 3 hours and never exceeds 6 hours", () => {
