@@ -227,6 +227,8 @@ export async function processNextDelivery(
           Date.now(),
         );
       },
+      // The owner's automatic-order window, carried on the approved order.
+      approved.order.expiresInMinutes,
     );
     return {
       deliveryId: delivery.id,
