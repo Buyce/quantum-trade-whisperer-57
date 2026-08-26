@@ -18,10 +18,13 @@ import type {
 } from "@/lib/admin.functions";
 import type { WeeklyReport } from "@/lib/reports/weekly";
 import type { UserAuditReport } from "@/lib/user-audit.functions";
+import { ChevronRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
+import { usePanelOpen } from "./panel-state";
+
 
 const MIN_DISCIPLINE_SAMPLES = 20;
 
