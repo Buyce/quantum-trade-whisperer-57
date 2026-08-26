@@ -124,6 +124,44 @@ async function settle(db: Db, id: number, patch: Record<string, unknown>): Promi
 }
 
 /**
+ * How close to the end of the owner's automatic-order window counts as the tail.
+ *
+ * Dispatch runs once a minute, so two minutes guarantees at least one pass lands
+ * inside the tail. The tail changes NOTHING about the decision — it only marks
+ * this attempt as the recorded last look.
+ */
+export const FINAL_LOOK_TAIL_MS = 120_000;
+
+/**
+ * When this delivery's owner window closes, in epoch ms, or null when it cannot
+ * be determined. A null deadline keeps the previous behaviour exactly: retries
+ * are bounded by the attempt counter and the age gate inside revalidation.
+ */
+export async function readDeliveryDeadline(
+  db: Db,
+  delivery: Pick<DeliveryRow, "signal_id" | "user_id">,
+): Promise<number | null> {
+  const [{ data: signalRow }, { data: settingsRow }] = await Promise.all([
+    db.from("scanned_signals").select("detected_at").eq("id", delivery.signal_id).maybeSingle(),
+    db
+      .from("scanner_settings")
+      .select("auto_order_window_minutes")
+      .eq("user_id", delivery.user_id)
+      .maybeSingle(),
+  ]);
+  const detectedAt = (signalRow as { detected_at?: string | null } | null)?.detected_at ?? null;
+  if (!detectedAt) return null;
+  const detected = Date.parse(detectedAt);
+  if (!Number.isFinite(detected)) return null;
+  const minutes = clampAutoOrderWindowMinutes(
+    (settingsRow as { auto_order_window_minutes?: number | null } | null)
+      ?.auto_order_window_minutes,
+  );
+  return detected + minutes * 60_000;
+}
+
+
+/**
  * Processes at most one delivery. Returns null when the queue is empty. Never
  * throws: an execution failure must not interrupt the scanner or statistics.
  */
