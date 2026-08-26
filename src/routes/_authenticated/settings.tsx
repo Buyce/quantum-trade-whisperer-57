@@ -624,6 +624,40 @@ function SettingsPage() {
                 cap, risk per trade, lot ceiling and exposure limit all still apply on top of this.
               </p>
             </div>
+
+            <div className="border-t border-border pt-4">
+              <Label className="text-xs" htmlFor="auto-order-window">
+                Automatic-order window (minutes after detection)
+              </Label>
+              <Input
+                id="auto-order-window"
+                type="number"
+                min={0}
+                max={AUTO_ORDER_WINDOW_MAX_MINUTES}
+                step={15}
+                value={autoWindowMinutes}
+                onChange={(e) =>
+                  setAutoWindowMinutes(
+                    Math.max(
+                      0,
+                      Math.min(AUTO_ORDER_WINDOW_MAX_MINUTES, Math.round(Number(e.target.value) || 0)),
+                    ),
+                  )
+                }
+                className="mt-1 max-w-[8rem]"
+              />
+              <p className="mt-2 text-xs text-muted-foreground">
+                How long after a setup was detected it may still become an automatic order —
+                between 0 and {AUTO_ORDER_WINDOW_MAX_MINUTES} minutes (6 hours), default{" "}
+                {AUTO_ORDER_WINDOW_DEFAULT_MINUTES} minutes (3 hours). 0 stops automatic orders on
+                age grounds entirely. A setup older than your window is refused before anything is
+                sent to a broker, and any pending order placed inside the window expires at the end
+                of it. This does not widen any other rule: tier, instruments, sessions, risk, lot
+                ceiling, exposure limit, the intelligence gate and the pre-send broker re-check all
+                still decide independently. It also does not change the {ORDER_TIF_MINUTES}-minute
+                structural time-in-force used for research and replay mathematics.
+              </p>
+            </div>
           </section>
 
           <SaveBar saving={saving} loadFailed={settings.isError} onSave={() => void onSave()} />
