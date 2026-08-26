@@ -172,8 +172,6 @@ export async function readDeliveryDeadline(
   }
 }
 
-
-
 /**
  * Processes at most one delivery. Returns null when the queue is empty. Never
  * throws: an execution failure must not interrupt the scanner or statistics.
@@ -261,7 +259,6 @@ export async function processNextDelivery(
     });
     return { deliveryId: delivery.id, state: "rejected", reason, dryRun: delivery.dry_run };
   }
-
 
   /**
    * The LAST lifecycle read, taken here rather than only in revalidation

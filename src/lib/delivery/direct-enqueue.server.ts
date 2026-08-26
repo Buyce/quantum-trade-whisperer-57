@@ -31,11 +31,7 @@ import {
   clampPerSymbolOrderCeiling,
   type Grade,
 } from "@/lib/db-types";
-import {
-  assessFreshness,
-  describeCeilings,
-  effectiveCeilings,
-} from "./adaptive-ceilings";
+import { assessFreshness, describeCeilings, effectiveCeilings } from "./adaptive-ceilings";
 import type { RegimeStatRow } from "@/lib/learning/regime";
 import { fetchDayFrame, type FrameClient } from "./day-frame";
 import {
@@ -213,7 +209,6 @@ export async function occupiedOrderCounts(
   }
   return { counts, daily, perSymbol, readable: true };
 }
-
 
 export interface DirectEnqueueOutcome {
   /** Accounts a delivery row was written for. */
@@ -395,7 +390,6 @@ async function runDirectEnqueue(
   const occupied = new Map(occupancy.counts);
   const createdToday = new Map(occupancy.daily);
   const createdTodayPerSymbol = new Map(occupancy.perSymbol);
-
 
   for (const account of armed) {
     const row = settingsByUser.get(account.user_id);
@@ -597,7 +591,6 @@ async function runDirectEnqueue(
     occupied.set(account.user_id, used + 1);
     createdToday.set(account.user_id, usedToday + 1);
     createdTodayPerSymbol.set(symbolKey, usedTodayThisSymbol + 1);
-
 
     rows.push({
       user_id: account.user_id,
