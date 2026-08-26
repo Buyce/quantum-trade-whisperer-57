@@ -243,8 +243,10 @@ export function brokerOrderStatus(
     case "acknowledged":
       return {
         kind: "accepted",
-        label: "Accepted by broker",
-        detail: detail ?? "The broker accepted the order. No closed deal has been matched yet.",
+        label: "Resting at broker — not filled",
+        detail:
+          detail ??
+          "The broker accepted this pending order and price has not reached its entry, so no position exists yet.",
       };
     case "rejected":
       return { kind: "rejected", label: "Rejected by broker", detail };
@@ -253,10 +255,10 @@ export function brokerOrderStatus(
     case "expired":
       return {
         kind: "not_sent",
-        label: "Cleared — not filled within an hour",
+        label: "Cleared — not filled in your order window",
         detail:
           detail ??
-          "Your broker did not turn this order into a position within an hour, so it was cleared and its slot freed. No trade resulted from it.",
+          "Your broker did not turn this order into a position within your automatic-order window, so it was cleared and its slot freed. No trade resulted from it.",
       };
 
     default:
