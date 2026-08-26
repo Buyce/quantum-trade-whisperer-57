@@ -142,24 +142,36 @@ export async function readDeliveryDeadline(
   db: Db,
   delivery: Pick<DeliveryRow, "signal_id" | "user_id">,
 ): Promise<number | null> {
-  const [{ data: signalRow }, { data: settingsRow }] = await Promise.all([
-    db.from("scanned_signals").select("detected_at").eq("id", delivery.signal_id).maybeSingle(),
-    db
-      .from("scanner_settings")
-      .select("auto_order_window_minutes")
-      .eq("user_id", delivery.user_id)
-      .maybeSingle(),
-  ]);
-  const detectedAt = (signalRow as { detected_at?: string | null } | null)?.detected_at ?? null;
-  if (!detectedAt) return null;
-  const detected = Date.parse(detectedAt);
-  if (!Number.isFinite(detected)) return null;
-  const minutes = clampAutoOrderWindowMinutes(
-    (settingsRow as { auto_order_window_minutes?: number | null } | null)
-      ?.auto_order_window_minutes,
-  );
-  return detected + minutes * 60_000;
+  // An unreadable deadline is not an error: it simply means the tail cannot be
+  // identified on this pass, and the existing attempt bound plus the age gate
+  // inside revalidation continue to govern the row exactly as before.
+  try {
+    const [{ data: signalRow }, { data: settingsRow }] = await Promise.all([
+      db.from("scanned_signals").select("detected_at").eq("id", delivery.signal_id).maybeSingle(),
+      db
+        .from("scanner_settings")
+        .select("auto_order_window_minutes")
+        .eq("user_id", delivery.user_id)
+        .maybeSingle(),
+    ]);
+    const detectedAt = (signalRow as { detected_at?: string | null } | null)?.detected_at ?? null;
+    if (!detectedAt) return null;
+    const detected = Date.parse(detectedAt);
+    if (!Number.isFinite(detected)) return null;
+    const minutes = clampAutoOrderWindowMinutes(
+      (settingsRow as { auto_order_window_minutes?: number | null } | null)
+        ?.auto_order_window_minutes,
+    );
+    return detected + minutes * 60_000;
+  } catch (err) {
+    console.error("[dispatch] deadline read failed", {
+      id: delivery.signal_id,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return null;
+  }
 }
+
 
 
 /**
