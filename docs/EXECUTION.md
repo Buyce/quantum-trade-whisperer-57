@@ -130,7 +130,6 @@ observation, and the last known destination quote time when one is available.
 - `healthy` — equity observed within half of `BROKER_EQUITY_MAX_AGE_MS` (and any known
   quote within `REVALIDATION_QUOTE_MAX_AGE_MS`): the ceiling is raised toward
   `adaptive_order_ceiling_max`, never above it and never above the hard bound of 100.
-
 - `degraded` / `unknown` — an old reading, or no readable reading at all: the ceiling
   is reduced toward `adaptive_order_ceiling_floor`, never above the fixed base.
   Absence of evidence is never room to trade more.
