@@ -188,7 +188,7 @@ export function buildDirectOrder(
     openPrice,
     stopLoss,
     takeProfit,
-    expirationTime: orderExpiry(plan.detectedAt),
+    expirationTime: orderExpiry(plan.detectedAt, ctx.windowMinutes ?? ORDER_TIF_MINUTES),
     clientId: buildClientId({
       strategyId: PTRADES_STRATEGY_ID,
       positionRef: plan.signalId,
