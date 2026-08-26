@@ -13,6 +13,7 @@
  * a bridge double-fires. Those rows are resolved by a human or a dry-run replay.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { clampAutoOrderWindowMinutes } from "@/lib/db-types";
 import { submitDirectOrder } from "@/lib/execution/direct.server";
 import { INSTRUMENT_NOT_APPROVED } from "@/lib/instruments/lifecycle";
 import { assertCapability } from "@/lib/instruments/lifecycle.server";
