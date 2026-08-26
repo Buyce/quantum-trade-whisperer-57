@@ -207,6 +207,13 @@ export interface ScannerSettingsRow {
    * cap, risk per trade, lot ceiling, exposure limit and pre-send revalidation.
    */
   maximum_active_signal_orders: number;
+  /**
+   * How long after DETECTION a published setup may still become an automatic
+   * order, in minutes (0-360, default 180). 0 disables automatic orders on age
+   * grounds. Independent of the structural {@link ORDER_TIF_MINUTES} used by
+   * replay, shadow and research mathematics.
+   */
+  auto_order_window_minutes: number;
 }
 
 export type OrderStrategy = "smart_adaptive" | "strict_retest";
