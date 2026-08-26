@@ -91,7 +91,7 @@ export const REJECT_COPY: Record<RejectReason, string> = {
   not_alert_eligible: "This setup is not eligible for your alert channel.",
   signal_missing: "The setup no longer exists.",
   signal_not_active: "The setup is no longer active.",
-  tif_expired: `The setup passed its ${ORDER_TIF_MINUTES}-minute time-in-force before dispatch.`,
+  tif_expired: `The setup was older than the automatic-order window saved in your settings when dispatch reached it, so no order was sent.`,
   quote_unavailable: "No broker price was available to revalidate the setup.",
   quote_stale: "The broker price was too old to revalidate the setup.",
   spread_too_wide: "The spread was too wide relative to the planned risk.",
