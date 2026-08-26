@@ -366,6 +366,30 @@ async function runDirectEnqueue(
       continue;
     }
 
+    // Owner's own automatic-order window. It can only ever REFUSE: a setup older
+    // than the window the owner chose is not placed, whatever the feed still says
+    // about the structure being entryable by hand.
+    const windowMinutes = clampAutoOrderWindowMinutes(row.auto_order_window_minutes);
+    if (windowMinutes === 0 || executionWindowExpired(signal, nowMs, windowMinutes)) {
+      const age = executionWindowAgeMinutes(signal, nowMs);
+      filtered += 1;
+      decisions.push({
+        user_id: account.user_id,
+        signal_id: signal.id,
+        instrument: signal.instrument,
+        grade: signal.grade,
+        decision: "execution_window_expired",
+        detail:
+          windowMinutes === 0
+            ? "your automatic-order window is set to 0"
+            : `${age ?? "unknown"} minutes old, window ${windowMinutes} minutes`,
+        enqueued: 0,
+        filtered: 1,
+      });
+      continue;
+    }
+
+
     const grade = (row.alert_min_grade ?? "B") as Grade;
     const settings: EligibilitySettings = {
       instruments: row.instruments ?? [],
