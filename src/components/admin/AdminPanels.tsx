@@ -18,10 +18,12 @@ import type {
 } from "@/lib/admin.functions";
 import type { WeeklyReport } from "@/lib/reports/weekly";
 import type { UserAuditReport } from "@/lib/user-audit.functions";
+import { ChevronRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
+import { usePanelOpen } from "./panel-state";
 
 const MIN_DISCIPLINE_SAMPLES = 20;
 
@@ -90,20 +92,54 @@ export function PanelShell({
   title,
   right,
   children,
+  collapsible = true,
+  defaultOpen = false,
+  storageKey,
 }: {
   title: string;
   right?: React.ReactNode;
   children: React.ReactNode;
+  /** Set false for a panel that must always show its body. */
+  collapsible?: boolean;
+  /** Used only until the owner has expressed a preference for this panel. */
+  defaultOpen?: boolean;
+  /** Defaults to the title, which is unique per panel on this page. */
+  storageKey?: string;
 }) {
+  const { open, toggle } = usePanelOpen(storageKey ?? title, collapsible ? defaultOpen : true);
+  const expanded = collapsible ? open : true;
+
   return (
     <Card className="overflow-hidden">
-      <div className="flex items-center justify-between border-b border-border px-3 py-2">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          {title}
-        </h2>
-        {right}
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-border px-3 py-2">
+        {collapsible ? (
+          <button
+            type="button"
+            onClick={toggle}
+            aria-expanded={expanded}
+            className="flex min-w-0 items-center gap-2 text-left"
+          >
+            <ChevronRight
+              aria-hidden
+              className={cn(
+                "size-3.5 shrink-0 text-muted-foreground transition-transform",
+                expanded && "rotate-90",
+              )}
+            />
+            <h2 className="truncate text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              {title}
+            </h2>
+          </button>
+        ) : (
+          <h2 className="truncate text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            {title}
+          </h2>
+        )}
+        {right ? <div className="shrink-0">{right}</div> : <span />}
       </div>
-      <div className="p-3">{children}</div>
+      {/* The body is unmounted while collapsed, so a closed panel issues no
+          queries at all. */}
+      {expanded ? <div className="p-3">{children}</div> : null}
     </Card>
   );
 }
