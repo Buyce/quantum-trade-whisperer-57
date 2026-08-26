@@ -213,10 +213,32 @@ export type OrderStrategy = "smart_adaptive" | "strict_retest";
 export type WebhookFormat = "json" | "pineconnector";
 
 /**
- * Time-in-force for every pending order: two M15 candles. After that the market
- * is no longer the one the setup was graded in, so an unfilled order is stale.
+ * Structural time-in-force for the GRADED plan: two M15 candles. Replay, shadow
+ * resolution and research mathematics are pinned to this constant so historical
+ * research stays comparable. It is NOT the automatic-order window — see
+ * `AUTO_ORDER_WINDOW_*` below, which each owner configures.
  */
 export const ORDER_TIF_MINUTES = 30;
+
+/**
+ * How long after detection P-Trades may still place an AUTOMATIC order, per
+ * owner. Default three hours; anything from 0 (never place an automatic order on
+ * age grounds) to six hours is allowed. A longer window means acting on an older
+ * structure — every other safety gate still applies unchanged.
+ */
+export const AUTO_ORDER_WINDOW_DEFAULT_MINUTES = 180;
+export const AUTO_ORDER_WINDOW_MAX_MINUTES = 360;
+export const AUTO_ORDER_WINDOW_MIN_MINUTES = 0;
+
+/** Clamps any stored or supplied window into the supported range. */
+export function clampAutoOrderWindowMinutes(value: unknown): number {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return AUTO_ORDER_WINDOW_DEFAULT_MINUTES;
+  return Math.min(
+    Math.max(Math.round(n), AUTO_ORDER_WINDOW_MIN_MINUTES),
+    AUTO_ORDER_WINDOW_MAX_MINUTES,
+  );
+}
 
 /**
  * Worst price at which taking the setup at market still preserves the payoff the
