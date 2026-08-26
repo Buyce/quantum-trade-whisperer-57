@@ -128,6 +128,10 @@ function SettingsPage() {
   const [autoCGrade, setAutoCGrade] = useState(false);
   const [maxConcurrentOrders, setMaxConcurrentOrders] = useState(3);
   const [maxDailyOrders, setMaxDailyOrders] = useState(10);
+  const [maxPerSymbolOrders, setMaxPerSymbolOrders] = useState(PER_SYMBOL_ORDER_CEILING_MAX);
+  const [adaptiveCeilings, setAdaptiveCeilings] = useState(false);
+  const [adaptiveMax, setAdaptiveMax] = useState(DAILY_ORDER_CEILING_MAX);
+  const [adaptiveFloor, setAdaptiveFloor] = useState(1);
   const [marketEntry, setMarketEntry] = useState(false);
   const [allowUnmeasured, setAllowUnmeasured] = useState(false);
   const [autoWindowMinutes, setAutoWindowMinutes] = useState(AUTO_ORDER_WINDOW_DEFAULT_MINUTES);
@@ -245,6 +249,10 @@ function SettingsPage() {
     setAutoCGrade(s.auto_execute_c_grade === true);
     setMaxConcurrentOrders(clampConcurrentOrderCeiling(s.maximum_concurrent_signal_orders));
     setMaxDailyOrders(clampDailyOrderCeiling(s.maximum_daily_signal_orders));
+    setMaxPerSymbolOrders(clampPerSymbolOrderCeiling(s.maximum_daily_orders_per_symbol));
+    setAdaptiveCeilings(s.adaptive_order_ceilings_enabled === true);
+    setAdaptiveMax(clampAdaptiveCeilingMax(s.adaptive_order_ceiling_max));
+    setAdaptiveFloor(clampAdaptiveCeilingFloor(s.adaptive_order_ceiling_floor));
     setMarketEntry(s.auto_market_entry_enabled === true);
     setAllowUnmeasured(s.allow_unmeasured_intel === true);
     setAutoWindowMinutes(clampAutoOrderWindowMinutes(s.auto_order_window_minutes));
@@ -326,6 +334,13 @@ function SettingsPage() {
         // qualifying setups simply means fewer orders.
         maximum_concurrent_signal_orders: clampConcurrentOrderCeiling(maxConcurrentOrders),
         maximum_daily_signal_orders: clampDailyOrderCeiling(maxDailyOrders),
+        maximum_daily_orders_per_symbol: clampPerSymbolOrderCeiling(maxPerSymbolOrders),
+        // Freshness-adaptive ceilings can only ever move BETWEEN the owner's own
+        // bounds, and only upwards while the broker facts an order is sized from
+        // are fresh. Degraded or unknown freshness moves toward the floor.
+        adaptive_order_ceilings_enabled: adaptiveCeilings,
+        adaptive_order_ceiling_max: clampAdaptiveCeilingMax(adaptiveMax),
+        adaptive_order_ceiling_floor: clampAdaptiveCeilingFloor(adaptiveFloor),
         auto_market_entry_enabled: marketEntry,
         allow_unmeasured_intel: allowUnmeasured,
         // How long after detection a published setup may still become an
@@ -659,6 +674,80 @@ function SettingsPage() {
                 then most recent — and never places an order to reach a number. Your daily setup
                 cap, risk per trade, lot ceiling and exposure limit all still apply on top of both.
               </p>
+            </div>
+
+            <div className="border-t border-border pt-4">
+              <Label className="text-xs" htmlFor="max-symbol-orders">
+                Automatic orders per instrument per day
+              </Label>
+              <Input
+                id="max-symbol-orders"
+                type="number"
+                min={0}
+                max={PER_SYMBOL_ORDER_CEILING_MAX}
+                value={maxPerSymbolOrders}
+                onChange={(e) =>
+                  setMaxPerSymbolOrders(clampPerSymbolOrderCeiling(Number(e.target.value) || 0))
+                }
+                className="mt-1 max-w-[8rem]"
+              />
+              <p className="mt-2 text-xs text-muted-foreground">
+                A separate per-instrument ceiling inside the daily one (0–
+                {PER_SYMBOL_ORDER_CEILING_MAX}), so one busy instrument cannot consume the whole day.
+                It refuses only; it never adds orders on other instruments.
+              </p>
+            </div>
+
+            <div className="border-t border-border pt-4">
+              <Row
+                id="adaptive-ceilings"
+                title="Move the daily ceilings with broker data freshness"
+                desc="Off by default. When on, your daily and per-instrument ceilings are raised toward your own maximum only while the broker equity and price your orders are sized from are fresh, and lowered toward your own floor when that data is stale or missing."
+                checked={adaptiveCeilings}
+                onChange={(v) => {
+                  if (v)
+                    toast.warning(
+                      "Freshness describes our data, not the market. This never relaxes a safety gate and never raises a ceiling above the maximum you set here.",
+                    );
+                  setAdaptiveCeilings(v);
+                }}
+              />
+              {adaptiveCeilings ? (
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs" htmlFor="adaptive-max">
+                      Maximum when fresh
+                    </Label>
+                    <Input
+                      id="adaptive-max"
+                      type="number"
+                      min={0}
+                      max={DAILY_ORDER_CEILING_MAX}
+                      value={adaptiveMax}
+                      onChange={(e) =>
+                        setAdaptiveMax(clampAdaptiveCeilingMax(Number(e.target.value) || 0))
+                      }
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs" htmlFor="adaptive-floor">
+                      Floor when stale
+                    </Label>
+                    <Input
+                      id="adaptive-floor"
+                      type="number"
+                      min={0}
+                      max={DAILY_ORDER_CEILING_MAX}
+                      value={adaptiveFloor}
+                      onChange={(e) =>
+                        setAdaptiveFloor(clampAdaptiveCeilingFloor(Number(e.target.value) || 0))
+                      }
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+              ) : null}
             </div>
 
             <div className="border-t border-border pt-4">
