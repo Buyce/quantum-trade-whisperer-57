@@ -24,10 +24,18 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   AUTO_ORDER_WINDOW_MAX_MINUTES,
   clampAutoOrderWindowMinutes,
+  clampAdaptiveCeilingFloor,
+  clampAdaptiveCeilingMax,
   clampConcurrentOrderCeiling,
   clampDailyOrderCeiling,
+  clampPerSymbolOrderCeiling,
   type Grade,
 } from "@/lib/db-types";
+import {
+  assessFreshness,
+  describeCeilings,
+  effectiveCeilings,
+} from "./adaptive-ceilings";
 import type { RegimeStatRow } from "@/lib/learning/regime";
 import { fetchDayFrame, type FrameClient } from "./day-frame";
 import {
@@ -91,6 +99,8 @@ interface AccountRow {
   user_id: string;
   mode: string;
   broker_account_type: string;
+  /** Broker-reported equity observation time; drives the freshness reading. */
+  broker_observed_at?: string | null;
 }
 
 interface SettingsRow {
@@ -114,6 +124,12 @@ interface SettingsRow {
   allow_unmeasured_intel: boolean | null;
   /** Owner's automatic-order window, in minutes (0–360). */
   auto_order_window_minutes: number | null;
+  /** How many automatic orders one instrument may consume per UTC day (0-25). */
+  maximum_daily_orders_per_symbol: number | null;
+  /** Owner opt-in: move the daily and per-symbol ceilings with broker freshness. */
+  adaptive_order_ceilings_enabled: boolean | null;
+  adaptive_order_ceiling_max: number | null;
+  adaptive_order_ceiling_floor: number | null;
 }
 
 /**
@@ -274,7 +290,7 @@ async function runDirectEnqueue(
 
   const { data: accountRows, error: accountError } = await db
     .from("connected_trading_accounts")
-    .select("id, user_id, mode, broker_account_type")
+    .select("id, user_id, mode, broker_account_type, broker_observed_at")
     .is("disconnected_at", null)
     .eq("is_benchmark", false)
     .eq("intent_conflict", false)
@@ -313,7 +329,7 @@ async function runDirectEnqueue(
   const { data: settingsRows, error: settingsError } = await db
     .from("scanner_settings")
     .select(
-      "user_id, instruments, sessions, alert_min_grade, daily_setup_cap, execution_config_version, auto_intel_gate_enabled, auto_intel_min_win_pct, auto_intel_min_sample, auto_execute_c_grade, maximum_active_signal_orders, maximum_concurrent_signal_orders, maximum_daily_signal_orders, allow_unmeasured_intel, auto_order_window_minutes",
+      "user_id, instruments, sessions, alert_min_grade, daily_setup_cap, execution_config_version, auto_intel_gate_enabled, auto_intel_min_win_pct, auto_intel_min_sample, auto_execute_c_grade, maximum_active_signal_orders, maximum_concurrent_signal_orders, maximum_daily_signal_orders, allow_unmeasured_intel, auto_order_window_minutes, maximum_daily_orders_per_symbol, adaptive_order_ceilings_enabled, adaptive_order_ceiling_max, adaptive_order_ceiling_floor",
     )
     .in("user_id", userIds);
   if (settingsError) return await empty("settings_unreadable", settingsError.message);
