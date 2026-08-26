@@ -371,9 +371,19 @@ export async function revalidateDelivery(
     }
   }
 
+  // The automatic-order window the OWNER configured (benchmark deliveries fall
+  // back to the default). A window of 0 means no automatic order is placed on age
+  // grounds at all. This is the final age gate before an order is built.
+  const autoWindowMinutes = clampAutoOrderWindowMinutes(settings.auto_order_window_minutes);
   const ageMs = now - new Date(signal.detected_at).getTime();
-  if (ageMs > ORDER_TIF_MINUTES * 60_000) {
-    return reject("tif_expired", `${Math.round(ageMs / 60_000)} minutes old`);
+  if (autoWindowMinutes === 0) {
+    return reject("tif_expired", "the automatic-order window is set to 0 minutes");
+  }
+  if (ageMs > autoWindowMinutes * 60_000) {
+    return reject(
+      "tif_expired",
+      `${Math.round(ageMs / 60_000)} minutes old, window ${autoWindowMinutes} minutes`,
+    );
   }
 
   // ---- 4. Canonical Prompt-10 alert eligibility -----------------------------
