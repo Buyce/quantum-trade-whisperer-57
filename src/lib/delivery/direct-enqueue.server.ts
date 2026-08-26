@@ -626,7 +626,33 @@ async function runDirectEnqueue(
       }
     }
 
+    // A setup the owner already holds live at the broker must not be doubled.
+    // Republishing the same structure every cycle would otherwise stack several
+    // identical resting orders that could all fill at once.
+    if (heldReadable && candidatePlan !== null) {
+      const duplicate = findDuplicateOrder(
+        candidatePlan,
+        held.get(account.user_id) ?? [],
+        duplicateContext.tickSize,
+      );
+      if (duplicate) {
+        filtered += 1;
+        decisions.push({
+          user_id: account.user_id,
+          signal_id: signal.id,
+          instrument: signal.instrument,
+          grade: signal.grade,
+          decision: "duplicate_resting_order",
+          detail: describeDuplicateOrder(duplicate),
+          enqueued: 0,
+          filtered: 1,
+        });
+        continue;
+      }
+    }
+
     // The owner's ceilings. Every one of them can only ever refuse.
+
     //
     // The concurrent ceiling is fixed. The daily and per-symbol ceilings are the
     // owner's fixed numbers unless the owner opted into adaptive mode, in which
