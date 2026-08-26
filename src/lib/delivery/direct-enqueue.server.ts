@@ -55,8 +55,6 @@ export interface DirectEnqueueSignal {
   volatilityIndex?: number | null;
 }
 
-const EXECUTION_WINDOW_MS = ORDER_TIF_MINUTES * 60_000;
-
 export function executionWindowAgeMinutes(
   signal: Pick<DirectEnqueueSignal, "detectedAt">,
   nowMs: number,
@@ -67,13 +65,23 @@ export function executionWindowAgeMinutes(
   return Math.round((nowMs - detected) / 60_000);
 }
 
+/**
+ * Past the automatic-order window.
+ *
+ * The window is per owner (`scanner_settings.auto_order_window_minutes`). The
+ * default here is the WIDEST supported window, so a shared pre-settings check can
+ * only ever discard setups that no owner could legally act on; the owner's own,
+ * narrower window is applied once their settings are known.
+ */
 export function executionWindowExpired(
   signal: Pick<DirectEnqueueSignal, "detectedAt">,
   nowMs: number,
+  windowMinutes: number = AUTO_ORDER_WINDOW_MAX_MINUTES,
 ): boolean {
   if (!signal.detectedAt) return false;
   const detected = new Date(signal.detectedAt).getTime();
-  return Number.isFinite(detected) && nowMs - detected > EXECUTION_WINDOW_MS;
+  if (!Number.isFinite(detected)) return false;
+  return nowMs - detected > clampAutoOrderWindowMinutes(windowMinutes) * 60_000;
 }
 
 interface AccountRow {
