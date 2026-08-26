@@ -497,11 +497,31 @@ async function runDirectEnqueue(
       }
     }
 
-    // The owner's TWO independent ceilings. Both can only ever refuse.
+    // The owner's ceilings. Every one of them can only ever refuse.
+    //
+    // The concurrent ceiling is fixed. The daily and per-symbol ceilings are the
+    // owner's fixed numbers unless the owner opted into adaptive mode, in which
+    // case freshness of the broker facts an order would be sized from decides
+    // which of the owner's own bounds applies. Absent or unreadable freshness is
+    // treated as degraded, never as room.
     const concurrentCeiling = clampConcurrentOrderCeiling(row.maximum_concurrent_signal_orders);
-    const dailyCeiling = clampDailyOrderCeiling(row.maximum_daily_signal_orders);
+    const freshness = assessFreshness({
+      equityObservedAt: account.broker_observed_at ?? null,
+      now: nowMs,
+    });
+    const ceilings = effectiveCeilings({
+      dailyBase: clampDailyOrderCeiling(row.maximum_daily_signal_orders),
+      perSymbolBase: clampPerSymbolOrderCeiling(row.maximum_daily_orders_per_symbol),
+      adaptiveEnabled: row.adaptive_order_ceilings_enabled === true,
+      adaptiveMax: clampAdaptiveCeilingMax(row.adaptive_order_ceiling_max),
+      adaptiveFloor: clampAdaptiveCeilingFloor(row.adaptive_order_ceiling_floor),
+      health: freshness.health,
+    });
+    const ceilingNote = describeCeilings(ceilings, freshness.detail);
+    const symbolKey = perSymbolKey(account.user_id, signal.instrument);
     const used = occupied.get(account.user_id) ?? 0;
     const usedToday = createdToday.get(account.user_id) ?? 0;
+    const usedTodayThisSymbol = createdTodayPerSymbol.get(symbolKey) ?? 0;
     if (!occupancy.readable) {
       filtered += 1;
       decisions.push({
@@ -530,7 +550,7 @@ async function runDirectEnqueue(
       });
       continue;
     }
-    if (usedToday >= dailyCeiling) {
+    if (usedToday >= ceilings.daily) {
       filtered += 1;
       decisions.push({
         user_id: account.user_id,
@@ -538,7 +558,21 @@ async function runDirectEnqueue(
         instrument: signal.instrument,
         grade: signal.grade,
         decision: "daily_order_limit_reached",
-        detail: `${usedToday} of ${dailyCeiling} automatic orders created today`,
+        detail: `${usedToday} of ${ceilings.daily} automatic orders created today — ${ceilingNote}`,
+        enqueued: 0,
+        filtered: 1,
+      });
+      continue;
+    }
+    if (usedTodayThisSymbol >= ceilings.perSymbol) {
+      filtered += 1;
+      decisions.push({
+        user_id: account.user_id,
+        signal_id: signal.id,
+        instrument: signal.instrument,
+        grade: signal.grade,
+        decision: "instrument_daily_order_limit_reached",
+        detail: `${usedTodayThisSymbol} of ${ceilings.perSymbol} automatic orders on ${signal.instrument} today — ${ceilingNote}`,
         enqueued: 0,
         filtered: 1,
       });
@@ -546,6 +580,8 @@ async function runDirectEnqueue(
     }
     occupied.set(account.user_id, used + 1);
     createdToday.set(account.user_id, usedToday + 1);
+    createdTodayPerSymbol.set(symbolKey, usedTodayThisSymbol + 1);
+
 
     rows.push({
       user_id: account.user_id,
