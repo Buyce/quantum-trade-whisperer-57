@@ -18,6 +18,9 @@ import {
   SESSION_LABELS,
   INSTRUMENT_LABELS,
   ORDER_TIF_MINUTES,
+  AUTO_ORDER_WINDOW_DEFAULT_MINUTES,
+  AUTO_ORDER_WINDOW_MAX_MINUTES,
+  clampAutoOrderWindowMinutes,
   type Grade,
   type OrderStrategy,
   type WebhookFormat,
@@ -120,6 +123,7 @@ function SettingsPage() {
   const [intelGate, setIntelGate] = useState(false);
   const [autoCGrade, setAutoCGrade] = useState(false);
   const [maxActiveOrders, setMaxActiveOrders] = useState(3);
+  const [autoWindowMinutes, setAutoWindowMinutes] = useState(AUTO_ORDER_WINDOW_DEFAULT_MINUTES);
   const [intelMinWin, setIntelMinWin] = useState("");
   const [intelMinSample, setIntelMinSample] = useState("30");
   const [equityAsOf, setEquityAsOf] = useState<string | null>(null);
@@ -233,6 +237,7 @@ function SettingsPage() {
     setIntelGate(s.auto_intel_gate_enabled === true);
     setAutoCGrade(s.auto_execute_c_grade === true);
     setMaxActiveOrders(Number(s.maximum_active_signal_orders ?? 3));
+    setAutoWindowMinutes(clampAutoOrderWindowMinutes(s.auto_order_window_minutes));
     setIntelMinWin(
       s.auto_intel_min_win_pct == null ? "" : String(Number(s.auto_intel_min_win_pct)),
     );
@@ -310,6 +315,9 @@ function SettingsPage() {
         // Ceiling on simultaneous automatic orders, never a quota: fewer
         // qualifying setups simply means fewer orders.
         maximum_active_signal_orders: Math.round(clamp(maxActiveOrders, 0, 10)),
+        // How long after detection a published setup may still become an
+        // automatic order. 0 disables automatic orders on age grounds.
+        auto_order_window_minutes: clampAutoOrderWindowMinutes(autoWindowMinutes),
         auto_intel_min_win_pct:
           Number.isFinite(Number(intelMinWin)) && intelMinWin.trim() !== ""
             ? clamp(Number(intelMinWin), 0, 100)
