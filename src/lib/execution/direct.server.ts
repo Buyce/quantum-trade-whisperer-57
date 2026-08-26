@@ -203,6 +203,8 @@ export async function submitDirectOrder(
   quantity: OrderQuantity,
   target: DirectTarget,
   resize?: DirectResizer,
+  /** The owner's automatic-order window; bounds the pending order's expiry. */
+  windowMinutes?: number,
 ): Promise<DirectSubmitResult> {
   // ---- Pre-submission safety refresh + FINAL sizing ------------------------
   // Everything the earlier revalidation read can change in the meantime: an
@@ -265,6 +267,7 @@ export async function submitDirectOrder(
       magic: target.magic,
       quantity: finalQuantity,
       deliveryId: delivery.id,
+      ...(windowMinutes === undefined ? {} : { windowMinutes }),
     });
   } catch (err) {
     const detail =

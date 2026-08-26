@@ -91,7 +91,7 @@ export const REJECT_COPY: Record<RejectReason, string> = {
   not_alert_eligible: "This setup is not eligible for your alert channel.",
   signal_missing: "The setup no longer exists.",
   signal_not_active: "The setup is no longer active.",
-  tif_expired: `The setup passed its ${ORDER_TIF_MINUTES}-minute time-in-force before dispatch.`,
+  tif_expired: `The setup was older than the automatic-order window saved in your settings when dispatch reached it, so no order was sent.`,
   quote_unavailable: "No broker price was available to revalidate the setup.",
   quote_stale: "The broker price was too old to revalidate the setup.",
   spread_too_wide: "The spread was too wide relative to the planned risk.",
@@ -261,6 +261,8 @@ export function buildBridgeOrder(
   signal: BridgeSignal,
   quantity: OrderQuantity,
   policy: ExecutionPolicy = DEFAULT_EXECUTION_POLICY,
+  /** The owner's automatic-order window; the submitted order cannot outlive it. */
+  expiresInMinutes: number = ORDER_TIF_MINUTES,
 ): BridgeOrder {
   if (policy !== "single_exit_first_target") {
     throw new Error(`unsupported execution policy: ${String(policy)}`);
@@ -273,7 +275,7 @@ export function buildBridgeOrder(
     maxAcceptableEntry: signal.maxAcceptableEntry,
     stopLoss: signal.stopLoss,
     takeProfit: signal.tp1,
-    expiresInMinutes: ORDER_TIF_MINUTES,
+    expiresInMinutes,
     policy,
     grade: String(signal.grade),
     rr: signal.rrRatio,

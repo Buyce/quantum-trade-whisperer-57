@@ -82,6 +82,26 @@ be read fails closed (`active_order_count_unreadable`) rather than permitting
 unbounded orders, and it sits on top of — never instead of — the daily setup cap,
 risk per trade, lot ceiling and exposure limit.
 
+### Automatic-order window
+
+`scanner_settings.auto_order_window_minutes` (0-360, default 180) is how long after
+**detection** a published setup may still become an automatic order. `0` disables
+automatic orders on age grounds entirely; the maximum is six hours. A setup older
+than the owner's window is refused before anything reaches a broker
+(`execution_window_expired` at enqueue, `tif_expired` at pre-send revalidation), and
+a pending order placed inside the window carries an expiry at the end of it. The
+shared pre-settings prune uses only the widest supported window, so it can never
+discard a setup some owner is still entitled to act on.
+
+This window is **separate** from the structural `ORDER_TIF_MINUTES = 30`, which
+replay, shadow resolution, research and grading mathematics use. Changing the window
+changes only what P-Trades will place for that owner; it does not move any
+statistic, grade or historical comparison. The window widens nothing else: tier,
+instruments, sessions, risk, lot ceiling, exposure limit, the intelligence gate and
+the pre-send broker re-check all still decide independently.
+
+
+
 On top of eligibility there is one optional, off-by-default, reduce-only rule:
 the **intelligence gate** (`src/lib/delivery/intel-gate.ts`). When an owner sets a
 minimum win-if-filled rate, an eligible setup only becomes an order if the

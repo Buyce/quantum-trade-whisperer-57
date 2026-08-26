@@ -21,7 +21,11 @@
  * `recordEnqueueDecisions`, so an empty delivery ledger is never ambiguous.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { ORDER_TIF_MINUTES, type Grade } from "@/lib/db-types";
+import {
+  AUTO_ORDER_WINDOW_MAX_MINUTES,
+  clampAutoOrderWindowMinutes,
+  type Grade,
+} from "@/lib/db-types";
 import type { RegimeStatRow } from "@/lib/learning/regime";
 import { fetchDayFrame, type FrameClient } from "./day-frame";
 import {
@@ -51,8 +55,6 @@ export interface DirectEnqueueSignal {
   volatilityIndex?: number | null;
 }
 
-const EXECUTION_WINDOW_MS = ORDER_TIF_MINUTES * 60_000;
-
 export function executionWindowAgeMinutes(
   signal: Pick<DirectEnqueueSignal, "detectedAt">,
   nowMs: number,
@@ -63,13 +65,23 @@ export function executionWindowAgeMinutes(
   return Math.round((nowMs - detected) / 60_000);
 }
 
+/**
+ * Past the automatic-order window.
+ *
+ * The window is per owner (`scanner_settings.auto_order_window_minutes`). The
+ * default here is the WIDEST supported window, so a shared pre-settings check can
+ * only ever discard setups that no owner could legally act on; the owner's own,
+ * narrower window is applied once their settings are known.
+ */
 export function executionWindowExpired(
   signal: Pick<DirectEnqueueSignal, "detectedAt">,
   nowMs: number,
+  windowMinutes: number = AUTO_ORDER_WINDOW_MAX_MINUTES,
 ): boolean {
   if (!signal.detectedAt) return false;
   const detected = new Date(signal.detectedAt).getTime();
-  return Number.isFinite(detected) && nowMs - detected > EXECUTION_WINDOW_MS;
+  if (!Number.isFinite(detected)) return false;
+  return nowMs - detected > clampAutoOrderWindowMinutes(windowMinutes) * 60_000;
 }
 
 interface AccountRow {
@@ -91,6 +103,8 @@ interface SettingsRow {
   auto_intel_min_sample: number | null;
   auto_execute_c_grade: boolean | null;
   maximum_active_signal_orders: number | null;
+  /** Owner's automatic-order window, in minutes (0–360). */
+  auto_order_window_minutes: number | null;
 }
 
 /**
@@ -254,7 +268,7 @@ async function runDirectEnqueue(
   const { data: settingsRows, error: settingsError } = await db
     .from("scanner_settings")
     .select(
-      "user_id, instruments, sessions, alert_min_grade, daily_setup_cap, execution_config_version, auto_intel_gate_enabled, auto_intel_min_win_pct, auto_intel_min_sample, auto_execute_c_grade, maximum_active_signal_orders",
+      "user_id, instruments, sessions, alert_min_grade, daily_setup_cap, execution_config_version, auto_intel_gate_enabled, auto_intel_min_win_pct, auto_intel_min_sample, auto_execute_c_grade, maximum_active_signal_orders, auto_order_window_minutes",
     )
     .in("user_id", userIds);
   if (settingsError) return await empty("settings_unreadable", settingsError.message);
@@ -351,6 +365,30 @@ async function runDirectEnqueue(
       });
       continue;
     }
+
+    // Owner's own automatic-order window. It can only ever REFUSE: a setup older
+    // than the window the owner chose is not placed, whatever the feed still says
+    // about the structure being entryable by hand.
+    const windowMinutes = clampAutoOrderWindowMinutes(row.auto_order_window_minutes);
+    if (windowMinutes === 0 || executionWindowExpired(signal, nowMs, windowMinutes)) {
+      const age = executionWindowAgeMinutes(signal, nowMs);
+      filtered += 1;
+      decisions.push({
+        user_id: account.user_id,
+        signal_id: signal.id,
+        instrument: signal.instrument,
+        grade: signal.grade,
+        decision: "execution_window_expired",
+        detail:
+          windowMinutes === 0
+            ? "your automatic-order window is set to 0"
+            : `${age ?? "unknown"} minutes old, window ${windowMinutes} minutes`,
+        enqueued: 0,
+        filtered: 1,
+      });
+      continue;
+    }
+
 
     const grade = (row.alert_min_grade ?? "B") as Grade;
     const settings: EligibilitySettings = {

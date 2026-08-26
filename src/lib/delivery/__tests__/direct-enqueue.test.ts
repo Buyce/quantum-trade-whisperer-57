@@ -131,13 +131,21 @@ describe("enqueueDirectDeliveries", () => {
   it.each(["A+", "A", "B", "C"])(
     "[INVARIANT] records %s-Grade stale automatic-order attempts before a delivery exists",
     async (grade) => {
-      const f = fake({ settings: { auto_execute_c_grade: true, alert_min_grade: "C" } });
+      // Stale is now measured against the OWNER's automatic-order window, so the
+      // fixture states the window explicitly instead of relying on a constant.
+      const f = fake({
+        settings: {
+          auto_execute_c_grade: true,
+          alert_min_grade: "C",
+          auto_order_window_minutes: 30,
+        },
+      });
       const out = await enqueueDirectDeliveries(
         f.client as SupabaseClient,
         { ...SIGNAL, grade, detectedAt: new Date(NOW - 31 * 60_000).toISOString() },
         NOW,
       );
-      expect(out).toMatchObject({ enqueued: 0, filtered: 1, reason: "execution_window_expired" });
+      expect(out).toMatchObject({ enqueued: 0, filtered: 1, reason: "filtered_by_user_rules" });
       expect(inserts(f.calls)).toHaveLength(0);
       const decision = f.calls.find((c) => c.table === "execution_enqueue_decisions")
         ?.payload as unknown as Record<string, unknown>[];

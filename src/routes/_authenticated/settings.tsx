@@ -18,6 +18,9 @@ import {
   SESSION_LABELS,
   INSTRUMENT_LABELS,
   ORDER_TIF_MINUTES,
+  AUTO_ORDER_WINDOW_DEFAULT_MINUTES,
+  AUTO_ORDER_WINDOW_MAX_MINUTES,
+  clampAutoOrderWindowMinutes,
   type Grade,
   type OrderStrategy,
   type WebhookFormat,
@@ -120,6 +123,7 @@ function SettingsPage() {
   const [intelGate, setIntelGate] = useState(false);
   const [autoCGrade, setAutoCGrade] = useState(false);
   const [maxActiveOrders, setMaxActiveOrders] = useState(3);
+  const [autoWindowMinutes, setAutoWindowMinutes] = useState(AUTO_ORDER_WINDOW_DEFAULT_MINUTES);
   const [intelMinWin, setIntelMinWin] = useState("");
   const [intelMinSample, setIntelMinSample] = useState("30");
   const [equityAsOf, setEquityAsOf] = useState<string | null>(null);
@@ -233,6 +237,7 @@ function SettingsPage() {
     setIntelGate(s.auto_intel_gate_enabled === true);
     setAutoCGrade(s.auto_execute_c_grade === true);
     setMaxActiveOrders(Number(s.maximum_active_signal_orders ?? 3));
+    setAutoWindowMinutes(clampAutoOrderWindowMinutes(s.auto_order_window_minutes));
     setIntelMinWin(
       s.auto_intel_min_win_pct == null ? "" : String(Number(s.auto_intel_min_win_pct)),
     );
@@ -310,6 +315,9 @@ function SettingsPage() {
         // Ceiling on simultaneous automatic orders, never a quota: fewer
         // qualifying setups simply means fewer orders.
         maximum_active_signal_orders: Math.round(clamp(maxActiveOrders, 0, 10)),
+        // How long after detection a published setup may still become an
+        // automatic order. 0 disables automatic orders on age grounds.
+        auto_order_window_minutes: clampAutoOrderWindowMinutes(autoWindowMinutes),
         auto_intel_min_win_pct:
           Number.isFinite(Number(intelMinWin)) && intelMinWin.trim() !== ""
             ? clamp(Number(intelMinWin), 0, 100)
@@ -614,6 +622,40 @@ function SettingsPage() {
                 then most recent — and never places an order to reach a number. If three setups
                 qualify it places at most three; if none qualify it places none. Your daily setup
                 cap, risk per trade, lot ceiling and exposure limit all still apply on top of this.
+              </p>
+            </div>
+
+            <div className="border-t border-border pt-4">
+              <Label className="text-xs" htmlFor="auto-order-window">
+                Automatic-order window (minutes after detection)
+              </Label>
+              <Input
+                id="auto-order-window"
+                type="number"
+                min={0}
+                max={AUTO_ORDER_WINDOW_MAX_MINUTES}
+                step={15}
+                value={autoWindowMinutes}
+                onChange={(e) =>
+                  setAutoWindowMinutes(
+                    Math.max(
+                      0,
+                      Math.min(AUTO_ORDER_WINDOW_MAX_MINUTES, Math.round(Number(e.target.value) || 0)),
+                    ),
+                  )
+                }
+                className="mt-1 max-w-[8rem]"
+              />
+              <p className="mt-2 text-xs text-muted-foreground">
+                How long after a setup was detected it may still become an automatic order —
+                between 0 and {AUTO_ORDER_WINDOW_MAX_MINUTES} minutes (6 hours), default{" "}
+                {AUTO_ORDER_WINDOW_DEFAULT_MINUTES} minutes (3 hours). 0 stops automatic orders on
+                age grounds entirely. A setup older than your window is refused before anything is
+                sent to a broker, and any pending order placed inside the window expires at the end
+                of it. This does not widen any other rule: tier, instruments, sessions, risk, lot
+                ceiling, exposure limit, the intelligence gate and the pre-send broker re-check all
+                still decide independently. It also does not change the {ORDER_TIF_MINUTES}-minute
+                structural time-in-force used for research and replay mathematics.
               </p>
             </div>
           </section>

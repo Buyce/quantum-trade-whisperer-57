@@ -3606,6 +3606,7 @@ export type Database = {
           auto_intel_gate_enabled: boolean
           auto_intel_min_sample: number
           auto_intel_min_win_pct: number | null
+          auto_order_window_minutes: number
           created_at: string
           daily_setup_cap: number
           equity_as_of: string | null
@@ -3647,6 +3648,7 @@ export type Database = {
           auto_intel_gate_enabled?: boolean
           auto_intel_min_sample?: number
           auto_intel_min_win_pct?: number | null
+          auto_order_window_minutes?: number
           created_at?: string
           daily_setup_cap?: number
           equity_as_of?: string | null
@@ -3688,6 +3690,7 @@ export type Database = {
           auto_intel_gate_enabled?: boolean
           auto_intel_min_sample?: number
           auto_intel_min_win_pct?: number | null
+          auto_order_window_minutes?: number
           created_at?: string
           daily_setup_cap?: number
           equity_as_of?: string | null

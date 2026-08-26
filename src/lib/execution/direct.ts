@@ -14,7 +14,7 @@
  *
  * Pure: no fetch, no clock beyond the `now` argument, no env, no Supabase.
  */
-import { ORDER_TIF_MINUTES } from "@/lib/db-types";
+import { ORDER_TIF_MINUTES, clampAutoOrderWindowMinutes } from "@/lib/db-types";
 import { buildClientId, PTRADES_STRATEGY_ID } from "@/lib/metaapi/client-id";
 import type { AccountMode } from "@/lib/accounts/types";
 import type { PendingOrderActionType, PendingOrderRequest } from "@/lib/metaapi/types";
@@ -112,6 +112,8 @@ export interface DirectOrderContext {
   quantity: OrderQuantity;
   /** Delivery row id, used as the order-attempt reference in the clientId. */
   deliveryId: number;
+  /** The owner's automatic-order window, in minutes; bounds the order expiry. */
+  windowMinutes?: number;
 }
 
 export class DirectOrderError extends Error {
@@ -127,11 +129,16 @@ export function actionTypeFor(direction: string): PendingOrderActionType {
   throw new DirectOrderError(`unsupported direction ${direction}`);
 }
 
-/** Expiry instant: the plan's time-in-force measured from DETECTION. */
-export function orderExpiry(detectedAt: string): string {
+/**
+ * Expiry instant: measured from DETECTION, using the owner's automatic-order
+ * window so the pending order can never outlive the window they configured.
+ */
+export function orderExpiry(detectedAt: string, windowMinutes: number = ORDER_TIF_MINUTES): string {
   const detected = Date.parse(detectedAt);
   if (!Number.isFinite(detected)) throw new DirectOrderError("plan has no valid detection time");
-  return new Date(detected + ORDER_TIF_MINUTES * 60_000).toISOString();
+  const minutes = clampAutoOrderWindowMinutes(windowMinutes);
+  if (minutes <= 0) throw new DirectOrderError("the automatic-order window is 0 minutes");
+  return new Date(detected + minutes * 60_000).toISOString();
 }
 
 function finite(value: number, name: string): number {
@@ -181,7 +188,7 @@ export function buildDirectOrder(
     openPrice,
     stopLoss,
     takeProfit,
-    expirationTime: orderExpiry(plan.detectedAt),
+    expirationTime: orderExpiry(plan.detectedAt, ctx.windowMinutes ?? ORDER_TIF_MINUTES),
     clientId: buildClientId({
       strategyId: PTRADES_STRATEGY_ID,
       positionRef: plan.signalId,

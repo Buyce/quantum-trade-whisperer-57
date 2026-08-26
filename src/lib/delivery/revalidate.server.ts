@@ -34,7 +34,7 @@ import {
 } from "./eligibility";
 import { fetchDayFrame, toEligibilitySignal, type FrameClient } from "./day-frame";
 import {
-  ORDER_TIF_MINUTES,
+  clampAutoOrderWindowMinutes,
   contextOf,
   maxAcceptableEntry,
   type Grade,
@@ -194,6 +194,8 @@ interface SettingsRow {
   webhook_secret: string | null;
   webhook_format: string | null;
   webhook_validated_at: string | null;
+  /** Owner's automatic-order window in minutes (0–360). */
+  auto_order_window_minutes?: number | null;
   /** Explicit owner confirmation of the dry-run → live transition. */
   live_execution_confirmed_at?: string | null;
   live_execution_confirmed_version?: number | null;
@@ -237,7 +239,7 @@ export async function revalidateDelivery(
   const { data: settingsRow } = await db
     .from("scanner_settings")
     .select(
-      "instruments, sessions, alert_min_grade, daily_setup_cap, execution_enabled, execution_dry_run, execution_config_version, exposure_limit_enabled, webhook_enabled, webhook_url, webhook_secret, webhook_format, webhook_validated_at, live_execution_confirmed_at, live_execution_confirmed_version, live_execution_confirmed_global_live",
+      "instruments, sessions, alert_min_grade, daily_setup_cap, execution_enabled, execution_dry_run, execution_config_version, exposure_limit_enabled, webhook_enabled, webhook_url, webhook_secret, webhook_format, webhook_validated_at, auto_order_window_minutes, live_execution_confirmed_at, live_execution_confirmed_version, live_execution_confirmed_global_live",
     )
     .eq("user_id", delivery.user_id)
     .maybeSingle();
@@ -369,9 +371,19 @@ export async function revalidateDelivery(
     }
   }
 
+  // The automatic-order window the OWNER configured (benchmark deliveries fall
+  // back to the default). A window of 0 means no automatic order is placed on age
+  // grounds at all. This is the final age gate before an order is built.
+  const autoWindowMinutes = clampAutoOrderWindowMinutes(settings.auto_order_window_minutes);
   const ageMs = now - new Date(signal.detected_at).getTime();
-  if (ageMs > ORDER_TIF_MINUTES * 60_000) {
-    return reject("tif_expired", `${Math.round(ageMs / 60_000)} minutes old`);
+  if (autoWindowMinutes === 0) {
+    return reject("tif_expired", "the automatic-order window is set to 0 minutes");
+  }
+  if (ageMs > autoWindowMinutes * 60_000) {
+    return reject(
+      "tif_expired",
+      `${Math.round(ageMs / 60_000)} minutes old, window ${autoWindowMinutes} minutes`,
+    );
   }
 
   // ---- 4. Canonical Prompt-10 alert eligibility -----------------------------
@@ -688,7 +700,7 @@ export async function revalidateDelivery(
   // The order carries the SNAPPED geometry; the approved plan records both, so a
   // later reconciliation can explain any difference between the published signal
   // and what the broker was actually asked for.
-  const order = buildBridgeOrder(execPlan, quantity, policy);
+  const order = buildBridgeOrder(execPlan, quantity, policy, autoWindowMinutes);
   const approvedPlan = {
     signalId: signal.id,
     instrument: signal.instrument,
