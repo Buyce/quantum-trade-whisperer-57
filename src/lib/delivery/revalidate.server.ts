@@ -34,7 +34,7 @@ import {
 } from "./eligibility";
 import { fetchDayFrame, toEligibilitySignal, type FrameClient } from "./day-frame";
 import {
-  ORDER_TIF_MINUTES,
+  clampAutoOrderWindowMinutes,
   contextOf,
   maxAcceptableEntry,
   type Grade,
@@ -194,6 +194,8 @@ interface SettingsRow {
   webhook_secret: string | null;
   webhook_format: string | null;
   webhook_validated_at: string | null;
+  /** Owner's automatic-order window in minutes (0–360). */
+  auto_order_window_minutes?: number | null;
   /** Explicit owner confirmation of the dry-run → live transition. */
   live_execution_confirmed_at?: string | null;
   live_execution_confirmed_version?: number | null;
