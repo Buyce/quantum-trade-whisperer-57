@@ -54,9 +54,17 @@ describe("reconcilable signal state", () => {
     );
   });
 
-  it("[INVARIANT] a signal outside the automatic-order window is not reconciled", () => {
-    expect(isReconcilable(signal({ id: "a", detected_at: "2026-08-25T11:29:00.000Z" }), NOW)).toBe(
+  it("[INVARIANT] a signal past the widest supported window is not reconciled", () => {
+    // Reconciliation prunes only what NO owner could act on (6 hours); each
+    // owner's own, narrower window is applied inside the canonical enqueue path.
+    expect(isReconcilable(signal({ id: "a", detected_at: "2026-08-25T05:00:00.000Z" }), NOW)).toBe(
       false,
+    );
+  });
+
+  it("[INVARIANT] a signal inside the widest window is still reconcilable", () => {
+    expect(isReconcilable(signal({ id: "a", detected_at: "2026-08-25T09:00:00.000Z" }), NOW)).toBe(
+      true,
     );
   });
 });
@@ -147,7 +155,7 @@ describe("stale active-signal reconciliation", () => {
     const f = createFakeSupabase((call: FakeCall) => {
       if (call.table === "scanned_signals") {
         return {
-          data: [signal({ id: "old", detected_at: "2026-08-25T11:00:00.000Z" })],
+          data: [signal({ id: "old", detected_at: "2026-08-25T05:00:00.000Z" })],
           error: null,
         };
       }
@@ -176,7 +184,7 @@ describe("stale active-signal reconciliation", () => {
     const f = createFakeSupabase((call: FakeCall) => {
       if (call.table === "scanned_signals") {
         return {
-          data: [signal({ id: "old", detected_at: "2026-08-25T11:00:00.000Z" })],
+          data: [signal({ id: "old", detected_at: "2026-08-25T05:00:00.000Z" })],
           error: null,
         };
       }
