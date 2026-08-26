@@ -398,7 +398,7 @@ export async function submitDirectOrder(
   };
 }
 
-interface SafetyRefresh {
+export interface SafetyRefresh {
   ok: true;
   freeMargin: number | null;
   /** The equity the broker reports RIGHT NOW; the only basis for the volume. */
