@@ -142,6 +142,21 @@ export async function processNextDelivery(
   const delivery = rows[0];
   if (!delivery) return null;
 
+  /**
+   * The closing tail of the owner's automatic-order window.
+   *
+   * `claim_execution_delivery` hands back whichever pending row expires SOONEST,
+   * so the end of a window is not lost to queue position. Inside the tail this
+   * pass is the setup's LAST look: every attempt already forces a fresh
+   * destination-account refresh and a fresh broker quote (there is no cached
+   * price or stored equity anywhere in revalidation), and the outcome is recorded
+   * on the row so History can show that the last chance was actually taken.
+   */
+  const deadline = await readDeliveryDeadline(db, delivery);
+  const inTail = deadline !== null && deadline - now <= FINAL_LOOK_TAIL_MS;
+  const finalLookPatch = (reason: string | null) =>
+    inTail ? { final_look_at: new Date(now).toISOString(), final_look_reason: reason } : {};
+
   let approved;
   try {
     approved = await revalidateDelivery(db, delivery, now);
@@ -151,6 +166,7 @@ export async function processNextDelivery(
       state: "failed",
       reason: `revalidation error: ${detail}`,
       settled_at: new Date().toISOString(),
+      ...finalLookPatch(`revalidation error: ${detail}`),
     });
     return { deliveryId: delivery.id, state: "failed", reason: detail, dryRun: delivery.dry_run };
   }
@@ -168,15 +184,21 @@ export async function processNextDelivery(
      * and the attempt counter (incremented by the claim itself) bounds the loop.
      * Safety, configuration, lifecycle and account refusals are never retried,
      * and a `sent`/`unknown` row is still never re-claimed.
+     *
+     * A retry is also pointless once the owner's window has ELAPSED: the window
+     * is never extended, so such a row is settled instead of being re-queued.
      */
     const attempts = Number(delivery.attempts ?? 0);
-    const retry = isRetryableRejection(approved.reason) && attempts < MAX_DELIVERY_ATTEMPTS;
+    const windowOpen = deadline === null || now < deadline;
+    const retry =
+      isRetryableRejection(approved.reason) && attempts < MAX_DELIVERY_ATTEMPTS && windowOpen;
     if (retry) {
       await settle(db, delivery.id, {
         state: "pending",
         reason: `retrying: ${reason}`,
         claimed_at: null,
         lease_expires_at: null,
+        ...finalLookPatch(reason),
       });
       return { deliveryId: delivery.id, state: "pending", reason, dryRun: delivery.dry_run };
     }
@@ -184,9 +206,11 @@ export async function processNextDelivery(
       state: "rejected",
       reason,
       settled_at: new Date().toISOString(),
+      ...finalLookPatch(reason),
     });
     return { deliveryId: delivery.id, state: "rejected", reason, dryRun: delivery.dry_run };
   }
+
 
   /**
    * The LAST lifecycle read, taken here rather than only in revalidation
