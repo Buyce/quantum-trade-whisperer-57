@@ -131,18 +131,24 @@ function dayStartIso(nowMs: number): string {
 }
 
 /**
- * The two independent automatic-order occupancies for these owners.
+ * The automatic-order occupancies for these owners.
  *
  * `concurrent` — deliveries that are still UNRESOLVED right now (queued, in
  * flight, or resting at the broker unresolved). This is what "how many orders am
  * I running at once" means, and it falls as orders resolve.
  * `daily` — how many automatic orders were CREATED so far in the current UTC day,
  * which is a throughput count and does not fall when an order closes.
+ * `perSymbol` — the same UTC-day throughput count, split by instrument, keyed
+ * `user_id|INSTRUMENT`. It exists so one symbol cannot spend the whole day.
  *
- * Both are ceilings, never quotas. An unreadable count fails CLOSED (treated as
+ * All are ceilings, never quotas. An unreadable count fails CLOSED (treated as
  * at the ceiling) rather than permitting unbounded orders. Dry-run rows reach no
- * broker and hold no order, so they spend neither ceiling.
+ * broker and hold no order, so they spend no ceiling.
  */
+export function perSymbolKey(userId: string, instrument: string): string {
+  return `${userId}|${instrument.toUpperCase()}`;
+}
+
 export async function occupiedOrderCounts(
   db: SupabaseClient,
   userIds: string[],
@@ -150,34 +156,48 @@ export async function occupiedOrderCounts(
 ): Promise<{
   counts: Map<string, number>;
   daily: Map<string, number>;
+  perSymbol: Map<string, number>;
   readable: boolean;
 }> {
   const counts = new Map<string, number>();
   const daily = new Map<string, number>();
-  if (userIds.length === 0) return { counts, daily, readable: true };
+  const perSymbol = new Map<string, number>();
+  if (userIds.length === 0) return { counts, daily, perSymbol, readable: true };
   // Bounded lookback: anything older than a week cannot still be an unresolved
   // automatic order, because every owner window tops out at six hours.
   const since = new Date(nowMs - 7 * 24 * 60 * 60_000).toISOString();
   const { data, error } = await db
     .from("execution_deliveries")
-    .select("user_id, state, enqueued_at, dry_run")
+    .select("user_id, state, enqueued_at, dry_run, signal:scanned_signals(instrument)")
     .in("user_id", userIds)
     .in("state", OCCUPYING_STATES as unknown as string[])
     .neq("dry_run", true)
     .gte("enqueued_at", since);
   if (error) {
     console.error("occupied order counts unreadable", error.message);
-    return { counts, daily, readable: false };
+    return { counts, daily, perSymbol, readable: false };
   }
   const dayStart = dayStartIso(nowMs);
-  for (const row of (data ?? []) as { user_id: string; enqueued_at: string | null }[]) {
+  type Row = {
+    user_id: string;
+    enqueued_at: string | null;
+    signal?: { instrument: string | null } | { instrument: string | null }[] | null;
+  };
+  for (const row of (data ?? []) as Row[]) {
     counts.set(row.user_id, (counts.get(row.user_id) ?? 0) + 1);
     if (row.enqueued_at !== null && row.enqueued_at >= dayStart) {
       daily.set(row.user_id, (daily.get(row.user_id) ?? 0) + 1);
+      const embedded = Array.isArray(row.signal) ? row.signal[0] : row.signal;
+      const instrument = embedded?.instrument ?? null;
+      if (instrument) {
+        const key = perSymbolKey(row.user_id, instrument);
+        perSymbol.set(key, (perSymbol.get(key) ?? 0) + 1);
+      }
     }
   }
-  return { counts, daily, readable: true };
+  return { counts, daily, perSymbol, readable: true };
 }
+
 
 export interface DirectEnqueueOutcome {
   /** Accounts a delivery row was written for. */
