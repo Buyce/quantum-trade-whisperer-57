@@ -174,7 +174,9 @@ export async function reconcileActiveSignals(
   }
 
   const activeRows = ((data ?? []) as ActiveSignalRow[]).filter(
-    (row) => row.status === "active" && (row.expired_at === null || new Date(row.expired_at).getTime() > nowMs),
+    (row) =>
+      row.status === "active" &&
+      (row.expired_at === null || new Date(row.expired_at).getTime() > nowMs),
   );
   const windowExpired = activeRows.filter((row) =>
     executionWindowExpired({ detectedAt: row.detected_at }, nowMs),
@@ -183,10 +185,9 @@ export async function reconcileActiveSignals(
   outcome.filtered += expiredResults.length;
   outcome.results.push(...expiredResults);
 
-  const candidates = rankActiveSignals(activeRows.filter((row) => isReconcilable(row, nowMs))).slice(
-    0,
-    maxSignals,
-  );
+  const candidates = rankActiveSignals(
+    activeRows.filter((row) => isReconcilable(row, nowMs)),
+  ).slice(0, maxSignals);
   outcome.considered = candidates.length;
 
   // Session for the cap/eligibility frame comes from the same market context the

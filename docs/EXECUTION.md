@@ -61,7 +61,7 @@ reconciler (`src/lib/delivery/reconcile-active.server.ts`, worker route
 `/api/public/worker/reconcile-active`) is that second attempt, and every later one.
 
 It is not a second rule set. It selects still-entryable active signals — status
-`active`, not expired, and still inside the 30-minute automatic-order window — ranks
+`active`, not expired, and still inside the owner's automatic-order window — ranks
 them the way the feed already reads (grade first, then newest, with a stable id
 tie-breaker), bounds the pass, and hands each to the same authoritative enqueue path,
 leaving the same decision trail. Idempotency is
@@ -71,16 +71,62 @@ It reads no alert state — a missed alert never blocks an order and a delivered
 never authorises one — and it submits nothing to a broker: the dispatcher still does
 that, after its own pre-send revalidation.
 
-### Concurrent-order ceiling
+### Order ceilings
 
-`scanner_settings.maximum_active_signal_orders` (0-10, default 3) caps how many
-automatic orders an owner may have occupied at once — counting today's `pending`,
-`claimed`, `sent`, `acknowledged` and `unknown` deliveries. It is a **ceiling, never
-a quota**: reaching it refuses further orders, and being below it is never a reason
-to place one. Fewer qualifying setups simply means fewer orders. A count that cannot
-be read fails closed (`active_order_count_unreadable`) rather than permitting
-unbounded orders, and it sits on top of — never instead of — the daily setup cap,
-risk per trade, lot ceiling and exposure limit.
+Two independent, owner-set ceilings bound automatic orders.
+
+`scanner_settings.maximum_concurrent_signal_orders` (0-10, default 3) caps how many
+automatic orders may be **unresolved at once** — `pending`, `claimed`, `sent`,
+`acknowledged` and `unknown` deliveries — and falls again as orders resolve.
+`scanner_settings.maximum_daily_signal_orders` (0-25, default 10) caps how many were
+**created in the current UTC day** and does not fall when an order closes. The legacy
+`maximum_active_signal_orders` column is retained for history only and was backfilled
+into both.
+
+Both are **ceilings, never quotas**: reaching one refuses further orders
+(`concurrent_order_limit_reached`, `daily_order_limit_reached`), and being below one
+is never a reason to place an order. Dry-run rows reach no broker and spend neither.
+A count that cannot be read fails closed (`active_order_count_unreadable`). They sit
+on top of — never instead of — the daily setup cap, risk per trade, lot ceiling and
+exposure limit.
+
+### Retrying momentary failures
+
+Pre-send revalidation refusals split in two. A **momentary market condition** —
+`quote_unavailable`, `quote_stale`, `spread_too_wide`, `market_closed`,
+`account_refresh_unavailable`, `limit_price_not_on_pending_side`,
+`price_beyond_max_acceptable_entry` — returns the claimed row to `pending`, bounded
+by `MAX_DELIVERY_ATTEMPTS`, so the next dispatch pass may try again until the owner's
+window ends. Every other refusal, and every safety refusal, is **terminal**. A `sent`
+or `unknown` row is still never re-attempted.
+
+### Market entry (opt-in)
+
+`scanner_settings.auto_market_entry_enabled` (default false). When a setup is still
+valid but price has already moved through the planned entry, a resting limit is
+impossible. With the owner's opt-in, and **only while the live price is still inside
+the published maximum acceptable entry**, the order is submitted at market instead:
+geometry and sizing are recomputed from the market reference price, so the stop
+distance and lot size describe the fill, not the plan. It widens no ceiling — past
+maximum acceptable entry the order is still refused — and research and replay
+statistics continue to describe the pending-limit strategy only.
+
+### Unmeasured regimes (opt-in)
+
+`scanner_settings.allow_unmeasured_intel` (default false) applies only while the
+intelligence gate is on. By default a regime with too few resolved replay samples
+refuses (`intelligence_gate_sample_insufficient`). With the opt-in it passes
+(`intelligence_gate_unmeasured_allowed`), while a **measured** win-if-filled rate
+below the owner's threshold still refuses. An unmeasured regime is a missing
+measurement, not a favourable one.
+
+### Scheduled armed-account refresh
+
+Sizing requires a broker equity observation newer than `BROKER_EQUITY_MAX_AGE_MS`
+(15 minutes). `/api/public/cron/refresh-accounts` (every five minutes, bounded to
+`REFRESH_MAX_ACCOUNTS` armed accounts, oldest observation first) keeps those stored
+figures warm. It authorises and submits nothing; the fresh pre-send preflight remains
+the authority for every order and still fails closed when the broker does not answer.
 
 ### Automatic-order window
 

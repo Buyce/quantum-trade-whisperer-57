@@ -114,7 +114,9 @@ describe("per-owner window in the enqueue path", () => {
     const out = await enqueueDirectDeliveries(f.client as SupabaseClient, SIGNAL, NOW);
     expect(out.enqueued).toBe(0);
     expect(decisions(f.calls).some((d) => d["decision"] === "execution_window_expired")).toBe(true);
-    expect(f.calls.some((c) => c.table === "execution_deliveries" && c.op === "insert")).toBe(false);
+    expect(f.calls.some((c) => c.table === "execution_deliveries" && c.op === "insert")).toBe(
+      false,
+    );
   });
 
   it("[INVARIANT] a narrower owner window refuses a setup the widest window allows", async () => {

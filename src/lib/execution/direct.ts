@@ -17,7 +17,12 @@
 import { ORDER_TIF_MINUTES, clampAutoOrderWindowMinutes } from "@/lib/db-types";
 import { buildClientId, PTRADES_STRATEGY_ID } from "@/lib/metaapi/client-id";
 import type { AccountMode } from "@/lib/accounts/types";
-import type { PendingOrderActionType, PendingOrderRequest } from "@/lib/metaapi/types";
+import type {
+  MarketOrderActionType,
+  MarketOrderRequest,
+  PendingOrderActionType,
+  PendingOrderRequest,
+} from "@/lib/metaapi/types";
 import type { TradeVerdict } from "@/lib/metaapi/trade-result";
 import type { DeliveryState, OrderQuantity } from "@/lib/delivery/execution";
 
@@ -103,6 +108,12 @@ export interface DirectOrderPlan {
   tp1: number;
   grade: string;
   detectedAt: string;
+  /**
+   * How the order reaches the market. Absent ⇒ the historical pending limit.
+   * `market` is only ever set by revalidation after the owner opted in and the
+   * live price was proven to be inside the maximum acceptable entry.
+   */
+  entryMode?: "pending_limit" | "market";
 }
 
 export interface DirectOrderContext {
@@ -121,6 +132,12 @@ export class DirectOrderError extends Error {
     super(message);
     this.name = "DirectOrderError";
   }
+}
+
+export function marketActionTypeFor(direction: string): MarketOrderActionType {
+  if (direction === "long") return "ORDER_TYPE_BUY";
+  if (direction === "short") return "ORDER_TYPE_SELL";
+  throw new DirectOrderError(`unsupported direction ${direction}`);
 }
 
 export function actionTypeFor(direction: string): PendingOrderActionType {
@@ -198,6 +215,54 @@ export function buildDirectOrder(
     // MetaApi documents a combined 26-character budget for comment + clientId.
     // The clientId is the reconciliation/ownership key, so it receives the
     // whole budget and the optional cosmetic comment is intentionally omitted.
+  };
+}
+
+/**
+ * Build a MARKET order. Same protection contract as the pending path — stop loss
+ * and first target are always attached — but with no resting price and no
+ * expiration: it fills now or the broker refuses it. `plan.entryPrice` here is
+ * the live price revalidation already proved is inside the maximum acceptable
+ * entry, and is what the geometry and the quantity were derived from.
+ */
+export function buildDirectMarketOrder(
+  plan: DirectOrderPlan,
+  ctx: DirectOrderContext,
+): MarketOrderRequest {
+  const actionType = marketActionTypeFor(plan.direction);
+  const reference = finite(plan.entryPrice, "entry");
+  const stopLoss = finite(plan.stopLoss, "stop loss");
+  const takeProfit = finite(plan.tp1, "first target");
+
+  if (plan.direction === "long" && !(stopLoss < reference && takeProfit > reference)) {
+    throw new DirectOrderError("long geometry requires stop below entry and target above entry");
+  }
+  if (plan.direction === "short" && !(stopLoss > reference && takeProfit < reference)) {
+    throw new DirectOrderError("short geometry requires stop above entry and target below entry");
+  }
+
+  const volume = ctx.quantity.lots;
+  if (typeof volume !== "number" || !Number.isFinite(volume) || volume <= 0) {
+    throw new DirectOrderError("no authoritative position quantity");
+  }
+  const symbol = ctx.brokerSymbol.trim();
+  if (!symbol) throw new DirectOrderError("no broker symbol resolved for this instrument");
+  if (!Number.isInteger(ctx.magic) || ctx.magic <= 0) {
+    throw new DirectOrderError("no magic number assigned to this account");
+  }
+
+  return {
+    actionType,
+    symbol,
+    volume,
+    stopLoss,
+    takeProfit,
+    clientId: buildClientId({
+      strategyId: PTRADES_STRATEGY_ID,
+      positionRef: plan.signalId,
+      orderRef: String(ctx.deliveryId),
+    }),
+    magic: ctx.magic,
   };
 }
 

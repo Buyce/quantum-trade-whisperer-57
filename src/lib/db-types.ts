@@ -202,11 +202,36 @@ export interface ScannerSettingsRow {
    */
   auto_execute_c_grade: boolean;
   /**
-   * Ceiling (0-10) on how many automatic orders may be occupied at once, never a
-   * quota: nothing is ever ordered to reach it. Subordinate to the daily setup
-   * cap, risk per trade, lot ceiling, exposure limit and pre-send revalidation.
+   * LEGACY single ceiling, retained so historical rows and decisions stay
+   * readable. It is superseded by {@link ScannerSettings.maximum_concurrent_signal_orders}
+   * and {@link ScannerSettings.maximum_daily_signal_orders} and is no longer
+   * consulted by the automatic-order path.
    */
   maximum_active_signal_orders: number;
+  /**
+   * Ceiling (0-10) on how many automatic orders may be OCCUPIED at once (queued,
+   * in flight or acknowledged and unresolved). Never a quota: nothing is ever
+   * ordered to reach it.
+   */
+  maximum_concurrent_signal_orders: number;
+  /**
+   * Ceiling (0-25) on how many automatic orders may be created per UTC day.
+   * Subordinate to the daily setup cap, risk per trade, lot ceiling, exposure
+   * limit and pre-send revalidation.
+   */
+  maximum_daily_signal_orders: number;
+  /**
+   * Owner opt-in: when price has already passed the planned entry but is still
+   * within the maximum acceptable entry, submit at MARKET instead of refusing.
+   * Off by default. It never widens the slippage ceiling.
+   */
+  auto_market_entry_enabled: boolean;
+  /**
+   * Owner opt-in: while the intelligence gate is on, allow a setup whose regime
+   * has too FEW resolved replay samples to be judged. A measured rate that is
+   * below the threshold still refuses. Off by default.
+   */
+  allow_unmeasured_intel: boolean;
   /**
    * How long after DETECTION a published setup may still become an automatic
    * order, in minutes (0-360, default 180). 0 disables automatic orders on age
@@ -214,6 +239,29 @@ export interface ScannerSettingsRow {
    * replay, shadow and research mathematics.
    */
   auto_order_window_minutes: number;
+}
+
+/** Bounds for the two automatic-order ceilings. */
+export const CONCURRENT_ORDER_CEILING_MAX = 10;
+export const CONCURRENT_ORDER_CEILING_DEFAULT = 3;
+export const DAILY_ORDER_CEILING_MAX = 25;
+export const DAILY_ORDER_CEILING_DEFAULT = 10;
+
+function clampCeiling(value: unknown, fallback: number, max: number): number {
+  if (value === null || value === undefined || value === "") return fallback;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(Math.max(Math.round(n), 0), max);
+}
+
+/** Concurrent automatic-order ceiling (0-10). Absent ⇒ the default, never 0. */
+export function clampConcurrentOrderCeiling(value: unknown): number {
+  return clampCeiling(value, CONCURRENT_ORDER_CEILING_DEFAULT, CONCURRENT_ORDER_CEILING_MAX);
+}
+
+/** Daily automatic-order ceiling (0-25). Absent ⇒ the default, never 0. */
+export function clampDailyOrderCeiling(value: unknown): number {
+  return clampCeiling(value, DAILY_ORDER_CEILING_DEFAULT, DAILY_ORDER_CEILING_MAX);
 }
 
 export type OrderStrategy = "smart_adaptive" | "strict_retest";

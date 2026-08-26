@@ -3602,10 +3602,12 @@ export type Database = {
           account_currency: string
           account_equity: number
           alert_min_grade: Database["public"]["Enums"]["signal_grade"]
+          allow_unmeasured_intel: boolean
           auto_execute_c_grade: boolean
           auto_intel_gate_enabled: boolean
           auto_intel_min_sample: number
           auto_intel_min_win_pct: number | null
+          auto_market_entry_enabled: boolean
           auto_order_window_minutes: number
           created_at: string
           daily_setup_cap: number
@@ -3623,6 +3625,8 @@ export type Database = {
           max_position_size: number
           max_stop_loss_percent: number
           maximum_active_signal_orders: number
+          maximum_concurrent_signal_orders: number
+          maximum_daily_signal_orders: number
           min_grade: Database["public"]["Enums"]["signal_grade"]
           notify_email: boolean
           notify_push: boolean
@@ -3644,10 +3648,12 @@ export type Database = {
           account_currency?: string
           account_equity?: number
           alert_min_grade?: Database["public"]["Enums"]["signal_grade"]
+          allow_unmeasured_intel?: boolean
           auto_execute_c_grade?: boolean
           auto_intel_gate_enabled?: boolean
           auto_intel_min_sample?: number
           auto_intel_min_win_pct?: number | null
+          auto_market_entry_enabled?: boolean
           auto_order_window_minutes?: number
           created_at?: string
           daily_setup_cap?: number
@@ -3665,6 +3671,8 @@ export type Database = {
           max_position_size?: number
           max_stop_loss_percent?: number
           maximum_active_signal_orders?: number
+          maximum_concurrent_signal_orders?: number
+          maximum_daily_signal_orders?: number
           min_grade?: Database["public"]["Enums"]["signal_grade"]
           notify_email?: boolean
           notify_push?: boolean
@@ -3686,10 +3694,12 @@ export type Database = {
           account_currency?: string
           account_equity?: number
           alert_min_grade?: Database["public"]["Enums"]["signal_grade"]
+          allow_unmeasured_intel?: boolean
           auto_execute_c_grade?: boolean
           auto_intel_gate_enabled?: boolean
           auto_intel_min_sample?: number
           auto_intel_min_win_pct?: number | null
+          auto_market_entry_enabled?: boolean
           auto_order_window_minutes?: number
           created_at?: string
           daily_setup_cap?: number
@@ -3707,6 +3717,8 @@ export type Database = {
           max_position_size?: number
           max_stop_loss_percent?: number
           maximum_active_signal_orders?: number
+          maximum_concurrent_signal_orders?: number
+          maximum_daily_signal_orders?: number
           min_grade?: Database["public"]["Enums"]["signal_grade"]
           notify_email?: boolean
           notify_push?: boolean

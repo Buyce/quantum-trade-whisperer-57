@@ -19,6 +19,8 @@ import {
   spreadAcceptable,
   validateQuantity,
   pendingLimitSideValid,
+  withinMaxAcceptableEntry,
+  type EntryMode,
   type BridgeOrder,
   type ExecutionPolicy,
   type OrderQuantity,
@@ -72,6 +74,8 @@ export interface DeliveryRow {
   signal_id: string;
   bridge_profile: string;
   dry_run: boolean;
+  /** How many times this row has been claimed; bounds momentary-failure retries. */
+  attempts?: number | null;
   /** Configuration version that authorized this delivery when it was enqueued. */
   execution_config_version?: number | null;
   /**
@@ -132,6 +136,8 @@ export interface RevalidationApproved {
     priceGridTick: number | null;
     priceGridSource: "tick_size" | "point" | "unnormalized";
     priceGridMoved: boolean;
+    /** How the order reaches the market: a resting limit, or market entry. */
+    entryMode: EntryMode;
   };
   /** Always reported; only blocks when the user opted in. */
   exposure: ExposureVerdict | null;
@@ -196,6 +202,8 @@ interface SettingsRow {
   webhook_validated_at: string | null;
   /** Owner's automatic-order window in minutes (0–360). */
   auto_order_window_minutes?: number | null;
+  /** Owner opt-in: enter at market when price has passed the planned entry. */
+  auto_market_entry_enabled?: boolean | null;
   /** Explicit owner confirmation of the dry-run → live transition. */
   live_execution_confirmed_at?: string | null;
   live_execution_confirmed_version?: number | null;
@@ -239,7 +247,7 @@ export async function revalidateDelivery(
   const { data: settingsRow } = await db
     .from("scanner_settings")
     .select(
-      "instruments, sessions, alert_min_grade, daily_setup_cap, execution_enabled, execution_dry_run, execution_config_version, exposure_limit_enabled, webhook_enabled, webhook_url, webhook_secret, webhook_format, webhook_validated_at, auto_order_window_minutes, live_execution_confirmed_at, live_execution_confirmed_version, live_execution_confirmed_global_live",
+      "instruments, sessions, alert_min_grade, daily_setup_cap, execution_enabled, execution_dry_run, execution_config_version, exposure_limit_enabled, webhook_enabled, webhook_url, webhook_secret, webhook_format, webhook_validated_at, auto_order_window_minutes, auto_market_entry_enabled, live_execution_confirmed_at, live_execution_confirmed_version, live_execution_confirmed_global_live",
     )
     .eq("user_id", delivery.user_id)
     .maybeSingle();
@@ -289,6 +297,9 @@ export async function revalidateDelivery(
       // under, never by a customer's execution configuration version.
       execution_config_version: policyRow.policyVersion,
       exposure_limit_enabled: false,
+      // A benchmark order is the published pending-limit record; market entry is
+      // a customer preference and is never applied to it.
+      auto_market_entry_enabled: false,
       webhook_enabled: false,
       webhook_url: null,
       webhook_secret: null,
@@ -517,8 +528,41 @@ export async function revalidateDelivery(
   // the far side of the planned entry. The broker's minimum distance is loaded
   // below, so this first pass asserts the side only.
   const marketPrice = action === "buy_limit" ? quote.ask : quote.bid;
+
+  /**
+   * Entry mode. A resting limit is always preferred; MARKET entry is only ever
+   * reached when ALL of the following hold:
+   *
+   *   1. the market has already passed the planned entry, so no limit can rest
+   *      there at its planned price;
+   *   2. the owner explicitly opted into market entry;
+   *   3. the live price is still inside the published maximum acceptable entry,
+   *      the same slippage ceiling the feed and the alerts state.
+   *
+   * The ceiling is never widened, and the mode is recorded on the order and the
+   * approved plan so a filled trade can always be explained.
+   */
+  const marketEntryAllowed = settings.auto_market_entry_enabled === true;
+  let entryMode: EntryMode = "pending_limit";
   if (!pendingLimitSideValid({ action, entry: plan.entryPrice }, marketPrice)) {
-    return reject("limit_price_not_on_pending_side", `market ${marketPrice} vs ${plan.entryPrice}`);
+    if (!marketEntryAllowed) {
+      return reject(
+        "limit_price_not_on_pending_side",
+        `market ${marketPrice} vs ${plan.entryPrice}`,
+      );
+    }
+    if (
+      !withinMaxAcceptableEntry(
+        { action, maxAcceptableEntry: plan.maxAcceptableEntry },
+        marketPrice,
+      )
+    ) {
+      return reject(
+        "price_beyond_max_acceptable_entry",
+        `market ${marketPrice} vs ceiling ${plan.maxAcceptableEntry}`,
+      );
+    }
+    entryMode = "market";
   }
 
   // ---- 6. Broker stop distance + sizing guardrails --------------------------
@@ -547,10 +591,14 @@ export async function revalidateDelivery(
   // stops level, risk-per-unit, quantity, margin, the order itself and the
   // approved plan — uses the SNAPPED geometry. Sizing a plan at one price and
   // submitting another is how a "1% risk" order becomes something else.
+  // A market order is sized from the price it would actually fill at, not from a
+  // planned entry the market has already left behind: the real stop distance is
+  // wider, so the resulting volume is smaller. Never the other way round.
+  const geometryEntry = entryMode === "market" ? marketPrice : plan.entryPrice;
   const submitted = normalizeOrderGeometry({
     spec,
     direction: planDirection,
-    entryPrice: plan.entryPrice,
+    entryPrice: geometryEntry,
     stopLoss: plan.stopLoss,
     tp1: plan.tp1,
     tp2: plan.tp2,
@@ -604,13 +652,28 @@ export async function revalidateDelivery(
   const rawDistance = spec ? minStopDistance(spec) : null;
   const limitDistance =
     rawDistance !== null && Number.isFinite(rawDistance) && rawDistance >= 0 ? rawDistance : null;
-  if (destination === "metaapi_direct" && limitDistance === null) {
+  if (entryMode === "market") {
+    // Market entry has no resting price, so the minimum ORDER distance does not
+    // apply; the slippage ceiling is re-asked on the snapped ceiling instead.
+    if (
+      !withinMaxAcceptableEntry(
+        { action, maxAcceptableEntry: execPlan.maxAcceptableEntry },
+        marketPrice,
+      )
+    ) {
+      return reject(
+        "price_beyond_max_acceptable_entry",
+        `market ${marketPrice} vs ceiling ${execPlan.maxAcceptableEntry}`,
+      );
+    }
+  } else if (destination === "metaapi_direct" && limitDistance === null) {
     return reject(
       "limit_distance_unavailable",
       `no minimum order distance is stored for ${signal.instrument} on this account`,
     );
   }
   if (
+    entryMode === "pending_limit" &&
     !pendingLimitSideValid({ action, entry: execPlan.entryPrice }, marketPrice, limitDistance ?? 0)
   ) {
     return reject(
@@ -700,7 +763,7 @@ export async function revalidateDelivery(
   // The order carries the SNAPPED geometry; the approved plan records both, so a
   // later reconciliation can explain any difference between the published signal
   // and what the broker was actually asked for.
-  const order = buildBridgeOrder(execPlan, quantity, policy, autoWindowMinutes);
+  const order = buildBridgeOrder(execPlan, quantity, policy, autoWindowMinutes, entryMode);
   const approvedPlan = {
     signalId: signal.id,
     instrument: signal.instrument,
@@ -716,6 +779,7 @@ export async function revalidateDelivery(
     priceGridTick: submitted.tick,
     priceGridSource: submitted.source,
     priceGridMoved: submitted.moved,
+    entryMode,
   };
 
   // ---- 7a. Direct broker destination ---------------------------------------

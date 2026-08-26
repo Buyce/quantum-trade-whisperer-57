@@ -74,6 +74,7 @@ export type RejectReason =
   | "account_currency_unavailable"
   | "account_not_armed"
   | "instrument_not_approved"
+  | "market_entry_not_enabled"
   | "no_execution_grid";
 
 export const REJECT_COPY: Record<RejectReason, string> = {
@@ -98,6 +99,8 @@ export const REJECT_COPY: Record<RejectReason, string> = {
   price_beyond_max_acceptable_entry: "Price had already run beyond the maximum acceptable entry.",
   limit_price_not_on_pending_side:
     "The market had already reached the planned entry, so a pending limit order could not rest there at its planned price.",
+  market_entry_not_enabled:
+    "The market had already passed the planned entry, so a resting limit order was impossible. Entering at market is switched off in your settings, so nothing was sent.",
   limit_distance_unavailable:
     "Your broker has not published a minimum order distance for this symbol, so a pending limit price could not be validated. No distance is assumed.",
   market_closed: "The market was closed.",
@@ -127,6 +130,40 @@ export const REJECT_COPY: Record<RejectReason, string> = {
   account_not_armed:
     "This broker account is not armed for automatic orders, or the matching system-wide switch is off.",
 };
+
+/**
+ * Refusals that describe a MOMENT, not the setup.
+ *
+ * A quote that was missing or a second old, a spread that was briefly wide, a
+ * market that had run through the planned limit — none of these say the setup is
+ * unfit; they say "not right now". Those deliveries go back to `pending` and are
+ * re-asked on the next dispatch pass, bounded by the owner's automatic-order
+ * window (the age gate turns into a terminal `tif_expired` once it elapses) and
+ * by {@link MAX_DELIVERY_ATTEMPTS}.
+ *
+ * Everything absent from this set is TERMINAL: a safety refusal, a configuration
+ * refusal, a lifecycle refusal or an account refusal is never retried into
+ * existence. A `sent` or `unknown` delivery is never retried either — that rule
+ * lives in {@link isClaimable} and is unchanged.
+ */
+export const RETRYABLE_REJECT_REASONS: readonly RejectReason[] = [
+  "quote_unavailable",
+  "quote_stale",
+  "spread_too_wide",
+  "limit_price_not_on_pending_side",
+  "price_beyond_max_acceptable_entry",
+  "account_refresh_unavailable",
+  "market_closed",
+];
+
+/** Hard bound on how many times one delivery may be re-asked. */
+export const MAX_DELIVERY_ATTEMPTS = 120;
+
+export function isRetryableRejection(reason: string | null | undefined): boolean {
+  if (!reason) return false;
+  const key = reason.split(":")[0]?.trim() ?? "";
+  return (RETRYABLE_REJECT_REASONS as readonly string[]).includes(key);
+}
 
 /**
  * Live-mode destination allowlist. The Worker cannot pin the resolved address
@@ -237,12 +274,24 @@ export function bridgeSupportsVerifiedQuantity(format: string): boolean {
   return (QUANTITY_VERIFIED_FORMATS as readonly string[]).includes(format);
 }
 
+/**
+ * How the order reaches the market.
+ *
+ * `pending_limit` is the default and the only mode the engine's own statistics
+ * describe. `market` exists only for the owner-opted-in case where price has
+ * already passed the planned entry but is still inside the maximum acceptable
+ * entry, so a resting limit is impossible while the setup is still tradable.
+ */
+export type EntryMode = "pending_limit" | "market";
+
 export interface BridgeOrder {
   signalId: string;
   instrument: string;
-  /** Always a LIMIT: after a break the only order MT5 accepts back at the
-   *  structural entry is a plain limit — never a stop or stop-limit. */
-  action: "buy_limit" | "sell_limit";
+  /** A LIMIT unless the owner opted into market entry and price has passed the
+   *  planned entry; never a stop or stop-limit. */
+  action: "buy_limit" | "sell_limit" | "buy" | "sell";
+  /** Which of the two entry modes above this order uses. */
+  entryMode: EntryMode;
   entry: number;
   maxAcceptableEntry: number;
   stopLoss: number;
@@ -263,14 +312,17 @@ export function buildBridgeOrder(
   policy: ExecutionPolicy = DEFAULT_EXECUTION_POLICY,
   /** The owner's automatic-order window; the submitted order cannot outlive it. */
   expiresInMinutes: number = ORDER_TIF_MINUTES,
+  entryMode: EntryMode = "pending_limit",
 ): BridgeOrder {
   if (policy !== "single_exit_first_target") {
     throw new Error(`unsupported execution policy: ${String(policy)}`);
   }
+  const long = signal.direction === "long";
   return {
     signalId: signal.id,
     instrument: signal.instrument,
-    action: signal.direction === "long" ? "buy_limit" : "sell_limit",
+    action: entryMode === "market" ? (long ? "buy" : "sell") : long ? "buy_limit" : "sell_limit",
+    entryMode,
     entry: signal.entryPrice,
     maxAcceptableEntry: signal.maxAcceptableEntry,
     stopLoss: signal.stopLoss,
@@ -297,9 +349,8 @@ export function withinMaxAcceptableEntry(
   order: Pick<BridgeOrder, "action" | "maxAcceptableEntry">,
   price: number,
 ): boolean {
-  return order.action === "buy_limit"
-    ? price <= order.maxAcceptableEntry
-    : price >= order.maxAcceptableEntry;
+  const long = order.action === "buy_limit" || order.action === "buy";
+  return long ? price <= order.maxAcceptableEntry : price >= order.maxAcceptableEntry;
 }
 
 /**
@@ -326,7 +377,8 @@ export function pendingLimitSideValid(
   // The market must be strictly on the far side: sitting exactly ON the limit is
   // not a pending order that waits, it is one that fills at an unplanned moment
   // or is refused by the broker outright.
-  const gap = order.action === "buy_limit" ? price - order.entry : order.entry - price;
+  const long = order.action === "buy_limit" || order.action === "buy";
+  const gap = long ? price - order.entry : order.entry - price;
   return gap > 0 && gap >= minDistance;
 }
 

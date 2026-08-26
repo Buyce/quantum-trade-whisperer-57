@@ -20,6 +20,8 @@ import { PAYLOAD_VERSION, requestFingerprint, signBody } from "./hmac";
 import { revalidateDelivery, type DeliveryRow } from "./revalidate.server";
 import {
   EXECUTION_POLICY_NOTE,
+  isRetryableRejection,
+  MAX_DELIVERY_ATTEMPTS,
   REJECT_COPY,
   type BridgeOrder,
   type DeliveryState,
@@ -55,6 +57,7 @@ export function jsonBody(order: BridgeOrder, secret: string, dryRun: boolean) {
     action: order.action,
     grade: order.grade,
     entry: order.entry,
+    entry_mode: order.entryMode,
     max_acceptable_entry: order.maxAcceptableEntry,
     stop_loss: order.stopLoss,
     take_profit: order.takeProfit,
@@ -83,12 +86,18 @@ export function jsonBody(order: BridgeOrder, secret: string, dryRun: boolean) {
 export function pineBody(order: BridgeOrder, licence: string): string {
   return [
     licence,
-    order.action === "buy_limit" ? "buylimit" : "selllimit",
+    order.entryMode === "market"
+      ? order.action === "buy"
+        ? "buy"
+        : "sell"
+      : order.action === "buy_limit"
+        ? "buylimit"
+        : "selllimit",
     order.instrument,
-    `price=${fmt(order.entry)}`,
+    ...(order.entryMode === "market" ? [] : [`price=${fmt(order.entry)}`]),
     `sl=${fmt(order.stopLoss)}`,
     `tp=${fmt(order.takeProfit)}`,
-    `expiration=${order.expiresInMinutes}`,
+    ...(order.entryMode === "market" ? [] : [`expiration=${order.expiresInMinutes}`]),
     `comment=P-Trades ${order.grade}`,
   ].join(",");
 }
@@ -148,6 +157,29 @@ export async function processNextDelivery(
 
   if (!approved.ok) {
     const reason = approved.detail ? `${approved.reason}: ${approved.detail}` : approved.reason;
+    /**
+     * Momentary refusals go back in the queue instead of being settled.
+     *
+     * A missing quote, a briefly wide spread, or a market that had run through
+     * the planned limit says "not right now", not "not this setup". Such a row
+     * returns to `pending` and is re-asked on a later pass. Nothing about the
+     * decision is relaxed: every gate runs again from scratch, the owner's
+     * automatic-order window turns into a TERMINAL `tif_expired` once it elapses,
+     * and the attempt counter (incremented by the claim itself) bounds the loop.
+     * Safety, configuration, lifecycle and account refusals are never retried,
+     * and a `sent`/`unknown` row is still never re-claimed.
+     */
+    const attempts = Number(delivery.attempts ?? 0);
+    const retry = isRetryableRejection(approved.reason) && attempts < MAX_DELIVERY_ATTEMPTS;
+    if (retry) {
+      await settle(db, delivery.id, {
+        state: "pending",
+        reason: `retrying: ${reason}`,
+        claimed_at: null,
+        lease_expires_at: null,
+      });
+      return { deliveryId: delivery.id, state: "pending", reason, dryRun: delivery.dry_run };
+    }
     await settle(db, delivery.id, {
       state: "rejected",
       reason,
@@ -204,6 +236,7 @@ export async function processNextDelivery(
         tp1: approved.plan.tp1,
         grade: approved.plan.grade,
         detectedAt: approved.plan.detectedAt,
+        entryMode: approved.plan.entryMode,
       },
       approved.quantity,
       approved.direct,

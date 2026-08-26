@@ -21,14 +21,16 @@ import { assertCapability } from "@/lib/instruments/lifecycle.server";
 import { fetchAccountFacts, fetchOrders, fetchPositions } from "@/lib/metaapi/accounts.server";
 import { fetchQuoteFor, type BrokerQuote } from "@/lib/metaapi/market.server";
 import { estimateMargin } from "@/lib/metaapi/margin.server";
-import { submitPendingOrder } from "@/lib/metaapi/trade.server";
+import { submitMarketOrder, submitPendingOrder } from "@/lib/metaapi/trade.server";
 import type { AccountMode } from "@/lib/accounts/types";
 import type { AccountType } from "@/lib/metaapi/classify";
 import type { OrderQuantity } from "@/lib/delivery/execution";
 import { materialEquityChange } from "./equity-freshness";
 import { evaluateAccountExposure } from "./exposure-account";
 import {
+  buildDirectMarketOrder,
   buildDirectOrder,
+  marketActionTypeFor,
   deliveryStateForVerdict,
   directExecutionAllowed,
   DirectOrderError,
@@ -260,15 +262,19 @@ export async function submitDirectOrder(
     }
   }
 
+  // Opt-in market entry: no resting price, no expiration. Everything else — the
+  // gates above, the margin gate, the settlement record — is identical.
+  const marketEntry = plan.entryMode === "market";
   let order;
   try {
-    order = buildDirectOrder(plan, {
+    const ctx = {
       brokerSymbol: target.brokerSymbol,
       magic: target.magic,
       quantity: finalQuantity,
       deliveryId: delivery.id,
       ...(windowMinutes === undefined ? {} : { windowMinutes }),
-    });
+    };
+    order = marketEntry ? buildDirectMarketOrder(plan, ctx) : buildDirectOrder(plan, ctx);
   } catch (err) {
     const detail =
       err instanceof DirectOrderError
@@ -291,7 +297,7 @@ export async function submitDirectOrder(
     magic: order.magic,
     broker_symbol: order.symbol,
     submitted_volume: order.volume,
-    submitted_entry: order.openPrice,
+    submitted_entry: "openPrice" in order ? order.openPrice : plan.entryPrice,
     submitted_stop: order.stopLoss,
     submitted_target: order.takeProfit,
   };
@@ -301,9 +307,9 @@ export async function submitDirectOrder(
   try {
     brokerMargin = await estimateMargin(target.metaapiAccountId, target.region, {
       symbol: order.symbol,
-      type: order.actionType,
+      type: marketEntry ? marketActionTypeFor(plan.direction) : order.actionType,
       volume: order.volume,
-      openPrice: order.openPrice,
+      openPrice: "openPrice" in order ? order.openPrice : plan.entryPrice,
     });
   } catch {
     brokerMargin = null;
@@ -326,7 +332,9 @@ export async function submitDirectOrder(
     await settle(db, delivery.id, {
       ...common,
       state: "acknowledged",
-      reason: "dry_run: validated against the broker, no order submitted",
+      reason: `dry_run: validated against the broker, no order submitted (${
+        marketEntry ? "market entry" : "pending limit"
+      })`,
       margin_estimate: brokerMargin,
       settled_at: new Date().toISOString(),
     });
@@ -370,7 +378,14 @@ export async function submitDirectOrder(
 
   let verdict;
   try {
-    verdict = await submitPendingOrder(target.metaapiAccountId, target.region, order);
+    verdict =
+      marketEntry && !("openPrice" in order)
+        ? await submitMarketOrder(target.metaapiAccountId, target.region, order)
+        : await submitPendingOrder(
+            target.metaapiAccountId,
+            target.region,
+            order as Parameters<typeof submitPendingOrder>[2],
+          );
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
     // Ambiguous by definition: the order may or may not exist at the broker.
@@ -452,7 +467,9 @@ export async function refreshDirectPreflight(
       ok: false,
       reason: "quote_unavailable",
       detail:
-        quoteResult.reason instanceof Error ? quoteResult.reason.message : String(quoteResult.reason),
+        quoteResult.reason instanceof Error
+          ? quoteResult.reason.message
+          : String(quoteResult.reason),
     };
   }
   if (!quoteResult.value) {

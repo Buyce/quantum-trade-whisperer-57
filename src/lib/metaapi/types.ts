@@ -128,6 +128,20 @@ export interface BrokerDeal {
 /** Documented pending-order action types P-Trades submits. */
 export type PendingOrderActionType = "ORDER_TYPE_BUY_LIMIT" | "ORDER_TYPE_SELL_LIMIT";
 
+/** Documented MARKET action types P-Trades submits (opt-in market entry only). */
+export type MarketOrderActionType = "ORDER_TYPE_BUY" | "ORDER_TYPE_SELL";
+
+export interface MarketOrderRequest {
+  actionType: MarketOrderActionType;
+  symbol: string;
+  volume: number;
+  stopLoss: number;
+  takeProfit: number;
+  clientId: string;
+  magic: number;
+  comment?: string;
+}
+
 export interface PendingOrderRequest {
   actionType: PendingOrderActionType;
   symbol: string;
@@ -153,7 +167,7 @@ export interface TradeResponse {
 
 export interface MarginRequest {
   symbol: string;
-  type: PendingOrderActionType;
+  type: PendingOrderActionType | MarketOrderActionType;
   volume: number;
   openPrice: number;
 }
