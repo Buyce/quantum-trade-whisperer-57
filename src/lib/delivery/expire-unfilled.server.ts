@@ -59,7 +59,6 @@ export function ownerTimeoutMs(windowMinutes: number | null | undefined): number
   return Math.min(minutes, 360) * 60_000;
 }
 
-
 export type ExpiryOutcome =
   /** Settled `expired`; the slot is now free. */
   | { deliveryId: number; action: "expired"; reason: string }
@@ -186,7 +185,6 @@ export async function expireUnfilledOrders(
     if (isTerminal(row.state as DeliveryState) && row.state !== "acknowledged") continue;
     const timeoutMs = (row.user_id && windows.get(row.user_id)) || UNFILLED_ORDER_TIMEOUT_MS;
     if (!isUnfilledTooLong(row, now, timeoutMs)) continue;
-
 
     // A dry run reached no broker at all, so the slot is free to reclaim.
     if (row.dry_run === true || neverSubmitted(row)) {

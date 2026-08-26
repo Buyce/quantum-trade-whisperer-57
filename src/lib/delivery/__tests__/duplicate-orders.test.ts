@@ -46,11 +46,7 @@ describe("one live automatic order per setup", () => {
       isSameOrderPlan({ instrument: "EURUSD", direction: "short", entry: null }, held({}), 0.00001),
     ).toBe(false);
     expect(
-      isSameOrderPlan(
-        { instrument: "EURUSD", direction: null, entry: 1.16544 },
-        held({}),
-        0.00001,
-      ),
+      isSameOrderPlan({ instrument: "EURUSD", direction: null, entry: 1.16544 }, held({}), 0.00001),
     ).toBe(false);
     expect(
       isSameOrderPlan(
@@ -78,9 +74,7 @@ describe("one live automatic order per setup", () => {
       signalId: "new-signal",
     };
     expect(findDuplicateOrder(candidate, [held({ deliveryId: 42 })], 0.00001)?.deliveryId).toBe(42);
-    expect(
-      findDuplicateOrder(candidate, [held({ signalId: "new-signal" })], 0.00001),
-    ).toBeNull();
+    expect(findDuplicateOrder(candidate, [held({ signalId: "new-signal" })], 0.00001)).toBeNull();
     expect(findDuplicateOrder(candidate, [], 0.00001)).toBeNull();
   });
 });

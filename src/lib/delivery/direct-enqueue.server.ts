@@ -255,7 +255,11 @@ export async function heldOrdersByUser(
     published_entry: number | string | null;
     signal?:
       | { instrument: string | null; direction: string | null; entry_price: number | string | null }
-      | { instrument: string | null; direction: string | null; entry_price: number | string | null }[]
+      | {
+          instrument: string | null;
+          direction: string | null;
+          entry_price: number | string | null;
+        }[]
       | null;
   };
   const number = (value: number | string | null | undefined): number | null => {
@@ -298,14 +302,22 @@ export async function readDuplicateContext(
       .select("instrument, direction, entry_price")
       .eq("id", signal.id)
       .maybeSingle(),
-    db.from("broker_symbol_specs").select("tick_size").eq("symbol", signal.instrument).maybeSingle(),
+    db
+      .from("broker_symbol_specs")
+      .select("tick_size")
+      .eq("symbol", signal.instrument)
+      .maybeSingle(),
   ]);
-  const row = signalRow as
-    | { instrument: string | null; direction: string | null; entry_price: number | string | null }
-    | null;
+  const row = signalRow as {
+    instrument: string | null;
+    direction: string | null;
+    entry_price: number | string | null;
+  } | null;
   const spec = specRow as { tick_size: number | string | null } | null;
-  const tick = spec?.tick_size === null || spec?.tick_size === undefined ? null : Number(spec.tick_size);
-  const entry = row?.entry_price === null || row?.entry_price === undefined ? null : Number(row.entry_price);
+  const tick =
+    spec?.tick_size === null || spec?.tick_size === undefined ? null : Number(spec.tick_size);
+  const entry =
+    row?.entry_price === null || row?.entry_price === undefined ? null : Number(row.entry_price);
   return {
     plan:
       row === null
@@ -318,7 +330,6 @@ export async function readDuplicateContext(
     tickSize: tick !== null && Number.isFinite(tick) ? tick : null,
   };
 }
-
 
 export interface DirectEnqueueOutcome {
   /** Accounts a delivery row was written for. */

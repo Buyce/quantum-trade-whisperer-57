@@ -24,7 +24,11 @@ describe("unfilled-order sweep uses the owner's own automatic-order window", () 
     expect(isUnfilledTooLong(row, now, ownerTimeoutMs(180))).toBe(false);
     expect(isUnfilledTooLong(row, now, ownerTimeoutMs(60))).toBe(true);
     expect(
-      isUnfilledTooLong({ enqueued_at: "2026-08-26T08:30:00Z", sent_at: null }, now, ownerTimeoutMs(180)),
+      isUnfilledTooLong(
+        { enqueued_at: "2026-08-26T08:30:00Z", sent_at: null },
+        now,
+        ownerTimeoutMs(180),
+      ),
     ).toBe(true);
   });
 });

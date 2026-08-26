@@ -45,7 +45,6 @@ export const ENQUEUE_DECISION_COPY: Record<string, string> = {
   instrument_not_approved: "This instrument is not approved for execution yet.",
   duplicate_resting_order:
     "You already have an automatic order live at your broker for this same setup, so a second one was not placed. Stacking identical orders would multiply the risk you sized for.",
-
 };
 
 export function describeEnqueueDecision(decision: string): string {

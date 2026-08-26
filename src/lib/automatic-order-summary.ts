@@ -39,7 +39,6 @@ export interface AutomaticOrderSummary {
   closedActualRisk: AutomaticOrderRStats;
 }
 
-
 const SUBMITTED_STATES = new Set(["sent", "acknowledged", "unknown"]);
 const BLOCKED_STATES = new Set(["rejected", "failed"]);
 
@@ -119,4 +118,3 @@ export function summarizeAutomaticOrders(
     closedActualRisk,
   };
 }
-
