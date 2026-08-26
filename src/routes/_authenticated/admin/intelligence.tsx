@@ -10,7 +10,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { RefreshCw } from "lucide-react";
+import { ChevronsDownUp, RefreshCw } from "lucide-react";
 import { getAdminIntelligence } from "@/lib/admin.functions";
 import { getWeeklyShadowReport } from "@/lib/reports/weekly.functions";
 import { getUserReportAudit } from "@/lib/user-audit.functions";
