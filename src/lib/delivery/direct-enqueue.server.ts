@@ -734,6 +734,12 @@ async function runDirectEnqueue(
       continue;
     }
     occupied.set(account.user_id, used + 1);
+    if (candidatePlan !== null) {
+      const list = held.get(account.user_id) ?? [];
+      list.push({ ...candidatePlan, deliveryId: 0, signalId: signal.id });
+      held.set(account.user_id, list);
+    }
+
     createdToday.set(account.user_id, usedToday + 1);
     createdTodayPerSymbol.set(symbolKey, usedTodayThisSymbol + 1);
 
