@@ -36,6 +36,8 @@ import {
   pctOf,
   timeAgo,
 } from "@/components/admin/AdminPanels";
+import { setAllPanelsOpen } from "@/components/admin/panel-state";
+
 import { BaselinePanel } from "@/components/admin/BaselinePanel";
 import { ResearchPanel } from "@/components/admin/ResearchPanel";
 import { PayoffPanel } from "@/components/admin/PayoffPanel";
