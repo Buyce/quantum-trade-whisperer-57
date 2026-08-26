@@ -24,6 +24,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   AUTO_ORDER_WINDOW_MAX_MINUTES,
   clampAutoOrderWindowMinutes,
+  clampConcurrentOrderCeiling,
+  clampDailyOrderCeiling,
   type Grade,
 } from "@/lib/db-types";
 import type { RegimeStatRow } from "@/lib/learning/regime";
@@ -102,7 +104,14 @@ interface SettingsRow {
   auto_intel_min_win_pct: number | string | null;
   auto_intel_min_sample: number | null;
   auto_execute_c_grade: boolean | null;
+  /** Legacy single ceiling, kept only for historical rows. */
   maximum_active_signal_orders: number | null;
+  /** How many automatic orders may be unresolved at once (0-10). */
+  maximum_concurrent_signal_orders: number | null;
+  /** How many automatic orders may be created per UTC day (0-25). */
+  maximum_daily_signal_orders: number | null;
+  /** Owner opt-in: let a regime with too few samples pass the intelligence gate. */
+  allow_unmeasured_intel: boolean | null;
   /** Owner's automatic-order window, in minutes (0–360). */
   auto_order_window_minutes: number | null;
 }
@@ -122,36 +131,52 @@ function dayStartIso(nowMs: number): string {
 }
 
 /**
- * How many automatic orders each of these owners currently occupies.
+ * The two independent automatic-order occupancies for these owners.
  *
- * A ceiling, never a quota. An unreadable count fails CLOSED (treated as at the
- * ceiling) rather than silently permitting unbounded orders.
+ * `concurrent` — deliveries that are still UNRESOLVED right now (queued, in
+ * flight, or resting at the broker unresolved). This is what "how many orders am
+ * I running at once" means, and it falls as orders resolve.
+ * `daily` — how many automatic orders were CREATED so far in the current UTC day,
+ * which is a throughput count and does not fall when an order closes.
+ *
+ * Both are ceilings, never quotas. An unreadable count fails CLOSED (treated as
+ * at the ceiling) rather than permitting unbounded orders. Dry-run rows reach no
+ * broker and hold no order, so they spend neither ceiling.
  */
 export async function occupiedOrderCounts(
   db: SupabaseClient,
   userIds: string[],
   nowMs: number,
-): Promise<{ counts: Map<string, number>; readable: boolean }> {
+): Promise<{
+  counts: Map<string, number>;
+  daily: Map<string, number>;
+  readable: boolean;
+}> {
   const counts = new Map<string, number>();
-  if (userIds.length === 0) return { counts, readable: true };
-  // A dry-run row never reaches a broker and can hold no order, so it must not
-  // spend the owner's ceiling. Without this, an outbound webhook delivery that
-  // was only validated and signed could silently block a real demo order.
+  const daily = new Map<string, number>();
+  if (userIds.length === 0) return { counts, daily, readable: true };
+  // Bounded lookback: anything older than a week cannot still be an unresolved
+  // automatic order, because every owner window tops out at six hours.
+  const since = new Date(nowMs - 7 * 24 * 60 * 60_000).toISOString();
   const { data, error } = await db
     .from("execution_deliveries")
     .select("user_id, state, enqueued_at, dry_run")
     .in("user_id", userIds)
     .in("state", OCCUPYING_STATES as unknown as string[])
     .neq("dry_run", true)
-    .gte("enqueued_at", dayStartIso(nowMs));
+    .gte("enqueued_at", since);
   if (error) {
     console.error("occupied order counts unreadable", error.message);
-    return { counts, readable: false };
+    return { counts, daily, readable: false };
   }
-  for (const row of (data ?? []) as { user_id: string }[]) {
+  const dayStart = dayStartIso(nowMs);
+  for (const row of (data ?? []) as { user_id: string; enqueued_at: string | null }[]) {
     counts.set(row.user_id, (counts.get(row.user_id) ?? 0) + 1);
+    if (row.enqueued_at !== null && row.enqueued_at >= dayStart) {
+      daily.set(row.user_id, (daily.get(row.user_id) ?? 0) + 1);
+    }
   }
-  return { counts, readable: true };
+  return { counts, daily, readable: true };
 }
 
 export interface DirectEnqueueOutcome {
@@ -268,7 +293,7 @@ async function runDirectEnqueue(
   const { data: settingsRows, error: settingsError } = await db
     .from("scanner_settings")
     .select(
-      "user_id, instruments, sessions, alert_min_grade, daily_setup_cap, execution_config_version, auto_intel_gate_enabled, auto_intel_min_win_pct, auto_intel_min_sample, auto_execute_c_grade, maximum_active_signal_orders, auto_order_window_minutes",
+      "user_id, instruments, sessions, alert_min_grade, daily_setup_cap, execution_config_version, auto_intel_gate_enabled, auto_intel_min_win_pct, auto_intel_min_sample, auto_execute_c_grade, maximum_active_signal_orders, maximum_concurrent_signal_orders, maximum_daily_signal_orders, allow_unmeasured_intel, auto_order_window_minutes",
     )
     .in("user_id", userIds);
   if (settingsError) return await empty("settings_unreadable", settingsError.message);
@@ -305,6 +330,7 @@ async function runDirectEnqueue(
         ? null
         : Number(row.auto_intel_min_win_pct),
     minSample: Number(row.auto_intel_min_sample ?? 30),
+    allowUnmeasured: row.allow_unmeasured_intel === true,
   });
   const anyGate = [...settingsByUser.values()].some((row) => gateConfigured(gateSettingsOf(row)));
   let regimeRows: RegimeStatRow[] = [];
@@ -331,6 +357,7 @@ async function runDirectEnqueue(
   // treated as "at the ceiling".
   const occupancy = await occupiedOrderCounts(db, userIds, nowMs);
   const occupied = new Map(occupancy.counts);
+  const createdToday = new Map(occupancy.daily);
 
   for (const account of armed) {
     const row = settingsByUser.get(account.user_id);
@@ -449,26 +476,55 @@ async function runDirectEnqueue(
       }
     }
 
-    // Owner's concurrent-order ceiling.
-    const ceiling = Number(row.maximum_active_signal_orders ?? 3);
+    // The owner's TWO independent ceilings. Both can only ever refuse.
+    const concurrentCeiling = clampConcurrentOrderCeiling(row.maximum_concurrent_signal_orders);
+    const dailyCeiling = clampDailyOrderCeiling(row.maximum_daily_signal_orders);
     const used = occupied.get(account.user_id) ?? 0;
-    if (!occupancy.readable || used >= ceiling) {
+    const usedToday = createdToday.get(account.user_id) ?? 0;
+    if (!occupancy.readable) {
       filtered += 1;
       decisions.push({
         user_id: account.user_id,
         signal_id: signal.id,
         instrument: signal.instrument,
         grade: signal.grade,
-        decision: occupancy.readable
-          ? "active_order_limit_reached"
-          : "active_order_count_unreadable",
-        detail: occupancy.readable ? `${used} of ${ceiling} automatic orders in use today` : null,
+        decision: "active_order_count_unreadable",
+        detail: null,
+        enqueued: 0,
+        filtered: 1,
+      });
+      continue;
+    }
+    if (used >= concurrentCeiling) {
+      filtered += 1;
+      decisions.push({
+        user_id: account.user_id,
+        signal_id: signal.id,
+        instrument: signal.instrument,
+        grade: signal.grade,
+        decision: "concurrent_order_limit_reached",
+        detail: `${used} of ${concurrentCeiling} automatic orders unresolved right now`,
+        enqueued: 0,
+        filtered: 1,
+      });
+      continue;
+    }
+    if (usedToday >= dailyCeiling) {
+      filtered += 1;
+      decisions.push({
+        user_id: account.user_id,
+        signal_id: signal.id,
+        instrument: signal.instrument,
+        grade: signal.grade,
+        decision: "daily_order_limit_reached",
+        detail: `${usedToday} of ${dailyCeiling} automatic orders created today`,
         enqueued: 0,
         filtered: 1,
       });
       continue;
     }
     occupied.set(account.user_id, used + 1);
+    createdToday.set(account.user_id, usedToday + 1);
 
     rows.push({
       user_id: account.user_id,

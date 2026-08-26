@@ -22,7 +22,7 @@ export const ENQUEUE_DECISION_COPY: Record<string, string> = {
   below_min_grade: "This setup's grade is below your minimum tier.",
   expired_retention: "The setup had already expired.",
   execution_window_expired:
-    "The setup was already outside the 30-minute automatic-order window, so no broker order was queued.",
+    "The setup was already outside your automatic-order window, so no broker order was queued.",
   daily_cap_reached: "Your trades-per-day limit was already used up.",
   intelligence_gate_below_threshold:
     "The historical win-if-filled rate for this regime is below your intelligence-gate threshold.",
@@ -30,6 +30,11 @@ export const ENQUEUE_DECISION_COPY: Record<string, string> = {
     "Too few resolved replay samples behind this regime to satisfy your intelligence gate. This is a missing measurement, not a prediction.",
   enqueue_attempt_failed:
     "The automatic-order check itself failed, so no order was placed. This is a system fault, not a decision about the setup.",
+  concurrent_order_limit_reached:
+    "Your ceiling for automatic orders open at once was already in use.",
+  daily_order_limit_reached: "Your ceiling for automatic orders per day was already reached.",
+  intelligence_gate_unmeasured_allowed:
+    "This regime has too few resolved replay samples, and you have chosen to let unmeasured setups through your intelligence gate.",
   active_order_limit_reached:
     "Your limit for simultaneous automatic orders is already in use today.",
   active_order_count_unreadable:

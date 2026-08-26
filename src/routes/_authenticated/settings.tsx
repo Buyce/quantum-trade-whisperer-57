@@ -19,6 +19,10 @@ import {
   INSTRUMENT_LABELS,
   ORDER_TIF_MINUTES,
   AUTO_ORDER_WINDOW_DEFAULT_MINUTES,
+  CONCURRENT_ORDER_CEILING_MAX,
+  DAILY_ORDER_CEILING_MAX,
+  clampConcurrentOrderCeiling,
+  clampDailyOrderCeiling,
   AUTO_ORDER_WINDOW_MAX_MINUTES,
   clampAutoOrderWindowMinutes,
   type Grade,
@@ -122,7 +126,10 @@ function SettingsPage() {
   // Optional intelligence gate on automatic orders. Off unless the user says so.
   const [intelGate, setIntelGate] = useState(false);
   const [autoCGrade, setAutoCGrade] = useState(false);
-  const [maxActiveOrders, setMaxActiveOrders] = useState(3);
+  const [maxConcurrentOrders, setMaxConcurrentOrders] = useState(3);
+  const [maxDailyOrders, setMaxDailyOrders] = useState(10);
+  const [marketEntry, setMarketEntry] = useState(false);
+  const [allowUnmeasured, setAllowUnmeasured] = useState(false);
   const [autoWindowMinutes, setAutoWindowMinutes] = useState(AUTO_ORDER_WINDOW_DEFAULT_MINUTES);
   const [intelMinWin, setIntelMinWin] = useState("");
   const [intelMinSample, setIntelMinSample] = useState("30");
@@ -236,7 +243,10 @@ function SettingsPage() {
     setRiskAckHigh(s.risk_ack_high === true);
     setIntelGate(s.auto_intel_gate_enabled === true);
     setAutoCGrade(s.auto_execute_c_grade === true);
-    setMaxActiveOrders(Number(s.maximum_active_signal_orders ?? 3));
+    setMaxConcurrentOrders(clampConcurrentOrderCeiling(s.maximum_concurrent_signal_orders));
+    setMaxDailyOrders(clampDailyOrderCeiling(s.maximum_daily_signal_orders));
+    setMarketEntry(s.auto_market_entry_enabled === true);
+    setAllowUnmeasured(s.allow_unmeasured_intel === true);
     setAutoWindowMinutes(clampAutoOrderWindowMinutes(s.auto_order_window_minutes));
     setIntelMinWin(
       s.auto_intel_min_win_pct == null ? "" : String(Number(s.auto_intel_min_win_pct)),
@@ -314,7 +324,10 @@ function SettingsPage() {
         auto_execute_c_grade: autoCGrade,
         // Ceiling on simultaneous automatic orders, never a quota: fewer
         // qualifying setups simply means fewer orders.
-        maximum_active_signal_orders: Math.round(clamp(maxActiveOrders, 0, 10)),
+        maximum_concurrent_signal_orders: clampConcurrentOrderCeiling(maxConcurrentOrders),
+        maximum_daily_signal_orders: clampDailyOrderCeiling(maxDailyOrders),
+        auto_market_entry_enabled: marketEntry,
+        allow_unmeasured_intel: allowUnmeasured,
         // How long after detection a published setup may still become an
         // automatic order. 0 disables automatic orders on age grounds.
         auto_order_window_minutes: clampAutoOrderWindowMinutes(autoWindowMinutes),
@@ -602,27 +615,89 @@ function SettingsPage() {
             </div>
 
             <div className="border-t border-border pt-4">
-              <Label className="text-xs" htmlFor="max-active-orders">
-                Simultaneous automatic orders
+              <Label className="text-xs" htmlFor="max-concurrent-orders">
+                Automatic orders open at once
               </Label>
               <Input
-                id="max-active-orders"
+                id="max-concurrent-orders"
                 type="number"
                 min={0}
-                max={10}
-                value={maxActiveOrders}
+                max={CONCURRENT_ORDER_CEILING_MAX}
+                value={maxConcurrentOrders}
                 onChange={(e) =>
-                  setMaxActiveOrders(Math.max(0, Math.min(10, Number(e.target.value) || 0)))
+                  setMaxConcurrentOrders(clampConcurrentOrderCeiling(Number(e.target.value) || 0))
                 }
                 className="mt-1 max-w-[8rem]"
               />
               <p className="mt-2 text-xs text-muted-foreground">
-                A ceiling, not a target: 0 stops automatic orders entirely, 10 is the maximum. The
-                terminal considers your eligible active setups in feed order — highest tier first,
-                then most recent — and never places an order to reach a number. If three setups
-                qualify it places at most three; if none qualify it places none. Your daily setup
-                cap, risk per trade, lot ceiling and exposure limit all still apply on top of this.
+                How many automatic orders may be UNRESOLVED at the same time — queued, in flight, or
+                resting at your broker. A ceiling, not a target: 0 stops automatic orders entirely,{" "}
+                {CONCURRENT_ORDER_CEILING_MAX} is the maximum. It falls again as orders fill, expire
+                or are refused.
               </p>
+            </div>
+
+            <div className="border-t border-border pt-4">
+              <Label className="text-xs" htmlFor="max-daily-orders">
+                Automatic orders per day
+              </Label>
+              <Input
+                id="max-daily-orders"
+                type="number"
+                min={0}
+                max={DAILY_ORDER_CEILING_MAX}
+                value={maxDailyOrders}
+                onChange={(e) =>
+                  setMaxDailyOrders(clampDailyOrderCeiling(Number(e.target.value) || 0))
+                }
+                className="mt-1 max-w-[8rem]"
+              />
+              <p className="mt-2 text-xs text-muted-foreground">
+                How many automatic orders may be CREATED in one UTC day (0–{DAILY_ORDER_CEILING_MAX}
+                ). Unlike the ceiling above, this count does not fall when an order closes. The
+                terminal considers your eligible active setups in feed order — highest tier first,
+                then most recent — and never places an order to reach a number. Your daily setup cap,
+                risk per trade, lot ceiling and exposure limit all still apply on top of both.
+              </p>
+            </div>
+
+            <div className="border-t border-border pt-4">
+              <Row
+                id="auto-market-entry"
+                title="Enter at market when price has passed the entry"
+                desc="Off by default. When a setup is still valid but price has already moved through the planned entry, a resting limit order is impossible. With this on, the order is sent at market instead — but only while the live price is still inside the published maximum acceptable entry for that setup."
+                checked={marketEntry}
+                onChange={(v) => {
+                  if (v)
+                    toast.warning(
+                      "Market entry fills at the current price, not the planned one. Your stop distance is measured from that fill, so the position is sized smaller — and slippage is real.",
+                    );
+                  setMarketEntry(v);
+                }}
+              />
+              {marketEntry ? (
+                <p className="mt-2 text-xs text-warning">
+                  Market entry is enabled. It never widens the maximum acceptable entry: past that
+                  ceiling the order is still refused. Research and replay statistics continue to
+                  describe the pending-limit strategy only.
+                </p>
+              ) : null}
+            </div>
+
+            <div className="border-t border-border pt-4">
+              <Row
+                id="allow-unmeasured-intel"
+                title="Let unmeasured setups through the intelligence gate"
+                desc="Only relevant while the intelligence gate is on. By default a setup whose regime has too few resolved replay samples is refused. With this on, it is allowed through instead — a measured win-if-filled rate that is below your threshold is still refused."
+                checked={allowUnmeasured}
+                onChange={(v) => {
+                  if (v)
+                    toast.warning(
+                      "An unmeasured regime is a missing measurement, not a good one. Nothing about this setting predicts an outcome.",
+                    );
+                  setAllowUnmeasured(v);
+                }}
+              />
             </div>
 
             <div className="border-t border-border pt-4">

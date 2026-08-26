@@ -259,3 +259,50 @@ export const getAutoOrderDecisions = createServerFn({ method: "GET" })
       filtered: Number(row["filtered"] ?? 0),
     }));
   });
+
+/**
+ * Seven-day gate-impact readout for the caller.
+ *
+ * WHAT IT IS. A count of every automatic-order decision recorded for you in the
+ * last seven UTC days, grouped by what decided it. It answers "which of my own
+ * rules is refusing the most", nothing more.
+ *
+ * WHAT IT IS NOT. It is not a performance statistic and says nothing about
+ * whether a refused setup would have won or lost. A refusal is not a missed
+ * profit, and this readout must never be read that way.
+ */
+export const getGateImpactReport = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const sinceMs = Date.now() - 7 * 24 * 60 * 60_000;
+    const since = new Date(sinceMs).toISOString();
+    const { data, error } = await context.supabase
+      .from("execution_enqueue_decisions")
+      .select("decision, enqueued, filtered, created_at")
+      .gte("created_at", since)
+      .order("created_at", { ascending: false })
+      .limit(1000);
+    if (error) throw new Error(error.message);
+
+    const rows = (data ?? []) as { decision: string; enqueued: number | null; filtered: number | null }[];
+    const byDecision = new Map<string, number>();
+    let enqueued = 0;
+    let filtered = 0;
+    for (const row of rows) {
+      byDecision.set(row.decision, (byDecision.get(row.decision) ?? 0) + 1);
+      enqueued += Number(row.enqueued ?? 0);
+      filtered += Number(row.filtered ?? 0);
+    }
+    return {
+      since,
+      // True when the seven-day window is full of rows and older ones were cut,
+      // so the caller is never told a truncated sample is the whole picture.
+      truncated: rows.length >= 1000,
+      considered: rows.length,
+      enqueued,
+      filtered,
+      reasons: [...byDecision.entries()]
+        .map(([decision, count]) => ({ decision, count }))
+        .sort((a, b) => b.count - a.count),
+    };
+  });

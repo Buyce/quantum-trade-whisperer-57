@@ -22,6 +22,13 @@ export interface IntelGateSettings {
   minWinPct: number | null;
   /** Minimum filled samples that must sit behind the rate. */
   minSample: number;
+  /**
+   * Owner opt-in (off by default): a regime with too FEW resolved samples is
+   * allowed through instead of refused. A MEASURED rate below the threshold is
+   * still refused — this option only changes what happens when there is nothing
+   * to measure, and it never implies a forecast.
+   */
+  allowUnmeasured?: boolean;
 }
 
 export interface IntelGateQuery {
@@ -35,6 +42,7 @@ export type IntelGateReason =
   | "gate_disabled"
   | "gate_passed"
   | "intelligence_gate_sample_insufficient"
+  | "intelligence_gate_unmeasured_allowed"
   | "intelligence_gate_below_threshold";
 
 export interface IntelGateVerdict {
@@ -53,6 +61,8 @@ export const INTEL_GATE_COPY: Record<IntelGateReason, string> = {
   gate_passed: "The historical win-if-filled rate met your threshold.",
   intelligence_gate_sample_insufficient:
     "Not enough resolved replay samples behind this setup's regime to judge it, so no order was placed. This is a missing measurement, not a prediction.",
+  intelligence_gate_unmeasured_allowed:
+    "There are not enough resolved replay samples behind this setup's regime to judge it, and you chose to allow unmeasured setups through the gate. Nothing here predicts the outcome.",
   intelligence_gate_below_threshold:
     "The historical win-if-filled rate for this setup's regime is below the threshold you set.",
 };
@@ -86,9 +96,12 @@ export function evaluateIntelGate(
   // No statistics at all, no rate, or too few filled samples behind the rate:
   // the gate refuses. An unmeasured setup is never treated as a passing one.
   if (prior === null || prior.pWin === null || prior.filledN < minSample) {
+    const unmeasuredAllowed = settings.allowUnmeasured === true;
     return {
-      allowed: false,
-      reason: "intelligence_gate_sample_insufficient",
+      allowed: unmeasuredAllowed,
+      reason: unmeasuredAllowed
+        ? "intelligence_gate_unmeasured_allowed"
+        : "intelligence_gate_sample_insufficient",
       winPct: prior?.pWin === null || prior === null ? null : Number((prior.pWin * 100).toFixed(1)),
       filledN: prior?.filledN ?? null,
       tier: prior?.tier ?? null,

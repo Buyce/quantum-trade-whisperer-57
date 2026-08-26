@@ -9,7 +9,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 
-import { getAutoOrderDecisions } from "@/lib/execution.functions";
+import { getAutoOrderDecisions, getGateImpactReport } from "@/lib/execution.functions";
 import { describeEnqueueDecision } from "@/lib/delivery/enqueue-log";
 import { INSTRUMENT_LABELS } from "@/lib/db-types";
 
@@ -30,6 +30,13 @@ export function AutoOrderDecisions() {
     queryKey: ["auto-order-decisions"],
     queryFn: () => load(),
     staleTime: 30_000,
+  });
+
+  const loadImpact = useServerFn(getGateImpactReport);
+  const impact = useQuery({
+    queryKey: ["auto-order-gate-impact"],
+    queryFn: () => loadImpact(),
+    staleTime: 60_000,
   });
 
   return (
@@ -78,6 +85,42 @@ export function AutoOrderDecisions() {
           ))}
         </ul>
       )}
+
+      <div className="mt-4 border-t border-border/60 pt-3">
+        <h3 className="label-xs">Which of your rules refused most (last 7 days)</h3>
+        {impact.isLoading ? (
+          <p className="mt-2 text-xs text-muted-foreground">Counting your recorded decisions…</p>
+        ) : impact.isError ? (
+          <p className="mt-2 text-xs text-warning">
+            The decision log could not be counted, so nothing is claimed about your gates here.
+          </p>
+        ) : (impact.data?.considered ?? 0) === 0 ? (
+          <p className="mt-2 text-xs text-muted-foreground">
+            No decision has been recorded for you in the last seven days.
+          </p>
+        ) : (
+          <>
+            <p className="mt-2 text-xs text-muted-foreground">
+              {impact.data?.considered} decisions recorded, {impact.data?.enqueued} became an order.
+              A refusal is not a missed profit: this counts decisions only and says nothing about
+              whether a refused setup would have won or lost.
+              {impact.data?.truncated
+                ? " Only the most recent 1,000 decisions are counted, so older ones are not included."
+                : ""}
+            </p>
+            <ul className="mt-2 space-y-1">
+              {(impact.data?.reasons ?? []).slice(0, 8).map((r) => (
+                <li key={r.decision} className="flex items-baseline justify-between gap-2 text-xs">
+                  <span className="min-w-0 text-muted-foreground">
+                    {describeEnqueueDecision(r.decision)}
+                  </span>
+                  <span className="shrink-0 tabular-nums text-foreground">{r.count}</span>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
     </div>
   );
 }
