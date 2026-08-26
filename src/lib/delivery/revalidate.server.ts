@@ -700,7 +700,7 @@ export async function revalidateDelivery(
   // The order carries the SNAPPED geometry; the approved plan records both, so a
   // later reconciliation can explain any difference between the published signal
   // and what the broker was actually asked for.
-  const order = buildBridgeOrder(execPlan, quantity, policy);
+  const order = buildBridgeOrder(execPlan, quantity, policy, autoWindowMinutes);
   const approvedPlan = {
     signalId: signal.id,
     instrument: signal.instrument,

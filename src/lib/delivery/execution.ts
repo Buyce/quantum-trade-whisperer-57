@@ -261,6 +261,8 @@ export function buildBridgeOrder(
   signal: BridgeSignal,
   quantity: OrderQuantity,
   policy: ExecutionPolicy = DEFAULT_EXECUTION_POLICY,
+  /** The owner's automatic-order window; the submitted order cannot outlive it. */
+  expiresInMinutes: number = ORDER_TIF_MINUTES,
 ): BridgeOrder {
   if (policy !== "single_exit_first_target") {
     throw new Error(`unsupported execution policy: ${String(policy)}`);
@@ -273,7 +275,7 @@ export function buildBridgeOrder(
     maxAcceptableEntry: signal.maxAcceptableEntry,
     stopLoss: signal.stopLoss,
     takeProfit: signal.tp1,
-    expiresInMinutes: ORDER_TIF_MINUTES,
+    expiresInMinutes,
     policy,
     grade: String(signal.grade),
     rr: signal.rrRatio,
