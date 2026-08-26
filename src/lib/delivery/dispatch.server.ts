@@ -13,6 +13,7 @@
  * a bridge double-fires. Those rows are resolved by a human or a dry-run replay.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { clampAutoOrderWindowMinutes } from "@/lib/db-types";
 import { submitDirectOrder } from "@/lib/execution/direct.server";
 import { INSTRUMENT_NOT_APPROVED } from "@/lib/instruments/lifecycle";
 import { assertCapability } from "@/lib/instruments/lifecycle.server";
@@ -124,6 +125,56 @@ async function settle(db: Db, id: number, patch: Record<string, unknown>): Promi
 }
 
 /**
+ * How close to the end of the owner's automatic-order window counts as the tail.
+ *
+ * Dispatch runs once a minute, so two minutes guarantees at least one pass lands
+ * inside the tail. The tail changes NOTHING about the decision — it only marks
+ * this attempt as the recorded last look.
+ */
+export const FINAL_LOOK_TAIL_MS = 120_000;
+
+/**
+ * When this delivery's owner window closes, in epoch ms, or null when it cannot
+ * be determined. A null deadline keeps the previous behaviour exactly: retries
+ * are bounded by the attempt counter and the age gate inside revalidation.
+ */
+export async function readDeliveryDeadline(
+  db: Db,
+  delivery: Pick<DeliveryRow, "signal_id" | "user_id">,
+): Promise<number | null> {
+  // An unreadable deadline is not an error: it simply means the tail cannot be
+  // identified on this pass, and the existing attempt bound plus the age gate
+  // inside revalidation continue to govern the row exactly as before.
+  try {
+    const [{ data: signalRow }, { data: settingsRow }] = await Promise.all([
+      db.from("scanned_signals").select("detected_at").eq("id", delivery.signal_id).maybeSingle(),
+      db
+        .from("scanner_settings")
+        .select("auto_order_window_minutes")
+        .eq("user_id", delivery.user_id)
+        .maybeSingle(),
+    ]);
+    const detectedAt = (signalRow as { detected_at?: string | null } | null)?.detected_at ?? null;
+    if (!detectedAt) return null;
+    const detected = Date.parse(detectedAt);
+    if (!Number.isFinite(detected)) return null;
+    const minutes = clampAutoOrderWindowMinutes(
+      (settingsRow as { auto_order_window_minutes?: number | null } | null)
+        ?.auto_order_window_minutes,
+    );
+    return detected + minutes * 60_000;
+  } catch (err) {
+    console.error("[dispatch] deadline read failed", {
+      id: delivery.signal_id,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return null;
+  }
+}
+
+
+
+/**
  * Processes at most one delivery. Returns null when the queue is empty. Never
  * throws: an execution failure must not interrupt the scanner or statistics.
  */
@@ -142,6 +193,21 @@ export async function processNextDelivery(
   const delivery = rows[0];
   if (!delivery) return null;
 
+  /**
+   * The closing tail of the owner's automatic-order window.
+   *
+   * `claim_execution_delivery` hands back whichever pending row expires SOONEST,
+   * so the end of a window is not lost to queue position. Inside the tail this
+   * pass is the setup's LAST look: every attempt already forces a fresh
+   * destination-account refresh and a fresh broker quote (there is no cached
+   * price or stored equity anywhere in revalidation), and the outcome is recorded
+   * on the row so History can show that the last chance was actually taken.
+   */
+  const deadline = await readDeliveryDeadline(db, delivery);
+  const inTail = deadline !== null && deadline - now <= FINAL_LOOK_TAIL_MS;
+  const finalLookPatch = (reason: string | null) =>
+    inTail ? { final_look_at: new Date(now).toISOString(), final_look_reason: reason } : {};
+
   let approved;
   try {
     approved = await revalidateDelivery(db, delivery, now);
@@ -151,6 +217,7 @@ export async function processNextDelivery(
       state: "failed",
       reason: `revalidation error: ${detail}`,
       settled_at: new Date().toISOString(),
+      ...finalLookPatch(`revalidation error: ${detail}`),
     });
     return { deliveryId: delivery.id, state: "failed", reason: detail, dryRun: delivery.dry_run };
   }
@@ -168,15 +235,21 @@ export async function processNextDelivery(
      * and the attempt counter (incremented by the claim itself) bounds the loop.
      * Safety, configuration, lifecycle and account refusals are never retried,
      * and a `sent`/`unknown` row is still never re-claimed.
+     *
+     * A retry is also pointless once the owner's window has ELAPSED: the window
+     * is never extended, so such a row is settled instead of being re-queued.
      */
     const attempts = Number(delivery.attempts ?? 0);
-    const retry = isRetryableRejection(approved.reason) && attempts < MAX_DELIVERY_ATTEMPTS;
+    const windowOpen = deadline === null || now < deadline;
+    const retry =
+      isRetryableRejection(approved.reason) && attempts < MAX_DELIVERY_ATTEMPTS && windowOpen;
     if (retry) {
       await settle(db, delivery.id, {
         state: "pending",
         reason: `retrying: ${reason}`,
         claimed_at: null,
         lease_expires_at: null,
+        ...finalLookPatch(reason),
       });
       return { deliveryId: delivery.id, state: "pending", reason, dryRun: delivery.dry_run };
     }
@@ -184,9 +257,11 @@ export async function processNextDelivery(
       state: "rejected",
       reason,
       settled_at: new Date().toISOString(),
+      ...finalLookPatch(reason),
     });
     return { deliveryId: delivery.id, state: "rejected", reason, dryRun: delivery.dry_run };
   }
+
 
   /**
    * The LAST lifecycle read, taken here rather than only in revalidation

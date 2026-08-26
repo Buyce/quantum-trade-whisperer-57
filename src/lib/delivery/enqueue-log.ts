@@ -33,6 +33,9 @@ export const ENQUEUE_DECISION_COPY: Record<string, string> = {
   concurrent_order_limit_reached:
     "Your ceiling for automatic orders open at once was already in use.",
   daily_order_limit_reached: "Your ceiling for automatic orders per day was already reached.",
+  instrument_daily_order_limit_reached:
+    "Your ceiling for automatic orders on this instrument today was already reached.",
+
   intelligence_gate_unmeasured_allowed:
     "This regime has too few resolved replay samples, and you have chosen to let unmeasured setups through your intelligence gate.",
   active_order_limit_reached:

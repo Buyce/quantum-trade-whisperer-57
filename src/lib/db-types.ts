@@ -239,6 +239,21 @@ export interface ScannerSettingsRow {
    * replay, shadow and research mathematics.
    */
   auto_order_window_minutes: number;
+  /**
+   * How many automatic orders ONE instrument may consume per UTC day (0-25).
+   * Default 25 is a no-op against the daily ceiling; lowering it stops a single
+   * symbol from spending the whole day's allowance.
+   */
+  maximum_daily_orders_per_symbol: number;
+  /**
+   * Owner opt-in: move the effective daily and per-symbol ceilings with broker
+   * data freshness. Off by default, in which case the fixed ceilings apply.
+   */
+  adaptive_order_ceilings_enabled: boolean;
+  /** Upper bound adaptive mode may raise a ceiling to when freshness is healthy. */
+  adaptive_order_ceiling_max: number;
+  /** Lower bound adaptive mode reduces to when freshness is degraded or unknown. */
+  adaptive_order_ceiling_floor: number;
 }
 
 /** Bounds for the two automatic-order ceilings. */
@@ -246,6 +261,13 @@ export const CONCURRENT_ORDER_CEILING_MAX = 10;
 export const CONCURRENT_ORDER_CEILING_DEFAULT = 3;
 export const DAILY_ORDER_CEILING_MAX = 25;
 export const DAILY_ORDER_CEILING_DEFAULT = 10;
+/** Per-symbol daily ceiling. Absent ⇒ the widest supported value (a no-op). */
+export const PER_SYMBOL_ORDER_CEILING_DEFAULT = 25;
+export const PER_SYMBOL_ORDER_CEILING_MAX = 25;
+
+/** Adaptive band bounds. The band can never exceed the daily ceiling maximum. */
+export const ADAPTIVE_CEILING_MAX_DEFAULT = 25;
+export const ADAPTIVE_CEILING_FLOOR_DEFAULT = 1;
 
 function clampCeiling(value: unknown, fallback: number, max: number): number {
   if (value === null || value === undefined || value === "") return fallback;
@@ -263,6 +285,22 @@ export function clampConcurrentOrderCeiling(value: unknown): number {
 export function clampDailyOrderCeiling(value: unknown): number {
   return clampCeiling(value, DAILY_ORDER_CEILING_DEFAULT, DAILY_ORDER_CEILING_MAX);
 }
+
+/** Per-symbol daily ceiling (0-25). Absent ⇒ the permissive default. */
+export function clampPerSymbolOrderCeiling(value: unknown): number {
+  return clampCeiling(value, PER_SYMBOL_ORDER_CEILING_DEFAULT, DAILY_ORDER_CEILING_MAX);
+}
+
+/** Adaptive upper bound (0-25). Absent ⇒ the permissive default. */
+export function clampAdaptiveCeilingMax(value: unknown): number {
+  return clampCeiling(value, ADAPTIVE_CEILING_MAX_DEFAULT, DAILY_ORDER_CEILING_MAX);
+}
+
+/** Adaptive lower bound (0-25). Absent ⇒ 1. */
+export function clampAdaptiveCeilingFloor(value: unknown): number {
+  return clampCeiling(value, ADAPTIVE_CEILING_FLOOR_DEFAULT, DAILY_ORDER_CEILING_MAX);
+}
+
 
 export type OrderStrategy = "smart_adaptive" | "strict_retest";
 export type WebhookFormat = "json" | "pineconnector";

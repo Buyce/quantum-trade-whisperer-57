@@ -24,10 +24,18 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   AUTO_ORDER_WINDOW_MAX_MINUTES,
   clampAutoOrderWindowMinutes,
+  clampAdaptiveCeilingFloor,
+  clampAdaptiveCeilingMax,
   clampConcurrentOrderCeiling,
   clampDailyOrderCeiling,
+  clampPerSymbolOrderCeiling,
   type Grade,
 } from "@/lib/db-types";
+import {
+  assessFreshness,
+  describeCeilings,
+  effectiveCeilings,
+} from "./adaptive-ceilings";
 import type { RegimeStatRow } from "@/lib/learning/regime";
 import { fetchDayFrame, type FrameClient } from "./day-frame";
 import {
@@ -91,6 +99,8 @@ interface AccountRow {
   user_id: string;
   mode: string;
   broker_account_type: string;
+  /** Broker-reported equity observation time; drives the freshness reading. */
+  broker_observed_at?: string | null;
 }
 
 interface SettingsRow {
@@ -114,6 +124,12 @@ interface SettingsRow {
   allow_unmeasured_intel: boolean | null;
   /** Owner's automatic-order window, in minutes (0–360). */
   auto_order_window_minutes: number | null;
+  /** How many automatic orders one instrument may consume per UTC day (0-25). */
+  maximum_daily_orders_per_symbol: number | null;
+  /** Owner opt-in: move the daily and per-symbol ceilings with broker freshness. */
+  adaptive_order_ceilings_enabled: boolean | null;
+  adaptive_order_ceiling_max: number | null;
+  adaptive_order_ceiling_floor: number | null;
 }
 
 /**
@@ -131,18 +147,24 @@ function dayStartIso(nowMs: number): string {
 }
 
 /**
- * The two independent automatic-order occupancies for these owners.
+ * The automatic-order occupancies for these owners.
  *
  * `concurrent` — deliveries that are still UNRESOLVED right now (queued, in
  * flight, or resting at the broker unresolved). This is what "how many orders am
  * I running at once" means, and it falls as orders resolve.
  * `daily` — how many automatic orders were CREATED so far in the current UTC day,
  * which is a throughput count and does not fall when an order closes.
+ * `perSymbol` — the same UTC-day throughput count, split by instrument, keyed
+ * `user_id|INSTRUMENT`. It exists so one symbol cannot spend the whole day.
  *
- * Both are ceilings, never quotas. An unreadable count fails CLOSED (treated as
+ * All are ceilings, never quotas. An unreadable count fails CLOSED (treated as
  * at the ceiling) rather than permitting unbounded orders. Dry-run rows reach no
- * broker and hold no order, so they spend neither ceiling.
+ * broker and hold no order, so they spend no ceiling.
  */
+export function perSymbolKey(userId: string, instrument: string): string {
+  return `${userId}|${instrument.toUpperCase()}`;
+}
+
 export async function occupiedOrderCounts(
   db: SupabaseClient,
   userIds: string[],
@@ -150,34 +172,48 @@ export async function occupiedOrderCounts(
 ): Promise<{
   counts: Map<string, number>;
   daily: Map<string, number>;
+  perSymbol: Map<string, number>;
   readable: boolean;
 }> {
   const counts = new Map<string, number>();
   const daily = new Map<string, number>();
-  if (userIds.length === 0) return { counts, daily, readable: true };
+  const perSymbol = new Map<string, number>();
+  if (userIds.length === 0) return { counts, daily, perSymbol, readable: true };
   // Bounded lookback: anything older than a week cannot still be an unresolved
   // automatic order, because every owner window tops out at six hours.
   const since = new Date(nowMs - 7 * 24 * 60 * 60_000).toISOString();
   const { data, error } = await db
     .from("execution_deliveries")
-    .select("user_id, state, enqueued_at, dry_run")
+    .select("user_id, state, enqueued_at, dry_run, signal:scanned_signals(instrument)")
     .in("user_id", userIds)
     .in("state", OCCUPYING_STATES as unknown as string[])
     .neq("dry_run", true)
     .gte("enqueued_at", since);
   if (error) {
     console.error("occupied order counts unreadable", error.message);
-    return { counts, daily, readable: false };
+    return { counts, daily, perSymbol, readable: false };
   }
   const dayStart = dayStartIso(nowMs);
-  for (const row of (data ?? []) as { user_id: string; enqueued_at: string | null }[]) {
+  type Row = {
+    user_id: string;
+    enqueued_at: string | null;
+    signal?: { instrument: string | null } | { instrument: string | null }[] | null;
+  };
+  for (const row of (data ?? []) as Row[]) {
     counts.set(row.user_id, (counts.get(row.user_id) ?? 0) + 1);
     if (row.enqueued_at !== null && row.enqueued_at >= dayStart) {
       daily.set(row.user_id, (daily.get(row.user_id) ?? 0) + 1);
+      const embedded = Array.isArray(row.signal) ? row.signal[0] : row.signal;
+      const instrument = embedded?.instrument ?? null;
+      if (instrument) {
+        const key = perSymbolKey(row.user_id, instrument);
+        perSymbol.set(key, (perSymbol.get(key) ?? 0) + 1);
+      }
     }
   }
-  return { counts, daily, readable: true };
+  return { counts, daily, perSymbol, readable: true };
 }
+
 
 export interface DirectEnqueueOutcome {
   /** Accounts a delivery row was written for. */
@@ -254,7 +290,7 @@ async function runDirectEnqueue(
 
   const { data: accountRows, error: accountError } = await db
     .from("connected_trading_accounts")
-    .select("id, user_id, mode, broker_account_type")
+    .select("id, user_id, mode, broker_account_type, broker_observed_at")
     .is("disconnected_at", null)
     .eq("is_benchmark", false)
     .eq("intent_conflict", false)
@@ -293,7 +329,7 @@ async function runDirectEnqueue(
   const { data: settingsRows, error: settingsError } = await db
     .from("scanner_settings")
     .select(
-      "user_id, instruments, sessions, alert_min_grade, daily_setup_cap, execution_config_version, auto_intel_gate_enabled, auto_intel_min_win_pct, auto_intel_min_sample, auto_execute_c_grade, maximum_active_signal_orders, maximum_concurrent_signal_orders, maximum_daily_signal_orders, allow_unmeasured_intel, auto_order_window_minutes",
+      "user_id, instruments, sessions, alert_min_grade, daily_setup_cap, execution_config_version, auto_intel_gate_enabled, auto_intel_min_win_pct, auto_intel_min_sample, auto_execute_c_grade, maximum_active_signal_orders, maximum_concurrent_signal_orders, maximum_daily_signal_orders, allow_unmeasured_intel, auto_order_window_minutes, maximum_daily_orders_per_symbol, adaptive_order_ceilings_enabled, adaptive_order_ceiling_max, adaptive_order_ceiling_floor",
     )
     .in("user_id", userIds);
   if (settingsError) return await empty("settings_unreadable", settingsError.message);
@@ -358,6 +394,8 @@ async function runDirectEnqueue(
   const occupancy = await occupiedOrderCounts(db, userIds, nowMs);
   const occupied = new Map(occupancy.counts);
   const createdToday = new Map(occupancy.daily);
+  const createdTodayPerSymbol = new Map(occupancy.perSymbol);
+
 
   for (const account of armed) {
     const row = settingsByUser.get(account.user_id);
@@ -475,11 +513,31 @@ async function runDirectEnqueue(
       }
     }
 
-    // The owner's TWO independent ceilings. Both can only ever refuse.
+    // The owner's ceilings. Every one of them can only ever refuse.
+    //
+    // The concurrent ceiling is fixed. The daily and per-symbol ceilings are the
+    // owner's fixed numbers unless the owner opted into adaptive mode, in which
+    // case freshness of the broker facts an order would be sized from decides
+    // which of the owner's own bounds applies. Absent or unreadable freshness is
+    // treated as degraded, never as room.
     const concurrentCeiling = clampConcurrentOrderCeiling(row.maximum_concurrent_signal_orders);
-    const dailyCeiling = clampDailyOrderCeiling(row.maximum_daily_signal_orders);
+    const freshness = assessFreshness({
+      equityObservedAt: account.broker_observed_at ?? null,
+      now: nowMs,
+    });
+    const ceilings = effectiveCeilings({
+      dailyBase: clampDailyOrderCeiling(row.maximum_daily_signal_orders),
+      perSymbolBase: clampPerSymbolOrderCeiling(row.maximum_daily_orders_per_symbol),
+      adaptiveEnabled: row.adaptive_order_ceilings_enabled === true,
+      adaptiveMax: clampAdaptiveCeilingMax(row.adaptive_order_ceiling_max),
+      adaptiveFloor: clampAdaptiveCeilingFloor(row.adaptive_order_ceiling_floor),
+      health: freshness.health,
+    });
+    const ceilingNote = describeCeilings(ceilings, freshness.detail);
+    const symbolKey = perSymbolKey(account.user_id, signal.instrument);
     const used = occupied.get(account.user_id) ?? 0;
     const usedToday = createdToday.get(account.user_id) ?? 0;
+    const usedTodayThisSymbol = createdTodayPerSymbol.get(symbolKey) ?? 0;
     if (!occupancy.readable) {
       filtered += 1;
       decisions.push({
@@ -508,7 +566,7 @@ async function runDirectEnqueue(
       });
       continue;
     }
-    if (usedToday >= dailyCeiling) {
+    if (usedToday >= ceilings.daily) {
       filtered += 1;
       decisions.push({
         user_id: account.user_id,
@@ -516,7 +574,21 @@ async function runDirectEnqueue(
         instrument: signal.instrument,
         grade: signal.grade,
         decision: "daily_order_limit_reached",
-        detail: `${usedToday} of ${dailyCeiling} automatic orders created today`,
+        detail: `${usedToday} of ${ceilings.daily} automatic orders created today — ${ceilingNote}`,
+        enqueued: 0,
+        filtered: 1,
+      });
+      continue;
+    }
+    if (usedTodayThisSymbol >= ceilings.perSymbol) {
+      filtered += 1;
+      decisions.push({
+        user_id: account.user_id,
+        signal_id: signal.id,
+        instrument: signal.instrument,
+        grade: signal.grade,
+        decision: "instrument_daily_order_limit_reached",
+        detail: `${usedTodayThisSymbol} of ${ceilings.perSymbol} automatic orders on ${signal.instrument} today — ${ceilingNote}`,
         enqueued: 0,
         filtered: 1,
       });
@@ -524,6 +596,8 @@ async function runDirectEnqueue(
     }
     occupied.set(account.user_id, used + 1);
     createdToday.set(account.user_id, usedToday + 1);
+    createdTodayPerSymbol.set(symbolKey, usedTodayThisSymbol + 1);
+
 
     rows.push({
       user_id: account.user_id,

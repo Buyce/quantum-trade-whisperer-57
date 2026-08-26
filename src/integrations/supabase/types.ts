@@ -1322,6 +1322,8 @@ export type Database = {
           enqueued_at: string
           execution_config_version: number | null
           execution_policy: string
+          final_look_at: string | null
+          final_look_reason: string | null
           http_status: number | null
           id: number
           latency_ms: number | null
@@ -1370,6 +1372,8 @@ export type Database = {
           enqueued_at?: string
           execution_config_version?: number | null
           execution_policy?: string
+          final_look_at?: string | null
+          final_look_reason?: string | null
           http_status?: number | null
           id?: number
           latency_ms?: number | null
@@ -1418,6 +1422,8 @@ export type Database = {
           enqueued_at?: string
           execution_config_version?: number | null
           execution_policy?: string
+          final_look_at?: string | null
+          final_look_reason?: string | null
           http_status?: number | null
           id?: number
           latency_ms?: number | null
@@ -3601,6 +3607,9 @@ export type Database = {
         Row: {
           account_currency: string
           account_equity: number
+          adaptive_order_ceiling_floor: number
+          adaptive_order_ceiling_max: number
+          adaptive_order_ceilings_enabled: boolean
           alert_min_grade: Database["public"]["Enums"]["signal_grade"]
           allow_unmeasured_intel: boolean
           auto_execute_c_grade: boolean
@@ -3626,6 +3635,7 @@ export type Database = {
           max_stop_loss_percent: number
           maximum_active_signal_orders: number
           maximum_concurrent_signal_orders: number
+          maximum_daily_orders_per_symbol: number
           maximum_daily_signal_orders: number
           min_grade: Database["public"]["Enums"]["signal_grade"]
           notify_email: boolean
@@ -3647,6 +3657,9 @@ export type Database = {
         Insert: {
           account_currency?: string
           account_equity?: number
+          adaptive_order_ceiling_floor?: number
+          adaptive_order_ceiling_max?: number
+          adaptive_order_ceilings_enabled?: boolean
           alert_min_grade?: Database["public"]["Enums"]["signal_grade"]
           allow_unmeasured_intel?: boolean
           auto_execute_c_grade?: boolean
@@ -3672,6 +3685,7 @@ export type Database = {
           max_stop_loss_percent?: number
           maximum_active_signal_orders?: number
           maximum_concurrent_signal_orders?: number
+          maximum_daily_orders_per_symbol?: number
           maximum_daily_signal_orders?: number
           min_grade?: Database["public"]["Enums"]["signal_grade"]
           notify_email?: boolean
@@ -3693,6 +3707,9 @@ export type Database = {
         Update: {
           account_currency?: string
           account_equity?: number
+          adaptive_order_ceiling_floor?: number
+          adaptive_order_ceiling_max?: number
+          adaptive_order_ceilings_enabled?: boolean
           alert_min_grade?: Database["public"]["Enums"]["signal_grade"]
           allow_unmeasured_intel?: boolean
           auto_execute_c_grade?: boolean
@@ -3718,6 +3735,7 @@ export type Database = {
           max_stop_loss_percent?: number
           maximum_active_signal_orders?: number
           maximum_concurrent_signal_orders?: number
+          maximum_daily_orders_per_symbol?: number
           maximum_daily_signal_orders?: number
           min_grade?: Database["public"]["Enums"]["signal_grade"]
           notify_email?: boolean
