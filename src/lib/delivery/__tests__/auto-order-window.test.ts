@@ -54,32 +54,26 @@ describe("automatic-order window bounds", () => {
 });
 
 describe("per-owner window in the enqueue path", () => {
-  const NOW = Date.parse("2026-08-26T12:00:00.000Z");
+  const NOW = Date.parse("2026-08-24T12:00:00.000Z");
+  // 100 minutes old: outside the structural 30-minute TIF, inside a 3-hour window.
   const SIGNAL = {
     id: "sig-1",
-    instrument: "EURUSD",
-    grade: "B" as const,
-    direction: "long",
-    // 100 minutes old: outside the structural 30-minute TIF, inside a 3-hour window.
-    detectedAt: "2026-08-26T10:20:00.000Z",
-    tradingSession: "london",
+    instrument: "XAUUSD",
+    grade: "A",
+    session: "london",
+    detectedAt: new Date(NOW - 100 * 60_000).toISOString(),
   };
 
   function fake(windowMinutes: number | null) {
     return createFakeSupabase((call: FakeCall) => {
       if (call.table === "execution_controls") {
-        return {
-          data: [
-            { key: "demo_auto_enabled", value: true },
-            { key: "live_execution_enabled", value: false },
-            { key: "force_dry_run", value: false },
-          ],
-          error: null,
-        };
+        return { data: [{ demo_auto_enabled: true, live_auto_enabled: false }], error: null };
       }
       if (call.table === "connected_trading_accounts") {
         return {
-          data: [{ id: "acc-1", user_id: "user-1", mode: "demo" }],
+          data: [
+            { id: "acc-1", user_id: "user-1", mode: "demo_auto", broker_account_type: "demo" },
+          ],
           error: null,
         };
       }
@@ -88,16 +82,11 @@ describe("per-owner window in the enqueue path", () => {
           data: [
             {
               user_id: "user-1",
-              instruments: ["EURUSD"],
+              instruments: ["XAUUSD"],
               sessions: ["london"],
               alert_min_grade: "B",
               daily_setup_cap: 0,
-              execution_config_version: 1,
-              auto_intel_gate_enabled: false,
-              auto_intel_min_win_pct: null,
-              auto_intel_min_sample: 30,
-              auto_execute_c_grade: false,
-              maximum_active_signal_orders: 3,
+              execution_config_version: 7,
               auto_order_window_minutes: windowMinutes,
             },
           ],
@@ -108,23 +97,40 @@ describe("per-owner window in the enqueue path", () => {
     });
   }
 
+  function decisions(calls: FakeCall[]) {
+    return calls
+      .filter((c) => c.table === "execution_enqueue_decisions" && c.op === "insert")
+      .flatMap((c) => c.payload as unknown as Record<string, unknown>[]);
+  }
+
+  it("[INVARIANT] the default 3-hour window accepts a setup the structural TIF would reject", async () => {
+    const f = fake(null);
+    const out = await enqueueDirectDeliveries(f.client as SupabaseClient, SIGNAL, NOW);
+    expect(out).toMatchObject({ enqueued: 1, reason: null });
+  });
+
   it("[INVARIANT] a window of 0 refuses every automatic order on age grounds", async () => {
     const f = fake(0);
     const out = await enqueueDirectDeliveries(f.client as SupabaseClient, SIGNAL, NOW);
     expect(out.enqueued).toBe(0);
-    const decisions = f.calls
-      .filter((c) => c.table === "execution_enqueue_decisions" && c.op === "insert")
-      .flatMap((c) => c.payload as unknown as Record<string, unknown>[]);
-    expect(decisions.some((d) => d["decision"] === "execution_window_expired")).toBe(true);
+    expect(decisions(f.calls).some((d) => d["decision"] === "execution_window_expired")).toBe(true);
+    expect(f.calls.some((c) => c.table === "execution_deliveries" && c.op === "insert")).toBe(false);
   });
 
   it("[INVARIANT] a narrower owner window refuses a setup the widest window allows", async () => {
     const f = fake(60);
     const out = await enqueueDirectDeliveries(f.client as SupabaseClient, SIGNAL, NOW);
     expect(out.enqueued).toBe(0);
-    const decisions = f.calls
-      .filter((c) => c.table === "execution_enqueue_decisions" && c.op === "insert")
-      .flatMap((c) => c.payload as unknown as Record<string, unknown>[]);
-    expect(decisions.some((d) => d["decision"] === "execution_window_expired")).toBe(true);
+    expect(decisions(f.calls).some((d) => d["decision"] === "execution_window_expired")).toBe(true);
+  });
+
+  it("[INVARIANT] nothing is attempted past the widest supported window", async () => {
+    const f = fake(360);
+    const out = await enqueueDirectDeliveries(
+      f.client as SupabaseClient,
+      { ...SIGNAL, detectedAt: new Date(NOW - 400 * 60_000).toISOString() },
+      NOW,
+    );
+    expect(out).toMatchObject({ enqueued: 0, reason: "execution_window_expired" });
   });
 });
