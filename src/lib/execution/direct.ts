@@ -112,6 +112,8 @@ export interface DirectOrderContext {
   quantity: OrderQuantity;
   /** Delivery row id, used as the order-attempt reference in the clientId. */
   deliveryId: number;
+  /** The owner's automatic-order window, in minutes; bounds the order expiry. */
+  windowMinutes?: number;
 }
 
 export class DirectOrderError extends Error {
