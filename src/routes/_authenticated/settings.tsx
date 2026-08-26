@@ -652,7 +652,9 @@ function SettingsPage() {
                 How many automatic orders may be UNRESOLVED at the same time — queued, in flight, or
                 resting at your broker. A ceiling, not a target: 0 stops automatic orders entirely,{" "}
                 {CONCURRENT_ORDER_CEILING_MAX} is the maximum. It falls again as orders fill, expire
-                or are refused. An order your broker has not filled within an hour is cleared —
+                or are refused. An order your broker has not filled within your automatic-order
+                window below is cleared —
+
                 cancelled at your broker first when it was still resting there — so it stops holding
                 a slot. Your broker&apos;s own pending-order and margin limits still apply above
                 whatever you set here.
