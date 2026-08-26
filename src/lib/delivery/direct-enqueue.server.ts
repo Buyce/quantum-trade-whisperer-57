@@ -378,6 +378,8 @@ async function runDirectEnqueue(
   const occupancy = await occupiedOrderCounts(db, userIds, nowMs);
   const occupied = new Map(occupancy.counts);
   const createdToday = new Map(occupancy.daily);
+  const createdTodayPerSymbol = new Map(occupancy.perSymbol);
+
 
   for (const account of armed) {
     const row = settingsByUser.get(account.user_id);
