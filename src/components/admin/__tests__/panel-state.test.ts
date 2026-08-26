@@ -41,22 +41,22 @@ afterEach(() => {
 });
 
 describe("admin panel state", () => {
-  it("namespaces storage keys", () => {
+  it("[INVARIANT] namespaces storage keys", () => {
     expect(panelStorageKey("Engine status")).toBe("ptrades.admin.panel.Engine status");
   });
 
-  it("reports no preference until one is stored", () => {
+  it("[INVARIANT] reports no preference until one is stored", () => {
     expect(readPanelOpen("Payoff")).toBeNull();
   });
 
-  it("round-trips an explicit preference", () => {
+  it("[INVARIANT] round-trips an explicit preference", () => {
     setPanelOpen("Payoff", true);
     expect(readPanelOpen("Payoff")).toBe(true);
     setPanelOpen("Payoff", false);
     expect(readPanelOpen("Payoff")).toBe(false);
   });
 
-  it("broadcasts a single panel change only for that key", () => {
+  it("[INVARIANT] broadcasts a single panel change only for that key", () => {
     const seen: Array<{ key: string | null; open: boolean }> = [];
     win.addEventListener("ptrades-admin-panels", (e) => {
       seen.push((e as CustomEvent<{ key: string | null; open: boolean }>).detail);
@@ -65,7 +65,7 @@ describe("admin panel state", () => {
     expect(seen).toEqual([{ key: "News", open: true }]);
   });
 
-  it("broadcasts a bulk toggle with no key so every panel reacts", () => {
+  it("[INVARIANT] broadcasts a bulk toggle with no key so every panel reacts", () => {
     const seen: Array<{ key: string | null; open: boolean }> = [];
     win.addEventListener("ptrades-admin-panels", (e) => {
       seen.push((e as CustomEvent<{ key: string | null; open: boolean }>).detail);
@@ -74,7 +74,7 @@ describe("admin panel state", () => {
     expect(seen).toEqual([{ key: null, open: false }]);
   });
 
-  it("survives unavailable storage without throwing", () => {
+  it("[INVARIANT] survives unavailable storage without throwing", () => {
     (globalThis as { window?: unknown }).window = {
       localStorage: {
         getItem: () => {
