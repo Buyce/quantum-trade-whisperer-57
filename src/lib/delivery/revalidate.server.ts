@@ -46,12 +46,12 @@ import { loadBrokerSpec } from "@/lib/broker/specs.server";
 import { accountSpecStale, loadAccountSizingSpec } from "@/lib/accounts/specs.server";
 import { resolveSizingForAccount, resolveSizingForUser } from "@/lib/sizing/service.server";
 import { fetchQuote } from "@/lib/scanner/metaapi.server";
-import { fetchQuoteFor, type BrokerQuote } from "@/lib/metaapi/market.server";
+import type { BrokerQuote } from "@/lib/metaapi/market.server";
 import { quoteSourceAgeMs, quoteSourceFresh, validQuoteGeometry } from "@/lib/metaapi/quote";
 import type { DeliveryDestination } from "@/lib/execution/direct";
 import {
   loadDirectTarget,
-  refreshAccountSafety,
+  refreshDirectPreflight,
   type DirectTarget,
 } from "@/lib/execution/direct.server";
 import { resolveBenchmarkDesignation } from "@/lib/benchmark/policy.server";
@@ -468,34 +468,10 @@ export async function revalidateDelivery(
   let quote: BrokerQuote | null = null;
   let quoteFailure: string | null = null;
   if (directTarget) {
-    const target = directTarget;
-    const [accountResult, quoteResult] = await Promise.allSettled([
-      refreshAccountSafety(db, target),
-      fetchQuoteFor(target.metaapiAccountId, target.region, target.brokerSymbol),
-    ]);
-    if (accountResult.status === "rejected") {
-      return reject(
-        "account_refresh_unavailable",
-        accountResult.reason instanceof Error
-          ? accountResult.reason.message
-          : String(accountResult.reason),
-      );
-    }
-    if (!accountResult.value.ok) {
-      return reject("account_refresh_unavailable", accountResult.value.detail);
-    }
-    directTarget = {
-      ...target,
-      freeMargin: accountResult.value.freeMargin,
-      equity: accountResult.value.equity,
-      currency: accountResult.value.currency,
-      observedAt: accountResult.value.observedAt,
-    };
-    if (quoteResult.status === "fulfilled") quote = quoteResult.value;
-    else {
-      quoteFailure =
-        quoteResult.reason instanceof Error ? quoteResult.reason.message : String(quoteResult.reason);
-    }
+    const preflight = await refreshDirectPreflight(db, directTarget);
+    if (!preflight.ok) return reject(preflight.reason, preflight.detail);
+    directTarget = preflight.target;
+    quote = preflight.quote;
   } else {
     try {
       quote = await fetchQuote(signal.instrument);
