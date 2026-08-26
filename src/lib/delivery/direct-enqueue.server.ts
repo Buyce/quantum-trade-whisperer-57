@@ -103,6 +103,8 @@ interface SettingsRow {
   auto_intel_min_sample: number | null;
   auto_execute_c_grade: boolean | null;
   maximum_active_signal_orders: number | null;
+  /** Owner's automatic-order window, in minutes (0–360). */
+  auto_order_window_minutes: number | null;
 }
 
 /**
@@ -266,7 +268,7 @@ async function runDirectEnqueue(
   const { data: settingsRows, error: settingsError } = await db
     .from("scanner_settings")
     .select(
-      "user_id, instruments, sessions, alert_min_grade, daily_setup_cap, execution_config_version, auto_intel_gate_enabled, auto_intel_min_win_pct, auto_intel_min_sample, auto_execute_c_grade, maximum_active_signal_orders",
+      "user_id, instruments, sessions, alert_min_grade, daily_setup_cap, execution_config_version, auto_intel_gate_enabled, auto_intel_min_win_pct, auto_intel_min_sample, auto_execute_c_grade, maximum_active_signal_orders, auto_order_window_minutes",
     )
     .in("user_id", userIds);
   if (settingsError) return await empty("settings_unreadable", settingsError.message);
