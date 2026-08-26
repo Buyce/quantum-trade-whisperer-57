@@ -1,0 +1,4 @@
+ALTER TABLE public.execution_deliveries DROP CONSTRAINT IF EXISTS execution_deliveries_state_check;
+ALTER TABLE public.execution_deliveries ADD CONSTRAINT execution_deliveries_state_check CHECK (state = ANY (ARRAY['pending'::text, 'claimed'::text, 'sent'::text, 'acknowledged'::text, 'rejected'::text, 'unknown'::text, 'failed'::text, 'expired'::text]));
+
+COMMENT ON COLUMN public.execution_deliveries.state IS 'pending|claimed|sent|acknowledged|rejected|unknown|failed|expired. expired = the order was cleared because the broker did not fill it within the unfilled-order timeout; when it was already resting at the broker, only a confirmed broker cancellation may set it.';
