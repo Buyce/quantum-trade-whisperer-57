@@ -239,7 +239,7 @@ export async function revalidateDelivery(
   const { data: settingsRow } = await db
     .from("scanner_settings")
     .select(
-      "instruments, sessions, alert_min_grade, daily_setup_cap, execution_enabled, execution_dry_run, execution_config_version, exposure_limit_enabled, webhook_enabled, webhook_url, webhook_secret, webhook_format, webhook_validated_at, live_execution_confirmed_at, live_execution_confirmed_version, live_execution_confirmed_global_live",
+      "instruments, sessions, alert_min_grade, daily_setup_cap, execution_enabled, execution_dry_run, execution_config_version, exposure_limit_enabled, webhook_enabled, webhook_url, webhook_secret, webhook_format, webhook_validated_at, auto_order_window_minutes, live_execution_confirmed_at, live_execution_confirmed_version, live_execution_confirmed_global_live",
     )
     .eq("user_id", delivery.user_id)
     .maybeSingle();
