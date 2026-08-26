@@ -147,9 +147,8 @@ export async function collectPromotionCheckpoint(
         : null,
       mappedProviderSymbol: (snapshot?.["provider_symbol"] as string | null) ?? null,
       observedProviderSymbols: [...providerSymbols],
-      spreadFloorCandidate: Number.isFinite(snapshotFloor) && snapshotFloor > 0
-        ? snapshotFloor
-        : null,
+      spreadFloorCandidate:
+        Number.isFinite(snapshotFloor) && snapshotFloor > 0 ? snapshotFloor : null,
     };
 
     verdicts.push(evaluatePromotion(evidence, now.getTime()));

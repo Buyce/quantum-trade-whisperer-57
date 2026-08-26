@@ -27,7 +27,6 @@ import { resolveFetchSymbol } from "./fetch-authority.server";
 import { LIVE_CANDLE_POLICY_VERSION } from "./candle-policy";
 import { fetchUsableQuote } from "./quote-retry";
 
-
 export interface ConversionProof {
   accountCurrency: string;
   route: string;
@@ -78,7 +77,6 @@ export async function proveConversion(
     requestCount += outcome.attempts;
     obtained.set(leg, outcome.quote !== null);
   }
-
 
   const proof: ConversionProof[] = plans.map(({ accountCurrency, plan }) => {
     const missingLegs = plan.symbols.filter((s) => obtained.get(s) !== true);

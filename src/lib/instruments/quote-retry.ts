@@ -81,7 +81,8 @@ function classify<Q extends RetryableQuote>(
   const parsed = quote.sourceTime ? Date.parse(quote.sourceTime) : Number.NaN;
   if (!Number.isFinite(parsed)) return "stale_source_time";
   if (parsed - options.now > 60_000) return "future_source_time";
-  if (!quoteSourceFresh(quote.sourceTime, options.maxAgeMs, options.now)) return "stale_source_time";
+  if (!quoteSourceFresh(quote.sourceTime, options.maxAgeMs, options.now))
+    return "stale_source_time";
   return null;
 }
 

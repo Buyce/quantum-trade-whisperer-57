@@ -45,9 +45,8 @@ export function PromotionPanel() {
   return (
     <PanelShell title="Promotion checkpoint — data validation to shadow">
       <p className="text-[11px] text-muted-foreground">
-        Evidence window: last {windowDays} days. Gate: {REQUIRED_TRADING_DAYS} distinct trading days,
-        {" "}
-        {REQUIRED_VALID_SAMPLES} valid samples, every session covered, missingness at or below{" "}
+        Evidence window: last {windowDays} days. Gate: {REQUIRED_TRADING_DAYS} distinct trading
+        days, {REQUIRED_VALID_SAMPLES} valid samples, every session covered, missingness at or below{" "}
         {MAX_MISSINGNESS_PCT}%, a current passing readiness snapshot with route and live conversion
         proven, a stable verified provider symbol and a derived spread floor. Promotion is never
         automatic.

@@ -274,7 +274,6 @@ export async function checkInstrumentReadiness(
     return result;
   };
 
-
   for (const accountCurrency of SUPPORTED_ACCOUNT_CURRENCIES) {
     const plan = planConversion(definition.quote, accountCurrency);
     const route: ConversionCell["route"] =

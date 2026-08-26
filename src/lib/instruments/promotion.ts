@@ -138,10 +138,7 @@ export function evaluatePromotion(evidence: PromotionEvidence, now = Date.now())
     (s) => !evidence.coveredSessions.includes(s),
   );
   if (missingSessions.length > 0) {
-    block(
-      "sessions_not_covered",
-      `no valid samples yet in ${missingSessions.join(", ")}`,
-    );
+    block("sessions_not_covered", `no valid samples yet in ${missingSessions.join(", ")}`);
   }
 
   if (evidence.missingnessPct === null) {
@@ -171,7 +168,10 @@ export function evaluatePromotion(evidence: PromotionEvidence, now = Date.now())
       );
     }
     if (!readiness.conversionRouteReady) {
-      block("conversion_route_unproven", "no conversion route for every supported account currency");
+      block(
+        "conversion_route_unproven",
+        "no conversion route for every supported account currency",
+      );
     }
     if (!readiness.conversionDataReady) {
       block(
