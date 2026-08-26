@@ -250,6 +250,15 @@ export function brokerOrderStatus(
       return { kind: "rejected", label: "Rejected by broker", detail };
     case "failed":
       return { kind: "failed", label: "Not submitted", detail };
+    case "expired":
+      return {
+        kind: "not_sent",
+        label: "Cleared — not filled within an hour",
+        detail:
+          detail ??
+          "Your broker did not turn this order into a position within an hour, so it was cleared and its slot freed. No trade resulted from it.",
+      };
+
     default:
       return {
         kind: "unknown",
