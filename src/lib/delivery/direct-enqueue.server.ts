@@ -32,6 +32,12 @@ import {
   type Grade,
 } from "@/lib/db-types";
 import { assessFreshness, describeCeilings, effectiveCeilings } from "./adaptive-ceilings";
+import {
+  describeDuplicateOrder,
+  findDuplicateOrder,
+  type OrderPlanIdentity,
+  type RestingOrder,
+} from "./duplicate-orders";
 import type { RegimeStatRow } from "@/lib/learning/regime";
 import { fetchDayFrame, type FrameClient } from "./day-frame";
 import {
@@ -208,6 +214,121 @@ export async function occupiedOrderCounts(
     }
   }
   return { counts, daily, perSymbol, readable: true };
+}
+
+/**
+ * Every automatic order this owner already holds that is NOT resolved: queued,
+ * in flight, or accepted and resting at the broker. Terminal rows (refused,
+ * failed, expired, filled and reconciled) are excluded, so a cleared setup never
+ * blocks a fresh attempt.
+ *
+ * The plan behind each row comes from its own signal snapshot, with the submitted
+ * (grid-snapped) entry preferred when dispatch already recorded one, because that
+ * is the price actually resting at the broker.
+ */
+export async function heldOrdersByUser(
+  db: SupabaseClient,
+  userIds: string[],
+  nowMs: number,
+): Promise<{ held: Map<string, RestingOrder[]>; readable: boolean }> {
+  const held = new Map<string, RestingOrder[]>();
+  if (userIds.length === 0) return { held, readable: true };
+  const since = new Date(nowMs - 7 * 24 * 60 * 60_000).toISOString();
+  const { data, error } = await db
+    .from("execution_deliveries")
+    .select(
+      "id, user_id, signal_id, submitted_entry, published_entry, signal:scanned_signals(instrument, direction, entry_price)",
+    )
+    .in("user_id", userIds)
+    .in("state", OCCUPYING_STATES as unknown as string[])
+    .neq("dry_run", true)
+    .gte("enqueued_at", since);
+  if (error) {
+    console.error("held automatic orders unreadable", error.message);
+    return { held, readable: false };
+  }
+  type Row = {
+    id: number;
+    user_id: string;
+    signal_id: string | null;
+    submitted_entry: number | string | null;
+    published_entry: number | string | null;
+    signal?:
+      | { instrument: string | null; direction: string | null; entry_price: number | string | null }
+      | {
+          instrument: string | null;
+          direction: string | null;
+          entry_price: number | string | null;
+        }[]
+      | null;
+  };
+  const number = (value: number | string | null | undefined): number | null => {
+    if (value === null || value === undefined || value === "") return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+  for (const row of (data ?? []) as Row[]) {
+    const embedded = Array.isArray(row.signal) ? row.signal[0] : row.signal;
+    const instrument = embedded?.instrument ?? null;
+    if (!instrument) continue;
+    const entry =
+      number(row.submitted_entry) ?? number(row.published_entry) ?? number(embedded?.entry_price);
+    const list = held.get(row.user_id) ?? [];
+    list.push({
+      deliveryId: row.id,
+      signalId: row.signal_id,
+      instrument,
+      direction: embedded?.direction ?? null,
+      entry,
+    });
+    held.set(row.user_id, list);
+  }
+  return { held, readable: true };
+}
+
+/**
+ * The plan this signal would place, read from the authoritative signal row, plus
+ * the broker tick that decides when two entries are "the same price". Both are
+ * optional: when either cannot be read, the duplicate check simply does not fire
+ * (it is a refusal, never a permission).
+ */
+export async function readDuplicateContext(
+  db: SupabaseClient,
+  signal: DirectEnqueueSignal,
+): Promise<{ plan: OrderPlanIdentity | null; tickSize: number | null }> {
+  const [{ data: signalRow }, { data: specRow }] = await Promise.all([
+    db
+      .from("scanned_signals")
+      .select("instrument, direction, entry_price")
+      .eq("id", signal.id)
+      .maybeSingle(),
+    db
+      .from("broker_symbol_specs")
+      .select("tick_size")
+      .eq("symbol", signal.instrument)
+      .maybeSingle(),
+  ]);
+  const row = signalRow as {
+    instrument: string | null;
+    direction: string | null;
+    entry_price: number | string | null;
+  } | null;
+  const spec = specRow as { tick_size: number | string | null } | null;
+  const tick =
+    spec?.tick_size === null || spec?.tick_size === undefined ? null : Number(spec.tick_size);
+  const entry =
+    row?.entry_price === null || row?.entry_price === undefined ? null : Number(row.entry_price);
+  return {
+    plan:
+      row === null
+        ? null
+        : {
+            instrument: row.instrument ?? signal.instrument,
+            direction: row.direction ?? signal.direction ?? null,
+            entry: entry !== null && Number.isFinite(entry) ? entry : null,
+          },
+    tickSize: tick !== null && Number.isFinite(tick) ? tick : null,
+  };
 }
 
 export interface DirectEnqueueOutcome {
@@ -388,6 +509,15 @@ async function runDirectEnqueue(
   // treated as "at the ceiling".
   const occupancy = await occupiedOrderCounts(db, userIds, nowMs);
   const occupied = new Map(occupancy.counts);
+  // One live order per setup. Purely additive: it can only refuse, and when the
+  // plan or the held orders cannot be read it does not fire at all.
+  const [{ held, readable: heldReadable }, duplicateContext] = await Promise.all([
+    heldOrdersByUser(db, userIds, nowMs),
+    readDuplicateContext(db, signal),
+  ]);
+  const candidatePlan: (OrderPlanIdentity & { signalId: string }) | null =
+    duplicateContext.plan === null ? null : { ...duplicateContext.plan, signalId: signal.id };
+
   const createdToday = new Map(occupancy.daily);
   const createdTodayPerSymbol = new Map(occupancy.perSymbol);
 
@@ -507,7 +637,33 @@ async function runDirectEnqueue(
       }
     }
 
+    // A setup the owner already holds live at the broker must not be doubled.
+    // Republishing the same structure every cycle would otherwise stack several
+    // identical resting orders that could all fill at once.
+    if (heldReadable && candidatePlan !== null) {
+      const duplicate = findDuplicateOrder(
+        candidatePlan,
+        held.get(account.user_id) ?? [],
+        duplicateContext.tickSize,
+      );
+      if (duplicate) {
+        filtered += 1;
+        decisions.push({
+          user_id: account.user_id,
+          signal_id: signal.id,
+          instrument: signal.instrument,
+          grade: signal.grade,
+          decision: "duplicate_resting_order",
+          detail: describeDuplicateOrder(duplicate),
+          enqueued: 0,
+          filtered: 1,
+        });
+        continue;
+      }
+    }
+
     // The owner's ceilings. Every one of them can only ever refuse.
+
     //
     // The concurrent ceiling is fixed. The daily and per-symbol ceilings are the
     // owner's fixed numbers unless the owner opted into adaptive mode, in which
@@ -589,6 +745,12 @@ async function runDirectEnqueue(
       continue;
     }
     occupied.set(account.user_id, used + 1);
+    if (candidatePlan !== null) {
+      const list = held.get(account.user_id) ?? [];
+      list.push({ ...candidatePlan, deliveryId: 0, signalId: signal.id });
+      held.set(account.user_id, list);
+    }
+
     createdToday.set(account.user_id, usedToday + 1);
     createdTodayPerSymbol.set(symbolKey, usedTodayThisSymbol + 1);
 

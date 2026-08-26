@@ -652,12 +652,11 @@ function SettingsPage() {
                 How many automatic orders may be UNRESOLVED at the same time — queued, in flight, or
                 resting at your broker. A ceiling, not a target: 0 stops automatic orders entirely,{" "}
                 {CONCURRENT_ORDER_CEILING_MAX} is the maximum. It falls again as orders fill, expire
-                or are refused. An order your broker has not filled within an hour is cleared —
-                cancelled at your broker first when it was still resting there — so it stops holding
-                a slot. Your broker&apos;s own pending-order and margin limits still apply above
-                whatever you set here.
+                or are refused. An order your broker has not filled within your automatic-order
+                window below is cleared — cancelled at your broker first when it was still resting
+                there — so it stops holding a slot. Your broker&apos;s own pending-order and margin
+                limits still apply above whatever you set here.
               </p>
-
             </div>
 
             <div className="border-t border-border pt-4">
@@ -701,8 +700,8 @@ function SettingsPage() {
               />
               <p className="mt-2 text-xs text-muted-foreground">
                 A separate per-instrument ceiling inside the daily one (0–
-                {PER_SYMBOL_ORDER_CEILING_MAX}), so one busy instrument cannot consume the whole day.
-                It refuses only; it never adds orders on other instruments.
+                {PER_SYMBOL_ORDER_CEILING_MAX}), so one busy instrument cannot consume the whole
+                day. It refuses only; it never adds orders on other instruments.
               </p>
             </div>
 

@@ -35,7 +35,7 @@ export async function loadAutomaticOrderSummary(
     collectBounded<AutomaticOrderDeliverySummaryRow>(async (from, to) => {
       const { data, error } = await db
         .from("execution_deliveries" as never)
-        .select("state, dry_run, submitted_at, broker_retcode_string")
+        .select("id, state, dry_run, submitted_at, broker_retcode_string")
         .eq("user_id", userId)
         .eq("destination_type", "metaapi_direct")
         .order("enqueued_at", { ascending: false })
@@ -46,7 +46,7 @@ export async function loadAutomaticOrderSummary(
     collectBounded<AutomaticOrderEvidenceSummaryRow>(async (from, to) => {
       const { data, error } = await db
         .from("broker_trade_evidence" as never)
-        .select("state, r_vs_plan, r_vs_actual_risk")
+        .select("delivery_id, state, r_vs_plan, r_vs_actual_risk")
         .eq("user_id", userId)
         .eq("evidence_class", "customer")
         .order("first_observed_at", { ascending: false })

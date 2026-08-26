@@ -32,6 +32,7 @@ const SWEEPABLE_STATES = ["pending", "claimed", "sent", "acknowledged", "unknown
 
 export interface SweepableDelivery {
   id: number;
+  user_id: string | null;
   state: DeliveryState | string;
   dry_run: boolean | null;
   enqueued_at: string | null;
@@ -40,6 +41,22 @@ export interface SweepableDelivery {
   broker_order_id: string | null;
   connected_account_id: string | null;
   destination_type: string | null;
+}
+
+/**
+ * How long THIS owner's order may rest before the sweeper considers clearing it.
+ *
+ * The owner's automatic-order window is the honest answer: an order they told
+ * P-Trades to keep working for three hours must not be cancelled after one.
+ * A missing, unreadable or zero window falls back to
+ * {@link UNFILLED_ORDER_TIMEOUT_MS}, so an unreadable setting can never keep an
+ * order resting indefinitely.
+ */
+export function ownerTimeoutMs(windowMinutes: number | null | undefined): number {
+  if (windowMinutes === null || windowMinutes === undefined) return UNFILLED_ORDER_TIMEOUT_MS;
+  const minutes = Number(windowMinutes);
+  if (!Number.isFinite(minutes) || minutes <= 0) return UNFILLED_ORDER_TIMEOUT_MS;
+  return Math.min(minutes, 360) * 60_000;
 }
 
 export type ExpiryOutcome =
@@ -131,7 +148,7 @@ export async function expireUnfilledOrders(
   const { data, error } = await db
     .from("execution_deliveries")
     .select(
-      "id, state, dry_run, enqueued_at, sent_at, submitted_at, broker_order_id, connected_account_id, destination_type",
+      "id, user_id, state, dry_run, enqueued_at, sent_at, submitted_at, broker_order_id, connected_account_id, destination_type",
     )
     .in("state", SWEEPABLE_STATES as unknown as string[])
     .lte("enqueued_at", cutoff)
@@ -143,9 +160,31 @@ export async function expireUnfilledOrders(
   }
 
   const rows = (data ?? []) as unknown as SweepableDelivery[];
+
+  // Each owner's own automatic-order window decides how long their order may rest.
+  const owners = [...new Set(rows.map((r) => r.user_id).filter((id): id is string => !!id))];
+  const windows = new Map<string, number>();
+  if (owners.length > 0) {
+    const { data: settings, error: settingsError } = await db
+      .from("scanner_settings")
+      .select("user_id, auto_order_window_minutes")
+      .in("user_id", owners);
+    if (settingsError) {
+      console.error("[expire-unfilled] settings unreadable", settingsError.message);
+    } else {
+      for (const row of (settings ?? []) as {
+        user_id: string;
+        auto_order_window_minutes: number | null;
+      }[]) {
+        windows.set(row.user_id, ownerTimeoutMs(row.auto_order_window_minutes));
+      }
+    }
+  }
+
   for (const row of rows) {
     if (isTerminal(row.state as DeliveryState) && row.state !== "acknowledged") continue;
-    if (!isUnfilledTooLong(row, now)) continue;
+    const timeoutMs = (row.user_id && windows.get(row.user_id)) || UNFILLED_ORDER_TIMEOUT_MS;
+    if (!isUnfilledTooLong(row, now, timeoutMs)) continue;
 
     // A dry run reached no broker at all, so the slot is free to reclaim.
     if (row.dry_run === true || neverSubmitted(row)) {

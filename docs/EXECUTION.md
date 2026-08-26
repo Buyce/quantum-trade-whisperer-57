@@ -99,11 +99,13 @@ whole daily ceiling. It sits inside the daily ceiling and can only refuse.
 
 ### The unfilled-order timeout
 
-`UNFILLED_ORDER_TIMEOUT_MS` (1 hour) bounds how long an order may occupy a concurrent
-slot without becoming a position. `expireUnfilledOrders` runs on
-`/api/public/cron/expire-orders` every five minutes, examines at most
-`MAX_EXPIRIES_PER_RUN` deliveries oldest-first, and settles a row to the terminal
-`expired` state only when it may:
+How long an order may occupy a concurrent slot without becoming a position is the
+owner's own `auto_order_window_minutes` (`ownerTimeoutMs`, capped at six hours).
+A missing, zero or unreadable window falls back to `UNFILLED_ORDER_TIMEOUT_MS`
+(1 hour), so an unreadable setting can never let an order rest indefinitely.
+`expireUnfilledOrders` runs on `/api/public/cron/expire-orders` every five
+minutes, examines at most `MAX_EXPIRIES_PER_RUN` deliveries oldest-first, and
+settles a row to the terminal `expired` state only when it may:
 
 - never submitted (`pending`/`claimed`, no `submitted_at`, no `sent_at`, no broker
   order id) or dry-run ⇒ expired directly; nothing exists at the broker.
@@ -115,9 +117,23 @@ slot without becoming a position. `expireUnfilledOrders` runs on
   cancel ⇒ the row is kept and re-examined next pass. An unproven cancellation frees no
   slot.
 
-Rows are settled, never deleted: History shows `Cleared — not filled within an hour`
-with the reason. This timeout is independent of `auto_order_window_minutes`, which
-governs whether a **setup** is still young enough to be ordered at all.
+Rows are settled, never deleted: History shows
+`Cleared — not filled in your order window` with the reason.
+
+### One live automatic order per setup
+
+The scanner republishes a still-valid structure every cycle. `findDuplicateOrder`
+refuses an attempt with `duplicate_resting_order` when the owner already holds an
+unresolved automatic order on the same instrument, same direction and an entry
+within one broker tick (`broker_symbol_specs.tick_size`; unknown tick ⇒ exact
+equality only). Unreadable held orders or an unreadable candidate plan mean the
+check does not fire — it is a refusal, never a permission. This prevents several
+identical resting orders filling together at multiples of the sized risk.
+
+A broker-accepted pending order with no matched broker evidence is reported as
+**resting at broker** in History and in Performance's delivery accounting. It is
+not a fill and never contributes to wins or losses.
+
 
 
 ### Freshness-adaptive ceilings (opt-in)
