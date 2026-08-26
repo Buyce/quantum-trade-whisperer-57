@@ -167,7 +167,8 @@ export interface TradeResponse {
 
 export interface MarginRequest {
   symbol: string;
-  type: PendingOrderActionType | MarketOrderActionType;
+  /** calculate-margin accepts BUY/SELL only — never a *_LIMIT action type. */
+  type: MarketOrderActionType;
   volume: number;
   openPrice: number;
 }
