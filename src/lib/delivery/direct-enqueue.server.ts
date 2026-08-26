@@ -32,6 +32,12 @@ import {
   type Grade,
 } from "@/lib/db-types";
 import { assessFreshness, describeCeilings, effectiveCeilings } from "./adaptive-ceilings";
+import {
+  describeDuplicateOrder,
+  findDuplicateOrder,
+  type OrderPlanIdentity,
+  type RestingOrder,
+} from "./duplicate-orders";
 import type { RegimeStatRow } from "@/lib/learning/regime";
 import { fetchDayFrame, type FrameClient } from "./day-frame";
 import {
