@@ -1,6 +1,7 @@
 /** Source-separated automatic-order accounting for the Performance screen. */
 
 export interface AutomaticOrderDeliverySummaryRow {
+  id?: number | null;
   state: string | null;
   dry_run: boolean | null;
   submitted_at: string | null;
@@ -8,6 +9,7 @@ export interface AutomaticOrderDeliverySummaryRow {
 }
 
 export interface AutomaticOrderEvidenceSummaryRow {
+  delivery_id?: number | null;
   state: string | null;
   r_vs_plan: number | string | null;
   r_vs_actual_risk: number | string | null;
@@ -25,11 +27,18 @@ export interface AutomaticOrderSummary {
   dryRuns: number;
   blockedBeforeBroker: number;
   submittedToBroker: number;
+  /**
+   * Orders the broker ACCEPTED as pending and has not turned into a position.
+   * They are live at the broker, waiting for price — not fills, and never counted
+   * as trades.
+   */
+  restingAtBroker: number;
   brokerOpen: number;
   brokerClosed: number;
   closedPlan: AutomaticOrderRStats;
   closedActualRisk: AutomaticOrderRStats;
 }
+
 
 const SUBMITTED_STATES = new Set(["sent", "acknowledged", "unknown"]);
 const BLOCKED_STATES = new Set(["rejected", "failed"]);
