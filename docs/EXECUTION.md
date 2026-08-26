@@ -75,10 +75,10 @@ that, after its own pre-send revalidation.
 
 Three independent, owner-set ceilings bound automatic orders.
 
-`scanner_settings.maximum_concurrent_signal_orders` (0-10, default 3) caps how many
+`scanner_settings.maximum_concurrent_signal_orders` (0-100, default 3) caps how many
 automatic orders may be **unresolved at once** — `pending`, `claimed`, `sent`,
 `acknowledged` and `unknown` deliveries — and falls again as orders resolve.
-`scanner_settings.maximum_daily_signal_orders` (0-25, default 10) caps how many were
+`scanner_settings.maximum_daily_signal_orders` (0-100, default 10) caps how many were
 **created in the current UTC day** and does not fall when an order closes. The legacy
 `maximum_active_signal_orders` column is retained for history only and was backfilled
 into both.
@@ -88,12 +88,37 @@ Both are **ceilings, never quotas**: reaching one refuses further orders
 is never a reason to place an order. Dry-run rows reach no broker and spend neither.
 A count that cannot be read fails closed (`active_order_count_unreadable`). They sit
 on top of — never instead of — the daily setup cap, risk per trade, lot ceiling and
-exposure limit.
+exposure limit. A high ceiling is also not the binding limit: the broker's own
+pending-order and margin limits still apply, and dispatch still submits at most one
+delivery per pass.
 
-`scanner_settings.maximum_daily_orders_per_symbol` (0-25, default 25) caps how many
+`scanner_settings.maximum_daily_orders_per_symbol` (0-100, default 25) caps how many
 automatic orders **one instrument** may consume in the current UTC day
 (`instrument_daily_order_limit_reached`), so a single busy instrument cannot spend the
 whole daily ceiling. It sits inside the daily ceiling and can only refuse.
+
+### The unfilled-order timeout
+
+`UNFILLED_ORDER_TIMEOUT_MS` (1 hour) bounds how long an order may occupy a concurrent
+slot without becoming a position. `expireUnfilledOrders` runs on
+`/api/public/cron/expire-orders` every five minutes, examines at most
+`MAX_EXPIRIES_PER_RUN` deliveries oldest-first, and settles a row to the terminal
+`expired` state only when it may:
+
+- never submitted (`pending`/`claimed`, no `submitted_at`, no `sent_at`, no broker
+  order id) or dry-run ⇒ expired directly; nothing exists at the broker.
+- submitted and still **resting** at the broker as an untouched pending order ⇒
+  cancelled through `ORDER_CANCEL`, and only a **confirmed** cancellation expires the
+  row.
+- filled or partially filled ⇒ never touched; it is a real trade.
+- broker unreadable, cancellation unconfirmed, order absent, or a destination we cannot
+  cancel ⇒ the row is kept and re-examined next pass. An unproven cancellation frees no
+  slot.
+
+Rows are settled, never deleted: History shows `Cleared — not filled within an hour`
+with the reason. This timeout is independent of `auto_order_window_minutes`, which
+governs whether a **setup** is still young enough to be ordered at all.
+
 
 ### Freshness-adaptive ceilings (opt-in)
 
@@ -104,7 +129,7 @@ observation, and the last known destination quote time when one is available.
 
 - `healthy` — equity observed within half of `BROKER_EQUITY_MAX_AGE_MS` (and any known
   quote within `REVALIDATION_QUOTE_MAX_AGE_MS`): the ceiling is raised toward
-  `adaptive_order_ceiling_max`, never above it and never above the hard bound of 25.
+  `adaptive_order_ceiling_max`, never above it and never above the hard bound of 100.
 - `degraded` / `unknown` — an old reading, or no readable reading at all: the ceiling
   is reduced toward `adaptive_order_ceiling_floor`, never above the fixed base.
   Absence of evidence is never room to trade more.

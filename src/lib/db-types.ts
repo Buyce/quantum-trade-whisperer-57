@@ -256,14 +256,22 @@ export interface ScannerSettingsRow {
   adaptive_order_ceiling_floor: number;
 }
 
-/** Bounds for the two automatic-order ceilings. */
-export const CONCURRENT_ORDER_CEILING_MAX = 10;
+/**
+ * Bounds for the automatic-order ceilings.
+ *
+ * The MAXIMA are what an owner is ALLOWED to configure, not what they get: the
+ * defaults are unchanged and deliberately conservative. A high ceiling stops
+ * being the binding limit — the broker's own pending-order and margin limits,
+ * risk per trade, sessions, instruments and the intelligence gate all still
+ * apply, and dispatch still drains one delivery per pass.
+ */
+export const CONCURRENT_ORDER_CEILING_MAX = 100;
 export const CONCURRENT_ORDER_CEILING_DEFAULT = 3;
-export const DAILY_ORDER_CEILING_MAX = 25;
+export const DAILY_ORDER_CEILING_MAX = 100;
 export const DAILY_ORDER_CEILING_DEFAULT = 10;
 /** Per-symbol daily ceiling. Absent ⇒ the widest supported value (a no-op). */
 export const PER_SYMBOL_ORDER_CEILING_DEFAULT = 25;
-export const PER_SYMBOL_ORDER_CEILING_MAX = 25;
+export const PER_SYMBOL_ORDER_CEILING_MAX = 100;
 
 /** Adaptive band bounds. The band can never exceed the daily ceiling maximum. */
 export const ADAPTIVE_CEILING_MAX_DEFAULT = 25;
@@ -276,30 +284,31 @@ function clampCeiling(value: unknown, fallback: number, max: number): number {
   return Math.min(Math.max(Math.round(n), 0), max);
 }
 
-/** Concurrent automatic-order ceiling (0-10). Absent ⇒ the default, never 0. */
+/** Concurrent automatic-order ceiling (0-100). Absent ⇒ the default, never 0. */
 export function clampConcurrentOrderCeiling(value: unknown): number {
   return clampCeiling(value, CONCURRENT_ORDER_CEILING_DEFAULT, CONCURRENT_ORDER_CEILING_MAX);
 }
 
-/** Daily automatic-order ceiling (0-25). Absent ⇒ the default, never 0. */
+/** Daily automatic-order ceiling (0-100). Absent ⇒ the default, never 0. */
 export function clampDailyOrderCeiling(value: unknown): number {
   return clampCeiling(value, DAILY_ORDER_CEILING_DEFAULT, DAILY_ORDER_CEILING_MAX);
 }
 
-/** Per-symbol daily ceiling (0-25). Absent ⇒ the permissive default. */
+/** Per-symbol daily ceiling (0-100). Absent ⇒ the permissive default. */
 export function clampPerSymbolOrderCeiling(value: unknown): number {
-  return clampCeiling(value, PER_SYMBOL_ORDER_CEILING_DEFAULT, DAILY_ORDER_CEILING_MAX);
+  return clampCeiling(value, PER_SYMBOL_ORDER_CEILING_DEFAULT, PER_SYMBOL_ORDER_CEILING_MAX);
 }
 
-/** Adaptive upper bound (0-25). Absent ⇒ the permissive default. */
+/** Adaptive upper bound (0-100). Absent ⇒ the permissive default. */
 export function clampAdaptiveCeilingMax(value: unknown): number {
   return clampCeiling(value, ADAPTIVE_CEILING_MAX_DEFAULT, DAILY_ORDER_CEILING_MAX);
 }
 
-/** Adaptive lower bound (0-25). Absent ⇒ 1. */
+/** Adaptive lower bound (0-100). Absent ⇒ 1. */
 export function clampAdaptiveCeilingFloor(value: unknown): number {
   return clampCeiling(value, ADAPTIVE_CEILING_FLOOR_DEFAULT, DAILY_ORDER_CEILING_MAX);
 }
+
 
 
 export type OrderStrategy = "smart_adaptive" | "strict_retest";
