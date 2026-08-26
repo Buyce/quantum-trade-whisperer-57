@@ -11,7 +11,32 @@ import { ORDER_TIF_MINUTES, type Direction, type Grade } from "@/lib/db-types";
 import { validQuoteGeometry } from "@/lib/metaapi/quote";
 
 export type DeliveryState =
-  "pending" | "claimed" | "sent" | "acknowledged" | "rejected" | "unknown" | "failed";
+  | "pending"
+  | "claimed"
+  | "sent"
+  | "acknowledged"
+  | "rejected"
+  | "unknown"
+  | "failed"
+  /**
+   * The unfilled-order timeout: the broker never turned this order into a
+   * position within {@link UNFILLED_ORDER_TIMEOUT_MS}. A row that never reached
+   * the broker is expired directly; a row that WAS resting at the broker may
+   * only be expired after the broker CONFIRMS the cancellation. It is terminal,
+   * so it stops occupying the owner's concurrent ceiling.
+   */
+  | "expired";
+
+/**
+ * How long an automatic order may sit unfilled before it is cleared.
+ *
+ * This is not the automatic-order window (which governs whether a SETUP is still
+ * young enough to be ordered at all); it governs how long an ORDER already
+ * queued or resting at the broker may wait for a fill before P-Trades gives the
+ * slot back.
+ */
+export const UNFILLED_ORDER_TIMEOUT_MS = 60 * 60_000;
+
 
 /**
  * Only `pending` is claimable. A `sent` or `unknown` row is NEVER re-attempted:
