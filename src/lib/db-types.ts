@@ -309,8 +309,6 @@ export function clampAdaptiveCeilingFloor(value: unknown): number {
   return clampCeiling(value, ADAPTIVE_CEILING_FLOOR_DEFAULT, DAILY_ORDER_CEILING_MAX);
 }
 
-
-
 export type OrderStrategy = "smart_adaptive" | "strict_retest";
 export type WebhookFormat = "json" | "pineconnector";
 

@@ -16,21 +16,24 @@ describe("assessFreshness", () => {
   });
 
   it("[INVARIANT] treats a future equity timestamp as unknown", () => {
-    expect(assessFreshness({ equityObservedAt: at(-10 * 60_000), now: NOW }).health).toBe("unknown");
+    expect(assessFreshness({ equityObservedAt: at(-10 * 60_000), now: NOW }).health).toBe(
+      "unknown",
+    );
   });
 
   it("[INVARIANT] degrades once the equity observation passes the healthy age", () => {
-    expect(assessFreshness({ equityObservedAt: at(HEALTHY_EQUITY_MAX_AGE_MS - 1), now: NOW }).health).toBe(
-      "healthy",
-    );
-    expect(assessFreshness({ equityObservedAt: at(HEALTHY_EQUITY_MAX_AGE_MS + 1), now: NOW }).health).toBe(
-      "degraded",
-    );
+    expect(
+      assessFreshness({ equityObservedAt: at(HEALTHY_EQUITY_MAX_AGE_MS - 1), now: NOW }).health,
+    ).toBe("healthy");
+    expect(
+      assessFreshness({ equityObservedAt: at(HEALTHY_EQUITY_MAX_AGE_MS + 1), now: NOW }).health,
+    ).toBe("degraded");
   });
 
   it("[INVARIANT] degrades on a stale or unreadable known quote time", () => {
     expect(
-      assessFreshness({ equityObservedAt: at(1000), quoteObservedAt: at(600_000), now: NOW }).health,
+      assessFreshness({ equityObservedAt: at(1000), quoteObservedAt: at(600_000), now: NOW })
+        .health,
     ).toBe("degraded");
     expect(
       assessFreshness({ equityObservedAt: at(1000), quoteObservedAt: "nope", now: NOW }).health,

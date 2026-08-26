@@ -129,14 +129,7 @@ export interface EffectiveCeilings {
  * ceiling off and stays 0 in every direction.
  */
 export function effectiveCeilings(input: CeilingInput): EffectiveCeilings {
-  const {
-    dailyBase,
-    perSymbolBase,
-    adaptiveEnabled,
-    adaptiveMax,
-    adaptiveFloor,
-    health,
-  } = input;
+  const { dailyBase, perSymbolBase, adaptiveEnabled, adaptiveMax, adaptiveFloor, health } = input;
   if (!adaptiveEnabled) {
     return { daily: dailyBase, perSymbol: perSymbolBase, health, applied: "fixed" };
   }

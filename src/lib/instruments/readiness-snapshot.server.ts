@@ -25,6 +25,7 @@ import { instrumentDefinition } from "./registry";
 import { checkInstrumentReadiness, SUPPORTED_ACCOUNT_CURRENCIES } from "./readiness.server";
 import { resolveFetchSymbol } from "./fetch-authority.server";
 import { LIVE_CANDLE_POLICY_VERSION } from "./candle-policy";
+import { fetchUsableQuote } from "./quote-retry";
 
 export interface ConversionProof {
   accountCurrency: string;
@@ -69,15 +70,12 @@ export async function proveConversion(
   const obtained = new Map<string, boolean>();
   let requestCount = 0;
   for (const leg of legs) {
-    requestCount += 1;
-    try {
-      const q = await fetchQuote(leg);
-      const ok =
-        !!q && Number.isFinite(q.bid) && Number.isFinite(q.ask) && q.bid > 0 && q.ask >= q.bid;
-      obtained.set(leg, ok);
-    } catch {
-      obtained.set(leg, false);
-    }
+    // Bounded re-quote: one failed or malformed leg fetch must not be recorded as
+    // "the broker will not quote this leg" (production saw exactly that on
+    // USDCHF, whose neighbouring snapshots quoted the same leg fine).
+    const outcome = await fetchUsableQuote(leg, fetchQuote);
+    requestCount += outcome.attempts;
+    obtained.set(leg, outcome.quote !== null);
   }
 
   const proof: ConversionProof[] = plans.map(({ accountCurrency, plan }) => {

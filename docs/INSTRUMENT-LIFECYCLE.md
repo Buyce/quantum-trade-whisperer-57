@@ -97,6 +97,34 @@ with valid geometry and a fresh broker source timestamp (the same staleness rule
 the pre-send gate uses), and an available account-currency conversion route. It
 reports a measured `spreadFloorCandidate` rather than inventing one.
 
+A single malformed tick is not a capability verdict. Production saw GBPUSD fail
+readiness on one zero-spread tick and USDCHF's own conversion leg recorded as
+unquotable from one failed fetch. The quote check and every conversion leg
+therefore re-ask a fixed, bounded number of times
+(`src/lib/instruments/quote-retry.ts`), record how many attempts were spent, and
+distinguish "the tick was malformed" from "there was no quote at all". A feed that
+is malformed on every attempt still fails.
+
+## Promotion checkpoint (`data_validation` to `shadow`)
+
+Readiness says the provider can serve an instrument now. It does not say the
+instrument has been observed long enough to be measured. `promotion.ts` is the
+pure evidence gate for that, and every criterion is arithmetic over recorded rows:
+
+- at least 5 distinct UTC trading days of valid spread samples, and at least 200
+  valid samples in total;
+- a valid sample in every session the sampler covers;
+- sample missingness at or below 20%;
+- a readiness snapshot no older than 24 hours that passed, with both the
+  conversion route and the live conversion data proven;
+- a verified provider symbol that did not change during the window;
+- a spread floor candidate derived from real samples.
+
+Absent evidence is a blocker, never a pass. The checkpoint renders in Admin
+Intelligence as promotable/blocked with each unmet criterion and its measured
+value. It promotes nothing: `transition_instrument_stage` remains the only way a
+stage changes, taken per instrument by the operator with this output as evidence.
+
 ## Provenance
 
 Every value here is broker-derived or operator-recorded. Contract sizes, lot

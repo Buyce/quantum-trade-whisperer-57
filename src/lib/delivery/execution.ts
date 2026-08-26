@@ -37,7 +37,6 @@ export type DeliveryState =
  */
 export const UNFILLED_ORDER_TIMEOUT_MS = 60 * 60_000;
 
-
 /**
  * Only `pending` is claimable. A `sent` or `unknown` row is NEVER re-attempted:
  * an unacknowledged POST may already have created a broker order, so an

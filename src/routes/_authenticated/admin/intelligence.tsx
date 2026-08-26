@@ -47,6 +47,7 @@ import { ExecutionSwitchPanel } from "@/components/admin/ExecutionSwitchPanel";
 import { EnqueueDecisionPanel } from "@/components/admin/EnqueueDecisionPanel";
 import { InstrumentDiagnosticsPanel } from "@/components/admin/InstrumentDiagnosticsPanel";
 import { CommissioningPanel } from "@/components/admin/CommissioningPanel";
+import { PromotionPanel } from "@/components/admin/PromotionPanel";
 import { NewsPanel } from "@/components/admin/NewsPanel";
 
 export const Route = createFileRoute("/_authenticated/admin/intelligence")({
@@ -174,6 +175,8 @@ function AdminIntelligencePage() {
       <InstrumentDiagnosticsPanel />
 
       <CommissioningPanel />
+
+      <PromotionPanel />
 
       <NewsPanel />
 

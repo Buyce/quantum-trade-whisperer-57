@@ -25,9 +25,7 @@ const ago = (ms: number) => new Date(now - ms).toISOString();
 
 describe("unfilled-order timeout", () => {
   it("[INVARIANT] a young order is never swept", () => {
-    expect(
-      isUnfilledTooLong({ enqueued_at: ago(10 * 60_000), sent_at: null }, now),
-    ).toBe(false);
+    expect(isUnfilledTooLong({ enqueued_at: ago(10 * 60_000), sent_at: null }, now)).toBe(false);
   });
 
   it("[INVARIANT] the wait is measured from the submission when there is one", () => {
