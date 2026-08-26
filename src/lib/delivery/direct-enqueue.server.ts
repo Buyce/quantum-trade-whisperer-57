@@ -210,6 +210,110 @@ export async function occupiedOrderCounts(
   return { counts, daily, perSymbol, readable: true };
 }
 
+/**
+ * Every automatic order this owner already holds that is NOT resolved: queued,
+ * in flight, or accepted and resting at the broker. Terminal rows (refused,
+ * failed, expired, filled and reconciled) are excluded, so a cleared setup never
+ * blocks a fresh attempt.
+ *
+ * The plan behind each row comes from its own signal snapshot, with the submitted
+ * (grid-snapped) entry preferred when dispatch already recorded one, because that
+ * is the price actually resting at the broker.
+ */
+export async function heldOrdersByUser(
+  db: SupabaseClient,
+  userIds: string[],
+  nowMs: number,
+): Promise<{ held: Map<string, RestingOrder[]>; readable: boolean }> {
+  const held = new Map<string, RestingOrder[]>();
+  if (userIds.length === 0) return { held, readable: true };
+  const since = new Date(nowMs - 7 * 24 * 60 * 60_000).toISOString();
+  const { data, error } = await db
+    .from("execution_deliveries")
+    .select(
+      "id, user_id, signal_id, submitted_entry, published_entry, signal:scanned_signals(instrument, direction, entry_price)",
+    )
+    .in("user_id", userIds)
+    .in("state", OCCUPYING_STATES as unknown as string[])
+    .neq("dry_run", true)
+    .gte("enqueued_at", since);
+  if (error) {
+    console.error("held automatic orders unreadable", error.message);
+    return { held, readable: false };
+  }
+  type Row = {
+    id: number;
+    user_id: string;
+    signal_id: string | null;
+    submitted_entry: number | string | null;
+    published_entry: number | string | null;
+    signal?:
+      | { instrument: string | null; direction: string | null; entry_price: number | string | null }
+      | { instrument: string | null; direction: string | null; entry_price: number | string | null }[]
+      | null;
+  };
+  const number = (value: number | string | null | undefined): number | null => {
+    if (value === null || value === undefined || value === "") return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+  for (const row of (data ?? []) as Row[]) {
+    const embedded = Array.isArray(row.signal) ? row.signal[0] : row.signal;
+    const instrument = embedded?.instrument ?? null;
+    if (!instrument) continue;
+    const entry =
+      number(row.submitted_entry) ?? number(row.published_entry) ?? number(embedded?.entry_price);
+    const list = held.get(row.user_id) ?? [];
+    list.push({
+      deliveryId: row.id,
+      signalId: row.signal_id,
+      instrument,
+      direction: embedded?.direction ?? null,
+      entry,
+    });
+    held.set(row.user_id, list);
+  }
+  return { held, readable: true };
+}
+
+/**
+ * The plan this signal would place, read from the authoritative signal row, plus
+ * the broker tick that decides when two entries are "the same price". Both are
+ * optional: when either cannot be read, the duplicate check simply does not fire
+ * (it is a refusal, never a permission).
+ */
+export async function readDuplicateContext(
+  db: SupabaseClient,
+  signal: DirectEnqueueSignal,
+): Promise<{ plan: OrderPlanIdentity | null; tickSize: number | null }> {
+  const [{ data: signalRow }, { data: specRow }] = await Promise.all([
+    db
+      .from("scanned_signals")
+      .select("instrument, direction, entry_price")
+      .eq("id", signal.id)
+      .maybeSingle(),
+    db.from("broker_symbol_specs").select("tick_size").eq("symbol", signal.instrument).maybeSingle(),
+  ]);
+  const row = signalRow as
+    | { instrument: string | null; direction: string | null; entry_price: number | string | null }
+    | null;
+  const spec = specRow as { tick_size: number | string | null } | null;
+  const tick = spec?.tick_size === null || spec?.tick_size === undefined ? null : Number(spec.tick_size);
+  const entry = row?.entry_price === null || row?.entry_price === undefined ? null : Number(row.entry_price);
+  return {
+    plan:
+      row === null
+        ? null
+        : {
+            instrument: row.instrument ?? signal.instrument,
+            direction: row.direction ?? signal.direction ?? null,
+            entry: entry !== null && Number.isFinite(entry) ? entry : null,
+          },
+    tickSize: tick !== null && Number.isFinite(tick) ? tick : null,
+  };
+}
+
+
 export interface DirectEnqueueOutcome {
   /** Accounts a delivery row was written for. */
   enqueued: number;
