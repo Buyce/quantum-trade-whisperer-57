@@ -90,6 +90,12 @@ export function summarizeAutomaticOrders(
     }
   }
 
+  const evidenceDeliveryIds = new Set(
+    evidence
+      .map((row) => row.delivery_id)
+      .filter((id): id is number => typeof id === "number" && Number.isFinite(id)),
+  );
+
   return {
     deliveryRows: deliveries.length,
     dryRuns: deliveries.filter((row) => row.dry_run === true).length,
@@ -101,9 +107,16 @@ export function summarizeAutomaticOrders(
         !automaticOrderDeliveryReachedBroker(row),
     ).length,
     submittedToBroker: deliveries.filter(automaticOrderDeliveryReachedBroker).length,
+    restingAtBroker: deliveries.filter(
+      (row) =>
+        row.dry_run !== true &&
+        row.state === "acknowledged" &&
+        !(typeof row.id === "number" && evidenceDeliveryIds.has(row.id)),
+    ).length,
     brokerOpen,
     brokerClosed,
     closedPlan,
     closedActualRisk,
   };
 }
+
