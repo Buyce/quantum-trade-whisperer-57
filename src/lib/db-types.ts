@@ -263,6 +263,8 @@ export const DAILY_ORDER_CEILING_MAX = 25;
 export const DAILY_ORDER_CEILING_DEFAULT = 10;
 /** Per-symbol daily ceiling. Absent ⇒ the widest supported value (a no-op). */
 export const PER_SYMBOL_ORDER_CEILING_DEFAULT = 25;
+export const PER_SYMBOL_ORDER_CEILING_MAX = 25;
+
 /** Adaptive band bounds. The band can never exceed the daily ceiling maximum. */
 export const ADAPTIVE_CEILING_MAX_DEFAULT = 25;
 export const ADAPTIVE_CEILING_FLOOR_DEFAULT = 1;
