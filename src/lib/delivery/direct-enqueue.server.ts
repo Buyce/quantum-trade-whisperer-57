@@ -21,7 +21,11 @@
  * `recordEnqueueDecisions`, so an empty delivery ledger is never ambiguous.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { ORDER_TIF_MINUTES, type Grade } from "@/lib/db-types";
+import {
+  AUTO_ORDER_WINDOW_MAX_MINUTES,
+  clampAutoOrderWindowMinutes,
+  type Grade,
+} from "@/lib/db-types";
 import type { RegimeStatRow } from "@/lib/learning/regime";
 import { fetchDayFrame, type FrameClient } from "./day-frame";
 import {
