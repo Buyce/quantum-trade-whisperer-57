@@ -136,18 +136,33 @@ function AdminIntelligencePage() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-3 p-3 md:p-4">
-      <header className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h1 className="text-lg font-semibold tracking-tight">Admin Intelligence Terminal</h1>
+      <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:flex sm:flex-wrap sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="truncate text-lg font-semibold tracking-tight">
+            Admin Intelligence Terminal
+          </h1>
           <p className="text-[11px] text-muted-foreground">
             Live aggregates · generated {timeAgo(data.generated_at)} · auto-refresh 60s
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => void refetch()} disabled={isFetching}>
-          <RefreshCw className={isFetching ? "size-3.5 animate-spin" : "size-3.5"} />
-          Refresh
-        </Button>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {/* Collapsed panels do not render their body, so collapsing all is also
+              the cheapest state to leave the terminal in. */}
+          <Button variant="ghost" size="sm" onClick={() => setAllPanelsOpen(true)}>
+            <ChevronsDownUp className="size-3.5 rotate-180" />
+            Expand all
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setAllPanelsOpen(false)}>
+            <ChevronsDownUp className="size-3.5" />
+            Collapse all
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => void refetch()} disabled={isFetching}>
+            <RefreshCw className={isFetching ? "size-3.5 animate-spin" : "size-3.5"} />
+            Refresh
+          </Button>
+        </div>
       </header>
+
 
       <EngineStatusPanel />
 
