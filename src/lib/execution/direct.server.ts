@@ -307,7 +307,13 @@ export async function submitDirectOrder(
   try {
     brokerMargin = await estimateMargin(target.metaapiAccountId, target.region, {
       symbol: order.symbol,
-      type: marketEntry ? marketActionTypeFor(plan.direction) : order.actionType,
+      // MetaApi's calculate-margin endpoint only accepts the plain BUY/SELL
+      // action types; sending ORDER_TYPE_BUY_LIMIT is answered with HTTP 400,
+      // which the gate then reads as "no margin estimate" and refuses a valid
+      // order. Margin for a pending limit at its open price equals margin for
+      // the same side and volume, so the market action type is used here for
+      // both entry modes. The resting order itself is unchanged.
+      type: marketActionTypeFor(plan.direction),
       volume: order.volume,
       openPrice: "openPrice" in order ? order.openPrice : plan.entryPrice,
     });
