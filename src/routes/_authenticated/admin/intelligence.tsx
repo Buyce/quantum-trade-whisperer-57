@@ -165,7 +165,6 @@ function AdminIntelligencePage() {
         </div>
       </header>
 
-
       <EngineStatusPanel />
 
       <ExecutionSwitchPanel />

@@ -25,7 +25,6 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { usePanelOpen } from "./panel-state";
 
-
 const MIN_DISCIPLINE_SAMPLES = 20;
 
 function num(v: number | null | undefined, digits = 2) {
@@ -144,7 +143,6 @@ export function PanelShell({
     </Card>
   );
 }
-
 
 export function InstrumentHealthList({ health }: { health: AdminHealth }) {
   if (!health.instruments.length)
