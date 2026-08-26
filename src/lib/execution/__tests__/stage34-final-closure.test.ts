@@ -26,6 +26,7 @@ const NOW = Date.parse("2026-08-23T12:00:00.000Z");
 
 // ---- stubs ----------------------------------------------------------------
 const fetchQuote = vi.fn();
+const fetchQuoteFor = vi.fn();
 const fetchAccountFacts = vi.fn();
 const estimateMargin = vi.fn();
 const submitPendingOrder = vi.fn();
@@ -37,6 +38,11 @@ vi.mock("@/lib/scanner/metaapi.server", () => ({
 
 vi.mock("@/lib/metaapi/accounts.server", () => ({
   fetchAccountFacts: (id: string, region: string) => fetchAccountFacts(id, region),
+}));
+
+vi.mock("@/lib/metaapi/market.server", () => ({
+  fetchQuoteFor: (id: string, region: string, symbol: string) =>
+    fetchQuoteFor(id, region, symbol),
 }));
 
 vi.mock("@/lib/metaapi/margin.server", () => ({
@@ -70,7 +76,7 @@ vi.mock("@/integrations/supabase/client.server", () => ({
 
 import { resolveSizingForAccount, isAccountSizingRefusal } from "@/lib/sizing/service.server";
 import { resizeFromBrokerSnapshot } from "../resize.server";
-import { submitDirectOrder, type DirectTarget } from "../direct.server";
+import { refreshDirectPreflight, submitDirectOrder, type DirectTarget } from "../direct.server";
 
 const customerSettings = {
   account_equity: 500_000, // deliberately absurd: it must NEVER be used here
@@ -143,9 +149,96 @@ const request = {
 
 beforeEach(() => {
   fetchQuote.mockReset();
+  fetchQuoteFor.mockReset();
   fetchAccountFacts.mockReset();
   estimateMargin.mockReset();
   submitPendingOrder.mockReset();
+});
+
+describe("destination-account preflight", () => {
+  const target: DirectTarget = {
+    accountId: "account-row-1",
+    metaapiAccountId: "broker-account-1",
+    region: "london",
+    magic: 370014,
+    mode: "demo_auto",
+    brokerSymbol: "EURUSD.pro",
+    freeMargin: 500,
+    accountType: "demo",
+    equity: 500,
+    currency: "USD",
+    observedAt: "2026-08-22T00:00:00.000Z",
+    globalDemoAuto: true,
+    globalLiveAuto: false,
+  };
+
+  it("[INVARIANT] replaces stale stored equity and uses the mapped destination quote", async () => {
+    const f = db();
+    fetchAccountFacts.mockResolvedValue({
+      observedAt: new Date(NOW).toISOString(),
+      type: "demo",
+      info: {
+        tradeAllowed: true,
+        investorMode: false,
+        freeMargin: 90_000,
+        equity: 100_000,
+        balance: 100_000,
+        currency: "USD",
+      },
+    });
+    fetchQuoteFor.mockResolvedValue({
+      symbol: "EURUSD.pro",
+      bid: 1.101,
+      ask: 1.1012,
+      time: new Date(NOW).toISOString(),
+      sourceTime: new Date(NOW).toISOString(),
+      receivedAt: new Date(NOW).toISOString(),
+    });
+
+    const out = await refreshDirectPreflight(f.client as never, target);
+
+    expect(out).toMatchObject({
+      ok: true,
+      target: { equity: 100_000, freeMargin: 90_000, observedAt: new Date(NOW).toISOString() },
+      quote: { symbol: "EURUSD.pro" },
+    });
+    expect(fetchQuoteFor).toHaveBeenCalledWith("broker-account-1", "london", "EURUSD.pro");
+    expect(fetchQuote).not.toHaveBeenCalled();
+  });
+
+  it("[INVARIANT] refuses a failed account refresh and never falls back to stale equity", async () => {
+    const f = db();
+    fetchAccountFacts.mockRejectedValue(new Error("account information timed out"));
+    fetchQuoteFor.mockResolvedValue(null);
+
+    const out = await refreshDirectPreflight(f.client as never, target);
+
+    expect(out).toMatchObject({ ok: false, reason: "account_refresh_unavailable" });
+    expect(String(out.ok ? "" : out.detail)).toContain("timed out");
+  });
+
+  it("[INVARIANT] refuses an unavailable destination quote without using the benchmark account", async () => {
+    const f = db();
+    fetchAccountFacts.mockResolvedValue({
+      observedAt: new Date(NOW).toISOString(),
+      type: "demo",
+      info: {
+        tradeAllowed: true,
+        investorMode: false,
+        freeMargin: 90_000,
+        equity: 100_000,
+        balance: 100_000,
+        currency: "USD",
+      },
+    });
+    fetchQuoteFor.mockRejectedValue(new Error("quote rate limited"));
+
+    const out = await refreshDirectPreflight(f.client as never, target);
+
+    expect(out).toMatchObject({ ok: false, reason: "quote_unavailable" });
+    expect(String(out.ok ? "" : out.detail)).toContain("rate limited");
+    expect(fetchQuote).not.toHaveBeenCalled();
+  });
 });
 
 // ---- 1. Demo Auto through reconciliation ----------------------------------

@@ -70,6 +70,7 @@ export type RejectReason =
   | "account_spec_unavailable"
   | "account_equity_unavailable"
   | "account_equity_stale"
+  | "account_refresh_unavailable"
   | "account_currency_unavailable"
   | "account_not_armed"
   | "instrument_not_approved"
@@ -119,6 +120,8 @@ export const REJECT_COPY: Record<RejectReason, string> = {
     "Your broker did not report equity for this account, so the order could not be sized from the account it would land in.",
   account_equity_stale:
     "Your broker's equity reading for this account was too old to size an order from, so nothing was sent. A quantity is only ever authorised from a recent broker observation.",
+  account_refresh_unavailable:
+    "P-Trades could not refresh this broker account immediately before sizing, so nothing was sent. Stored equity is never used as a fallback for an automatic order.",
   account_currency_unavailable:
     "Your broker did not report the deposit currency of this account, so the order could not be sized. A currency is never assumed.",
   account_not_armed:

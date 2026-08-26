@@ -19,6 +19,7 @@ import { isMappingUsable, mapSymbol } from "@/lib/accounts/symbol-map";
 import { INSTRUMENT_NOT_APPROVED } from "@/lib/instruments/lifecycle";
 import { assertCapability } from "@/lib/instruments/lifecycle.server";
 import { fetchAccountFacts, fetchOrders, fetchPositions } from "@/lib/metaapi/accounts.server";
+import { fetchQuoteFor, type BrokerQuote } from "@/lib/metaapi/market.server";
 import { estimateMargin } from "@/lib/metaapi/margin.server";
 import { submitPendingOrder } from "@/lib/metaapi/trade.server";
 import type { AccountMode } from "@/lib/accounts/types";
@@ -398,7 +399,7 @@ export async function submitDirectOrder(
   };
 }
 
-interface SafetyRefresh {
+export interface SafetyRefresh {
   ok: true;
   freeMargin: number | null;
   /** The equity the broker reports RIGHT NOW; the only basis for the volume. */
@@ -407,6 +408,64 @@ interface SafetyRefresh {
   currency: string | null;
   /** When the broker observed the figures above. */
   observedAt: string | null;
+}
+
+export type DirectPreflight =
+  | { ok: true; target: DirectTarget; quote: BrokerQuote }
+  | { ok: false; reason: "account_refresh_unavailable" | "quote_unavailable"; detail: string };
+
+/**
+ * Fetch the two independent broker facts required before a direct order can be
+ * sized: current account information and the destination account's own quote.
+ * Neither stored equity nor the benchmark account is a fallback.
+ */
+export async function refreshDirectPreflight(
+  db: Db,
+  target: DirectTarget,
+): Promise<DirectPreflight> {
+  const [accountResult, quoteResult] = await Promise.allSettled([
+    refreshAccountSafety(db, target),
+    fetchQuoteFor(target.metaapiAccountId, target.region, target.brokerSymbol),
+  ]);
+  if (accountResult.status === "rejected") {
+    return {
+      ok: false,
+      reason: "account_refresh_unavailable",
+      detail:
+        accountResult.reason instanceof Error
+          ? accountResult.reason.message
+          : String(accountResult.reason),
+    };
+  }
+  if (!accountResult.value.ok) {
+    return {
+      ok: false,
+      reason: "account_refresh_unavailable",
+      detail: accountResult.value.detail,
+    };
+  }
+  if (quoteResult.status === "rejected") {
+    return {
+      ok: false,
+      reason: "quote_unavailable",
+      detail:
+        quoteResult.reason instanceof Error ? quoteResult.reason.message : String(quoteResult.reason),
+    };
+  }
+  if (!quoteResult.value) {
+    return { ok: false, reason: "quote_unavailable", detail: "broker returned no price" };
+  }
+  return {
+    ok: true,
+    target: {
+      ...target,
+      freeMargin: accountResult.value.freeMargin,
+      equity: accountResult.value.equity,
+      currency: accountResult.value.currency,
+      observedAt: accountResult.value.observedAt,
+    },
+    quote: quoteResult.value,
+  };
 }
 
 /**

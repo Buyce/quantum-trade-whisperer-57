@@ -46,9 +46,14 @@ import { loadBrokerSpec } from "@/lib/broker/specs.server";
 import { accountSpecStale, loadAccountSizingSpec } from "@/lib/accounts/specs.server";
 import { resolveSizingForAccount, resolveSizingForUser } from "@/lib/sizing/service.server";
 import { fetchQuote } from "@/lib/scanner/metaapi.server";
+import type { BrokerQuote } from "@/lib/metaapi/market.server";
 import { quoteSourceAgeMs, quoteSourceFresh, validQuoteGeometry } from "@/lib/metaapi/quote";
 import type { DeliveryDestination } from "@/lib/execution/direct";
-import { loadDirectTarget, type DirectTarget } from "@/lib/execution/direct.server";
+import {
+  loadDirectTarget,
+  refreshDirectPreflight,
+  type DirectTarget,
+} from "@/lib/execution/direct.server";
 import { resolveBenchmarkDesignation } from "@/lib/benchmark/policy.server";
 import { isAccountSizingRefusal } from "@/lib/sizing/service.server";
 import {
@@ -428,46 +433,6 @@ export async function revalidateDelivery(
   const planDirection: "long" | "short" = signal.direction === "long" ? "long" : "short";
   const action: "buy_limit" | "sell_limit" = planDirection === "long" ? "buy_limit" : "sell_limit";
 
-  let quote: Awaited<ReturnType<typeof fetchQuote>> = null;
-  try {
-    quote = await fetchQuote(signal.instrument);
-  } catch {
-    quote = null;
-  }
-  if (!quote) return reject("quote_unavailable");
-  if (!validQuoteGeometry(quote.bid, quote.ask)) {
-    return reject("quote_unavailable", "invalid or crossed broker quote");
-  }
-  // Fail closed on a missing or unparseable broker timestamp: receipt time is
-  // not source time, and a fabricated age could back a live order.
-  const sourceAgeMs = quoteSourceAgeMs(quote.sourceTime, now);
-  if (sourceAgeMs === null) return reject("quote_stale", "no broker source timestamp");
-  if (!quoteSourceFresh(quote.sourceTime, REVALIDATION_QUOTE_MAX_AGE_MS, now)) {
-    return reject(
-      "quote_stale",
-      sourceAgeMs < 0
-        ? `${Math.round(Math.abs(sourceAgeMs) / 1000)}s ahead of server clock`
-        : `${Math.round(sourceAgeMs / 1000)}s old`,
-    );
-  }
-  if (
-    !spreadAcceptable({ entry: plan.entryPrice, stopLoss: plan.stopLoss }, quote.bid, quote.ask)
-  ) {
-    return reject("spread_too_wide");
-  }
-
-  // A pending limit is validated on its own terms: the market must still be on
-  // the far side of the planned entry. The do-not-chase ceiling is the rule for a
-  // MARKET entry (and is what the feed and alerts state); applying it here would
-  // refuse exactly the case where a limit cannot slip at all. The broker's
-  // minimum distance is not known until the destination specification is loaded
-  // in section 6, so this first pass asserts the side only and section 6a-bis
-  // re-asks with the broker's own distance.
-  const marketPrice = action === "buy_limit" ? quote.ask : quote.bid;
-  if (!pendingLimitSideValid({ action, entry: plan.entryPrice }, marketPrice)) {
-    return reject("limit_price_not_on_pending_side", `market ${marketPrice} vs ${plan.entryPrice}`);
-  }
-
   // ---- 5b. Direct destination: resolve and gate the ACCOUNT first ----------
   // The destination account decides the specification, the equity and the
   // authorisation, so it is resolved before any sizing happens.
@@ -494,6 +459,54 @@ export async function revalidateDelivery(
         return reject("live_authorization_stale", `configuration v${currentVersion}`);
       }
     }
+  }
+
+  // ---- 5c. Fresh broker preflight ------------------------------------------
+  // A direct order must be sized and price-checked from the destination account,
+  // not from an old database snapshot or the scanner's benchmark account. The
+  // two independent GETs run together to stay inside the bounded dispatch pass.
+  let quote: BrokerQuote | null = null;
+  let quoteFailure: string | null = null;
+  if (directTarget) {
+    const preflight = await refreshDirectPreflight(db, directTarget);
+    if (!preflight.ok) return reject(preflight.reason, preflight.detail);
+    directTarget = preflight.target;
+    quote = preflight.quote;
+  } else {
+    try {
+      quote = await fetchQuote(signal.instrument);
+    } catch (err) {
+      quoteFailure = err instanceof Error ? err.message : String(err);
+    }
+  }
+  if (!quote) return reject("quote_unavailable", quoteFailure ?? "broker returned no price");
+  if (!validQuoteGeometry(quote.bid, quote.ask)) {
+    return reject("quote_unavailable", "invalid or crossed broker quote");
+  }
+  // Fail closed on a missing or unparseable broker timestamp: receipt time is
+  // not source time, and a fabricated age could back a live order.
+  const sourceAgeMs = quoteSourceAgeMs(quote.sourceTime, now);
+  if (sourceAgeMs === null) return reject("quote_stale", "no broker source timestamp");
+  if (!quoteSourceFresh(quote.sourceTime, REVALIDATION_QUOTE_MAX_AGE_MS, now)) {
+    return reject(
+      "quote_stale",
+      sourceAgeMs < 0
+        ? `${Math.round(Math.abs(sourceAgeMs) / 1000)}s ahead of server clock`
+        : `${Math.round(sourceAgeMs / 1000)}s old`,
+    );
+  }
+  if (
+    !spreadAcceptable({ entry: plan.entryPrice, stopLoss: plan.stopLoss }, quote.bid, quote.ask)
+  ) {
+    return reject("spread_too_wide");
+  }
+
+  // A pending limit is validated on its own terms: the market must still be on
+  // the far side of the planned entry. The broker's minimum distance is loaded
+  // below, so this first pass asserts the side only.
+  const marketPrice = action === "buy_limit" ? quote.ask : quote.bid;
+  if (!pendingLimitSideValid({ action, entry: plan.entryPrice }, marketPrice)) {
+    return reject("limit_price_not_on_pending_side", `market ${marketPrice} vs ${plan.entryPrice}`);
   }
 
   // ---- 6. Broker stop distance + sizing guardrails --------------------------
