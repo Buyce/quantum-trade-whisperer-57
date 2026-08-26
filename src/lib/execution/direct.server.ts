@@ -467,7 +467,9 @@ export async function refreshDirectPreflight(
       ok: false,
       reason: "quote_unavailable",
       detail:
-        quoteResult.reason instanceof Error ? quoteResult.reason.message : String(quoteResult.reason),
+        quoteResult.reason instanceof Error
+          ? quoteResult.reason.message
+          : String(quoteResult.reason),
     };
   }
   if (!quoteResult.value) {

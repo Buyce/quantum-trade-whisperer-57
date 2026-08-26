@@ -58,8 +58,8 @@ export function automaticOrderDeliveryReachedBroker(
   if (row.dry_run === true) return false;
   return Boolean(
     row.submitted_at !== null ||
-      row.broker_retcode_string !== null ||
-      (row.state !== null && SUBMITTED_STATES.has(row.state)),
+    row.broker_retcode_string !== null ||
+    (row.state !== null && SUBMITTED_STATES.has(row.state)),
   );
 }
 

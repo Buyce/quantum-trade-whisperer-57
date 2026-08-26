@@ -551,7 +551,12 @@ export async function revalidateDelivery(
         `market ${marketPrice} vs ${plan.entryPrice}`,
       );
     }
-    if (!withinMaxAcceptableEntry({ action, maxAcceptableEntry: plan.maxAcceptableEntry }, marketPrice)) {
+    if (
+      !withinMaxAcceptableEntry(
+        { action, maxAcceptableEntry: plan.maxAcceptableEntry },
+        marketPrice,
+      )
+    ) {
       return reject(
         "price_beyond_max_acceptable_entry",
         `market ${marketPrice} vs ceiling ${plan.maxAcceptableEntry}`,

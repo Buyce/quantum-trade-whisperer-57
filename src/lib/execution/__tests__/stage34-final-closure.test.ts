@@ -41,8 +41,7 @@ vi.mock("@/lib/metaapi/accounts.server", () => ({
 }));
 
 vi.mock("@/lib/metaapi/market.server", () => ({
-  fetchQuoteFor: (id: string, region: string, symbol: string) =>
-    fetchQuoteFor(id, region, symbol),
+  fetchQuoteFor: (id: string, region: string, symbol: string) => fetchQuoteFor(id, region, symbol),
 }));
 
 vi.mock("@/lib/metaapi/margin.server", () => ({

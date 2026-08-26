@@ -416,7 +416,6 @@ async function runDirectEnqueue(
       continue;
     }
 
-
     const grade = (row.alert_min_grade ?? "B") as Grade;
     const settings: EligibilitySettings = {
       instruments: row.instruments ?? [],

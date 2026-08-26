@@ -24,7 +24,12 @@ import {
 
 describe("retry classification", () => {
   it("[INVARIANT] momentary market conditions are retryable", () => {
-    for (const reason of ["quote_unavailable", "quote_stale", "spread_too_wide", "market_closed"] as const) {
+    for (const reason of [
+      "quote_unavailable",
+      "quote_stale",
+      "spread_too_wide",
+      "market_closed",
+    ] as const) {
       expect(isRetryableRejection(reason)).toBe(true);
     }
   });

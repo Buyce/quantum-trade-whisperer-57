@@ -284,7 +284,11 @@ export const getGateImpactReport = createServerFn({ method: "GET" })
       .limit(1000);
     if (error) throw new Error(error.message);
 
-    const rows = (data ?? []) as { decision: string; enqueued: number | null; filtered: number | null }[];
+    const rows = (data ?? []) as {
+      decision: string;
+      enqueued: number | null;
+      filtered: number | null;
+    }[];
     const byDecision = new Map<string, number>();
     let enqueued = 0;
     let filtered = 0;

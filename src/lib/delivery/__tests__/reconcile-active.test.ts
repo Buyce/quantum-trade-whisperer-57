@@ -22,7 +22,7 @@ function signal(over: Partial<ActiveSignalRow> & { id: string }): ActiveSignalRo
     instrument: "EURUSD",
     grade: "B",
     direction: "long",
-  detected_at: "2026-08-25T11:45:00.000Z",
+    detected_at: "2026-08-25T11:45:00.000Z",
     expired_at: null,
     status: "active",
     ...over,
@@ -170,8 +170,9 @@ describe("stale active-signal reconciliation", () => {
       { signalId: "old", instrument: "EURUSD", enqueued: 0, reason: "execution_window_expired" },
     ]);
     expect(f.calls.some((c) => c.table === "execution_deliveries")).toBe(false);
-    const payload = f.calls.find((c) => c.table === "execution_enqueue_decisions" && c.op === "insert")
-      ?.payload as unknown as Record<string, unknown>[];
+    const payload = f.calls.find(
+      (c) => c.table === "execution_enqueue_decisions" && c.op === "insert",
+    )?.payload as unknown as Record<string, unknown>[];
     expect(payload[0]).toMatchObject({
       signal_id: "old",
       decision: "execution_window_expired",
@@ -195,8 +196,8 @@ describe("stale active-signal reconciliation", () => {
     });
     const out = await reconcileActiveSignals(f.client as SupabaseClient, NOW);
     expect(out).toMatchObject({ considered: 0, attempted: 0, filtered: 0 });
-    expect(f.calls.some((c) => c.table === "execution_enqueue_decisions" && c.op === "insert")).toBe(
-      false,
-    );
+    expect(
+      f.calls.some((c) => c.table === "execution_enqueue_decisions" && c.op === "insert"),
+    ).toBe(false);
   });
 });

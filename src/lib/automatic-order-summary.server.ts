@@ -14,7 +14,9 @@ type Db = SupabaseClient<never, never, never>;
 const PAGE_SIZE = 1_000;
 const MAX_PAGES = 10;
 
-async function collectBounded<T>(fetchPage: (from: number, to: number) => Promise<T[]>): Promise<T[]> {
+async function collectBounded<T>(
+  fetchPage: (from: number, to: number) => Promise<T[]>,
+): Promise<T[]> {
   return await collectCompletePages({
     fetchPage,
     pageSize: PAGE_SIZE,

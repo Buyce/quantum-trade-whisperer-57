@@ -18,7 +18,10 @@ import {
   samplesFromBrokerEvidence,
   samplesFromTrades,
 } from "@/lib/performance";
-import { getAutomaticOrderSummary, getBrokerPerformanceEvidence } from "@/lib/performance.functions";
+import {
+  getAutomaticOrderSummary,
+  getBrokerPerformanceEvidence,
+} from "@/lib/performance.functions";
 import type { AutomaticOrderSummary } from "@/lib/automatic-order-summary";
 import type { RBasis } from "@/lib/journal/r-math";
 import { downloadCsv, samplesToCsv, todayStamp } from "@/lib/export";
@@ -183,8 +186,8 @@ function PerformancePage() {
     signals.isLoading ||
     trades.isLoading ||
     customerEvidence.isLoading ||
-      benchmarkEvidence.isLoading ||
-      (scope === "broker" && automaticOrders.isLoading)
+    benchmarkEvidence.isLoading ||
+    (scope === "broker" && automaticOrders.isLoading)
   ) {
     return (
       <div className="space-y-4">
@@ -518,8 +521,8 @@ function AutomaticOrderSummaryPanel({
         <span className="text-sm font-medium">Delivery accounting</span>
       </div>
       <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-        Delivery rows count P-Trades attempts and broker submissions. Win/loss counts come only
-        from closed broker evidence with the selected R basis; blocked checks and dry runs stay out.
+        Delivery rows count P-Trades attempts and broker submissions. Win/loss counts come only from
+        closed broker evidence with the selected R basis; blocked checks and dry runs stay out.
       </p>
       <div className="mt-4 grid gap-px overflow-hidden rounded-sm border border-border bg-border sm:grid-cols-3 lg:grid-cols-6">
         <SummaryCell label="Delivery rows" value={summary?.deliveryRows ?? 0} />

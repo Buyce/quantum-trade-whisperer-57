@@ -656,8 +656,8 @@ function SettingsPage() {
                 How many automatic orders may be CREATED in one UTC day (0–{DAILY_ORDER_CEILING_MAX}
                 ). Unlike the ceiling above, this count does not fall when an order closes. The
                 terminal considers your eligible active setups in feed order — highest tier first,
-                then most recent — and never places an order to reach a number. Your daily setup cap,
-                risk per trade, lot ceiling and exposure limit all still apply on top of both.
+                then most recent — and never places an order to reach a number. Your daily setup
+                cap, risk per trade, lot ceiling and exposure limit all still apply on top of both.
               </p>
             </div>
 
@@ -715,15 +715,18 @@ function SettingsPage() {
                   setAutoWindowMinutes(
                     Math.max(
                       0,
-                      Math.min(AUTO_ORDER_WINDOW_MAX_MINUTES, Math.round(Number(e.target.value) || 0)),
+                      Math.min(
+                        AUTO_ORDER_WINDOW_MAX_MINUTES,
+                        Math.round(Number(e.target.value) || 0),
+                      ),
                     ),
                   )
                 }
                 className="mt-1 max-w-[8rem]"
               />
               <p className="mt-2 text-xs text-muted-foreground">
-                How long after a setup was detected it may still become an automatic order —
-                between 0 and {AUTO_ORDER_WINDOW_MAX_MINUTES} minutes (6 hours), default{" "}
+                How long after a setup was detected it may still become an automatic order — between
+                0 and {AUTO_ORDER_WINDOW_MAX_MINUTES} minutes (6 hours), default{" "}
                 {AUTO_ORDER_WINDOW_DEFAULT_MINUTES} minutes (3 hours). 0 stops automatic orders on
                 age grounds entirely. A setup older than your window is refused before anything is
                 sent to a broker, and any pending order placed inside the window expires at the end
