@@ -70,7 +70,7 @@ describe("one live automatic order per setup", () => {
     ).toBe(true);
   });
 
-  it("[BEHAVIOUR] a republished structure is refused, and a signal never blocks itself", () => {
+  it("[UNIT] a republished structure is refused, and a signal never blocks itself", () => {
     const candidate = {
       instrument: "EURUSD",
       direction: "short",

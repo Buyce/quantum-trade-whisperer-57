@@ -18,7 +18,7 @@ describe("unfilled-order sweep uses the owner's own automatic-order window", () 
     expect(ownerTimeoutMs(99999)).toBe(360 * 60_000);
   });
 
-  it("[BEHAVIOUR] a three-hour owner keeps their order past one hour and loses it after three", () => {
+  it("[UNIT] a three-hour owner keeps their order past one hour and loses it after three", () => {
     const now = Date.parse("2026-08-26T12:00:00Z");
     const row = { enqueued_at: "2026-08-26T10:00:00Z", sent_at: null };
     expect(isUnfilledTooLong(row, now, ownerTimeoutMs(180))).toBe(false);
