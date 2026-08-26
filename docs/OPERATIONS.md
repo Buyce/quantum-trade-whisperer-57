@@ -44,6 +44,16 @@ GBPAUD, EURUSD) at `execution_approved`, plus GBPUSD, AUDUSD, USDCAD, USDCHF and
 USDJPY at `data_validation`. That is 768 instrument-slots per day, one quote each,
 no candle fetches. Wave 2 symbols are `disabled` and are not sampled.
 
+### Promotion review
+
+The **Promotion checkpoint** panel in Admin Intelligence answers, per instrument,
+whether the recorded evidence satisfies the `data_validation -> shadow` gate
+documented in [INSTRUMENT-LIFECYCLE.md](INSTRUMENT-LIFECYCLE.md), and names every
+unmet criterion beside the measured value. With Wave 1 sampling started on
+2026-08-25, the five-trading-day window closes around 2026-09-01. Promotion stays
+a manual, audited `transition_instrument_stage` decision taken one instrument at a
+time, with the checkpoint output recorded as its evidence.
+
 
 Sampling is side-effect-free collection: it grades nothing, publishes nothing,
 alerts nobody and cannot promote an instrument. It is allowed at

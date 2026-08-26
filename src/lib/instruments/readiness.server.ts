@@ -33,7 +33,7 @@ import { loadBrokerSpec } from "@/lib/broker/specs.server";
 import { fetchCandles, fetchQuote } from "@/lib/scanner/metaapi.server";
 import { planConversion } from "@/lib/mcp/fx";
 import { REVALIDATION_QUOTE_MAX_AGE_MS } from "@/lib/delivery/execution";
-import { quoteSourceFresh, validQuoteGeometry } from "@/lib/metaapi/quote";
+import { fetchUsableQuote } from "./quote-retry";
 import { CANDLE_LIMITS, TIMEFRAMES } from "@/lib/scanner/types";
 import { writeDataHealth } from "./lifecycle.server";
 import { resolveMapping, type MappingResolution } from "./mapping.server";
@@ -215,58 +215,34 @@ export async function checkInstrumentReadiness(
   });
 
   // ---- 4. A fresh, well-formed quote ---------------------------------------
-  try {
-    const quote = await fetchQuote(symbol);
-    const geometryOk = quote !== null && validQuoteGeometry(quote.bid, quote.ask);
-    const spread = quote ? Number(quote.ask) - Number(quote.bid) : Number.NaN;
-    const positiveSpread = Number.isFinite(spread) && spread > 0;
-    // The SAME staleness rule the pre-send gate uses, read from the provider's
-    // own source timestamp — never local time.
-    const fresh =
-      quote !== null && quoteSourceFresh(quote.sourceTime, REVALIDATION_QUOTE_MAX_AGE_MS);
-    // A source timestamp in the future is not "fresh", it is unusable: it would
-    // make every later staleness comparison pass.
-    const notFuture =
-      quote === null ||
-      !quote.sourceTime ||
-      new Date(quote.sourceTime).getTime() - now.getTime() <= 60_000;
-
-    checks.push({
-      name: "quote",
-      ok: geometryOk && positiveSpread && fresh && notFuture,
-      detail: !quote
-        ? "no quote was returned"
-        : !geometryOk
-          ? "the quote geometry was invalid (bid/ask not usable)"
-          : !positiveSpread
-            ? "the quote had a zero or inverted spread"
-            : !notFuture
-              ? "the quote's own source timestamp is in the future"
-              : !fresh
-                ? "the quote's own source timestamp was too old to trust"
-                : `bid=${quote.bid}, ask=${quote.ask}, spread=${spread}`,
+  /**
+   * Bounded re-quote (see `quote-retry.ts`). One malformed tick in a thin hour is
+   * not a broker capability problem, but a persistently malformed feed is: the
+   * attempt count is fixed and recorded, so a real defect still fails.
+   */
+  {
+    const outcome = await fetchUsableQuote(symbol, fetchQuote, {
+      requireFreshness: true,
+      maxAgeMs: REVALIDATION_QUOTE_MAX_AGE_MS,
+      now: () => now.getTime(),
     });
+    checks.push({ name: "quote", ok: outcome.quote !== null, detail: outcome.detail });
 
-    if (geometryOk && positiveSpread && fresh && specFields["point"]) {
+    if (outcome.quote && specFields["point"]) {
+      const spread = Number(outcome.quote.ask) - Number(outcome.quote.bid);
       const pointFloor = spec!.point! * 10;
-
       spreadFloorCandidate = Number(
         Math.max(spread * SPREAD_FLOOR_MULTIPLE, pointFloor).toPrecision(4),
       );
     }
-  } catch (err) {
-    checks.push({
-      name: "quote",
-      ok: false,
-      detail: `quote fetch failed: ${err instanceof Error ? err.message : String(err)}`,
-    });
   }
 
   // ---- 5. Conversion route for EVERY supported account currency -------------
   /**
    * Live leg verification (R5). Routes are planned from currency algebra, but a
    * route only exists if the provider actually quotes each leg. Legs are cached
-   * per check so a shared USD cross costs one provider call, not four.
+   * per check so a shared USD cross costs one provider call, not four, and each
+   * leg gets the same bounded re-quote as the instrument itself.
    */
   const legCache = new Map<string, ConversionLeg>();
   const verifyLeg = async (leg: string): Promise<ConversionLeg> => {
@@ -282,36 +258,22 @@ export async function checkInstrumentReadiness(
         detail: `${legAuthority.refusal}: ${legAuthority.detail}`,
       };
     } else {
-      try {
-        const legQuote = await fetchQuote(legAuthority.providerSymbol);
-        const geometryOk = legQuote !== null && validQuoteGeometry(legQuote.bid, legQuote.ask);
-        const fresh =
-          legQuote !== null &&
-          quoteSourceFresh(legQuote.sourceTime, REVALIDATION_QUOTE_MAX_AGE_MS, now.getTime());
-        result = {
-          symbol: leg,
-          providerSymbol: legAuthority.providerSymbol,
-          quotable: geometryOk && fresh,
-          detail: !legQuote
-            ? "the provider returned no quote for the conversion leg"
-            : !geometryOk
-              ? "the conversion leg quote was malformed or crossed"
-              : !fresh
-                ? "the conversion leg quote's own source timestamp was too old to trust"
-                : `bid=${legQuote.bid}, ask=${legQuote.ask}`,
-        };
-      } catch (err) {
-        result = {
-          symbol: leg,
-          providerSymbol: legAuthority.providerSymbol,
-          quotable: false,
-          detail: `leg quote fetch failed: ${err instanceof Error ? err.message : String(err)}`,
-        };
-      }
+      const outcome = await fetchUsableQuote(legAuthority.providerSymbol, fetchQuote, {
+        requireFreshness: true,
+        maxAgeMs: REVALIDATION_QUOTE_MAX_AGE_MS,
+        now: () => now.getTime(),
+      });
+      result = {
+        symbol: leg,
+        providerSymbol: legAuthority.providerSymbol,
+        quotable: outcome.quote !== null,
+        detail: outcome.detail,
+      };
     }
     legCache.set(leg, result);
     return result;
   };
+
 
   for (const accountCurrency of SUPPORTED_ACCOUNT_CURRENCIES) {
     const plan = planConversion(definition.quote, accountCurrency);

@@ -689,3 +689,22 @@ export const getAdminNews = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
     return data as unknown as AdminNews;
   });
+
+/**
+ * Owner-only promotion checkpoint (`data_validation -> shadow`).
+ *
+ * Reports, per registry instrument, whether the recorded evidence satisfies the
+ * pure gate in `@/lib/instruments/promotion` and names every unmet criterion with
+ * its measured value. It is a READ: nothing here changes a stage, and promotion
+ * itself remains the audited `transition_instrument_stage` action.
+ */
+export const getAdminPromotionCheckpoint = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const email = String(context.claims["email"] ?? "").toLowerCase();
+    if (email !== OWNER_EMAIL) throw new Error("Forbidden");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { collectPromotionCheckpoint } = await import("@/lib/instruments/promotion.server");
+    return await collectPromotionCheckpoint(supabaseAdmin);
+  });
