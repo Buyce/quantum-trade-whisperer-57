@@ -73,7 +73,7 @@ that, after its own pre-send revalidation.
 
 ### Order ceilings
 
-Two independent, owner-set ceilings bound automatic orders.
+Three independent, owner-set ceilings bound automatic orders.
 
 `scanner_settings.maximum_concurrent_signal_orders` (0-10, default 3) caps how many
 automatic orders may be **unresolved at once** — `pending`, `claimed`, `sent`,
@@ -90,6 +90,30 @@ A count that cannot be read fails closed (`active_order_count_unreadable`). They
 on top of — never instead of — the daily setup cap, risk per trade, lot ceiling and
 exposure limit.
 
+`scanner_settings.maximum_daily_orders_per_symbol` (0-25, default 25) caps how many
+automatic orders **one instrument** may consume in the current UTC day
+(`instrument_daily_order_limit_reached`), so a single busy instrument cannot spend the
+whole daily ceiling. It sits inside the daily ceiling and can only refuse.
+
+### Freshness-adaptive ceilings (opt-in)
+
+`scanner_settings.adaptive_order_ceilings_enabled` (default false). When on, the daily
+and per-instrument ceilings move **between the owner's own numbers** according to how
+fresh the broker facts an order would be sized from are: the armed account's equity
+observation, and the last known destination quote time when one is available.
+
+- `healthy` — equity observed within half of `BROKER_EQUITY_MAX_AGE_MS` (and any known
+  quote within `REVALIDATION_QUOTE_MAX_AGE_MS`): the ceiling is raised toward
+  `adaptive_order_ceiling_max`, never above it and never above the hard bound of 25.
+- `degraded` / `unknown` — an old reading, or no readable reading at all: the ceiling
+  is reduced toward `adaptive_order_ceiling_floor`, never above the fixed base.
+  Absence of evidence is never room to trade more.
+
+A ceiling the owner set to 0 stays 0 in every direction. Freshness describes **our
+data**, not the market, and adaptive mode relaxes no safety gate, changes no sizing
+mathematics and authorises nothing — every decision records the ceiling and the
+freshness reading that applied.
+
 ### Retrying momentary failures
 
 Pre-send revalidation refusals split in two. A **momentary market condition** —
@@ -99,6 +123,17 @@ Pre-send revalidation refusals split in two. A **momentary market condition** �
 by `MAX_DELIVERY_ATTEMPTS`, so the next dispatch pass may try again until the owner's
 window ends. Every other refusal, and every safety refusal, is **terminal**. A `sent`
 or `unknown` row is still never re-attempted.
+
+### The final look
+
+`claim_execution_delivery` hands back the pending delivery whose owner window closes
+**soonest**, so the end of a window is never lost to queue position. Within
+`FINAL_LOOK_TAIL_MS` (2 minutes) of that deadline the pass is recorded on the row as
+`final_look_at` / `final_look_reason`. Every attempt already forces a fresh
+destination-account refresh and a fresh broker quote — revalidation caches no price
+and reuses no stored equity — so the last look is a genuine re-check, not a replay.
+Once the window has **elapsed** a retryable refusal is settled instead of re-queued:
+the window is never extended.
 
 ### Market entry (opt-in)
 
