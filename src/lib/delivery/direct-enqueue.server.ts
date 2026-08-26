@@ -498,6 +498,15 @@ async function runDirectEnqueue(
   // treated as "at the ceiling".
   const occupancy = await occupiedOrderCounts(db, userIds, nowMs);
   const occupied = new Map(occupancy.counts);
+  // One live order per setup. Purely additive: it can only refuse, and when the
+  // plan or the held orders cannot be read it does not fire at all.
+  const [{ held, readable: heldReadable }, duplicateContext] = await Promise.all([
+    heldOrdersByUser(db, userIds, nowMs),
+    readDuplicateContext(db, signal),
+  ]);
+  const candidatePlan: (OrderPlanIdentity & { signalId: string }) | null =
+    duplicateContext.plan === null ? null : { ...duplicateContext.plan, signalId: signal.id };
+
   const createdToday = new Map(occupancy.daily);
   const createdTodayPerSymbol = new Map(occupancy.perSymbol);
 
