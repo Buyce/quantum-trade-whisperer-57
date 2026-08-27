@@ -191,6 +191,13 @@ function OrderCard({ row }: { row: BrokerOrderView }) {
               {row.accountType === "real" ? "Live account" : `${row.accountType} account`}
             </span>
           ) : null}
+          <span className="num rounded-sm border border-border px-1.5 py-0.5 text-[11px] text-muted-foreground">
+            {row.entryMode === "market"
+              ? "Market entry"
+              : row.entryMode === "pending_limit"
+                ? "Pending limit"
+                : "Entry mode unavailable"}
+          </span>
         </div>
         <div className="flex min-w-0 flex-wrap items-center gap-2 sm:ml-auto sm:shrink-0">
           <span
@@ -216,7 +223,10 @@ function OrderCard({ row }: { row: BrokerOrderView }) {
 
       <div className="grid grid-cols-2 gap-px bg-border sm:grid-cols-3 lg:grid-cols-6">
         <Cell label="Submitted volume" value={num(row.submitted.volume, 2)} />
-        <Cell label="Submitted entry" value={num(row.submitted.entry, digits)} />
+        <Cell
+          label={row.entryMode === "market" ? "Market reference" : "Submitted entry"}
+          value={num(row.submitted.entry, digits)}
+        />
         <Cell
           label="Submitted stop"
           value={num(row.submitted.stop, digits)}

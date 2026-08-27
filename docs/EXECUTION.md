@@ -178,14 +178,13 @@ the window is never extended.
 
 ### Market entry (opt-in)
 
-`scanner_settings.auto_market_entry_enabled` (default false). When a setup is still
-valid but price has already moved through the planned entry, a resting limit is
-impossible. With the owner's opt-in, and **only while the live price is still inside
-the published maximum acceptable entry**, the order is submitted at market instead:
-geometry and sizing are recomputed from the market reference price, so the stop
-distance and lot size describe the fill, not the plan. It widens no ceiling — past
-maximum acceptable entry the order is still refused — and research and replay
-statistics continue to describe the pending-limit strategy only.
+`scanner_settings.auto_market_entry_enabled` (default false). With the owner's
+opt-in, an eligible order is submitted at market immediately, **only while the live
+price is still inside the published maximum acceptable entry**. Geometry, margin and
+sizing are recomputed from the current market reference price, so the stop distance
+and lot size describe the submission rather than silently reusing the plan. It
+widens no ceiling — past maximum acceptable entry the order is still refused — and
+research and replay statistics continue to describe the pending-limit strategy only.
 
 ### Unmeasured regimes (opt-in)
 

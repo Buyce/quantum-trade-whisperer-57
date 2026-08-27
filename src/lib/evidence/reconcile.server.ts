@@ -77,6 +77,23 @@ export interface ReconcileResult {
   errors: string[];
 }
 
+async function recordReconciliationHealth(
+  db: Db,
+  accountId: string,
+  outcome: { ok: true; at: string } | { ok: false; at: string; error: string },
+): Promise<void> {
+  const patch = outcome.ok
+    ? {
+        reconciliation_last_success_at: outcome.at,
+        reconciliation_last_error: null,
+      }
+    : {
+        reconciliation_last_error_at: outcome.at,
+        reconciliation_last_error: outcome.error.slice(0, 1_000),
+      };
+  await db.from("connected_trading_accounts").update(patch).eq("id", accountId);
+}
+
 /**
  * One reconciliation pass. Never throws: an evidence failure must not interrupt
  * execution, the scanner or any statistic.
@@ -222,9 +239,15 @@ export async function reconcileBrokerEvidence(
         new Date(now),
       );
     } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
       result.errors.push(
-        `${account.id}: broker history unavailable — ${err instanceof Error ? err.message : String(err)}`,
+        `${account.id}: broker history unavailable — ${message}`,
       );
+      await recordReconciliationHealth(db, account.id, {
+        ok: false,
+        at: new Date(now).toISOString(),
+        error: `broker history unavailable — ${message}`,
+      });
       continue;
     }
 
@@ -255,16 +278,34 @@ export async function reconcileBrokerEvidence(
       if (!delivery || delivery.connected_account_id !== account.id) continue;
       result.dealsAssociated += 1;
 
-      const written = await writeEvidence(db, {
-        group,
-        delivery,
-        account,
-        brokerStop: resolveBrokerStop(group, positions, historyOrders),
-        isBenchmark:
-          !!options.benchmarkAccountId && options.benchmarkAccountId === account.metaapi_account_id,
+      try {
+        const written = await writeEvidence(db, {
+          group,
+          delivery,
+          account,
+          brokerStop: resolveBrokerStop(group, positions, historyOrders),
+          isBenchmark:
+            !!options.benchmarkAccountId && options.benchmarkAccountId === account.metaapi_account_id,
+        });
+        if (written === "error") result.errors.push(`${group.clientId}: evidence write failed`);
+        else if (written === "written") result.evidenceWritten += 1;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        result.errors.push(`${group.clientId}: evidence invalid — ${message}`);
+      }
+    }
+    const accountErrors = result.errors.filter((error) => error.startsWith(`${account.id}:`));
+    if (accountErrors.length === 0) {
+      await recordReconciliationHealth(db, account.id, {
+        ok: true,
+        at: new Date(now).toISOString(),
       });
-      if (written === "error") result.errors.push(`${group.clientId}: evidence write failed`);
-      else if (written === "written") result.evidenceWritten += 1;
+    } else {
+      await recordReconciliationHealth(db, account.id, {
+        ok: false,
+        at: new Date(now).toISOString(),
+        error: accountErrors.join("; "),
+      });
     }
   }
 

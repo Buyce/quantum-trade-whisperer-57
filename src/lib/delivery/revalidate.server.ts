@@ -202,7 +202,7 @@ interface SettingsRow {
   webhook_validated_at: string | null;
   /** Owner's automatic-order window in minutes (0–360). */
   auto_order_window_minutes?: number | null;
-  /** Owner opt-in: enter at market when price has passed the planned entry. */
+  /** Owner opt-in: prefer immediate market entry inside the published ceiling. */
   auto_market_entry_enabled?: boolean | null;
   /** Explicit owner confirmation of the dry-run → live transition. */
   live_execution_confirmed_at?: string | null;
@@ -530,27 +530,14 @@ export async function revalidateDelivery(
   const marketPrice = action === "buy_limit" ? quote.ask : quote.bid;
 
   /**
-   * Entry mode. A resting limit is always preferred; MARKET entry is only ever
-   * reached when ALL of the following hold:
-   *
-   *   1. the market has already passed the planned entry, so no limit can rest
-   *      there at its planned price;
-   *   2. the owner explicitly opted into market entry;
-   *   3. the live price is still inside the published maximum acceptable entry,
-   *      the same slippage ceiling the feed and the alerts state.
-   *
-   * The ceiling is never widened, and the mode is recorded on the order and the
-   * approved plan so a filled trade can always be explained.
+   * Entry mode. The owner's explicit opt-in means immediate MARKET entry for a
+   * qualifying setup, even when a pending limit could technically rest. The
+   * published maximum acceptable entry remains absolute; opting in never widens
+   * the setup or bypasses any sizing, spread, margin or account gate below.
    */
   const marketEntryAllowed = settings.auto_market_entry_enabled === true;
-  let entryMode: EntryMode = "pending_limit";
-  if (!pendingLimitSideValid({ action, entry: plan.entryPrice }, marketPrice)) {
-    if (!marketEntryAllowed) {
-      return reject(
-        "limit_price_not_on_pending_side",
-        `market ${marketPrice} vs ${plan.entryPrice}`,
-      );
-    }
+  let entryMode: EntryMode = marketEntryAllowed ? "market" : "pending_limit";
+  if (marketEntryAllowed) {
     if (
       !withinMaxAcceptableEntry(
         { action, maxAcceptableEntry: plan.maxAcceptableEntry },
@@ -562,7 +549,11 @@ export async function revalidateDelivery(
         `market ${marketPrice} vs ceiling ${plan.maxAcceptableEntry}`,
       );
     }
-    entryMode = "market";
+  } else if (!pendingLimitSideValid({ action, entry: plan.entryPrice }, marketPrice)) {
+      return reject(
+        "limit_price_not_on_pending_side",
+        `market ${marketPrice} vs ${plan.entryPrice}`,
+      );
   }
 
   // ---- 6. Broker stop distance + sizing guardrails --------------------------

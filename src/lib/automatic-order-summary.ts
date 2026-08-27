@@ -35,6 +35,10 @@ export interface AutomaticOrderSummary {
   restingAtBroker: number;
   brokerOpen: number;
   brokerClosed: number;
+  awaitingEvidence: number;
+  reconciliationLastSuccessAt: string | null;
+  reconciliationLastErrorAt: string | null;
+  reconciliationLastError: string | null;
   closedPlan: AutomaticOrderRStats;
   closedActualRisk: AutomaticOrderRStats;
 }
@@ -114,6 +118,14 @@ export function summarizeAutomaticOrders(
     ).length,
     brokerOpen,
     brokerClosed,
+    awaitingEvidence: deliveries.filter(
+      (row) =>
+        automaticOrderDeliveryReachedBroker(row) &&
+        !(typeof row.id === "number" && evidenceDeliveryIds.has(row.id)),
+    ).length,
+    reconciliationLastSuccessAt: null,
+    reconciliationLastErrorAt: null,
+    reconciliationLastError: null,
     closedPlan,
     closedActualRisk,
   };

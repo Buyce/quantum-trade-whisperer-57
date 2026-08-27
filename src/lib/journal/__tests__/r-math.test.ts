@@ -83,6 +83,22 @@ describe("canonical R mathematics", () => {
     expect(r.availability).toBe("unavailable_open");
   });
 
+  it("[INVARIANT] an open broker position may carry its real entry without inventing an exit", () => {
+    const r = computeR({
+      outcome: "open",
+      direction: "short",
+      plannedEntry: 100,
+      plannedStop: 102,
+      actualEntryPrice: 99.8,
+      actualExitPrice: null,
+      actualInitialStop: 102,
+    });
+    expect(r.rVsPlan).toBeNull();
+    expect(r.rVsActualRisk).toBeNull();
+    expect(r.grossMove).toBeNull();
+    expect(r.availability).toBe("unavailable_open");
+  });
+
   it("[UNIT] F6 resolved without prices yields NULL R, not zero", () => {
     const r = computeR({
       outcome: "win",
@@ -155,7 +171,7 @@ describe("canonical R mathematics", () => {
     ).toThrow(RMathInputError);
   });
 
-  it("[UNIT] one-sided prices raise a validation error", () => {
+  it("[UNIT] one-sided prices on a resolved trade raise a validation error", () => {
     expect(() =>
       computeR({
         outcome: "win",
@@ -179,6 +195,19 @@ describe("canonical R mathematics", () => {
     } catch (e) {
       expect((e as RMathInputError).code).toBe("one_sided_prices");
     }
+  });
+
+  it("[INVARIANT] an exit without an entry is invalid even while marked open", () => {
+    expect(() =>
+      computeR({
+        outcome: "open",
+        direction: "long",
+        plannedEntry: 100,
+        plannedStop: 98,
+        actualEntryPrice: null,
+        actualExitPrice: 105,
+      }),
+    ).toThrowError(RMathInputError);
   });
 
   it("[INVARIANT] selectR never falls back to the other basis", () => {

@@ -302,17 +302,15 @@ export function bridgeSupportsVerifiedQuantity(format: string): boolean {
  * How the order reaches the market.
  *
  * `pending_limit` is the default and the only mode the engine's own statistics
- * describe. `market` exists only for the owner-opted-in case where price has
- * already passed the planned entry but is still inside the maximum acceptable
- * entry, so a resting limit is impossible while the setup is still tradable.
+ * describe. `market` exists only for the owner-opted-in immediate-entry policy,
+ * while price remains inside the published maximum acceptable entry.
  */
 export type EntryMode = "pending_limit" | "market";
 
 export interface BridgeOrder {
   signalId: string;
   instrument: string;
-  /** A LIMIT unless the owner opted into market entry and price has passed the
-   *  planned entry; never a stop or stop-limit. */
+  /** A LIMIT unless the owner opted into immediate market entry; never a stop or stop-limit. */
   action: "buy_limit" | "sell_limit" | "buy" | "sell";
   /** Which of the two entry modes above this order uses. */
   entryMode: EntryMode;

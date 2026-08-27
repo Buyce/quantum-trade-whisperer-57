@@ -30,6 +30,7 @@ export interface BrokerOrderDeliveryRow {
   broker_symbol: string | null;
   broker_order_id: string | null;
   broker_retcode_string: string | null;
+  entry_mode: string | null;
   submitted_volume: number | null;
   submitted_entry: number | null;
   submitted_stop: number | null;
@@ -114,6 +115,7 @@ export interface BrokerOrderView {
    */
   destination: BrokerOrderDestination;
   dryRun: boolean;
+  entryMode: "market" | "pending_limit" | "unknown";
   status: BrokerOrderStatus;
   submitted: {
     volume: number | null;
@@ -243,10 +245,10 @@ export function brokerOrderStatus(
     case "acknowledged":
       return {
         kind: "accepted",
-        label: "Resting at broker — not filled",
+        label: "Accepted by broker — awaiting evidence",
         detail:
           detail ??
-          "The broker accepted this pending order and price has not reached its entry, so no position exists yet.",
+          "The broker accepted this order, but no associated entry deal has been reconciled yet.",
       };
     case "rejected":
       return { kind: "rejected", label: "Rejected by broker", detail };
@@ -323,6 +325,10 @@ export function toBrokerOrderView(
     accountType: accountType(evidence?.broker_account_type),
     destination: brokerOrderDestination(delivery.destination_type),
     dryRun: delivery.dry_run === true,
+    entryMode:
+      delivery.entry_mode === "market" || delivery.entry_mode === "pending_limit"
+        ? delivery.entry_mode
+        : "unknown",
     status,
     submitted: {
       volume: delivery.submitted_volume,

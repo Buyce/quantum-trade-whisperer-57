@@ -195,6 +195,7 @@ describe("automatic broker-order accounting", () => {
   const delivery = (
     row: Partial<AutomaticOrderDeliverySummaryRow>,
   ): AutomaticOrderDeliverySummaryRow => ({
+    id: row.id ?? null,
     state: row.state ?? "pending",
     dry_run: row.dry_run ?? false,
     submitted_at: row.submitted_at ?? null,
@@ -235,6 +236,7 @@ describe("automatic broker-order accounting", () => {
       submittedToBroker: 1,
       brokerOpen: 1,
       brokerClosed: 3,
+      awaitingEvidence: 1,
       closedPlan: { wins: 1, losses: 1, breakeven: 1, unavailable: 0 },
       closedActualRisk: { wins: 1, losses: 1, breakeven: 0, unavailable: 1 },
     });

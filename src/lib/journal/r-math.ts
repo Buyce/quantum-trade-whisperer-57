@@ -116,7 +116,13 @@ export function assertRMathInput(input: RMathInput): void {
 
   const hasEntry = input.actualEntryPrice != null;
   const hasExit = input.actualExitPrice != null;
-  if (hasEntry !== hasExit) {
+  // A broker-confirmed OPEN position legitimately has an entry fill without an
+  // exit. It is evidence of a position, but never evidence of realised R. Exit
+  // without entry is impossible in every state, and a resolved trade still
+  // requires the pair.
+  const invalidOneSidedPrices =
+    (hasExit && !hasEntry) || (input.outcome !== "open" && hasEntry !== hasExit);
+  if (invalidOneSidedPrices) {
     throw new RMathInputError(
       "one_sided_prices",
       "actual entry and exit prices must be supplied together or not at all",
