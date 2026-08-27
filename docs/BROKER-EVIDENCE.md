@@ -19,6 +19,11 @@ the worker refuses to publish a partial population if its 10,000-row safety boun
 is reached. Open evidence remains in the reconciliation scope after the normal
 72-hour recent-delivery window and extends the history start to the original
 submission/entry, so a long-running position can later become closed evidence.
+An open position may have a broker entry without an exit. That one-sided state is
+valid only for `open` evidence and carries no outcome R; closed evidence still
+requires both broker entry and exit prices. Reconciliation records its latest
+success or failure per connected account so an accepted delivery without matched
+evidence is shown as awaiting evidence rather than described as an unfilled trade.
 
 Instrument, grade, detection time and market-context fields are snapshotted when
 evidence is first observed. Performance therefore does not invent metadata or

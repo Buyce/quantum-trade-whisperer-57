@@ -40,9 +40,9 @@ export async function submitPendingOrder(
 
 /**
  * Submit a MARKET order, with stop loss and take profit attached in the same
- * request. Reached only through the owner's opt-in market-entry setting, when
- * price has passed the planned entry but is still inside the maximum acceptable
- * entry. There is no expiration: a market order fills or is refused immediately.
+ * request. Reached only through the owner's immediate-market-entry opt-in while
+ * price is inside the published maximum acceptable entry. There is no
+ * expiration: a market order fills or is refused immediately.
  */
 export async function submitMarketOrder(
   accountId: string,

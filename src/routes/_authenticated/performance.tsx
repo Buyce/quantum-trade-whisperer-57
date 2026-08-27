@@ -512,6 +512,14 @@ function AutomaticOrderSummaryPanel({
   basis: RBasis;
 }) {
   const rStats = basis === "plan" ? summary?.closedPlan : summary?.closedActualRisk;
+  const latestSuccess = summary?.reconciliationLastSuccessAt
+    ? Date.parse(summary.reconciliationLastSuccessAt)
+    : Number.NaN;
+  const latestError = summary?.reconciliationLastErrorAt
+    ? Date.parse(summary.reconciliationLastErrorAt)
+    : Number.NaN;
+  const reconciliationFailed =
+    Number.isFinite(latestError) && (!Number.isFinite(latestSuccess) || latestError > latestSuccess);
   return (
     <section className="rounded-md border border-border bg-card p-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -534,8 +542,16 @@ function AutomaticOrderSummaryPanel({
         <SummaryCell label="Dry runs" value={summary?.dryRuns ?? 0} />
       </div>
       <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-        Resting at broker means the broker accepted a pending order and price has not reached its
-        entry yet, so it is not a trade and carries no result.
+        Awaiting broker evidence: {summary?.awaitingEvidence ?? 0}. An accepted order without a
+        matched entry deal is not counted as open or closed; only broker evidence establishes a
+        fill.
+      </p>
+      <p className={cn("mt-2 text-xs", reconciliationFailed ? "text-warning" : "text-muted-foreground")}>
+        {reconciliationFailed
+          ? `Broker evidence reconciliation failed ${new Date(latestError).toLocaleString()}: ${summary?.reconciliationLastError ?? "reason unavailable"}`
+          : Number.isFinite(latestSuccess)
+            ? `Broker evidence last reconciled successfully ${new Date(latestSuccess).toLocaleString()}.`
+            : "No successful broker evidence reconciliation has been recorded yet."}
       </p>
 
       <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">

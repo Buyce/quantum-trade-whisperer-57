@@ -794,6 +794,9 @@ export type Database = {
           platform: string
           provision_transaction_id: string
           provisioning_state: string | null
+          reconciliation_last_error: string | null
+          reconciliation_last_error_at: string | null
+          reconciliation_last_success_at: string | null
           region: string
           research_account_ref: string | null
           research_consent: boolean
@@ -841,6 +844,9 @@ export type Database = {
           platform: string
           provision_transaction_id: string
           provisioning_state?: string | null
+          reconciliation_last_error?: string | null
+          reconciliation_last_error_at?: string | null
+          reconciliation_last_success_at?: string | null
           region: string
           research_account_ref?: string | null
           research_consent?: boolean
@@ -888,6 +894,9 @@ export type Database = {
           platform?: string
           provision_transaction_id?: string
           provisioning_state?: string | null
+          reconciliation_last_error?: string | null
+          reconciliation_last_error_at?: string | null
+          reconciliation_last_success_at?: string | null
           region?: string
           research_account_ref?: string | null
           research_consent?: boolean
@@ -1320,6 +1329,7 @@ export type Database = {
           dry_run: boolean
           endpoint_host: string | null
           enqueued_at: string
+          entry_mode: string | null
           execution_config_version: number | null
           execution_policy: string
           final_look_at: string | null
@@ -1370,6 +1380,7 @@ export type Database = {
           dry_run?: boolean
           endpoint_host?: string | null
           enqueued_at?: string
+          entry_mode?: string | null
           execution_config_version?: number | null
           execution_policy?: string
           final_look_at?: string | null
@@ -1420,6 +1431,7 @@ export type Database = {
           dry_run?: boolean
           endpoint_host?: string | null
           enqueued_at?: string
+          entry_mode?: string | null
           execution_config_version?: number | null
           execution_policy?: string
           final_look_at?: string | null

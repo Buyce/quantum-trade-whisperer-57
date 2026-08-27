@@ -221,9 +221,9 @@ export interface ScannerSettingsRow {
    */
   maximum_daily_signal_orders: number;
   /**
-   * Owner opt-in: when price has already passed the planned entry but is still
-   * within the maximum acceptable entry, submit at MARKET instead of refusing.
-   * Off by default. It never widens the slippage ceiling.
+   * Owner opt-in: submit an eligible order immediately at MARKET while the live
+   * price remains within the maximum acceptable entry. Off by default. It never
+   * widens the slippage ceiling.
    */
   auto_market_entry_enabled: boolean;
   /**

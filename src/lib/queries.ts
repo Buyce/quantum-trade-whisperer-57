@@ -143,7 +143,7 @@ export function brokerOrdersQuery(userId: string | undefined) {
       const { data, error } = await supabase
         .from("execution_deliveries" as never)
         .select(
-          `id, signal_id, state, reason, dry_run, account_mode, destination_type, broker_symbol, broker_order_id, broker_retcode_string, submitted_volume, submitted_entry, submitted_stop, submitted_target, submitted_at, enqueued_at,
+          `id, signal_id, state, reason, dry_run, account_mode, destination_type, broker_symbol, broker_order_id, broker_retcode_string, entry_mode, submitted_volume, submitted_entry, submitted_stop, submitted_target, submitted_at, enqueued_at,
            broker_trade_evidence(state, broker_account_type, direction, volume, entry_price, exit_price, entry_at, exit_at, gross_profit, commission, swap, profit_currency, r_vs_plan, r_vs_actual_risk, r_availability, stop_provenance),
            scanned_signals(instrument, grade, direction, detected_at, entry_price, stop_loss, tp1, rr_ratio)`,
         )

@@ -760,22 +760,22 @@ function SettingsPage() {
             <div className="border-t border-border pt-4">
               <Row
                 id="auto-market-entry"
-                title="Enter at market when price has passed the entry"
-                desc="Off by default. When a setup is still valid but price has already moved through the planned entry, a resting limit order is impossible. With this on, the order is sent at market instead — but only while the live price is still inside the published maximum acceptable entry for that setup."
+                title="Enter eligible orders immediately at market"
+                desc="Off by default. With this on, a qualifying automatic order is sent at market on its first dispatch instead of waiting at a planned limit — but only while the live price remains inside the setup's published maximum acceptable entry."
                 checked={marketEntry}
                 onChange={(v) => {
                   if (v)
                     toast.warning(
-                      "Market entry fills at the current price, not the planned one. Your stop distance is measured from that fill, so the position is sized smaller — and slippage is real.",
+                      "Immediate market entry improves fill probability but changes the pending-limit strategy. The live fill can differ from the plan; sizing, margin and every safety gate are recalculated before submission.",
                     );
                   setMarketEntry(v);
                 }}
               />
               {marketEntry ? (
                 <p className="mt-2 text-xs text-warning">
-                  Market entry is enabled. It never widens the maximum acceptable entry: past that
-                  ceiling the order is still refused. Research and replay statistics continue to
-                  describe the pending-limit strategy only.
+                  Immediate market entry is enabled. It never widens the maximum acceptable entry:
+                  past that ceiling the order is still refused. Slippage is real, and research and
+                  replay statistics continue to describe the pending-limit strategy only.
                 </p>
               ) : null}
             </div>

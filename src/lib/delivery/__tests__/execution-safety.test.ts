@@ -244,6 +244,32 @@ describe("A. global disable forces dry-run instead of disabling validation", () 
     expect(result.dryRun).toBe(true);
     expect(result.dryRunReason).toContain("verified quantity contract");
   });
+
+  it("[INVARIANT] the owner opt-in selects immediate market entry even when a limit could rest", async () => {
+    const db = fakeDb({
+      settings: { ...BASE_SETTINGS, auto_market_entry_enabled: true },
+    });
+    const result = await revalidateDelivery(db as never, delivery, NOW);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.order.entryMode).toBe("market");
+    expect(result.order.action).toBe("buy");
+    expect(result.plan.entryPrice).toBe(1.15605);
+  });
+
+  it("[INVARIANT] immediate market entry still refuses beyond the published ceiling", async () => {
+    quote.fn.mockResolvedValue({
+      bid: 1.1562,
+      ask: 1.15625,
+      sourceTime: new Date(NOW - 1_000).toISOString(),
+      receivedAt: new Date(NOW).toISOString(),
+    });
+    const db = fakeDb({
+      settings: { ...BASE_SETTINGS, auto_market_entry_enabled: true },
+    });
+    const result = await revalidateDelivery(db as never, delivery, NOW);
+    expect(result).toMatchObject({ ok: false, reason: "price_beyond_max_acceptable_entry" });
+  });
 });
 
 // ===========================================================================

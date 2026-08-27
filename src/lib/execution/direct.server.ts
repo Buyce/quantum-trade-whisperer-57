@@ -293,6 +293,7 @@ export async function submitDirectOrder(
   const common = {
     destination_type: "metaapi_direct",
     account_mode: target.mode,
+    entry_mode: marketEntry ? "market" : "pending_limit",
     client_id: order.clientId,
     magic: order.magic,
     broker_symbol: order.symbol,
