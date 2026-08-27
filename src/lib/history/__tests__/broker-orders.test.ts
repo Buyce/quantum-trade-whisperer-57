@@ -24,6 +24,7 @@ const delivery = (over: Partial<BrokerOrderDeliveryRow> = {}): BrokerOrderDelive
   submitted_stop: 2390,
   submitted_target: 2420,
   submitted_at: "2026-08-24T10:00:00Z",
+  entry_mode: "pending_limit",
   enqueued_at: "2026-08-24T09:59:00Z",
   ...over,
 });
