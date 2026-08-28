@@ -109,7 +109,6 @@ async function recordReconciliationHealth(
   return error ? error.message : null;
 }
 
-
 /**
  * One reconciliation pass. Never throws: an evidence failure must not interrupt
  * execution, the scanner or any statistic.
@@ -126,7 +125,6 @@ export async function reconcileBrokerEvidence(
     orderStatesRecorded: 0,
     errors: [],
   };
-
 
   const since = new Date(now - RECONCILE_WINDOW_HOURS * 3_600_000);
 
@@ -386,7 +384,6 @@ export async function reconcileBrokerEvidence(
     );
     if (healthWriteError)
       result.errors.push(`${account.id}: health not recorded — ${healthWriteError}`);
-
   }
 
   return result;

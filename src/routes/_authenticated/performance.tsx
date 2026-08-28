@@ -519,7 +519,8 @@ function AutomaticOrderSummaryPanel({
     ? Date.parse(summary.reconciliationLastErrorAt)
     : Number.NaN;
   const reconciliationFailed =
-    Number.isFinite(latestError) && (!Number.isFinite(latestSuccess) || latestError > latestSuccess);
+    Number.isFinite(latestError) &&
+    (!Number.isFinite(latestSuccess) || latestError > latestSuccess);
   return (
     <section className="rounded-md border border-border bg-card p-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -546,7 +547,12 @@ function AutomaticOrderSummaryPanel({
         matched entry deal is not counted as open or closed; only broker evidence establishes a
         fill.
       </p>
-      <p className={cn("mt-2 text-xs", reconciliationFailed ? "text-warning" : "text-muted-foreground")}>
+      <p
+        className={cn(
+          "mt-2 text-xs",
+          reconciliationFailed ? "text-warning" : "text-muted-foreground",
+        )}
+      >
         {reconciliationFailed
           ? `Broker evidence reconciliation failed ${new Date(latestError).toLocaleString()}: ${summary?.reconciliationLastError ?? "reason unavailable"}`
           : Number.isFinite(latestSuccess)

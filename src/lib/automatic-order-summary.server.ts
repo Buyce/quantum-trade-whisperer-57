@@ -64,11 +64,13 @@ export async function loadAutomaticOrderSummary(
   ]);
 
   const summary = summarizeAutomaticOrders(deliveries, evidence);
-  const healthRows = ((accountHealth.data ?? []) as unknown as Array<{
-    reconciliation_last_success_at: string | null;
-    reconciliation_last_error_at: string | null;
-    reconciliation_last_error: string | null;
-  }>).sort((a, b) =>
+  const healthRows = (
+    (accountHealth.data ?? []) as unknown as Array<{
+      reconciliation_last_success_at: string | null;
+      reconciliation_last_error_at: string | null;
+      reconciliation_last_error: string | null;
+    }>
+  ).sort((a, b) =>
     String(b.reconciliation_last_error_at ?? b.reconciliation_last_success_at ?? "").localeCompare(
       String(a.reconciliation_last_error_at ?? a.reconciliation_last_success_at ?? ""),
     ),
