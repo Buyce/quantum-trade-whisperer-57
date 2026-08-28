@@ -31,6 +31,8 @@ export interface BrokerOrderDeliveryRow {
   broker_order_id: string | null;
   broker_retcode_string: string | null;
   entry_mode: string | null;
+  /** Last broker-confirmed lifecycle state for this order, when reconciled. */
+  broker_order_state?: string | null;
   submitted_volume: number | null;
   submitted_entry: number | null;
   submitted_stop: number | null;
@@ -197,7 +199,7 @@ export function brokerOrderDestination(
 export function brokerOrderStatus(
   delivery: Pick<
     BrokerOrderDeliveryRow,
-    "state" | "reason" | "broker_retcode_string" | "submitted_at"
+    "state" | "reason" | "broker_retcode_string" | "submitted_at" | "broker_order_state"
   >,
   evidence: Pick<BrokerOrderEvidenceRow, "state"> | null,
 ): BrokerOrderStatus {
@@ -243,6 +245,23 @@ export function brokerOrderStatus(
         detail: detail ?? "Submitted; the broker has not confirmed an order yet.",
       };
     case "acknowledged":
+      // Only the LAST broker reconciliation may say an order is resting. The
+      // absence of evidence proves nothing on its own.
+      if (delivery.broker_order_state === "resting") {
+        return {
+          kind: "accepted",
+          label: "Resting at your broker — not filled",
+          detail: "The broker confirmed this order is still waiting unfilled at your entry price.",
+        };
+      }
+      if (delivery.broker_order_state === "cancelled" || delivery.broker_order_state === "absent") {
+        return {
+          kind: "not_sent",
+          label: "Cleared at your broker — no trade",
+          detail:
+            "Your broker no longer holds this order and no position resulted from it, so its slot was freed.",
+        };
+      }
       return {
         kind: "accepted",
         label: "Accepted by broker — awaiting evidence",

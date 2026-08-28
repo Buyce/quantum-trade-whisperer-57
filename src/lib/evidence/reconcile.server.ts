@@ -11,7 +11,7 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { fetchPositions } from "@/lib/metaapi/accounts.server";
+import { fetchOrders, fetchPositions } from "@/lib/metaapi/accounts.server";
 import { fetchDeals, fetchHistoryOrders } from "@/lib/metaapi/history.server";
 import { computeR, R_MATH_VERSION } from "@/lib/journal/r-math";
 import { isSafeResearchRef, newsContextFor, pooledInclusionAllowed } from "@/lib/research/consent";
@@ -23,6 +23,7 @@ import {
   type BrokerStop,
   type DealGroup,
 } from "./associate";
+import { resolveBrokerOrderState } from "./order-state";
 
 type Db = Pick<SupabaseClient, "from" | "rpc">;
 
@@ -45,6 +46,7 @@ interface DeliveryRow {
   submitted_target: number | null;
   submitted_at: string | null;
   account_mode: string | null;
+  broker_order_id: string | null;
 }
 
 interface OpenEvidenceRow {
@@ -74,14 +76,23 @@ export interface ReconcileResult {
   accountsChecked: number;
   dealsAssociated: number;
   evidenceWritten: number;
+  /** Deliveries whose broker-confirmed order state was recorded this pass. */
+  orderStatesRecorded: number;
   errors: string[];
 }
 
+/**
+ * Records this account's reconciliation health.
+ *
+ * Returns the failure message when the WRITE itself fails, so a pass can never
+ * look green because the health row could not be updated. Silence here is what
+ * made an empty evidence table look successfully reconciled.
+ */
 async function recordReconciliationHealth(
   db: Db,
   accountId: string,
   outcome: { ok: true; at: string } | { ok: false; at: string; error: string },
-): Promise<void> {
+): Promise<string | null> {
   const patch = outcome.ok
     ? {
         reconciliation_last_success_at: outcome.at,
@@ -91,7 +102,11 @@ async function recordReconciliationHealth(
         reconciliation_last_error_at: outcome.at,
         reconciliation_last_error: outcome.error.slice(0, 1_000),
       };
-  await db.from("connected_trading_accounts").update(patch).eq("id", accountId);
+  const { error } = await db
+    .from("connected_trading_accounts")
+    .update(patch as never)
+    .eq("id", accountId);
+  return error ? error.message : null;
 }
 
 /**
@@ -107,6 +122,7 @@ export async function reconcileBrokerEvidence(
     accountsChecked: 0,
     dealsAssociated: 0,
     evidenceWritten: 0,
+    orderStatesRecorded: 0,
     errors: [],
   };
 
@@ -149,7 +165,7 @@ export async function reconcileBrokerEvidence(
   const { data: deliveryRows, error: deliveryError } = await db
     .from("execution_deliveries")
     .select(
-      "id, user_id, signal_id, connected_account_id, client_id, magic, broker_symbol, submitted_entry, submitted_stop, submitted_target, submitted_at, account_mode",
+      "id, user_id, signal_id, connected_account_id, client_id, magic, broker_symbol, submitted_entry, submitted_stop, submitted_target, submitted_at, account_mode, broker_order_id",
     )
     .eq("destination_type", "metaapi_direct")
     .in("state", SUBMITTED_STATES as unknown as string[])
@@ -176,7 +192,7 @@ export async function reconcileBrokerEvidence(
     const { data, error } = await db
       .from("execution_deliveries")
       .select(
-        "id, user_id, signal_id, connected_account_id, client_id, magic, broker_symbol, submitted_entry, submitted_stop, submitted_target, submitted_at, account_mode",
+        "id, user_id, signal_id, connected_account_id, client_id, magic, broker_symbol, submitted_entry, submitted_stop, submitted_target, submitted_at, account_mode, broker_order_id",
       )
       .eq("destination_type", "metaapi_direct")
       .in("state", SUBMITTED_STATES as unknown as string[])
@@ -219,17 +235,26 @@ export async function reconcileBrokerEvidence(
     if (!account.metaapi_account_id) continue;
     result.accountsChecked += 1;
 
+    // Errors are collected PER ACCOUNT. The previous prefix-matching approach
+    // missed per-order failures (which are prefixed with the broker client id),
+    // so an account could be marked healthy while every evidence write failed.
+    const accountErrors: string[] = [];
+    const pushError = (message: string) => {
+      accountErrors.push(message);
+      result.errors.push(message);
+    };
+
+    const accountDeliveries = deliveries.filter((d) => d.connected_account_id === account.id);
+
     let deals;
-    const accountSince = deliveries
-      .filter((delivery) => delivery.connected_account_id === account.id)
-      .reduce((earliest, delivery) => {
-        const evidence = openEvidenceByDelivery.get(delivery.id);
-        if (!evidence) return earliest;
-        const candidates = [delivery.submitted_at, evidence.entry_at, evidence.first_observed_at]
-          .map((value) => (value ? Date.parse(value) : Number.NaN))
-          .filter(Number.isFinite);
-        return candidates.length ? Math.min(earliest, ...candidates) : earliest;
-      }, since.getTime());
+    const accountSince = accountDeliveries.reduce((earliest, delivery) => {
+      const evidence = openEvidenceByDelivery.get(delivery.id);
+      if (!evidence) return earliest;
+      const candidates = [delivery.submitted_at, evidence.entry_at, evidence.first_observed_at]
+        .map((value) => (value ? Date.parse(value) : Number.NaN))
+        .filter(Number.isFinite);
+      return candidates.length ? Math.min(earliest, ...candidates) : earliest;
+    }, since.getTime());
     const historyStart = new Date(accountSince);
     try {
       deals = await fetchDeals(
@@ -240,14 +265,13 @@ export async function reconcileBrokerEvidence(
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      result.errors.push(
-        `${account.id}: broker history unavailable — ${message}`,
-      );
-      await recordReconciliationHealth(db, account.id, {
+      pushError(`${account.id}: broker history unavailable — ${message}`);
+      const writeError = await recordReconciliationHealth(db, account.id, {
         ok: false,
         at: new Date(now).toISOString(),
         error: `broker history unavailable — ${message}`,
       });
+      if (writeError) result.errors.push(`${account.id}: health not recorded — ${writeError}`);
       continue;
     }
 
@@ -255,10 +279,19 @@ export async function reconcileBrokerEvidence(
     // submitted. Unavailable history simply leaves the stop unknown.
     let positions: Awaited<ReturnType<typeof fetchPositions>> = [];
     let historyOrders: Awaited<ReturnType<typeof fetchHistoryOrders>> = [];
+    let restingOrders: Awaited<ReturnType<typeof fetchOrders>> = [];
+    let brokerReadable = true;
     try {
       positions = await fetchPositions(account.metaapi_account_id, account.region);
     } catch {
       positions = [];
+      brokerReadable = false;
+    }
+    try {
+      restingOrders = await fetchOrders(account.metaapi_account_id, account.region);
+    } catch {
+      restingOrders = [];
+      brokerReadable = false;
     }
     try {
       historyOrders = await fetchHistoryOrders(
@@ -269,7 +302,11 @@ export async function reconcileBrokerEvidence(
       );
     } catch {
       historyOrders = [];
+      brokerReadable = false;
     }
+
+    /** Evidence state matched to each delivery this pass. */
+    const evidenceStateByDelivery = new Map<number, "open" | "closed">();
 
     const groups = groupOwnedDeals(deals, account.magic ?? null);
     for (const group of groups) {
@@ -279,34 +316,74 @@ export async function reconcileBrokerEvidence(
       result.dealsAssociated += 1;
 
       try {
+        const summaryState = summariseGroup(group).state;
+        if (summaryState === "open" || summaryState === "closed")
+          evidenceStateByDelivery.set(delivery.id, summaryState);
         const written = await writeEvidence(db, {
           group,
           delivery,
           account,
           brokerStop: resolveBrokerStop(group, positions, historyOrders),
           isBenchmark:
-            !!options.benchmarkAccountId && options.benchmarkAccountId === account.metaapi_account_id,
+            !!options.benchmarkAccountId &&
+            options.benchmarkAccountId === account.metaapi_account_id,
         });
-        if (written === "error") result.errors.push(`${group.clientId}: evidence write failed`);
+        if (written === "error") pushError(`${group.clientId}: evidence write failed`);
         else if (written === "written") result.evidenceWritten += 1;
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        result.errors.push(`${group.clientId}: evidence invalid — ${message}`);
+        pushError(`${group.clientId}: evidence invalid — ${message}`);
       }
     }
-    const accountErrors = result.errors.filter((error) => error.startsWith(`${account.id}:`));
-    if (accountErrors.length === 0) {
-      await recordReconciliationHealth(db, account.id, {
-        ok: true,
-        at: new Date(now).toISOString(),
-      });
-    } else {
-      await recordReconciliationHealth(db, account.id, {
-        ok: false,
-        at: new Date(now).toISOString(),
-        error: accountErrors.join("; "),
-      });
+
+    // Every submitted order gets a broker-confirmed lifecycle answer, so
+    // capacity, expiry and History stop guessing from age.
+    const historyOrderStates = new Map<string, string>();
+    for (const order of historyOrders as readonly { id?: string | null; state?: string | null }[]) {
+      if (order.id) historyOrderStates.set(String(order.id), String(order.state ?? ""));
     }
+    const restingIds = (restingOrders as readonly { id?: string | null }[])
+      .map((o) => (o.id ? String(o.id) : null))
+      .filter((id): id is string => id !== null);
+    const positionIds = (
+      positions as readonly { id?: string | null; positionId?: string | null }[]
+    ).flatMap((p) =>
+      [p.id, p.positionId].filter((id): id is string => typeof id === "string" && id.length > 0),
+    );
+
+    for (const delivery of accountDeliveries) {
+      const brokerState = resolveBrokerOrderState({
+        brokerOrderId: delivery.broker_order_id ?? null,
+        evidenceState: evidenceStateByDelivery.get(delivery.id) ?? null,
+        restingOrderIds: restingIds,
+        positionIds,
+        historyOrderStates,
+        brokerReadable,
+      });
+      const { error } = await db
+        .from("execution_deliveries")
+        .update({
+          broker_order_state: brokerState,
+          broker_state_at: new Date(now).toISOString(),
+        } as never)
+        .eq("id", delivery.id);
+      if (error) pushError(`${account.id}: order state not recorded — ${error.message}`);
+      else result.orderStatesRecorded += 1;
+    }
+
+    const healthWriteError = await recordReconciliationHealth(
+      db,
+      account.id,
+      accountErrors.length === 0
+        ? { ok: true, at: new Date(now).toISOString() }
+        : {
+            ok: false,
+            at: new Date(now).toISOString(),
+            error: accountErrors.join("; "),
+          },
+    );
+    if (healthWriteError)
+      result.errors.push(`${account.id}: health not recorded — ${healthWriteError}`);
   }
 
   return result;

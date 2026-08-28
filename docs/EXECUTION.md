@@ -404,3 +404,16 @@ read only the facts the provider returns, and missing facts remain unavailable.
 `src/lib/delivery/__tests__/control-plane.test.ts`,
 `src/lib/delivery/__tests__/direct-enqueue.test.ts`,
 `src/lib/delivery/__tests__/intel-gate.test.ts`.
+
+## Order capacity follows the broker
+
+The concurrent automatic-order ceiling counts only orders the broker confirms are
+still live: `resting`, `open`, or not yet resolvable (`unresolved`). Closed,
+cancelled and broker-absent orders release their slot on the next reconciliation
+pass. The daily and per-symbol ceilings are unchanged throughput counts of orders
+created, and every ceiling remains a ceiling, never a quota.
+
+The unfilled-order sweeper settles an order the broker no longer lists anywhere,
+because nothing is resting and no position exists. It still never cancels a
+filled or partially filled order, and it still only settles a resting order after
+the broker confirms the cancellation.

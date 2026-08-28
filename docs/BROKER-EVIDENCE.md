@@ -69,6 +69,48 @@ their assistant and are labelled as such. Benchmark rows come from the dedicated
 P-Trades demo policy account. No population is derived from, or back-filled by,
 another.
 
+## Broker-confirmed order lifecycle
+
+Every reconciliation pass also resolves what the broker says about each submitted
+order, and stores it on the delivery as `broker_order_state`:
+
+| State | Meaning | Occupies a slot |
+| --- | --- | --- |
+| `resting` | the broker still holds an unfilled pending order | yes |
+| `open` | a position exists (entry deal matched, no exit yet) | yes |
+| `closed` | broker-confirmed closed evidence | no |
+| `cancelled` | the broker cancelled, rejected or expired the order | no |
+| `absent` | the broker was readable and lists it nowhere | no |
+| `unresolved` | broker state could not be established this pass | yes |
+
+Rules that follow from this:
+
+- Only `resting` may be presented as "resting at your broker". The absence of
+  evidence never means an order is resting, and never means it was not filled.
+- A filled history order with no associated deal yet stays `unresolved`, so it
+  keeps its slot until evidence resolves it.
+- An unreadable broker is always `unresolved` — never `absent`.
+- Concurrent-order capacity and the duplicate-order guard read this state, so a
+  closed, cancelled or vanished order gives its slot back immediately instead of
+  being held for a fixed time window.
+
+## Preserved broker associations
+
+`broker_order_associations` keeps an immutable snapshot of every submitted order
+(client reference, broker order id, symbol, submitted geometry, timestamps). It
+survives signal retention cleanup, and signal cleanup itself now refuses to
+remove a signal while one of its deliveries is still accepted at the broker or
+holds an unresolved broker reference. The delivery-to-broker association can no
+longer be lost before reconciliation can use it.
+
+## Reconciliation health
+
+Health is recorded per account from the errors that pass actually produced —
+including per-order evidence-write failures — and a failed health write is itself
+reported. A pass can never look green while evidence is missing. The Performance
+screen shows the awaiting-evidence count, the last successful pass and the last
+failure.
+
 ## Failure behaviour
 
 An unreadable history, a truncated page walk, or a deal that cannot be positively

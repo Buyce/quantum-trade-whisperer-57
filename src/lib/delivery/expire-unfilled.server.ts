@@ -247,11 +247,13 @@ export async function expireUnfilledOrders(
         continue;
       }
       if (presence === "absent") {
-        outcomes.push({
-          deliveryId: row.id,
-          action: "kept",
-          reason: "the broker no longer lists this order; reconciliation resolves it, not expiry",
-        });
+        // The broker was readable and lists this order nowhere — neither resting
+        // nor as a position. Nothing is holding the slot, so it is settled and
+        // the reconciler keeps ownership of any evidence that later appears.
+        const reason =
+          "expired: the broker no longer lists this order, so no order is resting and no position exists";
+        await settleExpired(db, row.id, reason);
+        outcomes.push({ deliveryId: row.id, action: "expired", reason });
         continue;
       }
 

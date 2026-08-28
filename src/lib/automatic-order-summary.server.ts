@@ -35,7 +35,7 @@ export async function loadAutomaticOrderSummary(
     collectBounded<AutomaticOrderDeliverySummaryRow>(async (from, to) => {
       const { data, error } = await db
         .from("execution_deliveries" as never)
-        .select("id, state, dry_run, submitted_at, broker_retcode_string")
+        .select("id, state, dry_run, submitted_at, broker_retcode_string, broker_order_state")
         .eq("user_id", userId)
         .eq("destination_type", "metaapi_direct")
         .order("enqueued_at", { ascending: false })
@@ -64,11 +64,13 @@ export async function loadAutomaticOrderSummary(
   ]);
 
   const summary = summarizeAutomaticOrders(deliveries, evidence);
-  const healthRows = ((accountHealth.data ?? []) as unknown as Array<{
-    reconciliation_last_success_at: string | null;
-    reconciliation_last_error_at: string | null;
-    reconciliation_last_error: string | null;
-  }>).sort((a, b) =>
+  const healthRows = (
+    (accountHealth.data ?? []) as unknown as Array<{
+      reconciliation_last_success_at: string | null;
+      reconciliation_last_error_at: string | null;
+      reconciliation_last_error: string | null;
+    }>
+  ).sort((a, b) =>
     String(b.reconciliation_last_error_at ?? b.reconciliation_last_success_at ?? "").localeCompare(
       String(a.reconciliation_last_error_at ?? a.reconciliation_last_success_at ?? ""),
     ),
