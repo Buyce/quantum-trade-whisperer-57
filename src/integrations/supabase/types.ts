@@ -320,6 +320,66 @@ export type Database = {
           },
         ]
       }
+      broker_order_associations: {
+        Row: {
+          account_mode: string | null
+          broker_order_id: string | null
+          broker_symbol: string | null
+          client_id: string | null
+          connected_account_id: string | null
+          created_at: string
+          delivery_id: number
+          destination_type: string | null
+          id: string
+          magic: number | null
+          signal_id: string | null
+          submitted_at: string | null
+          submitted_entry: number | null
+          submitted_stop: number | null
+          submitted_target: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_mode?: string | null
+          broker_order_id?: string | null
+          broker_symbol?: string | null
+          client_id?: string | null
+          connected_account_id?: string | null
+          created_at?: string
+          delivery_id: number
+          destination_type?: string | null
+          id?: string
+          magic?: number | null
+          signal_id?: string | null
+          submitted_at?: string | null
+          submitted_entry?: number | null
+          submitted_stop?: number | null
+          submitted_target?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_mode?: string | null
+          broker_order_id?: string | null
+          broker_symbol?: string | null
+          client_id?: string | null
+          connected_account_id?: string | null
+          created_at?: string
+          delivery_id?: number
+          destination_type?: string | null
+          id?: string
+          magic?: number | null
+          signal_id?: string | null
+          submitted_at?: string | null
+          submitted_entry?: number | null
+          submitted_stop?: number | null
+          submitted_target?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       broker_symbol_specs: {
         Row: {
           base_currency: string | null
@@ -1318,9 +1378,11 @@ export type Database = {
           attempts: number
           bridge_profile: string
           broker_order_id: string | null
+          broker_order_state: string | null
           broker_position_id: string | null
           broker_retcode: number | null
           broker_retcode_string: string | null
+          broker_state_at: string | null
           broker_symbol: string | null
           claimed_at: string | null
           client_id: string | null
@@ -1369,9 +1431,11 @@ export type Database = {
           attempts?: number
           bridge_profile?: string
           broker_order_id?: string | null
+          broker_order_state?: string | null
           broker_position_id?: string | null
           broker_retcode?: number | null
           broker_retcode_string?: string | null
+          broker_state_at?: string | null
           broker_symbol?: string | null
           claimed_at?: string | null
           client_id?: string | null
@@ -1420,9 +1484,11 @@ export type Database = {
           attempts?: number
           bridge_profile?: string
           broker_order_id?: string | null
+          broker_order_state?: string | null
           broker_position_id?: string | null
           broker_retcode?: number | null
           broker_retcode_string?: string | null
+          broker_state_at?: string | null
           broker_symbol?: string | null
           claimed_at?: string | null
           client_id?: string | null
