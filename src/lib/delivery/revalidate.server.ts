@@ -536,7 +536,7 @@ export async function revalidateDelivery(
    * the setup or bypasses any sizing, spread, margin or account gate below.
    */
   const marketEntryAllowed = settings.auto_market_entry_enabled === true;
-  let entryMode: EntryMode = marketEntryAllowed ? "market" : "pending_limit";
+  const entryMode: EntryMode = marketEntryAllowed ? "market" : "pending_limit";
   if (marketEntryAllowed) {
     if (
       !withinMaxAcceptableEntry(
@@ -550,10 +550,7 @@ export async function revalidateDelivery(
       );
     }
   } else if (!pendingLimitSideValid({ action, entry: plan.entryPrice }, marketPrice)) {
-      return reject(
-        "limit_price_not_on_pending_side",
-        `market ${marketPrice} vs ${plan.entryPrice}`,
-      );
+    return reject("limit_price_not_on_pending_side", `market ${marketPrice} vs ${plan.entryPrice}`);
   }
 
   // ---- 6. Broker stop distance + sizing guardrails --------------------------
