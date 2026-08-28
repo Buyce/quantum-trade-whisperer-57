@@ -54,6 +54,7 @@ import {
   lifecycleAllows,
 } from "@/lib/instruments/lifecycle";
 import { readLifecycleView } from "@/lib/instruments/lifecycle.server";
+import { occupiesSlot } from "@/lib/evidence/order-state";
 
 export interface DirectEnqueueSignal {
   id: string;
@@ -260,6 +261,7 @@ export async function heldOrdersByUser(
     signal_id: string | null;
     submitted_entry: number | string | null;
     published_entry: number | string | null;
+    broker_order_state?: string | null;
     signal?:
       | { instrument: string | null; direction: string | null; entry_price: number | string | null }
       | {
@@ -275,6 +277,9 @@ export async function heldOrdersByUser(
     return Number.isFinite(parsed) ? parsed : null;
   };
   for (const row of (data ?? []) as Row[]) {
+    // A broker-closed, cancelled or absent order rests nowhere, so it cannot be
+    // the duplicate of a fresh attempt.
+    if (!occupiesSlot(row.broker_order_state as never)) continue;
     const embedded = Array.isArray(row.signal) ? row.signal[0] : row.signal;
     const instrument = embedded?.instrument ?? null;
     if (!instrument) continue;
