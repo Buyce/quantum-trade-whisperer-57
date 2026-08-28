@@ -4,6 +4,7 @@ const broker = vi.hoisted(() => ({
   fetchDeals: vi.fn(),
   fetchHistoryOrders: vi.fn(),
   fetchPositions: vi.fn(),
+  fetchOrders: vi.fn(),
 }));
 
 vi.mock("@/lib/metaapi/history.server", () => ({
@@ -13,6 +14,7 @@ vi.mock("@/lib/metaapi/history.server", () => ({
 
 vi.mock("@/lib/metaapi/accounts.server", () => ({
   fetchPositions: broker.fetchPositions,
+  fetchOrders: broker.fetchOrders,
 }));
 
 import { reconcileBrokerEvidence } from "../reconcile.server";
@@ -46,7 +48,11 @@ const oldDelivery = {
   submitted_target: 2_520,
   submitted_at: "2026-08-01T09:00:00.000Z",
   account_mode: "demo",
+  broker_order_id: "brk-777",
 };
+
+/** Every update payload the pass wrote, by table. */
+const updates: { table: string; payload: unknown }[] = [];
 
 function resultFor(table: string, calls: QueryCall[]): { data: unknown[]; error: null } {
   if (table === "broker_trade_evidence") {
@@ -89,11 +95,13 @@ function resultFor(table: string, calls: QueryCall[]): { data: unknown[]; error:
 }
 
 function queryFor(table: string): FakeQuery {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const calls: QueryCall[] = [];
   const query = {} as FakeQuery;
   for (const method of ["select", "eq", "in", "gte", "not", "order", "range", "update"] as const) {
     query[method] = (...args: unknown[]) => {
       calls.push({ method, args });
+      if (method === "update") updates.push({ table, payload: args[0] });
       return query;
     };
   }
@@ -106,6 +114,8 @@ beforeEach(() => {
   broker.fetchDeals.mockResolvedValue([]);
   broker.fetchHistoryOrders.mockResolvedValue([]);
   broker.fetchPositions.mockResolvedValue([]);
+  broker.fetchOrders.mockResolvedValue([]);
+  updates.length = 0;
 });
 
 describe("broker evidence reconciliation window", () => {
@@ -122,5 +132,52 @@ describe("broker evidence reconciliation window", () => {
     expect(broker.fetchHistoryOrders.mock.calls[0]?.[2]).toEqual(
       new Date("2026-08-01T09:00:00.000Z"),
     );
+  });
+});
+
+describe("broker order lifecycle recording", () => {
+  it("[INVARIANT] a broker-listed pending order is recorded as resting", async () => {
+    broker.fetchOrders.mockResolvedValue([{ id: "brk-777", volume: 0.1, currentVolume: 0.1 }]);
+    const db = { from: vi.fn((table: string) => queryFor(table)), rpc: vi.fn() };
+
+    const result = await reconcileBrokerEvidence(db as never, {
+      now: Date.parse("2026-08-23T12:00:00.000Z"),
+    });
+
+    expect(result.orderStatesRecorded).toBe(1);
+    expect(
+      updates.some(
+        (u) =>
+          u.table === "execution_deliveries" &&
+          (u.payload as { broker_order_state?: string }).broker_order_state === "resting",
+      ),
+    ).toBe(true);
+  });
+
+  it("[INVARIANT] an order the broker no longer lists is recorded absent, freeing its slot", async () => {
+    const db = { from: vi.fn((table: string) => queryFor(table)), rpc: vi.fn() };
+
+    await reconcileBrokerEvidence(db as never, { now: Date.parse("2026-08-23T12:00:00.000Z") });
+
+    expect(
+      updates.some(
+        (u) =>
+          u.table === "execution_deliveries" &&
+          (u.payload as { broker_order_state?: string }).broker_order_state === "absent",
+      ),
+    ).toBe(true);
+  });
+
+  it("[INVARIANT] an unreadable broker leaves the order unresolved, never absent", async () => {
+    broker.fetchOrders.mockRejectedValue(new Error("broker unreachable"));
+    const db = { from: vi.fn((table: string) => queryFor(table)), rpc: vi.fn() };
+
+    await reconcileBrokerEvidence(db as never, { now: Date.parse("2026-08-23T12:00:00.000Z") });
+
+    const states = updates
+      .filter((u) => u.table === "execution_deliveries")
+      .map((u) => (u.payload as { broker_order_state?: string }).broker_order_state);
+    expect(states).toContain("unresolved");
+    expect(states).not.toContain("absent");
   });
 });
