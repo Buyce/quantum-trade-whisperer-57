@@ -121,8 +121,10 @@ export async function reconcileBrokerEvidence(
     accountsChecked: 0,
     dealsAssociated: 0,
     evidenceWritten: 0,
+    orderStatesRecorded: 0,
     errors: [],
   };
+
 
   const since = new Date(now - RECONCILE_WINDOW_HOURS * 3_600_000);
 
