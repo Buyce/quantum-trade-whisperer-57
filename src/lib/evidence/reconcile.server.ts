@@ -11,7 +11,7 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { fetchPositions } from "@/lib/metaapi/accounts.server";
+import { fetchOrders, fetchPositions } from "@/lib/metaapi/accounts.server";
 import { fetchDeals, fetchHistoryOrders } from "@/lib/metaapi/history.server";
 import { computeR, R_MATH_VERSION } from "@/lib/journal/r-math";
 import { isSafeResearchRef, newsContextFor, pooledInclusionAllowed } from "@/lib/research/consent";
@@ -23,6 +23,7 @@ import {
   type BrokerStop,
   type DealGroup,
 } from "./associate";
+import { resolveBrokerOrderState } from "./order-state";
 
 type Db = Pick<SupabaseClient, "from" | "rpc">;
 
@@ -45,6 +46,7 @@ interface DeliveryRow {
   submitted_target: number | null;
   submitted_at: string | null;
   account_mode: string | null;
+  broker_order_id: string | null;
 }
 
 interface OpenEvidenceRow {
@@ -165,7 +167,7 @@ export async function reconcileBrokerEvidence(
   const { data: deliveryRows, error: deliveryError } = await db
     .from("execution_deliveries")
     .select(
-      "id, user_id, signal_id, connected_account_id, client_id, magic, broker_symbol, submitted_entry, submitted_stop, submitted_target, submitted_at, account_mode",
+      "id, user_id, signal_id, connected_account_id, client_id, magic, broker_symbol, submitted_entry, submitted_stop, submitted_target, submitted_at, account_mode, broker_order_id",
     )
     .eq("destination_type", "metaapi_direct")
     .in("state", SUBMITTED_STATES as unknown as string[])
@@ -192,7 +194,7 @@ export async function reconcileBrokerEvidence(
     const { data, error } = await db
       .from("execution_deliveries")
       .select(
-        "id, user_id, signal_id, connected_account_id, client_id, magic, broker_symbol, submitted_entry, submitted_stop, submitted_target, submitted_at, account_mode",
+        "id, user_id, signal_id, connected_account_id, client_id, magic, broker_symbol, submitted_entry, submitted_stop, submitted_target, submitted_at, account_mode, broker_order_id",
       )
       .eq("destination_type", "metaapi_direct")
       .in("state", SUBMITTED_STATES as unknown as string[])
