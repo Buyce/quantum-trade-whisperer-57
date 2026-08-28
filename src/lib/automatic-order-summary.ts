@@ -6,6 +6,8 @@ export interface AutomaticOrderDeliverySummaryRow {
   dry_run: boolean | null;
   submitted_at: string | null;
   broker_retcode_string: string | null;
+  /** Last broker-confirmed lifecycle state, when reconciliation recorded one. */
+  broker_order_state?: string | null;
 }
 
 export interface AutomaticOrderEvidenceSummaryRow {
@@ -33,6 +35,8 @@ export interface AutomaticOrderSummary {
    * as trades.
    */
   restingAtBroker: number;
+  /** Broker-confirmed cleared: cancelled or no longer listed. Never a trade. */
+  clearedAtBroker: number;
   brokerOpen: number;
   brokerClosed: number;
   awaitingEvidence: number;
@@ -110,17 +114,28 @@ export function summarizeAutomaticOrders(
         !automaticOrderDeliveryReachedBroker(row),
     ).length,
     submittedToBroker: deliveries.filter(automaticOrderDeliveryReachedBroker).length,
+    // Only a broker-confirmed `resting` state may be presented as resting.
     restingAtBroker: deliveries.filter(
       (row) =>
         row.dry_run !== true &&
         row.state === "acknowledged" &&
+        row.broker_order_state === "resting" &&
         !(typeof row.id === "number" && evidenceDeliveryIds.has(row.id)),
+    ).length,
+    clearedAtBroker: deliveries.filter(
+      (row) =>
+        row.dry_run !== true &&
+        (row.broker_order_state === "cancelled" || row.broker_order_state === "absent"),
     ).length,
     brokerOpen,
     brokerClosed,
+    // Reached the broker, no matched evidence, and no broker-confirmed clearing:
+    // P-Trades makes no claim about it yet.
     awaitingEvidence: deliveries.filter(
       (row) =>
         automaticOrderDeliveryReachedBroker(row) &&
+        row.broker_order_state !== "cancelled" &&
+        row.broker_order_state !== "absent" &&
         !(typeof row.id === "number" && evidenceDeliveryIds.has(row.id)),
     ).length,
     reconciliationLastSuccessAt: null,
