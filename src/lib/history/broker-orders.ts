@@ -251,8 +251,7 @@ export function brokerOrderStatus(
         return {
           kind: "accepted",
           label: "Resting at your broker — not filled",
-          detail:
-            "The broker confirmed this order is still waiting unfilled at your entry price.",
+          detail: "The broker confirmed this order is still waiting unfilled at your entry price.",
         };
       }
       if (delivery.broker_order_state === "cancelled" || delivery.broker_order_state === "absent") {

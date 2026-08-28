@@ -538,6 +538,7 @@ function AutomaticOrderSummaryPanel({
         <SummaryCell label="Blocked before broker" value={summary?.blockedBeforeBroker ?? 0} />
         <SummaryCell label="Submitted to broker" value={summary?.submittedToBroker ?? 0} />
         <SummaryCell label="Resting at broker" value={summary?.restingAtBroker ?? 0} />
+        <SummaryCell label="Cleared at broker" value={summary?.clearedAtBroker ?? 0} />
         <SummaryCell label="Broker open" value={summary?.brokerOpen ?? 0} />
         <SummaryCell label="Broker closed" value={summary?.brokerClosed ?? 0} />
         <SummaryCell label="Dry runs" value={summary?.dryRuns ?? 0} />
