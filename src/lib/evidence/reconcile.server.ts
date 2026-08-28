@@ -74,14 +74,23 @@ export interface ReconcileResult {
   accountsChecked: number;
   dealsAssociated: number;
   evidenceWritten: number;
+  /** Deliveries whose broker-confirmed order state was recorded this pass. */
+  orderStatesRecorded: number;
   errors: string[];
 }
 
+/**
+ * Records this account's reconciliation health.
+ *
+ * Returns the failure message when the WRITE itself fails, so a pass can never
+ * look green because the health row could not be updated. Silence here is what
+ * made an empty evidence table look successfully reconciled.
+ */
 async function recordReconciliationHealth(
   db: Db,
   accountId: string,
   outcome: { ok: true; at: string } | { ok: false; at: string; error: string },
-): Promise<void> {
+): Promise<string | null> {
   const patch = outcome.ok
     ? {
         reconciliation_last_success_at: outcome.at,
@@ -91,8 +100,13 @@ async function recordReconciliationHealth(
         reconciliation_last_error_at: outcome.at,
         reconciliation_last_error: outcome.error.slice(0, 1_000),
       };
-  await db.from("connected_trading_accounts").update(patch).eq("id", accountId);
+  const { error } = await db
+    .from("connected_trading_accounts")
+    .update(patch as never)
+    .eq("id", accountId);
+  return error ? error.message : null;
 }
+
 
 /**
  * One reconciliation pass. Never throws: an evidence failure must not interrupt
