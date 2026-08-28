@@ -95,7 +95,6 @@ function resultFor(table: string, calls: QueryCall[]): { data: unknown[]; error:
 }
 
 function queryFor(table: string): FakeQuery {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const calls: QueryCall[] = [];
   const query = {} as FakeQuery;
   for (const method of ["select", "eq", "in", "gte", "not", "order", "range", "update"] as const) {
