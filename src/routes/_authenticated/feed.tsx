@@ -542,6 +542,7 @@ function FeedPage() {
                 busy={busyId === signal.id || busyId === trade?.id}
                 quoteMid={quotes[signal.instrument]?.mid}
                 orderStrategy={settings.data?.order_strategy ?? "smart_adaptive"}
+                autoOrderWindowMinutes={settings.data?.auto_order_window_minutes ?? null}
                 onDecision={(d) => void decide(signal.id, d)}
                 onResult={(outcome) => {
                   if (trade) void close(trade.id, outcome);

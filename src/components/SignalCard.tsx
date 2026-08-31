@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ArrowDownRight, ArrowUpRight, Check, ChevronDown, Copy, X } from "lucide-react";
 import { toast } from "sonner";
 import {
+  clampAutoOrderWindowMinutes,
   contextOf,
   INSTRUMENT_LABELS,
   maxAcceptableEntry,
@@ -53,6 +54,14 @@ export function GradeBadge({ grade }: { grade: string }) {
       {grade === "A+" ? "A+ GRADE" : `${grade}-GRADE`}
     </span>
   );
+}
+
+/** "45m", "3h", "3h 30m" — how long an un-filled order may rest. */
+function formatWindowMinutes(minutes: number): string {
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest === 0 ? `${hours}h` : `${hours}h ${rest}m`;
 }
 
 function price(v: number, instrument: string) {
@@ -724,6 +733,7 @@ export function SignalCard({
   busy,
   quoteMid,
   orderStrategy = "smart_adaptive",
+  autoOrderWindowMinutes,
   showRisk = true,
 }: {
   signal: SignalRow;
@@ -740,12 +750,24 @@ export function SignalCard({
   /** The user's manual order-guidance preference. */
   orderStrategy?: OrderStrategy;
   /**
+   * The owner's own automatic-order window (`auto_order_window_minutes`). The
+   * card must quote the window the ENGINE actually uses; the structural
+   * two-candle constant is only the fallback when the setting is unreadable or
+   * automatic orders are switched off.
+   */
+  autoOrderWindowMinutes?: number | null;
+  /**
    * Render the sizing panel. Sizing itself is resolved server-side by the shared
    * sizing service, so no risk profile or FX rate is passed through the browser.
    */
   showRisk?: boolean;
 }) {
   const ctx = contextOf(signal);
+  const windowMinutes =
+    autoOrderWindowMinutes === undefined || autoOrderWindowMinutes === null
+      ? ORDER_TIF_MINUTES
+      : (clampAutoOrderWindowMinutes(autoOrderWindowMinutes) || ORDER_TIF_MINUTES);
+  const windowLabel = formatWindowMinutes(windowMinutes);
   const long = signal.direction === "long";
   const conf = Number(signal.confidence_score);
   const { guide } = useGuideMode();
@@ -771,7 +793,7 @@ export function SignalCard({
       `R:R:        ${Number(signal.rr_ratio).toFixed(2)}${capped ? " (capped by H4 barrier)" : ""}`,
       `Confluence score: ${conf.toFixed(1)}%  ·  Grade ${signal.grade}`,
       `If price is beyond ${p(ceiling)}, do NOT enter at market — leave the limit at ${p(signal.entry_price)} for the retest.`,
-      `Cancel this order if unfilled within ${ORDER_TIF_MINUTES} minutes (2 candles).`,
+      `Cancel this order if unfilled within ${windowLabel}.`,
       `Not financial advice — size the position yourself.`,
     ].join("\n");
     try {
@@ -846,7 +868,7 @@ export function SignalCard({
             ) : null}
             {distance ? <DistanceChip d={distance} /> : null}
             <Badge variant="outline" className="num shrink-0 font-normal text-muted-foreground">
-              TIF {ORDER_TIF_MINUTES}m
+              TIF {windowLabel}
             </Badge>
             {trade ? (
               <Badge
@@ -932,9 +954,9 @@ export function SignalCard({
             ) : null}
             <Badge variant="outline" className="num font-normal">
               <InfoLabel
-                hint={`Time-in-force. If the market has not come back to your entry within ${ORDER_TIF_MINUTES} minutes (2 M15 candles), the structure that was graded is gone. Cancelling the un-filled order protects your capital from a stale setup.`}
+                hint={`Time-in-force — your own automatic-order window from Settings. If the market has not come back to your entry within ${windowLabel}, the structure that was graded is gone. Cancelling the un-filled order protects your capital from a stale setup.`}
               >
-                Cancel un-filled orders in {ORDER_TIF_MINUTES} minutes (2 candles)
+                Cancel un-filled orders in {windowLabel}
               </InfoLabel>
             </Badge>
             {ctx ? (
