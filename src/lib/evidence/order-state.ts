@@ -59,6 +59,13 @@ export interface BrokerOrderView {
   historyOrderStates: ReadonlyMap<string, string>;
   /** False when the broker could not be read this pass. */
   brokerReadable: boolean;
+  /**
+   * Whether the broker's own data still mentions this delivery's clientId
+   * anywhere (deal, position or resting order). Only consulted when P-Trades
+   * never recorded a broker order id — the case of a submission whose outcome
+   * was never confirmed. Omitted ⇒ treated as seen, i.e. fail closed.
+   */
+  clientIdSeenAtBroker?: boolean;
 }
 
 export function resolveBrokerOrderState(view: BrokerOrderView): BrokerOrderState {
@@ -68,7 +75,14 @@ export function resolveBrokerOrderState(view: BrokerOrderView): BrokerOrderState
   if (!view.brokerReadable) return "unresolved";
 
   const id = view.brokerOrderId;
-  if (!id) return "unresolved";
+  if (!id) {
+    // No broker reference was ever recorded. Once the broker HAS been read in
+    // full and its data mentions this clientId nowhere, the order positively
+    // does not exist there: it must stop consuming the owner's ceiling forever.
+    // Anything still mentioned — or any unreadable read above — stays unresolved.
+    if (view.clientIdSeenAtBroker === false) return "absent";
+    return "unresolved";
+  }
 
   if (view.positionIds.some((pid) => String(pid) === id)) return "open";
   if (view.restingOrderIds.some((oid) => String(oid) === id)) return "resting";
@@ -87,4 +101,24 @@ export function resolveBrokerOrderState(view: BrokerOrderView): BrokerOrderState
 
   // The broker was readable and lists this order nowhere: it is gone.
   return "absent";
+}
+
+/**
+ * TRUE when P-Trades can prove this delivery never reached the broker: it was
+ * never submitted, carries no clientId and no broker order id. Such a row is
+ * `unknown` because an internal preflight (for example an unreachable account
+ * information read) ended the attempt BEFORE submission — the broker was never
+ * asked for anything, so nothing at the broker can correspond to it and it must
+ * not consume the owner's concurrent-order ceiling.
+ *
+ * Deliberately strict: any one of the three references present means a
+ * submission may have happened, and the row keeps its slot until reconciliation
+ * says otherwise.
+ */
+export function neverReachedBroker(row: {
+  submittedAt: string | null | undefined;
+  clientId: string | null | undefined;
+  brokerOrderId: string | null | undefined;
+}): boolean {
+  return !row.submittedAt && !row.clientId && !row.brokerOrderId;
 }

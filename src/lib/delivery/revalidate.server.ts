@@ -46,6 +46,8 @@ import { marketStatus } from "@/lib/market-hours";
 import { minStopDistance, type SizingSpec } from "@/lib/broker/specs";
 import { loadBrokerSpec } from "@/lib/broker/specs.server";
 import { accountSpecStale, loadAccountSizingSpec } from "@/lib/accounts/specs.server";
+import { refreshAccountSpecForInstrument } from "@/lib/accounts/refresh-armed-specs.server";
+
 import { resolveSizingForAccount, resolveSizingForUser } from "@/lib/sizing/service.server";
 import { fetchQuote } from "@/lib/scanner/metaapi.server";
 import type { BrokerQuote } from "@/lib/metaapi/market.server";
@@ -556,23 +558,48 @@ export async function revalidateDelivery(
   // ---- 6. Broker stop distance + sizing guardrails --------------------------
   // A direct order is validated against the DESTINATION account's own
   // specification; the benchmark broker's table is never substituted for it.
-  const spec: SizingSpec | null = directTarget
+  let spec: SizingSpec | null = directTarget
     ? await loadAccountSizingSpec(db, directTarget.accountId, signal.instrument)
     : await loadBrokerSpec(db, signal.instrument);
   if (directTarget) {
+    // A specification that has aged past the execution trust bound (or was never
+    // stored) is not a broker refusal — it is OUR copy going stale. Ask the
+    // broker once, right here, and continue only if the broker itself answers.
+    // The 36-hour bound below is unchanged: a re-read that fails still refuses.
+    if (!spec || accountSpecStale(spec, now)) {
+      const rewritten = await refreshAccountSpecForInstrument(
+        db as never,
+        {
+          id: directTarget.accountId,
+          userId: delivery.user_id,
+          metaapiAccountId: directTarget.metaapiAccountId,
+          region: directTarget.region,
+          platform: null,
+        },
+        signal.instrument,
+        now,
+      );
+      if (rewritten) {
+        spec = await loadAccountSizingSpec(db, directTarget.accountId, signal.instrument);
+      }
+    }
     if (!spec) {
       return reject(
         "account_spec_unavailable",
-        `no contract specification is stored for ${signal.instrument} on this account`,
+        `your broker did not return a contract specification for ${signal.instrument} on this account`,
       );
     }
     if (accountSpecStale(spec, now)) {
-      return reject("account_spec_unavailable", `specification as of ${spec.asOf ?? "unknown"}`);
+      return reject(
+        "account_spec_unavailable",
+        `this account's ${signal.instrument} specification (as of ${spec.asOf ?? "unknown"}) is older than P-Trades will size an order from, and your broker could not be reached to re-read it`,
+      );
     }
     if (directTarget.equity === null || !(directTarget.equity > 0)) {
       return reject("account_equity_unavailable");
     }
   }
+
   // ---- 6a. Broker price grid (Phase A2A, R2-FIX) ---------------------------
   // Every price that can reach a broker is snapped onto that broker's own tick
   // grid BY ROLE before anything is derived from it, and every downstream check —

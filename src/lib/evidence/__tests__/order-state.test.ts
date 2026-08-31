@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  neverReachedBroker,
   occupiesSlot,
   resolveBrokerOrderState,
   type BrokerOrderView,
@@ -75,5 +76,48 @@ describe("broker order lifecycle", () => {
 
   it("[INVARIANT] a never-observed order fails closed and keeps its slot", () => {
     expect(occupiesSlot(null)).toBe(true);
+  });
+});
+
+describe("deliveries with no broker reference", () => {
+  it("[INVARIANT] stays unresolved while the broker still mentions the clientId", () => {
+    expect(
+      resolveBrokerOrderState(view({ brokerOrderId: null, clientIdSeenAtBroker: true })),
+    ).toBe("unresolved");
+  });
+
+  it("[INVARIANT] resolves to absent once a fully readable broker mentions it nowhere", () => {
+    const state = resolveBrokerOrderState(view({ brokerOrderId: null, clientIdSeenAtBroker: false }));
+    expect(state).toBe("absent");
+    expect(occupiesSlot(state)).toBe(false);
+  });
+
+  it("[INVARIANT] an unreadable broker never yields absent", () => {
+    expect(
+      resolveBrokerOrderState(
+        view({ brokerOrderId: null, clientIdSeenAtBroker: false, brokerReadable: false }),
+      ),
+    ).toBe("unresolved");
+  });
+
+  it("[INVARIANT] omitting the clientId observation fails closed", () => {
+    expect(resolveBrokerOrderState(view({ brokerOrderId: null }))).toBe("unresolved");
+  });
+});
+
+describe("neverReachedBroker", () => {
+  it("[INVARIANT] only an attempt with no submission, clientId or order id is provably unsent", () => {
+    expect(
+      neverReachedBroker({ submittedAt: null, clientId: null, brokerOrderId: null }),
+    ).toBe(true);
+    expect(
+      neverReachedBroker({ submittedAt: "2026-08-31T00:00:00Z", clientId: null, brokerOrderId: null }),
+    ).toBe(false);
+    expect(neverReachedBroker({ submittedAt: null, clientId: "PT-1", brokerOrderId: null })).toBe(
+      false,
+    );
+    expect(neverReachedBroker({ submittedAt: null, clientId: null, brokerOrderId: "9" })).toBe(
+      false,
+    );
   });
 });

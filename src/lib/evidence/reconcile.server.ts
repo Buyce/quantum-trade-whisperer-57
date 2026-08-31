@@ -351,6 +351,20 @@ export async function reconcileBrokerEvidence(
       [p.id, p.positionId].filter((id): id is string => typeof id === "string" && id.length > 0),
     );
 
+    // clientIds the broker itself still mentions anywhere. Used only to resolve
+    // deliveries that never obtained a broker order id.
+    const brokerClientIds = new Set<string>();
+    for (const deal of deals as readonly { clientId?: string | null }[]) {
+      if (deal.clientId) brokerClientIds.add(String(deal.clientId));
+    }
+    for (const row of [
+      ...(positions as readonly { clientId?: string | null }[]),
+      ...(restingOrders as readonly { clientId?: string | null }[]),
+      ...(historyOrders as readonly { clientId?: string | null }[]),
+    ]) {
+      if (row.clientId) brokerClientIds.add(String(row.clientId));
+    }
+
     for (const delivery of accountDeliveries) {
       const brokerState = resolveBrokerOrderState({
         brokerOrderId: delivery.broker_order_id ?? null,
@@ -359,6 +373,9 @@ export async function reconcileBrokerEvidence(
         positionIds,
         historyOrderStates,
         brokerReadable,
+        clientIdSeenAtBroker: delivery.client_id
+          ? brokerClientIds.has(String(delivery.client_id))
+          : true,
       });
       const { error } = await db
         .from("execution_deliveries")

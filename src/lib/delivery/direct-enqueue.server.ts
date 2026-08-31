@@ -54,7 +54,7 @@ import {
   lifecycleAllows,
 } from "@/lib/instruments/lifecycle";
 import { readLifecycleView } from "@/lib/instruments/lifecycle.server";
-import { occupiesSlot } from "@/lib/evidence/order-state";
+import { neverReachedBroker, occupiesSlot } from "@/lib/evidence/order-state";
 
 export interface DirectEnqueueSignal {
   id: string;
@@ -188,7 +188,7 @@ export async function occupiedOrderCounts(
   const { data, error } = await db
     .from("execution_deliveries")
     .select(
-      "user_id, state, enqueued_at, dry_run, broker_order_state, signal:scanned_signals(instrument)",
+      "user_id, state, enqueued_at, dry_run, broker_order_state, submitted_at, client_id, broker_order_id, signal:scanned_signals(instrument)",
     )
     .in("user_id", userIds)
     .in("state", OCCUPYING_STATES as unknown as string[])
@@ -203,13 +203,21 @@ export async function occupiedOrderCounts(
     user_id: string;
     enqueued_at: string | null;
     broker_order_state?: string | null;
+    submitted_at?: string | null;
+    client_id?: string | null;
+    broker_order_id?: string | null;
     signal?: { instrument: string | null } | { instrument: string | null }[] | null;
   };
   for (const row of (data ?? []) as Row[]) {
     // Concurrency follows the BROKER: a closed, cancelled or broker-absent order
     // holds nothing, so it gives the slot back immediately. Daily throughput is
     // unaffected — it counts orders created, not orders still running.
-    const occupies = occupiesSlot(row.broker_order_state as never);
+    const occupies =
+      !neverReachedBroker({
+        submittedAt: row.submitted_at ?? null,
+        clientId: row.client_id ?? null,
+        brokerOrderId: row.broker_order_id ?? null,
+      }) && occupiesSlot(row.broker_order_state as never);
     if (occupies) counts.set(row.user_id, (counts.get(row.user_id) ?? 0) + 1);
     if (row.enqueued_at !== null && row.enqueued_at >= dayStart) {
       daily.set(row.user_id, (daily.get(row.user_id) ?? 0) + 1);
@@ -245,7 +253,7 @@ export async function heldOrdersByUser(
   const { data, error } = await db
     .from("execution_deliveries")
     .select(
-      "id, user_id, signal_id, submitted_entry, published_entry, broker_order_state, signal:scanned_signals(instrument, direction, entry_price)",
+      "id, user_id, signal_id, submitted_entry, published_entry, broker_order_state, submitted_at, client_id, broker_order_id, signal:scanned_signals(instrument, direction, entry_price)",
     )
     .in("user_id", userIds)
     .in("state", OCCUPYING_STATES as unknown as string[])
@@ -262,6 +270,9 @@ export async function heldOrdersByUser(
     submitted_entry: number | string | null;
     published_entry: number | string | null;
     broker_order_state?: string | null;
+    submitted_at?: string | null;
+    client_id?: string | null;
+    broker_order_id?: string | null;
     signal?:
       | { instrument: string | null; direction: string | null; entry_price: number | string | null }
       | {
@@ -279,6 +290,14 @@ export async function heldOrdersByUser(
   for (const row of (data ?? []) as Row[]) {
     // A broker-closed, cancelled or absent order rests nowhere, so it cannot be
     // the duplicate of a fresh attempt.
+    if (
+      neverReachedBroker({
+        submittedAt: row.submitted_at ?? null,
+        clientId: row.client_id ?? null,
+        brokerOrderId: row.broker_order_id ?? null,
+      })
+    )
+      continue;
     if (!occupiesSlot(row.broker_order_state as never)) continue;
     const embedded = Array.isArray(row.signal) ? row.signal[0] : row.signal;
     const instrument = embedded?.instrument ?? null;
