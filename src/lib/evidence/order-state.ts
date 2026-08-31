@@ -102,3 +102,23 @@ export function resolveBrokerOrderState(view: BrokerOrderView): BrokerOrderState
   // The broker was readable and lists this order nowhere: it is gone.
   return "absent";
 }
+
+/**
+ * TRUE when P-Trades can prove this delivery never reached the broker: it was
+ * never submitted, carries no clientId and no broker order id. Such a row is
+ * `unknown` because an internal preflight (for example an unreachable account
+ * information read) ended the attempt BEFORE submission — the broker was never
+ * asked for anything, so nothing at the broker can correspond to it and it must
+ * not consume the owner's concurrent-order ceiling.
+ *
+ * Deliberately strict: any one of the three references present means a
+ * submission may have happened, and the row keeps its slot until reconciliation
+ * says otherwise.
+ */
+export function neverReachedBroker(row: {
+  submittedAt: string | null | undefined;
+  clientId: string | null | undefined;
+  brokerOrderId: string | null | undefined;
+}): boolean {
+  return !row.submittedAt && !row.clientId && !row.brokerOrderId;
+}
