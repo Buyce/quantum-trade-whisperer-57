@@ -674,41 +674,20 @@ export async function refreshSymbolMap(
       m.brokerSymbol,
     ).catch(() => null);
     if (!spec) continue;
-    const digits = Number.isFinite(Number(spec.digits)) ? Number(spec.digits) : null;
-    const point = Number.isFinite(Number(spec.point))
-      ? Number(spec.point)
-      : digits !== null
-        ? 10 ** -digits
-        : null;
     await db.from("connected_account_specs" as never).upsert(
-      {
-        account_id: row.id,
-        user_id: row.user_id,
-        broker_symbol: m.brokerSymbol,
-        canonical_symbol: m.canonical,
-        contract_size: spec.contractSize ?? null,
-        tick_size: spec.tickSize ?? null,
-        point,
-        point_source: Number.isFinite(Number(spec.point))
-          ? "broker_point"
-          : digits !== null
-            ? "derived_from_digits"
-            : null,
-        digits,
-        volume_min: spec.minVolume ?? null,
-        volume_max: spec.maxVolume ?? null,
-        volume_step: spec.volumeStep ?? null,
-        volume_limit: spec.volumeLimit ?? null,
-        stops_level: spec.stopsLevel ?? null,
-        freeze_level: spec.freezeLevel ?? null,
-        base_currency: spec.baseCurrency ?? null,
-        profit_currency: spec.profitCurrency ?? null,
-        raw: { ...spec, platform } as unknown,
-        fetched_at: new Date().toISOString(),
-      } as never,
+      buildAccountSpecRow({
+        accountId: row.id,
+        userId: row.user_id,
+        brokerSymbol: m.brokerSymbol,
+        canonicalSymbol: m.canonical,
+        platform,
+        spec,
+        fetchedAt: new Date().toISOString(),
+      }) as never,
       { onConflict: "account_id,broker_symbol" },
     );
   }
+
 }
 
 /**
