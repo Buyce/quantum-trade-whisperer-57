@@ -54,7 +54,7 @@ import {
   lifecycleAllows,
 } from "@/lib/instruments/lifecycle";
 import { readLifecycleView } from "@/lib/instruments/lifecycle.server";
-import { occupiesSlot } from "@/lib/evidence/order-state";
+import { neverReachedBroker, occupiesSlot } from "@/lib/evidence/order-state";
 
 export interface DirectEnqueueSignal {
   id: string;
