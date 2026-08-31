@@ -10,7 +10,7 @@ import { ACCOUNT_SPEC_MAX_AGE_MS } from "@/lib/accounts/specs.server";
 const NOW = Date.parse("2026-08-31T12:00:00.000Z");
 
 describe("buildAccountSpecRow", () => {
-  it("keeps broker point and reports its source", () => {
+  it("[INVARIANT] keeps broker point and reports its source", () => {
     const row = buildAccountSpecRow({
       accountId: "a",
       userId: "u",
@@ -26,7 +26,7 @@ describe("buildAccountSpecRow", () => {
     expect(row["canonical_symbol"]).toBe("XAUUSD");
   });
 
-  it("derives point from digits only when the broker omits it, and never defaults a missing field", () => {
+  it("[INVARIANT] derives point from digits only when the broker omits it, and never defaults a missing field", () => {
     const row = buildAccountSpecRow({
       accountId: "a",
       userId: "u",
@@ -43,7 +43,7 @@ describe("buildAccountSpecRow", () => {
     expect(row["volume_step"]).toBeNull();
   });
 
-  it("leaves point unknown when neither point nor digits is published", () => {
+  it("[INVARIANT] leaves point unknown when neither point nor digits is published", () => {
     const row = buildAccountSpecRow({
       accountId: "a",
       userId: "u",
@@ -61,21 +61,21 @@ describe("buildAccountSpecRow", () => {
 describe("needsSpecRefresh", () => {
   const base = { newestFetchedAt: new Date(NOW).toISOString(), storedSymbols: 3, mappedSymbols: 3 };
 
-  it("leaves a fresh account alone", () => {
+  it("[INVARIANT] leaves a fresh account alone", () => {
     expect(needsSpecRefresh(base, NOW + 60_000)).toBe(false);
   });
 
-  it("refreshes once past the refresh age", () => {
+  it("[INVARIANT] refreshes once past the refresh age", () => {
     expect(needsSpecRefresh(base, NOW + SPEC_REFRESH_AFTER_MS)).toBe(true);
   });
 
-  it("refreshes well before the execution trust bound expires", () => {
+  it("[INVARIANT] refreshes well before the execution trust bound expires", () => {
     expect(SPEC_REFRESH_AFTER_MS).toBeLessThan(ACCOUNT_SPEC_MAX_AGE_MS);
     // A single missed pass must still leave the specification usable.
     expect(2 * SPEC_REFRESH_AFTER_MS).toBeLessThanOrEqual(ACCOUNT_SPEC_MAX_AGE_MS);
   });
 
-  it("refreshes when nothing is stored, coverage is incomplete, or the time is unreadable", () => {
+  it("[INVARIANT] refreshes when nothing is stored, coverage is incomplete, or the time is unreadable", () => {
     expect(needsSpecRefresh({ ...base, storedSymbols: 0 }, NOW)).toBe(true);
     expect(needsSpecRefresh({ ...base, storedSymbols: 2, mappedSymbols: 3 }, NOW)).toBe(true);
     expect(needsSpecRefresh({ ...base, newestFetchedAt: null }, NOW)).toBe(true);
