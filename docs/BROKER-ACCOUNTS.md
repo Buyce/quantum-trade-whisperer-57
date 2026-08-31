@@ -70,6 +70,15 @@ and timestamped by the broker's own observation time. Position sizing that uses 
 comes from the shared sizing service (engine-derived). Settings equity is
 user-reported and is never substituted for broker equity.
 
+## Specification freshness
+
+Per-account contract specifications carry the broker's own read time. An hourly job
+re-reads them for armed accounts once they age past 12 hours, and a delivery that
+would otherwise be refused for a stale specification asks the broker once more before
+refusing. An order is never sized from a specification older than the execution trust
+bound (36 hours), and a re-read that fails still refuses — the refusal says our copy
+went stale and the broker could not be reached, not that the broker rejected anything.
+
 ## Failure behaviour
 
 Every gate fails closed: a missing specification, a stale quote, an unready account,
