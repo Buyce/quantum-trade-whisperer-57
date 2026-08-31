@@ -46,6 +46,8 @@ import { marketStatus } from "@/lib/market-hours";
 import { minStopDistance, type SizingSpec } from "@/lib/broker/specs";
 import { loadBrokerSpec } from "@/lib/broker/specs.server";
 import { accountSpecStale, loadAccountSizingSpec } from "@/lib/accounts/specs.server";
+import { refreshAccountSpecForInstrument } from "@/lib/accounts/refresh-armed-specs.server";
+
 import { resolveSizingForAccount, resolveSizingForUser } from "@/lib/sizing/service.server";
 import { fetchQuote } from "@/lib/scanner/metaapi.server";
 import type { BrokerQuote } from "@/lib/metaapi/market.server";

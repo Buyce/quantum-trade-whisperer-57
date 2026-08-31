@@ -142,7 +142,8 @@ export const REJECT_COPY: Record<RejectReason, string> = {
   live_authorization_stale:
     "Your live-execution confirmation does not match the current configuration, so no live order was sent. Confirm live execution again to re-authorise it.",
   account_spec_unavailable:
-    "Your broker has not published a usable contract specification for this symbol on this account, so no quantity could be established.",
+    "P-Trades does not hold a recent enough contract specification for this symbol on this account, so no quantity could be established. It is re-read from your broker automatically; when your broker cannot be reached, the order is refused rather than sized from an old specification.",
+
   account_equity_unavailable:
     "Your broker did not report equity for this account, so the order could not be sized from the account it would land in.",
   account_equity_stale:

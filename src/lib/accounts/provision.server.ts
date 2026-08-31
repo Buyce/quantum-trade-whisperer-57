@@ -44,7 +44,9 @@ import {
 } from "./lifecycle";
 import { isOfferedRegion } from "./guidance";
 import { isAccountMode, modeAfterReconcile } from "./mode";
+import { buildAccountSpecRow } from "./spec-row";
 import { mapSymbols } from "./symbol-map";
+
 import type { ConnectedAccountRow } from "./types";
 
 const TABLE = "connected_trading_accounts";
