@@ -34,6 +34,7 @@ import { Route as ApiPublicCronExpireOrdersRouteImport } from './routes/api/publ
 import { Route as ApiPublicCronIngestNewsRouteImport } from './routes/api/public/cron/ingest-news'
 import { Route as ApiPublicCronInstrumentReadinessRouteImport } from './routes/api/public/cron/instrument-readiness'
 import { Route as ApiPublicCronPurgeAccountsRouteImport } from './routes/api/public/cron/purge-accounts'
+import { Route as ApiPublicCronRefreshAccountSpecsRouteImport } from './routes/api/public/cron/refresh-account-specs'
 import { Route as ApiPublicCronRefreshAccountsRouteImport } from './routes/api/public/cron/refresh-accounts'
 import { Route as ApiPublicCronRefreshSpecsRouteImport } from './routes/api/public/cron/refresh-specs'
 import { Route as ApiPublicCronSampleSpreadsRouteImport } from './routes/api/public/cron/sample-spreads'
@@ -185,6 +186,12 @@ const ApiPublicCronPurgeAccountsRoute =
     path: '/api/public/cron/purge-accounts',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicCronRefreshAccountSpecsRoute =
+  ApiPublicCronRefreshAccountSpecsRouteImport.update({
+    id: '/api/public/cron/refresh-account-specs',
+    path: '/api/public/cron/refresh-account-specs',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicCronRefreshAccountsRoute =
   ApiPublicCronRefreshAccountsRouteImport.update({
     id: '/api/public/cron/refresh-accounts',
@@ -307,6 +314,7 @@ export interface FileRoutesByFullPath {
   '/api/public/cron/ingest-news': typeof ApiPublicCronIngestNewsRoute
   '/api/public/cron/instrument-readiness': typeof ApiPublicCronInstrumentReadinessRoute
   '/api/public/cron/purge-accounts': typeof ApiPublicCronPurgeAccountsRoute
+  '/api/public/cron/refresh-account-specs': typeof ApiPublicCronRefreshAccountSpecsRoute
   '/api/public/cron/refresh-accounts': typeof ApiPublicCronRefreshAccountsRoute
   '/api/public/cron/refresh-specs': typeof ApiPublicCronRefreshSpecsRoute
   '/api/public/cron/sample-spreads': typeof ApiPublicCronSampleSpreadsRoute
@@ -350,6 +358,7 @@ export interface FileRoutesByTo {
   '/api/public/cron/ingest-news': typeof ApiPublicCronIngestNewsRoute
   '/api/public/cron/instrument-readiness': typeof ApiPublicCronInstrumentReadinessRoute
   '/api/public/cron/purge-accounts': typeof ApiPublicCronPurgeAccountsRoute
+  '/api/public/cron/refresh-account-specs': typeof ApiPublicCronRefreshAccountSpecsRoute
   '/api/public/cron/refresh-accounts': typeof ApiPublicCronRefreshAccountsRoute
   '/api/public/cron/refresh-specs': typeof ApiPublicCronRefreshSpecsRoute
   '/api/public/cron/sample-spreads': typeof ApiPublicCronSampleSpreadsRoute
@@ -395,6 +404,7 @@ export interface FileRoutesById {
   '/api/public/cron/ingest-news': typeof ApiPublicCronIngestNewsRoute
   '/api/public/cron/instrument-readiness': typeof ApiPublicCronInstrumentReadinessRoute
   '/api/public/cron/purge-accounts': typeof ApiPublicCronPurgeAccountsRoute
+  '/api/public/cron/refresh-account-specs': typeof ApiPublicCronRefreshAccountSpecsRoute
   '/api/public/cron/refresh-accounts': typeof ApiPublicCronRefreshAccountsRoute
   '/api/public/cron/refresh-specs': typeof ApiPublicCronRefreshSpecsRoute
   '/api/public/cron/sample-spreads': typeof ApiPublicCronSampleSpreadsRoute
@@ -440,6 +450,7 @@ export interface FileRouteTypes {
     | '/api/public/cron/ingest-news'
     | '/api/public/cron/instrument-readiness'
     | '/api/public/cron/purge-accounts'
+    | '/api/public/cron/refresh-account-specs'
     | '/api/public/cron/refresh-accounts'
     | '/api/public/cron/refresh-specs'
     | '/api/public/cron/sample-spreads'
@@ -483,6 +494,7 @@ export interface FileRouteTypes {
     | '/api/public/cron/ingest-news'
     | '/api/public/cron/instrument-readiness'
     | '/api/public/cron/purge-accounts'
+    | '/api/public/cron/refresh-account-specs'
     | '/api/public/cron/refresh-accounts'
     | '/api/public/cron/refresh-specs'
     | '/api/public/cron/sample-spreads'
@@ -527,6 +539,7 @@ export interface FileRouteTypes {
     | '/api/public/cron/ingest-news'
     | '/api/public/cron/instrument-readiness'
     | '/api/public/cron/purge-accounts'
+    | '/api/public/cron/refresh-account-specs'
     | '/api/public/cron/refresh-accounts'
     | '/api/public/cron/refresh-specs'
     | '/api/public/cron/sample-spreads'
@@ -564,6 +577,7 @@ export interface RootRouteChildren {
   ApiPublicCronIngestNewsRoute: typeof ApiPublicCronIngestNewsRoute
   ApiPublicCronInstrumentReadinessRoute: typeof ApiPublicCronInstrumentReadinessRoute
   ApiPublicCronPurgeAccountsRoute: typeof ApiPublicCronPurgeAccountsRoute
+  ApiPublicCronRefreshAccountSpecsRoute: typeof ApiPublicCronRefreshAccountSpecsRoute
   ApiPublicCronRefreshAccountsRoute: typeof ApiPublicCronRefreshAccountsRoute
   ApiPublicCronRefreshSpecsRoute: typeof ApiPublicCronRefreshSpecsRoute
   ApiPublicCronSampleSpreadsRoute: typeof ApiPublicCronSampleSpreadsRoute
@@ -760,6 +774,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicCronPurgeAccountsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/cron/refresh-account-specs': {
+      id: '/api/public/cron/refresh-account-specs'
+      path: '/api/public/cron/refresh-account-specs'
+      fullPath: '/api/public/cron/refresh-account-specs'
+      preLoaderRoute: typeof ApiPublicCronRefreshAccountSpecsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/cron/refresh-accounts': {
       id: '/api/public/cron/refresh-accounts'
       path: '/api/public/cron/refresh-accounts'
@@ -938,6 +959,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicCronIngestNewsRoute: ApiPublicCronIngestNewsRoute,
   ApiPublicCronInstrumentReadinessRoute: ApiPublicCronInstrumentReadinessRoute,
   ApiPublicCronPurgeAccountsRoute: ApiPublicCronPurgeAccountsRoute,
+  ApiPublicCronRefreshAccountSpecsRoute: ApiPublicCronRefreshAccountSpecsRoute,
   ApiPublicCronRefreshAccountsRoute: ApiPublicCronRefreshAccountsRoute,
   ApiPublicCronRefreshSpecsRoute: ApiPublicCronRefreshSpecsRoute,
   ApiPublicCronSampleSpreadsRoute: ApiPublicCronSampleSpreadsRoute,
