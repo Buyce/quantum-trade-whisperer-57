@@ -24,6 +24,9 @@ import { UNFILLED_ORDER_TIMEOUT_MS, isTerminal, type DeliveryState } from "./exe
 
 type Db = Pick<SupabaseClient, "from">;
 
+/** How far back closed broker order history is read to prove a non-fill. */
+export const HISTORY_LOOKBACK_MS = 7 * 24 * 3_600_000;
+
 /** How many deliveries one pass may examine. Bounded by design. */
 export const MAX_EXPIRIES_PER_RUN = 25;
 
@@ -106,8 +109,18 @@ export function classifyBrokerPresence(
   orderId: string,
   orders: readonly { id?: string | null; currentVolume?: number | null; volume?: number | null }[],
   positions: readonly { id?: string | null }[],
+  /**
+   * Closed broker history for the same window. An order the broker already
+   * FILLED is gone from both live lists, so without history a real trade looks
+   * "absent" and gets settled as never filled — exactly how P-Trades previously
+   * mislabelled closed, profitable trades.
+   */
+  historyOrders: readonly { id?: string | null; state?: string | null }[] = [],
 ): BrokerOrderPresence {
   if (positions.some((p) => String(p.id ?? "") === orderId)) return "filled";
+  const historical = historyOrders.find((o) => String(o.id ?? "") === orderId);
+  const historicalState = (historical?.state ?? "").toUpperCase();
+  if (historicalState.includes("FILLED")) return "filled";
   const order = orders.find((o) => String(o.id ?? "") === orderId);
   if (!order) return "absent";
   const total = typeof order.volume === "number" ? order.volume : null;
@@ -233,11 +246,25 @@ export async function expireUnfilledOrders(
 
     try {
       const { fetchOrders, fetchPositions } = await import("@/lib/metaapi/accounts.server");
-      const [orders, positions] = await Promise.all([
+      const { fetchHistoryOrders } = await import("@/lib/metaapi/history.server");
+      const [orders, positions, historyOrders] = await Promise.all([
         fetchOrders(account.metaapi_account_id, account.region),
         fetchPositions(account.metaapi_account_id, account.region),
+        // A filled order leaves both live lists, so closed history is what proves
+        // "never filled" before any slot is reclaimed.
+        fetchHistoryOrders(
+          account.metaapi_account_id,
+          account.region,
+          new Date(now - HISTORY_LOOKBACK_MS),
+          new Date(now),
+        ),
       ]);
-      const presence = classifyBrokerPresence(row.broker_order_id, orders, positions);
+      const presence = classifyBrokerPresence(
+        row.broker_order_id,
+        orders,
+        positions,
+        historyOrders,
+      );
       if (presence === "filled") {
         outcomes.push({
           deliveryId: row.id,
