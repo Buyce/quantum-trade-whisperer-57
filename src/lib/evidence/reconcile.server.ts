@@ -27,11 +27,32 @@ import { resolveBrokerOrderState } from "./order-state";
 
 type Db = Pick<SupabaseClient, "from" | "rpc">;
 
-/** How far back broker history is read on each pass. */
-export const RECONCILE_WINDOW_HOURS = 72;
+/**
+ * How far back broker history is read on each pass.
+ *
+ * It must cover at least the retention window: a filled order whose delivery was
+ * settled days ago is still the broker's own record of a real trade, and a
+ * shorter window is exactly how P-Trades previously lost closed trades.
+ */
+export const RECONCILE_WINDOW_HOURS = 168;
 
-/** Delivery states worth reconciling: something may exist at the broker. */
+/**
+ * Delivery states worth reconciling: something may exist at the broker.
+ *
+ * Association is by broker clientId, NOT by our own state guess, so a row we
+ * settled `expired`, `rejected` or `failed` is still reconciled whenever it was
+ * ever submitted. Only never-submitted rows are out of scope.
+ */
 const SUBMITTED_STATES = ["sent", "acknowledged", "unknown"] as const;
+
+/** PostgREST filter: still in flight, OR provably submitted at some point. */
+const RECONCILABLE_FILTER = [
+  `state.in.(${SUBMITTED_STATES.join(",")})`,
+  "submitted_at.not.is.null",
+  "client_id.not.is.null",
+  "broker_order_id.not.is.null",
+].join(",");
+
 
 interface DeliveryRow {
   id: number;
@@ -168,7 +189,7 @@ export async function reconcileBrokerEvidence(
       "id, user_id, signal_id, connected_account_id, client_id, magic, broker_symbol, submitted_entry, submitted_stop, submitted_target, submitted_at, account_mode, broker_order_id",
     )
     .eq("destination_type", "metaapi_direct")
-    .in("state", SUBMITTED_STATES as unknown as string[])
+    .or(RECONCILABLE_FILTER)
     .gte("submitted_at", since.toISOString());
   if (deliveryError) {
     result.errors.push(`deliveries unreadable: ${deliveryError.message}`);
@@ -195,7 +216,7 @@ export async function reconcileBrokerEvidence(
         "id, user_id, signal_id, connected_account_id, client_id, magic, broker_symbol, submitted_entry, submitted_stop, submitted_target, submitted_at, account_mode, broker_order_id",
       )
       .eq("destination_type", "metaapi_direct")
-      .in("state", SUBMITTED_STATES as unknown as string[])
+      .or(RECONCILABLE_FILTER)
       .in("id", ids);
     if (error) {
       result.errors.push(`older open deliveries unreadable: ${error.message}`);
@@ -328,7 +349,8 @@ export async function reconcileBrokerEvidence(
             !!options.benchmarkAccountId &&
             options.benchmarkAccountId === account.metaapi_account_id,
         });
-        if (written === "error") pushError(`${group.clientId}: evidence write failed`);
+        if (typeof written === "object")
+          pushError(`${group.clientId}: evidence write failed — ${written.error}`);
         else if (written === "written") result.evidenceWritten += 1;
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -415,7 +437,7 @@ async function writeEvidence(
     brokerStop: BrokerStop;
     isBenchmark: boolean;
   },
-): Promise<"written" | "skipped" | "error"> {
+): Promise<"written" | "skipped" | { error: string }> {
   const { group, delivery, account } = input;
   const summary = summariseGroup(group);
 
@@ -531,7 +553,7 @@ async function writeEvidence(
 
   if (!found) {
     const { error } = await db.from("broker_trade_evidence").insert(row as never);
-    return error ? "error" : "written";
+    return error ? { error: error.message } : "written";
   }
   // Closed evidence is immutable — the database refuses the update too.
   if (found.state === "closed") return "skipped";
@@ -559,5 +581,5 @@ async function writeEvidence(
     .from("broker_trade_evidence")
     .update(updateRow as never)
     .eq("id", found.id);
-  return error ? "error" : "written";
+  return error ? { error: error.message } : "written";
 }
