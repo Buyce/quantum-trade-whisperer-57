@@ -29,6 +29,8 @@ import {
   resolveBrokerStop,
   summariseGroup,
 } from "./associate";
+import { recoveredCharacterisationFields } from "./grade-recovery";
+import { recoverCharacterisation } from "./grade-recovery.server";
 
 type Db = Pick<SupabaseClient, "from">;
 
@@ -207,7 +209,17 @@ export async function recoverOrphanEvidence(
         actualInitialStop: brokerStop.stop,
       });
 
+      // The signal row is gone, but the decision log is not: instrument, grade
+      // and the signal reference are recovered from it when — and only when —
+      // the match is unambiguous.
+      const characterisation = await recoverCharacterisation(db, {
+        clientId: group.clientId,
+        brokerSymbol: group.symbol ?? null,
+        aroundIso: summary.entryAt,
+      });
+
       const { error } = await db.from("broker_trade_evidence").insert({
+        ...(characterisation ? recoveredCharacterisationFields(characterisation) : {}),
         user_id: account.user_id,
         evidence_class: evidenceClass,
         evidence_phase: "development",
