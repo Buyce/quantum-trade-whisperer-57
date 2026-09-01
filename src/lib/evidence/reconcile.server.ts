@@ -466,6 +466,17 @@ async function writeEvidence(
     day_of_week?: number;
   } | null;
 
+  // The delivery survived but its signal did not. Instrument, grade and the
+  // signal reference are then recovered from the decision log, which retention
+  // never touches, and only when the match is unambiguous.
+  const characterisation = signal
+    ? null
+    : await recoverCharacterisation(db, {
+        clientId: group.clientId,
+        brokerSymbol: group.symbol ?? delivery.broker_symbol ?? null,
+        aroundIso: summary.entryAt ?? delivery.submitted_at ?? null,
+      });
+
   const consent = pooledInclusionAllowed({
     researchConsent: account.research_consent,
     researchConsentVersion: account.research_consent_version,
