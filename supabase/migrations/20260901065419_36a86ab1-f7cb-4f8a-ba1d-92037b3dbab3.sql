@@ -1,0 +1,1 @@
+ALTER FUNCTION public.enforce_evidence_immutability() SET search_path = public;

@@ -246,6 +246,12 @@ export async function recoverOrphanEvidence(
         r_availability: r.availability,
         stop_provenance: r.stopProvenance,
         r_math_version: R_MATH_VERSION,
+        // The submitted record was deleted with the delivery row, so there is no
+        // published price to measure the broker's fill against.
+        published_entry: null,
+        slippage_price: null,
+        slippage_availability: "unavailable_no_submitted_record",
+        slippage_basis: null,
         deals: group.deals as unknown as Record<string, unknown>[],
         state: summary.state,
         resolved_at:

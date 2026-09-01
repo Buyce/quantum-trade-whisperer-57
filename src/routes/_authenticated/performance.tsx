@@ -15,6 +15,7 @@ import {
   heatMap,
   pct,
   rDistribution,
+  brokerMoneySummary,
   samplesFromBrokerEvidence,
   samplesFromTrades,
 } from "@/lib/performance";
@@ -138,6 +139,19 @@ function PerformancePage() {
     [benchmarkEvidence.data, rBasis],
   );
   const samples = scope === "journal" ? journal : scope === "broker" ? broker : benchmark;
+  // Broker money is read from the broker's own deal figures, never from plan
+  // prices. It is money, not R, so it is reported per currency and separately.
+  const brokerMoney = useMemo(
+    () =>
+      brokerMoneySummary(
+        scope === "broker"
+          ? (customerEvidence.data ?? [])
+          : scope === "benchmark"
+            ? (benchmarkEvidence.data ?? [])
+            : [],
+      ),
+    [scope, customerEvidence.data, benchmarkEvidence.data],
+  );
   const sourceMeta = SOURCE_META[scope];
   const scopeLabel = sourceMeta.scopeLabel;
 
@@ -219,6 +233,51 @@ function PerformancePage() {
           </Button>
         </div>
       </div>
+
+      {scope !== "journal" && (brokerMoney.buckets.length > 0 || brokerMoney.unpriced > 0) ? (
+        <section className="rounded-md border border-border bg-card p-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline" className="font-mono text-[10px] tracking-wide">
+              BROKER-REPORTED MONEY
+            </Badge>
+            <span className="text-sm font-medium">Realised profit and loss</span>
+          </div>
+          <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+            Taken from your broker's own closed deals — gross profit, swap and commission — not from
+            plan prices or R. Currencies are never added together, and a trade your broker did not
+            price is counted as unpriced rather than as zero.
+          </p>
+          <div className="mt-4 space-y-2">
+            {brokerMoney.buckets.map((bucket) => (
+              <div
+                key={bucket.currency}
+                className="grid gap-px overflow-hidden rounded-sm border border-border bg-border sm:grid-cols-3 lg:grid-cols-6"
+              >
+                <SummaryCell label="Currency" value={bucket.currency} />
+                <SummaryCell label="Closed trades" value={bucket.count} />
+                <SummaryCell
+                  label="Win / loss"
+                  value={`${bucket.wins} / ${bucket.losses}${bucket.breakeven > 0 ? ` / ${bucket.breakeven} BE` : ""}`}
+                />
+                <SummaryCell label="Gross" value={bucket.gross.toFixed(2)} />
+                <SummaryCell
+                  label="Swap + commission"
+                  value={(bucket.swap + bucket.commission).toFixed(2)}
+                />
+                <SummaryCell label="Net" value={bucket.net.toFixed(2)} />
+              </div>
+            ))}
+          </div>
+          {brokerMoney.unpriced > 0 ? (
+            <p className="mt-2 text-xs text-warning">
+              {brokerMoney.unpriced} closed broker{" "}
+              {brokerMoney.unpriced === 1 ? "trade carries" : "trades carry"} no money figure from
+              the broker, so {brokerMoney.unpriced === 1 ? "it is" : "they are"} excluded from these
+              totals rather than counted as zero.
+            </p>
+          ) : null}
+        </section>
+      ) : null}
 
       <GuideNote anchor="expectancy">
         Expectancy in R is (win rate x average win in R) − (loss rate x average loss in R): the
@@ -574,7 +633,7 @@ function AutomaticOrderSummaryPanel({
   );
 }
 
-function SummaryCell({ label, value }: { label: string; value: number }) {
+function SummaryCell({ label, value }: { label: string; value: number | string }) {
   return (
     <div className="min-w-0 bg-card px-3 py-3">
       <p className="label-xs">{label}</p>

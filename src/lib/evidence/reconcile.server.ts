@@ -23,6 +23,7 @@ import {
   type BrokerStop,
   type DealGroup,
 } from "./associate";
+import { computeSlippage } from "./slippage";
 import { resolveBrokerOrderState } from "./order-state";
 
 type Db = Pick<SupabaseClient, "from" | "rpc">;
@@ -62,6 +63,7 @@ interface DeliveryRow {
   client_id: string | null;
   magic: number | null;
   broker_symbol: string | null;
+  published_entry: number | null;
   submitted_entry: number | null;
   submitted_stop: number | null;
   submitted_target: number | null;
@@ -186,7 +188,7 @@ export async function reconcileBrokerEvidence(
   const { data: deliveryRows, error: deliveryError } = await db
     .from("execution_deliveries")
     .select(
-      "id, user_id, signal_id, connected_account_id, client_id, magic, broker_symbol, submitted_entry, submitted_stop, submitted_target, submitted_at, account_mode, broker_order_id",
+      "id, user_id, signal_id, connected_account_id, client_id, magic, broker_symbol, published_entry, submitted_entry, submitted_stop, submitted_target, submitted_at, account_mode, broker_order_id",
     )
     .eq("destination_type", "metaapi_direct")
     .or(RECONCILABLE_FILTER)
@@ -213,7 +215,7 @@ export async function reconcileBrokerEvidence(
     const { data, error } = await db
       .from("execution_deliveries")
       .select(
-        "id, user_id, signal_id, connected_account_id, client_id, magic, broker_symbol, submitted_entry, submitted_stop, submitted_target, submitted_at, account_mode, broker_order_id",
+        "id, user_id, signal_id, connected_account_id, client_id, magic, broker_symbol, published_entry, submitted_entry, submitted_stop, submitted_target, submitted_at, account_mode, broker_order_id",
       )
       .eq("destination_type", "metaapi_direct")
       .or(RECONCILABLE_FILTER)
@@ -492,6 +494,15 @@ async function writeEvidence(
     actualInitialStop: input.brokerStop.stop,
   });
 
+  // Broker slippage against the price P-Trades put its name to. Unavailable stays
+  // unavailable; nothing here is inferred from the fill alone.
+  const slippage = computeSlippage({
+    direction,
+    publishedEntry: delivery.published_entry,
+    submittedEntry: delivery.submitted_entry,
+    fillPrice: summary.entryPrice,
+  });
+
   const row = {
     user_id: delivery.user_id,
     evidence_class: evidenceClassFor(input.isBenchmark),
@@ -538,6 +549,10 @@ async function writeEvidence(
     r_availability: r.availability,
     stop_provenance: r.stopProvenance,
     r_math_version: R_MATH_VERSION,
+    published_entry: slippage.publishedEntry,
+    slippage_price: slippage.price,
+    slippage_availability: slippage.availability,
+    slippage_basis: slippage.basis,
     deals: group.deals as unknown as Record<string, unknown>[],
     state: summary.state,
     resolved_at: summary.state === "closed" ? (summary.exitAt ?? new Date().toISOString()) : null,
