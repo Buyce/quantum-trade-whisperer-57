@@ -144,6 +144,20 @@ export interface BrokerOrderView {
   r: JournalRView;
   /** Plan snapshot the order was measured against, when the signal is retained. */
   plan: { entry: number | null; stop: number | null; target: number | null; rr: number | null };
+  /**
+   * TRUE when this row was recovered from the broker's own deal history because
+   * the P-Trades order record behind it no longer exists. The broker figures are
+   * real; the submitted geometry is genuinely unknown, never reconstructed.
+   */
+  recovered: boolean;
+}
+
+/** A recovered broker trade with no surviving delivery row. */
+export interface RecoveredEvidenceRow extends BrokerOrderEvidenceRow {
+  id: string;
+  client_id: string | null;
+  broker_symbol: string;
+  first_observed_at: string;
 }
 
 const GRADES = new Set(["A+", "A", "B", "C"]);
@@ -216,6 +230,23 @@ export function brokerOrderStatus(
     }
   }
 
+  // Broker-confirmed lifecycle outranks our own settled state. A row we settled
+  // `expired` while the broker had already filled it is a real trade awaiting
+  // evidence, never "not filled".
+  if (delivery.broker_order_state === "open" || delivery.broker_order_state === "closed") {
+    return {
+      kind: delivery.broker_order_state === "open" ? "open_at_broker" : "closed_at_broker",
+      label:
+        delivery.broker_order_state === "open"
+          ? "Open at the broker"
+          : "Filled and closed at the broker — awaiting evidence",
+      detail:
+        delivery.broker_order_state === "open"
+          ? "The broker confirmed a position for this order, so there is no result yet."
+          : "The broker confirmed this order filled and closed. Its figures appear once the deals are reconciled.",
+    };
+  }
+
   const detail = delivery.broker_retcode_string ?? delivery.reason ?? null;
   // A refusal that never left P-Trades is not the broker's verdict. Only a row
   // carrying a broker return code, or a recorded submission, may be attributed to
@@ -229,6 +260,7 @@ export function brokerOrderStatus(
       detail: engineRefusalCopy(delivery.reason),
     };
   }
+
   switch (delivery.state) {
     case "pending":
       return {
@@ -378,5 +410,77 @@ export function toBrokerOrderView(
       target: signal?.tp1 ?? null,
       rr: signal?.rr_ratio ?? null,
     },
+    recovered: false,
+  };
+}
+
+/**
+ * Maps a recovered broker trade — one whose P-Trades order record was deleted by
+ * retention — into the same History row shape.
+ *
+ * Every figure comes from the broker's own deals. Everything P-Trades no longer
+ * has (grade, plan, submitted geometry, destination, entry mode) is reported as
+ * unavailable rather than guessed.
+ */
+export function toRecoveredEvidenceView(
+  evidence: RecoveredEvidenceRow,
+  basis: RBasis = "actual_risk",
+): BrokerOrderView {
+  const open = evidence.state === "open";
+  const r = open
+    ? journalRView({ outcome: "open", r_availability: "unavailable_open" }, basis)
+    : journalRView(
+        {
+          outcome: "closed",
+          r_vs_plan: evidence.r_vs_plan,
+          r_vs_actual_risk: evidence.r_vs_actual_risk,
+          r_availability: evidence.r_availability,
+          stop_provenance: evidence.stop_provenance,
+        },
+        basis,
+      );
+
+  return {
+    key: `evidence-${evidence.id}`,
+    deliveryId: 0,
+    instrument: evidence.broker_symbol,
+    grade: "Unknown",
+    direction: direction(evidence.direction),
+    detectedAt: null,
+    enqueuedAt: evidence.entry_at ?? evidence.first_observed_at,
+    accountType: accountType(evidence.broker_account_type),
+    destination: brokerOrderDestination("metaapi_direct"),
+    dryRun: false,
+    entryMode: "unknown",
+    status: open
+      ? {
+          kind: "open_at_broker",
+          label: "Open at the broker",
+          detail: "The broker still holds this position, so there is no result yet.",
+        }
+      : { kind: "closed_at_broker", label: "Closed at the broker", detail: null },
+    submitted: {
+      volume: null,
+      entry: null,
+      stop: null,
+      target: null,
+      at: null,
+      brokerSymbol: evidence.broker_symbol,
+    },
+    broker: {
+      state: evidence.state,
+      entryPrice: evidence.entry_price,
+      exitPrice: evidence.exit_price,
+      volume: evidence.volume,
+      entryAt: evidence.entry_at,
+      exitAt: evidence.exit_at,
+      grossProfit: evidence.gross_profit,
+      commission: evidence.commission,
+      swap: evidence.swap,
+      currency: evidence.profit_currency,
+    },
+    r,
+    plan: { entry: null, stop: null, target: null, rr: null },
+    recovered: true,
   };
 }

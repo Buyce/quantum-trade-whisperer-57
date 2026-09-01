@@ -30,7 +30,36 @@ export function readMetaApiTokens(purpose: "general" | "provisioning" = "general
     (token, index, all): token is string => Boolean(token) && all.indexOf(token) === index,
   );
   if (tokens.length === 0) throw new MetaApiNotConfiguredError("METAAPI_TOKEN");
-  return tokens;
+
+  // A credential the provider has already refused for this purpose goes LAST, so
+  // every later call stops spending a rejected round trip before the token that
+  // actually has access. Order-only: no token is ever dropped, because access can
+  // be granted again at the provider at any time.
+  const refused = REFUSED_TOKENS.get(purpose);
+  if (!refused || refused.size === 0) return tokens;
+  const permitted = tokens.filter((token) => !refused.has(token));
+  return permitted.length === 0 ? tokens : [...permitted, ...tokens.filter((t) => refused.has(t))];
+}
+
+/** Tokens the provider explicitly refused (401/403), per purpose, per isolate. */
+const REFUSED_TOKENS = new Map<string, Set<string>>();
+
+/**
+ * Record that the provider refused this credential. Called ONLY on an explicit
+ * 401/403 by the request boundary; it never reacts to network or 5xx failures.
+ */
+export function noteMetaApiTokenRefused(
+  purpose: "general" | "provisioning",
+  token: string,
+): void {
+  const set = REFUSED_TOKENS.get(purpose) ?? new Set<string>();
+  set.add(token);
+  REFUSED_TOKENS.set(purpose, set);
+}
+
+/** Test seam: forget every recorded refusal. */
+export function resetMetaApiTokenRefusals(): void {
+  REFUSED_TOKENS.clear();
 }
 
 /** Primary token retained for pre-flight inspection and existing callers. */

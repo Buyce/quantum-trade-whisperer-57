@@ -198,6 +198,15 @@ function OrderCard({ row }: { row: BrokerOrderView }) {
                 ? "Pending limit"
                 : "Entry mode unavailable"}
           </span>
+          {row.recovered ? (
+            <span
+              className="num rounded-sm border border-warning/40 bg-warning/10 px-1.5 py-0.5 text-[11px] text-warning"
+              title="Recovered from your broker's own deal history. The P-Trades order record for this trade no longer exists, so the setup, grade and submitted geometry are unavailable — only the broker's figures are shown."
+            >
+              Recovered from broker records
+            </span>
+          ) : null}
+
         </div>
         <div className="flex min-w-0 flex-wrap items-center gap-2 sm:ml-auto sm:shrink-0">
           <span

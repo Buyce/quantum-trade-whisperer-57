@@ -8,7 +8,12 @@
  *  - map every failure into the single error vocabulary in `errors.ts`
  *  - preserve `retry-after` so 202/429 handling can be honest about waiting
  */
-import { METAAPI_APPLICATION, REQUEST_TIMEOUT_MS, readMetaApiTokens } from "./config.server";
+import {
+  METAAPI_APPLICATION,
+  REQUEST_TIMEOUT_MS,
+  noteMetaApiTokenRefused,
+  readMetaApiTokens,
+} from "./config.server";
 import {
   MetaApiHttpError,
   MetaApiNotConfiguredError,
@@ -212,6 +217,7 @@ export async function metaApiRequest<T = unknown>(
 
         const rejectedToken =
           err instanceof MetaApiHttpError && (err.status === 401 || err.status === 403);
+        if (rejectedToken) noteMetaApiTokenRefused(purpose, token);
         if (rejectedToken && tokenIndex + 1 < tokens.length) {
           // An authorization rejection confirms this credential did not permit
           // the operation. Trying the alternate token cannot duplicate it.
