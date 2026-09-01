@@ -47,6 +47,7 @@ import { Route as ApiPublicWorkerDispatchRouteImport } from './routes/api/public
 import { Route as ApiPublicWorkerProcessRouteImport } from './routes/api/public/worker/process'
 import { Route as ApiPublicWorkerReconcileRouteImport } from './routes/api/public/worker/reconcile'
 import { Route as ApiPublicWorkerReconcileActiveRouteImport } from './routes/api/public/worker/reconcile-active'
+import { Route as ApiPublicWorkerRecoverEvidenceRouteImport } from './routes/api/public/worker/recover-evidence'
 import { Route as ApiPublicWorkerShadowRouteImport } from './routes/api/public/worker/shadow'
 import { Route as ApiPublicWorkerTelemetryRouteImport } from './routes/api/public/worker/telemetry'
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
@@ -261,6 +262,12 @@ const ApiPublicWorkerReconcileActiveRoute =
     path: '/api/public/worker/reconcile-active',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicWorkerRecoverEvidenceRoute =
+  ApiPublicWorkerRecoverEvidenceRouteImport.update({
+    id: '/api/public/worker/recover-evidence',
+    path: '/api/public/worker/recover-evidence',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicWorkerShadowRoute = ApiPublicWorkerShadowRouteImport.update({
   id: '/api/public/worker/shadow',
   path: '/api/public/worker/shadow',
@@ -327,6 +334,7 @@ export interface FileRoutesByFullPath {
   '/api/public/worker/process': typeof ApiPublicWorkerProcessRoute
   '/api/public/worker/reconcile': typeof ApiPublicWorkerReconcileRoute
   '/api/public/worker/reconcile-active': typeof ApiPublicWorkerReconcileActiveRoute
+  '/api/public/worker/recover-evidence': typeof ApiPublicWorkerRecoverEvidenceRoute
   '/api/public/worker/shadow': typeof ApiPublicWorkerShadowRoute
   '/api/public/worker/telemetry': typeof ApiPublicWorkerTelemetryRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -371,6 +379,7 @@ export interface FileRoutesByTo {
   '/api/public/worker/process': typeof ApiPublicWorkerProcessRoute
   '/api/public/worker/reconcile': typeof ApiPublicWorkerReconcileRoute
   '/api/public/worker/reconcile-active': typeof ApiPublicWorkerReconcileActiveRoute
+  '/api/public/worker/recover-evidence': typeof ApiPublicWorkerRecoverEvidenceRoute
   '/api/public/worker/shadow': typeof ApiPublicWorkerShadowRoute
   '/api/public/worker/telemetry': typeof ApiPublicWorkerTelemetryRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -417,6 +426,7 @@ export interface FileRoutesById {
   '/api/public/worker/process': typeof ApiPublicWorkerProcessRoute
   '/api/public/worker/reconcile': typeof ApiPublicWorkerReconcileRoute
   '/api/public/worker/reconcile-active': typeof ApiPublicWorkerReconcileActiveRoute
+  '/api/public/worker/recover-evidence': typeof ApiPublicWorkerRecoverEvidenceRoute
   '/api/public/worker/shadow': typeof ApiPublicWorkerShadowRoute
   '/api/public/worker/telemetry': typeof ApiPublicWorkerTelemetryRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -463,6 +473,7 @@ export interface FileRouteTypes {
     | '/api/public/worker/process'
     | '/api/public/worker/reconcile'
     | '/api/public/worker/reconcile-active'
+    | '/api/public/worker/recover-evidence'
     | '/api/public/worker/shadow'
     | '/api/public/worker/telemetry'
     | '/lovable/email/auth/preview'
@@ -507,6 +518,7 @@ export interface FileRouteTypes {
     | '/api/public/worker/process'
     | '/api/public/worker/reconcile'
     | '/api/public/worker/reconcile-active'
+    | '/api/public/worker/recover-evidence'
     | '/api/public/worker/shadow'
     | '/api/public/worker/telemetry'
     | '/lovable/email/auth/preview'
@@ -552,6 +564,7 @@ export interface FileRouteTypes {
     | '/api/public/worker/process'
     | '/api/public/worker/reconcile'
     | '/api/public/worker/reconcile-active'
+    | '/api/public/worker/recover-evidence'
     | '/api/public/worker/shadow'
     | '/api/public/worker/telemetry'
     | '/lovable/email/auth/preview'
@@ -590,6 +603,7 @@ export interface RootRouteChildren {
   ApiPublicWorkerProcessRoute: typeof ApiPublicWorkerProcessRoute
   ApiPublicWorkerReconcileRoute: typeof ApiPublicWorkerReconcileRoute
   ApiPublicWorkerReconcileActiveRoute: typeof ApiPublicWorkerReconcileActiveRoute
+  ApiPublicWorkerRecoverEvidenceRoute: typeof ApiPublicWorkerRecoverEvidenceRoute
   ApiPublicWorkerShadowRoute: typeof ApiPublicWorkerShadowRoute
   ApiPublicWorkerTelemetryRoute: typeof ApiPublicWorkerTelemetryRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
@@ -865,6 +879,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicWorkerReconcileActiveRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/worker/recover-evidence': {
+      id: '/api/public/worker/recover-evidence'
+      path: '/api/public/worker/recover-evidence'
+      fullPath: '/api/public/worker/recover-evidence'
+      preLoaderRoute: typeof ApiPublicWorkerRecoverEvidenceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/worker/shadow': {
       id: '/api/public/worker/shadow'
       path: '/api/public/worker/shadow'
@@ -972,6 +993,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicWorkerProcessRoute: ApiPublicWorkerProcessRoute,
   ApiPublicWorkerReconcileRoute: ApiPublicWorkerReconcileRoute,
   ApiPublicWorkerReconcileActiveRoute: ApiPublicWorkerReconcileActiveRoute,
+  ApiPublicWorkerRecoverEvidenceRoute: ApiPublicWorkerRecoverEvidenceRoute,
   ApiPublicWorkerShadowRoute: ApiPublicWorkerShadowRoute,
   ApiPublicWorkerTelemetryRoute: ApiPublicWorkerTelemetryRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
