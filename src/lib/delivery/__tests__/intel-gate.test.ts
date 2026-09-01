@@ -118,6 +118,9 @@ function fake(overrides: Overrides = {}) {
         data: [{ id: "acc-1", user_id: "user-1", mode: "demo_auto", broker_account_type: "demo" }],
         error: null,
       };
+    // Armed symbols always have a published broker contract specification in
+    // production; without a tick size the enqueue path refuses up front.
+    if (call.table === "broker_symbol_specs") return { data: [{ tick_size: 0.01 }], error: null };
     if (call.table === "scanner_settings") return { data: [settings], error: null };
     if (call.table === "regime_stats") return { data: overrides.stats ?? STATS, error: null };
     return { data: [], error: null };

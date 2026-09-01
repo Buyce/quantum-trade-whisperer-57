@@ -46,6 +46,9 @@ function fake(overrides: Overrides = {}) {
     if (call.table === "connected_trading_accounts") {
       return { data: overrides.accounts ?? [ACCOUNT], error: null };
     }
+    // Armed symbols always have a published broker contract specification in
+    // production; without a tick size the enqueue path refuses up front.
+    if (call.table === "broker_symbol_specs") return { data: [{ tick_size: 0.01 }], error: null };
     if (call.table === "scanner_settings") return { data: [settings], error: null };
     if (call.table === "scanned_signals") return { data: overrides.frame ?? [], error: null };
     return { data: [], error: null };
