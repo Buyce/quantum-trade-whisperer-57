@@ -48,7 +48,7 @@ function view(overrides: Partial<BrokerOrderView> = {}): BrokerOrderView {
 }
 
 describe("order filters", () => {
-  it("classifies results from broker money only", () => {
+  it("[INVARIANT] classifies results from broker money only", () => {
     expect(orderResultClass(view())).toBe("winner");
     expect(orderResultClass(view({ broker: { ...view().broker!, netProfit: -5 } }))).toBe("loser");
     expect(orderResultClass(view({ broker: { ...view().broker!, netProfit: 0 } }))).toBe(
@@ -62,13 +62,13 @@ describe("order filters", () => {
     ).toBe("open");
   });
 
-  it("returns everything when no filter is set", () => {
+  it("[UNIT] returns everything when no filter is set", () => {
     const rows = [view({ key: "a" }), view({ key: "b", instrument: "XAUUSD" })];
     expect(filterBrokerOrders(rows, EMPTY_ORDER_FILTERS)).toHaveLength(2);
     expect(orderFiltersActive(EMPTY_ORDER_FILTERS)).toBe(false);
   });
 
-  it("filters by instrument, grade and result", () => {
+  it("[UNIT] filters by instrument, grade and result", () => {
     const rows = [
       view({ key: "a" }),
       view({ key: "b", instrument: "XAUUSD", grade: "B" }),
@@ -83,7 +83,7 @@ describe("order filters", () => {
     ).toEqual(["c"]);
   });
 
-  it("excludes unpriced rows from a money range instead of treating them as zero", () => {
+  it("[INVARIANT] excludes unpriced rows from a money range instead of treating them as zero", () => {
     const rows = [view({ key: "a" }), view({ key: "b", broker: null })];
     expect(filterBrokerOrders(rows, { ...EMPTY_ORDER_FILTERS, minNet: 0 }).map((r) => r.key)).toEqual(
       ["a"],
@@ -91,7 +91,7 @@ describe("order filters", () => {
     expect(filterBrokerOrders(rows, { ...EMPTY_ORDER_FILTERS, maxNet: 10 })).toHaveLength(0);
   });
 
-  it("lists instruments and grades present, and sums money per currency", () => {
+  it("[UNIT] lists instruments and grades present, and sums money per currency", () => {
     const rows = [
       view({ key: "a" }),
       view({ key: "b", instrument: "XAUUSD", grade: "Unknown" }),

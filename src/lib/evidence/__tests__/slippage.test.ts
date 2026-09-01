@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { computeSlippage, slippageUnavailableCopy } from "../slippage";
 
 describe("computeSlippage", () => {
-  it("prefers the published entry and signs a long fill worse-is-positive", () => {
+  it("[UNIT] prefers the published entry and signs a long fill worse-is-positive", () => {
     const result = computeSlippage({
       direction: "long",
       publishedEntry: 1.1,
@@ -16,7 +16,7 @@ describe("computeSlippage", () => {
     expect(result.price).toBeCloseTo(0.0002, 10);
   });
 
-  it("falls back to the submitted price and labels the basis", () => {
+  it("[UNIT] falls back to the submitted price and labels the basis", () => {
     const result = computeSlippage({
       direction: "short",
       publishedEntry: null,
@@ -28,7 +28,7 @@ describe("computeSlippage", () => {
     expect(result.price).toBeCloseTo(-0.00001, 10);
   });
 
-  it("declares slippage unavailable when no order record survives", () => {
+  it("[INVARIANT] declares slippage unavailable when no order record survives", () => {
     const result = computeSlippage({
       direction: "short",
       publishedEntry: null,
@@ -43,7 +43,7 @@ describe("computeSlippage", () => {
     });
   });
 
-  it("never estimates when the broker reported no fill", () => {
+  it("[INVARIANT] never estimates when the broker reported no fill", () => {
     const result = computeSlippage({
       direction: "long",
       publishedEntry: 1.1,
@@ -54,7 +54,7 @@ describe("computeSlippage", () => {
     expect(result.availability).toBe("unavailable_no_fill");
   });
 
-  it("refuses to sign slippage without a broker direction", () => {
+  it("[INVARIANT] refuses to sign slippage without a broker direction", () => {
     const result = computeSlippage({
       direction: null,
       publishedEntry: 1.1,
@@ -65,7 +65,7 @@ describe("computeSlippage", () => {
     expect(result.availability).toBe("unavailable_no_direction");
   });
 
-  it("explains every unavailable reason", () => {
+  it("[UNIT] explains every unavailable reason", () => {
     for (const reason of [
       "unavailable_no_submitted_record",
       "unavailable_no_fill",
