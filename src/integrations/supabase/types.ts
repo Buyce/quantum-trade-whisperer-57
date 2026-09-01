@@ -483,6 +483,7 @@ export type Database = {
           planned_stop: number | null
           planned_target: number | null
           profit_currency: string | null
+          published_entry: number | null
           r_availability: string | null
           r_math_version: number | null
           r_vs_actual_risk: number | null
@@ -497,6 +498,9 @@ export type Database = {
           signal_instrument: string | null
           signal_time_of_day: number | null
           signal_trading_session: string | null
+          slippage_availability: string | null
+          slippage_basis: string | null
+          slippage_price: number | null
           state: string
           stop_provenance: string | null
           stop_source: string | null
@@ -535,6 +539,7 @@ export type Database = {
           planned_stop?: number | null
           planned_target?: number | null
           profit_currency?: string | null
+          published_entry?: number | null
           r_availability?: string | null
           r_math_version?: number | null
           r_vs_actual_risk?: number | null
@@ -549,6 +554,9 @@ export type Database = {
           signal_instrument?: string | null
           signal_time_of_day?: number | null
           signal_trading_session?: string | null
+          slippage_availability?: string | null
+          slippage_basis?: string | null
+          slippage_price?: number | null
           state?: string
           stop_provenance?: string | null
           stop_source?: string | null
@@ -587,6 +595,7 @@ export type Database = {
           planned_stop?: number | null
           planned_target?: number | null
           profit_currency?: string | null
+          published_entry?: number | null
           r_availability?: string | null
           r_math_version?: number | null
           r_vs_actual_risk?: number | null
@@ -601,6 +610,9 @@ export type Database = {
           signal_instrument?: string | null
           signal_time_of_day?: number | null
           signal_trading_session?: string | null
+          slippage_availability?: string | null
+          slippage_basis?: string | null
+          slippage_price?: number | null
           state?: string
           stop_provenance?: string | null
           stop_source?: string | null

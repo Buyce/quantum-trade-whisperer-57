@@ -22,6 +22,15 @@ interface EvidenceDbRow {
   first_observed_at: string;
   r_vs_plan: number | null;
   r_vs_actual_risk: number | null;
+  volume: number | null;
+  entry_price: number | null;
+  exit_price: number | null;
+  gross_profit: number | null;
+  commission: number | null;
+  swap: number | null;
+  profit_currency: string | null;
+  slippage_price: number | null;
+  slippage_availability: string | null;
 }
 
 interface SignalSnapshot {
@@ -89,7 +98,7 @@ export async function loadPerformanceEvidence(
     let evidenceQuery = db
       .from("broker_trade_evidence" as never)
       .select(
-        "id, signal_id, signal_instrument, signal_grade, signal_detected_at, signal_trading_session, signal_time_of_day, signal_day_of_week, broker_symbol, entry_at, resolved_at, first_observed_at, r_vs_plan, r_vs_actual_risk",
+        "id, signal_id, signal_instrument, signal_grade, signal_detected_at, signal_trading_session, signal_time_of_day, signal_day_of_week, broker_symbol, entry_at, resolved_at, first_observed_at, r_vs_plan, r_vs_actual_risk, volume, entry_price, exit_price, gross_profit, commission, swap, profit_currency, slippage_price, slippage_availability",
       )
       .eq("evidence_class", source)
       .eq("state", "closed")
@@ -162,6 +171,21 @@ export async function loadPerformanceEvidence(
       session: row.signal_trading_session ?? context?.trading_session ?? "unknown",
       rVsPlan: finite(row.r_vs_plan),
       rVsActualRisk: finite(row.r_vs_actual_risk),
+      volume: finite(row.volume),
+      entryPrice: finite(row.entry_price),
+      exitPrice: finite(row.exit_price),
+      grossProfit: finite(row.gross_profit),
+      commission: finite(row.commission),
+      swap: finite(row.swap),
+      // The broker's own net: gross plus its swap and commission. No gross figure
+      // means no net figure — never a zero stand-in.
+      netProfit:
+        finite(row.gross_profit) === null
+          ? null
+          : (finite(row.gross_profit) ?? 0) + (finite(row.swap) ?? 0) + (finite(row.commission) ?? 0),
+      currency: row.profit_currency,
+      slippagePrice: finite(row.slippage_price),
+      slippageAvailability: row.slippage_availability,
     };
   });
 }

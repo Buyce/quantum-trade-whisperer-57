@@ -59,6 +59,10 @@ export interface BrokerOrderEvidenceRow {
   r_vs_actual_risk: number | null;
   r_availability: string | null;
   stop_provenance: string | null;
+  published_entry?: number | null;
+  slippage_price?: number | null;
+  slippage_availability?: string | null;
+  slippage_basis?: string | null;
 }
 
 /** Signal snapshot fields Trade History reads. */
@@ -139,6 +143,15 @@ export interface BrokerOrderView {
     commission: number | null;
     swap: number | null;
     currency: string | null;
+    /** Broker gross + swap + commission, in the broker's own currency. */
+    netProfit: number | null;
+    /** Broker fill versus the price P-Trades published or submitted. */
+    slippage: {
+      price: number | null;
+      availability: string | null;
+      basis: string | null;
+      reference: number | null;
+    };
   } | null;
   /** Shared journal R presentation: value, basis and the reason it is missing. */
   r: JournalRView;
@@ -161,6 +174,19 @@ export interface RecoveredEvidenceRow extends BrokerOrderEvidenceRow {
 }
 
 const GRADES = new Set(["A+", "A", "B", "C"]);
+
+/**
+ * Net money the broker actually reports: gross plus swap plus commission. NULL
+ * when the broker reported no gross figure — never a zero stand-in.
+ */
+export function netProfit(
+  evidence: Pick<BrokerOrderEvidenceRow, "gross_profit" | "swap" | "commission">,
+): number | null {
+  if (evidence.gross_profit === null || evidence.gross_profit === undefined) return null;
+  return (
+    Number(evidence.gross_profit) + Number(evidence.swap ?? 0) + Number(evidence.commission ?? 0)
+  );
+}
 
 /**
  * Plain-language text for a P-Trades pre-send refusal. The named reason may carry
@@ -401,6 +427,13 @@ export function toBrokerOrderView(
           commission: evidence.commission,
           swap: evidence.swap,
           currency: evidence.profit_currency,
+          netProfit: netProfit(evidence),
+          slippage: {
+            price: evidence.slippage_price ?? null,
+            availability: evidence.slippage_availability ?? null,
+            basis: evidence.slippage_basis ?? null,
+            reference: evidence.published_entry ?? null,
+          },
         }
       : null,
     r,
@@ -478,6 +511,13 @@ export function toRecoveredEvidenceView(
       commission: evidence.commission,
       swap: evidence.swap,
       currency: evidence.profit_currency,
+      netProfit: netProfit(evidence),
+      slippage: {
+        price: evidence.slippage_price ?? null,
+        availability: evidence.slippage_availability ?? null,
+        basis: evidence.slippage_basis ?? null,
+        reference: evidence.published_entry ?? null,
+      },
     },
     r,
     plan: { entry: null, stop: null, target: null, rr: null },

@@ -147,7 +147,7 @@ export function brokerOrdersQuery(userId: string | undefined) {
         .from("execution_deliveries" as never)
         .select(
           `id, signal_id, state, reason, dry_run, account_mode, destination_type, broker_symbol, broker_order_id, broker_retcode_string, entry_mode, broker_order_state, submitted_volume, submitted_entry, submitted_stop, submitted_target, submitted_at, enqueued_at,
-           broker_trade_evidence(state, broker_account_type, direction, volume, entry_price, exit_price, entry_at, exit_at, gross_profit, commission, swap, profit_currency, r_vs_plan, r_vs_actual_risk, r_availability, stop_provenance),
+           broker_trade_evidence(state, broker_account_type, direction, volume, entry_price, exit_price, entry_at, exit_at, gross_profit, commission, swap, profit_currency, r_vs_plan, r_vs_actual_risk, r_availability, stop_provenance, published_entry, slippage_price, slippage_availability, slippage_basis),
            scanned_signals(instrument, grade, direction, detected_at, entry_price, stop_loss, tp1, rr_ratio)`,
         )
         .order("enqueued_at", { ascending: false })
@@ -169,7 +169,7 @@ export function brokerOrdersQuery(userId: string | undefined) {
       const { data: recovered, error: recoveredError } = await supabase
         .from("broker_trade_evidence" as never)
         .select(
-          "id, client_id, broker_symbol, first_observed_at, state, broker_account_type, direction, volume, entry_price, exit_price, entry_at, exit_at, gross_profit, commission, swap, profit_currency, r_vs_plan, r_vs_actual_risk, r_availability, stop_provenance",
+          "id, client_id, broker_symbol, first_observed_at, state, broker_account_type, direction, volume, entry_price, exit_price, entry_at, exit_at, gross_profit, commission, swap, profit_currency, r_vs_plan, r_vs_actual_risk, r_availability, stop_provenance, published_entry, slippage_price, slippage_availability, slippage_basis",
         )
         .is("delivery_id", null)
         .order("entry_at", { ascending: false, nullsFirst: false })

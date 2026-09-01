@@ -7,6 +7,7 @@ import {
 } from "../automatic-order-summary";
 import {
   EMPTY_EXPECTANCY,
+  brokerMoneySummary,
   computeExpectancy,
   generateInsights,
   samplesFromBrokerEvidence,
@@ -151,6 +152,16 @@ describe("broker Performance evidence separation", () => {
       session: "london",
       rVsPlan: 2,
       rVsActualRisk: 1.25,
+      volume: 0.1,
+      entryPrice: 1.1,
+      exitPrice: 1.2,
+      grossProfit: 120,
+      commission: -1,
+      swap: -0.5,
+      netProfit: 118.5,
+      currency: "EUR",
+      slippagePrice: null,
+      slippageAvailability: "unavailable_no_submitted_record",
     },
     {
       key: "customer-1",
@@ -163,8 +174,37 @@ describe("broker Performance evidence separation", () => {
       session: "london",
       rVsPlan: -1,
       rVsActualRisk: null,
+      volume: 0.1,
+      entryPrice: 1.1,
+      exitPrice: 1.2,
+      grossProfit: -60,
+      commission: -1,
+      swap: -0.5,
+      netProfit: -61.5,
+      currency: "EUR",
+      slippagePrice: null,
+      slippageAvailability: "unavailable_no_submitted_record",
     },
   ];
+
+  it("[UNIT] broker money totals come from broker figures, per currency", () => {
+    const summary = brokerMoneySummary(evidence);
+    expect(summary.unpriced).toBe(0);
+    expect(summary.buckets).toHaveLength(1);
+    expect(summary.buckets[0]?.currency).toBe("EUR");
+    expect(summary.buckets[0]?.gross).toBeCloseTo(60, 6);
+    expect(summary.buckets[0]?.net).toBeCloseTo(57, 6);
+    expect(summary.buckets[0]?.wins).toBe(1);
+    expect(summary.buckets[0]?.losses).toBe(1);
+  });
+
+  it("[INVARIANT] a broker row with no money figure is unpriced, never zero", () => {
+    const summary = brokerMoneySummary([
+      { ...evidence[0]!, grossProfit: null, netProfit: null },
+    ]);
+    expect(summary.buckets).toHaveLength(0);
+    expect(summary.unpriced).toBe(1);
+  });
 
   it("[INVARIANT] selects r_vs_plan without averaging it with actual-risk R", () => {
     const samples = samplesFromBrokerEvidence(evidence, "plan");

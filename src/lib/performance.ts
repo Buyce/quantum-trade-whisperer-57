@@ -139,6 +139,71 @@ export function samplesFromTrades(
   return out;
 }
 
+export interface BrokerMoneyBucket {
+  currency: string;
+  /** Number of closed broker trades the broker priced in this currency. */
+  count: number;
+  wins: number;
+  losses: number;
+  breakeven: number;
+  gross: number;
+  swap: number;
+  commission: number;
+  /** gross + swap + commission. */
+  net: number;
+}
+
+export interface BrokerMoneySummary {
+  buckets: BrokerMoneyBucket[];
+  /** Closed broker rows the broker reported no money figure for. */
+  unpriced: number;
+}
+
+/**
+ * Realised BROKER money for a broker-evidence population, per profit currency.
+ *
+ * Every figure is the broker's own: gross profit, swap and commission from its
+ * deals. Rows the broker did not price are counted separately and never treated
+ * as zero, and currencies are never summed together.
+ */
+export function brokerMoneySummary(rows: PerformanceEvidenceRow[]): BrokerMoneySummary {
+  const map = new Map<string, BrokerMoneyBucket>();
+  let unpriced = 0;
+  for (const row of rows) {
+    if (row.netProfit === null || row.grossProfit === null) {
+      unpriced += 1;
+      continue;
+    }
+    const currency = row.currency ?? "unreported currency";
+    const bucket =
+      map.get(currency) ??
+      ({
+        currency,
+        count: 0,
+        wins: 0,
+        losses: 0,
+        breakeven: 0,
+        gross: 0,
+        swap: 0,
+        commission: 0,
+        net: 0,
+      } satisfies BrokerMoneyBucket);
+    bucket.count += 1;
+    bucket.gross += row.grossProfit;
+    bucket.swap += row.swap ?? 0;
+    bucket.commission += row.commission ?? 0;
+    bucket.net += row.netProfit;
+    if (row.netProfit > 0) bucket.wins += 1;
+    else if (row.netProfit < 0) bucket.losses += 1;
+    else bucket.breakeven += 1;
+    map.set(currency, bucket);
+  }
+  return {
+    buckets: [...map.values()].sort((a, b) => b.count - a.count),
+    unpriced,
+  };
+}
+
 /** Broker-confirmed samples. The caller names one R basis; null rows stay out. */
 export function samplesFromBrokerEvidence(
   evidence: PerformanceEvidenceRow[],
