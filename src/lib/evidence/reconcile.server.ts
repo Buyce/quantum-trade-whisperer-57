@@ -596,9 +596,14 @@ async function writeEvidence(
   delete updateRow["evidence_phase"];
   delete updateRow["news_context"];
   if (!signal) {
-    delete updateRow["signal_instrument"];
-    delete updateRow["signal_grade"];
+    // Detection time only ever came from the signal row; it is never substituted.
     delete updateRow["signal_detected_at"];
+    if (!characterisation) {
+      delete updateRow["signal_instrument"];
+      delete updateRow["signal_grade"];
+      delete updateRow["signal_grade_source"];
+      delete updateRow["signal_first_decision_at"];
+    }
   }
   if (!context) {
     delete updateRow["signal_trading_session"];
