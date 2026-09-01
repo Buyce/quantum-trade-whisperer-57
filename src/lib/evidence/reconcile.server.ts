@@ -189,7 +189,7 @@ export async function reconcileBrokerEvidence(
       "id, user_id, signal_id, connected_account_id, client_id, magic, broker_symbol, submitted_entry, submitted_stop, submitted_target, submitted_at, account_mode, broker_order_id",
     )
     .eq("destination_type", "metaapi_direct")
-    .in("state", SUBMITTED_STATES as unknown as string[])
+    .or(RECONCILABLE_FILTER)
     .gte("submitted_at", since.toISOString());
   if (deliveryError) {
     result.errors.push(`deliveries unreadable: ${deliveryError.message}`);
@@ -216,7 +216,7 @@ export async function reconcileBrokerEvidence(
         "id, user_id, signal_id, connected_account_id, client_id, magic, broker_symbol, submitted_entry, submitted_stop, submitted_target, submitted_at, account_mode, broker_order_id",
       )
       .eq("destination_type", "metaapi_direct")
-      .in("state", SUBMITTED_STATES as unknown as string[])
+      .or(RECONCILABLE_FILTER)
       .in("id", ids);
     if (error) {
       result.errors.push(`older open deliveries unreadable: ${error.message}`);
