@@ -12,6 +12,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { Json } from "@/integrations/supabase/types";
+import {
+  aggregateAutoTraderOutcomes,
+  type AutoTraderOutcomes,
+} from "@/lib/admin/auto-trader-outcomes";
 
 const OWNER_EMAIL = "boatengampomah@gmail.com";
 
