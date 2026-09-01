@@ -84,6 +84,37 @@ describe("enqueueDirectDeliveries", () => {
     });
   });
 
+  it("[INVARIANT] refuses before queueing when the broker published no price grid", async () => {
+    // Dispatch could only ever answer `no_execution_grid` here, so the claim,
+    // the attempt and the queue position are not spent to learn that.
+    const f = createFakeSupabase((call: FakeCall) => {
+      if (call.table === "execution_controls")
+        return { data: [{ demo_auto_enabled: true, live_auto_enabled: false }], error: null };
+      if (call.table === "connected_trading_accounts") return { data: [ACCOUNT], error: null };
+      if (call.table === "broker_symbol_specs") return { data: [{ tick_size: null }], error: null };
+      if (call.table === "scanner_settings")
+        return {
+          data: [
+            {
+              user_id: "user-1",
+              instruments: ["XAUUSD"],
+              sessions: ["london"],
+              alert_min_grade: "B",
+              daily_setup_cap: 0,
+              execution_config_version: 7,
+            },
+          ],
+          error: null,
+        };
+      return { data: [], error: null };
+    });
+    const out = await enqueueDirectDeliveries(f.client as SupabaseClient, SIGNAL, NOW);
+    expect(out).toMatchObject({ enqueued: 0, filtered: 1, reason: "no_execution_grid" });
+    expect(inserts(f.calls)).toHaveLength(0);
+    const decisions = f.calls.filter((c) => c.table === "execution_enqueue_decisions");
+    expect(decisions).toHaveLength(1);
+  });
+
   it("[INVARIANT] never enqueues a C-Grade setup without the owner's opt-in", async () => {
     const f = fake();
     const out = await enqueueDirectDeliveries(
