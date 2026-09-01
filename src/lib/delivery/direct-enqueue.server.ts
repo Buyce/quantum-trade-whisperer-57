@@ -55,6 +55,7 @@ import {
 } from "@/lib/instruments/lifecycle";
 import { readLifecycleView } from "@/lib/instruments/lifecycle.server";
 import { neverReachedBroker, occupiesSlot } from "@/lib/evidence/order-state";
+import { formatDuration, marketStatus } from "@/lib/market-hours";
 
 export interface DirectEnqueueSignal {
   id: string;
@@ -420,6 +421,29 @@ async function runDirectEnqueue(
         lifecycle.degraded
           ? `the lifecycle stage for ${signal.instrument} could not be read`
           : `${signal.instrument} is at lifecycle stage "${gate.stage}" (${describeStage(gate.stage)})`,
+      );
+    }
+  }
+
+  /**
+   * Pre-enqueue market gate. The pre-send gate already refuses `market_closed`,
+   * but only AFTER a claim and an attempt were spent, and the closed-market
+   * backoff then re-asked the same unanswerable question every ten minutes until
+   * the owner's window elapsed. A market that is shut at enqueue time cannot be
+   * traded now, so the refusal is recorded here and nothing is queued. The
+   * pre-send check stays as the authority for a market that closes mid-window.
+   * This can only refuse; an open market changes nothing.
+   */
+  {
+    const market = marketStatus(new Date(nowMs));
+    if (market.weekendClosed || market.openCount === 0) {
+      return await empty(
+        "market_closed",
+        market.weekendClosed
+          ? market.minutesToReopen === null
+            ? "the FX week is closed"
+            : `the FX week is closed; it reopens in ${formatDuration(market.minutesToReopen)}`
+          : "no FX session is open",
       );
     }
   }

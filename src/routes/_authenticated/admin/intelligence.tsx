@@ -11,7 +11,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { ChevronsDownUp, RefreshCw } from "lucide-react";
-import { getAdminIntelligence } from "@/lib/admin.functions";
+import { getAdminAutoTraderOutcomes, getAdminIntelligence } from "@/lib/admin.functions";
 import { getWeeklyShadowReport } from "@/lib/reports/weekly.functions";
 import { getUserReportAudit } from "@/lib/user-audit.functions";
 import { Button } from "@/components/ui/button";
@@ -46,6 +46,7 @@ import { EngineStatusPanel } from "@/components/admin/EngineStatusPanel";
 import { ExecutionSwitchPanel } from "@/components/admin/ExecutionSwitchPanel";
 import { EnqueueDecisionPanel } from "@/components/admin/EnqueueDecisionPanel";
 import { RefusalCostPanel } from "@/components/admin/RefusalCostPanel";
+import { AutoTraderPanel } from "@/components/admin/AutoTraderPanel";
 import { InstrumentDiagnosticsPanel } from "@/components/admin/InstrumentDiagnosticsPanel";
 import { CommissioningPanel } from "@/components/admin/CommissioningPanel";
 import { PromotionPanel } from "@/components/admin/PromotionPanel";
@@ -77,6 +78,14 @@ function AdminIntelligencePage() {
   const fetchIntel = useServerFn(getAdminIntelligence);
   const fetchWeekly = useServerFn(getWeeklyShadowReport);
   const fetchAudit = useServerFn(getUserReportAudit);
+  const fetchAutoTrader = useServerFn(getAdminAutoTraderOutcomes);
+  // Same query key as AutoTraderPanel, so the card and the panel share one read.
+  const autoTrader = useQuery({
+    queryKey: ["admin-auto-trader-outcomes"],
+    queryFn: () => fetchAutoTrader(),
+    refetchOnWindowFocus: false,
+    staleTime: 60_000,
+  });
   const weekly = useQuery({
     queryKey: ["admin-weekly-shadow-report"],
     queryFn: () => fetchWeekly(),
@@ -254,7 +263,21 @@ function AdminIntelligencePage() {
           value={String(learning_matrix.length)}
           sub="tiers 1–3 from regime_stats"
         />
+        <StatCard
+          label="Auto trader win rate"
+          hint="Broker-verified: closed automatic orders with broker-reported net money. Not replay, not user-reported."
+          value={autoTrader.data ? pctOf(autoTrader.data.total.winRate) : "—"}
+          sub={
+            autoTrader.isError
+              ? "broker evidence unreadable"
+              : autoTrader.data && autoTrader.data.total.measured > 0
+                ? `n=${autoTrader.data.total.measured} · mean R ${num(autoTrader.data.total.meanR)}`
+                : "no closed broker fills yet"
+          }
+        />
       </section>
+
+      <AutoTraderPanel />
 
       <div className="grid gap-3 lg:grid-cols-3">
         <PanelShell title="Instrument health">

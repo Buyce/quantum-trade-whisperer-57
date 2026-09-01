@@ -12,6 +12,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { Json } from "@/integrations/supabase/types";
+import {
+  aggregateAutoTraderOutcomes,
+  type AutoTraderOutcomes,
+} from "@/lib/admin/auto-trader-outcomes";
 
 const OWNER_EMAIL = "boatengampomah@gmail.com";
 
@@ -775,4 +779,46 @@ export const getAdminPromotionCheckpoint = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { collectPromotionCheckpoint } = await import("@/lib/instruments/promotion.server");
     return await collectPromotionCheckpoint(supabaseAdmin);
+  });
+
+/**
+ * Broker-verified outcomes of the automatic trader (owner only).
+ *
+ * Reads CLOSED customer broker-trade evidence only: real fills, real exits and
+ * broker-reported money. It is not the shadow replay and not user-reported — those
+ * live in their own tiles, deliberately, because they answer different questions.
+ * Grades proved from the decision log after their setup was purged are counted and
+ * labelled; a trade with no recoverable grade is reported as "Unknown".
+ */
+export const getAdminAutoTraderOutcomes = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<AutoTraderOutcomes> => {
+    const email = String(context.claims["email"] ?? "").toLowerCase();
+    if (email !== OWNER_EMAIL) throw new Error("Forbidden");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await supabaseAdmin
+      .from("broker_trade_evidence")
+      .select("signal_grade, signal_grade_source, gross_profit, swap, commission, profit_currency, r_vs_plan")
+      .eq("evidence_class", "customer")
+      .eq("state", "closed");
+    if (error) throw new Error(error.message);
+
+    const finite = (v: unknown): number | null =>
+      typeof v === "number" && Number.isFinite(v) ? v : v === null ? null : Number.isFinite(Number(v)) ? Number(v) : null;
+
+    return aggregateAutoTraderOutcomes(
+      (data ?? []).map((row) => {
+        const gross = finite(row.gross_profit);
+        return {
+          grade: row.signal_grade ?? null,
+          gradeSource: row.signal_grade_source ?? null,
+          // Net is what the account actually moved by: gross plus financing and fees.
+          netProfit:
+            gross === null ? null : gross + (finite(row.swap) ?? 0) + (finite(row.commission) ?? 0),
+          rVsPlan: finite(row.r_vs_plan),
+          currency: row.profit_currency ?? null,
+        };
+      }),
+    );
   });
