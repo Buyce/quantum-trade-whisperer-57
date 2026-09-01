@@ -6,6 +6,7 @@ import {
   toBrokerOrderView,
   type BrokerOrderDeliveryRow,
   type BrokerOrderEvidenceRow,
+  toRecoveredEvidenceView,
 } from "../broker-orders";
 
 const delivery = (over: Partial<BrokerOrderDeliveryRow> = {}): BrokerOrderDeliveryRow => ({
@@ -162,5 +163,39 @@ describe("brokerOrderDestination", () => {
       kind: "unknown",
       label: "Destination not recorded",
     });
+  });
+});
+
+describe("recovered broker evidence", () => {
+  it("[INVARIANT] reports broker figures without inventing the lost plan", () => {
+    const view = toRecoveredEvidenceView({
+      id: "ev-1",
+      client_id: "PTRADES-PTRA-1-9",
+      broker_symbol: "XAUUSD",
+      first_observed_at: "2026-08-27T10:00:00.000Z",
+      state: "closed",
+      broker_account_type: "demo",
+      direction: "long",
+      volume: 0.1,
+      entry_price: 2_500,
+      exit_price: 2_510,
+      entry_at: "2026-08-27T09:00:00.000Z",
+      exit_at: "2026-08-27T09:30:00.000Z",
+      gross_profit: 100,
+      commission: null,
+      swap: null,
+      profit_currency: "EUR",
+      r_vs_plan: null,
+      r_vs_actual_risk: null,
+      r_availability: "unavailable_no_stop_evidence",
+      stop_provenance: "unavailable",
+    });
+
+    expect(view.recovered).toBe(true);
+    expect(view.status.kind).toBe("closed_at_broker");
+    expect(view.broker?.grossProfit).toBe(100);
+    expect(view.plan).toEqual({ entry: null, stop: null, target: null, rr: null });
+    expect(view.submitted.entry).toBeNull();
+    expect(view.grade).toBe("Unknown");
   });
 });
