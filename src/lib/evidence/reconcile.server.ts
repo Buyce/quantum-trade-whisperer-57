@@ -27,11 +27,32 @@ import { resolveBrokerOrderState } from "./order-state";
 
 type Db = Pick<SupabaseClient, "from" | "rpc">;
 
-/** How far back broker history is read on each pass. */
-export const RECONCILE_WINDOW_HOURS = 72;
+/**
+ * How far back broker history is read on each pass.
+ *
+ * It must cover at least the retention window: a filled order whose delivery was
+ * settled days ago is still the broker's own record of a real trade, and a
+ * shorter window is exactly how P-Trades previously lost closed trades.
+ */
+export const RECONCILE_WINDOW_HOURS = 168;
 
-/** Delivery states worth reconciling: something may exist at the broker. */
+/**
+ * Delivery states worth reconciling: something may exist at the broker.
+ *
+ * Association is by broker clientId, NOT by our own state guess, so a row we
+ * settled `expired`, `rejected` or `failed` is still reconciled whenever it was
+ * ever submitted. Only never-submitted rows are out of scope.
+ */
 const SUBMITTED_STATES = ["sent", "acknowledged", "unknown"] as const;
+
+/** PostgREST filter: still in flight, OR provably submitted at some point. */
+const RECONCILABLE_FILTER = [
+  `state.in.(${SUBMITTED_STATES.join(",")})`,
+  "submitted_at.not.is.null",
+  "client_id.not.is.null",
+  "broker_order_id.not.is.null",
+].join(",");
+
 
 interface DeliveryRow {
   id: number;
