@@ -498,6 +498,7 @@ export type Database = {
           signal_grade_source: string | null
           signal_id: string | null
           signal_instrument: string | null
+          signal_ref: string | null
           signal_time_of_day: number | null
           signal_trading_session: string | null
           slippage_availability: string | null
@@ -556,6 +557,7 @@ export type Database = {
           signal_grade_source?: string | null
           signal_id?: string | null
           signal_instrument?: string | null
+          signal_ref?: string | null
           signal_time_of_day?: number | null
           signal_trading_session?: string | null
           slippage_availability?: string | null
@@ -614,6 +616,7 @@ export type Database = {
           signal_grade_source?: string | null
           signal_id?: string | null
           signal_instrument?: string | null
+          signal_ref?: string | null
           signal_time_of_day?: number | null
           signal_trading_session?: string | null
           slippage_availability?: string | null
