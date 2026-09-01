@@ -30,6 +30,7 @@ interface FakeQuery extends PromiseLike<{ data: unknown[]; error: null }> {
   in: (...args: unknown[]) => FakeQuery;
   gte: (...args: unknown[]) => FakeQuery;
   not: (...args: unknown[]) => FakeQuery;
+  or: (...args: unknown[]) => FakeQuery;
   order: (...args: unknown[]) => FakeQuery;
   range: (...args: unknown[]) => FakeQuery;
   update: (...args: unknown[]) => FakeQuery;
@@ -97,7 +98,7 @@ function resultFor(table: string, calls: QueryCall[]): { data: unknown[]; error:
 function queryFor(table: string): FakeQuery {
   const calls: QueryCall[] = [];
   const query = {} as FakeQuery;
-  for (const method of ["select", "eq", "in", "gte", "not", "order", "range", "update"] as const) {
+  for (const method of ["select", "eq", "in", "gte", "not", "or", "order", "range", "update"] as const) {
     query[method] = (...args: unknown[]) => {
       calls.push({ method, args });
       if (method === "update") updates.push({ table, payload: args[0] });
