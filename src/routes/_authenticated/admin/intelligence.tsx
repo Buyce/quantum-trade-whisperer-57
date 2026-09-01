@@ -78,6 +78,14 @@ function AdminIntelligencePage() {
   const fetchIntel = useServerFn(getAdminIntelligence);
   const fetchWeekly = useServerFn(getWeeklyShadowReport);
   const fetchAudit = useServerFn(getUserReportAudit);
+  const fetchAutoTrader = useServerFn(getAdminAutoTraderOutcomes);
+  // Same query key as AutoTraderPanel, so the card and the panel share one read.
+  const autoTrader = useQuery({
+    queryKey: ["admin-auto-trader-outcomes"],
+    queryFn: () => fetchAutoTrader(),
+    refetchOnWindowFocus: false,
+    staleTime: 60_000,
+  });
   const weekly = useQuery({
     queryKey: ["admin-weekly-shadow-report"],
     queryFn: () => fetchWeekly(),
