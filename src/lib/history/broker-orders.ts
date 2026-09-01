@@ -216,6 +216,23 @@ export function brokerOrderStatus(
     }
   }
 
+  // Broker-confirmed lifecycle outranks our own settled state. A row we settled
+  // `expired` while the broker had already filled it is a real trade awaiting
+  // evidence, never "not filled".
+  if (delivery.broker_order_state === "open" || delivery.broker_order_state === "closed") {
+    return {
+      kind: delivery.broker_order_state === "open" ? "open_at_broker" : "closed_at_broker",
+      label:
+        delivery.broker_order_state === "open"
+          ? "Open at the broker"
+          : "Filled and closed at the broker — awaiting evidence",
+      detail:
+        delivery.broker_order_state === "open"
+          ? "The broker confirmed a position for this order, so there is no result yet."
+          : "The broker confirmed this order filled and closed. Its figures appear once the deals are reconciled.",
+    };
+  }
+
   const detail = delivery.broker_retcode_string ?? delivery.reason ?? null;
   // A refusal that never left P-Trades is not the broker's verdict. Only a row
   // carrying a broker return code, or a recorded submission, may be attributed to
@@ -229,6 +246,7 @@ export function brokerOrderStatus(
       detail: engineRefusalCopy(delivery.reason),
     };
   }
+
   switch (delivery.state) {
     case "pending":
       return {
