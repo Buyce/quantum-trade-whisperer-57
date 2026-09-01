@@ -349,7 +349,8 @@ export async function reconcileBrokerEvidence(
             !!options.benchmarkAccountId &&
             options.benchmarkAccountId === account.metaapi_account_id,
         });
-        if (written === "error") pushError(`${group.clientId}: evidence write failed`);
+        if (typeof written === "object")
+          pushError(`${group.clientId}: evidence write failed — ${written.error}`);
         else if (written === "written") result.evidenceWritten += 1;
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -436,7 +437,7 @@ async function writeEvidence(
     brokerStop: BrokerStop;
     isBenchmark: boolean;
   },
-): Promise<"written" | "skipped" | "error"> {
+): Promise<"written" | "skipped" | { error: string }> {
   const { group, delivery, account } = input;
   const summary = summariseGroup(group);
 
@@ -552,7 +553,7 @@ async function writeEvidence(
 
   if (!found) {
     const { error } = await db.from("broker_trade_evidence").insert(row as never);
-    return error ? "error" : "written";
+    return error ? { error: error.message } : "written";
   }
   // Closed evidence is immutable — the database refuses the update too.
   if (found.state === "closed") return "skipped";
@@ -580,5 +581,5 @@ async function writeEvidence(
     .from("broker_trade_evidence")
     .update(updateRow as never)
     .eq("id", found.id);
-  return error ? "error" : "written";
+  return error ? { error: error.message } : "written";
 }
