@@ -263,7 +263,21 @@ function AdminIntelligencePage() {
           value={String(learning_matrix.length)}
           sub="tiers 1–3 from regime_stats"
         />
+        <StatCard
+          label="Auto trader win rate"
+          hint="Broker-verified: closed automatic orders with broker-reported net money. Not replay, not user-reported."
+          value={autoTrader.data ? pctOf(autoTrader.data.total.winRate) : "—"}
+          sub={
+            autoTrader.isError
+              ? "broker evidence unreadable"
+              : autoTrader.data && autoTrader.data.total.measured > 0
+                ? `n=${autoTrader.data.total.measured} · mean R ${num(autoTrader.data.total.meanR)}`
+                : "no closed broker fills yet"
+          }
+        />
       </section>
+
+      <AutoTraderPanel />
 
       <div className="grid gap-3 lg:grid-cols-3">
         <PanelShell title="Instrument health">
