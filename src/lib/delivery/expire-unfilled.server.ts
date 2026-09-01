@@ -92,8 +92,15 @@ export function neverSubmitted(
   if (delivery.submitted_at !== null) return false;
   if (delivery.broker_order_id !== null) return false;
   if (delivery.sent_at !== null) return false;
-  return delivery.state === "pending" || delivery.state === "claimed";
+  // `unknown` is the retry state a delivery lands in when a pre-send gate could
+  // not be evaluated. With no submission stamp, no broker order id and no send
+  // stamp, nothing ever reached a broker, so the slot is ours to reclaim —
+  // otherwise these rows hold automatic-order capacity forever.
+  return (
+    delivery.state === "pending" || delivery.state === "claimed" || delivery.state === "unknown"
+  );
 }
+
 
 /**
  * Classifies what the broker currently holds for this order id.
