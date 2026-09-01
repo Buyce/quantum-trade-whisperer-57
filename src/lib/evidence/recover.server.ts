@@ -219,7 +219,6 @@ export async function recoverOrphanEvidence(
       });
 
       const { error } = await db.from("broker_trade_evidence").insert({
-        ...(characterisation ? recoveredCharacterisationFields(characterisation) : {}),
         user_id: account.user_id,
         evidence_class: evidenceClass,
         evidence_phase: "development",
