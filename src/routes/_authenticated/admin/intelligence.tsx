@@ -46,6 +46,7 @@ import { EngineStatusPanel } from "@/components/admin/EngineStatusPanel";
 import { ExecutionSwitchPanel } from "@/components/admin/ExecutionSwitchPanel";
 import { EnqueueDecisionPanel } from "@/components/admin/EnqueueDecisionPanel";
 import { RefusalCostPanel } from "@/components/admin/RefusalCostPanel";
+import { AutoTraderPanel } from "@/components/admin/AutoTraderPanel";
 import { InstrumentDiagnosticsPanel } from "@/components/admin/InstrumentDiagnosticsPanel";
 import { CommissioningPanel } from "@/components/admin/CommissioningPanel";
 import { PromotionPanel } from "@/components/admin/PromotionPanel";
