@@ -424,6 +424,29 @@ async function runDirectEnqueue(
     }
   }
 
+  /**
+   * Pre-enqueue market gate. The pre-send gate already refuses `market_closed`,
+   * but only AFTER a claim and an attempt were spent, and the closed-market
+   * backoff then re-asked the same unanswerable question every ten minutes until
+   * the owner's window elapsed. A market that is shut at enqueue time cannot be
+   * traded now, so the refusal is recorded here and nothing is queued. The
+   * pre-send check stays as the authority for a market that closes mid-window.
+   * This can only refuse; an open market changes nothing.
+   */
+  {
+    const market = marketStatus(new Date(nowMs));
+    if (market.weekendClosed || market.openCount === 0) {
+      return await empty(
+        "market_closed",
+        market.weekendClosed
+          ? market.minutesToReopen === null
+            ? "the FX week is closed"
+            : `the FX week is closed; it reopens in ${formatDuration(market.minutesToReopen)}`
+          : "no FX session is open",
+      );
+    }
+  }
+
   const { data: controlRows, error: controlError } = await db
     .from("execution_controls")
     .select("demo_auto_enabled, live_auto_enabled")
