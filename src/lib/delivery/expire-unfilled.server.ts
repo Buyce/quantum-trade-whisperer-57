@@ -92,8 +92,15 @@ export function neverSubmitted(
   if (delivery.submitted_at !== null) return false;
   if (delivery.broker_order_id !== null) return false;
   if (delivery.sent_at !== null) return false;
-  return delivery.state === "pending" || delivery.state === "claimed";
+  // `unknown` is the retry state a delivery lands in when a pre-send gate could
+  // not be evaluated. With no submission stamp, no broker order id and no send
+  // stamp, nothing ever reached a broker, so the slot is ours to reclaim —
+  // otherwise these rows hold automatic-order capacity forever.
+  return (
+    delivery.state === "pending" || delivery.state === "claimed" || delivery.state === "unknown"
+  );
 }
+
 
 /**
  * Classifies what the broker currently holds for this order id.
@@ -195,7 +202,17 @@ export async function expireUnfilledOrders(
   }
 
   for (const row of rows) {
-    if (isTerminal(row.state as DeliveryState) && row.state !== "acknowledged") continue;
+    // `acknowledged` and `unknown` are terminal for DISPATCH — they are never
+    // re-attempted — but they still occupy the owner's concurrent ceiling, so the
+    // sweeper must examine them. Skipping them left slots held forever.
+    if (
+      isTerminal(row.state as DeliveryState) &&
+      row.state !== "acknowledged" &&
+      row.state !== "unknown"
+    ) {
+      continue;
+    }
+
     const timeoutMs = (row.user_id && windows.get(row.user_id)) || UNFILLED_ORDER_TIMEOUT_MS;
     if (!isUnfilledTooLong(row, now, timeoutMs)) continue;
 
