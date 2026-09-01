@@ -24,6 +24,7 @@ import {
   type DealGroup,
 } from "./associate";
 import { computeSlippage } from "./slippage";
+import { recoverCharacterisation } from "./grade-recovery.server";
 import { resolveBrokerOrderState } from "./order-state";
 
 type Db = Pick<SupabaseClient, "from" | "rpc">;
@@ -526,8 +527,10 @@ async function writeEvidence(
     account_id: account.id,
     metaapi_account_id: account.metaapi_account_id,
     signal_id: delivery.signal_id,
-    signal_instrument: signal?.instrument ?? null,
-    signal_grade: signal?.grade ?? null,
+    signal_instrument: signal?.instrument ?? characterisation?.instrument ?? null,
+    signal_grade: signal?.grade ?? characterisation?.grade ?? null,
+    signal_grade_source: signal ? "delivery" : (characterisation?.source ?? null),
+    signal_first_decision_at: characterisation?.firstDecisionAt ?? null,
     signal_detected_at: signal?.detected_at ?? null,
     signal_trading_session: context?.trading_session ?? null,
     signal_time_of_day: typeof context?.time_of_day === "number" ? context.time_of_day : null,
