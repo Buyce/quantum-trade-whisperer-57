@@ -118,7 +118,10 @@ export function recoveredCharacterisationFields(
   recovered: RecoveredCharacterisation,
 ): Record<string, unknown> {
   return {
-    signal_id: recovered.signalId,
+    // `signal_id` is a foreign key to `scanned_signals`; for a recovered trade
+    // that row was physically deleted, so the reference is stored in the
+    // non-foreign-key `signal_ref` instead of being dropped.
+    signal_ref: recovered.signalId,
     signal_instrument: recovered.instrument,
     signal_grade: recovered.grade,
     signal_grade_source: recovered.source,

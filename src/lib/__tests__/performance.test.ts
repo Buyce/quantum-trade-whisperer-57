@@ -162,6 +162,7 @@ describe("broker Performance evidence separation", () => {
       currency: "EUR",
       slippagePrice: null,
       slippageAvailability: "unavailable_no_submitted_record",
+      gradeSource: "delivery" as const,
     },
     {
       key: "customer-1",
@@ -184,6 +185,7 @@ describe("broker Performance evidence separation", () => {
       currency: "EUR",
       slippagePrice: null,
       slippageAvailability: "unavailable_no_submitted_record",
+      gradeSource: "delivery" as const,
     },
   ];
 

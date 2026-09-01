@@ -17,6 +17,7 @@ import { clampAutoOrderWindowMinutes } from "@/lib/db-types";
 import { submitDirectOrder } from "@/lib/execution/direct.server";
 import { INSTRUMENT_NOT_APPROVED } from "@/lib/instruments/lifecycle";
 import { assertCapability } from "@/lib/instruments/lifecycle.server";
+import { nextAttemptAt, retryWorthKeeping } from "./backoff";
 import { PAYLOAD_VERSION, requestFingerprint, signBody } from "./hmac";
 import { revalidateDelivery, type DeliveryRow } from "./revalidate.server";
 import {
@@ -239,14 +240,26 @@ export async function processNextDelivery(
      */
     const attempts = Number(delivery.attempts ?? 0);
     const windowOpen = deadline === null || now < deadline;
+    /**
+     * A re-queued row is SCHEDULED, not just released. Without a schedule the
+     * next pass re-asked the same question immediately, spending the broker API
+     * budget on an answer that could not have changed and keeping the row at the
+     * head of the queue. The wait grows with the attempts already spent, and a
+     * retry that would land past the owner's window is settled instead of parked.
+     */
+    const next = nextAttemptAt(approved.reason, attempts, new Date(now));
     const retry =
-      isRetryableRejection(approved.reason) && attempts < MAX_DELIVERY_ATTEMPTS && windowOpen;
+      isRetryableRejection(approved.reason) &&
+      attempts < MAX_DELIVERY_ATTEMPTS &&
+      windowOpen &&
+      retryWorthKeeping(next, deadline === null ? null : new Date(deadline));
     if (retry) {
       await settle(db, delivery.id, {
         state: "pending",
         reason: `retrying: ${reason}`,
         claimed_at: null,
         lease_expires_at: null,
+        next_attempt_at: next.toISOString(),
         ...finalLookPatch(reason),
       });
       return { deliveryId: delivery.id, state: "pending", reason, dryRun: delivery.dry_run };

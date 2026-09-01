@@ -14,6 +14,7 @@
  * This module is pure mapping so it can be tested without a database.
  */
 import type { Grade } from "@/lib/db-types";
+import { RECOVERED_GRADE_SOURCE } from "@/lib/evidence/grade-recovery";
 import { REJECT_COPY, type RejectReason } from "@/lib/delivery/execution";
 import { journalRView, type JournalRView } from "@/lib/journal/display";
 import type { RBasis } from "@/lib/journal/r-math";
@@ -63,6 +64,14 @@ export interface BrokerOrderEvidenceRow {
   slippage_price?: number | null;
   slippage_availability?: string | null;
   slippage_basis?: string | null;
+  /**
+   * Characterisation snapshot. On a recovered trade these are filled ONLY when
+   * the surviving decision log proved them unambiguously, and
+   * `signal_grade_source` records that provenance.
+   */
+  signal_instrument?: string | null;
+  signal_grade?: string | null;
+  signal_grade_source?: string | null;
 }
 
 /** Signal snapshot fields Trade History reads. */
@@ -109,6 +118,12 @@ export interface BrokerOrderView {
   deliveryId: number;
   instrument: string;
   grade: Grade | "Unknown";
+  /**
+   * WHERE the grade came from. `delivery` is the retained signal/delivery record;
+   * `recovered_from_enqueue_decision` means the signal row was purged and the
+   * grade was proved from the surviving decision log. NULL when unknown.
+   */
+  gradeSource: "delivery" | "recovered_from_enqueue_decision" | null;
   direction: "long" | "short" | null;
   detectedAt: string | null;
   enqueuedAt: string;
@@ -394,8 +409,17 @@ export function toBrokerOrderView(
   return {
     key: `delivery-${delivery.id}`,
     deliveryId: delivery.id,
-    instrument: signal?.instrument ?? delivery.broker_symbol ?? "—",
-    grade: grade(signal?.grade),
+    instrument: signal?.instrument ?? evidence?.signal_instrument ?? delivery.broker_symbol ?? "—",
+    // The retained signal wins. When it was purged, the evidence snapshot may
+    // still carry a proved grade, and its provenance is reported with it.
+    grade: grade(signal?.grade ?? evidence?.signal_grade),
+    gradeSource: signal?.grade
+      ? "delivery"
+      : evidence?.signal_grade
+        ? evidence.signal_grade_source === RECOVERED_GRADE_SOURCE
+          ? RECOVERED_GRADE_SOURCE
+          : "delivery"
+        : null,
     direction: direction(signal?.direction ?? evidence?.direction),
     detectedAt: signal?.detected_at ?? null,
     enqueuedAt: delivery.enqueued_at,
@@ -476,8 +500,16 @@ export function toRecoveredEvidenceView(
   return {
     key: `evidence-${evidence.id}`,
     deliveryId: 0,
-    instrument: evidence.broker_symbol,
-    grade: "Unknown",
+    instrument: evidence.signal_instrument ?? evidence.broker_symbol,
+    // The grade is filled ONLY when the surviving decision log proved it; the
+    // marker below keeps that provenance visible instead of passing it off as a
+    // full plan record.
+    grade: grade(evidence.signal_grade),
+    gradeSource: evidence.signal_grade
+      ? evidence.signal_grade_source === RECOVERED_GRADE_SOURCE
+        ? RECOVERED_GRADE_SOURCE
+        : "delivery"
+      : null,
     direction: direction(evidence.direction),
     detectedAt: null,
     enqueuedAt: evidence.entry_at ?? evidence.first_observed_at,

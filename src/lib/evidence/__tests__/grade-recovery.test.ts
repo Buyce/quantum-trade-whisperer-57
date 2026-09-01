@@ -21,13 +21,13 @@ const decision = (over: Partial<DecisionCandidate> = {}): DecisionCandidate => (
 });
 
 describe("[UNIT] evidence/grade-recovery", () => {
-  it("reads the signal tail out of a P-Trades order id", () => {
+  it("[UNIT] reads the signal tail out of a P-Trades order id", () => {
     expect(signalTailFromClientId(CLIENT_ID)).toBe("19bd3a9000ddd2e5ee");
     expect(signalTailFromClientId("2380001")).toBeNull();
     expect(signalTailFromClientId(null)).toBeNull();
   });
 
-  it("matches the tail against the dash-stripped signal id", () => {
+  it("[UNIT] matches the tail against the dash-stripped signal id", () => {
     expect(tailMatchesSignalId("19bd3a9000ddd2e5ee", SIGNAL)).toBe(true);
     expect(tailMatchesSignalId("19bd3a9000ddd2e5ee", "00000000-0000-0000-0000-000000000000")).toBe(
       false,
@@ -35,7 +35,7 @@ describe("[UNIT] evidence/grade-recovery", () => {
     expect(tailMatchesSignalId("19bd3a9000ddd2e5ee", null)).toBe(false);
   });
 
-  it("recovers instrument, grade and first-decision time from a unique match", () => {
+  it("[UNIT] recovers instrument, grade and first-decision time from a unique match", () => {
     const recovered = resolveCharacterisationFromDecisions(CLIENT_ID, "XAUUSD", [
       decision({ created_at: "2026-08-26T18:00:00.000Z" }),
       decision(),
@@ -50,10 +50,12 @@ describe("[UNIT] evidence/grade-recovery", () => {
     });
   });
 
-  it("writes the recovered fields with their provenance", () => {
+  it("[UNIT] writes the recovered fields with their provenance", () => {
     const recovered = resolveCharacterisationFromDecisions(CLIENT_ID, "XAUUSD", [decision()])!;
     expect(recoveredCharacterisationFields(recovered)).toEqual({
-      signal_id: SIGNAL,
+      // `signal_ref`, not `signal_id`: the original setup row is gone, so a
+      // foreign key to it cannot be written.
+      signal_ref: SIGNAL,
       signal_instrument: "XAUUSD",
       signal_grade: "B",
       signal_grade_source: RECOVERED_GRADE_SOURCE,
@@ -63,16 +65,16 @@ describe("[UNIT] evidence/grade-recovery", () => {
 });
 
 describe("[INVARIANT] evidence/grade-recovery refuses anything ambiguous", () => {
-  it("refuses when two different signals share the tail", () => {
+  it("[INVARIANT] refuses when two different signals share the tail", () => {
     expect(
       resolveCharacterisationFromDecisions(CLIENT_ID, "XAUUSD", [
         decision(),
-        decision({ signal_id: "aaaaaaaa-bbbb-4ccc-bd3a-9000ddd2e5ee" }),
+        decision({ signal_id: "aaaaaaaa-bbbb-4c19-bd3a-9000ddd2e5ee" }),
       ]),
     ).toBeNull();
   });
 
-  it("refuses when the decision log disagrees on the grade", () => {
+  it("[INVARIANT] refuses when the decision log disagrees on the grade", () => {
     expect(
       resolveCharacterisationFromDecisions(CLIENT_ID, "XAUUSD", [
         decision(),
@@ -81,13 +83,13 @@ describe("[INVARIANT] evidence/grade-recovery refuses anything ambiguous", () =>
     ).toBeNull();
   });
 
-  it("refuses when the decision instrument contradicts the broker symbol", () => {
+  it("[INVARIANT] refuses when the decision instrument contradicts the broker symbol", () => {
     expect(
       resolveCharacterisationFromDecisions(CLIENT_ID, "EURUSD", [decision({ instrument: "XAUUSD" })]),
     ).toBeNull();
   });
 
-  it("refuses a grade value P-Trades never publishes, and an empty log", () => {
+  it("[INVARIANT] refuses a grade value P-Trades never publishes, and an empty log", () => {
     expect(
       resolveCharacterisationFromDecisions(CLIENT_ID, "XAUUSD", [decision({ grade: "D" })]),
     ).toBeNull();
