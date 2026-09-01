@@ -67,13 +67,34 @@ describe("submission proof", () => {
   });
 
   it("[INVARIANT] a sent or acknowledged row is never treated as unsubmitted", () => {
-    for (const state of ["sent", "acknowledged", "unknown"] as const) {
+    for (const state of ["sent", "acknowledged"] as const) {
       expect(
         neverSubmitted({ state, submitted_at: null, broker_order_id: null, sent_at: null }),
       ).toBe(false);
     }
   });
+
+  it("[INVARIANT] an unknown retry row that never reached a broker is reclaimable", () => {
+    expect(
+      neverSubmitted({
+        state: "unknown",
+        submitted_at: null,
+        broker_order_id: null,
+        sent_at: null,
+      }),
+    ).toBe(true);
+    // Any trace of a broker round trip keeps the row off the reclaim path.
+    expect(
+      neverSubmitted({
+        state: "unknown",
+        submitted_at: null,
+        broker_order_id: "12345",
+        sent_at: null,
+      }),
+    ).toBe(false);
+  });
 });
+
 
 describe("broker presence", () => {
   it("[INVARIANT] a filled order is never cancellable", () => {
