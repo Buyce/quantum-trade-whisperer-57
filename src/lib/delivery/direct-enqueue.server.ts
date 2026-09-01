@@ -549,6 +549,31 @@ async function runDirectEnqueue(
   const candidatePlan: (OrderPlanIdentity & { signalId: string }) | null =
     duplicateContext.plan === null ? null : { ...duplicateContext.plan, signalId: signal.id };
 
+  /**
+   * Pre-enqueue grid gate. Without a broker tick size, dispatch can only ever
+   * refuse this symbol with a TERMINAL `no_execution_grid` — no price can be
+   * placed on a grid that was never published. Queueing such a row spends a
+   * claim, an attempt and queue position to reach a refusal already knowable
+   * here, so the refusal is recorded now and nothing is queued. This can only
+   * refuse; a readable tick size changes nothing.
+   */
+  if (duplicateContext.tickSize === null || !Number.isFinite(duplicateContext.tickSize)) {
+    await recordEnqueueDecisions(
+      db,
+      armed.map((account) => ({
+        user_id: account.user_id,
+        signal_id: signal.id,
+        instrument: signal.instrument,
+        grade: signal.grade,
+        decision: "no_execution_grid",
+        detail: `no broker tick size is published for ${signal.instrument}, so no order price could be placed on its grid`,
+        enqueued: 0,
+        filtered: 1,
+      })),
+    );
+    return { enqueued: 0, filtered: armed.length, reason: "no_execution_grid" };
+  }
+
   const createdToday = new Map(occupancy.daily);
   const createdTodayPerSymbol = new Map(occupancy.perSymbol);
 
