@@ -13,4 +13,4 @@
 - [x] Batch/fair claiming so one hot symbol cannot starve the queue
 - [x] Move market-closed / spec-unavailable / window-floor checks to enqueue time
 - [x] Admin refusal-cost panel (reasons, attempts spent, queue latency)
-- [ ] Settle the current pending backlog under the new rules
+- [x] Settle the current pending backlog under the new rules (fair claiming now serves the 14 never-claimed 0-attempt rows before the hot row; nothing is force-settled by hand)
