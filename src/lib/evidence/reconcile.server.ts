@@ -24,6 +24,7 @@ import {
   type DealGroup,
 } from "./associate";
 import { computeSlippage } from "./slippage";
+import { recoverCharacterisation } from "./grade-recovery.server";
 import { resolveBrokerOrderState } from "./order-state";
 
 type Db = Pick<SupabaseClient, "from" | "rpc">;
@@ -466,6 +467,17 @@ async function writeEvidence(
     day_of_week?: number;
   } | null;
 
+  // The delivery survived but its signal did not. Instrument, grade and the
+  // signal reference are then recovered from the decision log, which retention
+  // never touches, and only when the match is unambiguous.
+  const characterisation = signal
+    ? null
+    : await recoverCharacterisation(db, {
+        clientId: group.clientId,
+        brokerSymbol: group.symbol ?? delivery.broker_symbol ?? null,
+        aroundIso: summary.entryAt ?? delivery.submitted_at ?? null,
+      });
+
   const consent = pooledInclusionAllowed({
     researchConsent: account.research_consent,
     researchConsentVersion: account.research_consent_version,
@@ -515,8 +527,10 @@ async function writeEvidence(
     account_id: account.id,
     metaapi_account_id: account.metaapi_account_id,
     signal_id: delivery.signal_id,
-    signal_instrument: signal?.instrument ?? null,
-    signal_grade: signal?.grade ?? null,
+    signal_instrument: signal?.instrument ?? characterisation?.instrument ?? null,
+    signal_grade: signal?.grade ?? characterisation?.grade ?? null,
+    signal_grade_source: signal ? "delivery" : (characterisation?.source ?? null),
+    signal_first_decision_at: characterisation?.firstDecisionAt ?? null,
     signal_detected_at: signal?.detected_at ?? null,
     signal_trading_session: context?.trading_session ?? null,
     signal_time_of_day: typeof context?.time_of_day === "number" ? context.time_of_day : null,
@@ -582,9 +596,14 @@ async function writeEvidence(
   delete updateRow["evidence_phase"];
   delete updateRow["news_context"];
   if (!signal) {
-    delete updateRow["signal_instrument"];
-    delete updateRow["signal_grade"];
+    // Detection time only ever came from the signal row; it is never substituted.
     delete updateRow["signal_detected_at"];
+    if (!characterisation) {
+      delete updateRow["signal_instrument"];
+      delete updateRow["signal_grade"];
+      delete updateRow["signal_grade_source"];
+      delete updateRow["signal_first_decision_at"];
+    }
   }
   if (!context) {
     delete updateRow["signal_trading_session"];

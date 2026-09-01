@@ -493,9 +493,12 @@ export type Database = {
           resolved_at: string | null
           signal_day_of_week: number | null
           signal_detected_at: string | null
+          signal_first_decision_at: string | null
           signal_grade: string | null
+          signal_grade_source: string | null
           signal_id: string | null
           signal_instrument: string | null
+          signal_ref: string | null
           signal_time_of_day: number | null
           signal_trading_session: string | null
           slippage_availability: string | null
@@ -549,9 +552,12 @@ export type Database = {
           resolved_at?: string | null
           signal_day_of_week?: number | null
           signal_detected_at?: string | null
+          signal_first_decision_at?: string | null
           signal_grade?: string | null
+          signal_grade_source?: string | null
           signal_id?: string | null
           signal_instrument?: string | null
+          signal_ref?: string | null
           signal_time_of_day?: number | null
           signal_trading_session?: string | null
           slippage_availability?: string | null
@@ -605,9 +611,12 @@ export type Database = {
           resolved_at?: string | null
           signal_day_of_week?: number | null
           signal_detected_at?: string | null
+          signal_first_decision_at?: string | null
           signal_grade?: string | null
+          signal_grade_source?: string | null
           signal_id?: string | null
           signal_instrument?: string | null
+          signal_ref?: string | null
           signal_time_of_day?: number | null
           signal_trading_session?: string | null
           slippage_availability?: string | null

@@ -1,65 +1,88 @@
-# Recover the grade of every closed trade — the trail does exist
+# Two open jobs: finish grade recovery, then cut refused-order waste
 
-## What I found in your data (checked just now)
+## Part A — Grade recovery: still valid, not finished
 
-The grade is recoverable for **all 20** trades that currently show "—". Nothing has to be guessed.
+Checked the database just now: `broker_trade_evidence` has 22 rows, only **2** carry a grade, and
+`signal_grade_source` / `signal_ref` are filled on **0** rows. So the plan you quoted is still
+correct and still safe to execute — steps 1 and 2 are done, steps 3 to 5 are not.
 
-Two surviving trails:
+Done already:
+- Migration adding `signal_grade_source`, `signal_first_decision_at`, `signal_ref`, plus the
+  one-time-fill relaxation of the immutability trigger.
+- `src/lib/evidence/grade-recovery.ts` + `.server.ts` with tests (unique-match-only, ambiguity
+  refused), wired into `recover.server.ts` and `reconcile.server.ts` so new orphans self-heal.
 
-1. **The broker order id carries the signal reference.** Every P-Trades order id has the
-   shape `PT_<signal-tail>_<delivery-id>` — the middle part is the last 18 characters of the
-   original signal's id. Verified against the two trades that still have their signal link:
-   `PT_19bd3a9000ddd2e5ee_6356` matches signal `c7d8b8ea-7829-4d19-bd3a-9000ddd2e5ee`.
-2. **`execution_enqueue_decisions` was never purged.** It holds 858 rows keyed by signal id,
-   each with instrument, grade and timestamp. Matching the 20 orphan trades through their
-   order-id tail gives **exactly one signal each — 20 of 20, no ambiguity, no collisions**, and
-   the instrument in the decision row agrees with the broker symbol in every case.
+Remaining:
+1. **Backfill the 20 orphan rows** through the same helper, writing the recovered signal into
+   `signal_ref` (not `signal_id`, which is a foreign key to rows that no longer exist),
+   `signal_grade_source = recovered_from_enqueue_decision`, and the first-decision timestamp.
+2. **Surface it truthfully**: `src/lib/queries.ts` column list, `src/lib/history/broker-orders.ts`
+   mapping, `AutomaticOrders.tsx` grade cell with a "recovered from decision log" marker.
+   Detected time stays "unavailable" for these rows.
+3. **Performance and learning**: grade mix, win rate by grade and per-grade net money include
+   recovered grades, with the recovered population reported separately; export and
+   `BROKER-EVIDENCE.md` updated.
 
-Recovered grades: **18 × C** (XAUUSD, EURUSD) and **2 × B** (GBPAUD). That is the honest answer
-to "what is the machine learning from": the August demo losses were overwhelmingly C-grade
-XAUUSD shorts, and the two B-grade GBPAUD trades both won.
+No estimated values anywhere — plan-R, slippage and detection time stay unavailable for these rows.
 
-What is genuinely gone and will stay blank: the exact `detected_at`, published entry/stop/target
-geometry, and therefore plan-R and slippage for those rows. Those lived only in the deleted
-signal and delivery rows. The earliest decision row per signal gives a "first seen at" bound,
-which is stored as its own field and never presented as the detection time.
+## Part B — Reduce "Not sent — refused by P-Trades"
 
-## The fix
+Refusals concentrate in a few reasons, and they are caused by **queue latency and blind retrying**,
+not by bad signals. Verified counts and how long each order sat queued before being refused:
 
-1. **Migration on `broker_trade_evidence`**
-   - Add `signal_grade_source` (`delivery` | `recovered_from_enqueue_decision`) and
-     `signal_first_decision_at`.
-   - Extend the immutability trigger so the characterisation fields (`signal_id`,
-     `signal_instrument`, `signal_grade`, and the two new ones) may be filled **once**, only
-     from NULL to a value, on closed rows — exactly like the slippage one-time backfill.
+| Reason | Count | Avg time queued first |
+|---|---|---|
+| price ran beyond max acceptable entry | 75 | 104 min |
+| broker/account spec unavailable | 51 | 91 min |
+| automatic-order window expired | 26 | 224 min |
+| market closed | 9 | 177 min |
+| quote stale | 3 | 112 min |
 
-2. **A reusable recovery step, not a one-off script.** New helper in
-   `src/lib/evidence/` that, given a P-Trades order id, resolves the signal reference from the
-   order-id tail and looks it up in `execution_enqueue_decisions` (then `model_observations` /
-   `research_candidates` as further fallbacks). It only accepts a **unique** match with an
-   agreeing instrument; anything ambiguous is left unset. Wired into both
-   `recover.server.ts` (orphan recovery) and `reconcile.server.ts`, so this never happens
-   silently again.
+Three defects behind those numbers:
 
-3. **Backfill the 20 existing rows** through that same helper, with
-   `signal_grade_source = recovered_from_enqueue_decision`.
+1. **One order can monopolise the worker.** Delivery 11317 (XAUUSD, queued 03:35) has been
+   re-asked **84 times** — `price_beyond_max_acceptable_entry` is retryable with **no backoff**,
+   so the dispatcher retries it ~5 times a minute, spending a broker quote call each time.
+2. **Head-of-line blocking.** The claim rule takes one most-urgent pending row per attempt, so
+   while 11317 churned, delivery 11470 sat pending 90+ minutes with **0 attempts**; 16 rows are
+   pending right now, the oldest from 03:35. Fresh setups age out waiting behind a stuck one.
+3. **Refusals are found too late.** Market-closed, spec-unavailable and window-expired are all
+   knowable at enqueue time, but are only checked at dispatch — after the row is created, counted
+   against your limits, and shown to you as queued.
 
-4. **Surface it truthfully in the UI.** Trade History and the table view show the grade with a
-   "grade recovered from decision log" marker; detected time stays "unavailable" for these rows
-   rather than borrowing the decision timestamp. The grade filter then works on all 21 closed
-   trades instead of 1.
+### Changes
 
-5. **Performance and learning use them.** Grade-mix, win-rate-by-grade and per-grade net money
-   include recovered grades, with the recovered-provenance population reported separately so a
-   recovered grade is never mistaken for a full plan record.
+1. **Backoff and give-up**
+   - Add `next_attempt_at`; the claim RPC ignores rows scheduled for the future.
+   - Escalating spacing on retryable refusals (1, 2, 5, 10, then 15 min) instead of every pass.
+   - Terminalise early when price has moved beyond the entry ceiling by more than a configurable
+     multiple of the setup's risk distance — that setup is not coming back.
+   - Stop retrying once the remaining window is shorter than the next backoff step (replaces the
+     flat 120-attempt ceiling).
 
-## Technical notes
+2. **Fair claiming**
+   - Claim a small batch per pass, round-robin across users and instruments, so a hot symbol
+     cannot starve everything else.
+   - Settle rows whose remaining window is under one dispatch cycle as expired instead of
+     claiming them just to refuse them.
 
-- Match rule: `right(replace(signal_id::text,'-',''), length(tail)) = tail`, requiring exactly
-  one distinct signal id and one distinct grade; enforced in code and covered by tests.
-- Files: migration; `src/lib/evidence/grade-recovery.ts` (+ tests), `recover.server.ts`,
-  `reconcile.server.ts`, `src/lib/queries.ts`, `src/lib/history/broker-orders.ts`,
-  `src/components/history/AutomaticOrders.tsx`, `src/lib/performance-evidence*.ts`,
-  `src/lib/performance.ts`, `src/lib/export.ts`, docs `BROKER-EVIDENCE.md`.
-- No estimated or synthesised value anywhere: only fields with a surviving record are filled,
-  everything else stays unavailable with its reason.
+3. **Cheap checks move to enqueue**
+   Refuse before a delivery row exists when the market is closed, when the sizing spec is missing
+   and an on-demand refresh fails, or when the remaining window is below a useful floor. These
+   stay full `execution_enqueue_decisions` rows with the same clear reason, so the audit trail is
+   unchanged — you see why nothing was queued, without a phantom queued order.
+
+4. **Make the cost visible**
+   Admin panel: refusal reasons for 24 h / 7 d with attempts spent and average queue latency per
+   reason; Trade History shows attempts spent on refused rows. A regression like 11317 becomes
+   obvious within a cycle.
+
+5. **Cleanup** — settle the current 16-row backlog under the new rules.
+
+## Notes
+
+- User-policy refusals stay exactly as they are (C-grade blocked 1451, session filtered 724,
+  concurrent limit 346, duplicate resting order) — those are correct and intentional.
+- No change to grading, sizing authority, or the live-execution lock; live execution stays
+  globally disabled. Enqueue gates only ever reduce what is sent, and every downstream gate
+  still re-checks at dispatch.
