@@ -202,7 +202,17 @@ export async function expireUnfilledOrders(
   }
 
   for (const row of rows) {
-    if (isTerminal(row.state as DeliveryState) && row.state !== "acknowledged") continue;
+    // `acknowledged` and `unknown` are terminal for DISPATCH — they are never
+    // re-attempted — but they still occupy the owner's concurrent ceiling, so the
+    // sweeper must examine them. Skipping them left slots held forever.
+    if (
+      isTerminal(row.state as DeliveryState) &&
+      row.state !== "acknowledged" &&
+      row.state !== "unknown"
+    ) {
+      continue;
+    }
+
     const timeoutMs = (row.user_id && windows.get(row.user_id)) || UNFILLED_ORDER_TIMEOUT_MS;
     if (!isUnfilledTooLong(row, now, timeoutMs)) continue;
 
