@@ -156,8 +156,29 @@ export function brokerOrdersQuery(userId: string | undefined) {
           scanned_signals?: BrokerOrderSignalRow[] | BrokerOrderSignalRow | null;
         }
       >;
-      return rows.map((row) =>
+      const views = rows.map((row) =>
         toBrokerOrderView(row, one(row.broker_trade_evidence), one(row.scanned_signals)),
+      );
+
+      // Broker trades whose order record was deleted by retention still happened.
+      // They are read straight from the evidence ledger so History can never again
+      // imply that nothing filled.
+      const { data: recovered, error: recoveredError } = await supabase
+        .from("broker_trade_evidence" as never)
+        .select(
+          "id, client_id, broker_symbol, first_observed_at, state, broker_account_type, direction, volume, entry_price, exit_price, entry_at, exit_at, gross_profit, commission, swap, profit_currency, r_vs_plan, r_vs_actual_risk, r_availability, stop_provenance",
+        )
+        .is("delivery_id", null)
+        .order("entry_at", { ascending: false, nullsFirst: false })
+        .limit(BROKER_ORDER_PAGE_SIZE);
+      if (recoveredError) throw recoveredError;
+
+      const recoveredViews = ((recovered ?? []) as unknown as RecoveredEvidenceRow[]).map((row) =>
+        toRecoveredEvidenceView(row),
+      );
+
+      return [...views, ...recoveredViews].sort(
+        (a, b) => Date.parse(b.enqueuedAt) - Date.parse(a.enqueuedAt),
       );
     },
   });
