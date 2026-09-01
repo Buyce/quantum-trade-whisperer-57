@@ -6,11 +6,14 @@ import type { ScannerSettingsRow, SignalRow, TradeHistoryRow, TradeRow } from ".
 import { R_MATH_VERSION } from "./journal/r-math";
 import {
   toBrokerOrderView,
+  toRecoveredEvidenceView,
   type BrokerOrderDeliveryRow,
   type BrokerOrderEvidenceRow,
   type BrokerOrderSignalRow,
   type BrokerOrderView,
+  type RecoveredEvidenceRow,
 } from "./history/broker-orders";
+
 import { collectCompletePages } from "./pagination";
 import { fetchDayFrame, type FrameClient } from "./delivery/day-frame";
 import type { EligibilitySignal } from "./delivery/eligibility";
