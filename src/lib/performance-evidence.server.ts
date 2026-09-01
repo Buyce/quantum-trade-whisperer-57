@@ -12,6 +12,7 @@ interface EvidenceDbRow {
   signal_id: string | null;
   signal_instrument: string | null;
   signal_grade: string | null;
+  signal_grade_source: string | null;
   signal_detected_at: string | null;
   signal_trading_session: string | null;
   signal_time_of_day: number | null;
@@ -98,7 +99,7 @@ export async function loadPerformanceEvidence(
     let evidenceQuery = db
       .from("broker_trade_evidence" as never)
       .select(
-        "id, signal_id, signal_instrument, signal_grade, signal_detected_at, signal_trading_session, signal_time_of_day, signal_day_of_week, broker_symbol, entry_at, resolved_at, first_observed_at, r_vs_plan, r_vs_actual_risk, volume, entry_price, exit_price, gross_profit, commission, swap, profit_currency, slippage_price, slippage_availability",
+        "id, signal_id, signal_instrument, signal_grade, signal_grade_source, signal_detected_at, signal_trading_session, signal_time_of_day, signal_day_of_week, broker_symbol, entry_at, resolved_at, first_observed_at, r_vs_plan, r_vs_actual_risk, volume, entry_price, exit_price, gross_profit, commission, swap, profit_currency, slippage_price, slippage_availability",
       )
       .eq("evidence_class", source)
       .eq("state", "closed")
@@ -186,6 +187,16 @@ export async function loadPerformanceEvidence(
       currency: row.profit_currency,
       slippagePrice: finite(row.slippage_price),
       slippageAvailability: row.slippage_availability,
+      // Provenance of the grade above: `recovered_from_enqueue_decision` means
+      // the setup row was purged and the grade was proved from the surviving
+      // decision log. Reported so a recovered grade is never mistaken for a
+      // full plan record.
+      gradeSource:
+        snapshottedGrade && GRADES.has(snapshottedGrade)
+          ? row.signal_grade_source === "recovered_from_enqueue_decision"
+            ? "recovered_from_enqueue_decision"
+            : "delivery"
+          : null,
     };
   });
 }

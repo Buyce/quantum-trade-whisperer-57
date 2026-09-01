@@ -17,6 +17,7 @@ function view(overrides: Partial<BrokerOrderView> = {}): BrokerOrderView {
     deliveryId: 1,
     instrument: "EURUSD",
     grade: "A",
+    gradeSource: "delivery",
     direction: "short",
     detectedAt: null,
     enqueuedAt: "2026-08-27T10:00:00.000Z",

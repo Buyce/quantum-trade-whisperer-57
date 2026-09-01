@@ -440,6 +440,74 @@ function normaliseHosts(input: string[]): string[] {
   return out;
 }
 
+/**
+ * What the dispatch queue SPENT on refusals over the last 7 days.
+ *
+ * Every attempt is a broker API call and a slot in a bounded worker pass, so a
+ * refusal that is re-asked eighty times costs eighty times as much as one that
+ * is settled. This read reports the cost per refusal reason — rows, attempts
+ * spent, and how long the row sat in the queue — so waste is measured rather
+ * than guessed. It reports recorded rows only; a reason absent from the ledger
+ * is absent here too.
+ */
+export interface AdminRefusalCost {
+  reason: string;
+  rows: number;
+  attempts: number;
+  maxAttempts: number;
+  medianQueueMinutes: number | null;
+}
+
+export const getAdminRefusalCost = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<AdminRefusalCost[]> => {
+    const email = String(context.claims["email"] ?? "").toLowerCase();
+    if (email !== OWNER_EMAIL) throw new Error("Forbidden");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const { data, error } = await supabaseAdmin
+      .from("execution_deliveries")
+      .select("reason, attempts, enqueued_at, settled_at, state")
+      .in("state", ["rejected", "failed", "expired"])
+      .gte("enqueued_at", since)
+      .order("enqueued_at", { ascending: false })
+      .limit(2000);
+    if (error) throw new Error(error.message);
+
+    const groups = new Map<string, { rows: number; attempts: number; max: number; waits: number[] }>();
+    for (const raw of (data ?? []) as Record<string, unknown>[]) {
+      // The bare reason, without its per-row numeric detail, is the unit of cost.
+      const reason = String(raw["reason"] ?? "unrecorded").split(":")[0]!.trim() || "unrecorded";
+      const bucket = groups.get(reason) ?? { rows: 0, attempts: 0, max: 0, waits: [] };
+      const attempts = Number(raw["attempts"] ?? 0);
+      bucket.rows += 1;
+      bucket.attempts += attempts;
+      bucket.max = Math.max(bucket.max, attempts);
+      const enqueued = Date.parse(String(raw["enqueued_at"] ?? ""));
+      const settled = Date.parse(String(raw["settled_at"] ?? ""));
+      if (Number.isFinite(enqueued) && Number.isFinite(settled) && settled >= enqueued) {
+        bucket.waits.push((settled - enqueued) / 60000);
+      }
+      groups.set(reason, bucket);
+    }
+
+    return [...groups.entries()]
+      .map(([reason, b]) => ({
+        reason,
+        rows: b.rows,
+        attempts: b.attempts,
+        maxAttempts: b.max,
+        // Median, not mean: one row parked for hours must not be reported as the
+        // typical wait.
+        medianQueueMinutes:
+          b.waits.length === 0
+            ? null
+            : Math.round(b.waits.sort((x, y) => x - y)[Math.floor(b.waits.length / 2)]!),
+      }))
+      .sort((a, b) => b.attempts - a.attempts);
+  });
+
 export interface AdminEnqueueDecision {
   at: string;
   instrument: string | null;

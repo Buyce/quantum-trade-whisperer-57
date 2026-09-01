@@ -1442,6 +1442,7 @@ export type Database = {
           magic: number | null
           margin_currency: string | null
           margin_estimate: number | null
+          next_attempt_at: string | null
           payload_version: number
           price_grid_moved: boolean | null
           price_grid_source: string | null
@@ -1495,6 +1496,7 @@ export type Database = {
           magic?: number | null
           margin_currency?: string | null
           margin_estimate?: number | null
+          next_attempt_at?: string | null
           payload_version?: number
           price_grid_moved?: boolean | null
           price_grid_source?: string | null
@@ -1548,6 +1550,7 @@ export type Database = {
           magic?: number | null
           margin_currency?: string | null
           margin_estimate?: number | null
+          next_attempt_at?: string | null
           payload_version?: number
           price_grid_moved?: boolean | null
           price_grid_source?: string | null

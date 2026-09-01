@@ -422,7 +422,19 @@ function OrderTable({ rows }: { rows: BrokerOrderView[] }) {
                   {when(row.broker?.entryAt ?? row.enqueuedAt)}
                 </td>
                 <td className="px-2.5 py-2 font-semibold whitespace-nowrap">{row.instrument}</td>
-                <td className="px-2.5 py-2">{row.grade === "Unknown" ? "—" : row.grade}</td>
+                <td
+                  className="px-2.5 py-2"
+                  title={
+                    row.gradeSource === "recovered_from_enqueue_decision"
+                      ? "Grade recovered from the decision log: the original setup row was deleted by retention, so only the grade P-Trades acted on is known. The detection time and plan geometry stay unavailable."
+                      : undefined
+                  }
+                >
+                  {row.grade === "Unknown" ? "—" : row.grade}
+                  {row.gradeSource === "recovered_from_enqueue_decision" ? (
+                    <span className="text-muted-foreground">*</span>
+                  ) : null}
+                </td>
                 <td
                   className={cn(
                     "px-2.5 py-2",
@@ -481,6 +493,14 @@ function OrderCard({ row }: { row: BrokerOrderView }) {
             {INSTRUMENT_LABELS[row.instrument] ?? ""}
           </span>
           {row.grade !== "Unknown" ? <GradeBadge grade={row.grade} /> : null}
+          {row.gradeSource === "recovered_from_enqueue_decision" ? (
+            <span
+              className="num rounded-sm border border-border px-1.5 py-0.5 text-[11px] text-muted-foreground"
+              title="The original setup row was deleted by retention. This grade was proved from the surviving decision log — a unique match on the broker order reference — so the grade is real while the detection time and plan geometry stay unavailable."
+            >
+              Grade recovered from decision log
+            </span>
+          ) : null}
           {row.direction ? (
             <span
               className={cn(
@@ -526,7 +546,7 @@ function OrderCard({ row }: { row: BrokerOrderView }) {
           {row.recovered ? (
             <span
               className="num rounded-sm border border-warning/40 bg-warning/10 px-1.5 py-0.5 text-[11px] text-warning"
-              title="Recovered from your broker's own deal history. The P-Trades order record for this trade no longer exists, so the setup, grade, submitted geometry and slippage are unavailable — only the broker's figures are shown."
+              title="Recovered from your broker's own deal history. The P-Trades order record for this trade no longer exists, so the detection time, submitted geometry and slippage are unavailable — only the broker's figures are shown. The grade is shown separately when the decision log proved it."
             >
               Recovered from broker records
             </span>

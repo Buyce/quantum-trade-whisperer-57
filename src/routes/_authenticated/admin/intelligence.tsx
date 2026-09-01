@@ -45,6 +45,7 @@ import { CandidatePanel } from "@/components/admin/CandidatePanel";
 import { EngineStatusPanel } from "@/components/admin/EngineStatusPanel";
 import { ExecutionSwitchPanel } from "@/components/admin/ExecutionSwitchPanel";
 import { EnqueueDecisionPanel } from "@/components/admin/EnqueueDecisionPanel";
+import { RefusalCostPanel } from "@/components/admin/RefusalCostPanel";
 import { InstrumentDiagnosticsPanel } from "@/components/admin/InstrumentDiagnosticsPanel";
 import { CommissioningPanel } from "@/components/admin/CommissioningPanel";
 import { PromotionPanel } from "@/components/admin/PromotionPanel";
@@ -171,6 +172,7 @@ function AdminIntelligencePage() {
       <ExecutionSwitchPanel />
 
       <EnqueueDecisionPanel />
+      <RefusalCostPanel />
 
       <InstrumentDiagnosticsPanel />
 

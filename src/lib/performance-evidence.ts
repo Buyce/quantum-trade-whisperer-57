@@ -35,4 +35,10 @@ export interface PerformanceEvidenceRow {
   /** Broker fill versus the price P-Trades published or submitted, when knowable. */
   slippagePrice: number | null;
   slippageAvailability: string | null;
+  /**
+   * Where the grade came from. `recovered_from_enqueue_decision` marks a trade
+   * whose setup row was purged and whose grade was proved from the decision log;
+   * such a row has a real grade but no plan geometry.
+   */
+  gradeSource: "delivery" | "recovered_from_enqueue_decision" | null;
 }
