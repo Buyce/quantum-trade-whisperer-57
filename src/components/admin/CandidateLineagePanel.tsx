@@ -18,11 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 const PAGE_SIZE = 25;
 
-function utc(ts: string | null): string {
-  if (!ts) return "—";
-  const ms = Date.parse(ts);
-  return Number.isFinite(ms) ? new Date(ms).toISOString().replace("T", " ").slice(0, 16) : "—";
-}
+const utc = utcMinute;
 
 function replayOutcome(row: CandidateLineageRow): string {
   if (row.research_window_status === "outside_replay_window") {
