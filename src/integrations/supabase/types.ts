@@ -4026,6 +4026,7 @@ export type Database = {
           replay_cursor: string | null
           replay_version: number
           research_candidate_id: string | null
+          research_window_status: string | null
           resolved_at: string | null
           resolved_outcome: string | null
           resolver_version: number | null
@@ -4096,6 +4097,7 @@ export type Database = {
           replay_cursor?: string | null
           replay_version?: number
           research_candidate_id?: string | null
+          research_window_status?: string | null
           resolved_at?: string | null
           resolved_outcome?: string | null
           resolver_version?: number | null
@@ -4166,6 +4168,7 @@ export type Database = {
           replay_cursor?: string | null
           replay_version?: number
           research_candidate_id?: string | null
+          research_window_status?: string | null
           resolved_at?: string | null
           resolved_outcome?: string | null
           resolver_version?: number | null
@@ -5111,6 +5114,10 @@ export type Database = {
       expire_execution_leases: { Args: never; Returns: number }
       get_admin_author_split: { Args: never; Returns: Json }
       get_admin_candidate_funnel: { Args: never; Returns: Json }
+      get_admin_candidate_lineage: {
+        Args: { _limit?: number; _offset?: number }
+        Returns: Json
+      }
       get_admin_commissioning: { Args: never; Returns: Json }
       get_admin_engine_status: { Args: never; Returns: Json }
       get_admin_experiments: { Args: never; Returns: Json }
