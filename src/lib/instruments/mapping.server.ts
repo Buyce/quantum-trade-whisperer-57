@@ -253,11 +253,64 @@ async function resolveScannerScope(
 ): Promise<MappingResolution> {
   const { data, error } = await db
     .from("broker_symbol_specs")
-    .select("symbol, fetched_at")
+    .select("symbol, fetched_at, provider_symbol")
     .eq("symbol", canonical)
     .maybeSingle();
 
-  if (error || !data) {
+  const specRow = (data ?? null) as {
+    symbol: string;
+    fetched_at: string | null;
+    provider_symbol?: string | null;
+  } | null;
+
+  /**
+   * An operator binding overrides the canonical name, but it does NOT stand in
+   * for provider evidence: the specification stored for this instrument must
+   * itself have been fetched under the bound ticker, and be inside the freshness
+   * window, before the mapping is usable.
+   */
+  const { readBinding } = await import("./bindings.server");
+  const binding = await readBinding(db, canonical);
+  if (binding) {
+    if (!specRow || specRow.provider_symbol !== binding.providerSymbol) {
+      return refuse(
+        canonical,
+        scope,
+        "unverified",
+        "never_verified",
+        `This instrument is bound to the broker symbol ${binding.providerSymbol}, but no provider specification has been fetched under that name yet.`,
+        { candidates: binding.candidates },
+      );
+    }
+    const bindingStaleness = stalenessOf(specRow.fetched_at, now);
+    if (bindingStaleness !== null) {
+      return refuse(
+        canonical,
+        scope,
+        "configured",
+        "verification_stale",
+        `The provider last confirmed ${binding.providerSymbol} ${bindingStaleness} days ago; it must be re-checked before use.`,
+        {
+          verifiedAt: specRow.fetched_at,
+          providerSymbol: binding.providerSymbol,
+          candidates: binding.candidates,
+        },
+      );
+    }
+    return {
+      canonical,
+      providerSymbol: binding.providerSymbol,
+      status: "configured",
+      scope,
+      verifiedAt: specRow.fetched_at,
+      candidates: binding.candidates.length ? binding.candidates : [binding.providerSymbol],
+      usable: true,
+      refusal: null,
+      detail: `An operator bound this instrument to the broker symbol ${binding.providerSymbol}, and the provider returned a specification under that name.`,
+    };
+  }
+
+  if (error || !specRow) {
     return refuse(
       canonical,
       scope,
@@ -267,7 +320,7 @@ async function resolveScannerScope(
     );
   }
 
-  const row = data as { symbol: string; fetched_at: string | null };
+  const row = specRow;
   const staleness = stalenessOf(row.fetched_at, now);
   if (staleness !== null) {
     return refuse(

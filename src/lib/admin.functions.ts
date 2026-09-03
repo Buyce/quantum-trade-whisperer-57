@@ -822,3 +822,207 @@ export const getAdminAutoTraderOutcomes = createServerFn({ method: "GET" })
       }),
     );
   });
+
+/**
+ * Symbol-binding surface (owner only).
+ *
+ * These three functions exist for exactly one deadlock: discovery correctly
+ * refuses to pick between several broker tickers, or finds none, so the
+ * instrument can never earn evidence. A named operator records the one true
+ * ticker; nothing else about the lifecycle is bypassed by that act.
+ */
+export interface SymbolBindingView {
+  canonical: string;
+  stage: string | null;
+  binding: {
+    providerSymbol: string;
+    boundBy: string;
+    reason: string | null;
+    updatedAt: string | null;
+  } | null;
+  /** Latest discovery evidence: what the broker inventory actually offered. */
+  discovery: {
+    outcome: string | null;
+    candidates: string[];
+    checkedAt: string | null;
+  } | null;
+  /** The broker ticker the stored specification was fetched under, if any. */
+  specProviderSymbol: string | null;
+  specFetchedAt: string | null;
+}
+
+export const getAdminSymbolBindings = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<SymbolBindingView[]> => {
+    const email = String(context.claims["email"] ?? "").toLowerCase();
+    if (email !== OWNER_EMAIL) throw new Error("Forbidden");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { listBindings } = await import("@/lib/instruments/bindings.server");
+    const { INSTRUMENTS } = await import("@/lib/scanner/types");
+
+    const [bindings, lifecycle, discovery, specs] = await Promise.all([
+      listBindings(supabaseAdmin as never),
+      supabaseAdmin.from("instrument_lifecycle").select("symbol, stage"),
+      supabaseAdmin
+        .from("instrument_alias_discovery")
+        .select("canonical, outcome, candidates, created_at")
+        .order("created_at", { ascending: false })
+        .limit(200),
+      supabaseAdmin.from("broker_symbol_specs").select("symbol, provider_symbol, fetched_at"),
+    ]);
+
+    const stageOf = new Map(
+      (lifecycle.data ?? []).map((r) => [String(r.symbol), r.stage as string | null]),
+    );
+    const specOf = new Map((specs.data ?? []).map((r) => [String(r.symbol), r]));
+    const bindingOf = new Map(bindings.map((b) => [b.canonical, b]));
+    const latestDiscovery = new Map<string, NonNullable<typeof discovery.data>[number]>();
+    for (const row of discovery.data ?? []) {
+      if (!latestDiscovery.has(String(row.canonical))) latestDiscovery.set(String(row.canonical), row);
+    }
+
+    return INSTRUMENTS.map((symbol) => {
+      const binding = bindingOf.get(symbol) ?? null;
+      const disc = latestDiscovery.get(symbol) ?? null;
+      const spec = specOf.get(symbol) ?? null;
+      return {
+        canonical: symbol,
+        stage: stageOf.get(symbol) ?? null,
+        binding: binding
+          ? {
+              providerSymbol: binding.providerSymbol,
+              boundBy: binding.boundBy,
+              reason: binding.reason,
+              updatedAt: binding.updatedAt,
+            }
+          : null,
+        discovery: disc
+          ? {
+              outcome: (disc.outcome as string | null) ?? null,
+              candidates: Array.isArray(disc.candidates) ? (disc.candidates as string[]) : [],
+              checkedAt: (disc.created_at as string | null) ?? null,
+            }
+          : null,
+        specProviderSymbol: (spec?.provider_symbol as string | null) ?? null,
+        specFetchedAt: (spec?.fetched_at as string | null) ?? null,
+      };
+    });
+  });
+
+export const bindInstrumentSymbol = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { canonical: string; providerSymbol: string; reason?: string }) => data)
+  .handler(async ({ context, data }): Promise<{ ok: boolean; error: string | null }> => {
+    const email = String(context.claims["email"] ?? "").toLowerCase();
+    if (email !== OWNER_EMAIL) throw new Error("Forbidden");
+
+    const canonical = String(data.canonical ?? "").trim().toUpperCase();
+    const providerSymbol = String(data.providerSymbol ?? "").trim();
+    if (!canonical || !providerSymbol) {
+      return { ok: false, error: "Both a canonical instrument and one exact broker symbol are required." };
+    }
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { INSTRUMENTS } = await import("@/lib/scanner/types");
+    if (!(INSTRUMENTS as readonly string[]).includes(canonical)) {
+      return { ok: false, error: `${canonical} is not a registered instrument.` };
+    }
+
+    // The chosen ticker must exist in the broker's own inventory. A binding to a
+    // name the broker never listed would fail at fetch time with no explanation.
+    const { fetchInventory } = await import("@/lib/instruments/discovery.server");
+    const inventory = await fetchInventory();
+    if (inventory.length === 0) {
+      return { ok: false, error: "The broker symbol inventory could not be read, so the binding was not recorded." };
+    }
+    if (!inventory.includes(providerSymbol)) {
+      return { ok: false, error: `The broker inventory does not list "${providerSymbol}".` };
+    }
+
+    const { readBinding, writeBinding } = await import("@/lib/instruments/bindings.server");
+    const previous = await readBinding(supabaseAdmin as never, canonical);
+    const { data: disc } = await supabaseAdmin
+      .from("instrument_alias_discovery")
+      .select("candidates, outcome, created_at")
+      .eq("canonical", canonical)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const result = await writeBinding(supabaseAdmin as never, {
+      canonical,
+      providerSymbol,
+      boundBy: email,
+      reason: data.reason ?? null,
+      candidates: Array.isArray(disc?.candidates) ? (disc?.candidates as string[]) : [],
+      evidence: {
+        discovery_outcome: disc?.outcome ?? null,
+        discovery_checked_at: disc?.created_at ?? null,
+        previous_provider_symbol: previous?.providerSymbol ?? null,
+        inventory_size: inventory.length,
+      },
+    });
+    return result;
+  });
+
+export const unbindInstrumentSymbol = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { canonical: string }) => data)
+  .handler(async ({ context, data }): Promise<{ ok: boolean; error: string | null }> => {
+    const email = String(context.claims["email"] ?? "").toLowerCase();
+    if (email !== OWNER_EMAIL) throw new Error("Forbidden");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { deleteBinding } = await import("@/lib/instruments/bindings.server");
+    return deleteBinding(supabaseAdmin as never, String(data.canonical ?? ""));
+  });
+
+/**
+ * Owner-triggered commissioning recheck for ONE instrument.
+ *
+ * Everything the automatic passes do — alias discovery, specification refresh,
+ * readiness snapshot — but for a single named symbol, on demand, so an operator
+ * can see immediately whether a fresh binding actually works instead of waiting a
+ * day for the next cron. It writes evidence only: no lifecycle stage changes, no
+ * publication, no order.
+ *
+ * The 24h specification budget is cleared for this one symbol first, because the
+ * whole point of the recheck is to re-ask the provider under a name that changed.
+ */
+export const recommissionInstrument = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { canonical: string }) => data)
+  .handler(async ({ context, data }) => {
+    const email = String(context.claims["email"] ?? "").toLowerCase();
+    if (email !== OWNER_EMAIL) throw new Error("Forbidden");
+
+    const canonical = String(data.canonical ?? "").trim().toUpperCase();
+    const { INSTRUMENTS } = await import("@/lib/scanner/types");
+    if (!(INSTRUMENTS as readonly string[]).includes(canonical)) {
+      throw new Error(`${canonical} is not a registered instrument.`);
+    }
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await supabaseAdmin.from("spec_refresh_attempts").delete().eq("symbol", canonical);
+
+    const { runCommissioningPass } = await import("@/lib/instruments/commissioning.server");
+    const { fetchInventory } = await import("@/lib/instruments/discovery.server");
+    const inventory = await fetchInventory();
+    const result = await runCommissioningPass(
+      supabaseAdmin as never,
+      canonical,
+      inventory.length ? inventory : null,
+    );
+
+    return {
+      canonical,
+      discoveryOutcome: result.discoveryOutcome,
+      specAction: result.specAction,
+      snapshotWritten: result.snapshotWritten,
+      mayEnterDataValidation: result.decision.mayEnterDataValidation,
+      blockers: result.decision.blockers as string[],
+      detail: result.decision.detail,
+      providerSymbol: result.decision.symbol,
+      error: result.error,
+    };
+  });
