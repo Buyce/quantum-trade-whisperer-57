@@ -150,7 +150,13 @@ export function classifyScanHealth(scan: ScanWindowInput): ScanHealth {
     : { state: "degraded", value: "DEGRADED", tone: "warn", errorIsCurrent: true };
 }
 
-export type ReplayHealthState = "no_runs" | "tripped" | "degraded" | "running";
+export type ReplayHealthState =
+  | "no_runs"
+  | "tripped"
+  | "degraded"
+  | "recovering"
+  | "running";
+
 
 export interface ReplayBreakerInput {
   paused?: boolean | null;
