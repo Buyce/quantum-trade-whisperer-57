@@ -177,6 +177,32 @@ export async function noteResearchFailure(
 }
 
 /**
+ * Clear the latched research error after a successful write. The cumulative
+ * `research_errors` counter is deliberately kept — history stays — but the
+ * "last error" latch belongs to the failure, not to the engine, so a
+ * recovered pipeline must not keep displaying it as if it were current.
+ * Bounded and swallowing, same contract as noteResearchFailure.
+ */
+export async function noteResearchSuccess(
+  db: SupabaseClient,
+  deadlineMs = RESEARCH_WRITE_DEADLINE_MS,
+): Promise<void> {
+  try {
+    await bounded(
+      db
+        .from("shadow_engine_state")
+        .update({ research_last_error: null, research_last_error_at: null })
+        .eq("id", true)
+        .not("research_last_error", "is", null)
+        .then((r) => r),
+      deadlineMs,
+    );
+  } catch {
+    // Intentionally silent: a failed reset must never fail a scan job.
+  }
+}
+
+/**
  * Persist observation rows. Never throws — returns how many rows were written.
  *
  * Upsert on the (run_id, instrument, model_version) identity so a retried scan
@@ -225,6 +251,9 @@ export async function recordObservations(
       );
       return 0;
     }
+    // Success clears the latch: new failures still latch fresh via
+    // noteResearchFailure, so this never hides a live failure.
+    await noteResearchSuccess(db, deadlineMs);
     return allowedRows.length;
   } catch (err) {
     await noteResearchFailure(
