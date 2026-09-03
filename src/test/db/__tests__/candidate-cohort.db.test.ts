@@ -181,12 +181,19 @@ describe("research-candidate cohort contamination", () => {
     db.exec(`select public.recompute_filter_lift(24)`);
     const [lift] = db.rows<{ n: number; se_r: number | null; origin: string }>(
       `select count(*)::int as n, max(se_r) as se_r, max(plan_origin) as origin
-         from public.filter_lift_stats where gate = 'headroom' and arm = 'fail'`,
+         from public.filter_lift_stats where gate = 'headroom' and arm = 'fail'
+           and slice_dim = 'global'`,
     );
     expect(lift!.n).toBe(1);
     expect(lift!.origin).toBe("common_counterfactual_ladder_v1");
-    // Prompt 7G item 3: no standard error is published for research numbers.
+    // A single instrument-day cannot produce a cluster-robust interval.
     expect(lift!.se_r).toBeNull();
+    // Slice rows accompany the global row (instrument/direction/session).
+    const [slices] = db.rows<{ n: number }>(
+      `select count(*)::int as n from public.filter_lift_stats
+        where gate = 'headroom' and arm = 'fail' and slice_dim <> 'global'`,
+    );
+    expect(slices!.n).toBe(3);
   });
 
   it("[INVARIANT] a research plan cannot exist without genuinely derived geometry", () => {
