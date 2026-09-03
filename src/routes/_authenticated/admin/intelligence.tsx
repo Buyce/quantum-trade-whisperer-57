@@ -37,6 +37,7 @@ import {
   timeAgo,
 } from "@/components/admin/AdminPanels";
 import { setAllPanelsOpen } from "@/components/admin/panel-state";
+import { PanelBoundary } from "@/components/admin/PanelBoundary";
 
 import { BaselinePanel } from "@/components/admin/BaselinePanel";
 import { ResearchPanel } from "@/components/admin/ResearchPanel";
@@ -181,244 +182,296 @@ function AdminIntelligencePage() {
         </div>
       </header>
 
-      <EngineStatusPanel />
+      <PanelBoundary name="Engine status">
+        <EngineStatusPanel />
+      </PanelBoundary>
 
-      <ExecutionSwitchPanel />
+      <PanelBoundary name="Execution switch">
+        <ExecutionSwitchPanel />
+      </PanelBoundary>
 
-      <EnqueueDecisionPanel />
-      <RefusalCostPanel />
+      <PanelBoundary name="Enqueue decisions">
+        <EnqueueDecisionPanel />
+      </PanelBoundary>
+      <PanelBoundary name="Refusal cost">
+        <RefusalCostPanel />
+      </PanelBoundary>
 
-      <InstrumentDiagnosticsPanel />
+      <PanelBoundary name="Headline stats">
+        <PanelBoundary name="Instrument diagnostics">
+          <InstrumentDiagnosticsPanel />
+        </PanelBoundary>
 
-      <CommissioningPanel />
-      <SymbolBindingPanel />
+        <PanelBoundary name="Commissioning">
+          <CommissioningPanel />
+        </PanelBoundary>
+        <PanelBoundary name="Symbol bindings">
+          <SymbolBindingPanel />
+        </PanelBoundary>
 
-      <PromotionPanel />
+        <PanelBoundary name="Promotion">
+          <PromotionPanel />
+        </PanelBoundary>
 
-      <NewsPanel />
+        <PanelBoundary name="News">
+          <NewsPanel />
+        </PanelBoundary>
 
-      <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatCard
-          label="Cycle latency p50 / p95"
-          value={`${num(health.p50_ms, 0)} / ${num(health.p95_ms, 0)} ms`}
-          sub={`${jobTotal} jobs in 24h · last ${timeAgo(health.last_cycle_at)}`}
-        />
-        <StatCard
-          label="Active accounts"
-          value={String(engagement.active_accounts)}
-          sub={`${engagement.telemetry_events} telemetry events`}
-        />
-        <StatCard
-          label="Taken / Skipped"
-          value={`${engagement.total_taken} / ${engagement.total_skipped}`}
-          sub="all-time user decisions"
-        />
-        <StatCard
-          label="Taken → shadow win rate"
-          hint="Deterministic replay outcome for setups users marked taken — not user-reported."
-          value={pctOf(engagement.taken_performance?.win_rate ?? null)}
-          sub={
-            engagement.taken_performance && engagement.taken_performance.n > 0
-              ? `n=${engagement.taken_performance.n} · mean R ${num(engagement.taken_performance.mean_r)}`
-              : "no resolved taken signals"
-          }
-        />
-        <StatCard
-          label="User-reported win rate"
-          hint="From users' own logged trade outcomes in Trade History."
-          value={
-            engagement.user_reported && engagement.user_reported.n > 0
-              ? pctOf(engagement.user_reported.win_rate)
-              : "—"
-          }
-          sub={
-            engagement.user_reported && engagement.user_reported.n > 0
-              ? `n=${engagement.user_reported.n} · mean R ${num(engagement.user_reported.mean_r)}` +
-                (audit.data && audit.data.verifiedSampleN > 0
-                  ? ` · verified ${pctOf(audit.data.verifiedWinRate)} (n=${audit.data.verifiedSampleN})`
-                  : audit.data
-                    ? " · none verified against replay"
-                    : "")
-              : "no user-logged outcomes yet"
-          }
-        />
-        <StatCard
-          label="Queue backlog"
-          value={`${health.backlog?.pending ?? 0} pending`}
-          sub={
-            health.backlog?.oldest_pending_age_min != null
-              ? `oldest ${health.backlog.oldest_pending_age_min} min · ${health.backlog.processing} in flight`
-              : `queue clear · ${health.backlog?.processing ?? 0} in flight`
-          }
-          tone={
-            (health.backlog?.oldest_pending_age_min ?? 0) > 15
-              ? "bad"
-              : (health.backlog?.pending ?? 0) > 0
-                ? "warn"
-                : "good"
-          }
-        />
-        <StatCard
-          label="Webhook success 24h"
-          value={pctOf(webhooks.success_rate)}
-          sub={`${webhooks.total_24h} dispatches`}
-          tone={webhooks.success_rate != null && webhooks.success_rate < 0.9 ? "bad" : "default"}
-        />
-        <StatCard
-          label="Regime buckets"
-          value={String(learning_matrix.length)}
-          sub="tiers 1–3 from regime_stats"
-        />
-        <StatCard
-          label="Auto trader win rate"
-          hint="Broker-verified: closed automatic orders with broker-reported net money. Not replay, not user-reported."
-          value={autoTrader.data ? pctOf(autoTrader.data.total.winRate) : "—"}
-          sub={
-            autoTrader.isError
-              ? "broker evidence unreadable"
-              : autoTrader.data && autoTrader.data.total.measured > 0
-                ? `n=${autoTrader.data.total.measured} · mean R ${num(autoTrader.data.total.meanR)}`
-                : "no closed broker fills yet"
-          }
-        />
-      </section>
+        <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <StatCard
+            label="Cycle latency p50 / p95"
+            value={`${num(health.p50_ms, 0)} / ${num(health.p95_ms, 0)} ms`}
+            sub={`${jobTotal} jobs in 24h · last ${timeAgo(health.last_cycle_at)}`}
+          />
+          <StatCard
+            label="Active accounts"
+            value={String(engagement.active_accounts)}
+            sub={`${engagement.telemetry_events} telemetry events`}
+          />
+          <StatCard
+            label="Taken / Skipped"
+            value={`${engagement.total_taken} / ${engagement.total_skipped}`}
+            sub="all-time user decisions"
+          />
+          <StatCard
+            label="Taken → shadow win rate"
+            hint="Deterministic replay outcome for setups users marked taken — not user-reported."
+            value={pctOf(engagement.taken_performance?.win_rate ?? null)}
+            sub={
+              engagement.taken_performance && engagement.taken_performance.n > 0
+                ? `n=${engagement.taken_performance.n} · mean R ${num(engagement.taken_performance.mean_r)}`
+                : "no resolved taken signals"
+            }
+          />
+          <StatCard
+            label="User-reported win rate"
+            hint="From users' own logged trade outcomes in Trade History."
+            value={
+              engagement.user_reported && engagement.user_reported.n > 0
+                ? pctOf(engagement.user_reported.win_rate)
+                : "—"
+            }
+            sub={
+              engagement.user_reported && engagement.user_reported.n > 0
+                ? `n=${engagement.user_reported.n} · mean R ${num(engagement.user_reported.mean_r)}` +
+                  (audit.data && audit.data.verifiedSampleN > 0
+                    ? ` · verified ${pctOf(audit.data.verifiedWinRate)} (n=${audit.data.verifiedSampleN})`
+                    : audit.data
+                      ? " · none verified against replay"
+                      : "")
+                : "no user-logged outcomes yet"
+            }
+          />
+          <StatCard
+            label="Queue backlog"
+            value={`${health.backlog?.pending ?? 0} pending`}
+            sub={
+              health.backlog?.oldest_pending_age_min != null
+                ? `oldest ${health.backlog.oldest_pending_age_min} min · ${health.backlog.processing} in flight`
+                : `queue clear · ${health.backlog?.processing ?? 0} in flight`
+            }
+            tone={
+              (health.backlog?.oldest_pending_age_min ?? 0) > 15
+                ? "bad"
+                : (health.backlog?.pending ?? 0) > 0
+                  ? "warn"
+                  : "good"
+            }
+          />
+          <StatCard
+            label="Webhook success 24h"
+            value={pctOf(webhooks.success_rate)}
+            sub={`${webhooks.total_24h} dispatches`}
+            tone={webhooks.success_rate != null && webhooks.success_rate < 0.9 ? "bad" : "default"}
+          />
+          <StatCard
+            label="Regime buckets"
+            value={String(learning_matrix.length)}
+            sub="tiers 1–3 from regime_stats"
+          />
+          <StatCard
+            label="Auto trader win rate"
+            hint="Broker-verified: closed automatic orders with broker-reported net money. Not replay, not user-reported."
+            value={autoTrader.data ? pctOf(autoTrader.data.total.winRate) : "—"}
+            sub={
+              autoTrader.isError
+                ? "broker evidence unreadable"
+                : autoTrader.data && autoTrader.data.total.measured > 0
+                  ? `n=${autoTrader.data.total.measured} · mean R ${num(autoTrader.data.total.meanR)}`
+                  : "no closed broker fills yet"
+            }
+          />
+        </section>
+      </PanelBoundary>
 
-      <AutoTraderPanel />
+      <PanelBoundary name="Auto trader">
+        <AutoTraderPanel />
+      </PanelBoundary>
 
-      <div className="grid gap-3 lg:grid-cols-3">
-        <PanelShell title="Instrument health">
-          <InstrumentHealthList health={health} />
-        </PanelShell>
-        <PanelShell
-          title="Scan results 24h"
-          right={
-            <Badge variant="secondary" className="text-[10px]">
-              {jobTotal} jobs
-            </Badge>
-          }
-        >
-          {Object.keys(health.results ?? {}).length === 0 ? (
-            <EmptyNote>No scan cycles completed in the last 24 hours.</EmptyNote>
-          ) : (
-            <ul className="space-y-1 text-[11px] font-mono">
-              {Object.entries(health.results).map(([k, v]) => (
-                <li key={k} className="flex justify-between">
-                  <span className="text-muted-foreground">{k}</span>
-                  <span>{v}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </PanelShell>
-        <PanelShell title="Structure cooldown pressure">
-          <DedupPanel dedup={dedup_pressure} />
-        </PanelShell>
-      </div>
+      <PanelBoundary name="Health & cooldown">
+        <div className="grid gap-3 lg:grid-cols-3">
+          <PanelShell title="Instrument health">
+            <InstrumentHealthList health={health} />
+          </PanelShell>
+          <PanelShell
+            title="Scan results 24h"
+            right={
+              <Badge variant="secondary" className="text-[10px]">
+                {jobTotal} jobs
+              </Badge>
+            }
+          >
+            {Object.keys(health.results ?? {}).length === 0 ? (
+              <EmptyNote>No scan cycles completed in the last 24 hours.</EmptyNote>
+            ) : (
+              <ul className="space-y-1 text-[11px] font-mono">
+                {Object.entries(health.results).map(([k, v]) => (
+                  <li key={k} className="flex justify-between">
+                    <span className="text-muted-foreground">{k}</span>
+                    <span>{v}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </PanelShell>
+          <PanelShell title="Structure cooldown pressure">
+            <DedupPanel dedup={dedup_pressure} />
+          </PanelShell>
+        </div>
+      </PanelBoundary>
 
-      <div className="grid gap-3 lg:grid-cols-2">
-        <PanelShell title="Live fill diagnostic by session">
-          <div className="space-y-3">
-            <FillTable label="Rolling 24h" rows={fill_diagnostic.h24} />
-            <FillTable label="Rolling 7d" rows={fill_diagnostic.d7} />
-          </div>
-        </PanelShell>
-        <PanelShell title="Discipline index — shadow replay outcome (skipped vs taken)">
-          <DisciplinePanel discipline={discipline} />
-        </PanelShell>
-      </div>
+      <PanelBoundary name="Fill diagnostic & discipline">
+        <div className="grid gap-3 lg:grid-cols-2">
+          <PanelShell title="Live fill diagnostic by session">
+            <div className="space-y-3">
+              <FillTable label="Rolling 24h" rows={fill_diagnostic.h24} />
+              <FillTable label="Rolling 7d" rows={fill_diagnostic.d7} />
+            </div>
+          </PanelShell>
+          <PanelShell title="Discipline index — shadow replay outcome (skipped vs taken)">
+            <DisciplinePanel discipline={discipline} />
+          </PanelShell>
+        </div>
+      </PanelBoundary>
 
       <PanelShell title="Quantitative integrity baseline — immutable, pinned to one learning run">
-        <BaselinePanel />
+        <PanelBoundary name="Quantitative baseline">
+          <BaselinePanel />
+        </PanelBoundary>
       </PanelShell>
 
       <PanelShell title="Grading research ledger — model v1 (live) vs model v2 (shadow)">
-        <ResearchPanel />
+        <PanelBoundary name="Grading research ledger">
+          <ResearchPanel />
+        </PanelBoundary>
       </PanelShell>
 
       <PanelShell title="Expected R research — payoff distribution, not probability">
-        <PayoffPanel />
+        <PanelBoundary name="Payoff research">
+          <PayoffPanel />
+        </PanelBoundary>
       </PanelShell>
 
       <PanelShell title="Research candidate capture — what the scanner rejected">
-        <CandidatePanel />
-        <CandidateLineagePanel />
-        <FilterLiftPanel />
-        <LearningEvidencePanel />
+        <PanelBoundary name="Research candidate funnel">
+          <CandidatePanel />
+        </PanelBoundary>
+        <PanelBoundary name="Candidate lineage">
+          <CandidateLineagePanel />
+        </PanelBoundary>
+        <PanelBoundary name="Filter lift">
+          <FilterLiftPanel />
+        </PanelBoundary>
+        <PanelBoundary name="Learning evidence">
+          <LearningEvidencePanel />
+        </PanelBoundary>
       </PanelShell>
 
-      <PanelShell title="Human vs AI agent — accounts, decisions and reported outcomes">
-        <AuthorSplitPanel split={data.author_split} />
-      </PanelShell>
-
-      <PanelShell title="User-reported data integrity — checked against deterministic replay">
-        {audit.isError ? (
-          <EmptyNote>
-            {audit.error instanceof Error ? audit.error.message : "Integrity audit unavailable."}
-          </EmptyNote>
-        ) : (
-          <UserIntegrityPanel report={audit.data} />
-        )}
-      </PanelShell>
-
-      <div className="grid gap-3 lg:grid-cols-3">
-        <PanelShell title="Grade calibration">
-          <GradeTable rows={grade_calibration} />
+      <PanelBoundary name="Human vs AI agent">
+        <PanelShell title="Human vs AI agent — accounts, decisions and reported outcomes">
+          <AuthorSplitPanel split={data.author_split} />
         </PanelShell>
-        <PanelShell title="Webhook dispatch reliability">
-          <WebhookPanel webhooks={webhooks} />
-        </PanelShell>
-        <PanelShell title="Volume by instrument">
-          {engagement.by_instrument.length === 0 ? (
-            <EmptyNote>No user decisions logged yet.</EmptyNote>
+      </PanelBoundary>
+
+      <PanelBoundary name="User-reported integrity">
+        <PanelShell title="User-reported data integrity — checked against deterministic replay">
+          {audit.isError ? (
+            <EmptyNote>
+              {audit.error instanceof Error ? audit.error.message : "Integrity audit unavailable."}
+            </EmptyNote>
           ) : (
-            <table className="w-full text-[11px] font-mono">
-              <tbody>
-                {engagement.by_instrument.map((i) => (
-                  <tr key={i.instrument} className="border-b border-border/50">
-                    <td className="py-1">{i.instrument}</td>
-                    <td className="py-1 text-right text-emerald-400">{i.taken}</td>
-                    <td className="py-1 text-right text-muted-foreground">{i.skipped}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <UserIntegrityPanel report={audit.data} />
           )}
         </PanelShell>
-      </div>
+      </PanelBoundary>
 
-      <PanelShell
-        title="Weekly shadow comparison — A/A+ vs B/C"
-        right={
-          <Badge variant="secondary" className="text-[10px]">
-            {weekly.data ? `${weekly.data.isoWeek} · rolling 7d` : "loading"}
-          </Badge>
-        }
-      >
-        {weekly.isError ? (
-          <EmptyNote>
-            {weekly.error instanceof Error ? weekly.error.message : "Weekly report unavailable."}
-          </EmptyNote>
-        ) : weekly.isLoading ? (
-          <Skeleton className="h-24" />
-        ) : (
-          <WeeklyTierPanel report={weekly.data} />
-        )}
-      </PanelShell>
+      <PanelBoundary name="Calibration & volume">
+        <div className="grid gap-3 lg:grid-cols-3">
+          <PanelShell title="Grade calibration">
+            <GradeTable rows={grade_calibration} />
+          </PanelShell>
+          <PanelShell title="Webhook dispatch reliability">
+            <WebhookPanel webhooks={webhooks} />
+          </PanelShell>
+          <PanelShell title="Volume by instrument">
+            {engagement.by_instrument.length === 0 ? (
+              <EmptyNote>No user decisions logged yet.</EmptyNote>
+            ) : (
+              <table className="w-full text-[11px] font-mono">
+                <tbody>
+                  {engagement.by_instrument.map((i) => (
+                    <tr key={i.instrument} className="border-b border-border/50">
+                      <td className="py-1">{i.instrument}</td>
+                      <td className="py-1 text-right text-emerald-400">{i.taken}</td>
+                      <td className="py-1 text-right text-muted-foreground">{i.skipped}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </PanelShell>
+        </div>
+      </PanelBoundary>
 
-      <PanelShell title="Replay-rate learning monitor">
-        <RegimeTable rows={learning_matrix} />
-      </PanelShell>
+      <PanelBoundary name="Weekly shadow comparison">
+        <PanelShell
+          title="Weekly shadow comparison — A/A+ vs B/C"
+          right={
+            <Badge variant="secondary" className="text-[10px]">
+              {weekly.data ? `${weekly.data.isoWeek} · rolling 7d` : "loading"}
+            </Badge>
+          }
+        >
+          {weekly.isError ? (
+            <EmptyNote>
+              {weekly.error instanceof Error ? weekly.error.message : "Weekly report unavailable."}
+            </EmptyNote>
+          ) : weekly.isLoading ? (
+            <Skeleton className="h-24" />
+          ) : (
+            <WeeklyTierPanel report={weekly.data} />
+          )}
+        </PanelShell>
+      </PanelBoundary>
 
-      <PanelShell
-        title="Trade-by-trade intersection telemetry"
-        right={
-          <Badge variant="secondary" className="text-[10px]">
-            last {intersection_feed.length}
-          </Badge>
-        }
-      >
-        <IntersectionTable rows={intersection_feed} />
-      </PanelShell>
+      <PanelBoundary name="Replay-rate learning monitor">
+        <PanelShell title="Replay-rate learning monitor">
+          <RegimeTable rows={learning_matrix} />
+        </PanelShell>
+      </PanelBoundary>
+
+      <PanelBoundary name="Intersection telemetry">
+        <PanelShell
+          title="Trade-by-trade intersection telemetry"
+          right={
+            <Badge variant="secondary" className="text-[10px]">
+              last {intersection_feed.length}
+            </Badge>
+          }
+        >
+          <IntersectionTable rows={intersection_feed} />
+        </PanelShell>
+      </PanelBoundary>
     </div>
   );
 }

@@ -10,6 +10,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getCandidateLineage } from "@/lib/candidates.functions";
 import type { CandidateLineageRow } from "@/lib/learning/candidates";
+import { utcMinute } from "@/lib/format-utc";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,11 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 const PAGE_SIZE = 25;
 
-function utc(ts: string | null): string {
-  if (!ts) return "—";
-  const ms = Date.parse(ts);
-  return Number.isFinite(ms) ? new Date(ms).toISOString().replace("T", " ").slice(0, 16) : "—";
-}
+const utc = utcMinute;
 
 function replayOutcome(row: CandidateLineageRow): string {
   if (row.research_window_status === "outside_replay_window") {
@@ -38,7 +35,8 @@ function replayOutcome(row: CandidateLineageRow): string {
 function brokerCell(row: CandidateLineageRow): string {
   if (!row.published_signal_id) return "never sent — no broker order";
   if (!row.enqueue_decision) return "published, no auto-order attempt";
-  if (!row.broker_state) return `auto-order ${row.enqueue_decision}${row.enqueue_reason ? `: ${row.enqueue_reason}` : ""}`;
+  if (!row.broker_state)
+    return `auto-order ${row.enqueue_decision}${row.enqueue_reason ? `: ${row.enqueue_reason}` : ""}`;
   const money =
     row.broker_net_profit === null
       ? ""
@@ -76,9 +74,7 @@ export function CandidateLineagePanel() {
             Could not load lineage: {error instanceof Error ? error.message : "unknown error"}
           </p>
         ) : rows.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No candidates recorded for this page.
-          </p>
+          <p className="text-sm text-muted-foreground">No candidates recorded for this page.</p>
         ) : (
           <>
             <div className="overflow-x-auto">
@@ -98,7 +94,9 @@ export function CandidateLineagePanel() {
                     <tr key={row.candidate_id} className="border-b border-border/50">
                       <td className="py-2 pr-3">
                         {row.instrument}
-                        <span className="ml-1 text-xs text-muted-foreground">{row.direction ?? ""}</span>
+                        <span className="ml-1 text-xs text-muted-foreground">
+                          {row.direction ?? ""}
+                        </span>
                       </td>
                       <td className="py-2 pr-3">
                         <Badge variant={row.published_signal_id ? "default" : "outline"}>

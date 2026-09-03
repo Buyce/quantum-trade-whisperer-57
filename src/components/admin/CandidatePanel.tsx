@@ -11,6 +11,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { getCandidateFunnel } from "@/lib/candidates.functions";
 import { STAGE_LABELS } from "@/lib/learning/candidates";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { utcMinute } from "@/lib/format-utc";
 import { Badge } from "@/components/ui/badge";
 import { describeResearchError, formatErrorAge } from "@/components/admin/research-error";
 
@@ -30,13 +31,7 @@ function Metric({ label, value }: { label: string; value: string | number }) {
 }
 
 /** Stored timestamp, trimmed to the minute. Missing stays visibly missing. */
-function utcShort(ts: string | null): string {
-  if (!ts) return "—";
-  const ms = Date.parse(ts);
-  return Number.isFinite(ms) ? new Date(ms).toISOString().replace("T", " ").slice(0, 16) : "—";
-}
-
-
+const utcShort = utcMinute;
 
 export function CandidatePanel() {
   const fetchFunnel = useServerFn(getCandidateFunnel);
@@ -120,9 +115,7 @@ export function CandidatePanel() {
           <Metric label="Incomplete gate lists" value={totals?.gates_incomplete ?? 0} />
           <Metric
             label="Last capture"
-            value={
-              totals?.last_seen ? new Date(totals.last_seen).toISOString().slice(0, 16) + "Z" : "—"
-            }
+            value={totals?.last_seen ? utcMinute(totals.last_seen) + " UTC" : "—"}
           />
         </div>
 
@@ -175,8 +168,6 @@ export function CandidatePanel() {
             </p>
           )}
         </section>
-
-
 
         <section>
           <h4 className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">
