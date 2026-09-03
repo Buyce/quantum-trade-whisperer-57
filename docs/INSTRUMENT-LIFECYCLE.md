@@ -105,6 +105,42 @@ therefore re-ask a fixed, bounded number of times
 distinguish "the tick was malformed" from "there was no quote at all". A feed that
 is malformed on every attempt still fails.
 
+## Operator symbol bindings
+
+Brokers rename instruments. Alias discovery
+(`src/lib/instruments/discovery.server.ts`) reads the broker's own symbol
+inventory and accepts a name only when exactly one candidate matches. In
+production it found `NAS100` ambiguous between `USTEC` and `USTECH100M`, `USOIL`
+ambiguous across five WTI variants, and no Brent-like name for `UKOIL` at all. It
+refuses to choose, because a guessed ticker can size and route an order against a
+different contract.
+
+A **binding** (`instrument_symbol_bindings`, written only through the owner-only
+admin surface) is how that deadlock is broken: a named person records the one
+broker symbol a canonical instrument means, together with the candidate list that
+was on the table and who decided. The ticker must appear in the broker's live
+inventory before the binding is accepted.
+
+What a binding does and does not do:
+
+- The specification refresh then asks the provider for the **bound** symbol and
+  records, on the specification row, which name it was fetched under.
+- Mapping treats a binding as `configured`, and as usable **only** when a
+  specification exists that was fetched under that exact name and is inside the
+  freshness window. A binding with no provider answer behind it stays
+  `never_verified`.
+- Only one broker symbol is bound per canonical instrument. Fanning one idea out
+  across every broker variant would duplicate correlated alerts, consume several
+  daily-cap slots for one setup, distort win rate and expectancy, and size against
+  contract specifications that differ per variant.
+- A binding changes no lifecycle stage, publishes nothing and places no order. The
+  instrument still has to earn readiness, sampling and the promotion checkpoint
+  below.
+
+The same admin surface can run a single-instrument commissioning recheck on
+demand (discovery, specification refresh, readiness snapshot). It writes evidence
+only.
+
 ## Promotion checkpoint (`data_validation` to `shadow`)
 
 Readiness says the provider can serve an instrument now. It does not say the
@@ -152,5 +188,9 @@ seeded or back-filled.
   asserts the stage capability matrix including `suspended` revocation and the
   asymmetric read-failure fallback, and asserts that an empty preference means
   Wave 0 rather than every instrument.
+- `src/lib/instruments/__tests__/symbol-binding.test.ts` asserts that a bound
+  instrument is fetched under the broker symbol, that an unbound one keeps its
+  canonical name, and that an unreadable binding table falls back to the canonical
+  name rather than to a guess.
 - `src/test/__tests__/docs-contract.test.ts` keeps this document aligned with the
   scan universe in code.
