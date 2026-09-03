@@ -86,16 +86,31 @@ describe("metaApiRequest", () => {
     globalThis.fetch = (async () =>
       jsonResponse("slow down", 429, { "retry-after": "12" })) as unknown as typeof fetch;
 
+    // POST so the rate-limit retry path does not apply: mutations are never retried.
     const err = await metaApiRequest({
       service: "metastats",
       region: "london",
-
+      method: "POST",
       path: "/x",
       label: "metrics",
     }).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(MetaApiHttpError);
     expect((err as MetaApiHttpError).status).toBe(429);
     expect((err as MetaApiHttpError).retryAfterSeconds).toBe(12);
+  });
+
+  it("[UNIT] retries a throttled read before surfacing the rate limit", async () => {
+    let calls = 0;
+    globalThis.fetch = (async () => {
+      calls += 1;
+      if (calls === 1) return jsonResponse("slow down", 429, { "retry-after": "0" });
+      return jsonResponse({ ok: true }, 200);
+    }) as unknown as typeof fetch;
+
+    await expect(
+      metaApiRequest({ service: "market-data", region: "london", path: "/x", label: "EURUSD M15" }),
+    ).resolves.toEqual({ ok: true });
+    expect(calls).toBe(2);
   });
 
   it("[UNIT] preserves both Retry-After encodings used by the provider", () => {

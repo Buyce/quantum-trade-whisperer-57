@@ -10,19 +10,19 @@ function fakeStorage() {
 }
 
 describe("[UNIT] chunk reload recovery", () => {
-  it("recognises stale-chunk failures", () => {
+  it("[UNIT] recognises stale-chunk failures", () => {
     expect(
       isChunkLoadError(new Error("Failed to fetch dynamically imported module: /assets/x.js")),
     ).toBe(true);
     expect(isChunkLoadError(new Error("Loading chunk 42 failed"))).toBe(true);
   });
 
-  it("ignores ordinary application errors", () => {
+  it("[UNIT] ignores ordinary application errors", () => {
     expect(isChunkLoadError(new RangeError("Invalid time value"))).toBe(false);
     expect(isChunkLoadError(new Error("column x.reason does not exist"))).toBe(false);
   });
 
-  it("reloads once and never loops", () => {
+  it("[UNIT] reloads once and never loops", () => {
     const storage = fakeStorage();
     const reload = vi.fn();
     const err = new Error("Failed to fetch dynamically imported module");
@@ -31,7 +31,7 @@ describe("[UNIT] chunk reload recovery", () => {
     expect(reload).toHaveBeenCalledTimes(1);
   });
 
-  it("does nothing without storage or for other errors", () => {
+  it("[UNIT] does nothing without storage or for other errors", () => {
     const reload = vi.fn();
     expect(recoverFromChunkError(new Error("boom"), fakeStorage(), reload)).toBe(false);
     expect(

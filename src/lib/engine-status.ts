@@ -6,7 +6,12 @@
  * fetch data" into "there was nothing to trade" — a data-source refusal means
  * results are MISSING, not empty.
  */
-export type EngineErrorKind = "none" | "provider_access" | "provider" | "engine";
+export type EngineErrorKind =
+  | "none"
+  | "provider_access"
+  | "provider_rate_limit"
+  | "provider"
+  | "engine";
 
 export interface EngineErrorClassification {
   kind: EngineErrorKind;
@@ -22,6 +27,14 @@ const PROVIDER_ACCESS_PATTERNS = [
   /insufficient (?:funds|balance|credit)/i,
   /subscription (?:expired|required|inactive)/i,
   /quota (?:exceeded|exhausted)/i,
+];
+
+const RATE_LIMIT_PATTERNS = [
+  /TooManyRequestsError/i,
+  /ToManyRequestsError/i,
+  /\b429\b/,
+  /too many (?:concurrent )?(?:requests|historical)/i,
+  /concurrent historical market data requests/i,
 ];
 
 const PROVIDER_PATTERNS = [/metaapi/i, /candle/i, /\b(?:429|502|503|504)\b/, /ValidationError/];
@@ -42,6 +55,15 @@ export function classifyEngineError(error: string | null | undefined): EngineErr
       label: "market-data access refused by the broker data provider",
       explanation:
         "The data provider rejected the candle request for account/billing reasons. Scanner results for those cycles are missing, not empty — this is not a scanner-wide No Trade, and no substitute data is used.",
+    };
+  }
+
+  if (RATE_LIMIT_PATTERNS.some((re) => re.test(text))) {
+    return {
+      kind: "provider_rate_limit",
+      label: "throttled by the broker data provider",
+      explanation:
+        "The provider capped concurrent market-data requests, so those candle reads were refused or timed out. The affected cycles produced no evaluation — missing data, not an absence of setups — and the next pass retries after the provider's wait.",
     };
   }
 
@@ -128,7 +150,13 @@ export function classifyScanHealth(scan: ScanWindowInput): ScanHealth {
     : { state: "degraded", value: "DEGRADED", tone: "warn", errorIsCurrent: true };
 }
 
-export type ReplayHealthState = "no_runs" | "tripped" | "degraded" | "running";
+export type ReplayHealthState =
+  | "no_runs"
+  | "tripped"
+  | "degraded"
+  | "recovering"
+  | "running";
+
 
 export interface ReplayBreakerInput {
   paused?: boolean | null;
@@ -150,6 +178,9 @@ export interface ReplayHealth {
  * A non-paused breaker with recent failures is not healthy: replay is still
  * allowed to try the next pass, but the last available result is degraded.
  */
+/** A single failed pass is tolerated before the engine reads DEGRADED. */
+export const REPLAY_DEGRADED_MIN_FAILURES = 1;
+
 export function classifyReplayHealth(breaker: ReplayBreakerInput | null | undefined): ReplayHealth {
   if (!breaker?.last_run_at) {
     return { state: "no_runs", value: "NO RUNS", tone: "warn", errorIsCurrent: false };
@@ -157,8 +188,17 @@ export function classifyReplayHealth(breaker: ReplayBreakerInput | null | undefi
   if (breaker.paused) {
     return { state: "tripped", value: "BREAKER TRIPPED", tone: "bad", errorIsCurrent: true };
   }
-  if ((breaker.consecutive_failures ?? 0) > 0 || Boolean((breaker.last_error ?? "").trim())) {
+  const failures = breaker.consecutive_failures ?? 0;
+  // One throttled or failed pass is normal and self-correcting: the engine keeps
+  // running and the next pass usually succeeds. Only a repeated failure
+  // describes a degraded engine. The single-failure case is still reported
+  // honestly as RECOVERING with its stored error current.
+  if (failures > REPLAY_DEGRADED_MIN_FAILURES) {
     return { state: "degraded", value: "DEGRADED", tone: "warn", errorIsCurrent: true };
+  }
+  if (failures > 0 || Boolean((breaker.last_error ?? "").trim())) {
+    return { state: "recovering", value: "RECOVERING", tone: "warn", errorIsCurrent: true };
   }
   return { state: "running", value: "RUNNING", tone: "good", errorIsCurrent: false };
 }
+

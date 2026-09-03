@@ -6,8 +6,10 @@
  */
 import type { Candle, Timeframe } from "@/lib/scanner/types";
 import { withBenchmarkAccount } from "./benchmark.server";
+import { withMarketDataSlot } from "./market-gate.server";
 import { validQuoteGeometry } from "./quote";
 import { metaApiRequest } from "./request.server";
+
 
 const TF_MAP: Record<Timeframe, string> = { H4: "4h", H1: "1h", M15: "15m" };
 
@@ -41,15 +43,19 @@ export async function fetchCandlesFor(
   timeframe: Timeframe,
   limit = 200,
 ): Promise<Candle[]> {
-  const raw = await metaApiRequest<RawCandle[]>({
-    service: "market-data",
-    region,
-    label: `${symbol} ${timeframe}`,
-    path:
-      `/users/current/accounts/${accountId}` +
-      `/historical-market-data/symbols/${encodeURIComponent(symbol)}` +
-      `/timeframes/${TF_MAP[timeframe]}/candles?limit=${limit}`,
-  });
+  // Gated: the provider allows only 5 concurrent historical reads per account.
+  const raw = await withMarketDataSlot(() =>
+    metaApiRequest<RawCandle[]>({
+      service: "market-data",
+      region,
+      label: `${symbol} ${timeframe}`,
+      path:
+        `/users/current/accounts/${accountId}` +
+        `/historical-market-data/symbols/${encodeURIComponent(symbol)}` +
+        `/timeframes/${TF_MAP[timeframe]}/candles?limit=${limit}`,
+    }),
+  );
+
 
   if (!Array.isArray(raw) || raw.length === 0) {
     throw new Error(`MetaApi returned no candles for ${symbol} ${timeframe}`);

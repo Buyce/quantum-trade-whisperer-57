@@ -27,6 +27,14 @@ describe("classifyEngineError", () => {
     expect(c.explanation).toMatch(/missing data/i);
   });
 
+  it("[UNIT] labels provider throttling as a rate limit, not an absence of setups", () => {
+    const c = classifyEngineError(
+      'MetaApi 429 for USDJPY H4: {"error":"ToManyRequestsError","message":"maximum of 5 concurrent historical market data requests per account"}',
+    );
+    expect(c.kind).toBe("provider_rate_limit");
+    expect(c.explanation).toMatch(/missing data/i);
+  });
+
   it("[UNIT] labels our own failures as engine errors", () => {
     expect(classifyEngineError("TypeError: cannot read property x").kind).toBe("engine");
   });
@@ -126,11 +134,27 @@ describe("classifyReplayHealth", () => {
     ).toMatchObject({ state: "running", value: "RUNNING", tone: "good", errorIsCurrent: false });
   });
 
-  it("[UNIT] reports DEGRADED when replay is allowed but the latest pass failed", () => {
+  it("[UNIT] reports RECOVERING after a single failed pass — one throttled pass self-corrects", () => {
     expect(
       classifyReplayHealth({
         paused: false,
         consecutive_failures: 1,
+        last_error: "All instrument candle fetches failed — EURUSD: timeout",
+        last_run_at: "2026-08-25T12:00:00.000Z",
+      }),
+    ).toMatchObject({
+      state: "recovering",
+      value: "RECOVERING",
+      tone: "warn",
+      errorIsCurrent: true,
+    });
+  });
+
+  it("[UNIT] reports DEGRADED only once failures repeat", () => {
+    expect(
+      classifyReplayHealth({
+        paused: false,
+        consecutive_failures: 2,
         last_error: "All instrument candle fetches failed — EURUSD: timeout",
         last_run_at: "2026-08-25T12:00:00.000Z",
       }),
