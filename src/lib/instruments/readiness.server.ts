@@ -191,7 +191,13 @@ export async function checkInstrumentReadiness(
     const required = Math.floor(CANDLE_LIMITS[tf] * MIN_CANDLE_RATIO);
     try {
       const candles = await fetchCandles(fetchSymbol, tf, CANDLE_LIMITS[tf]);
-      const report = validateSeries({ timeframe: tf, candles, required, now });
+      const report = validateSeries({
+        timeframe: tf,
+        candles,
+        required,
+        now,
+        breakToleranceMinutes: DAILY_BREAK_TOLERANCE_MINUTES[definition.assetClass] ?? 0,
+      });
       series.push(report);
       if (!report.ok) {
         seriesProblems.push(
