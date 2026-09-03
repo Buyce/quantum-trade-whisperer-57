@@ -12,6 +12,7 @@ import { getCandidateFunnel } from "@/lib/candidates.functions";
 import { STAGE_LABELS } from "@/lib/learning/candidates";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { describeResearchError, formatErrorAge } from "@/components/admin/research-error";
 
 const ORIGIN_LABELS: Record<string, string> = {
   production: "Published plan (as traded)",
@@ -221,11 +222,26 @@ export function CandidatePanel() {
                 .map(([k, v]) => `${k}: ${v}`)
                 .join(" · ")
             : "—"}
-          {flags?.research_last_error && (
-            <span className="mt-2 block text-destructive">
-              Last research error: {flags.research_last_error}
-            </span>
-          )}
+          {(() => {
+            const err = describeResearchError(
+              flags?.research_last_error,
+              flags?.research_last_error_at,
+            );
+            if (!err) return null;
+            // A latched error is not a live failure. A fresh one renders red;
+            // one older than the staleness bound renders muted as history.
+            return (
+              <span
+                className={
+                  err.stale ? "mt-2 block text-muted-foreground" : "mt-2 block text-destructive"
+                }
+              >
+                {err.stale ? "Last recorded research error" : "Last research error"}: {err.message}{" "}
+                — {formatErrorAge(err.ageMs)} ago
+                {err.stale ? " (no failures latched since)" : ""}
+              </span>
+            );
+          })()}
         </section>
       </CardContent>
     </Card>
