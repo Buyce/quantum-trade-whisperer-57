@@ -29,3 +29,19 @@
 - [x] Promotion checkpoint short-circuits outside `data_validation` so disabled instruments read as "not under measurement", not "failing"
 - [ ] Bind the operator-chosen tickers (NAS100, USOIL, XAGUSD) and confirm evidence before any stage change
 - [ ] UKOIL: no Brent-like symbol found in the broker inventory; needs an operator-supplied ticker or stays disabled
+
+## 2026-09-03 — NAS100 bound, USOIL rejected on evidence
+
+- NAS100 bound to broker ticker `USTEC` (operator decision, full-size contract;
+  `USTECH100M` kept as a recorded alias). Recheck under that name returned a valid
+  specification, a live quote and complete H4/H1/M15 series, so NAS100 moved
+  `disabled -> data_validation`. It publishes nothing until it earns the promotion gate.
+- Readiness now asks the provider for the BOUND ticker when fetching candles and quotes
+  (previously only the specification read used it), and the series validator treats an
+  exchange venue's daily close as a reported-but-not-fatal `daily_break` for
+  index/energy/metal. FX keeps zero tolerance.
+- USOIL left UNBOUND on purpose: all five broker tickers (`WTI`, `WTIB`, `WTID`, `WTIP`,
+  `WTIU`) are thin part-day contracts priced 2-37, not the crude oil market, and none was
+  quoting live. Binding one would have produced a real but wrong instrument.
+- Hourly enrolment run executed: 104 candidates enrolled (228 total enrolled), 124 older
+  candidates labelled `outside_replay_window`.

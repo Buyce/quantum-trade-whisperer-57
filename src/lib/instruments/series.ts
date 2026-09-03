@@ -25,6 +25,7 @@ export type SeriesProblem =
   | "not_ascending"
   | "duplicate_timestamp"
   | "interval_gap"
+  | "daily_break"
   | "incomplete_current_candle"
   | "invalid_ohlc_geometry"
   | "non_finite_price"
@@ -59,6 +60,25 @@ const GAP_TOLERANCE_MULTIPLE = 1.5;
  */
 const STALE_AFTER_INTERVALS = 3;
 
+/**
+ * Daily trading break, in minutes, that an asset class legitimately has.
+ *
+ * FX runs continuously from Sunday open to Friday close, so ANY weekday gap there
+ * is a data defect. Exchange-referenced CFDs (indices, energy) do not: the venue
+ * closes for a settlement/maintenance window every day, so the provider correctly
+ * returns no bars for it. Counting that as a missing interval made those
+ * instruments permanently unreadiable while the series was in fact complete.
+ *
+ * The allowance is a CEILING on ONE contiguous gap, not a licence: a longer gap,
+ * or a series that has stopped updating, still fails.
+ */
+export const DAILY_BREAK_TOLERANCE_MINUTES: Record<string, number> = {
+  fx: 0,
+  metal: 90,
+  index: 180,
+  energy: 180,
+};
+
 function straddlesWeekend(prevMs: number, nextMs: number): boolean {
   // Any gap containing a Saturday is treated as the weekly market close.
   for (let t = prevMs; t <= nextMs; t += 3_600_000) {
@@ -72,8 +92,11 @@ export function validateSeries(args: {
   candles: readonly Candle[];
   required: number;
   now: Date;
+  /** Longest contiguous gap this instrument's venue legitimately has each day. */
+  breakToleranceMinutes?: number;
 }): SeriesReport {
   const { timeframe, candles, required, now } = args;
+  const breakToleranceMs = Math.max(0, args.breakToleranceMinutes ?? 0) * 60_000;
   const findings: SeriesFinding[] = [];
   const intervalMs = TIMEFRAME_MINUTES[timeframe] * 60_000;
   let missingIntervals = 0;
@@ -145,11 +168,19 @@ export function validateSeries(args: {
         const delta = ms - previousMs;
         if (delta > intervalMs * GAP_TOLERANCE_MULTIPLE && !straddlesWeekend(previousMs, ms)) {
           const skipped = Math.max(1, Math.round(delta / intervalMs) - 1);
-          missingIntervals += skipped;
-          findings.push({
-            problem: "interval_gap",
-            detail: `${skipped} missing ${timeframe} interval(s) before ${lastCandleAt}`,
-          });
+          if (breakToleranceMs > 0 && delta <= breakToleranceMs + intervalMs) {
+            // Inside the venue's own daily close: reported, never fatal.
+            findings.push({
+              problem: "daily_break",
+              detail: `${Math.round(delta / 60_000)} minute venue break before ${lastCandleAt}`,
+            });
+          } else {
+            missingIntervals += skipped;
+            findings.push({
+              problem: "interval_gap",
+              detail: `${skipped} missing ${timeframe} interval(s) before ${lastCandleAt}`,
+            });
+          }
         }
       }
     }
@@ -180,10 +211,13 @@ export function validateSeries(args: {
   /**
    * `incomplete_current_candle` is INFORMATIONAL, not fatal: the live scanner has
    * always graded the series the provider returns, and failing readiness on it
-   * would make readiness unreachable during any open market. Everything else is
-   * fatal, because it means the series does not describe the market.
+   * would make readiness unreachable during any open market. `daily_break` is
+   * likewise informational: it is the venue's own scheduled close, not missing
+   * data. Everything else is fatal, because it means the series does not describe the market.
    */
-  const fatal = findings.filter((f) => f.problem !== "incomplete_current_candle");
+  const fatal = findings.filter(
+    (f) => f.problem !== "incomplete_current_candle" && f.problem !== "daily_break",
+  );
 
   return {
     timeframe,

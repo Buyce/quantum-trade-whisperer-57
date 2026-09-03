@@ -37,7 +37,7 @@ import { fetchUsableQuote } from "./quote-retry";
 import { CANDLE_LIMITS, TIMEFRAMES } from "@/lib/scanner/types";
 import { writeDataHealth } from "./lifecycle.server";
 import { resolveMapping, type MappingResolution } from "./mapping.server";
-import { validateSeries, type SeriesReport } from "./series";
+import { DAILY_BREAK_TOLERANCE_MINUTES, validateSeries, type SeriesReport } from "./series";
 
 export type ReadinessComponent = "mapping" | "spec" | "candles" | "quote" | "conversion";
 
@@ -137,6 +137,15 @@ export async function checkInstrumentReadiness(
       : `${mapping.refusal}: ${mapping.detail}`,
   });
 
+  /**
+   * The name the provider is actually asked for. When a mapping is usable —
+   * including an operator binding whose specification was confirmed under that
+   * exact ticker — candles and quotes MUST be requested under it, otherwise the
+   * canonical name is asked for and legitimately 404s. Never a guess: an unusable
+   * mapping falls back to the canonical name and fails closed as before.
+   */
+  const fetchSymbol = mapping.usable && mapping.providerSymbol ? mapping.providerSymbol : symbol;
+
   // ---- 2. Specification, field by field -------------------------------------
   const spec = await loadBrokerSpec(db, symbol);
   specFields = {
@@ -181,8 +190,14 @@ export async function checkInstrumentReadiness(
   for (const tf of TIMEFRAMES) {
     const required = Math.floor(CANDLE_LIMITS[tf] * MIN_CANDLE_RATIO);
     try {
-      const candles = await fetchCandles(symbol, tf, CANDLE_LIMITS[tf]);
-      const report = validateSeries({ timeframe: tf, candles, required, now });
+      const candles = await fetchCandles(fetchSymbol, tf, CANDLE_LIMITS[tf]);
+      const report = validateSeries({
+        timeframe: tf,
+        candles,
+        required,
+        now,
+        breakToleranceMinutes: DAILY_BREAK_TOLERANCE_MINUTES[definition.assetClass] ?? 0,
+      });
       series.push(report);
       if (!report.ok) {
         seriesProblems.push(
@@ -221,7 +236,7 @@ export async function checkInstrumentReadiness(
    * attempt count is fixed and recorded, so a real defect still fails.
    */
   {
-    const outcome = await fetchUsableQuote(symbol, fetchQuote, {
+    const outcome = await fetchUsableQuote(fetchSymbol, fetchQuote, {
       requireFreshness: true,
       maxAgeMs: REVALIDATION_QUOTE_MAX_AGE_MS,
       now: () => now.getTime(),
