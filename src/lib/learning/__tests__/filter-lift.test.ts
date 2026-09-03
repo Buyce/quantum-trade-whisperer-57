@@ -19,18 +19,18 @@ function row(over: Partial<FilterLiftRow>): FilterLiftRow {
 }
 
 describe("summarizeFilterLift", () => {
-  it("returns nothing for no rows rather than an invented gate", () => {
+  it("[UNIT] returns nothing for no rows rather than an invented gate", () => {
     expect(summarizeFilterLift([])).toEqual([]);
   });
 
-  it("labels a gate not-yet-decidable when one arm is missing", () => {
+  it("[UNIT] labels a gate not-yet-decidable when one arm is missing", () => {
     const [gate] = summarizeFilterLift([row({ arm: "pass" })]);
     expect(gate!.verdict).toBe("not_yet_decidable");
     expect(gate!.detail).toContain("rejected arm");
     expect(gate!.deltaR).toBeNull();
   });
 
-  it("names how many samples are still missing", () => {
+  it("[UNIT] names how many samples are still missing", () => {
     const [gate] = summarizeFilterLift([
       row({ arm: "pass" }),
       row({ arm: "fail", n_used: 10, n_mature: 10 }),
@@ -39,7 +39,7 @@ describe("summarizeFilterLift", () => {
     expect(gate!.detail).toContain(`${MIN_ARM_SAMPLES - 10} more matured samples`);
   });
 
-  it("never reads a non-descriptive arm as a result", () => {
+  it("[UNIT] never reads a non-descriptive arm as a result", () => {
     const [gate] = summarizeFilterLift([
       row({ arm: "pass" }),
       row({ arm: "fail", stat_status: "insufficient_coverage", reason: "coverage 0.4" }),
@@ -48,7 +48,7 @@ describe("summarizeFilterLift", () => {
     expect(gate!.detail).toContain("coverage 0.4");
   });
 
-  it("supports loosening only when the rejected arm's interval clears the published one", () => {
+  it("[UNIT] supports loosening only when the rejected arm's interval clears the published one", () => {
     const [gate] = summarizeFilterLift([
       row({ arm: "pass", mean_r: 0.1, se_r: 0.02 }),
       row({ arm: "fail", mean_r: 0.6, se_r: 0.03 }),
@@ -57,7 +57,7 @@ describe("summarizeFilterLift", () => {
     expect(gate!.deltaR).toBeCloseTo(0.5, 6);
   });
 
-  it("supports the gate when the published arm clears the rejected one", () => {
+  it("[UNIT] supports the gate when the published arm clears the rejected one", () => {
     const [gate] = summarizeFilterLift([
       row({ arm: "pass", mean_r: 0.7, se_r: 0.02 }),
       row({ arm: "fail", mean_r: -0.1, se_r: 0.03 }),
@@ -65,7 +65,7 @@ describe("summarizeFilterLift", () => {
     expect(gate!.verdict).toBe("gate_supported");
   });
 
-  it("reads overlapping intervals as no difference, not a recommendation", () => {
+  it("[UNIT] reads overlapping intervals as no difference, not a recommendation", () => {
     const [gate] = summarizeFilterLift([
       row({ arm: "pass", mean_r: 0.2, se_r: 0.2 }),
       row({ arm: "fail", mean_r: 0.3, se_r: 0.2 }),
@@ -73,7 +73,7 @@ describe("summarizeFilterLift", () => {
     expect(gate!.verdict).toBe("no_difference");
   });
 
-  it("keeps gates sorted and separate", () => {
+  it("[UNIT] keeps gates sorted and separate", () => {
     const gates = summarizeFilterLift([
       row({ gate: "reachable_r", arm: "pass" }),
       row({ gate: "reachable_r", arm: "fail" }),
