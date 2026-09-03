@@ -42,6 +42,9 @@ import { BaselinePanel } from "@/components/admin/BaselinePanel";
 import { ResearchPanel } from "@/components/admin/ResearchPanel";
 import { PayoffPanel } from "@/components/admin/PayoffPanel";
 import { CandidatePanel } from "@/components/admin/CandidatePanel";
+import { CandidateLineagePanel } from "@/components/admin/CandidateLineagePanel";
+import { FilterLiftPanel } from "@/components/admin/FilterLiftPanel";
+
 import { EngineStatusPanel } from "@/components/admin/EngineStatusPanel";
 import { ExecutionSwitchPanel } from "@/components/admin/ExecutionSwitchPanel";
 import { EnqueueDecisionPanel } from "@/components/admin/EnqueueDecisionPanel";
@@ -335,6 +338,9 @@ function AdminIntelligencePage() {
 
       <PanelShell title="Research candidate capture — what the scanner rejected">
         <CandidatePanel />
+        <CandidateLineagePanel />
+        <FilterLiftPanel />
+
       </PanelShell>
 
       <PanelShell title="Human vs AI agent — accounts, decisions and reported outcomes">
