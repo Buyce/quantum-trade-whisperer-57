@@ -55,3 +55,8 @@
 - Fixed nested-aggregate bug in recompute_filter_lift; taxonomy prefixes; 1,430 tests green (resolved-immutability flaky only under parallel load).
 
 - [x] Admin Intelligence resilience: per-panel error boundaries, safe UTC timestamp formatter (`src/lib/format-utc.ts`), stale-chunk single reload recovery in the root error boundary.
+
+## 2026-09-03 — Slim down Admin Intelligence
+- [x] Remove Refusal cost, Instrument lifecycle/telemetry, Commissioning status, Promotion checkpoint, and Economic Events panels from the page.
+- [x] Keep Broker symbol bindings panel (operator decision surface for instrument tickers).
+

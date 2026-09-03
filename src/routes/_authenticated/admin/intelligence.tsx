@@ -50,13 +50,9 @@ import { LearningEvidencePanel } from "@/components/admin/LearningEvidencePanel"
 import { EngineStatusPanel } from "@/components/admin/EngineStatusPanel";
 import { ExecutionSwitchPanel } from "@/components/admin/ExecutionSwitchPanel";
 import { EnqueueDecisionPanel } from "@/components/admin/EnqueueDecisionPanel";
-import { RefusalCostPanel } from "@/components/admin/RefusalCostPanel";
 import { AutoTraderPanel } from "@/components/admin/AutoTraderPanel";
-import { InstrumentDiagnosticsPanel } from "@/components/admin/InstrumentDiagnosticsPanel";
-import { CommissioningPanel } from "@/components/admin/CommissioningPanel";
 import { SymbolBindingPanel } from "@/components/admin/SymbolBindingPanel";
-import { PromotionPanel } from "@/components/admin/PromotionPanel";
-import { NewsPanel } from "@/components/admin/NewsPanel";
+
 
 export const Route = createFileRoute("/_authenticated/admin/intelligence")({
   head: () => ({
@@ -193,31 +189,14 @@ function AdminIntelligencePage() {
       <PanelBoundary name="Enqueue decisions">
         <EnqueueDecisionPanel />
       </PanelBoundary>
-      <PanelBoundary name="Refusal cost">
-        <RefusalCostPanel />
+
+      <PanelBoundary name="Symbol bindings">
+        <SymbolBindingPanel />
       </PanelBoundary>
 
       <PanelBoundary name="Headline stats">
-        <PanelBoundary name="Instrument diagnostics">
-          <InstrumentDiagnosticsPanel />
-        </PanelBoundary>
-
-        <PanelBoundary name="Commissioning">
-          <CommissioningPanel />
-        </PanelBoundary>
-        <PanelBoundary name="Symbol bindings">
-          <SymbolBindingPanel />
-        </PanelBoundary>
-
-        <PanelBoundary name="Promotion">
-          <PromotionPanel />
-        </PanelBoundary>
-
-        <PanelBoundary name="News">
-          <NewsPanel />
-        </PanelBoundary>
-
         <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
+
           <StatCard
             label="Cycle latency p50 / p95"
             value={`${num(health.p50_ms, 0)} / ${num(health.p95_ms, 0)} ms`}
