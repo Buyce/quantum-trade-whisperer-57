@@ -108,13 +108,25 @@ export function evaluatePromotion(evidence: PromotionEvidence, now = Date.now())
     reasons.push(reason);
   };
 
+  /**
+   * Stage first, and it SHORT-CIRCUITS.
+   *
+   * An instrument outside `data_validation` is not being sampled or checked, so
+   * every downstream measurement is absent by design. Listing those absences as
+   * blockers reads as "this instrument is failing" when the truth is "this
+   * instrument is not under measurement yet" — the confusion the diagnostics
+   * panel showed for the four disabled instruments.
+   */
   if (evidence.stage === null) {
     block("stage_unreadable", "the lifecycle stage could not be read, so nothing is claimed");
-  } else if (evidence.stage !== "data_validation") {
+    return { instrument: evidence.instrument, promotable: false, blockers, reasons, evidence };
+  }
+  if (evidence.stage !== "data_validation") {
     block(
       "not_in_data_validation",
-      `this checkpoint only judges instruments at data_validation; this one is at "${evidence.stage}"`,
+      `this checkpoint only judges instruments at data_validation; this one is at "${evidence.stage}", so no sample, readiness or mapping evidence is expected yet`,
     );
+    return { instrument: evidence.instrument, promotable: false, blockers, reasons, evidence };
   }
 
   if (evidence.validSamples === 0) {

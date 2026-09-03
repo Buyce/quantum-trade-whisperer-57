@@ -392,6 +392,7 @@ export type Database = {
           point: number | null
           point_source: string | null
           profit_currency: string | null
+          provider_symbol: string | null
           raw: Json | null
           source: string
           stops_level: number | null
@@ -415,6 +416,7 @@ export type Database = {
           point?: number | null
           point_source?: string | null
           profit_currency?: string | null
+          provider_symbol?: string | null
           raw?: Json | null
           source?: string
           stops_level?: number | null
@@ -438,6 +440,7 @@ export type Database = {
           point?: number | null
           point_source?: string | null
           profit_currency?: string | null
+          provider_symbol?: string | null
           raw?: Json | null
           source?: string
           stops_level?: number | null
@@ -2367,6 +2370,39 @@ export type Database = {
           stage?: Database["public"]["Enums"]["instrument_stage"]
           trading_date?: string
           valid_samples?: number
+        }
+        Relationships: []
+      }
+      instrument_symbol_bindings: {
+        Row: {
+          bound_by: string
+          candidates: string[]
+          canonical: string
+          created_at: string
+          evidence: Json
+          provider_symbol: string
+          reason: string | null
+          updated_at: string
+        }
+        Insert: {
+          bound_by: string
+          candidates?: string[]
+          canonical: string
+          created_at?: string
+          evidence?: Json
+          provider_symbol: string
+          reason?: string | null
+          updated_at?: string
+        }
+        Update: {
+          bound_by?: string
+          candidates?: string[]
+          canonical?: string
+          created_at?: string
+          evidence?: Json
+          provider_symbol?: string
+          reason?: string | null
+          updated_at?: string
         }
         Relationships: []
       }

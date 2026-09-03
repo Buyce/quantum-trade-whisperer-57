@@ -21,3 +21,11 @@
 - [x] Rows older than the provider candle cap labelled `outside_replay_window` instead of sitting pending
 - [ ] Restore `shadow_engine_state.candidate_rows_per_run` to 30 once the enrolable backlog reaches 0
 
+## Part C — Blocked instruments (XAGUSD, USOIL, UKOIL, NAS100)
+- [x] Migration: `instrument_symbol_bindings` (operator decision + candidate evidence), `broker_symbol_specs.provider_symbol`
+- [x] Spec refresh fetches under the bound broker symbol and records which name it used
+- [x] Mapping honours a binding as `configured`, usable only with a fresh spec fetched under that exact name
+- [x] Owner-only bind / unbind / single-instrument commissioning recheck (evidence only, no stage change)
+- [x] Promotion checkpoint short-circuits outside `data_validation` so disabled instruments read as "not under measurement", not "failing"
+- [ ] Bind the operator-chosen tickers (NAS100, USOIL, XAGUSD) and confirm evidence before any stage change
+- [ ] UKOIL: no Brent-like symbol found in the broker inventory; needs an operator-supplied ticker or stays disabled

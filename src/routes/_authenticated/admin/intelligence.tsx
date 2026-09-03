@@ -52,6 +52,7 @@ import { RefusalCostPanel } from "@/components/admin/RefusalCostPanel";
 import { AutoTraderPanel } from "@/components/admin/AutoTraderPanel";
 import { InstrumentDiagnosticsPanel } from "@/components/admin/InstrumentDiagnosticsPanel";
 import { CommissioningPanel } from "@/components/admin/CommissioningPanel";
+import { SymbolBindingPanel } from "@/components/admin/SymbolBindingPanel";
 import { PromotionPanel } from "@/components/admin/PromotionPanel";
 import { NewsPanel } from "@/components/admin/NewsPanel";
 
@@ -189,6 +190,7 @@ function AdminIntelligencePage() {
       <InstrumentDiagnosticsPanel />
 
       <CommissioningPanel />
+      <SymbolBindingPanel />
 
       <PromotionPanel />
 

@@ -81,13 +81,24 @@ export async function refreshSymbolSpecs(
     }
 
     try {
-      const raw = await fetchSymbolSpecification(symbol);
+      /**
+       * Brokers rename instruments. When an operator has bound this canonical
+       * instrument to one exact broker ticker, the specification MUST be fetched
+       * under that ticker — fetching the canonical name would either 404 or, worse,
+       * answer for a different contract.
+       */
+      const { specFetchSymbol } = await import("@/lib/instruments/bindings.server");
+      const providerSymbol = await specFetchSymbol(db as never, symbol);
+      const raw = await fetchSymbolSpecification(providerSymbol);
       if (!raw) {
         outcomes.push({ symbol, action: "failed", error: "empty specification" });
         await recordOutcome(db, symbol, "failed", "empty specification");
         continue;
       }
-      const row = rowFromSpecification(symbol, raw as RawSpecification);
+      const row = {
+        ...rowFromSpecification(symbol, raw as RawSpecification),
+        provider_symbol: providerSymbol,
+      };
       const { error } = await db.from("broker_symbol_specs").upsert(row, { onConflict: "symbol" });
       if (error) {
         outcomes.push({ symbol, action: "failed", error: error.message });
