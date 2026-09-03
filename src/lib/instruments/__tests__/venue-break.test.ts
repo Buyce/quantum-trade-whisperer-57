@@ -31,7 +31,7 @@ describe("venue daily break", () => {
       candles,
       required: 20,
       now: new Date(new Date(candles.at(-1)!.time).getTime() + 30 * 60_000),
-      breakToleranceMinutes: DAILY_BREAK_TOLERANCE_MINUTES["index"],
+      breakToleranceMinutes: DAILY_BREAK_TOLERANCE_MINUTES["index"] ?? 0,
     });
     expect(report.findings.some((f) => f.problem === "daily_break")).toBe(true);
     expect(report.findings.some((f) => f.problem === "interval_gap")).toBe(false);
@@ -46,7 +46,7 @@ describe("venue daily break", () => {
       candles,
       required: 20,
       now: new Date(new Date(candles.at(-1)!.time).getTime() + 30 * 60_000),
-      breakToleranceMinutes: DAILY_BREAK_TOLERANCE_MINUTES["fx"],
+      breakToleranceMinutes: DAILY_BREAK_TOLERANCE_MINUTES["fx"] ?? 0,
     });
     expect(report.findings.some((f) => f.problem === "interval_gap")).toBe(true);
     expect(report.ok).toBe(false);
@@ -59,7 +59,7 @@ describe("venue daily break", () => {
       candles,
       required: 20,
       now: new Date(new Date(candles.at(-1)!.time).getTime() + 30 * 60_000),
-      breakToleranceMinutes: DAILY_BREAK_TOLERANCE_MINUTES["index"],
+      breakToleranceMinutes: DAILY_BREAK_TOLERANCE_MINUTES["index"] ?? 0,
     });
     expect(report.findings.some((f) => f.problem === "interval_gap")).toBe(true);
     expect(report.ok).toBe(false);
