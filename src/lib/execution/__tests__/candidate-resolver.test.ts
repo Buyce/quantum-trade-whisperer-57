@@ -227,6 +227,8 @@ describe("candidate resolution capacity and provider budget", () => {
       candidateScanned: 0,
       candidateAdvanced: 0,
       candidateBacklogNoCandles: 0,
+      candidateOutsideWindow: 0,
+      candidateBackfillFetches: 0,
     });
 
     expect(message).toContain("All instrument candle fetches failed");
@@ -247,6 +249,8 @@ describe("candidate resolution capacity and provider budget", () => {
         candidateScanned: 0,
         candidateAdvanced: 0,
         candidateBacklogNoCandles: 0,
+        candidateOutsideWindow: 0,
+        candidateBackfillFetches: 0,
       }),
     ).toBeNull();
   });
