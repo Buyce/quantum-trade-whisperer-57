@@ -132,6 +132,12 @@ export function gradeSetup(
   h1: TimeframeRead,
   m15: TimeframeRead,
   headroomAtr?: number,
+  /**
+   * Effective headroom threshold. Defaults to the compiled-in constant; an
+   * owner-approved gate override (see gate_threshold_overrides) supplies any
+   * other value, and the caller records it in the evaluation's provenance.
+   */
+  minHeadroomAtr: number = MIN_HEADROOM_ATR,
 ): GradeResult {
   const satisfied: string[] = [];
   const violated: string[] = [];
@@ -139,7 +145,7 @@ export function gradeSetup(
   const allAligned = h4.bias !== "neutral" && h4.bias === h1.bias && h1.bias === m15.bias;
   const h1m15Aligned = h1.bias !== "neutral" && h1.bias === m15.bias;
   const headroom = headroomAtr ?? h4.barrierDistanceAtr;
-  const nearMacroBarrier = headroom < MIN_HEADROOM_ATR;
+  const nearMacroBarrier = headroom < minHeadroomAtr;
 
   if (allAligned) satisfied.push("Moving-average stack aligned across H4, H1 and M15");
   else violated.push("Moving-average stack is not aligned across all three timeframes");

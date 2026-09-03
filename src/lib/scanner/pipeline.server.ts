@@ -5,6 +5,8 @@
  */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { evaluateSetup, type SetupEvaluation } from "./profile";
+import { effectiveManifestHash } from "./gate-thresholds";
+import { loadGateThresholds } from "./gate-thresholds.server";
 import { buildTradeProfileV2, type V2Evaluation } from "./v2/profile.v2";
 import { buildTradeProfileV3, type V3Evaluation } from "./v3/profile.v3";
 import {
@@ -298,6 +300,10 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
   let v1Evaluation: SetupEvaluation | null = null;
   let v1Session: string | null = null;
   let v1VolatilityIndex: number | null = null;
+  // Manifest identity of the effective gate thresholds for this job; set at the
+  // V1 evaluation below. Undefined means "not yet evaluated" — the capture call
+  // then falls back to the pinned default-policy hash.
+  let v1ManifestHash: string | undefined;
   let publishedSignalId: string | null = null;
 
   /**
@@ -454,6 +460,7 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
               v1Decision: status,
               publishedSignalId,
               provenance,
+              manifestHash: v1ManifestHash,
             });
           }
         } catch {
@@ -641,7 +648,20 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
 
     // Gate-labelled evaluation. `profile` is exactly what buildTradeProfile()
     // returned before: only a fully-passed evaluation can publish.
-    const evaluation = evaluateSetup({ instrument: job.instrument, candles, session });
+    //
+    // Owner-approved gate threshold overrides (see gate_threshold_overrides)
+    // are loaded per job and recorded in the evaluation's features; any read
+    // failure falls back to the compiled-in defaults. When an override is
+    // active the candidate row carries a derived manifest hash, never the
+    // pinned default-policy hash.
+    const gateThresholds = await loadGateThresholds(db);
+    v1ManifestHash = effectiveManifestHash(gateThresholds);
+    const evaluation = evaluateSetup({
+      instrument: job.instrument,
+      candles,
+      session,
+      thresholds: gateThresholds,
+    });
     v1Evaluation = evaluation;
     v1Session = session ?? null;
 

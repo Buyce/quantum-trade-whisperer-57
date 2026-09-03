@@ -1,7 +1,13 @@
 import { buildStructureKey } from "@/lib/scanner/structure-key";
 import { clamp, detectAbc } from "./indicators";
 
-import { directionalHeadroomAtr, gradeSetup, readTimeframe, scoreConfluence } from "./grading";
+import {
+  directionalHeadroomAtr,
+  gradeSetup,
+  MIN_HEADROOM_ATR,
+  readTimeframe,
+  scoreConfluence,
+} from "./grading";
 import {
   CONFIDENCE_WEIGHTS,
   DEFAULT_SPREAD_FLOOR,
@@ -112,6 +118,21 @@ export interface BuildProfileInput {
    * the session-aware dynamic entry offset; omitted means structural entry only.
    */
   session?: string;
+  /**
+   * Owner-approved gate threshold overrides (loaded from
+   * `gate_threshold_overrides` by the pipeline). Omitted means the compiled-in
+   * defaults, which is also what every historical row was evaluated under.
+   * When present, the effective values are recorded in `features` so the row
+   * can never be mistaken for a default-policy evaluation.
+   */
+  thresholds?: GateThresholds;
+}
+
+/** The only V1 gates an approved proposal may ever retune. */
+export interface GateThresholds {
+  minHeadroomAtr?: number;
+  maxRiskAtr?: number;
+  minReachableR?: number;
 }
 
 /**
@@ -267,6 +288,13 @@ export function evaluateSetup(input: BuildProfileInput): SetupEvaluation {
   const h1 = readTimeframe("H1", input.candles.H1);
   const m15 = readTimeframe("M15", input.candles.M15);
 
+  // Effective gate thresholds: compiled-in defaults unless an owner-approved
+  // override was supplied. The values used are recorded in `features`, so a
+  // row evaluated under an override can never be mistaken for a default one.
+  const maxRiskAtr = input.thresholds?.maxRiskAtr ?? MAX_RISK_ATR;
+  const minReachableR = input.thresholds?.minReachableR ?? MIN_REACHABLE_R;
+  const minHeadroomAtr = input.thresholds?.minHeadroomAtr ?? MIN_HEADROOM_ATR;
+
   const features: Record<string, number | string | boolean | null> = {
     instrument: input.instrument,
     session: input.session ?? null,
@@ -279,6 +307,9 @@ export function evaluateSetup(input: BuildProfileInput): SetupEvaluation {
     h4Candles: input.candles.H4.length,
     h1Candles: input.candles.H1.length,
     m15Candles: input.candles.M15.length,
+    gateMaxRiskAtr: maxRiskAtr,
+    gateMinHeadroomAtr: minHeadroomAtr,
+    gateMinReachableR: minReachableR,
   };
 
   const fail = (
@@ -314,7 +345,7 @@ export function evaluateSetup(input: BuildProfileInput): SetupEvaluation {
   const headroomAtr = directionalHeadroomAtr(direction, input.candles.H4, h4);
   features["headroomAtr"] = round(headroomAtr, 3);
 
-  const graded = gradeSetup(h4, h1, m15, headroomAtr);
+  const graded = gradeSetup(h4, h1, m15, headroomAtr, minHeadroomAtr);
   features["alignmentScore"] = round(graded.alignmentScore, 2);
   features["gradedTier"] = graded.grade ?? null;
   if (!graded.grade) {
@@ -381,11 +412,11 @@ export function evaluateSetup(input: BuildProfileInput): SetupEvaluation {
     const r = Math.abs(candidate - stopLoss);
     if (r <= 0)
       return { ok: false, reason: "risk_undefined", detail: "entry equals the stop: risk is zero" };
-    if (m15.atr > 0 && r > m15.atr * MAX_RISK_ATR)
+    if (m15.atr > 0 && r > m15.atr * maxRiskAtr)
       return {
         ok: false,
         reason: "risk_too_wide",
-        detail: `risk ${round(r / m15.atr, 2)} ATR exceeds the ${MAX_RISK_ATR} ATR ceiling`,
+        detail: `risk ${round(r / m15.atr, 2)} ATR exceeds the ${maxRiskAtr} ATR ceiling`,
       };
     const room = (h4Barrier - candidate) * sign;
     if (room <= 0)
@@ -395,11 +426,11 @@ export function evaluateSetup(input: BuildProfileInput): SetupEvaluation {
         detail: "entry is already at or beyond the H4 barrier",
       };
     const mr = round(room / r);
-    if (mr < MIN_REACHABLE_R)
+    if (mr < minReachableR)
       return {
         ok: false,
         reason: "unreachable_r",
-        detail: `reachable ${mr}R is below the ${MIN_REACHABLE_R}R floor`,
+        detail: `reachable ${mr}R is below the ${minReachableR}R floor`,
       };
     return { ok: true, risk: r, maxR: mr };
   };
