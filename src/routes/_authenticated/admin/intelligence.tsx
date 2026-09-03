@@ -37,6 +37,7 @@ import {
   timeAgo,
 } from "@/components/admin/AdminPanels";
 import { setAllPanelsOpen } from "@/components/admin/panel-state";
+import { PanelBoundary } from "@/components/admin/PanelBoundary";
 
 import { BaselinePanel } from "@/components/admin/BaselinePanel";
 import { ResearchPanel } from "@/components/admin/ResearchPanel";
@@ -181,21 +182,39 @@ function AdminIntelligencePage() {
         </div>
       </header>
 
-      <EngineStatusPanel />
+      <PanelBoundary name="Engine status">
+        <EngineStatusPanel />
+      </PanelBoundary>
 
-      <ExecutionSwitchPanel />
+      <PanelBoundary name="Execution switch">
+        <ExecutionSwitchPanel />
+      </PanelBoundary>
 
-      <EnqueueDecisionPanel />
-      <RefusalCostPanel />
+      <PanelBoundary name="Enqueue decisions">
+        <EnqueueDecisionPanel />
+      </PanelBoundary>
+      <PanelBoundary name="Refusal cost">
+        <RefusalCostPanel />
+      </PanelBoundary>
 
-      <InstrumentDiagnosticsPanel />
+      <PanelBoundary name="Instrument diagnostics">
+        <InstrumentDiagnosticsPanel />
+      </PanelBoundary>
 
-      <CommissioningPanel />
-      <SymbolBindingPanel />
+      <PanelBoundary name="Commissioning">
+        <CommissioningPanel />
+      </PanelBoundary>
+      <PanelBoundary name="Symbol bindings">
+        <SymbolBindingPanel />
+      </PanelBoundary>
 
-      <PromotionPanel />
+      <PanelBoundary name="Promotion">
+        <PromotionPanel />
+      </PanelBoundary>
 
-      <NewsPanel />
+      <PanelBoundary name="News">
+        <NewsPanel />
+      </PanelBoundary>
 
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <StatCard
@@ -283,7 +302,9 @@ function AdminIntelligencePage() {
         />
       </section>
 
-      <AutoTraderPanel />
+      <PanelBoundary name="Auto trader">
+        <AutoTraderPanel />
+      </PanelBoundary>
 
       <div className="grid gap-3 lg:grid-cols-3">
         <PanelShell title="Instrument health">
@@ -328,22 +349,36 @@ function AdminIntelligencePage() {
       </div>
 
       <PanelShell title="Quantitative integrity baseline — immutable, pinned to one learning run">
+        <PanelBoundary name="Quantitative baseline">
         <BaselinePanel />
+      </PanelBoundary>
       </PanelShell>
 
       <PanelShell title="Grading research ledger — model v1 (live) vs model v2 (shadow)">
+        <PanelBoundary name="Grading research ledger">
         <ResearchPanel />
+      </PanelBoundary>
       </PanelShell>
 
       <PanelShell title="Expected R research — payoff distribution, not probability">
+        <PanelBoundary name="Payoff research">
         <PayoffPanel />
+      </PanelBoundary>
       </PanelShell>
 
       <PanelShell title="Research candidate capture — what the scanner rejected">
+        <PanelBoundary name="Research candidate funnel">
         <CandidatePanel />
+      </PanelBoundary>
+        <PanelBoundary name="Candidate lineage">
         <CandidateLineagePanel />
+      </PanelBoundary>
+        <PanelBoundary name="Filter lift">
         <FilterLiftPanel />
+      </PanelBoundary>
+        <PanelBoundary name="Learning evidence">
         <LearningEvidencePanel />
+      </PanelBoundary>
       </PanelShell>
 
       <PanelShell title="Human vs AI agent — accounts, decisions and reported outcomes">
