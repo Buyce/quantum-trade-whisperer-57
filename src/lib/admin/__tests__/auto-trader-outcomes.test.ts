@@ -12,7 +12,7 @@ const trade = (over: Partial<Parameters<typeof aggregateAutoTraderOutcomes>[0][n
 });
 
 describe("aggregateAutoTraderOutcomes", () => {
-  it("reports nothing when there are no closed trades", () => {
+  it("[UNIT] reports nothing when there are no closed trades", () => {
     const out = aggregateAutoTraderOutcomes([]);
     expect(out.total.trades).toBe(0);
     expect(out.total.winRate).toBeNull();
@@ -20,7 +20,7 @@ describe("aggregateAutoTraderOutcomes", () => {
     expect(out.byGrade).toEqual([]);
   });
 
-  it("counts wins, losses and scratches from broker net money", () => {
+  it("[UNIT] counts wins, losses and scratches from broker net money", () => {
     const out = aggregateAutoTraderOutcomes([
       trade({ netProfit: 20 }),
       trade({ netProfit: -5 }),
@@ -34,7 +34,7 @@ describe("aggregateAutoTraderOutcomes", () => {
     expect(out.total.currency).toBe("EUR");
   });
 
-  it("excludes unreported money from the win-rate denominator instead of calling it a loss", () => {
+  it("[UNIT] excludes unreported money from the win-rate denominator instead of calling it a loss", () => {
     const out = aggregateAutoTraderOutcomes([trade({ netProfit: 10 }), trade({ netProfit: null })]);
     expect(out.total.trades).toBe(2);
     expect(out.total.measured).toBe(1);
@@ -42,7 +42,7 @@ describe("aggregateAutoTraderOutcomes", () => {
     expect(out.total.winRate).toBe(1);
   });
 
-  it("refuses to add unlike profit currencies", () => {
+  it("[UNIT] refuses to add unlike profit currencies", () => {
     const out = aggregateAutoTraderOutcomes([
       trade({ currency: "EUR" }),
       trade({ currency: "USD" }),
@@ -52,7 +52,7 @@ describe("aggregateAutoTraderOutcomes", () => {
     expect(out.total.currency).toBeNull();
   });
 
-  it("buckets by grade in grade order, keeping unknown grades visible", () => {
+  it("[UNIT] buckets by grade in grade order, keeping unknown grades visible", () => {
     const out = aggregateAutoTraderOutcomes([
       trade({ grade: "C", netProfit: -1 }),
       trade({ grade: "A+", netProfit: 3 }),
@@ -62,7 +62,7 @@ describe("aggregateAutoTraderOutcomes", () => {
     expect(out.byGrade[2]?.trades).toBe(1);
   });
 
-  it("counts recovered grades and leaves them out of mean R when plan geometry is gone", () => {
+  it("[UNIT] counts recovered grades and leaves them out of mean R when plan geometry is gone", () => {
     const out = aggregateAutoTraderOutcomes([
       trade({ gradeSource: "recovered_from_enqueue_decision", rVsPlan: null }),
       trade({ rVsPlan: 2 }),

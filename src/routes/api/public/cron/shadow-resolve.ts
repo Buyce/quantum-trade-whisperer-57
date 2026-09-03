@@ -57,6 +57,33 @@ export const Route = createFileRoute("/api/public/cron/shadow-resolve")({
             );
           }
 
+          /**
+           * Filter lift — the only place the rejected arm becomes evidence.
+           * Runs after candidate resolution so it reads the freshest research
+           * outcomes, is scoped by the function itself to the research cohort,
+           * and is guarded separately: a lift failure must never re-label a
+           * successful production resolve pass as failed.
+           */
+          let filterLift: unknown = null;
+          let filterLiftError: string | null = null;
+          try {
+            const { data, error } = await db.rpc("recompute_filter_lift", {
+              _horizon_hours: 24,
+            });
+            if (error) throw new Error(error.message);
+            filterLift = data;
+          } catch (liftErr) {
+            filterLiftError = liftErr instanceof Error ? liftErr.message : String(liftErr);
+            console.error("[cron/shadow-resolve] filter lift recompute failed:", filterLiftError);
+            try {
+              const { noteResearchFailure } = await import("@/lib/research/observations.server");
+              await noteResearchFailure(db, `filter lift recompute failed: ${filterLiftError}`);
+            } catch {
+              // Research health is best-effort; production resolution stands.
+            }
+          }
+
+
           // Statistics rebuild runs last and is guarded separately: a failure
           // here must never re-label a successful resolution pass as failed.
           let stats: unknown = null;

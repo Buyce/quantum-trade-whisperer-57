@@ -29,6 +29,15 @@ function Metric({ label, value }: { label: string; value: string | number }) {
   );
 }
 
+/** Stored timestamp, trimmed to the minute. Missing stays visibly missing. */
+function utcShort(ts: string | null): string {
+  if (!ts) return "—";
+  const ms = Date.parse(ts);
+  return Number.isFinite(ms) ? new Date(ms).toISOString().replace("T", " ").slice(0, 16) : "—";
+}
+
+
+
 export function CandidatePanel() {
   const fetchFunnel = useServerFn(getCandidateFunnel);
   const { data, isLoading, error } = useQuery({
@@ -116,6 +125,58 @@ export function CandidatePanel() {
             }
           />
         </div>
+
+        {/*
+          Enrolment history over the FULL backlog, not the last 24h: this is the
+          only place that shows whether the backfill actually reached the oldest
+          captured setups, so every timestamp is a stored value, never inferred.
+        */}
+        <section className="rounded-lg border border-border p-3">
+          <h4 className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">
+            Enrolment history (all time)
+          </h4>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <Metric label="Enrolable backlog" value={totals?.enrolable_backlog ?? 0} />
+            <Metric label="Oldest waiting" value={utcShort(totals?.oldest_unenrolled_at ?? null)} />
+            <Metric label="First enrolment" value={utcShort(totals?.first_enrolled_at ?? null)} />
+            <Metric label="Last enrolment" value={utcShort(totals?.last_enrolled_at ?? null)} />
+            <Metric
+              label="Oldest enrolled setup"
+              value={utcShort(totals?.oldest_enrolled_detected_at ?? null)}
+            />
+            <Metric label="Outside replay window" value={data?.outside_replay_window ?? 0} />
+          </div>
+          {data && data.enrolled_by_day?.length ? (
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-xs uppercase text-muted-foreground">
+                  <tr className="border-b border-border">
+                    <th className="py-1.5 text-left font-medium">Enrolled on (UTC)</th>
+                    <th className="py-1.5 text-right font-medium">Candidates</th>
+                    <th className="py-1.5 text-right font-medium">Oldest detection in batch</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.enrolled_by_day.map((row) => (
+                    <tr key={row.day} className="border-b border-border/50">
+                      <td className="py-1.5">{row.day.slice(0, 10)}</td>
+                      <td className="py-1.5 text-right tabular-nums">{row.n}</td>
+                      <td className="py-1.5 text-right tabular-nums">
+                        {utcShort(row.oldest_detected_at)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="mt-2 text-xs text-muted-foreground">
+              No candidate has been enrolled yet. Rows appear after the next hourly research run.
+            </p>
+          )}
+        </section>
+
+
 
         <section>
           <h4 className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">
