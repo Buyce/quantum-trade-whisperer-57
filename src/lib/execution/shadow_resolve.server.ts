@@ -549,14 +549,144 @@ export async function resolveShadowExecutions(db: SupabaseClient): Promise<Resol
     }
 
     // Candidate phase — last, same immutable candle array, zero extra fetches.
-    for (const row of candidateByInstrument.get(instrument) ?? []) {
-      const advancedRow = await resolveCandidateRow(db, row, candles);
-      if (advancedRow) summary.candidateAdvanced += 1;
-    }
+    await runCandidatePhase(db, candidateByInstrument.get(instrument) ?? [], candles, summary);
   }
+
+  /**
+   * Backfill pass (bounded). Enrolled candidates on instruments production did
+   * not fetch this run would otherwise never resolve, so a small, fixed number
+   * of candidate-only fetches is allowed per run — oldest backlog first. Every
+   * instrument beyond the budget stays counted as starved backlog, and the pass
+   * runs only while candidate enrolment is switched on.
+   */
+  await backfillStarvedCandidates(db, starvedCandidates, summary);
 
   return summary;
 }
+
+/**
+ * Resolve candidate rows against an already-fetched candle array. Rows whose
+ * history is further back than the provider cap are labelled once and skipped
+ * instead of being replayed against candles that cannot contain their outcome.
+ */
+async function runCandidatePhase(
+  db: SupabaseClient,
+  rows: ShadowRow[],
+  candles: Awaited<ReturnType<typeof fetchCandles>>,
+  summary: ResolveSummary,
+): Promise<void> {
+  const nowMs = Date.now();
+  for (const row of rows) {
+    if (classifyReplayWindow(row, REPLAY_MAX_CANDLE_DEPTH, nowMs) === OUTSIDE_REPLAY_WINDOW) {
+      summary.candidateOutsideWindow += 1;
+      await markOutsideReplayWindow(db, row.id);
+      continue;
+    }
+    const advancedRow = await resolveCandidateRow(db, row, candles);
+    if (advancedRow) summary.candidateAdvanced += 1;
+  }
+}
+
+/** Records the unresolvable-window label. Never throws: research is best-effort. */
+async function markOutsideReplayWindow(db: SupabaseClient, id: string): Promise<void> {
+  try {
+    await db
+      .from("shadow_executions")
+      .update({
+        research_window_status: OUTSIDE_REPLAY_WINDOW,
+        last_polled_at: new Date().toISOString(),
+      })
+      .eq("id", id);
+  } catch (err) {
+    console.error(
+      "[shadow-resolve] window label write failed:",
+      err instanceof Error ? err.message : err,
+    );
+  }
+}
+
+/**
+ * Bounded candidate-only historical fetch. Chooses at most
+ * `CANDIDATE_BACKFILL_FETCH_BUDGET` instruments, oldest backlog first, and
+ * resolves their candidate rows. Failures are counted, never thrown.
+ */
+async function backfillStarvedCandidates(
+  db: SupabaseClient,
+  starved: Map<string, ShadowRow[]>,
+  summary: ResolveSummary,
+): Promise<void> {
+  if (starved.size === 0) return;
+
+  const countAllAsBacklog = () => {
+    for (const list of starved.values()) summary.candidateBacklogNoCandles += list.length;
+  };
+
+  let enabled = false;
+  try {
+    const { isCandidateEnrolmentEnabled } = await import("@/lib/research/enrol-candidates.server");
+    enabled = await isCandidateEnrolmentEnabled(db);
+  } catch {
+    enabled = false;
+  }
+  if (!enabled) {
+    countAllAsBacklog();
+    return;
+  }
+
+  // Oldest backlog first: the rows closest to falling out of the window entirely.
+  const ordered = [...starved.entries()].sort((a, b) => {
+    const oldest = (list: ShadowRow[]) =>
+      list.reduce((min, row) => Math.min(min, Date.parse(row.detected_at) || Infinity), Infinity);
+    return oldest(a[1]) - oldest(b[1]);
+  });
+
+  for (const [index, [instrument, group]] of ordered.entries()) {
+    if (index >= CANDIDATE_BACKFILL_FETCH_BUDGET) {
+      summary.candidateBacklogNoCandles += group.length;
+      continue;
+    }
+
+    try {
+      const dataGate = await assertCapability(db, instrument, "collect_data");
+      if (!dataGate.allowed) {
+        summary.candidateBacklogNoCandles += group.length;
+        continue;
+      }
+      const authority = await resolveFetchSymbol(db, instrument);
+      if (!authority.usable || !authority.providerSymbol) {
+        summary.candidateBacklogNoCandles += group.length;
+        continue;
+      }
+
+      const requested = replayCandleDepthForRows(group);
+      let candles;
+      try {
+        candles = await fetchCandles(authority.providerSymbol, "M15", requested);
+      } catch (err) {
+        summary.fetchFailures += 1;
+        summary.candidateBacklogNoCandles += group.length;
+        summary.instruments.push({
+          instrument,
+          candles: 0,
+          requested,
+          error: `research backfill: ${describeError(err)}`,
+        });
+        continue;
+      }
+
+      summary.candidateBackfillFetches += 1;
+      summary.instruments.push({ instrument, candles: candles.length, requested });
+      await runCandidatePhase(db, group, candles, summary);
+    } catch (err) {
+      summary.candidateBacklogNoCandles += group.length;
+      console.error(
+        "[shadow-resolve] candidate backfill failed:",
+        err instanceof Error ? err.message : err,
+      );
+    }
+  }
+}
+
 
 function round(value: number) {
   return Number.isFinite(value) ? Number(value.toFixed(4)) : null;
