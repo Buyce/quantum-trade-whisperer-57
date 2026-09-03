@@ -490,7 +490,17 @@ export async function resolveShadowExecutions(db: SupabaseClient): Promise<Resol
     }
 
     let candles;
-    const requested = replayCandleDepthForRows(group);
+    /**
+     * Depth covers production AND the research rows riding along on this fetch,
+     * so an older candidate is no longer silently replayed against candles that
+     * start after its detection. Still capped by REPLAY_MAX_CANDLE_DEPTH.
+     */
+    const requested = replayCandleDepthForRows([
+      ...group,
+      ...(researchByInstrument.get(instrument) ?? []),
+      ...(candidateByInstrument.get(instrument) ?? []),
+    ]);
+
     try {
       candles = await fetchCandles(authority.providerSymbol, "M15", requested);
     } catch (err) {
