@@ -1798,6 +1798,8 @@ export type Database = {
           run_id: string
           sd_r: number | null
           se_r: number | null
+          slice_dim: string
+          slice_key: string
           stat_status: string
           strategy_version: number
           terminal_replay_horizon_hours: number
@@ -1820,6 +1822,8 @@ export type Database = {
           run_id: string
           sd_r?: number | null
           se_r?: number | null
+          slice_dim?: string
+          slice_key?: string
           stat_status: string
           strategy_version: number
           terminal_replay_horizon_hours: number
@@ -1842,11 +1846,102 @@ export type Database = {
           run_id?: string
           sd_r?: number | null
           se_r?: number | null
+          slice_dim?: string
+          slice_key?: string
           stat_status?: string
           strategy_version?: number
           terminal_replay_horizon_hours?: number
         }
         Relationships: []
+      }
+      gate_change_proposals: {
+        Row: {
+          applied_at: string | null
+          created_at: string
+          current_value: number | null
+          decided_at: string | null
+          decided_by: string | null
+          decision_reason: string | null
+          gate: string
+          id: string
+          proposed_by: string
+          proposed_value: number
+          reverted_at: string | null
+          stats_snapshot: Json
+          status: string
+          updated_at: string
+          verdict: string
+        }
+        Insert: {
+          applied_at?: string | null
+          created_at?: string
+          current_value?: number | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_reason?: string | null
+          gate: string
+          id?: string
+          proposed_by: string
+          proposed_value: number
+          reverted_at?: string | null
+          stats_snapshot: Json
+          status?: string
+          updated_at?: string
+          verdict: string
+        }
+        Update: {
+          applied_at?: string | null
+          created_at?: string
+          current_value?: number | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_reason?: string | null
+          gate?: string
+          id?: string
+          proposed_by?: string
+          proposed_value?: number
+          reverted_at?: string | null
+          stats_snapshot?: Json
+          status?: string
+          updated_at?: string
+          verdict?: string
+        }
+        Relationships: []
+      }
+      gate_threshold_overrides: {
+        Row: {
+          gate: string
+          proposal_id: string | null
+          reason: string
+          set_by: string
+          updated_at: string
+          value: number
+        }
+        Insert: {
+          gate: string
+          proposal_id?: string | null
+          reason: string
+          set_by: string
+          updated_at?: string
+          value: number
+        }
+        Update: {
+          gate?: string
+          proposal_id?: string | null
+          reason?: string
+          set_by?: string
+          updated_at?: string
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gate_threshold_overrides_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "gate_change_proposals"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       instrument_alias_discovery: {
         Row: {
@@ -5134,6 +5229,15 @@ export type Database = {
         Returns: boolean
       }
       claim_weekly_report: { Args: { _week: string }; Returns: boolean }
+      decide_gate_change: {
+        Args: {
+          _actor: string
+          _decision: string
+          _id: string
+          _reason: string
+        }
+        Returns: Json
+      }
       enrol_research_candidate_shadow: {
         Args: {
           _candidate_id: string
@@ -5160,6 +5264,7 @@ export type Database = {
       get_admin_filter_lift: { Args: never; Returns: Json }
       get_admin_instrument_diagnostics: { Args: never; Returns: Json }
       get_admin_intelligence: { Args: never; Returns: Json }
+      get_admin_learning_evidence: { Args: never; Returns: Json }
       get_admin_news: { Args: never; Returns: Json }
       get_admin_payoff_research: { Args: never; Returns: Json }
       instrument_capability_allowed: {
@@ -5177,6 +5282,15 @@ export type Database = {
           _source: string
         }
         Returns: undefined
+      }
+      propose_gate_change: {
+        Args: {
+          _actor: string
+          _gate: string
+          _proposed_value: number
+          _reason: string
+        }
+        Returns: Json
       }
       prune_v2_structure_claims: { Args: never; Returns: number }
       purge_expired_signals: { Args: never; Returns: number }
