@@ -190,7 +190,7 @@ export async function checkInstrumentReadiness(
   for (const tf of TIMEFRAMES) {
     const required = Math.floor(CANDLE_LIMITS[tf] * MIN_CANDLE_RATIO);
     try {
-      const candles = await fetchCandles(symbol, tf, CANDLE_LIMITS[tf]);
+      const candles = await fetchCandles(fetchSymbol, tf, CANDLE_LIMITS[tf]);
       const report = validateSeries({ timeframe: tf, candles, required, now });
       series.push(report);
       if (!report.ok) {
@@ -230,7 +230,7 @@ export async function checkInstrumentReadiness(
    * attempt count is fixed and recorded, so a real defect still fails.
    */
   {
-    const outcome = await fetchUsableQuote(symbol, fetchQuote, {
+    const outcome = await fetchUsableQuote(fetchSymbol, fetchQuote, {
       requireFreshness: true,
       maxAgeMs: REVALIDATION_QUOTE_MAX_AGE_MS,
       now: () => now.getTime(),
