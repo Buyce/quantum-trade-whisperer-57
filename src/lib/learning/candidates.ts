@@ -19,9 +19,24 @@ export interface CandidateFunnelTotals {
   gates_incomplete: number;
   enrolled: number;
   enrolment_backlog: number;
+  /** Backlog rows that carry a complete research plan, so are actually enrolable. */
+  enrolable_backlog: number;
+  /** Detection time of the oldest enrolable row still waiting. */
+  oldest_unenrolled_at: string | null;
+  first_enrolled_at: string | null;
+  last_enrolled_at: string | null;
+  /** Detection time of the oldest row already enrolled — proves the backfill reaches back. */
+  oldest_enrolled_detected_at: string | null;
   first_seen: string | null;
   last_seen: string | null;
 }
+
+export interface CandidateEnrolledDayRow {
+  day: string;
+  n: number;
+  oldest_detected_at: string | null;
+}
+
 
 export interface CandidateStageRow {
   terminal_stage: string;
