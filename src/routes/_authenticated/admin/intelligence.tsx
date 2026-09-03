@@ -44,6 +44,7 @@ import { PayoffPanel } from "@/components/admin/PayoffPanel";
 import { CandidatePanel } from "@/components/admin/CandidatePanel";
 import { CandidateLineagePanel } from "@/components/admin/CandidateLineagePanel";
 import { FilterLiftPanel } from "@/components/admin/FilterLiftPanel";
+import { LearningEvidencePanel } from "@/components/admin/LearningEvidencePanel";
 
 import { EngineStatusPanel } from "@/components/admin/EngineStatusPanel";
 import { ExecutionSwitchPanel } from "@/components/admin/ExecutionSwitchPanel";
@@ -342,7 +343,7 @@ function AdminIntelligencePage() {
         <CandidatePanel />
         <CandidateLineagePanel />
         <FilterLiftPanel />
-
+        <LearningEvidencePanel />
       </PanelShell>
 
       <PanelShell title="Human vs AI agent — accounts, decisions and reported outcomes">

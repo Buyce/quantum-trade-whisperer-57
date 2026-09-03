@@ -45,3 +45,11 @@
   quoting live. Binding one would have produced a real but wrong instrument.
 - Hourly enrolment run executed: 104 candidates enrolled (228 total enrolled), 124 older
   candidates labelled `outside_replay_window`.
+
+## Evidence-grade filter evaluation + proposal workflow (archived plan 2026-09-03) — DONE
+- filter_lift_stats: slice rows (instrument/direction/session), cluster-robust SE (instrument-day clusters), stat_status + reason.
+- gate_change_proposals ledger + gate_threshold_overrides (approve/reject/revert, owner-only, audited via execution_control_changes).
+- get_admin_learning_evidence RPC (rows/proposals/overrides/post-change cohorts).
+- Scanner applies approved positive overrides at runtime; effective manifest hash flows into candidate provenance.
+- Admin UI: LearningEvidencePanel (override form, decisions, slices, post-change cohorts).
+- Fixed nested-aggregate bug in recompute_filter_lift; taxonomy prefixes; 1,430 tests green (resolved-immutability flaky only under parallel load).

@@ -22,9 +22,14 @@ import {
 
 const OWNER_EMAIL = "boatengampomah@gmail.com";
 
-function assertOwner(claims: Record<string, unknown>): void {
+/** Exported for the sibling learning functions — one owner check, one source. */
+export function assertOwner(claims: Record<string, unknown>): void {
   const email = String(claims["email"] ?? "").toLowerCase();
   if (email !== OWNER_EMAIL) throw new Error("Forbidden");
+}
+
+export function ownerEmail(claims: Record<string, unknown>): string {
+  return String(claims["email"] ?? "").toLowerCase();
 }
 
 export const getCandidateFunnel = createServerFn({ method: "GET" })
@@ -88,10 +93,15 @@ export const getFilterLift = createServerFn({ method: "GET" })
     const { data, error } = await rpc("get_admin_filter_lift");
     if (error) throw new Error(error.message);
 
-    const payload = (data ?? {}) as { generated_at?: string; rows?: FilterLiftRow[] };
+    const payload = (data ?? {}) as {
+      generated_at?: string;
+      rows?: (FilterLiftRow & { slice_dim?: string })[];
+    };
+    // Slice rows exist alongside the global ones; mixing them would double-count.
+    const global = (payload.rows ?? []).filter((r) => (r.slice_dim ?? "global") === "global");
     return {
       generated_at: payload.generated_at ?? new Date().toISOString(),
-      gates: summarizeFilterLift(payload.rows ?? []),
+      gates: summarizeFilterLift(global),
     };
   });
 

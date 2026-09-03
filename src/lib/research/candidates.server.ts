@@ -60,6 +60,12 @@ export interface CaptureCandidateArgs {
    * pre-provenance rather than pretending a policy was recorded.
    */
   provenance?: DetectionProvenance | null;
+  /**
+   * Manifest identity of the effective gate thresholds. Defaults to the pinned
+   * V1 hash; when an owner-approved override is active the pipeline passes the
+   * derived hash so this row is never counted in the default-policy population.
+   */
+  manifestHash?: string | undefined;
 }
 
 /**
@@ -104,7 +110,7 @@ export async function captureCandidate(
       instrument: args.instrument,
       direction: e.direction,
       strategy_version: STRATEGY_V1_VERSION,
-      manifest_hash: STRATEGY_V1_MANIFEST_HASH,
+      manifest_hash: args.manifestHash ?? STRATEGY_V1_MANIFEST_HASH,
       code_hash: STRATEGY_V1_MANIFEST_HASH,
       detected_at: args.detectedAt,
       trading_session: args.session,

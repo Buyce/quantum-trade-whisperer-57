@@ -166,13 +166,13 @@ BEGIN
              WHEN count(*) >= 2 AND sum(c.n_c) > 0 THEN
                sqrt(
                  (count(*)::numeric / (count(*) - 1)) *
-                 sum(power(c.t_c - (max(ca.t_tot) / max(ca.n_tot)) * c.n_c, 2))
-               ) / max(ca.n_tot)
+                 sum(power(c.t_c - (ca.t_tot / ca.n_tot) * c.n_c, 2))
+               ) / ca.n_tot
              ELSE NULL::numeric
            END AS se_r
       FROM _fl_clus c
       JOIN ca USING (manifest_hash, strategy_version, slice_dim, slice_key, gate, arm)
-     GROUP BY 1,2,3,4,5,6
+     GROUP BY 1,2,3,4,5,6, ca.n_tot, ca.t_tot
   )
   INSERT INTO filter_lift_stats (
     manifest_hash, strategy_version, gate, arm, plan_origin, run_id,
