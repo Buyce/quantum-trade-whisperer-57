@@ -137,6 +137,15 @@ export async function checkInstrumentReadiness(
       : `${mapping.refusal}: ${mapping.detail}`,
   });
 
+  /**
+   * The name the provider is actually asked for. When a mapping is usable —
+   * including an operator binding whose specification was confirmed under that
+   * exact ticker — candles and quotes MUST be requested under it, otherwise the
+   * canonical name is asked for and legitimately 404s. Never a guess: an unusable
+   * mapping falls back to the canonical name and fails closed as before.
+   */
+  const fetchSymbol = mapping.usable && mapping.providerSymbol ? mapping.providerSymbol : symbol;
+
   // ---- 2. Specification, field by field -------------------------------------
   const spec = await loadBrokerSpec(db, symbol);
   specFields = {
