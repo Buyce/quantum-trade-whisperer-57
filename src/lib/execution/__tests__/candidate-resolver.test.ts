@@ -14,7 +14,13 @@ vi.mock("@/lib/scanner/metaapi.server", () => ({
 const { allFetchesFailedMessage, replayCandleDepthForRows, resolveShadowExecutions } =
   await import("../shadow_resolve.server");
 
-const DETECTED = "2026-08-20T08:00:00.000Z";
+/**
+ * Detection sits INSIDE the provider candle window on purpose: a row older than
+ * the cap is unresolvable by design and is labelled `outside_replay_window`
+ * instead of replayed (covered by replay-window.test.ts).
+ */
+const DETECTED = new Date(Date.now() - 30 * 15 * 60_000).toISOString();
+
 
 function candles(from: number) {
   return Array.from({ length: 40 }, (_, i) => {
