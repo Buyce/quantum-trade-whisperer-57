@@ -43,6 +43,21 @@ export const SAFE_GET_RETRY_DELAY_MS = 250;
 const TRANSIENT_READ_STATUSES = new Set([502, 503, 504]);
 
 /**
+ * Rate limiting is a throughput signal, not a failure: the provider caps
+ * concurrent historical market-data reads and tells us how long to wait. A GET
+ * is retried after that wait, bounded so a cycle can never overrun.
+ */
+export const RATE_LIMIT_BASE_DELAY_MS = 600;
+export const RATE_LIMIT_MAX_DELAY_MS = 3_000;
+
+export function rateLimitDelayMs(retryAfterSec: number | null, attempt: number): number {
+  const fromHeader = retryAfterSec != null ? retryAfterSec * 1_000 : null;
+  const backoff = RATE_LIMIT_BASE_DELAY_MS * 2 ** attempt;
+  return Math.min(RATE_LIMIT_MAX_DELAY_MS, Math.max(fromHeader ?? backoff, backoff));
+}
+
+
+/**
  * Fire-and-forget provider-usage observation. Loaded lazily and swallowed, so the
  * outbound path keeps working unchanged when the telemetry table, the database or
  * the admin client is unavailable.
