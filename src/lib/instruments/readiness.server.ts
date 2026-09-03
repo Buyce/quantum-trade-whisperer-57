@@ -37,7 +37,7 @@ import { fetchUsableQuote } from "./quote-retry";
 import { CANDLE_LIMITS, TIMEFRAMES } from "@/lib/scanner/types";
 import { writeDataHealth } from "./lifecycle.server";
 import { resolveMapping, type MappingResolution } from "./mapping.server";
-import { validateSeries, type SeriesReport } from "./series";
+import { DAILY_BREAK_TOLERANCE_MINUTES, validateSeries, type SeriesReport } from "./series";
 
 export type ReadinessComponent = "mapping" | "spec" | "candles" | "quote" | "conversion";
 
