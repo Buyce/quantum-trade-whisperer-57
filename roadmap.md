@@ -53,3 +53,5 @@
 - Scanner applies approved positive overrides at runtime; effective manifest hash flows into candidate provenance.
 - Admin UI: LearningEvidencePanel (override form, decisions, slices, post-change cohorts).
 - Fixed nested-aggregate bug in recompute_filter_lift; taxonomy prefixes; 1,430 tests green (resolved-immutability flaky only under parallel load).
+
+- [x] Admin Intelligence resilience: per-panel error boundaries, safe UTC timestamp formatter (`src/lib/format-utc.ts`), stale-chunk single reload recovery in the root error boundary.
