@@ -202,7 +202,9 @@ export async function metaApiRequest<T = unknown>(
 
   for (let tokenIndex = 0; tokenIndex < tokens.length; tokenIndex += 1) {
     const token = tokens[tokenIndex]!;
-    const attempts = method === "GET" ? 2 : 1;
+    // Reads get three attempts: one transient-gateway retry plus one extra slot
+    // for an honoured rate-limit wait. Mutations are never retried.
+    const attempts = method === "GET" ? 3 : 1;
 
     for (let attempt = 0; attempt < attempts; attempt += 1) {
       // Every attempt is observed, successful or not: a refused call still spends
@@ -229,6 +231,17 @@ export async function metaApiRequest<T = unknown>(
           await new Promise((resolve) => setTimeout(resolve, SAFE_GET_RETRY_DELAY_MS));
           continue;
         }
+
+        const rateLimitedRead =
+          method === "GET" && err instanceof MetaApiHttpError && err.status === 429;
+        if (rateLimitedRead && attempt + 1 < attempts) {
+          await new Promise((resolve) =>
+            setTimeout(resolve, rateLimitDelayMs(err.retryAfterSeconds ?? null, attempt)),
+          );
+          continue;
+        }
+
+
 
         const rejectedToken =
           err instanceof MetaApiHttpError && (err.status === 401 || err.status === 403);
