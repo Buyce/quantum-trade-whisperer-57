@@ -10,6 +10,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getCandidateLineage } from "@/lib/candidates.functions";
 import type { CandidateLineageRow } from "@/lib/learning/candidates";
+import { utcMinute } from "@/lib/format-utc";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

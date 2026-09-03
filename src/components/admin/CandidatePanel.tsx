@@ -11,6 +11,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { getCandidateFunnel } from "@/lib/candidates.functions";
 import { STAGE_LABELS } from "@/lib/learning/candidates";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { utcMinute } from "@/lib/format-utc";
 import { Badge } from "@/components/ui/badge";
 import { describeResearchError, formatErrorAge } from "@/components/admin/research-error";
 
@@ -121,7 +122,7 @@ export function CandidatePanel() {
           <Metric
             label="Last capture"
             value={
-              totals?.last_seen ? new Date(totals.last_seen).toISOString().slice(0, 16) + "Z" : "—"
+              totals?.last_seen ? utcMinute(totals.last_seen) + " UTC" : "—"
             }
           />
         </div>

@@ -30,6 +30,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { utcMinute } from "@/lib/format-utc";
 
 function fmtR(value: number | null | undefined): string {
   return value === null || value === undefined || !Number.isFinite(value)
@@ -118,7 +119,7 @@ function ProposalRow({
         </Badge>
       </div>
       <p className="mt-1 text-muted-foreground">
-        Evidence frozen {new Date(snap.as_of).toISOString().slice(0, 16)} UTC · published{" "}
+        Evidence frozen {utcMinute(snap.as_of)} UTC · published{" "}
         {fmtR(snap.pass.mean_r)} (n={snap.pass.n_used ?? 0}) vs rejected {fmtR(snap.fail.mean_r)}{" "}
         (n={snap.fail.n_used ?? 0}) · verdict:{" "}
         {proposal.verdict === "loosening_supported" ? "loosening supported" : "gate supported"}
@@ -237,7 +238,7 @@ export function LearningEvidencePanel() {
                       <span className="text-foreground">{TUNABLE_GATE_LABELS[o.gate] ?? o.gate}</span>
                       {" = "}
                       {o.value} · set by {o.set_by} ·{" "}
-                      {new Date(o.updated_at).toISOString().slice(0, 16)} UTC
+                      {utcMinute(o.updated_at)} UTC
                     </div>
                   ))}
                 </div>
@@ -332,7 +333,7 @@ export function LearningEvidencePanel() {
                     <div key={c.proposal_id} className="rounded-lg border border-border p-3 text-xs">
                       <div className="font-medium text-foreground">
                         {TUNABLE_GATE_LABELS[c.gate] ?? c.gate} · applied{" "}
-                        {new Date(c.applied_at).toISOString().slice(0, 16)} UTC
+                        {utcMinute(c.applied_at)} UTC
                       </div>
                       <div className="mt-1 grid gap-1 text-muted-foreground sm:grid-cols-2">
                         {c.arms.map((a) => (

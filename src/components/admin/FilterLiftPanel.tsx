@@ -14,6 +14,7 @@ import { VERDICT_LABELS, type FilterLiftGate } from "@/lib/learning/filter-lift"
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { utcMinute } from "@/lib/format-utc";
 
 function verdictVariant(gate: FilterLiftGate): "default" | "secondary" | "outline" | "destructive" {
   if (gate.verdict === "loosening_supported") return "destructive";
@@ -87,7 +88,7 @@ export function FilterLiftPanel() {
             ))}
             <p className="text-xs text-muted-foreground">
               Recomputed hourly after research resolution · as of{" "}
-              {new Date(data.generated_at).toISOString().replace("T", " ").slice(0, 16)} UTC
+              {utcMinute(data.generated_at)} UTC
             </p>
           </div>
         )}
