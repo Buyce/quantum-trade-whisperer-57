@@ -29,6 +29,15 @@ function Metric({ label, value }: { label: string; value: string | number }) {
   );
 }
 
+/** Stored timestamp, trimmed to the minute. Missing stays visibly missing. */
+function utcShort(ts: string | null): string {
+  if (!ts) return "—";
+  const ms = Date.parse(ts);
+  return Number.isFinite(ms) ? new Date(ms).toISOString().replace("T", " ").slice(0, 16) : "—";
+}
+
+
+
 export function CandidatePanel() {
   const fetchFunnel = useServerFn(getCandidateFunnel);
   const { data, isLoading, error } = useQuery({
