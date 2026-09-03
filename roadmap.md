@@ -15,3 +15,9 @@
 - [x] Admin refusal-cost panel (reasons, attempts spent, queue latency)
 - [x] Settle the current pending backlog under the new rules (fair claiming now serves the 14 never-claimed 0-attempt rows before the hot row; nothing is force-settled by hand)
 - [x] Enable research-candidate enrolment (flag flipped, verify on next hourly run)
+- [x] Research backlog drain: candidate budget raised to 150/run, oldest detection first
+- [x] Filter lift recomputed hourly after research resolution + admin Filter Lift panel (measurement only)
+- [x] Per-candidate lineage panel (capture -> enrolment -> replay -> broker, "never sent" when rejected)
+- [x] Rows older than the provider candle cap labelled `outside_replay_window` instead of sitting pending
+- [ ] Restore `shadow_engine_state.candidate_rows_per_run` to 30 once the enrolable backlog reaches 0
+
