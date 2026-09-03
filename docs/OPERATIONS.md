@@ -147,6 +147,24 @@ Every scheduled job is independently retriable and isolated: a failure in
 execution delivery, reporting or research never interrupts the scanner or any
 statistic.
 
+### Provider rate limits
+
+The broker data provider caps concurrent historical market-data reads per
+account (5). Three controls keep jobs inside that cap:
+
+- Historical candle reads pass through a shared process-local gate limited to 4
+  concurrent requests (`src/lib/metaapi/market-gate.server.ts`).
+- A throttled read (HTTP 429) is retried once, waiting for the provider's
+  `Retry-After` or a bounded exponential delay capped at 3s. Mutations are never
+  retried.
+- Market-data-heavy jobs are staggered: scan cycles run every 15 minutes on the
+  quarter, spread sampling at minutes 5/20/35/50 and shadow replay at minute 9.
+
+A rate-limited cycle means missing evaluation data for that pass — never "no
+setups" and never a scanner-wide No Trade. The shadow replay engine reads
+RECOVERING after one failed pass and DEGRADED only once failures repeat.
+
+
 ## User-facing meaning
 
 Settings shows the scanner's last cycle. Quiet markets look quiet.
