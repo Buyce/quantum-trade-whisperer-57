@@ -41,15 +41,19 @@ export async function fetchCandlesFor(
   timeframe: Timeframe,
   limit = 200,
 ): Promise<Candle[]> {
-  const raw = await metaApiRequest<RawCandle[]>({
-    service: "market-data",
-    region,
-    label: `${symbol} ${timeframe}`,
-    path:
-      `/users/current/accounts/${accountId}` +
-      `/historical-market-data/symbols/${encodeURIComponent(symbol)}` +
-      `/timeframes/${TF_MAP[timeframe]}/candles?limit=${limit}`,
-  });
+  // Gated: the provider allows only 5 concurrent historical reads per account.
+  const raw = await withMarketDataSlot(() =>
+    metaApiRequest<RawCandle[]>({
+      service: "market-data",
+      region,
+      label: `${symbol} ${timeframe}`,
+      path:
+        `/users/current/accounts/${accountId}` +
+        `/historical-market-data/symbols/${encodeURIComponent(symbol)}` +
+        `/timeframes/${TF_MAP[timeframe]}/candles?limit=${limit}`,
+    }),
+  );
+
 
   if (!Array.isArray(raw) || raw.length === 0) {
     throw new Error(`MetaApi returned no candles for ${symbol} ${timeframe}`);
