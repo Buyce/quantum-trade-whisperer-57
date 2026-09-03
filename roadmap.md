@@ -14,3 +14,4 @@
 - [x] Move market-closed / spec-unavailable / window-floor checks to enqueue time
 - [x] Admin refusal-cost panel (reasons, attempts spent, queue latency)
 - [x] Settle the current pending backlog under the new rules (fair claiming now serves the 14 never-claimed 0-attempt rows before the hot row; nothing is force-settled by hand)
+- [x] Enable research-candidate enrolment (flag flipped, verify on next hourly run)
