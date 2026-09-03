@@ -33,8 +33,6 @@ function Metric({ label, value }: { label: string; value: string | number }) {
 /** Stored timestamp, trimmed to the minute. Missing stays visibly missing. */
 const utcShort = utcMinute;
 
-
-
 export function CandidatePanel() {
   const fetchFunnel = useServerFn(getCandidateFunnel);
   const { data, isLoading, error } = useQuery({
@@ -117,9 +115,7 @@ export function CandidatePanel() {
           <Metric label="Incomplete gate lists" value={totals?.gates_incomplete ?? 0} />
           <Metric
             label="Last capture"
-            value={
-              totals?.last_seen ? utcMinute(totals.last_seen) + " UTC" : "—"
-            }
+            value={totals?.last_seen ? utcMinute(totals.last_seen) + " UTC" : "—"}
           />
         </div>
 
@@ -172,8 +168,6 @@ export function CandidatePanel() {
             </p>
           )}
         </section>
-
-
 
         <section>
           <h4 className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">
