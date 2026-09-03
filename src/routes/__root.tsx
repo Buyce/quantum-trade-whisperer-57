@@ -42,8 +42,17 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
   useEffect(() => {
+    // A stale build chunk is an infrastructure miss, not an app fault: reload
+    // once instead of leaving the user on a dead-end error screen.
+    const recovered = recoverFromChunkError(
+      error,
+      typeof window === "undefined" ? undefined : window.sessionStorage,
+      () => window.location.reload(),
+    );
+    if (recovered) return;
     reportLovableError(error, { boundary: "tanstack_root_error_component" });
   }, [error]);
+
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
