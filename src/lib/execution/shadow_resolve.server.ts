@@ -416,6 +416,8 @@ export async function resolveShadowExecutions(db: SupabaseClient): Promise<Resol
     candidateScanned: candidateRows.length,
     candidateAdvanced: 0,
     candidateBacklogNoCandles: 0,
+    candidateOutsideWindow: 0,
+    candidateBackfillFetches: 0,
   };
   if (rows.length === 0 && researchRows.length === 0 && candidateRows.length === 0) return summary;
 
@@ -434,18 +436,20 @@ export async function resolveShadowExecutions(db: SupabaseClient): Promise<Resol
     list.push(row);
     researchByInstrument.set(row.instrument, list);
   }
-  // Same rule for candidates, and a starved backlog is counted rather than
-  // silently dropped: zero incremental MetaApi calls is a hard requirement.
+  /**
+   * Candidates ride along with production wherever production is already
+   * fetching. Instruments production is NOT fetching are held aside for the
+   * bounded backfill pass at the end of the run rather than silently starved.
+   */
   const candidateByInstrument = new Map<string, ShadowRow[]>();
+  const starvedCandidates = new Map<string, ShadowRow[]>();
   for (const row of candidateRows) {
-    if (!byInstrument.has(row.instrument)) {
-      summary.candidateBacklogNoCandles += 1;
-      continue;
-    }
-    const list = candidateByInstrument.get(row.instrument) ?? [];
+    const target = byInstrument.has(row.instrument) ? candidateByInstrument : starvedCandidates;
+    const list = target.get(row.instrument) ?? [];
     list.push(row);
-    candidateByInstrument.set(row.instrument, list);
+    target.set(row.instrument, list);
   }
+
 
   for (const [instrument, group] of byInstrument) {
     /**
