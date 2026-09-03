@@ -41,6 +41,32 @@ No lifecycle promotion happens as part of this. After a successful alias binding
 instrument moves from `disabled` to `data_validation` and still has to earn its 5
 trading days / sample thresholds before it can produce user-visible signals.
 
+## Why not simply scan every broker variant
+
+For NAS100 the broker offers `USTEC` and `USTECH100M`; for USOIL it offers `WTI`,
+`WTIB`, `WTID`, `WTIP`, `WTIU`. These are not five different markets — they are the
+same underlying with different contract sizes, spreads, expiries or account tiers.
+
+Advantages of fanning out: no operator choice needed, and whichever variant your
+account can actually trade is covered.
+
+Disadvantages, and why the plan binds one variant instead:
+- Duplicate signals. The same ABC structure fires on every variant, so one setup
+  becomes five alerts and can consume five daily-cap slots for one idea.
+- Corrupted statistics. Grade win rate, expectancy and payoff distributions would
+  count the same trade up to five times, so the correlation-aware sample rules and
+  the confidence intervals stop meaning what they claim.
+- Wrong-instrument execution risk. Contract size and tick value differ per variant;
+  sizing computed on one and sent to another produces a silently wrong lot size.
+- Provider budget. Each variant costs its own candle, quote and spread reads inside
+  the same rate limit that already returned 429 on XAGUSD.
+
+Middle ground the plan keeps available: bind **one** tradable variant per canonical
+instrument (chosen by you, with contract size and spread shown next to each candidate),
+and keep the rejected variants recorded as known aliases so nothing is silently lost.
+Adding a genuinely distinct market later — for instance a cash index alongside a
+future — is a new registry entry with its own lifecycle, not a second alias.
+
 ## Technical notes
 
 - Alias overrides stored in a new admin-writable table, read by
