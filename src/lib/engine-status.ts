@@ -182,11 +182,17 @@ export function classifyReplayHealth(breaker: ReplayBreakerInput | null | undefi
   if (breaker.paused) {
     return { state: "tripped", value: "BREAKER TRIPPED", tone: "bad", errorIsCurrent: true };
   }
-  // One throttled or failed pass is normal and self-correcting: the replay
-  // engine keeps running and the next pass usually succeeds. Only a repeated
-  // failure describes a degraded engine.
-  if ((breaker.consecutive_failures ?? 0) > REPLAY_DEGRADED_MIN_FAILURES) {
+  const failures = breaker.consecutive_failures ?? 0;
+  // One throttled or failed pass is normal and self-correcting: the engine keeps
+  // running and the next pass usually succeeds. Only a repeated failure
+  // describes a degraded engine. The single-failure case is still reported
+  // honestly as RECOVERING with its stored error current.
+  if (failures > REPLAY_DEGRADED_MIN_FAILURES) {
     return { state: "degraded", value: "DEGRADED", tone: "warn", errorIsCurrent: true };
+  }
+  if (failures > 0 || Boolean((breaker.last_error ?? "").trim())) {
+    return { state: "recovering", value: "RECOVERING", tone: "warn", errorIsCurrent: true };
   }
   return { state: "running", value: "RUNNING", tone: "good", errorIsCurrent: false };
 }
+
