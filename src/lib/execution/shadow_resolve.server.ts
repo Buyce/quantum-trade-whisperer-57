@@ -92,12 +92,21 @@ export interface ResolveSummary {
   candidateScanned: number;
   candidateAdvanced: number;
   /**
-   * Candidate rows left in backlog because production fetched no candles for
-   * their instrument this run. Surfaced so a starved backlog is visible in
+   * Candidate rows left in backlog because no candles were available for their
+   * instrument this run. Surfaced so a starved backlog is visible in
    * coverage/health telemetry rather than looking like zero candidates.
    */
   candidateBacklogNoCandles: number;
+  /**
+   * Candidate rows whose detection time is older than the provider candle cap
+   * can reach. Labelled `outside_replay_window` and skipped, never left open
+   * pretending to be resolvable.
+   */
+  candidateOutsideWindow: number;
+  /** Bounded candidate-only historical fetches performed by the backfill pass. */
+  candidateBackfillFetches: number;
 }
+
 
 export function replayCandleDepthForRows(rows: ReplayFetchRow[], nowMs = Date.now()): number {
   if (rows.length === 0) return 0;
