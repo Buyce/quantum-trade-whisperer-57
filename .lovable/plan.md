@@ -1,30 +1,30 @@
 # Enable research-candidate shadow enrolment
 
+## Answer to: does this affect the scanner, alerts, or auto-trading?
+
+**No.** The isolation is structural, verified in code:
+
+- **Scanner / alerts / auto-trade**: untouched. Enrolment runs only inside the hourly `shadow-resolve` cron, after production resolution, in its own try/catch — an enrolment failure cannot even re-label the cron run as failed. It writes only research tables (`research_candidates`, cohort-tagged `shadow_executions`). Production reads use cohort-scoped queries (`cohort = 'production'` explicitly), so research rows can never enter the feed, alerts, eligibility, journal, or Performance.
+- **No new MetaApi calls**: candidate replay reuses the exact candle array production already fetched for that instrument — "zero incremental provider calls" is a hard requirement in the resolver. Candidates whose instrument production isn't fetching this hour are counted as backlog, not fetched.
+- **No capacity theft**: production rows load first from a production-only query; candidates have their own bounded budget (`candidate_rows_per_run`, 30/hour) loaded last. Research can never consume a production slot.
+- **No claim collisions**: candidate claims use their own model-version namespace (101), so they can't consume V1/V2/V3 claim slots.
+- **No trade-path involvement**: enrolled rows get `plan_origin='counterfactual'`, are replayed under the frozen research ladder only, and are never eligible for execution delivery.
+
+The only real cost is **database work inside the hourly cron** (up to 30 extra enrolments + up to 30 candidate row updates per run) — bounded, and the cron already carries that headroom. No extra broker/API spend, no user-visible change, no new failure modes in trade placement.
+
 ## Current state (confirmed against production)
 
-- Capture is healthy: `candidate_capture_enabled = true`, 1,300+ candidates captured, ~164/day.
-- `candidate_enrolment_enabled = false`; `candidate_rows_per_run` is already set to 30.
-- Enrolable backlog: **586 candidates** carry a complete counterfactual plan (`cf_plan_version IS NOT NULL`) and are waiting for enrolment.
-- The stale `research_errors = 1` latch clears itself on the next successful observation write (shipped this session).
-
-## What enabling does
-
-The hourly `shadow-resolve` cron already calls `enrolPendingCandidates` — with the flag off it is one flag read and a zeroed summary. Turning it on lets that existing call enrol up to 30 candidates per hour as forward-tested shadow executions in the `research_candidate` cohort:
-
-- Every enrolled execution uses the common frozen research ladder (`legacy_best_target_touched`, `plan_origin='counterfactual'`) — never a traded plan.
-- Executability is a fail-closed whitelist; NULL or unknown geometry is never enrolled.
-- Idempotency is database-enforced (unique index on candidate + replay version + policy + origin).
-- A failure records durable research health and can never affect the production scanner or resolver.
-
-At 30/hour the 586-row backlog drains in ~20 hours of cron runs, bounded and resumable.
+- Capture healthy: `candidate_capture_enabled = true`, 1,300+ candidates, ~164/day.
+- `candidate_enrolment_enabled = false`; `candidate_rows_per_run` already 30.
+- Enrolable backlog: **586 candidates** with complete counterfactual plans waiting.
+- Enrolled rows resolve as they mature: open candidate rows advance only when production is already fetching that instrument, so they trail live activity naturally.
 
 ## Changes
 
-1. **Production toggle (SQL)**: `UPDATE shadow_engine_state SET candidate_enrolment_enabled = true WHERE id = true;` — no migration needed; the column and guard rails already exist. No change to `candidate_rows_per_run` (30 is the reviewed ceiling).
-2. **Verification**: after the next hourly `shadow-resolve` run, confirm via `research_candidates` (`enrolled_at` count rising), the funnel panel's `Enrolled` metric, and that `research_errors` stays at its baseline. Confirm `candidateEnrolment` in the cron response is non-zero and error-free.
-3. **Rollback**: the same update with `false` restores the current dark state instantly; enrolled rows remain valid research data.
+1. **Production toggle (SQL)**: `UPDATE shadow_engine_state SET candidate_enrolment_enabled = true WHERE id = true;` — column, budget, guards, and cron call already exist. No code change, no migration.
+2. **Verification**: after the next hourly `shadow-resolve` run, confirm `enrolled_at` counts rising in `research_candidates`, the funnel panel `Enrolled` metric moving, `candidateEnrolment` non-zero and error-free in the cron response, and `research_errors` unchanged.
+3. **Rollback**: set the flag back to `false` — instant; enrolled rows remain valid research data.
 
 ## Out of scope
 
-- No code changes — the worker, gates, idempotency, and isolation are already implemented and tested.
-- No promotion of any research cohort to production authority; research stays isolated from feed, journal, and Performance.
+- No promotion of any research cohort to production authority; research stays isolated from feed, journal, Performance, and execution.
