@@ -59,7 +59,7 @@ describe("describeResearchError", () => {
 });
 
 describe("formatErrorAge", () => {
-  it("formats minutes, hours and days with correct plurals", () => {
+  it("[UNIT] formats minutes, hours and days with correct plurals", () => {
     expect(formatErrorAge(0)).toBe("0 minutes");
     expect(formatErrorAge(60_000)).toBe("1 minute");
     expect(formatErrorAge(68 * 60_000)).toBe("1 hour");
