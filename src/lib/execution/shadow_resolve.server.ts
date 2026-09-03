@@ -15,6 +15,15 @@ import { ACTIVE_MODEL_VERSION } from "@/lib/versioning";
 import { replaySetup, type ReplayInput } from "./replay";
 import { replaySetupV2 } from "./replay-v2";
 import { REPLAY_V1_VERSION, REPLAY_V2_VERSION } from "./replay-registry";
+import { classifyReplayWindow, OUTSIDE_REPLAY_WINDOW } from "./replay-window";
+
+/**
+ * Research backfill only: the maximum number of candidate-only candle fetches a
+ * single run may perform for instruments production is not fetching. Bounded on
+ * purpose — production resolution always runs first and is never affected.
+ */
+const CANDIDATE_BACKFILL_FETCH_BUDGET = 3;
+
 
 const MAX_ROWS_PER_RUN = 200;
 /**
