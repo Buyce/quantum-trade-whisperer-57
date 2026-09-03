@@ -6,8 +6,10 @@
  */
 import type { Candle, Timeframe } from "@/lib/scanner/types";
 import { withBenchmarkAccount } from "./benchmark.server";
+import { withMarketDataSlot } from "./market-gate.server";
 import { validQuoteGeometry } from "./quote";
 import { metaApiRequest } from "./request.server";
+
 
 const TF_MAP: Record<Timeframe, string> = { H4: "4h", H1: "1h", M15: "15m" };
 
