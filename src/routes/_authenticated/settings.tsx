@@ -338,6 +338,12 @@ function SettingsPage() {
         max_position_size: lotsValue,
         leverage: leverageValue,
         max_stop_loss_percent: stopValue,
+        // Owner ceilings checked before an order is submitted. 0 turns one off;
+        // a ceiling that cannot be measured refuses rather than passing.
+        max_entry_spread_pips: spreadCeilingValue,
+        max_entry_slippage_pips: slippageCeilingValue,
+        max_total_exposure_percent: exposureCeilingValue,
+
         // Never fabricate the acknowledgement: above-2% saves are blocked above
         // unless the box is ticked, so this only persists the user's own choice.
         risk_ack_high: riskAckHigh,
