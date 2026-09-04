@@ -230,6 +230,7 @@ async function accountCommittedRisk(
   return { knownPercent, unknownOrders };
 }
 
+interface SettingsRow {
   instruments: string[] | null;
   sessions: string[] | null;
   alert_min_grade: string | null;
