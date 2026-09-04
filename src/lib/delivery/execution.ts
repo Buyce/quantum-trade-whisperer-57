@@ -12,6 +12,12 @@ import { validQuoteGeometry } from "@/lib/metaapi/quote";
 
 export type DeliveryState =
   | "pending"
+  /**
+   * Live-confirm flow: a human must confirm this delivery before it can be
+   * claimed and submitted to the broker. It is not terminal and it does not
+   * occupy the concurrent ceiling until it leaves this state.
+   */
+  | "awaiting_confirmation"
   | "claimed"
   | "sent"
   | "acknowledged"
@@ -47,7 +53,7 @@ export function isClaimable(state: DeliveryState): boolean {
 }
 
 export function isTerminal(state: DeliveryState): boolean {
-  return state !== "pending" && state !== "claimed";
+  return state !== "pending" && state !== "awaiting_confirmation" && state !== "claimed";
 }
 
 /**
