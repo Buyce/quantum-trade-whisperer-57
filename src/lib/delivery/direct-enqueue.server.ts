@@ -663,6 +663,43 @@ async function runDirectEnqueue(
       continue;
     }
 
+    /**
+     * News gate. Reduce-only: it can refuse an order, never authorise one. The
+     * verdict is always recorded; it only REFUSES when the owner opted in and the
+     * verdict names a real calendar event we hold. Incomplete coverage is logged
+     * for comparison rather than turned into a market claim.
+     */
+    {
+      const newsKey = `${row.news_block_new_entries === false ? "off" : "on"}|${row.news_suppression_minutes_before ?? ""}|${row.news_suppression_minutes_after ?? ""}`;
+      let gateResult = newsGateCache.get(newsKey);
+      if (!gateResult) {
+        gateResult = await evaluateNewsGate(db, {
+          symbol: signal.instrument,
+          nowMs,
+          boundary: "execution_enqueue",
+          settings: row,
+          signalId: signal.id,
+        });
+        newsGateCache.set(newsKey, gateResult);
+      }
+      if (gateResult.blocked) {
+        filtered += 1;
+        decisions.push({
+          user_id: account.user_id,
+          signal_id: signal.id,
+          instrument: signal.instrument,
+          grade: signal.grade,
+          decision: "news_blackout",
+          detail: gateResult.detail,
+          enqueued: 0,
+          filtered: 1,
+        });
+        continue;
+      }
+    }
+
+
+
     const grade = (row.alert_min_grade ?? "B") as Grade;
     const settings: EligibilitySettings = {
       instruments: row.instruments ?? [],
