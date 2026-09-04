@@ -15,6 +15,7 @@ import {
   EMPTY_LEARNING_EVIDENCE,
   type LearningEvidence,
 } from "@/lib/learning/evidence";
+import { EMPTY_GATE_READINESS, type GateReadiness } from "@/lib/learning/readiness";
 
 type Rpc = (
   name: string,
@@ -88,4 +89,46 @@ export const decideGateChange = createServerFn({ method: "POST" })
     });
     if (error) throw new Error(error.message);
     return (result ?? { ok: false }) as GateActionResult;
+  });
+
+/**
+ * Per-gate readiness report: matured samples, clusters, trading days and the
+ * verdict the evidence reads. Read-only — this never changes a threshold.
+ */
+export const getGateReadiness = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<GateReadiness> => {
+    assertOwner(context.claims as Record<string, unknown>);
+    const rpc = context.supabase.rpc.bind(context.supabase) as unknown as Rpc;
+    const { data, error } = await rpc("gate_readiness");
+    if (error) throw new Error(error.message);
+    return (data as GateReadiness) ?? EMPTY_GATE_READINESS;
+  });
+
+/**
+ * Owner switch for automatic application. OFF means the system may only
+ * propose; ON lets it apply a change that clears the full training bar and
+ * auto-revert one whose follow-up cohort is worse. Both states are audited.
+ */
+export const setAutoApplyGateChanges = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) =>
+    z
+      .object({
+        enabled: z.boolean(),
+        reason: z.string().trim().min(3).max(500),
+      })
+      .parse(data),
+  )
+  .handler(async ({ context, data }): Promise<{ ok: boolean; enabled?: boolean }> => {
+    const claims = context.claims as Record<string, unknown>;
+    assertOwner(claims);
+    const rpc = context.supabase.rpc.bind(context.supabase) as unknown as Rpc;
+    const { data: result, error } = await rpc("set_auto_apply_gate_changes", {
+      _enabled: data.enabled,
+      _actor: ownerEmail(claims),
+      _reason: data.reason,
+    });
+    if (error) throw new Error(error.message);
+    return (result ?? { ok: false }) as { ok: boolean; enabled?: boolean };
   });
