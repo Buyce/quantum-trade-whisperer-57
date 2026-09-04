@@ -100,6 +100,24 @@ interface EventRow {
   event_status: string;
 }
 
+
+/**
+ * Read helper that never throws into the execution path.
+ *
+ * A news table we cannot read yields NO events and NO coverage. That is safe by
+ * construction here: enforcement additionally requires a named calendar event, so
+ * an unreadable feed can never invent a refusal, and coverage stays "unproven"
+ * rather than being reported as healthy.
+ */
+async function safeQuery<T>(run: () => PromiseLike<{ data: T[] | null }>): Promise<{ data: T[] | null }> {
+  try {
+    return await run();
+  } catch (err) {
+    console.error("[news-gate] read failed:", err instanceof Error ? err.message : String(err));
+    return { data: null };
+  }
+}
+
 /**
  * Evaluate the news gate for one instrument and record the evaluation.
  *
@@ -125,12 +143,14 @@ export async function evaluateNewsGate(
   // ---- Coverage: the newest snapshot per (currency, family) ---------------
   const coverage = new Map<string, CoverageState>();
   if (families.length > 0) {
-    const { data } = await db
-      .from("news_coverage_snapshots")
-      .select("currency, event_family, coverage_state, computed_at")
+    const { data } = await safeQuery(() =>
+      db
+        .from("news_coverage_snapshots")
+        .select("currency, event_family, coverage_state, computed_at")
       .in("event_family", families)
-      .order("computed_at", { ascending: false })
-      .limit(500);
+        .order("computed_at", { ascending: false })
+        .limit(500),
+    );
     for (const row of ((data ?? []) as CoverageRow[])) {
       const key = `${(row.currency ?? "").toUpperCase()}|${row.event_family}`;
       // Ordered newest-first, so the first sighting of a scope is the current one.
@@ -143,16 +163,18 @@ export async function evaluateNewsGate(
   if (families.length > 0) {
     const windowMs = Math.max(before, after, 60) * 60_000 + 6 * 60 * 60_000;
     const today = new Date(args.nowMs).toISOString().slice(0, 10);
-    const { data } = await db
-      .from("economic_events")
-      .select(
-        "id, canonical_event_id, event_family, currencies, affected_instruments, importance, scheduled_at, scheduled_date, timestamp_precision, event_status",
-      )
-      .in("event_family", families)
-      .or(
-        `and(scheduled_at.gte.${new Date(args.nowMs - windowMs).toISOString()},scheduled_at.lte.${new Date(args.nowMs + windowMs).toISOString()}),scheduled_date.eq.${today}`,
-      )
-      .limit(500);
+    const { data } = await safeQuery(() =>
+      db
+        .from("economic_events")
+        .select(
+          "id, canonical_event_id, event_family, currencies, affected_instruments, importance, scheduled_at, scheduled_date, timestamp_precision, event_status",
+        )
+        .in("event_family", families)
+        .or(
+          `and(scheduled_at.gte.${new Date(args.nowMs - windowMs).toISOString()},scheduled_at.lte.${new Date(args.nowMs + windowMs).toISOString()}),scheduled_date.eq.${today}`,
+        )
+        .limit(500),
+    );
     for (const row of ((data ?? []) as EventRow[])) {
       events.push({
         canonicalEventId: row.canonical_event_id,
