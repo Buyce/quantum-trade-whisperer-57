@@ -189,8 +189,23 @@ export async function processNextDelivery(
     return null;
   }
   const rows = (data ?? []) as DeliveryRow[];
-  const delivery = rows[0];
-  if (!delivery) return null;
+  const claimed = rows[0];
+  if (!claimed) return null;
+
+  // The claim function returns the routing columns only. Per-order live
+  // confirmation lives on the row itself, so it is read here and merged: without
+  // it a confirmed live order would look unconfirmed and be refused.
+  const { data: confirmationRow } = await db
+    .from("execution_deliveries")
+    .select(
+      "requires_confirmation, confirmed_at, confirmation_expires_at, confirmation_declined_at",
+    )
+    .eq("id", claimed.id)
+    .maybeSingle();
+  const delivery: DeliveryRow = {
+    ...claimed,
+    ...((confirmationRow ?? {}) as Partial<DeliveryRow>),
+  };
 
   /**
    * The closing tail of the owner's automatic-order window.
