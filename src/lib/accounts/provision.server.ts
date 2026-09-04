@@ -546,6 +546,7 @@ export async function reconcileConnection(
       investorMode: info.investorMode ?? null,
       hasBrokerConnection: true,
       hasMagic: typeof row.magic === "number" && row.magic > 0,
+      emergencyStopped: false,
     });
     patch["mode"] = outcome.mode;
     patch["stand_down_reason"] = outcome.standDownReason;

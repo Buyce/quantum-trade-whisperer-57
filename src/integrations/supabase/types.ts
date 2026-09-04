@@ -874,6 +874,8 @@ export type Database = {
           created_at: string
           credentials_configured: boolean
           disconnected_at: string | null
+          emergency_stop_at: string | null
+          emergency_stop_reason: string | null
           id: string
           intent: string
           intent_conflict: boolean
@@ -924,6 +926,8 @@ export type Database = {
           created_at?: string
           credentials_configured?: boolean
           disconnected_at?: string | null
+          emergency_stop_at?: string | null
+          emergency_stop_reason?: string | null
           id?: string
           intent: string
           intent_conflict?: boolean
@@ -974,6 +978,8 @@ export type Database = {
           created_at?: string
           credentials_configured?: boolean
           disconnected_at?: string | null
+          emergency_stop_at?: string | null
+          emergency_stop_reason?: string | null
           id?: string
           intent?: string
           intent_conflict?: boolean
@@ -1370,6 +1376,9 @@ export type Database = {
           demo_auto_enabled: boolean
           disabled_bridges: string[]
           disabled_instruments: string[]
+          emergency_stop_at: string | null
+          emergency_stop_enabled: boolean
+          emergency_stop_reason: string | null
           execution_policy: string
           force_dry_run: boolean
           id: boolean
@@ -1386,6 +1395,9 @@ export type Database = {
           demo_auto_enabled?: boolean
           disabled_bridges?: string[]
           disabled_instruments?: string[]
+          emergency_stop_at?: string | null
+          emergency_stop_enabled?: boolean
+          emergency_stop_reason?: string | null
           execution_policy?: string
           force_dry_run?: boolean
           id?: boolean
@@ -1402,6 +1414,9 @@ export type Database = {
           demo_auto_enabled?: boolean
           disabled_bridges?: string[]
           disabled_instruments?: string[]
+          emergency_stop_at?: string | null
+          emergency_stop_enabled?: boolean
+          emergency_stop_reason?: string | null
           execution_policy?: string
           force_dry_run?: boolean
           id?: boolean
@@ -1428,6 +1443,11 @@ export type Database = {
           broker_symbol: string | null
           claimed_at: string | null
           client_id: string | null
+          confirmation_declined_at: string | null
+          confirmation_declined_reason: string | null
+          confirmation_expires_at: string | null
+          confirmed_at: string | null
+          confirmed_by: string | null
           connected_account_id: string | null
           destination_type: string
           dry_run: boolean
@@ -1455,6 +1475,7 @@ export type Database = {
           published_target: number | null
           reason: string | null
           request_fingerprint: string | null
+          requires_confirmation: boolean
           sent_at: string | null
           settled_at: string | null
           signal_id: string
@@ -1482,6 +1503,11 @@ export type Database = {
           broker_symbol?: string | null
           claimed_at?: string | null
           client_id?: string | null
+          confirmation_declined_at?: string | null
+          confirmation_declined_reason?: string | null
+          confirmation_expires_at?: string | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
           connected_account_id?: string | null
           destination_type?: string
           dry_run?: boolean
@@ -1509,6 +1535,7 @@ export type Database = {
           published_target?: number | null
           reason?: string | null
           request_fingerprint?: string | null
+          requires_confirmation?: boolean
           sent_at?: string | null
           settled_at?: string | null
           signal_id: string
@@ -1536,6 +1563,11 @@ export type Database = {
           broker_symbol?: string | null
           claimed_at?: string | null
           client_id?: string | null
+          confirmation_declined_at?: string | null
+          confirmation_declined_reason?: string | null
+          confirmation_expires_at?: string | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
           connected_account_id?: string | null
           destination_type?: string
           dry_run?: boolean
@@ -1563,6 +1595,7 @@ export type Database = {
           published_target?: number | null
           reason?: string | null
           request_fingerprint?: string | null
+          requires_confirmation?: boolean
           sent_at?: string | null
           settled_at?: string | null
           signal_id?: string
@@ -3888,13 +3921,19 @@ export type Database = {
           live_execution_confirmed_global_live: boolean
           live_execution_confirmed_host: string | null
           live_execution_confirmed_version: number | null
+          max_entry_slippage_pips: number
+          max_entry_spread_pips: number
           max_position_size: number
           max_stop_loss_percent: number
+          max_total_exposure_percent: number
           maximum_active_signal_orders: number
           maximum_concurrent_signal_orders: number
           maximum_daily_orders_per_symbol: number
           maximum_daily_signal_orders: number
           min_grade: Database["public"]["Enums"]["signal_grade"]
+          news_block_new_entries: boolean
+          news_suppression_minutes_after: number
+          news_suppression_minutes_before: number
           notify_email: boolean
           notify_push: boolean
           order_strategy: string
@@ -3938,13 +3977,19 @@ export type Database = {
           live_execution_confirmed_global_live?: boolean
           live_execution_confirmed_host?: string | null
           live_execution_confirmed_version?: number | null
+          max_entry_slippage_pips?: number
+          max_entry_spread_pips?: number
           max_position_size?: number
           max_stop_loss_percent?: number
+          max_total_exposure_percent?: number
           maximum_active_signal_orders?: number
           maximum_concurrent_signal_orders?: number
           maximum_daily_orders_per_symbol?: number
           maximum_daily_signal_orders?: number
           min_grade?: Database["public"]["Enums"]["signal_grade"]
+          news_block_new_entries?: boolean
+          news_suppression_minutes_after?: number
+          news_suppression_minutes_before?: number
           notify_email?: boolean
           notify_push?: boolean
           order_strategy?: string
@@ -3988,13 +4033,19 @@ export type Database = {
           live_execution_confirmed_global_live?: boolean
           live_execution_confirmed_host?: string | null
           live_execution_confirmed_version?: number | null
+          max_entry_slippage_pips?: number
+          max_entry_spread_pips?: number
           max_position_size?: number
           max_stop_loss_percent?: number
+          max_total_exposure_percent?: number
           maximum_active_signal_orders?: number
           maximum_concurrent_signal_orders?: number
           maximum_daily_orders_per_symbol?: number
           maximum_daily_signal_orders?: number
           min_grade?: Database["public"]["Enums"]["signal_grade"]
+          news_block_new_entries?: boolean
+          news_suppression_minutes_after?: number
+          news_suppression_minutes_before?: number
           notify_email?: boolean
           notify_push?: boolean
           order_strategy?: string

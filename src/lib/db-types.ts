@@ -254,6 +254,29 @@ export interface ScannerSettingsRow {
   adaptive_order_ceiling_max: number;
   /** Lower bound adaptive mode reduces to when freshness is degraded or unknown. */
   adaptive_order_ceiling_floor: number;
+  /**
+   * Max acceptable live spread at entry in pips. 0 disables the check.
+   * A positive value is a hard pre-send gate on automatic orders.
+   */
+  max_entry_spread_pips: number;
+  /**
+   * Max tolerated slippage versus the published entry price in pips. 0 disables.
+   */
+  max_entry_slippage_pips: number;
+  /**
+   * Advisory/toggle-enforced ceiling on total open signal exposure as a percent
+   * of account equity. Default 10; only enforced when exposure_limit_enabled is on.
+   */
+  max_total_exposure_percent: number;
+  /**
+   * Fail-closed news protection for new automatic entries. When true, an incomplete
+   * or active high-impact news window suppresses the order.
+   */
+  news_block_new_entries: boolean;
+  /** Minutes before a known high-impact event to start blocking new entries. */
+  news_suppression_minutes_before: number;
+  /** Minutes after a known high-impact event to keep blocking new entries. */
+  news_suppression_minutes_after: number;
 }
 
 /**

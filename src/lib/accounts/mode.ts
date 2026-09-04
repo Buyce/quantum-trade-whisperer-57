@@ -32,6 +32,8 @@ export interface ModeContext {
   hasBrokerConnection: boolean;
   /** MT magic number, required so evidence can be positively associated. */
   hasMagic: boolean;
+  /** Account-level emergency stop overrides every non-observe mode. */
+  emergencyStopped: boolean;
 }
 
 export type ModeVerdict = { ok: true } | { ok: false; detail: string };
@@ -58,6 +60,12 @@ export function canArm(ctx: ModeContext, mode: AccountMode): ModeVerdict {
   }
   if (!ctx.ready) {
     return { ok: false, detail: "your broker has not confirmed this account yet" };
+  }
+  if (ctx.emergencyStopped) {
+    return {
+      ok: false,
+      detail: "this account is emergency-stopped; disable the stop before arming it",
+    };
   }
   if (ctx.intentConflict) {
     return {

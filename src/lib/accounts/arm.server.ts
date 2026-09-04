@@ -63,6 +63,7 @@ export async function setAccountMode(
       investorMode: row.investor_mode,
       hasBrokerConnection: Boolean(row.metaapi_account_id),
       hasMagic: typeof row.magic === "number" && row.magic > 0,
+      emergencyStopped: false,
     },
     mode,
   );

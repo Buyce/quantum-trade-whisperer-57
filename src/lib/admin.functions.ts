@@ -287,11 +287,14 @@ export interface AdminExecutionSwitches {
   executionPolicy: string;
   /** Hosts an outbound LIVE webhook POST may be sent to. Empty = nothing may go out. */
   allowedLiveHosts: string[];
+  emergencyStopEnabled: boolean;
+  emergencyStopAt: string | null;
+  emergencyStopReason: string | null;
   updatedAt: string | null;
 }
 
 const SWITCH_COLUMNS =
-  "demo_auto_enabled, force_dry_run, live_execution_enabled, live_auto_enabled, execution_policy, allowed_live_hosts, updated_at";
+  "demo_auto_enabled, force_dry_run, live_execution_enabled, live_auto_enabled, execution_policy, allowed_live_hosts, emergency_stop_enabled, emergency_stop_at, emergency_stop_reason, updated_at";
 
 interface SwitchRow {
   demo_auto_enabled?: boolean;
@@ -300,12 +303,15 @@ interface SwitchRow {
   live_auto_enabled?: boolean;
   execution_policy?: string;
   allowed_live_hosts?: string[] | null;
+  emergency_stop_enabled?: boolean;
+  emergency_stop_at?: string | null;
+  emergency_stop_reason?: string | null;
   updated_at?: string;
 }
 
 /**
  * Defaults are the SAFE reading of a missing value: nothing armed, dry-run on,
- * no host allowed. An unreadable control is never read as permission.
+ * no host allowed, emergency stop off. An unreadable control is never read as permission.
  */
 function mapSwitches(row: SwitchRow | null): AdminExecutionSwitches {
   return {
@@ -315,6 +321,9 @@ function mapSwitches(row: SwitchRow | null): AdminExecutionSwitches {
     liveAutoEnabled: row?.live_auto_enabled === true,
     executionPolicy: row?.execution_policy ?? "single_exit_first_target",
     allowedLiveHosts: row?.allowed_live_hosts ?? [],
+    emergencyStopEnabled: row?.emergency_stop_enabled === true,
+    emergencyStopAt: row?.emergency_stop_at ?? null,
+    emergencyStopReason: row?.emergency_stop_reason ?? null,
     updatedAt: row?.updated_at ?? null,
   };
 }
@@ -346,14 +355,16 @@ export const getAdminExecutionSwitches = createServerFn({ method: "GET" })
  *
  * Demo switches are ordinary toggles. The LIVE switches are deliberately harder:
  *
- *  - Live execution cannot be enabled while `force_dry_run` is on, and cannot be
- *    enabled with an empty host allow-list — an armed switch with no destination
- *    is a trap, not a feature.
+ *  - Live execution cannot be enabled while `force_dry_run` is on, while the
+ *    global emergency stop is on, or with an empty host allow-list — an armed
+ *    switch with no destination is a trap, not a feature.
  *  - Hosts are normalised to bare lowercase hostnames and must be plain
  *    hostnames; a URL, a path, a port or a wildcard is rejected here so the
  *    allow-list can never be widened by a sloppy entry. Per-request SSRF
  *    validation at dispatch is unchanged and still authoritative.
  *  - Turning anything OFF is always accepted, with no preconditions.
+ *  - Turning the emergency stop ON forces live execution and live auto OFF in
+ *    the same write, and records a reason.
  */
 export const setAdminExecutionSwitches = createServerFn({ method: "POST" })
   .validator(
@@ -363,6 +374,8 @@ export const setAdminExecutionSwitches = createServerFn({ method: "POST" })
       liveExecutionEnabled?: boolean;
       liveAutoEnabled?: boolean;
       allowedLiveHosts?: string[];
+      emergencyStopEnabled?: boolean;
+      emergencyStopReason?: string;
     }) => input,
   )
   .middleware([requireSupabaseAuth])
@@ -392,11 +405,32 @@ export const setAdminExecutionSwitches = createServerFn({ method: "POST" })
 
     const dryRunAfter =
       typeof data.forceDryRun === "boolean" ? data.forceDryRun : current.forceDryRun;
+    const emergencyStopAfter =
+      typeof data.emergencyStopEnabled === "boolean"
+        ? data.emergencyStopEnabled
+        : current.emergencyStopEnabled;
+
+    if (typeof data.emergencyStopEnabled === "boolean") {
+      patch["emergency_stop_enabled"] = data.emergencyStopEnabled;
+      if (data.emergencyStopEnabled) {
+        patch["emergency_stop_at"] = new Date().toISOString();
+        patch["emergency_stop_reason"] =
+          data.emergencyStopReason?.trim() || "Owner activated emergency stop";
+        // A live-armed system under emergency stop is contradictory: disarm it.
+        patch["live_execution_enabled"] = false;
+        patch["live_auto_enabled"] = false;
+      } else {
+        patch["emergency_stop_at"] = null;
+        patch["emergency_stop_reason"] = null;
+      }
+    }
 
     if (typeof data.liveExecutionEnabled === "boolean") {
       if (data.liveExecutionEnabled) {
         if (dryRunAfter)
           throw new Error("Turn the system-wide dry-run lock off before enabling live execution.");
+        if (emergencyStopAfter)
+          throw new Error("Disable the emergency stop before enabling live execution.");
         if (hosts.length === 0)
           throw new Error("Add at least one allowed live host before enabling live execution.");
       }
@@ -411,6 +445,8 @@ export const setAdminExecutionSwitches = createServerFn({ method: "POST" })
             : current.liveExecutionEnabled;
         if (!liveExecAfter)
           throw new Error("Enable live execution before arming automatic live orders.");
+        if (emergencyStopAfter)
+          throw new Error("Disable the emergency stop before arming automatic live orders.");
       }
       patch["live_auto_enabled"] = data.liveAutoEnabled;
     }

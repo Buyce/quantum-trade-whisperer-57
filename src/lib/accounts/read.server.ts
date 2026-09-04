@@ -97,6 +97,7 @@ export async function toAccountView(
     investorMode: row.investor_mode,
     hasBrokerConnection: Boolean(row.metaapi_account_id),
     hasMagic: typeof row.magic === "number" && row.magic > 0,
+    emergencyStopped: row.emergency_stop_at !== null,
   };
   // The refusal sentence is taken from the mode matching the BROKER's own account
   // type, so the explanation never describes a mode this account could not have.
@@ -187,6 +188,8 @@ export async function toAccountView(
     lastError: row.last_error,
     lastReconciledAt: row.last_reconciled_at,
     disconnectedAt: row.disconnected_at,
+    emergencyStopAt: row.emergency_stop_at,
+    emergencyStopReason: row.emergency_stop_reason,
     createdAt: row.created_at,
   };
 }
