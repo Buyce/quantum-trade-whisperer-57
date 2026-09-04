@@ -32,6 +32,8 @@ export interface ModeContext {
   hasBrokerConnection: boolean;
   /** MT magic number, required so evidence can be positively associated. */
   hasMagic: boolean;
+  /** Account-level emergency stop overrides every non-observe mode. */
+  emergencyStopped: boolean;
 }
 
 export type ModeVerdict = { ok: true } | { ok: false; detail: string };
