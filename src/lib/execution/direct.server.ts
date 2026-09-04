@@ -228,6 +228,13 @@ export async function submitDirectOrder(
   const freeMargin = refreshed.freeMargin;
 
   let finalQuantity = quantity;
+  // Risk stays null unless a sizing run actually produced it; an unknown figure
+  // is stored as unknown so the exposure ceiling can say so honestly.
+  let finalRisk: { amount: number | null; currency: string | null; percentOfEquity: number | null } = {
+    amount: null,
+    currency: null,
+    percentOfEquity: null,
+  };
   if (resize) {
     const resized = await resize({
       equity: refreshed.equity,
@@ -245,6 +252,7 @@ export async function submitDirectOrder(
       return { state: "rejected", reason: resized.detail, brokerOrderId: null };
     }
     finalQuantity = resized.quantity;
+    finalRisk = resized.risk;
   } else {
     // No resizer: the quantity was authorized from an EARLIER equity figure, so
     // it may only be submitted while that figure still describes the account.
@@ -298,6 +306,9 @@ export async function submitDirectOrder(
     magic: order.magic,
     broker_symbol: order.symbol,
     submitted_volume: order.volume,
+    risk_amount: finalRisk.amount,
+    risk_currency: finalRisk.currency,
+    risk_percent_of_equity: finalRisk.percentOfEquity,
     submitted_entry: "openPrice" in order ? order.openPrice : plan.entryPrice,
     submitted_stop: order.stopLoss,
     submitted_target: order.takeProfit,
