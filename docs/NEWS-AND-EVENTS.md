@@ -134,3 +134,29 @@ That is the reason this system stores events as `date_only` and refuses to open 
 timed suppression window from them, rather than assuming a conventional time.
 Closing the gap requires either an official structured feed appearing, or an
 explicit decision to ingest a licensed commercial calendar — not an inferred time.
+
+## The execution news gate (`src/lib/news/gate.server.ts`)
+
+The pure policy is now consulted at two execution boundaries: automatic enqueue
+(`execution_enqueue`) and immediately before the broker submission is assembled
+(`broker_submission`). Every consultation is written to
+`news_policy_evaluations`, whether or not it changed anything.
+
+Enforcement is deliberately narrow, and it can only ever REFUSE an order:
+
+- The owner must have news blocking on (`scanner_settings.news_block_new_entries`),
+  with their own window width (`news_suppression_minutes_before` / `_after`,
+  applied to `high` and `unknown` importance only).
+- The verdict must name at least one real calendar event that P-Trades holds.
+- A verdict resting only on INCOMPLETE COVERAGE is recorded as
+  `would_suppress` and is not enforced: refusing every order because a feed is
+  unproven would be a market claim manufactured out of missing data. Such
+  verdicts become enforceable once coverage for the instrument's
+  currency × family scopes is proven healthy.
+- An unreadable news table yields no events and no coverage, so it can never
+  invent a refusal and never reports coverage as healthy.
+
+A refusal surfaces as `news_blackout` in the automatic-order decision ledger and
+in the delivery rejection vocabulary. It is treated as a MOMENT, not a judgement
+on the setup: once the window passes, the same setup may be re-asked while the
+owner's automatic-order window is still open.

@@ -65,6 +65,7 @@ import {
   describeStage,
   lifecycleAllows,
 } from "@/lib/instruments/lifecycle";
+import { evaluateNewsGate } from "@/lib/news/gate.server";
 import { readLifecycleView } from "@/lib/instruments/lifecycle.server";
 import { normalizeOrderGeometry } from "@/lib/instruments/precision";
 
@@ -210,6 +211,10 @@ interface SettingsRow {
   live_execution_confirmed_at?: string | null;
   live_execution_confirmed_version?: number | null;
   live_execution_confirmed_global_live?: boolean | null;
+  /** Owner's news controls; enforcement is narrowed inside the news gate. */
+  news_block_new_entries?: boolean | null;
+  news_suppression_minutes_before?: number | null;
+  news_suppression_minutes_after?: number | null;
 }
 
 export async function revalidateDelivery(
@@ -249,7 +254,7 @@ export async function revalidateDelivery(
   const { data: settingsRow } = await db
     .from("scanner_settings")
     .select(
-      "instruments, sessions, alert_min_grade, daily_setup_cap, execution_enabled, execution_dry_run, execution_config_version, exposure_limit_enabled, webhook_enabled, webhook_url, webhook_secret, webhook_format, webhook_validated_at, auto_order_window_minutes, auto_market_entry_enabled, live_execution_confirmed_at, live_execution_confirmed_version, live_execution_confirmed_global_live",
+      "instruments, sessions, alert_min_grade, daily_setup_cap, execution_enabled, execution_dry_run, execution_config_version, exposure_limit_enabled, webhook_enabled, webhook_url, webhook_secret, webhook_format, webhook_validated_at, auto_order_window_minutes, auto_market_entry_enabled, live_execution_confirmed_at, live_execution_confirmed_version, live_execution_confirmed_global_live, news_block_new_entries, news_suppression_minutes_before, news_suppression_minutes_after",
     )
     .eq("user_id", delivery.user_id)
     .maybeSingle();
@@ -438,6 +443,22 @@ export async function revalidateDelivery(
   // ---- 5. Market state -----------------------------------------------------
   const market = marketStatus(new Date(now));
   if (market.weekendClosed || market.openCount === 0) return reject("market_closed");
+
+  // ---- 5a. News gate, re-asked immediately before the order is assembled ----
+  // The enqueue-time gate cannot know about an event window that opens while the
+  // delivery waits in the queue, so the same fail-closed policy is asked again
+  // here. It can only refuse; a clear verdict authorises nothing on its own.
+  {
+    const newsGate = await evaluateNewsGate(db as unknown as SupabaseClient, {
+      symbol: signal.instrument,
+      nowMs: now,
+      boundary: "broker_submission",
+      settings: settings ?? null,
+      signalId: signal.id,
+      deliveryId: delivery.id,
+    });
+    if (newsGate.blocked) return reject("news_blackout", newsGate.detail);
+  }
 
   // The planned geometry. The ORDER is only assembled once an authoritative
   // quantity exists, so a BridgeOrder can never exist without one.

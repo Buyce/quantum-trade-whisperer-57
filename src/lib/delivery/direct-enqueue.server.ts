@@ -31,6 +31,8 @@ import {
   clampPerSymbolOrderCeiling,
   type Grade,
 } from "@/lib/db-types";
+import { evaluateNewsGate, type NewsGateResult } from "@/lib/news/gate.server";
+
 import { assessFreshness, describeCeilings, effectiveCeilings } from "./adaptive-ceilings";
 import {
   describeDuplicateOrder,
@@ -134,7 +136,12 @@ interface SettingsRow {
   adaptive_order_ceilings_enabled: boolean | null;
   adaptive_order_ceiling_max: number | null;
   adaptive_order_ceiling_floor: number | null;
+  /** Owner's news controls; enforcement is narrowed inside the news gate. */
+  news_block_new_entries: boolean | null;
+  news_suppression_minutes_before: number | null;
+  news_suppression_minutes_after: number | null;
 }
+
 
 /**
  * Delivery states that still represent a live automatic order for ceiling
@@ -500,7 +507,7 @@ async function runDirectEnqueue(
   const { data: settingsRows, error: settingsError } = await db
     .from("scanner_settings")
     .select(
-      "user_id, instruments, sessions, alert_min_grade, daily_setup_cap, execution_config_version, auto_intel_gate_enabled, auto_intel_min_win_pct, auto_intel_min_sample, auto_execute_c_grade, maximum_active_signal_orders, maximum_concurrent_signal_orders, maximum_daily_signal_orders, allow_unmeasured_intel, auto_order_window_minutes, maximum_daily_orders_per_symbol, adaptive_order_ceilings_enabled, adaptive_order_ceiling_max, adaptive_order_ceiling_floor",
+      "user_id, instruments, sessions, alert_min_grade, daily_setup_cap, execution_config_version, auto_intel_gate_enabled, auto_intel_min_win_pct, auto_intel_min_sample, auto_execute_c_grade, maximum_active_signal_orders, maximum_concurrent_signal_orders, maximum_daily_signal_orders, allow_unmeasured_intel, auto_order_window_minutes, maximum_daily_orders_per_symbol, adaptive_order_ceilings_enabled, adaptive_order_ceiling_max, adaptive_order_ceiling_floor, news_block_new_entries, news_suppression_minutes_before, news_suppression_minutes_after",
     )
     .in("user_id", userIds);
   if (settingsError) return await empty("settings_unreadable", settingsError.message);
@@ -558,6 +565,8 @@ async function runDirectEnqueue(
 
   const rows: Record<string, unknown>[] = [];
   let filtered = 0;
+  /** One news evaluation per distinct owner news configuration, per publish. */
+  const newsGateCache = new Map<string, NewsGateResult>();
 
   // Per-owner ceiling on concurrent automatic orders. It can only ever REFUSE:
   // reaching it is never a reason to place an order, and an unreadable count is
@@ -657,6 +666,43 @@ async function runDirectEnqueue(
       });
       continue;
     }
+
+    /**
+     * News gate. Reduce-only: it can refuse an order, never authorise one. The
+     * verdict is always recorded; it only REFUSES when the owner opted in and the
+     * verdict names a real calendar event we hold. Incomplete coverage is logged
+     * for comparison rather than turned into a market claim.
+     */
+    {
+      const newsKey = `${row.news_block_new_entries === false ? "off" : "on"}|${row.news_suppression_minutes_before ?? ""}|${row.news_suppression_minutes_after ?? ""}`;
+      let gateResult = newsGateCache.get(newsKey);
+      if (!gateResult) {
+        gateResult = await evaluateNewsGate(db, {
+          symbol: signal.instrument,
+          nowMs,
+          boundary: "execution_enqueue",
+          settings: row,
+          signalId: signal.id,
+        });
+        newsGateCache.set(newsKey, gateResult);
+      }
+      if (gateResult.blocked) {
+        filtered += 1;
+        decisions.push({
+          user_id: account.user_id,
+          signal_id: signal.id,
+          instrument: signal.instrument,
+          grade: signal.grade,
+          decision: "news_blackout",
+          detail: gateResult.detail,
+          enqueued: 0,
+          filtered: 1,
+        });
+        continue;
+      }
+    }
+
+
 
     const grade = (row.alert_min_grade ?? "B") as Grade;
     const settings: EligibilitySettings = {

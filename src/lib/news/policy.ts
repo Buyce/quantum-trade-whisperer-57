@@ -74,11 +74,23 @@ export interface NewsPolicyInput {
   events: PolicyEvent[];
   /** Coverage state per `${CURRENCY}|${family}`; missing means unproven. */
   coverage: Map<string, CoverageState>;
+  /**
+   * Owner-configured suppression window in minutes, applied to `high` and
+   * `unknown` importance only. Absent means the default policy window. A window
+   * is never widened beyond what the owner asked for and never silently changed
+   * for `medium`/`low`, whose defaults are policy, not preference.
+   */
+  windowOverride?: { beforeMinutes: number; afterMinutes: number } | null;
 }
 
-function windowFor(importance: EventImportance) {
+function windowFor(
+  importance: EventImportance,
+  override?: { beforeMinutes: number; afterMinutes: number } | null,
+) {
+  if (override && (importance === "high" || importance === "unknown")) return override;
   return SUPPRESSION_WINDOWS[importance] ?? SUPPRESSION_WINDOWS.unknown;
 }
+
 
 function eventTouches(event: PolicyEvent, symbol: string, currencies: string[]): boolean {
   if (event.affectedInstruments && event.affectedInstruments.length > 0) {
@@ -132,14 +144,15 @@ export function evaluateNewsPolicy(input: NewsPolicyInput): NewsPolicyVerdict {
     (event) =>
       event.timestampPrecision !== "exact" &&
       event.scheduledDate === evaluatedAt.slice(0, 10) &&
-      windowFor(event.importance).beforeMinutes > 0,
+      windowFor(event.importance, input.windowOverride).beforeMinutes > 0,
   );
 
   const inWindow = relevant.filter((event) => {
     if (event.timestampPrecision !== "exact" || !event.scheduledAt) return false;
     const at = Date.parse(event.scheduledAt);
     if (Number.isNaN(at)) return false;
-    const { beforeMinutes, afterMinutes } = windowFor(event.importance);
+    const { beforeMinutes, afterMinutes } = windowFor(event.importance, input.windowOverride);
+
     if (beforeMinutes === 0 && afterMinutes === 0) return false;
     return input.nowMs >= at - beforeMinutes * 60_000 && input.nowMs <= at + afterMinutes * 60_000;
   });
