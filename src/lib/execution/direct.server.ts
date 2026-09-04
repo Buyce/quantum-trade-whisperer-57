@@ -64,6 +64,8 @@ export interface DirectTarget {
   /** System-wide mode gates, carried so the pre-submit refresh can re-apply them. */
   globalDemoAuto: boolean;
   globalLiveAuto: boolean;
+  globalLiveConfirm?: boolean;
+  ownerConfirmed?: boolean;
 }
 
 export type DirectTargetResult = { ok: true; target: DirectTarget } | { ok: false; detail: string };
@@ -102,6 +104,10 @@ export async function loadDirectTarget(
     instrument: string;
     globalDemoAuto: boolean;
     globalLiveAuto: boolean;
+    /** Per-order live confirmation capability, system-wide. Default OFF. */
+    globalLiveConfirm?: boolean;
+    /** Whether THIS delivery carries a valid owner confirmation. */
+    ownerConfirmed?: boolean;
   },
 ): Promise<DirectTargetResult> {
   const { data } = await db
@@ -128,6 +134,8 @@ export async function loadDirectTarget(
     intentConflict: account.intent_conflict,
     globalDemoAuto: input.globalDemoAuto,
     globalLiveAuto: input.globalLiveAuto,
+    globalLiveConfirm: input.globalLiveConfirm === true,
+    ownerConfirmed: input.ownerConfirmed === true,
   });
   if (!gate.ok) return { ok: false, detail: gate.detail };
 
@@ -184,6 +192,8 @@ export async function loadDirectTarget(
 
       globalDemoAuto: input.globalDemoAuto,
       globalLiveAuto: input.globalLiveAuto,
+      globalLiveConfirm: input.globalLiveConfirm === true,
+      ownerConfirmed: input.ownerConfirmed === true,
     },
   };
 }
@@ -230,7 +240,11 @@ export async function submitDirectOrder(
   let finalQuantity = quantity;
   // Risk stays null unless a sizing run actually produced it; an unknown figure
   // is stored as unknown so the exposure ceiling can say so honestly.
-  let finalRisk: { amount: number | null; currency: string | null; percentOfEquity: number | null } = {
+  let finalRisk: {
+    amount: number | null;
+    currency: string | null;
+    percentOfEquity: number | null;
+  } = {
     amount: null,
     currency: null,
     percentOfEquity: null,
@@ -590,6 +604,8 @@ export async function refreshAccountSafety(
     intentConflict: false,
     globalDemoAuto: target.globalDemoAuto,
     globalLiveAuto: target.globalLiveAuto,
+    globalLiveConfirm: target.globalLiveConfirm === true,
+    ownerConfirmed: target.ownerConfirmed === true,
   });
   if (!gate.ok) return { ok: false, detail: gate.detail };
 

@@ -36,6 +36,7 @@ import {
 import { GradeBadge } from "@/components/SignalCard";
 import { GuideNote } from "@/components/GuideMode";
 import { AutomaticOrders } from "@/components/history/AutomaticOrders";
+import { LiveConfirmationQueue } from "@/components/history/LiveConfirmationQueue";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -153,7 +154,8 @@ function HistoryPage() {
         <TabsContent value="logged" className="mt-0">
           <LoggedTrades />
         </TabsContent>
-        <TabsContent value="automatic" className="mt-0">
+        <TabsContent value="automatic" className="mt-0 space-y-4">
+          <LiveConfirmationQueue />
           <AutomaticOrders userId={user?.id} />
         </TabsContent>
       </Tabs>

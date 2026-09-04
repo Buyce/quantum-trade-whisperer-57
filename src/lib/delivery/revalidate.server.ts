@@ -97,6 +97,11 @@ export interface DeliveryRow {
   destination_type?: DeliveryDestination | null;
   connected_account_id?: string | null;
   account_mode?: string | null;
+  /** Per-order live confirmation, recorded on the row itself. */
+  requires_confirmation?: boolean | null;
+  confirmed_at?: string | null;
+  confirmation_expires_at?: string | null;
+  confirmation_declined_at?: string | null;
 }
 
 export interface RevalidationRejected {
@@ -194,6 +199,8 @@ interface ControlsRow {
   execution_policy: string | null;
   /** Stage-3 mode gates. Absent ⇒ disabled. */
   demo_auto_enabled?: boolean | null;
+  live_confirm_enabled?: boolean | null;
+  customer_live_confirm_enabled?: boolean | null;
   live_auto_enabled?: boolean | null;
 }
 
@@ -262,6 +269,19 @@ interface SettingsRow {
   max_total_exposure_percent?: number | null;
 }
 
+/**
+ * Whether THIS delivery carries a live confirmation that is still good: recorded
+ * by the owner, not declined, and not past its window. An expired or missing
+ * confirmation is never treated as consent.
+ */
+export function ownerConfirmedThisOrder(delivery: DeliveryRow, now: number): boolean {
+  if (delivery.confirmation_declined_at) return false;
+  if (!delivery.confirmed_at) return false;
+  const expiry = delivery.confirmation_expires_at;
+  if (expiry && new Date(expiry).getTime() <= now) return false;
+  return true;
+}
+
 export async function revalidateDelivery(
   db: Db,
   delivery: DeliveryRow,
@@ -274,7 +294,7 @@ export async function revalidateDelivery(
   const { data: controlsRow, error: controlsError } = await db
     .from("execution_controls")
     .select(
-      "live_execution_enabled, force_dry_run, disabled_bridges, disabled_instruments, allowed_live_hosts, execution_policy, demo_auto_enabled, live_auto_enabled",
+      "live_execution_enabled, force_dry_run, disabled_bridges, disabled_instruments, allowed_live_hosts, execution_policy, demo_auto_enabled, live_auto_enabled, live_confirm_enabled, customer_live_confirm_enabled",
     )
     .maybeSingle();
   if (controlsError || !controlsRow) {
@@ -535,6 +555,12 @@ export async function revalidateDelivery(
       instrument: signal.instrument,
       globalDemoAuto: controls.demo_auto_enabled === true,
       globalLiveAuto: controls.live_auto_enabled === true,
+      // Per-order live confirmation needs BOTH the operator capability and the
+      // customer-facing switch; either one off means the capability does not
+      // exist for this trader right now.
+      globalLiveConfirm:
+        controls.live_confirm_enabled === true && controls.customer_live_confirm_enabled === true,
+      ownerConfirmed: ownerConfirmedThisOrder(delivery, now),
     });
     if (!resolvedTarget.ok) return reject("account_not_armed", resolvedTarget.detail);
     directTarget = resolvedTarget.target;

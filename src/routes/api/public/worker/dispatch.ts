@@ -20,6 +20,8 @@ export const Route = createFileRoute("/api/public/worker/dispatch")({
 
         const { adminClient } = await import("@/lib/scanner/pipeline.server");
         const { processNextDelivery } = await import("@/lib/delivery/dispatch.server");
+        const { expireUnansweredConfirmations } =
+          await import("@/lib/delivery/expire-confirmations.server");
 
         try {
           const db = adminClient();
@@ -28,6 +30,10 @@ export const Route = createFileRoute("/api/public/worker/dispatch")({
           const { data: expired, error: expireError } = await db.rpc("expire_execution_leases");
           if (expireError) console.error("[worker/dispatch] lease expiry", expireError.message);
           else leasesExpired = Number(expired ?? 0);
+
+          // Unanswered live confirmation requests are settled before anything is
+          // claimed, so a passed window can never be submitted.
+          const confirmationsExpired = await expireUnansweredConfirmations(db);
 
           const startedAt = Date.now();
           const processed = [];
@@ -45,6 +51,7 @@ export const Route = createFileRoute("/api/public/worker/dispatch")({
           return Response.json({
             ok: true,
             leasesExpired,
+            confirmationsExpired,
             processed,
             drained: processed.length,
             budgetExhausted,

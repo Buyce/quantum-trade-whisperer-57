@@ -35,7 +35,9 @@ export function modeSubmitsOrders(mode: AccountMode): boolean {
 
 /**
  * `live_confirm` requires a human to press a button per setup, so it is NOT an
- * automatic destination: the worker never submits for it.
+ * automatic destination: the worker never submits for it on its own. It becomes
+ * submittable only once the OWNER confirmed that specific order, which is proven
+ * separately (see `ownerConfirmed` below), never inferred from the mode.
  */
 export function modeIsAutomatic(mode: AccountMode): boolean {
   return mode === "demo_auto" || mode === "live_auto";
@@ -52,6 +54,14 @@ export interface DirectGateInput {
   /** System-wide gates, all default OFF. */
   globalDemoAuto: boolean;
   globalLiveAuto: boolean;
+  /** System-wide per-order live confirmation capability. Default OFF. */
+  globalLiveConfirm?: boolean;
+  /**
+   * PROOF that the owner confirmed this exact order: a confirmation that is
+   * recorded, not declined and not expired. Absent or false always refuses a
+   * `live_confirm` submission — a mode is never treated as an authorisation.
+   */
+  ownerConfirmed?: boolean;
 }
 
 export type DirectGateVerdict = { ok: true } | { ok: false; detail: string };
@@ -70,6 +80,21 @@ export function directExecutionAllowed(input: DirectGateInput): DirectGateVerdic
   }
   if (input.investorMode === true) {
     return { ok: false, detail: "this account is connected read-only (investor password)" };
+  }
+  if (input.mode === "live_confirm") {
+    if (input.brokerAccountType !== "real") {
+      return {
+        ok: false,
+        detail: `Live Confirm requires a broker-confirmed real account; broker reports ${input.brokerAccountType}`,
+      };
+    }
+    if (input.globalLiveConfirm !== true) {
+      return { ok: false, detail: "per-order live confirmation is disabled system-wide" };
+    }
+    if (input.ownerConfirmed !== true) {
+      return { ok: false, detail: "you have not confirmed this order" };
+    }
+    return { ok: true };
   }
   if (!modeIsAutomatic(input.mode)) {
     return { ok: false, detail: `mode ${input.mode} does not submit automatic orders` };
