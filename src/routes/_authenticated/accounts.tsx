@@ -98,6 +98,138 @@ export const Route = createFileRoute("/_authenticated/accounts")({
   }),
   component: AccountsPage,
 });
+/**
+ * Customer emergency stop.
+ *
+ * One deliberate act: every connected account goes back to observe, and every
+ * automatic order P-Trades can still cancel by itself is cancelled. Orders that
+ * already reached the broker are reported honestly — P-Trades cannot cancel what
+ * the broker already holds, so it says so and points the trader at their own
+ * platform instead of implying an action it did not take.
+ */
+function EmergencyStopPanel({
+  accounts,
+  onChanged,
+}: {
+  accounts: ConnectedAccountView[];
+  onChanged: () => void;
+}) {
+  const engage = useServerFn(engageAccountEmergencyStop);
+  const release = useServerFn(releaseAccountEmergencyStop);
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
+
+  const stopped = accounts.filter((a) => a.emergencyStopAt !== null);
+  const armed = accounts.filter((a) => a.mode !== "observe");
+
+  const stopMutation = useMutation({
+    mutationFn: () => engage({ data: { reason } }),
+    onSuccess: (result) => {
+      setOpen(false);
+      setReason("");
+      const atBroker =
+        result.ordersAtBroker > 0
+          ? ` ${result.ordersAtBroker} order(s) already reached your broker and must be closed or deleted in your platform.`
+          : "";
+      toast.success(
+        `Emergency stop active. ${result.accountsDisarmed} account(s) returned to observe, ${result.ordersCancelled} queued order(s) cancelled.${atBroker}`,
+      );
+      onChanged();
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const releaseMutation = useMutation({
+    mutationFn: (accountId: string) => release({ data: { accountId } }),
+    onSuccess: () => {
+      toast.success("Stop cleared. The account stays in observe until you arm it again.");
+      onChanged();
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  return (
+    <div className="mb-4 rounded-sm border border-destructive/40 bg-destructive/5 p-3 text-xs">
+      <p className="flex items-center gap-2 text-sm font-medium text-foreground">
+        <ShieldAlert className="size-4" /> Emergency stop
+      </p>
+      <p className="mt-1 text-muted-foreground">
+        Returns every connected account to observe and cancels every automatic order still waiting in
+        the P-Trades queue. Orders your broker already holds are not cancelled by this — P-Trades will
+        tell you how many there are so you can close them in your platform.
+      </p>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <Button
+          size="sm"
+          variant="destructive"
+          disabled={stopMutation.isPending}
+          onClick={() => setOpen(true)}
+        >
+          Stop all automatic orders
+        </Button>
+        {armed.length === 0 ? (
+          <span className="text-muted-foreground">Nothing is armed right now.</span>
+        ) : (
+          <span className="text-muted-foreground">
+            {armed.length} account(s) armed for automatic orders.
+          </span>
+        )}
+      </div>
+
+      {stopped.length > 0 ? (
+        <div className="mt-3 space-y-2 border-t border-border pt-2">
+          {stopped.map((account) => (
+            <div key={account.id} className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-muted-foreground">
+                <span className="font-medium text-foreground">{account.label}</span> stopped
+                {account.emergencyStopReason ? ` — ${account.emergencyStopReason}` : ""}
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={releaseMutation.isPending}
+                onClick={() => releaseMutation.mutate(account.id)}
+              >
+                Clear stop
+              </Button>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      <AlertDialog open={open} onOpenChange={setOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Stop all automatic orders?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Every connected account returns to observe mode and every queued or awaiting-
+              confirmation order is cancelled. Orders already sent to your broker are not affected —
+              close those in your trading platform. Arming again afterwards is a separate, deliberate
+              step per account.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Input
+            placeholder="Reason (optional, recorded with the stop)"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                stopMutation.mutate();
+              }}
+            >
+              Stop everything
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
 
 function Money({ value, currency }: { value: number | null; currency: string | null }) {
   if (value === null) return <span className="text-muted-foreground">unavailable</span>;
