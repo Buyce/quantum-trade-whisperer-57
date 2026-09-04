@@ -183,10 +183,12 @@ function ReadinessSection({
   readiness,
   autoBusy,
   onToggleAuto,
+  readError,
 }: {
   readiness: GateReadiness;
   autoBusy: boolean;
   onToggleAuto: (enabled: boolean) => void;
+  readError?: string | null;
 }) {
   const rows: GateReadinessRow[] = readiness.gates;
   return (
