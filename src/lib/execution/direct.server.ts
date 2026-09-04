@@ -64,6 +64,8 @@ export interface DirectTarget {
   /** System-wide mode gates, carried so the pre-submit refresh can re-apply them. */
   globalDemoAuto: boolean;
   globalLiveAuto: boolean;
+  globalLiveConfirm?: boolean;
+  ownerConfirmed?: boolean;
 }
 
 export type DirectTargetResult = { ok: true; target: DirectTarget } | { ok: false; detail: string };
@@ -102,6 +104,10 @@ export async function loadDirectTarget(
     instrument: string;
     globalDemoAuto: boolean;
     globalLiveAuto: boolean;
+    /** Per-order live confirmation capability, system-wide. Default OFF. */
+    globalLiveConfirm?: boolean;
+    /** Whether THIS delivery carries a valid owner confirmation. */
+    ownerConfirmed?: boolean;
   },
 ): Promise<DirectTargetResult> {
   const { data } = await db
@@ -128,6 +134,8 @@ export async function loadDirectTarget(
     intentConflict: account.intent_conflict,
     globalDemoAuto: input.globalDemoAuto,
     globalLiveAuto: input.globalLiveAuto,
+    globalLiveConfirm: input.globalLiveConfirm === true,
+    ownerConfirmed: input.ownerConfirmed === true,
   });
   if (!gate.ok) return { ok: false, detail: gate.detail };
 
