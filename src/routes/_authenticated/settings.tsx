@@ -145,6 +145,11 @@ function SettingsPage() {
   const [maxLots, setMaxLots] = useState("0");
   const [leverage, setLeverage] = useState("100");
   const [maxStopPercent, setMaxStopPercent] = useState("0");
+  // Owner ceilings enforced before an automatic order is submitted. 0 = off.
+  const [maxSpreadPips, setMaxSpreadPips] = useState("0");
+  const [maxSlippagePips, setMaxSlippagePips] = useState("0");
+  const [maxTotalExposurePercent, setMaxTotalExposurePercent] = useState("0");
+
   const [saving, setSaving] = useState(false);
   const triggerScan = useServerFn(runScanNow);
   const [scanning, setScanning] = useState(false);
@@ -268,6 +273,9 @@ function SettingsPage() {
     setMaxLots(String(Number(s.max_position_size ?? 0)));
     setLeverage(String(Number(s.leverage ?? 100)));
     setMaxStopPercent(String(Number(s.max_stop_loss_percent ?? 0)));
+    setMaxSpreadPips(String(Number(s.max_entry_spread_pips ?? 0)));
+    setMaxSlippagePips(String(Number(s.max_entry_slippage_pips ?? 0)));
+    setMaxTotalExposurePercent(String(Number(s.max_total_exposure_percent ?? 0)));
   }, [settings.data]);
 
   function toggle(list: string[], value: string, set: (v: string[]) => void) {
@@ -304,6 +312,9 @@ function SettingsPage() {
     const lotsValue = clamp(num(maxLots, 0), 0, 1000);
     const leverageValue = Math.round(clamp(num(leverage, 100), 1, 3000));
     const stopValue = clamp(num(maxStopPercent, 0), 0, 100);
+    const spreadCeilingValue = clamp(num(maxSpreadPips, 0), 0, 10000);
+    const slippageCeilingValue = clamp(num(maxSlippagePips, 0), 0, 10000);
+    const exposureCeilingValue = clamp(num(maxTotalExposurePercent, 0), 0, 100);
 
     setSaving(true);
     try {
@@ -325,6 +336,12 @@ function SettingsPage() {
         max_position_size: lotsValue,
         leverage: leverageValue,
         max_stop_loss_percent: stopValue,
+        // Owner ceilings checked before an order is submitted. 0 turns one off;
+        // a ceiling that cannot be measured refuses rather than passing.
+        max_entry_spread_pips: spreadCeilingValue,
+        max_entry_slippage_pips: slippageCeilingValue,
+        max_total_exposure_percent: exposureCeilingValue,
+
         // Never fabricate the acknowledgement: above-2% saves are blocked above
         // unless the box is ticked, so this only persists the user's own choice.
         risk_ack_high: riskAckHigh,
@@ -1007,6 +1024,82 @@ function SettingsPage() {
                 <p className="mt-1 text-xs text-muted-foreground">
                   Flags setups whose stop sits further than this from entry. 0 turns the check off.
                   It filters nothing out — wide-stop setups are still shown, just marked.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <section className="space-y-4 rounded-md border border-border bg-card p-4">
+            <div>
+              <h2 className="label-xs">Order ceilings at submission</h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Checked immediately before an automatic order is sent to your broker, using your
+                broker&apos;s own quote and specification. 0 turns a ceiling off. If a ceiling is
+                set but the broker figure needed to measure it is missing, the order is refused
+                rather than sent — an unmeasurable limit is not a met one.
+              </p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div>
+                <Label className="text-xs" htmlFor="max-spread">
+                  Max spread at entry (pips)
+                </Label>
+                <Input
+                  id="max-spread"
+                  type="number"
+                  inputMode="decimal"
+                  min={0}
+                  max={10000}
+                  step="0.1"
+                  className="num mt-2"
+                  value={maxSpreadPips}
+                  onChange={(e) => setMaxSpreadPips(e.target.value)}
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Refuses with &ldquo;spread above your limit&rdquo; when the live broker spread is
+                  wider. Retried while your order window is still open.
+                </p>
+              </div>
+              <div>
+                <Label className="text-xs" htmlFor="max-slippage">
+                  Max slippage from entry (pips)
+                </Label>
+                <Input
+                  id="max-slippage"
+                  type="number"
+                  inputMode="decimal"
+                  min={0}
+                  max={10000}
+                  step="0.1"
+                  className="num mt-2"
+                  value={maxSlippagePips}
+                  onChange={(e) => setMaxSlippagePips(e.target.value)}
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Refuses with &ldquo;slippage above your limit&rdquo; when the price P-Trades would
+                  actually trade at has moved further than this from the published entry.
+                </p>
+              </div>
+              <div>
+                <Label className="text-xs" htmlFor="max-exposure">
+                  Max total exposure (% of equity)
+                </Label>
+                <Input
+                  id="max-exposure"
+                  type="number"
+                  inputMode="decimal"
+                  min={0}
+                  max={100}
+                  step="0.1"
+                  className="num mt-2"
+                  value={maxTotalExposurePercent}
+                  onChange={(e) => setMaxTotalExposurePercent(e.target.value)}
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Open plus resting P-Trades risk at one broker account, against broker equity.
+                  Advisory unless you switch on the exposure limit under Automatic trading; then it
+                  refuses with &ldquo;total exposure limit&rdquo;. Older orders with no recorded
+                  risk figure are reported as unknown, never counted as zero.
                 </p>
               </div>
             </div>

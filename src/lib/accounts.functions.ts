@@ -69,8 +69,15 @@ export const refreshBrokerConnection = createServerFn({ method: "POST" })
     const { reconcileConnection } = await import("@/lib/accounts/provision.server");
     const { toAccountView } = await import("@/lib/accounts/read.server");
     const row = await reconcileConnection(context.userId, data.accountId);
+    // A connection that just came back READY may have missed orders while it was
+    // unavailable. Same bounded gate stack, never a new rule set.
+    if ((row as { mode?: string }).mode !== "observe") {
+      const { reconcileAfterEvent } = await import("@/lib/delivery/reconcile-trigger.server");
+      await reconcileAfterEvent("account_reconciled");
+    }
     return await toAccountView(context.supabase, row);
   });
+
 
 export const disconnectBrokerConnection = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -95,9 +102,43 @@ export const setBrokerAccountMode = createServerFn({ method: "POST" })
     const { setAccountMode } = await import("@/lib/accounts/arm.server");
     const { loadAccountViews } = await import("@/lib/accounts/read.server");
     await setAccountMode(context.userId, data.accountId, data.mode);
+    // Arming is one of the moments where a setup that is still active and valid
+    // was refused earlier only because no account was armed. Reconcile now
+    // instead of waiting for the next cron tick; it can only run the ordinary
+    // gate stack, and a failure here never fails the arming.
+    if (data.mode !== "observe") {
+      const { reconcileAfterEvent } = await import("@/lib/delivery/reconcile-trigger.server");
+      await reconcileAfterEvent("account_armed");
+    }
     const views = await loadAccountViews(context.supabase, context.userId);
     return views.find((v) => v.id === data.accountId) ?? null;
   });
+
+/**
+ * Customer emergency stop: disarm every connected account and cancel every
+ * automatic order P-Trades can still cancel itself. Orders already at the broker
+ * are reported, never rewritten.
+ */
+export const engageAccountEmergencyStop = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: { reason?: string }) => input)
+  .handler(async ({ data, context }) => {
+    const { engageEmergencyStop } = await import("@/lib/accounts/emergency-stop.server");
+    return await engageEmergencyStop(context.userId, data.reason ?? "");
+  });
+
+/** Clear the stop on one account. It stays in Observe until armed again. */
+export const releaseAccountEmergencyStop = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: { accountId: string }) => input)
+  .handler(async ({ data, context }): Promise<ConnectedAccountView | null> => {
+    const { releaseEmergencyStop } = await import("@/lib/accounts/emergency-stop.server");
+    const { loadAccountViews } = await import("@/lib/accounts/read.server");
+    await releaseEmergencyStop(context.userId, data.accountId);
+    const views = await loadAccountViews(context.supabase, context.userId);
+    return views.find((v) => v.id === data.accountId) ?? null;
+  });
+
 
 export const setAccountExposureBoundary = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

@@ -58,6 +58,11 @@ import {
 import { readLifecycleView } from "@/lib/instruments/lifecycle.server";
 import { neverReachedBroker, occupiesSlot } from "@/lib/evidence/order-state";
 import { formatDuration, marketStatus } from "@/lib/market-hours";
+import {
+  readCeilingSettings,
+  type ExposureAccumulation,
+} from "./user-ceilings";
+
 
 export interface DirectEnqueueSignal {
   id: string;
@@ -140,7 +145,58 @@ interface SettingsRow {
   news_block_new_entries: boolean | null;
   news_suppression_minutes_before: number | null;
   news_suppression_minutes_after: number | null;
+  /**
+   * Owner ceilings. Spread and slippage need a live broker quote and are
+   * therefore enforced at pre-send only; the total-exposure percent is the one
+   * ceiling already knowable here, from risk already committed at the account.
+   */
+  max_entry_spread_pips: number | null;
+  max_entry_slippage_pips: number | null;
+  max_total_exposure_percent: number | null;
+  exposure_limit_enabled: boolean | null;
 }
+
+/**
+ * Risk percent already committed at each connected account by P-Trades orders
+ * that are queued, in flight or resting and not yet settled.
+ *
+ * Rows written before the risk figure existed are counted as UNKNOWN, never as
+ * zero, and an unreadable query returns null so the caller can skip the gate
+ * instead of inventing an exposure total.
+ */
+export async function committedRiskByAccount(
+  db: SupabaseClient,
+  accountIds: string[],
+): Promise<Map<string, ExposureAccumulation> | null> {
+  const out = new Map<string, ExposureAccumulation>();
+  if (accountIds.length === 0) return out;
+  const { data, error } = await db
+    .from("execution_deliveries")
+    .select("connected_account_id, risk_percent_of_equity")
+    .in("connected_account_id", accountIds)
+    .in("state", ["pending", "awaiting_confirmation", "claimed", "sent", "acknowledged"])
+    .is("settled_at", null)
+    .limit(1000);
+  if (error || !data) {
+    console.error("committed risk unreadable", error?.message);
+    return null;
+  }
+  for (const row of (data ?? []) as {
+    connected_account_id: string | null;
+    risk_percent_of_equity: number | string | null;
+  }[]) {
+    const id = row.connected_account_id;
+    if (!id) continue;
+    const current = out.get(id) ?? { knownPercent: 0, unknownOrders: 0 };
+    const value = row.risk_percent_of_equity;
+    const numeric = typeof value === "number" ? value : value === null ? NaN : Number(value);
+    if (Number.isFinite(numeric) && numeric >= 0) current.knownPercent += numeric;
+    else current.unknownOrders += 1;
+    out.set(id, current);
+  }
+  return out;
+}
+
 
 
 /**
@@ -507,7 +563,7 @@ async function runDirectEnqueue(
   const { data: settingsRows, error: settingsError } = await db
     .from("scanner_settings")
     .select(
-      "user_id, instruments, sessions, alert_min_grade, daily_setup_cap, execution_config_version, auto_intel_gate_enabled, auto_intel_min_win_pct, auto_intel_min_sample, auto_execute_c_grade, maximum_active_signal_orders, maximum_concurrent_signal_orders, maximum_daily_signal_orders, allow_unmeasured_intel, auto_order_window_minutes, maximum_daily_orders_per_symbol, adaptive_order_ceilings_enabled, adaptive_order_ceiling_max, adaptive_order_ceiling_floor, news_block_new_entries, news_suppression_minutes_before, news_suppression_minutes_after",
+      "user_id, instruments, sessions, alert_min_grade, daily_setup_cap, execution_config_version, auto_intel_gate_enabled, auto_intel_min_win_pct, auto_intel_min_sample, auto_execute_c_grade, maximum_active_signal_orders, maximum_concurrent_signal_orders, maximum_daily_signal_orders, allow_unmeasured_intel, auto_order_window_minutes, maximum_daily_orders_per_symbol, adaptive_order_ceilings_enabled, adaptive_order_ceiling_max, adaptive_order_ceiling_floor, news_block_new_entries, news_suppression_minutes_before, news_suppression_minutes_after, max_entry_spread_pips, max_entry_slippage_pips, max_total_exposure_percent, exposure_limit_enabled",
     )
     .in("user_id", userIds);
   if (settingsError) return await empty("settings_unreadable", settingsError.message);
@@ -609,6 +665,18 @@ async function runDirectEnqueue(
 
   const createdToday = new Map(occupancy.daily);
   const createdTodayPerSymbol = new Map(occupancy.perSymbol);
+  /**
+   * Risk already committed at each armed account, read once. Used only for the
+   * cheap "already at your exposure limit" refusal below; the authoritative
+   * exposure check still runs at pre-send with the incoming order's own
+   * broker-derived risk. An unreadable figure disables the cheap check rather
+   * than guessing an exposure total.
+   */
+  const committedRisk = await committedRiskByAccount(
+    db,
+    armed.map((a) => a.id),
+  );
+
 
   for (const account of armed) {
     const row = settingsByUser.get(account.user_id);
@@ -870,7 +938,41 @@ async function runDirectEnqueue(
       });
       continue;
     }
+
+    /**
+     * The owner's total-exposure ceiling, asked cheaply. This only refuses when
+     * the risk ALREADY committed at this account is at or above the ceiling, so
+     * no new order could fit whatever its size turns out to be. Anything finer
+     * needs the incoming order's own broker-derived risk and stays at pre-send,
+     * which remains the authority. Unknown-risk orders are never counted as
+     * zero, but they also cannot push the known sum over the line on their own.
+     */
+    {
+      const ceil = readCeilingSettings(row);
+      const accumulated = committedRisk?.get(account.id);
+      if (
+        ceil.exposureCeilingEnforced &&
+        ceil.maxTotalExposurePercent > 0 &&
+        accumulated !== undefined &&
+        accumulated.knownPercent >= ceil.maxTotalExposurePercent
+      ) {
+        filtered += 1;
+        decisions.push({
+          user_id: account.user_id,
+          signal_id: signal.id,
+          instrument: signal.instrument,
+          grade: signal.grade,
+          decision: "total_exposure_limit",
+          detail: `open + resting P-Trades risk at this account is already ${accumulated.knownPercent.toFixed(2)}% of equity, at or above your ${ceil.maxTotalExposurePercent}% limit`,
+          enqueued: 0,
+          filtered: 1,
+        });
+        continue;
+      }
+    }
+
     occupied.set(account.user_id, used + 1);
+
     if (candidatePlan !== null) {
       const list = held.get(account.user_id) ?? [];
       list.push({ ...candidatePlan, deliveryId: 0, signalId: signal.id });
