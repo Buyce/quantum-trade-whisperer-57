@@ -134,7 +134,12 @@ interface SettingsRow {
   adaptive_order_ceilings_enabled: boolean | null;
   adaptive_order_ceiling_max: number | null;
   adaptive_order_ceiling_floor: number | null;
+  /** Owner's news controls; enforcement is narrowed inside the news gate. */
+  news_block_new_entries: boolean | null;
+  news_suppression_minutes_before: number | null;
+  news_suppression_minutes_after: number | null;
 }
+
 
 /**
  * Delivery states that still represent a live automatic order for ceiling
