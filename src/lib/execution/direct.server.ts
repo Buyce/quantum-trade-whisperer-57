@@ -240,7 +240,11 @@ export async function submitDirectOrder(
   let finalQuantity = quantity;
   // Risk stays null unless a sizing run actually produced it; an unknown figure
   // is stored as unknown so the exposure ceiling can say so honestly.
-  let finalRisk: { amount: number | null; currency: string | null; percentOfEquity: number | null } = {
+  let finalRisk: {
+    amount: number | null;
+    currency: string | null;
+    percentOfEquity: number | null;
+  } = {
     amount: null,
     currency: null,
     percentOfEquity: null,

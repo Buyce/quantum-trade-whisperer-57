@@ -58,11 +58,7 @@ import {
 import { readLifecycleView } from "@/lib/instruments/lifecycle.server";
 import { neverReachedBroker, occupiesSlot } from "@/lib/evidence/order-state";
 import { formatDuration, marketStatus } from "@/lib/market-hours";
-import {
-  readCeilingSettings,
-  type ExposureAccumulation,
-} from "./user-ceilings";
-
+import { readCeilingSettings, type ExposureAccumulation } from "./user-ceilings";
 
 export interface DirectEnqueueSignal {
   id: string;
@@ -196,8 +192,6 @@ export async function committedRiskByAccount(
   }
   return out;
 }
-
-
 
 /**
  * Delivery states that still represent a live automatic order for ceiling
@@ -696,7 +690,6 @@ async function runDirectEnqueue(
     armed.map((a) => a.id),
   );
 
-
   for (const account of armed) {
     const row = settingsByUser.get(account.user_id);
     if (!row) {
@@ -788,8 +781,6 @@ async function runDirectEnqueue(
         continue;
       }
     }
-
-
 
     const grade = (row.alert_min_grade ?? "B") as Grade;
     const settings: EligibilitySettings = {
@@ -1006,8 +997,9 @@ async function runDirectEnqueue(
     // confirmation can never be given for a setup that is no longer entryable.
     const needsConfirmation = account.mode === "live_confirm";
     const confirmationExpiresAt = needsConfirmation
-      ? new Date(new Date(signal.detectedAt ?? nowMs).getTime() + windowMinutes * 60_000)
-          .toISOString()
+      ? new Date(
+          new Date(signal.detectedAt ?? nowMs).getTime() + windowMinutes * 60_000,
+        ).toISOString()
       : null;
 
     rows.push({

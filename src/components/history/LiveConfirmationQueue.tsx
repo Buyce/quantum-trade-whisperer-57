@@ -22,7 +22,6 @@ import {
 import { GradeBadge } from "@/components/SignalCard";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { SignalGrade } from "@/lib/db-types";
 
 function countdown(msRemaining: number | null): string {
   if (msRemaining === null) return "no window recorded";
@@ -83,9 +82,9 @@ export function LiveConfirmationQueue() {
           <p className="label-xs">Live Confirm</p>
           <h2 className="text-base font-semibold text-foreground">Orders waiting on you</h2>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Confirming records your consent to attempt the order. It is not a fill: your account,
-            a fresh broker quote and all of your own limits are re-checked at submission, so an
-            order can still be refused after you confirm.
+            Confirming records your consent to attempt the order. It is not a fill: your account, a
+            fresh broker quote and all of your own limits are re-checked at submission, so an order
+            can still be refused after you confirm.
           </p>
         </div>
       </div>
@@ -103,7 +102,7 @@ export function LiveConfirmationQueue() {
               className="rounded-md border border-warning/40 bg-warning/5 p-3"
             >
               <div className="flex flex-wrap items-center gap-2">
-                {row.grade ? <GradeBadge grade={row.grade as SignalGrade} /> : null}
+                {row.grade ? <GradeBadge grade={row.grade} /> : null}
                 <span className="font-semibold text-foreground">{row.instrument ?? "—"}</span>
                 <span className="text-sm uppercase text-muted-foreground">
                   {row.direction ?? "—"}

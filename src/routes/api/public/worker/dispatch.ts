@@ -20,9 +20,8 @@ export const Route = createFileRoute("/api/public/worker/dispatch")({
 
         const { adminClient } = await import("@/lib/scanner/pipeline.server");
         const { processNextDelivery } = await import("@/lib/delivery/dispatch.server");
-        const { expireUnansweredConfirmations } = await import(
-          "@/lib/delivery/expire-confirmations.server"
-        );
+        const { expireUnansweredConfirmations } =
+          await import("@/lib/delivery/expire-confirmations.server");
 
         try {
           const db = adminClient();

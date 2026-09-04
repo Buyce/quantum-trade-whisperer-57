@@ -35,10 +35,7 @@ export function confirmationActionable(facts: ConfirmationFacts, nowMs: number):
 }
 
 /** Milliseconds left to decide, or null when no window is recorded. */
-export function confirmationMsRemaining(
-  expiresAt: string | null,
-  nowMs: number,
-): number | null {
+export function confirmationMsRemaining(expiresAt: string | null, nowMs: number): number | null {
   if (!expiresAt) return null;
   return Math.max(0, new Date(expiresAt).getTime() - nowMs);
 }

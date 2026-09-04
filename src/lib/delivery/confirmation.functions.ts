@@ -114,7 +114,7 @@ async function loadOwnRequest(userId: string, deliveryId: number) {
     .eq("user_id", userId)
     .maybeSingle();
   if (error) return { db: supabaseAdmin, row: null, error: error.message };
-  return { db: supabaseAdmin, row: data as QueueRow & { user_id: string } | null, error: null };
+  return { db: supabaseAdmin, row: data as (QueueRow & { user_id: string }) | null, error: null };
 }
 
 /**
