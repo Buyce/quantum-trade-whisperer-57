@@ -197,7 +197,39 @@ interface ControlsRow {
   live_auto_enabled?: boolean | null;
 }
 
-interface SettingsRow {
+/**
+ * Risk already committed at one broker account by P-Trades orders that are
+ * claimed, sent or acknowledged and not yet settled.
+ *
+ * Rows written before the risk figure was recorded return as UNKNOWN, so the
+ * caller can say "at least this much" instead of implying a complete total. An
+ * unreadable query is reported as fully unknown, never as zero exposure.
+ */
+async function accountCommittedRisk(
+  db: Db,
+  accountId: string,
+  excludeDeliveryId: number,
+): Promise<ExposureAccumulation> {
+  const { data, error } = await db
+    .from("execution_deliveries")
+    .select("id, risk_percent_of_equity")
+    .eq("connected_account_id", accountId)
+    .in("state", ["claimed", "sent", "acknowledged"])
+    .is("settled_at", null)
+    .limit(500);
+  if (error || !data) return { knownPercent: 0, unknownOrders: 1 };
+  let knownPercent = 0;
+  let unknownOrders = 0;
+  for (const row of data as { id: number; risk_percent_of_equity: number | string | null }[]) {
+    if (row.id === excludeDeliveryId) continue;
+    const value = row.risk_percent_of_equity;
+    const numeric = typeof value === "number" ? value : value === null ? NaN : Number(value);
+    if (Number.isFinite(numeric) && numeric >= 0) knownPercent += numeric;
+    else unknownOrders += 1;
+  }
+  return { knownPercent, unknownOrders };
+}
+
   instruments: string[] | null;
   sessions: string[] | null;
   alert_min_grade: string | null;
