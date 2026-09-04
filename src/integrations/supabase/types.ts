@@ -1857,6 +1857,7 @@ export type Database = {
       gate_change_proposals: {
         Row: {
           applied_at: string | null
+          auto_applied: boolean
           created_at: string
           current_value: number | null
           decided_at: string | null
@@ -1864,6 +1865,7 @@ export type Database = {
           decision_reason: string | null
           gate: string
           id: string
+          origin: string
           proposed_by: string
           proposed_value: number
           reverted_at: string | null
@@ -1874,6 +1876,7 @@ export type Database = {
         }
         Insert: {
           applied_at?: string | null
+          auto_applied?: boolean
           created_at?: string
           current_value?: number | null
           decided_at?: string | null
@@ -1881,6 +1884,7 @@ export type Database = {
           decision_reason?: string | null
           gate: string
           id?: string
+          origin?: string
           proposed_by: string
           proposed_value: number
           reverted_at?: string | null
@@ -1891,6 +1895,7 @@ export type Database = {
         }
         Update: {
           applied_at?: string | null
+          auto_applied?: boolean
           created_at?: string
           current_value?: number | null
           decided_at?: string | null
@@ -1898,6 +1903,7 @@ export type Database = {
           decision_reason?: string | null
           gate?: string
           id?: string
+          origin?: string
           proposed_by?: string
           proposed_value?: number
           reverted_at?: string | null
@@ -4043,6 +4049,7 @@ export type Database = {
       shadow_engine_state: {
         Row: {
           active_replay_version: number
+          auto_apply_gate_changes: boolean
           candidate_capture_enabled: boolean
           candidate_enrolment_enabled: boolean
           candidate_rows_per_run: number
@@ -4051,6 +4058,7 @@ export type Database = {
           id: boolean
           last_error: string | null
           last_run_at: string | null
+          model_readiness_notified_at: string | null
           paused: boolean
           paused_until: string | null
           replay_v2_shadow_enabled: boolean
@@ -4065,6 +4073,7 @@ export type Database = {
         }
         Insert: {
           active_replay_version?: number
+          auto_apply_gate_changes?: boolean
           candidate_capture_enabled?: boolean
           candidate_enrolment_enabled?: boolean
           candidate_rows_per_run?: number
@@ -4073,6 +4082,7 @@ export type Database = {
           id?: boolean
           last_error?: string | null
           last_run_at?: string | null
+          model_readiness_notified_at?: string | null
           paused?: boolean
           paused_until?: string | null
           replay_v2_shadow_enabled?: boolean
@@ -4087,6 +4097,7 @@ export type Database = {
         }
         Update: {
           active_replay_version?: number
+          auto_apply_gate_changes?: boolean
           candidate_capture_enabled?: boolean
           candidate_enrolment_enabled?: boolean
           candidate_rows_per_run?: number
@@ -4095,6 +4106,7 @@ export type Database = {
           id?: boolean
           last_error?: string | null
           last_run_at?: string | null
+          model_readiness_notified_at?: string | null
           paused?: boolean
           paused_until?: string | null
           replay_v2_shadow_enabled?: boolean
@@ -5252,6 +5264,8 @@ export type Database = {
         Returns: Json
       }
       expire_execution_leases: { Args: never; Returns: number }
+      gate_default_value: { Args: { _gate: string }; Returns: number }
+      gate_readiness: { Args: never; Returns: Json }
       get_admin_author_split: { Args: never; Returns: Json }
       get_admin_candidate_funnel: { Args: never; Returns: Json }
       get_admin_candidate_lineage: {
@@ -5327,7 +5341,12 @@ export type Database = {
         Returns: undefined
       }
       release_weekly_report: { Args: { _week: string }; Returns: undefined }
+      run_gate_change_automation: { Args: never; Returns: Json }
       session_of_v1: { Args: { _at: string }; Returns: string }
+      set_auto_apply_gate_changes: {
+        Args: { _actor: string; _enabled: boolean; _reason: string }
+        Returns: Json
+      }
       set_execution_control: {
         Args: {
           _changed_by: string

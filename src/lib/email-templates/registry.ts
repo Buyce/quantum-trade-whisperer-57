@@ -5,6 +5,8 @@ import { template as accountCancellationAdminTemplate } from "./account-cancella
 import { template as feedbackReceivedTemplate } from "./feedback-received";
 import { template as feedbackThankYouTemplate } from "./feedback-thank-you";
 import { template as learningMilestoneTemplate } from "./learning-milestone";
+import { template as modelReadinessTemplate } from "./model-readiness";
+import { template as gateChangeAppliedTemplate } from "./gate-change-applied";
 import { template as weeklyShadowReportTemplate } from "./weekly-shadow-report";
 import { template as verifyTradePricesTemplate } from "./verify-trade-prices";
 
@@ -32,6 +34,8 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   "feedback-received": feedbackReceivedTemplate,
   "feedback-thank-you": feedbackThankYouTemplate,
   "learning-milestone": learningMilestoneTemplate,
+  "model-readiness": modelReadinessTemplate,
+  "gate-change-applied": gateChangeAppliedTemplate,
   "weekly-shadow-report": weeklyShadowReportTemplate,
   "verify-trade-prices": verifyTradePricesTemplate,
 };

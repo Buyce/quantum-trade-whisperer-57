@@ -108,6 +108,24 @@ export const Route = createFileRoute("/api/public/cron/shadow-resolve")({
             console.error("[cron/shadow-resolve] regime stats recompute failed:", statsError);
           }
 
+          /**
+           * Gate-change automation — opens a system proposal when the evidence
+           * decides, applies it only under the owner switch and the strict
+           * training bar, and auto-reverts an automatic change whose follow-up
+           * cohort is worse. Guarded separately: an automation failure must
+           * never re-label a successful resolve pass as failed.
+           */
+          let gateAutomation: unknown = null;
+          try {
+            const { runGateChangeAutomation } = await import("@/lib/learning/automation.server");
+            gateAutomation = await runGateChangeAutomation(db);
+          } catch (autoErr) {
+            console.error(
+              "[cron/shadow-resolve] gate automation failed:",
+              autoErr instanceof Error ? autoErr.message : String(autoErr),
+            );
+          }
+
           // Every attempted provider fetch failing is a source-level problem;
           // lifecycle/mapping refusals are truthful skips, not provider outages.
           const allFailedMessage = allFetchesFailedMessage(summary);
@@ -124,6 +142,7 @@ export const Route = createFileRoute("/api/public/cron/shadow-resolve")({
             stats,
             statsError,
             milestones,
+            gateAutomation,
             candidateEnrolment,
             ...summary,
           });
