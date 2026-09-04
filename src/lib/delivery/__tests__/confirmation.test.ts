@@ -16,18 +16,18 @@ const base = {
 };
 
 describe("confirmation state", () => {
-  it("is awaiting inside the window", () => {
+  it("[UNIT] is awaiting inside the window", () => {
     expect(confirmationState(base, now)).toBe("awaiting");
     expect(confirmationActionable(base, now)).toBe(true);
   });
 
-  it("expires once the window has passed and can no longer be acted on", () => {
+  it("[UNIT] expires once the window has passed and can no longer be acted on", () => {
     const facts = { ...base, confirmationExpiresAt: new Date(now - 1).toISOString() };
     expect(confirmationState(facts, now)).toBe("expired");
     expect(confirmationActionable(facts, now)).toBe(false);
   });
 
-  it("reads a decline as declined even when a confirmation was recorded", () => {
+  it("[UNIT] reads a decline as declined even when a confirmation was recorded", () => {
     const facts = {
       ...base,
       confirmedAt: new Date(now).toISOString(),
@@ -36,7 +36,7 @@ describe("confirmation state", () => {
     expect(confirmationState(facts, now)).toBe("declined");
   });
 
-  it("reports no window rather than inventing one", () => {
+  it("[UNIT] reports no window rather than inventing one", () => {
     expect(confirmationMsRemaining(null, now)).toBeNull();
     expect(confirmationMsRemaining(new Date(now + 5000).toISOString(), now)).toBe(5000);
     expect(confirmationMsRemaining(new Date(now - 5000).toISOString(), now)).toBe(0);
@@ -55,12 +55,12 @@ describe("live_confirm submission gate", () => {
     globalLiveAuto: false,
   };
 
-  it("refuses without an owner confirmation", () => {
+  it("[INVARIANT] refuses without an owner confirmation", () => {
     const verdict = directExecutionAllowed({ ...account, globalLiveConfirm: true });
     expect(verdict.ok).toBe(false);
   });
 
-  it("refuses a confirmation while the capability is off system-wide", () => {
+  it("[INVARIANT] refuses a confirmation while the capability is off system-wide", () => {
     const verdict = directExecutionAllowed({
       ...account,
       globalLiveConfirm: false,
@@ -69,7 +69,7 @@ describe("live_confirm submission gate", () => {
     expect(verdict.ok).toBe(false);
   });
 
-  it("refuses on a non-real account even when confirmed", () => {
+  it("[INVARIANT] refuses on a non-real account even when confirmed", () => {
     const verdict = directExecutionAllowed({
       ...account,
       brokerAccountType: "demo",
@@ -79,7 +79,7 @@ describe("live_confirm submission gate", () => {
     expect(verdict.ok).toBe(false);
   });
 
-  it("allows only a confirmed order on a broker-confirmed real account", () => {
+  it("[INVARIANT] allows only a confirmed order on a broker-confirmed real account", () => {
     const verdict = directExecutionAllowed({
       ...account,
       globalLiveConfirm: true,
