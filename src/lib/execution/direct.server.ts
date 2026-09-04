@@ -192,6 +192,8 @@ export async function loadDirectTarget(
 
       globalDemoAuto: input.globalDemoAuto,
       globalLiveAuto: input.globalLiveAuto,
+      globalLiveConfirm: input.globalLiveConfirm === true,
+      ownerConfirmed: input.ownerConfirmed === true,
     },
   };
 }
@@ -598,6 +600,8 @@ export async function refreshAccountSafety(
     intentConflict: false,
     globalDemoAuto: target.globalDemoAuto,
     globalLiveAuto: target.globalLiveAuto,
+    globalLiveConfirm: target.globalLiveConfirm === true,
+    ownerConfirmed: target.ownerConfirmed === true,
   });
   if (!gate.ok) return { ok: false, detail: gate.detail };
 
