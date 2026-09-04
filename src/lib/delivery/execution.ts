@@ -142,6 +142,12 @@ export const REJECT_COPY: Record<RejectReason, string> = {
     "A high-impact scheduled event for this instrument was inside your news window, so no new order was placed. This is your own news rule, not a forecast about the release.",
   stop_below_broker_stops_level: "The stop is closer than your broker's minimum stop distance.",
   risk_guardrail: "A position-size guardrail blocked the order.",
+  spread_above_your_limit:
+    "The live spread was wider than the maximum spread you allow at entry, so no order was placed.",
+  slippage_above_your_limit:
+    "The price had moved further from the published entry than the slippage you allow, so no order was placed.",
+  total_exposure_limit:
+    "This order would have taken your open and resting P-Trades risk past the total-exposure percentage you set, so it was not placed.",
   quantity_unavailable:
     "No valid position quantity could be established, so no order was sent. A quantity is never invented.",
   exposure_guardrail:
