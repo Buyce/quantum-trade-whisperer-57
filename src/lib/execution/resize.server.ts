@@ -40,8 +40,15 @@ export interface ResizeRequest {
   riskPercent?: number | null;
 }
 
+/** Broker-derived risk carried by the final quantity, for the exposure ledger. */
+export interface ResizeRisk {
+  amount: number | null;
+  currency: string | null;
+  percentOfEquity: number | null;
+}
+
 export type ResizeResult =
-  | { ok: true; quantity: OrderQuantity; equityUsed: number }
+  | { ok: true; quantity: OrderQuantity; equityUsed: number; risk: ResizeRisk }
   | { ok: false; reason: string; detail: string };
 
 /**
@@ -104,6 +111,15 @@ export async function resizeFromBrokerSnapshot(
   return {
     ok: true,
     equityUsed: sizing.profile.accountEquity,
+    // Recorded, not inferred: these come from the same authoritative sizing run
+    // that produced the submitted volume, against broker equity.
+    risk: {
+      amount: Number.isFinite(sizing.riskAmount) ? sizing.riskAmount : null,
+      currency: sizing.currency ?? null,
+      percentOfEquity: Number.isFinite(sizing.riskPercentOfEquity)
+        ? sizing.riskPercentOfEquity
+        : null,
+    },
     quantity: {
       lots: sizing.lots,
       sizingModel: sizing.provenance.authoritativeModel,

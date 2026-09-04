@@ -1476,6 +1476,9 @@ export type Database = {
           reason: string | null
           request_fingerprint: string | null
           requires_confirmation: boolean
+          risk_amount: number | null
+          risk_currency: string | null
+          risk_percent_of_equity: number | null
           sent_at: string | null
           settled_at: string | null
           signal_id: string
@@ -1536,6 +1539,9 @@ export type Database = {
           reason?: string | null
           request_fingerprint?: string | null
           requires_confirmation?: boolean
+          risk_amount?: number | null
+          risk_currency?: string | null
+          risk_percent_of_equity?: number | null
           sent_at?: string | null
           settled_at?: string | null
           signal_id: string
@@ -1596,6 +1602,9 @@ export type Database = {
           reason?: string | null
           request_fingerprint?: string | null
           requires_confirmation?: boolean
+          risk_amount?: number | null
+          risk_currency?: string | null
+          risk_percent_of_equity?: number | null
           sent_at?: string | null
           settled_at?: string | null
           signal_id?: string

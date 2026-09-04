@@ -27,6 +27,14 @@ import {
   type RejectReason,
 } from "./execution";
 import { evaluateExposure, type ExposureVerdict } from "./exposure";
+import {
+  exposurePercentWithinCeiling,
+  pipSizeFromSpec,
+  readCeilingSettings,
+  slippageWithinUserCeiling,
+  spreadWithinUserCeiling,
+  type ExposureAccumulation,
+} from "./user-ceilings";
 import { inspectUrlSyntax, validateOutboundUrl } from "./outbound-url.server";
 import {
   buildCapFrame,
@@ -189,6 +197,39 @@ interface ControlsRow {
   live_auto_enabled?: boolean | null;
 }
 
+/**
+ * Risk already committed at one broker account by P-Trades orders that are
+ * claimed, sent or acknowledged and not yet settled.
+ *
+ * Rows written before the risk figure was recorded return as UNKNOWN, so the
+ * caller can say "at least this much" instead of implying a complete total. An
+ * unreadable query is reported as fully unknown, never as zero exposure.
+ */
+async function accountCommittedRisk(
+  db: Db,
+  accountId: string,
+  excludeDeliveryId: number,
+): Promise<ExposureAccumulation> {
+  const { data, error } = await db
+    .from("execution_deliveries")
+    .select("id, risk_percent_of_equity")
+    .eq("connected_account_id", accountId)
+    .in("state", ["claimed", "sent", "acknowledged"])
+    .is("settled_at", null)
+    .limit(500);
+  if (error || !data) return { knownPercent: 0, unknownOrders: 1 };
+  let knownPercent = 0;
+  let unknownOrders = 0;
+  for (const row of data as { id: number; risk_percent_of_equity: number | string | null }[]) {
+    if (row.id === excludeDeliveryId) continue;
+    const value = row.risk_percent_of_equity;
+    const numeric = typeof value === "number" ? value : value === null ? NaN : Number(value);
+    if (Number.isFinite(numeric) && numeric >= 0) knownPercent += numeric;
+    else unknownOrders += 1;
+  }
+  return { knownPercent, unknownOrders };
+}
+
 interface SettingsRow {
   instruments: string[] | null;
   sessions: string[] | null;
@@ -215,6 +256,10 @@ interface SettingsRow {
   news_block_new_entries?: boolean | null;
   news_suppression_minutes_before?: number | null;
   news_suppression_minutes_after?: number | null;
+  /** Owner ceilings on spread, slippage and total committed risk. */
+  max_entry_spread_pips?: number | null;
+  max_entry_slippage_pips?: number | null;
+  max_total_exposure_percent?: number | null;
 }
 
 export async function revalidateDelivery(
@@ -254,7 +299,7 @@ export async function revalidateDelivery(
   const { data: settingsRow } = await db
     .from("scanner_settings")
     .select(
-      "instruments, sessions, alert_min_grade, daily_setup_cap, execution_enabled, execution_dry_run, execution_config_version, exposure_limit_enabled, webhook_enabled, webhook_url, webhook_secret, webhook_format, webhook_validated_at, auto_order_window_minutes, auto_market_entry_enabled, live_execution_confirmed_at, live_execution_confirmed_version, live_execution_confirmed_global_live, news_block_new_entries, news_suppression_minutes_before, news_suppression_minutes_after",
+      "instruments, sessions, alert_min_grade, daily_setup_cap, execution_enabled, execution_dry_run, execution_config_version, exposure_limit_enabled, webhook_enabled, webhook_url, webhook_secret, webhook_format, webhook_validated_at, auto_order_window_minutes, auto_market_entry_enabled, live_execution_confirmed_at, live_execution_confirmed_version, live_execution_confirmed_global_live, news_block_new_entries, news_suppression_minutes_before, news_suppression_minutes_after, max_entry_spread_pips, max_entry_slippage_pips, max_total_exposure_percent",
     )
     .eq("user_id", delivery.user_id)
     .maybeSingle();
@@ -681,6 +726,28 @@ export async function revalidateDelivery(
   ) {
     return reject("spread_too_wide", "measured against the submitted broker-grid geometry");
   }
+
+  // ---- 6a-ter. The OWNER's own spread and slippage ceilings -----------------
+  // These are the trader's limits in pips, asked in addition to the engine rule
+  // above. A configured ceiling that cannot be measured — no broker point size —
+  // refuses rather than passing silently: an unmeasurable limit is not a met one.
+  const ceilings = readCeilingSettings(settings);
+  const pipSize = pipSizeFromSpec(spec);
+  const spreadCeiling = spreadWithinUserCeiling(
+    ceilings.maxEntrySpreadPips,
+    pipSize,
+    quote.bid,
+    quote.ask,
+  );
+  if (!spreadCeiling.ok) return reject("spread_above_your_limit", spreadCeiling.detail);
+  const slippageCeiling = slippageWithinUserCeiling(
+    ceilings.maxEntrySlippagePips,
+    pipSize,
+    plan.entryPrice,
+    entryMode === "market" ? marketPrice : execPlan.entryPrice,
+  );
+  if (!slippageCeiling.ok) return reject("slippage_above_your_limit", slippageCeiling.detail);
+
   // The pending-limit side is re-asked on the snapped entry, now WITH the
   // broker's own minimum order distance. A direct broker destination whose
   // minimum distance cannot be read is refused rather than sent a price we cannot
@@ -774,6 +841,29 @@ export async function revalidateDelivery(
     specSource: sizing.provenance.specSource,
     specAsOf: sizing.provenance.specAsOf,
   };
+
+  // ---- 6b-bis. Total committed risk against the owner's percent ceiling -----
+  // Broker-derived where it can be: the incoming order's risk comes from the
+  // authoritative sizing run against broker equity, and what is already
+  // committed is summed from P-Trades orders that are open or resting at this
+  // account. Orders whose risk was never recorded are COUNTED AS UNKNOWN and
+  // reported, never treated as zero.
+  if (directTarget && ceilings.maxTotalExposurePercent > 0) {
+    const accumulated = await accountCommittedRisk(db, directTarget.accountId, delivery.id);
+    const verdict = exposurePercentWithinCeiling(
+      ceilings.maxTotalExposurePercent,
+      ceilings.exposureCeilingEnforced,
+      accumulated,
+      Number.isFinite(sizing.riskPercentOfEquity) ? sizing.riskPercentOfEquity : null,
+    );
+    if (!verdict.ok) return reject("total_exposure_limit", verdict.detail);
+    if (verdict.detail) {
+      console.warn("[revalidate] total exposure ceiling exceeded (advisory, not blocking)", {
+        deliveryId: delivery.id,
+        detail: verdict.detail,
+      });
+    }
+  }
 
   // ---- 6c. Journal-derived exposure: advisory unless opted in --------------
   let exposure: ExposureVerdict | null = null;

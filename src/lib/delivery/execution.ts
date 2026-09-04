@@ -106,6 +106,9 @@ export type RejectReason =
   | "instrument_not_approved"
   | "market_entry_not_enabled"
   | "no_execution_grid"
+  | "spread_above_your_limit"
+  | "slippage_above_your_limit"
+  | "total_exposure_limit"
   | "news_blackout";
 
 export const REJECT_COPY: Record<RejectReason, string> = {
@@ -139,6 +142,12 @@ export const REJECT_COPY: Record<RejectReason, string> = {
     "A high-impact scheduled event for this instrument was inside your news window, so no new order was placed. This is your own news rule, not a forecast about the release.",
   stop_below_broker_stops_level: "The stop is closer than your broker's minimum stop distance.",
   risk_guardrail: "A position-size guardrail blocked the order.",
+  spread_above_your_limit:
+    "The live spread was wider than the maximum spread you allow at entry, so no order was placed.",
+  slippage_above_your_limit:
+    "The price had moved further from the published entry than the slippage you allow, so no order was placed.",
+  total_exposure_limit:
+    "This order would have taken your open and resting P-Trades risk past the total-exposure percentage you set, so it was not placed.",
   quantity_unavailable:
     "No valid position quantity could be established, so no order was sent. A quantity is never invented.",
   exposure_guardrail:
@@ -188,6 +197,12 @@ export const RETRYABLE_REJECT_REASONS: readonly RejectReason[] = [
   "price_beyond_max_acceptable_entry",
   "account_refresh_unavailable",
   "market_closed",
+  // Owner ceilings that describe the CURRENT market or the CURRENT book: a wide
+  // spread narrows, price comes back, an earlier order closes. Each is re-asked
+  // only while the owner's automatic-order window is still open.
+  "spread_above_your_limit",
+  "slippage_above_your_limit",
+  "total_exposure_limit",
   // A news window is a moment: once the event window passes, the same setup may
   // be re-asked while the owner's automatic-order window is still open.
   "news_blackout",
