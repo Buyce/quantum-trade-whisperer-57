@@ -20,30 +20,8 @@ const PAGE_SIZE = 25;
 
 const utc = utcMinute;
 
-function replayOutcome(row: CandidateLineageRow): string {
-  if (row.research_window_status === "outside_replay_window") {
-    return "outside replay window — history no longer available";
-  }
-  if (!row.shadow_status) return "not enrolled yet";
-  if (row.shadow_outcome) {
-    const r = row.shadow_realized_r;
-    return `${row.shadow_outcome}${r === null ? "" : ` · ${r.toFixed(2)}R (replay)`}`;
-  }
-  return `${row.shadow_status} — still replaying`;
-}
 
-function brokerCell(row: CandidateLineageRow): string {
-  if (!row.published_signal_id) return "never sent — no broker order";
-  if (!row.enqueue_decision) return "published, no auto-order attempt";
-  if (!row.broker_state)
-    return `auto-order ${row.enqueue_decision}${row.enqueue_reason ? `: ${row.enqueue_reason}` : ""}`;
-  const money =
-    row.broker_net_profit === null
-      ? ""
-      : ` · ${row.broker_net_profit.toFixed(2)} ${row.broker_currency ?? ""}`.trimEnd();
-  const r = row.broker_r_vs_plan === null ? "" : ` · ${row.broker_r_vs_plan.toFixed(2)}R vs plan`;
-  return `broker ${row.broker_state}${money}${r}`;
-}
+
 
 export function CandidateLineagePanel() {
   const [offset, setOffset] = useState(0);
