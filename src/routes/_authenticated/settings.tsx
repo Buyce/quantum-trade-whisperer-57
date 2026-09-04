@@ -276,7 +276,6 @@ function SettingsPage() {
     setMaxSpreadPips(String(Number(s.max_entry_spread_pips ?? 0)));
     setMaxSlippagePips(String(Number(s.max_entry_slippage_pips ?? 0)));
     setMaxTotalExposurePercent(String(Number(s.max_total_exposure_percent ?? 0)));
-
   }, [settings.data]);
 
   function toggle(list: string[], value: string, set: (v: string[]) => void) {
@@ -316,7 +315,6 @@ function SettingsPage() {
     const spreadCeilingValue = clamp(num(maxSpreadPips, 0), 0, 10000);
     const slippageCeilingValue = clamp(num(maxSlippagePips, 0), 0, 10000);
     const exposureCeilingValue = clamp(num(maxTotalExposurePercent, 0), 0, 100);
-
 
     setSaving(true);
     try {
@@ -1036,9 +1034,9 @@ function SettingsPage() {
               <h2 className="label-xs">Order ceilings at submission</h2>
               <p className="mt-1 text-xs text-muted-foreground">
                 Checked immediately before an automatic order is sent to your broker, using your
-                broker&apos;s own quote and specification. 0 turns a ceiling off. If a ceiling is set
-                but the broker figure needed to measure it is missing, the order is refused rather
-                than sent — an unmeasurable limit is not a met one.
+                broker&apos;s own quote and specification. 0 turns a ceiling off. If a ceiling is
+                set but the broker figure needed to measure it is missing, the order is refused
+                rather than sent — an unmeasurable limit is not a met one.
               </p>
             </div>
             <div className="grid gap-4 sm:grid-cols-3">
@@ -1100,13 +1098,12 @@ function SettingsPage() {
                 <p className="mt-1 text-xs text-muted-foreground">
                   Open plus resting P-Trades risk at one broker account, against broker equity.
                   Advisory unless you switch on the exposure limit under Automatic trading; then it
-                  refuses with &ldquo;total exposure limit&rdquo;. Older orders with no recorded risk
-                  figure are reported as unknown, never counted as zero.
+                  refuses with &ldquo;total exposure limit&rdquo;. Older orders with no recorded
+                  risk figure are reported as unknown, never counted as zero.
                 </p>
               </div>
             </div>
           </section>
-
 
           <RiskPreview
             equity={equity}

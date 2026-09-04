@@ -157,9 +157,9 @@ function EmergencyStopPanel({
         <ShieldAlert className="size-4" /> Emergency stop
       </p>
       <p className="mt-1 text-muted-foreground">
-        Returns every connected account to observe and cancels every automatic order still waiting in
-        the P-Trades queue. Orders your broker already holds are not cancelled by this — P-Trades will
-        tell you how many there are so you can close them in your platform.
+        Returns every connected account to observe and cancels every automatic order still waiting
+        in the P-Trades queue. Orders your broker already holds are not cancelled by this — P-Trades
+        will tell you how many there are so you can close them in your platform.
       </p>
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <Button
@@ -207,8 +207,8 @@ function EmergencyStopPanel({
             <AlertDialogDescription>
               Every connected account returns to observe mode and every queued or awaiting-
               confirmation order is cancelled. Orders already sent to your broker are not affected —
-              close those in your trading platform. Arming again afterwards is a separate, deliberate
-              step per account.
+              close those in your trading platform. Arming again afterwards is a separate,
+              deliberate step per account.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <Input
@@ -232,7 +232,6 @@ function EmergencyStopPanel({
     </div>
   );
 }
-
 
 function Money({ value, currency }: { value: number | null; currency: string | null }) {
   if (value === null) return <span className="text-muted-foreground">unavailable</span>;
@@ -296,7 +295,6 @@ function AccountsPage() {
         </div>
 
         {list.length > 0 ? <EmergencyStopPanel accounts={list} onChanged={invalidate} /> : null}
-
 
         {accounts.isLoading ? (
           <p className="text-sm text-muted-foreground">Loading your connections…</p>
