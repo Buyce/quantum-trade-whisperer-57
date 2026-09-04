@@ -160,6 +160,9 @@ function AccountsPage() {
           </p>
         </div>
 
+        {list.length > 0 ? <EmergencyStopPanel accounts={list} onChanged={invalidate} /> : null}
+
+
         {accounts.isLoading ? (
           <p className="text-sm text-muted-foreground">Loading your connections…</p>
         ) : list.length === 0 ? (
