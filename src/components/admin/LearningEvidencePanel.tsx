@@ -32,6 +32,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
+  EMPTY_GATE_READINESS,
   missingFloors,
   VERDICT_LABELS,
   type GateReadiness,
@@ -182,10 +183,12 @@ function ReadinessSection({
   readiness,
   autoBusy,
   onToggleAuto,
+  readError,
 }: {
   readiness: GateReadiness;
   autoBusy: boolean;
   onToggleAuto: (enabled: boolean) => void;
+  readError?: string | null;
 }) {
   const rows: GateReadinessRow[] = readiness.gates;
   return (
@@ -217,7 +220,9 @@ function ReadinessSection({
         </Button>
       </div>
       <div className="space-y-2">
-        {rows.length === 0 ? (
+        {readError ? (
+          <p className="text-xs text-destructive">Could not load readiness: {readError}</p>
+        ) : rows.length === 0 ? (
           <p className="text-xs text-muted-foreground">
             No filter-lift rows yet — readiness appears after the next hourly recompute.
           </p>
@@ -348,6 +353,18 @@ export function LearningEvidencePanel() {
         </p>
       </CardHeader>
       <CardContent className="space-y-6">
+        <ReadinessSection
+          readiness={readinessQuery.data ?? EMPTY_GATE_READINESS}
+          autoBusy={autoApplyMutation.isPending}
+          onToggleAuto={(enabled) => autoApplyMutation.mutate(enabled)}
+          readError={
+            readinessQuery.error
+              ? readinessQuery.error instanceof Error
+                ? readinessQuery.error.message
+                : "unknown error"
+              : null
+          }
+        />
         {isLoading ? (
           <Skeleton className="h-24 w-full" />
         ) : error ? (
@@ -357,13 +374,6 @@ export function LearningEvidencePanel() {
           </p>
         ) : !data ? null : (
           <>
-            {readinessQuery.data && (
-              <ReadinessSection
-                readiness={readinessQuery.data}
-                autoBusy={autoApplyMutation.isPending}
-                onToggleAuto={(enabled) => autoApplyMutation.mutate(enabled)}
-              />
-            )}
             <div>
               <h4 className="mb-2 text-sm font-medium">Active threshold overrides</h4>
               {data.overrides.length === 0 ? (
