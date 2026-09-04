@@ -513,14 +513,32 @@ async function runDirectEnqueue(
 
   const { data: controlRows, error: controlError } = await db
     .from("execution_controls")
-    .select("demo_auto_enabled, live_auto_enabled")
+    .select(
+      "demo_auto_enabled, live_auto_enabled, live_execution_enabled, live_confirm_enabled, customer_live_confirm_enabled",
+    )
     .limit(1);
   if (controlError) return await empty("execution_controls_unreadable", controlError.message);
   const controls = (controlRows ?? [])[0] as
-    { demo_auto_enabled: boolean | null; live_auto_enabled: boolean | null } | undefined;
+    | {
+        demo_auto_enabled: boolean | null;
+        live_auto_enabled: boolean | null;
+        live_execution_enabled: boolean | null;
+        live_confirm_enabled: boolean | null;
+        customer_live_confirm_enabled: boolean | null;
+      }
+    | undefined;
   const demoAuto = controls?.demo_auto_enabled === true;
   const liveAuto = controls?.live_auto_enabled === true;
-  if (!demoAuto && !liveAuto) return await empty("automatic_execution_disabled");
+  // Per-order live confirmation needs the operator capability AND the
+  // customer-facing switch AND live execution itself. Any one off means no
+  // confirmation request is ever created.
+  const liveConfirm =
+    controls?.live_execution_enabled === true &&
+    controls?.live_confirm_enabled === true &&
+    controls?.customer_live_confirm_enabled === true;
+  if (!demoAuto && !liveAuto && !liveConfirm) {
+    return await empty("automatic_execution_disabled");
+  }
 
   const { data: accountRows, error: accountError } = await db
     .from("connected_trading_accounts")
@@ -530,14 +548,15 @@ async function runDirectEnqueue(
     .eq("intent_conflict", false)
     .eq("trade_allowed", true)
     .in("phase", ["connected", "ready"])
-    .in("mode", ["demo_auto", "live_auto"])
+    .in("mode", ["demo_auto", "live_auto", "live_confirm"])
     .or("investor_mode.is.null,investor_mode.eq.false");
   if (accountError) return await empty("accounts_unreadable", accountError.message);
 
   const armed = ((accountRows ?? []) as AccountRow[]).filter(
     (a) =>
       (a.mode === "demo_auto" && a.broker_account_type === "demo" && demoAuto) ||
-      (a.mode === "live_auto" && a.broker_account_type === "real" && liveAuto),
+      (a.mode === "live_auto" && a.broker_account_type === "real" && liveAuto) ||
+      (a.mode === "live_confirm" && a.broker_account_type === "real" && liveConfirm),
   );
   if (armed.length === 0) return await empty("no_armed_account");
 
@@ -982,6 +1001,15 @@ async function runDirectEnqueue(
     createdToday.set(account.user_id, usedToday + 1);
     createdTodayPerSymbol.set(symbolKey, usedTodayThisSymbol + 1);
 
+    // `live_confirm` never queues a submittable order. It queues a REQUEST that
+    // waits for the owner, and it expires with the owner's own order window, so a
+    // confirmation can never be given for a setup that is no longer entryable.
+    const needsConfirmation = account.mode === "live_confirm";
+    const confirmationExpiresAt = needsConfirmation
+      ? new Date(new Date(signal.detectedAt ?? nowMs).getTime() + windowMinutes * 60_000)
+          .toISOString()
+      : null;
+
     rows.push({
       user_id: account.user_id,
       signal_id: signal.id,
@@ -991,13 +1019,24 @@ async function runDirectEnqueue(
       account_mode: account.mode,
       dry_run: false,
       execution_config_version: row.execution_config_version,
+      ...(needsConfirmation
+        ? {
+            state: "awaiting_confirmation",
+            requires_confirmation: true,
+            confirmation_expires_at: confirmationExpiresAt,
+          }
+        : {}),
     });
     decisions.push({
       user_id: account.user_id,
       signal_id: signal.id,
       instrument: signal.instrument,
       grade: signal.grade,
-      decision: signal.grade === "C" ? "c_grade_allowed_by_user_setting" : "enqueued",
+      decision: needsConfirmation
+        ? "awaiting_your_confirmation"
+        : signal.grade === "C"
+          ? "c_grade_allowed_by_user_setting"
+          : "enqueued",
       detail: account.mode,
       enqueued: 1,
       filtered: 0,
