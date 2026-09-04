@@ -801,6 +801,29 @@ export async function revalidateDelivery(
     specAsOf: sizing.provenance.specAsOf,
   };
 
+  // ---- 6b-bis. Total committed risk against the owner's percent ceiling -----
+  // Broker-derived where it can be: the incoming order's risk comes from the
+  // authoritative sizing run against broker equity, and what is already
+  // committed is summed from P-Trades orders that are open or resting at this
+  // account. Orders whose risk was never recorded are COUNTED AS UNKNOWN and
+  // reported, never treated as zero.
+  if (directTarget && ceilings.maxTotalExposurePercent > 0) {
+    const accumulated = await accountCommittedRisk(db, directTarget.accountId, delivery.id);
+    const verdict = exposurePercentWithinCeiling(
+      ceilings.maxTotalExposurePercent,
+      ceilings.exposureCeilingEnforced,
+      accumulated,
+      Number.isFinite(sizing.riskPercentOfEquity) ? sizing.riskPercentOfEquity : null,
+    );
+    if (!verdict.ok) return reject("total_exposure_limit", verdict.detail);
+    if (verdict.detail) {
+      console.warn("[revalidate] total exposure ceiling exceeded (advisory, not blocking)", {
+        deliveryId: delivery.id,
+        detail: verdict.detail,
+      });
+    }
+  }
+
   // ---- 6c. Journal-derived exposure: advisory unless opted in --------------
   let exposure: ExposureVerdict | null = null;
   if (sizing.advisory) {
