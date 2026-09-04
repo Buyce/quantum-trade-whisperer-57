@@ -69,8 +69,15 @@ export const refreshBrokerConnection = createServerFn({ method: "POST" })
     const { reconcileConnection } = await import("@/lib/accounts/provision.server");
     const { toAccountView } = await import("@/lib/accounts/read.server");
     const row = await reconcileConnection(context.userId, data.accountId);
+    // A connection that just came back READY may have missed orders while it was
+    // unavailable. Same bounded gate stack, never a new rule set.
+    if ((row as { mode?: string }).mode !== "observe") {
+      const { reconcileAfterEvent } = await import("@/lib/delivery/reconcile-trigger.server");
+      await reconcileAfterEvent("account_reconciled");
+    }
     return await toAccountView(context.supabase, row);
   });
+
 
 export const disconnectBrokerConnection = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
