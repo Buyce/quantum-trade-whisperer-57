@@ -106,6 +106,9 @@ export type RejectReason =
   | "instrument_not_approved"
   | "market_entry_not_enabled"
   | "no_execution_grid"
+  | "spread_above_your_limit"
+  | "slippage_above_your_limit"
+  | "total_exposure_limit"
   | "news_blackout";
 
 export const REJECT_COPY: Record<RejectReason, string> = {
