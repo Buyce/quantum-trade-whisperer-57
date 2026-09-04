@@ -252,7 +252,7 @@ export async function submitDirectOrder(
       return { state: "rejected", reason: resized.detail, brokerOrderId: null };
     }
     finalQuantity = resized.quantity;
-    finalRisk = resized.risk;
+    if (resized.risk) finalRisk = resized.risk;
   } else {
     // No resizer: the quantity was authorized from an EARLIER equity figure, so
     // it may only be submitted while that figure still describes the account.
