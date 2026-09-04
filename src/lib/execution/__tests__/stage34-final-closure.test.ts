@@ -249,6 +249,7 @@ const healthy: ModeContext = {
   investorMode: false,
   hasBrokerConnection: true,
   hasMagic: true,
+  emergencyStopped: false,
 };
 
 describe("Demo Auto through reconciliation", () => {
