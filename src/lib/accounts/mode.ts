@@ -61,6 +61,12 @@ export function canArm(ctx: ModeContext, mode: AccountMode): ModeVerdict {
   if (!ctx.ready) {
     return { ok: false, detail: "your broker has not confirmed this account yet" };
   }
+  if (ctx.emergencyStopped) {
+    return {
+      ok: false,
+      detail: "this account is emergency-stopped; disable the stop before arming it",
+    };
+  }
   if (ctx.intentConflict) {
     return {
       ok: false,
