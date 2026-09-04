@@ -10,6 +10,7 @@ const ready = {
   investorMode: false,
   hasBrokerConnection: true,
   hasMagic: true,
+  emergencyStopped: false,
 };
 
 describe("connected account arming rules", () => {
