@@ -145,6 +145,11 @@ function SettingsPage() {
   const [maxLots, setMaxLots] = useState("0");
   const [leverage, setLeverage] = useState("100");
   const [maxStopPercent, setMaxStopPercent] = useState("0");
+  // Owner ceilings enforced before an automatic order is submitted. 0 = off.
+  const [maxSpreadPips, setMaxSpreadPips] = useState("0");
+  const [maxSlippagePips, setMaxSlippagePips] = useState("0");
+  const [maxTotalExposurePercent, setMaxTotalExposurePercent] = useState("0");
+
   const [saving, setSaving] = useState(false);
   const triggerScan = useServerFn(runScanNow);
   const [scanning, setScanning] = useState(false);
@@ -268,6 +273,10 @@ function SettingsPage() {
     setMaxLots(String(Number(s.max_position_size ?? 0)));
     setLeverage(String(Number(s.leverage ?? 100)));
     setMaxStopPercent(String(Number(s.max_stop_loss_percent ?? 0)));
+    setMaxSpreadPips(String(Number(s.max_entry_spread_pips ?? 0)));
+    setMaxSlippagePips(String(Number(s.max_entry_slippage_pips ?? 0)));
+    setMaxTotalExposurePercent(String(Number(s.max_total_exposure_percent ?? 0)));
+
   }, [settings.data]);
 
   function toggle(list: string[], value: string, set: (v: string[]) => void) {

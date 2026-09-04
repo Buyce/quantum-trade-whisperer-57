@@ -1373,6 +1373,8 @@ export type Database = {
         Row: {
           allowed_live_hosts: string[]
           benchmark_auto_enabled: boolean
+          customer_live_auto_enabled: boolean
+          customer_live_confirm_enabled: boolean
           demo_auto_enabled: boolean
           disabled_bridges: string[]
           disabled_instruments: string[]
@@ -1386,12 +1388,15 @@ export type Database = {
           live_auto_enabled: boolean
           live_confirm_enabled: boolean
           live_execution_enabled: boolean
+          live_kill_switch_reason: string | null
           note: string | null
           updated_at: string
         }
         Insert: {
           allowed_live_hosts?: string[]
           benchmark_auto_enabled?: boolean
+          customer_live_auto_enabled?: boolean
+          customer_live_confirm_enabled?: boolean
           demo_auto_enabled?: boolean
           disabled_bridges?: string[]
           disabled_instruments?: string[]
@@ -1405,12 +1410,15 @@ export type Database = {
           live_auto_enabled?: boolean
           live_confirm_enabled?: boolean
           live_execution_enabled?: boolean
+          live_kill_switch_reason?: string | null
           note?: string | null
           updated_at?: string
         }
         Update: {
           allowed_live_hosts?: string[]
           benchmark_auto_enabled?: boolean
+          customer_live_auto_enabled?: boolean
+          customer_live_confirm_enabled?: boolean
           demo_auto_enabled?: boolean
           disabled_bridges?: string[]
           disabled_instruments?: string[]
@@ -1424,6 +1432,7 @@ export type Database = {
           live_auto_enabled?: boolean
           live_confirm_enabled?: boolean
           live_execution_enabled?: boolean
+          live_kill_switch_reason?: string | null
           note?: string | null
           updated_at?: string
         }
