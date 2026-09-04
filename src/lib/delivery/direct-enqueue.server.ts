@@ -31,6 +31,8 @@ import {
   clampPerSymbolOrderCeiling,
   type Grade,
 } from "@/lib/db-types";
+import { evaluateNewsGate, type NewsGateResult } from "@/lib/news/gate.server";
+
 import { assessFreshness, describeCeilings, effectiveCeilings } from "./adaptive-ceilings";
 import {
   describeDuplicateOrder,
