@@ -1,41 +1,48 @@
-# ML Model Readiness Audit — P-Trades Hub
+# Learning readiness: alerts, auto-proposals, auto-apply
 
-## Verdict (from live data, audited 2026-09-04)
+## Answering your questions first
 
-**No ML model exists, and the data is not ready to train one.** The infrastructure for evidence collection is in place, but every readiness gate we engineered is currently failed. Training now would fit noise.
+**What is a learning proposal?** It is a record saying "the evidence now supports changing one numeric gate from X to Y", with the supporting statistics frozen into it. Today only three gates are tunable: risk ceiling, headroom, reachable R. A proposal stores the current value, the proposed value, the frozen pass/fail statistics, and a verdict (`gate_supported` = keep/tighten, `loosening_supported` = the gate is filtering out profit).
 
-## Readiness criteria vs. actual state
+**Does the system propose one automatically today?** No. Today a proposal can only be created by you, through the panel form, and the database refuses it unless both arms are already decidable (30+ matured samples each, non-overlapping 95% intervals). So the evidence bar is automatic; the act of proposing is manual. This plan makes the proposing automatic too.
 
-| Gate | Required | Actual (live DB) | Status |
-|---|---|---|---|
-| Trained model exists | calibrated fitted predictor | none — fixed truth-table grading + manual overrides only | ABSENT |
-| Matured labelled samples (production) | ≥200 per arm per slice | A: 3, B: 167, C: 131 (total ~301 over 17 trading days) | FAIL — A arm nearly empty |
-| Research-cohort matured outcomes | ≥200 matured | 568 enrolled shadow rows, **0 matured** (390 unresolved, 178 outside replay window) | FAIL |
-| ML target labels | labelled training rows | production: 165 positive / 901 negative; research: 568 unlabelled | PARTIAL — research arm contributes nothing yet |
-| Time span | ≥20 trading days | 17 trading days (2026-08-11 → 2026-09-03) | FAIL — close |
-| Feature/decision log | present | 7,211 model_observations (2,175 candidate / 5,036 no_trade) since 2026-08-21, with instrument, grade, direction, family, provenance | PASS |
-| Payoff/regime statistics | computed | 252 payoff snapshots, 14 payoff_stats rows | PASS (infrastructure) |
-| Governance rails | present | proposals=0, overrides=0, 3 model versions | READY — unused, as designed |
-| Filter-lift evidence | non-overlapping 95% CIs, ≥30 mature/arm | 0 rows in filter_lift_stats (recompute has produced no qualifying rows) | FAIL — arms too immature |
+**Is the model ready now?** No. Audited live: 0 matured research-cohort outcomes (390 still resolving, 178 outside the replay window), production matured samples A: 3 / B: 167 / C: 131 across 17 trading days, and `filter_lift_stats` currently holds no qualifying rows. Nothing can be proposed or trained yet.
 
-## Why the research arm has zero matured outcomes
+## What gets built
 
-- 178 of 568 enrolled rows are `outside_replay_window` (detected before the stored-candle horizon; labelled, never synthesised — correct behavior).
-- 390 are unresolved: enrolment began 2026-09-03; replays need the 24h terminal horizon plus candle coverage to resolve. This fixes itself with time, not code.
+### 1. Readiness email to the Admin
+Reuse the existing once-only milestone latch (same mechanism as the fill/win milestone emails, so it can never send twice).
 
-## What this means
+- New milestone gate: `model_readiness`.
+- Fires the first time the evidence crosses the training bar: every tunable gate arm has >= 200 matured samples, >= 20 distinct trading days of coverage, and at least one gate is decidable.
+- Email states which gates are decidable, sample counts per arm, trading days covered, and the verdict per gate. No numbers are rounded up and no gate is claimed decidable unless the database says so.
+- Evaluated at the tail of the hourly recompute, guarded so an email failure can never fail the recompute (existing pattern: claim, send, release on failure).
 
-1. The scanner learns nothing automatically today — by design. "Learning" = measurement (grade calibration, filter lift, learning evidence panels).
-2. Earliest defensible readiness: research-cohort rows maturing over the next days + production accruing to ≥200 mature/arm and ≥20 trading days. On current fill rates (~35% of shadow rows fill and resolve), that is roughly 1–3 weeks away for B/C arms; the A arm is too rare to estimate.
-3. No code fix is required. The bottleneck is sample maturity, not engineering.
+### 2. Automatic proposals
+- The hourly recompute, after `recompute_filter_lift`, asks each tunable gate whether it is decidable and has a readable verdict.
+- When it does and no open proposal exists for that gate, the system inserts a proposal with `proposed_by = 'system'` and a machine-written reason naming the evidence.
+- Proposed value is derived from the evidence, not invented: for `loosening_supported`, one conservative step toward the FAIL arm; for `gate_supported`, one conservative step tightening. Step sizes are fixed constants in code, capped so a single proposal can never move a gate more than a defined fraction of its current value.
+- The existing "one open proposal per gate" rule is kept, so the system cannot spam proposals.
+- A second email notifies you when the system opens a proposal.
 
-## Proposed actions (optional, measurement-only)
+### 3. Automatic application of an override
+You asked for this to be automatic once requirements are met. Doing it unconditionally would let statistics move live signal delivery with no human in the loop, so it ships as an owner-controlled switch that is **off** until you turn it on:
 
-1. **Readiness panel** — add a small "Model readiness" section to Admin Intelligence showing the gate table above computed live (matured counts per arm/slice, trading days, filter-lift status), so readiness is visible without SQL.
-2. **Maturity tracker** — weekly check of research-cohort resolution rate and outside-window share; alert if unresolved share stays high after 7 days (would indicate a replay-pipeline issue, not a data issue).
-3. **No model training, no threshold changes** until all gates pass; keep current replay/broker separation unchanged.
+- New control: `auto_apply_gate_changes` (owner-only, audited like the other execution controls).
+- With it off (default), behaviour is exactly as today: system proposes, you approve.
+- With it on, a system proposal auto-approves only when ALL hold: both arms >= 200 matured samples, >= 20 trading days, non-overlapping 95% intervals, cluster count >= 10 instrument-days per arm, and no auto-apply for the same gate within the previous 7 days.
+- Every auto-apply writes the same audit trail as a manual approval (`execution_control_changes`, `applied_at`, actor `system:auto_apply`) and emails you.
+- Auto-revert guard: if the post-change cohort for an auto-applied gate reaches 100 matured samples with a mean R below the pre-change arm, the override is reverted automatically and you are emailed.
 
-## Explicitly out of scope
+## Not doing
 
-- No trained model, no automatic threshold adaptation, no grade changes.
-- No use of broker P/L for rejected candidates (impossible — never sent; replay-only by design).
+- No new measurement panel. The existing Learning Evidence panel gains only a readiness line and a "system" badge on auto-created proposals.
+- No trained ML model in this plan — the data does not support one yet. This plan builds the alerting and the automatic threshold loop; model training stays a separate future stage.
+
+## Technical notes
+
+- `propose_gate_change` currently hard-requires `is_admin()`. Add a service-role-only internal path (or a separate `propose_gate_change_system` function) so the cron can insert; the admin path is unchanged and the decidability checks are shared, not duplicated.
+- `decide_gate_change` gains an internal auto-approve caller subject to the stricter gate above; the owner-facing signature and behaviour are untouched.
+- Readiness computation lives in a pure module with tests (sample counts, trading days, decidability) so the thresholds are verifiable without hitting the database.
+- New email templates registered in `src/lib/email-templates/registry.ts`; milestone latch extended to the new gates.
+- Roadmap gets entries for the readiness email, auto-proposal, and auto-apply switch.
