@@ -62,7 +62,7 @@ const CPI_NOW = {
 };
 
 describe("news gate", () => {
-  it("refuses a new order inside a high-impact window when the owner opted in", async () => {
+  it("[UNIT] refuses a new order inside a high-impact window when the owner opted in", async () => {
     const db = fakeDb({ coverage: HEALTHY_USD, events: [CPI_NOW] });
     const result = await evaluateNewsGate(db as never, {
       symbol: "XAUUSD",
@@ -75,7 +75,7 @@ describe("news gate", () => {
     expect(db.inserted["news_policy_evaluations"]?.[0]?.["decision"]).toBe("suppressed");
   });
 
-  it("records but does not enforce when the owner switched news blocking off", async () => {
+  it("[UNIT] records but does not enforce when the owner switched news blocking off", async () => {
     const db = fakeDb({ coverage: HEALTHY_USD, events: [CPI_NOW] });
     const result = await evaluateNewsGate(db as never, {
       symbol: "XAUUSD",
@@ -101,7 +101,7 @@ describe("news gate", () => {
     expect(result.detail).toContain("not enforced");
   });
 
-  it("honours the owner's own window width", async () => {
+  it("[UNIT] honours the owner's own window width", async () => {
     const db = fakeDb({ coverage: HEALTHY_USD, events: [CPI_NOW] });
     // 30 minutes before the release is 12:00, so a 15-minute window is clear.
     const result = await evaluateNewsGate(db as never, {

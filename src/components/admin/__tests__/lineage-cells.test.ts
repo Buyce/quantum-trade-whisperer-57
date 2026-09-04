@@ -26,7 +26,7 @@ const base: CandidateLineageRow = {
 };
 
 describe("fixed2", () => {
-  it("formats finite numbers and drops everything else", () => {
+  it("[UNIT] formats finite numbers and drops everything else", () => {
     expect(fixed2(1.234)).toBe("1.23");
     expect(fixed2(0)).toBe("0.00");
     expect(fixed2(null)).toBeNull();
@@ -37,7 +37,7 @@ describe("fixed2", () => {
 });
 
 describe("replayOutcome", () => {
-  it("survives an undefined realized R", () => {
+  it("[UNIT] survives an undefined realized R", () => {
     const row = {
       ...base,
       shadow_status: "resolved",
@@ -47,7 +47,7 @@ describe("replayOutcome", () => {
     expect(replayOutcome(row)).toBe("win");
   });
 
-  it("labels replay R when present", () => {
+  it("[UNIT] labels replay R when present", () => {
     expect(
       replayOutcome({ ...base, shadow_status: "resolved", shadow_outcome: "win", shadow_realized_r: 1.5 }),
     ).toBe("win · 1.50R (replay)");
@@ -55,7 +55,7 @@ describe("replayOutcome", () => {
 });
 
 describe("brokerCell", () => {
-  it("survives undefined broker money and R", () => {
+  it("[UNIT] survives undefined broker money and R", () => {
     const row = {
       ...base,
       published_signal_id: "s1",
@@ -67,7 +67,7 @@ describe("brokerCell", () => {
     expect(brokerCell(row)).toBe("broker closed");
   });
 
-  it("shows money and R vs plan when both are real", () => {
+  it("[UNIT] shows money and R vs plan when both are real", () => {
     expect(
       brokerCell({
         ...base,
@@ -81,7 +81,7 @@ describe("brokerCell", () => {
     ).toBe("broker closed · -12.50 EUR · -1.00R vs plan");
   });
 
-  it("says never sent for a rejected candidate", () => {
+  it("[UNIT] says never sent for a rejected candidate", () => {
     expect(brokerCell(base)).toBe("never sent — no broker order");
   });
 });
