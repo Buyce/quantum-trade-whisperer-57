@@ -10,7 +10,13 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { decideGateChange, getLearningEvidence, proposeGateChange } from "@/lib/learning.functions";
+import {
+  decideGateChange,
+  getGateReadiness,
+  getLearningEvidence,
+  proposeGateChange,
+  setAutoApplyGateChanges,
+} from "@/lib/learning.functions";
 import {
   ci95,
   PROPOSAL_STATUS_LABELS,
@@ -25,6 +31,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  missingFloors,
+  VERDICT_LABELS,
+  type GateReadiness,
+  type GateReadinessRow,
+} from "@/lib/learning/readiness";
 import { Skeleton } from "@/components/ui/skeleton";
 import { utcMinute } from "@/lib/format-utc";
 
@@ -106,6 +118,12 @@ function ProposalRow({
           {TUNABLE_GATE_LABELS[proposal.gate] ?? proposal.gate}:{" "}
           {proposal.current_value ?? "default"} → {proposal.proposed_value}
         </span>
+        <span className="flex items-center gap-1">
+        {proposal.origin === "system" && (
+          <Badge variant="outline">
+            {proposal.auto_applied ? "system · auto-applied" : "system"}
+          </Badge>
+        )}
         <Badge
           variant={
             proposal.status === "approved"
@@ -117,6 +135,7 @@ function ProposalRow({
         >
           {PROPOSAL_STATUS_LABELS[proposal.status]}
         </Badge>
+        </span>
       </div>
       <p className="mt-1 text-muted-foreground">
         Evidence frozen {utcMinute(snap.as_of)} UTC · published {fmtR(snap.pass.mean_r)} (n=
@@ -158,15 +177,106 @@ function ProposalRow({
   );
 }
 
+
+function ReadinessSection({
+  readiness,
+  autoBusy,
+  onToggleAuto,
+}: {
+  readiness: GateReadiness;
+  autoBusy: boolean;
+  onToggleAuto: (enabled: boolean) => void;
+}) {
+  const rows: GateReadinessRow[] = readiness.gates;
+  return (
+    <div>
+      <h4 className="mb-2 text-sm font-medium">Model readiness</h4>
+      <p className="mb-2 text-xs text-muted-foreground">
+        The training bar per threshold: {readiness.min_samples_per_arm} matured samples and{" "}
+        {readiness.min_clusters_per_arm} independent clusters on both arms, across{" "}
+        {readiness.min_trading_days} trading days. Currently{" "}
+        <span className="text-foreground">{readiness.trading_days}</span> trading days of
+        replay-derived research outcomes. You are emailed once when the bar is first cleared.
+      </p>
+      <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-border p-3 text-xs">
+        <Badge variant={readiness.auto_apply_enabled ? "default" : "outline"}>
+          automatic application {readiness.auto_apply_enabled ? "ON" : "OFF"}
+        </Badge>
+        <span className="flex-1 text-muted-foreground">
+          {readiness.auto_apply_enabled
+            ? "The system may apply a threshold change that clears the full bar, and undoes it automatically if the follow-up cohort is worse. Every change is audited."
+            : "The system only proposes; nothing changes until you approve it."}
+        </span>
+        <Button
+          size="sm"
+          variant={readiness.auto_apply_enabled ? "destructive" : "default"}
+          disabled={autoBusy}
+          onClick={() => onToggleAuto(!readiness.auto_apply_enabled)}
+        >
+          Turn {readiness.auto_apply_enabled ? "off" : "on"}
+        </Button>
+      </div>
+      <div className="space-y-2">
+        {rows.length === 0 ? (
+          <p className="text-xs text-muted-foreground">
+            No filter-lift rows yet — readiness appears after the next hourly recompute.
+          </p>
+        ) : (
+          rows.map((row) => {
+            const missing = missingFloors(row, readiness);
+            return (
+              <div key={row.gate} className="rounded-lg border border-border p-3 text-xs">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-medium text-foreground">
+                    {TUNABLE_GATE_LABELS[row.gate] ?? row.gate} = {row.current_value}
+                    {row.override_active ? " (override)" : " (default)"}
+                  </span>
+                  <Badge variant={row.training_ready ? "default" : "outline"}>
+                    {row.training_ready ? "ready to train" : "not ready"}
+                  </Badge>
+                </div>
+                <div className="mt-1 grid gap-1 text-muted-foreground sm:grid-cols-2">
+                  <span>
+                    published {fmtR(row.pass_mean_r)} · n={row.pass_n_used ?? 0} ·{" "}
+                    {row.pass_cluster_n ?? 0} clusters
+                  </span>
+                  <span>
+                    rejected {fmtR(row.fail_mean_r)} · n={row.fail_n_used ?? 0} ·{" "}
+                    {row.fail_cluster_n ?? 0} clusters
+                  </span>
+                </div>
+                <p className="mt-1 text-muted-foreground">
+                  {row.verdict
+                    ? `Evidence reads: ${VERDICT_LABELS[row.verdict]}.`
+                    : "Evidence reads no direction yet."}
+                  {missing.length > 0 && ` Still needed: ${missing.join("; ")}.`}
+                </p>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function LearningEvidencePanel() {
   const queryClient = useQueryClient();
   const fetchEvidence = useServerFn(getLearningEvidence);
   const runPropose = useServerFn(proposeGateChange);
   const runDecide = useServerFn(decideGateChange);
+  const fetchReadiness = useServerFn(getGateReadiness);
+  const runSetAutoApply = useServerFn(setAutoApplyGateChanges);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["admin", "learning-evidence"],
     queryFn: () => fetchEvidence(),
+    staleTime: 60_000,
+  });
+
+  const readinessQuery = useQuery({
+    queryKey: ["admin", "gate-readiness"],
+    queryFn: () => fetchReadiness(),
     staleTime: 60_000,
   });
 
@@ -207,6 +317,22 @@ export function LearningEvidencePanel() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Decision failed"),
   });
 
+  const autoApplyMutation = useMutation({
+    mutationFn: (enabled: boolean) => {
+      const why = window.prompt(
+        `Reason for turning automatic application ${enabled ? "on" : "off"} (recorded in the audit log):`,
+      );
+      if (!why || why.trim().length < 3) throw new Error("A reason is required");
+      return runSetAutoApply({ data: { enabled, reason: why.trim() } });
+    },
+    onSuccess: () => {
+      toast.success("Switch recorded and audited");
+      void queryClient.invalidateQueries({ queryKey: ["admin", "gate-readiness"] });
+      invalidate();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Change refused"),
+  });
+
   const slices = data ? slicesByDim(data.rows) : null;
   const busy = proposeMutation.isPending || decideMutation.isPending;
 
@@ -231,6 +357,13 @@ export function LearningEvidencePanel() {
           </p>
         ) : !data ? null : (
           <>
+            {readinessQuery.data && (
+              <ReadinessSection
+                readiness={readinessQuery.data}
+                autoBusy={autoApplyMutation.isPending}
+                onToggleAuto={(enabled) => autoApplyMutation.mutate(enabled)}
+              />
+            )}
             <div>
               <h4 className="mb-2 text-sm font-medium">Active threshold overrides</h4>
               {data.overrides.length === 0 ? (

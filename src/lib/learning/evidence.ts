@@ -47,6 +47,10 @@ export interface GateChangeProposal {
   applied_at: string | null;
   reverted_at: string | null;
   created_at: string;
+  /** Who opened it: the owner, or the hourly automation. */
+  origin?: "operator" | "system";
+  /** True when the automation both opened and applied it without a human. */
+  auto_applied?: boolean;
   stats_snapshot: {
     as_of: string;
     manifest_hash: string;
