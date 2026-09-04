@@ -188,6 +188,8 @@ export async function toAccountView(
     lastError: row.last_error,
     lastReconciledAt: row.last_reconciled_at,
     disconnectedAt: row.disconnected_at,
+    emergencyStopAt: row.emergency_stop_at,
+    emergencyStopReason: row.emergency_stop_reason,
     createdAt: row.created_at,
   };
 }
