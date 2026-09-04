@@ -563,6 +563,8 @@ async function runDirectEnqueue(
 
   const rows: Record<string, unknown>[] = [];
   let filtered = 0;
+  /** One news evaluation per distinct owner news configuration, per publish. */
+  const newsGateCache = new Map<string, NewsGateResult>();
 
   // Per-owner ceiling on concurrent automatic orders. It can only ever REFUSE:
   // reaching it is never a reason to place an order, and an unreadable count is
