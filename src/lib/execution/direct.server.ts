@@ -515,7 +515,13 @@ export type DirectResizer = (snapshot: {
   currency: string | null;
   observedAt: string | null;
 }) => Promise<
-  { ok: true; quantity: OrderQuantity } | { ok: false; reason: string; detail: string }
+  | {
+      ok: true;
+      quantity: OrderQuantity;
+      /** Broker-derived risk behind this volume; null where it is unknown. */
+      risk?: { amount: number | null; currency: string | null; percentOfEquity: number | null };
+    }
+  | { ok: false; reason: string; detail: string }
 >;
 
 /**
