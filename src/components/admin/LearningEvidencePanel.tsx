@@ -353,6 +353,18 @@ export function LearningEvidencePanel() {
         </p>
       </CardHeader>
       <CardContent className="space-y-6">
+        <ReadinessSection
+          readiness={readinessQuery.data ?? EMPTY_GATE_READINESS}
+          autoBusy={autoApplyMutation.isPending}
+          onToggleAuto={(enabled) => autoApplyMutation.mutate(enabled)}
+          readError={
+            readinessQuery.error
+              ? readinessQuery.error instanceof Error
+                ? readinessQuery.error.message
+                : "unknown error"
+              : null
+          }
+        />
         {isLoading ? (
           <Skeleton className="h-24 w-full" />
         ) : error ? (
@@ -362,13 +374,6 @@ export function LearningEvidencePanel() {
           </p>
         ) : !data ? null : (
           <>
-            {readinessQuery.data && (
-              <ReadinessSection
-                readiness={readinessQuery.data}
-                autoBusy={autoApplyMutation.isPending}
-                onToggleAuto={(enabled) => autoApplyMutation.mutate(enabled)}
-              />
-            )}
             <div>
               <h4 className="mb-2 text-sm font-medium">Active threshold overrides</h4>
               {data.overrides.length === 0 ? (
