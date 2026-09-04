@@ -215,6 +215,10 @@ interface SettingsRow {
   news_block_new_entries?: boolean | null;
   news_suppression_minutes_before?: number | null;
   news_suppression_minutes_after?: number | null;
+  /** Owner ceilings on spread, slippage and total committed risk. */
+  max_entry_spread_pips?: number | null;
+  max_entry_slippage_pips?: number | null;
+  max_total_exposure_percent?: number | null;
 }
 
 export async function revalidateDelivery(
