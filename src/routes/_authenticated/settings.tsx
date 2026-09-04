@@ -313,6 +313,10 @@ function SettingsPage() {
     const lotsValue = clamp(num(maxLots, 0), 0, 1000);
     const leverageValue = Math.round(clamp(num(leverage, 100), 1, 3000));
     const stopValue = clamp(num(maxStopPercent, 0), 0, 100);
+    const spreadCeilingValue = clamp(num(maxSpreadPips, 0), 0, 10000);
+    const slippageCeilingValue = clamp(num(maxSlippagePips, 0), 0, 10000);
+    const exposureCeilingValue = clamp(num(maxTotalExposurePercent, 0), 0, 100);
+
 
     setSaving(true);
     try {
