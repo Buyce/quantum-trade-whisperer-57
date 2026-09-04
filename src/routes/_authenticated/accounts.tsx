@@ -25,6 +25,7 @@ import {
   Loader2,
   Plus,
   RefreshCw,
+  ShieldAlert,
   Unplug,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -66,6 +67,8 @@ import { getExecutionStatus } from "@/lib/execution.functions";
 import {
   adoptBrokerConnection,
   disconnectBrokerConnection,
+  engageAccountEmergencyStop,
+  releaseAccountEmergencyStop,
   getAccountQuota,
   listConnectedAccounts,
   refreshBrokerConnection,
