@@ -685,6 +685,28 @@ export async function revalidateDelivery(
   ) {
     return reject("spread_too_wide", "measured against the submitted broker-grid geometry");
   }
+
+  // ---- 6a-ter. The OWNER's own spread and slippage ceilings -----------------
+  // These are the trader's limits in pips, asked in addition to the engine rule
+  // above. A configured ceiling that cannot be measured — no broker point size —
+  // refuses rather than passing silently: an unmeasurable limit is not a met one.
+  const ceilings = readCeilingSettings(settings);
+  const pipSize = pipSizeFromSpec(spec);
+  const spreadCeiling = spreadWithinUserCeiling(
+    ceilings.maxEntrySpreadPips,
+    pipSize,
+    quote.bid,
+    quote.ask,
+  );
+  if (!spreadCeiling.ok) return reject("spread_above_your_limit", spreadCeiling.detail);
+  const slippageCeiling = slippageWithinUserCeiling(
+    ceilings.maxEntrySlippagePips,
+    pipSize,
+    plan.entryPrice,
+    entryMode === "market" ? marketPrice : execPlan.entryPrice,
+  );
+  if (!slippageCeiling.ok) return reject("slippage_above_your_limit", slippageCeiling.detail);
+
   // The pending-limit side is re-asked on the snapped entry, now WITH the
   // broker's own minimum order distance. A direct broker destination whose
   // minimum distance cannot be read is refused rather than sent a price we cannot
