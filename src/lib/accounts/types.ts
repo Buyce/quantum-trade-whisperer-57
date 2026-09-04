@@ -169,6 +169,9 @@ export interface ConnectedAccountView {
   lastError: string | null;
   lastReconciledAt: string | null;
   disconnectedAt: string | null;
+  /** Non-null means the account is emergency-stopped and behaves as observe. */
+  emergencyStopAt: string | null;
+  emergencyStopReason: string | null;
   createdAt: string;
 }
 
