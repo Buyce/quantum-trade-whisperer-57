@@ -46,6 +46,8 @@ Purpose: reach a trader/terminal that is not driven through MetaApi directly.
 
 Scanner publication, grading, research/shadow statistics and every "no fabricated data" rule. No seeded or example signals, deliveries or fills. Live execution remains OFF until you flip it, and the kill switch reverts everything to demo/dry-run without a deploy.
 
+**Your demo auto-trader keeps running, unchanged.** `demo_auto_enabled` stays on and every check it passes today still passes: the new live caps and kill switch gate only real-account (`live_auto` / `live_confirm`) and live-bridge destinations, and the new `awaiting_confirmation` state only ever exists for `live_confirm` accounts — demo rows never take that path.
+
 ## Technical notes
 
 - Migrations: new `execution_controls` columns (live caps, kill switch), the `awaiting_confirmation` state plus confirmation-identity columns on `execution_deliveries`, and a small change to `claim_execution_delivery` so it still claims only `pending`.
