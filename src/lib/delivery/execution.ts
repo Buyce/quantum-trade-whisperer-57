@@ -105,7 +105,8 @@ export type RejectReason =
   | "account_not_armed"
   | "instrument_not_approved"
   | "market_entry_not_enabled"
-  | "no_execution_grid";
+  | "no_execution_grid"
+  | "news_blackout";
 
 export const REJECT_COPY: Record<RejectReason, string> = {
   live_execution_globally_disabled: "Live execution is disabled system-wide.",
@@ -134,6 +135,8 @@ export const REJECT_COPY: Record<RejectReason, string> = {
   limit_distance_unavailable:
     "Your broker has not published a minimum order distance for this symbol, so a pending limit price could not be validated. No distance is assumed.",
   market_closed: "The market was closed.",
+  news_blackout:
+    "A high-impact scheduled event for this instrument was inside your news window, so no new order was placed. This is your own news rule, not a forecast about the release.",
   stop_below_broker_stops_level: "The stop is closer than your broker's minimum stop distance.",
   risk_guardrail: "A position-size guardrail blocked the order.",
   quantity_unavailable:
@@ -185,6 +188,9 @@ export const RETRYABLE_REJECT_REASONS: readonly RejectReason[] = [
   "price_beyond_max_acceptable_entry",
   "account_refresh_unavailable",
   "market_closed",
+  // A news window is a moment: once the event window passes, the same setup may
+  // be re-asked while the owner's automatic-order window is still open.
+  "news_blackout",
 ];
 
 /** Hard bound on how many times one delivery may be re-asked. */
