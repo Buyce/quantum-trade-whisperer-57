@@ -144,14 +144,15 @@ export function evaluateNewsPolicy(input: NewsPolicyInput): NewsPolicyVerdict {
     (event) =>
       event.timestampPrecision !== "exact" &&
       event.scheduledDate === evaluatedAt.slice(0, 10) &&
-      windowFor(event.importance).beforeMinutes > 0,
+      windowFor(event.importance, input.windowOverride).beforeMinutes > 0,
   );
 
   const inWindow = relevant.filter((event) => {
     if (event.timestampPrecision !== "exact" || !event.scheduledAt) return false;
     const at = Date.parse(event.scheduledAt);
     if (Number.isNaN(at)) return false;
-    const { beforeMinutes, afterMinutes } = windowFor(event.importance);
+    const { beforeMinutes, afterMinutes } = windowFor(event.importance, input.windowOverride);
+
     if (beforeMinutes === 0 && afterMinutes === 0) return false;
     return input.nowMs >= at - beforeMinutes * 60_000 && input.nowMs <= at + afterMinutes * 60_000;
   });
