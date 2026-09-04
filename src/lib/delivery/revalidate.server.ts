@@ -27,6 +27,14 @@ import {
   type RejectReason,
 } from "./execution";
 import { evaluateExposure, type ExposureVerdict } from "./exposure";
+import {
+  exposurePercentWithinCeiling,
+  pipSizeFromSpec,
+  readCeilingSettings,
+  slippageWithinUserCeiling,
+  spreadWithinUserCeiling,
+  type ExposureAccumulation,
+} from "./user-ceilings";
 import { inspectUrlSyntax, validateOutboundUrl } from "./outbound-url.server";
 import {
   buildCapFrame,
