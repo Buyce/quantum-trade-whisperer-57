@@ -45,6 +45,17 @@ Most of the requested infrastructure already exists and works. The brief's real 
 - Split the allow-list rule: the non-empty host requirement applies to the external bridge destination only, since direct MetaApi execution has no host. Bridge deliveries keep failing closed.
 - No live-money order is authorized by this work.
 
+**Live enablement is gated, not a single global switch.** Even after an admin turns on the system-level `live_execution_enabled` and `live_auto_enabled` flags, an order can only leave for a real-money account when ALL of the following are true:
+1. The system flag `customer_live_auto_enabled = true` is also on (per-product customer gate, default false).
+2. The owner has connected a broker-confirmed **real** account.
+3. The owner has deliberately armed that account to `live_auto` in `/accounts`.
+4. That owner has given fresh per-configuration live confirmation in Settings, after the current global-live flag was on.
+5. The account passes pre-send revalidation: real-time equity, quote, spec, margin, exposure, spread, slippage, news and market-open checks.
+6. The live kill switch is not set.
+7. The live per-account and global daily/ceiling limits are not exceeded.
+
+So the admin toggle does **not** opt every user in automatically; it only makes live auto **possible**. Each user still has to connect their own real account and explicitly arm it.
+
 ### E. UI and diagnostics
 - `/accounts`: connection + synchronization state, broker-derived Demo/Real, armed mode, disarm, and an **emergency stop** that disarms every account and cancels every claimable delivery in one action.
 - `/history`: orders pending / open / closed with truthful labels, plus a **Live order queue** panel (confirm/decline, countdown, lot size, cash at risk, margin labelled estimate) that stays empty while live is off.
