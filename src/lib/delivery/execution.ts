@@ -197,6 +197,12 @@ export const RETRYABLE_REJECT_REASONS: readonly RejectReason[] = [
   "price_beyond_max_acceptable_entry",
   "account_refresh_unavailable",
   "market_closed",
+  // Owner ceilings that describe the CURRENT market or the CURRENT book: a wide
+  // spread narrows, price comes back, an earlier order closes. Each is re-asked
+  // only while the owner's automatic-order window is still open.
+  "spread_above_your_limit",
+  "slippage_above_your_limit",
+  "total_exposure_limit",
   // A news window is a moment: once the event window passes, the same setup may
   // be re-asked while the owner's automatic-order window is still open.
   "news_blackout",
