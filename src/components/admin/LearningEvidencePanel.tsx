@@ -220,7 +220,9 @@ function ReadinessSection({
         </Button>
       </div>
       <div className="space-y-2">
-        {rows.length === 0 ? (
+        {readError ? (
+          <p className="text-xs text-destructive">Could not load readiness: {readError}</p>
+        ) : rows.length === 0 ? (
           <p className="text-xs text-muted-foreground">
             No filter-lift rows yet — readiness appears after the next hourly recompute.
           </p>
