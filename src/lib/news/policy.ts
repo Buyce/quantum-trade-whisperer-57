@@ -74,11 +74,23 @@ export interface NewsPolicyInput {
   events: PolicyEvent[];
   /** Coverage state per `${CURRENCY}|${family}`; missing means unproven. */
   coverage: Map<string, CoverageState>;
+  /**
+   * Owner-configured suppression window in minutes, applied to `high` and
+   * `unknown` importance only. Absent means the default policy window. A window
+   * is never widened beyond what the owner asked for and never silently changed
+   * for `medium`/`low`, whose defaults are policy, not preference.
+   */
+  windowOverride?: { beforeMinutes: number; afterMinutes: number } | null;
 }
 
-function windowFor(importance: EventImportance) {
+function windowFor(
+  importance: EventImportance,
+  override?: { beforeMinutes: number; afterMinutes: number } | null,
+) {
+  if (override && (importance === "high" || importance === "unknown")) return override;
   return SUPPRESSION_WINDOWS[importance] ?? SUPPRESSION_WINDOWS.unknown;
 }
+
 
 function eventTouches(event: PolicyEvent, symbol: string, currencies: string[]): boolean {
   if (event.affectedInstruments && event.affectedInstruments.length > 0) {
