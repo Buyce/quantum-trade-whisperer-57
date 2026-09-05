@@ -109,6 +109,25 @@ export const Route = createFileRoute("/api/public/cron/shadow-resolve")({
           }
 
           /**
+           * Walk-forward confirmation. Re-measures each gate on a chronological
+           * split of the same research population and records whether the
+           * difference held up on the later, unseen period. It must run BEFORE
+           * automation, because automation refuses to propose or apply a gate
+           * change without a fresh confirmation. Guarded separately: a failure
+           * here withholds changes, it never authorises one.
+           */
+          let walkForward: unknown = null;
+          try {
+            const { runWalkForwardPass } = await import("@/lib/learning/walk-forward.server");
+            walkForward = await runWalkForwardPass(db);
+          } catch (wfErr) {
+            console.error(
+              "[cron/shadow-resolve] walk-forward pass failed:",
+              wfErr instanceof Error ? wfErr.message : String(wfErr),
+            );
+          }
+
+          /**
            * Gate-change automation — opens a system proposal when the evidence
            * decides, applies it only under the owner switch and the strict
            * training bar, and auto-reverts an automatic change whose follow-up
@@ -142,6 +161,7 @@ export const Route = createFileRoute("/api/public/cron/shadow-resolve")({
             stats,
             statsError,
             milestones,
+            walkForward,
             gateAutomation,
             candidateEnrolment,
             ...summary,

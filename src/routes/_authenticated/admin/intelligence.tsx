@@ -54,6 +54,7 @@ import { ExecutionSwitchPanel } from "@/components/admin/ExecutionSwitchPanel";
 import { EnqueueDecisionPanel } from "@/components/admin/EnqueueDecisionPanel";
 import { AutoTraderPanel } from "@/components/admin/AutoTraderPanel";
 import { ExecutionQualityPanel } from "@/components/admin/ExecutionQualityPanel";
+import { WalkForwardPanel } from "@/components/admin/WalkForwardPanel";
 import { SymbolBindingPanel } from "@/components/admin/SymbolBindingPanel";
 
 
@@ -195,6 +196,10 @@ function AdminIntelligencePage() {
 
       <PanelBoundary name="Execution quality">
         <ExecutionQualityPanel />
+      </PanelBoundary>
+
+      <PanelBoundary name="Out-of-sample confirmation">
+        <WalkForwardPanel />
       </PanelBoundary>
 
       <PanelBoundary name="Symbol bindings">

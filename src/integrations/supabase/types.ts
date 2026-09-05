@@ -5068,6 +5068,63 @@ export type Database = {
         }
         Relationships: []
       }
+      walk_forward_confirmations: {
+        Row: {
+          blockers: Json
+          computed_at: string
+          confirmed: boolean
+          detail: string
+          gate: string
+          holdout_days: number
+          holdout_delta_r: number | null
+          holdout_fail_n: number
+          holdout_high: number | null
+          holdout_low: number | null
+          holdout_pass_n: number
+          split_day: string | null
+          train_days: number
+          train_delta_r: number | null
+          train_fail_n: number
+          train_pass_n: number
+        }
+        Insert: {
+          blockers?: Json
+          computed_at?: string
+          confirmed?: boolean
+          detail?: string
+          gate: string
+          holdout_days?: number
+          holdout_delta_r?: number | null
+          holdout_fail_n?: number
+          holdout_high?: number | null
+          holdout_low?: number | null
+          holdout_pass_n?: number
+          split_day?: string | null
+          train_days?: number
+          train_delta_r?: number | null
+          train_fail_n?: number
+          train_pass_n?: number
+        }
+        Update: {
+          blockers?: Json
+          computed_at?: string
+          confirmed?: boolean
+          detail?: string
+          gate?: string
+          holdout_days?: number
+          holdout_delta_r?: number | null
+          holdout_fail_n?: number
+          holdout_high?: number | null
+          holdout_low?: number | null
+          holdout_pass_n?: number
+          split_day?: string | null
+          train_days?: number
+          train_delta_r?: number | null
+          train_fail_n?: number
+          train_pass_n?: number
+        }
+        Relationships: []
+      }
       webhook_dispatch_log: {
         Row: {
           created_at: string
@@ -5696,6 +5753,7 @@ export type Database = {
         }
         Returns: Json
       }
+      walk_forward_confirmed: { Args: { _gate: string }; Returns: boolean }
     }
     Enums: {
       decision_kind: "taken" | "skipped"

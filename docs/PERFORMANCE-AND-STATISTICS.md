@@ -57,6 +57,24 @@ diagnostic-only and are not actionable evidence.
 
 The bootstrap is deterministic: same input, same seed, same interval.
 
+### Walk-forward (out-of-sample) confirmation
+
+A gate difference measured over all of history is in-sample by construction. The
+hourly pass (`src/lib/learning/walk-forward.server.ts`) therefore re-measures each
+tunable gate on a **chronological** split of the same research population: the
+earlier trading days train, the later days are held out. Nothing from the holdout
+period can influence the training period.
+
+A gate is confirmed only when both periods clear the sample and independent
+instrument-day cluster floors, the difference keeps the same direction on the
+held-out days, is at least 0.05R, and its cluster-robust 95% interval excludes
+no-effect. Results are recorded in `walk_forward_confirmations` and shown in
+Admin → Intelligence.
+
+`run_gate_change_automation()` now refuses to open OR automatically apply a
+threshold change without a fresh confirmation for that gate. A missing, stale or
+unreadable confirmation withholds the change — it can never authorise one.
+
 ## Inputs
 
 Resolved rows from the selected Performance source on one R basis. Research
