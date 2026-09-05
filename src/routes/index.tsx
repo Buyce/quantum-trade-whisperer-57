@@ -238,6 +238,9 @@ function Landing() {
                 </Link>
               </Button>
               <Button asChild size="lg" variant="outline">
+                <Link to="/calculator">Position size calculator</Link>
+              </Button>
+              <Button asChild size="lg" variant="outline">
                 <Link to="/connect">Connect an AI assistant</Link>
               </Button>
             </div>
@@ -250,6 +253,9 @@ function Landing() {
           <span>P-Trades Hub · Analytical tool only. Nothing here is financial advice.</span>
           <Link to="/connect" className="text-primary underline underline-offset-2">
             Connect an AI assistant
+          </Link>
+          <Link to="/calculator" className="text-primary underline underline-offset-2">
+            Position size calculator
           </Link>
           <Link to="/auth" className="text-primary underline underline-offset-2">
             Sign in
