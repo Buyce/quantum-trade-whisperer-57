@@ -255,7 +255,11 @@ function Landing() {
           <Link to="/connect" className="text-primary underline underline-offset-2">
             Connect an AI assistant
           </Link>
+          <Link to="/calculator" className="text-primary underline underline-offset-2">
+            Position size calculator
+          </Link>
           <Link to="/auth" className="text-primary underline underline-offset-2">
+
             Sign in
           </Link>
         </div>
