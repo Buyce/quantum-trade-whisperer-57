@@ -110,7 +110,8 @@ export type RejectReason =
   | "slippage_above_your_limit"
   | "total_exposure_limit"
   | "news_blackout"
-  | "account_risk_brake";
+  | "account_risk_brake"
+  | "execution_cooldown";
 
 export const REJECT_COPY: Record<RejectReason, string> = {
   live_execution_globally_disabled: "Live execution is disabled system-wide.",

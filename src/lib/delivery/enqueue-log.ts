@@ -49,6 +49,8 @@ export const ENQUEUE_DECISION_COPY: Record<string, string> = {
     "A high-impact scheduled event for this instrument was inside your news window, so no automatic order was queued. This is your own news rule, not a prediction about the release.",
   risk_brake_paused:
     "Your drawdown brake is holding automatic orders on this account. It is measured from closed broker trades and your broker's equity reading — never from an estimate — and it stops new orders only; anything already at your broker is untouched.",
+  execution_cooldown:
+    "This account, instrument and session is in an automatic cool-down: its recent broker execution (slippage or reject rate, measured from closed trades and the delivery ledger) was materially worse than its own earlier norm. New orders pause for a bounded window and the dimension is then re-tested live. Orders already at your broker are untouched.",
   duplicate_resting_order:
     "You already have an automatic order live at your broker for this same setup, so a second one was not placed. Stacking identical orders would multiply the risk you sized for.",
 };
