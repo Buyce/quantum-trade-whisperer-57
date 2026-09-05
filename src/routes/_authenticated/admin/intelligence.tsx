@@ -297,7 +297,12 @@ function AdminIntelligencePage() {
         </section>
       </PanelBoundary>
 
+      <PanelBoundary name="Platform totals">
+        <TradeTotalsPanel />
+      </PanelBoundary>
+
       <PanelBoundary name="Auto trader">
+
         <AutoTraderPanel />
       </PanelBoundary>
 
