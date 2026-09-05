@@ -38,11 +38,11 @@ const signal = (id: string, hour: number, instrument: string): EligibilitySignal
 const frame = [signal("a", 1, "EURUSD"), signal("b", 2, "XAUUSD"), signal("c", 3, "GBPAUD")];
 
 describe("capSequence with an evidence ranker", () => {
-  it("stays chronological with no ranker", () => {
+  it("[UNIT] stays chronological with no ranker", () => {
     expect(capSequence(frame, settings, "alert", NOW).map((s) => s.id)).toEqual(["a", "b", "c"]);
   });
 
-  it("puts the measured cohort first, best score first", () => {
+  it("[UNIT] puts the measured cohort first, best score first", () => {
     const ranker: CapRanker = (s) =>
       s.instrument === "GBPAUD" ? 0.4 : s.instrument === "XAUUSD" ? 0.9 : null;
     expect(capSequence(frame, settings, "alert", NOW, ranker).map((s) => s.id)).toEqual([
@@ -52,7 +52,7 @@ describe("capSequence with an evidence ranker", () => {
     ]);
   });
 
-  it("keeps unmeasured setups in their original order behind measured ones", () => {
+  it("[UNIT] keeps unmeasured setups in their original order behind measured ones", () => {
     const ranker: CapRanker = (s) => (s.instrument === "GBPAUD" ? 0.1 : null);
     expect(capSequence(frame, settings, "alert", NOW, ranker).map((s) => s.id)).toEqual([
       "c",
@@ -61,7 +61,7 @@ describe("capSequence with an evidence ranker", () => {
     ]);
   });
 
-  it("changes which setups are capped out but never how many", () => {
+  it("[INVARIANT] changes which setups are capped out but never how many", () => {
     const none = buildCapFrame(frame, settings, "alert", NOW);
     const ranked = buildCapFrame(frame, settings, "alert", NOW, (s) =>
       s.instrument === "GBPAUD" ? 0.5 : null,
@@ -71,7 +71,7 @@ describe("capSequence with an evidence ranker", () => {
     expect([...ranked]).toEqual(["b"]);
   });
 
-  it("is inert when every cohort is unmeasured", () => {
+  it("[UNIT] is inert when every cohort is unmeasured", () => {
     const ranked = capSequence(frame, settings, "alert", NOW, () => null);
     expect(ranked.map((s) => s.id)).toEqual(["a", "b", "c"]);
   });
