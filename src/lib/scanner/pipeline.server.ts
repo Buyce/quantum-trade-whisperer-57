@@ -114,6 +114,23 @@ export async function scanUniverse(db: SupabaseClient): Promise<string[]> {
 /** Enqueue one job per monitored instrument for this scan cycle. */
 export async function enqueueScanCycle(db: SupabaseClient) {
   const { expired, error: expireError } = await expireStaleSignals(db);
+
+  /**
+   * Weekend closure (Friday 21:00 → Sunday 21:00 UTC, `isWeekendClosed`): no
+   * new price exists, so enqueuing a cycle would only fetch the same Friday
+   * candles again. Signal expiry above still runs — it is cheap database
+   * housekeeping and keeps the feed truthful over the weekend.
+   */
+  if (isWeekendClosed(new Date())) {
+    return {
+      runId: null,
+      enqueued: 0,
+      expired,
+      expireError,
+      skipped: "weekend_market_closed" as const,
+    };
+  }
+
   const runId = crypto.randomUUID();
   const rows = (await scanUniverse(db)).map((instrument) => ({
     run_id: runId,
@@ -480,6 +497,19 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
         `Backlogged ${Math.round(ageMs / 60_000)} minutes past its scan interval; closed without fetching candles`,
       );
     }
+  }
+
+  /**
+   * Weekend safety net. The cron entry no longer enqueues weekend cycles, but
+   * a job claimed after Friday 21:00 UTC (or enqueued by any other path) must
+   * still never fetch candles while the market is closed. Deliberate skip, not
+   * a failure: the health window counts this as a completed job.
+   */
+  if (isWeekendClosed(new Date())) {
+    return await finish(
+      "skipped",
+      "Weekend market closed (Friday 21:00 - Sunday 21:00 UTC); no candles were fetched",
+    );
   }
 
   try {
