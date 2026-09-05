@@ -815,13 +815,26 @@ export async function revalidateDelivery(
   // refuses rather than passing silently: an unmeasurable limit is not a met one.
   const ceilings = readCeilingSettings(settings);
   const pipSize = pipSizeFromSpec(spec);
-  const spreadCeiling = spreadWithinUserCeiling(
-    ceilings.maxEntrySpreadPips,
-    pipSize,
-    quote.bid,
-    quote.ask,
+  // The owner's pip ceiling can be TIGHTENED by this instrument and session's own
+  // measured spread history, never widened. No measured history means no change.
+  const sessionForNorm =
+    (Array.isArray(signal.market_context)
+      ? signal.market_context[0]?.trading_session
+      : (signal.market_context as { trading_session: string | null } | null)?.trading_session) ??
+    "unknown";
+  const norm = await loadSpreadNorm(
+    db as unknown as SupabaseClient,
+    signal.instrument,
+    sessionForNorm,
+    now,
   );
-  if (!spreadCeiling.ok) return reject("spread_above_your_limit", spreadCeiling.detail);
+  const adaptive = effectiveSpreadCeiling(ceilings.maxEntrySpreadPips, pipSize, norm);
+  const spreadCeiling = spreadWithinUserCeiling(adaptive.pips, pipSize, quote.bid, quote.ask);
+  if (!spreadCeiling.ok)
+    return reject(
+      "spread_above_your_limit",
+      adaptive.tightened ? `${spreadCeiling.detail} — ${adaptive.detail}` : spreadCeiling.detail,
+    );
   const slippageCeiling = slippageWithinUserCeiling(
     ceilings.maxEntrySlippagePips,
     pipSize,
