@@ -36,13 +36,13 @@ export function ScanHeartbeat({ lastScanAt }: { lastScanAt: string | null | unde
         <span
           className={cn(
             "absolute inline-flex size-full animate-ping rounded-full opacity-75",
-            stale ? "bg-warning" : "bg-success",
+            weekend ? "bg-muted-foreground" : stale ? "bg-warning" : "bg-success",
           )}
         />
         <span
           className={cn(
             "relative inline-flex size-2 rounded-full",
-            stale ? "bg-warning" : "bg-success",
+            weekend ? "bg-muted-foreground" : stale ? "bg-warning" : "bg-success",
           )}
         />
       </span>
