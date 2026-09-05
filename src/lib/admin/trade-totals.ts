@@ -15,12 +15,22 @@
  * Pure and total: no clock, no Supabase.
  */
 
+/**
+ * Who placed the trade, decided from the evidence row itself:
+ * - `auto`: still linked to an automatic dispatch record.
+ * - `unlinked`: carries the platform's own order tag but the dispatch link is gone
+ *   (its setup row was purged), so the run cannot be named.
+ * - `external`: no platform tag at all — placed outside P-Trades.
+ */
+export type BrokerAttribution = "auto" | "unlinked" | "external";
+
 export interface BrokerEvidenceRow {
   accountId: string | null;
   grossProfit: number | null;
   swap: number | null;
   commission: number | null;
   currency: string | null;
+  attribution: BrokerAttribution;
 }
 
 export interface BrokerTotals {
