@@ -86,7 +86,16 @@
 - [x] `docs/OPERATIONS.md`: sampling scope stated as `sampler_symbols` (8) rather than by
       stage, NAS100's data_validation-but-unsampled position recorded, stale review date removed.
 - [x] `docs/README.md` + root README: index renumbered, new document linked.
-- [ ] Guide Mode coverage for the safety settings (brakes, ceilings, cooldowns, webhook).
-- [ ] Social metadata on `auth`, `settings`, `feed`, `history`.
-- [ ] Documentation-contract assertions for panel reachability and Guide coverage.
-- [ ] Repository-wide formatting pass.
+- [x] New Guide section "Automatic safety limits": order ceilings, order window, drawdown
+      brakes, quality cooldowns, the two overrides, adaptive spread ceiling, webhook/sender
+      domain and broker telemetry.
+- [x] `og:type` + `twitter:card` on `auth`, `settings`, `feed`, `history`.
+- [x] Deleted five orphaned admin panel files (SymbolBinding, Commissioning, RefusalCost,
+      InstrumentDiagnostics, News) — unreferenced since their panels were removed.
+- [x] Four new documentation-contract assertions: every `*Panel.tsx` must be mounted;
+      brake/cooldown constants must be documented; the holdout claim must not be
+      contradicted and the deleted wilson path must not return; every safety control must
+      have a Guide entry.
+- [x] Repository-wide Prettier pass.
+- Verified: tsgo clean, build OK, 1,606 checks pass (2 expected failures; the slow
+  resolved-immutability DB check passes at a 30s timeout).
