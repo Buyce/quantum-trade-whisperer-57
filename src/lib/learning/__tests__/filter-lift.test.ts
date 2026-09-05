@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { MIN_ARM_SAMPLES, summarizeFilterLift, type FilterLiftRow } from "@/lib/learning/filter-lift";
+import {
+  MIN_ARM_CLUSTERS,
+  MIN_ARM_SAMPLES,
+  summarizeFilterLift,
+  type FilterLiftRow,
+} from "@/lib/learning/filter-lift";
 
 function row(over: Partial<FilterLiftRow>): FilterLiftRow {
   return {
@@ -13,6 +18,7 @@ function row(over: Partial<FilterLiftRow>): FilterLiftRow {
     n_candidates: 120,
     stat_status: "descriptive",
     reason: null,
+    cluster_n: 28,
     replay_coverage: 1,
     ...over,
   };
@@ -81,5 +87,42 @@ describe("summarizeFilterLift", () => {
       row({ gate: "headroom", arm: "fail" }),
     ]);
     expect(gates.map((g) => g.gate)).toEqual(["headroom", "reachable_r"]);
+  });
+
+  it("[INVARIANT] an arm without enough independent trading days is not decidable", () => {
+    const [gate] = summarizeFilterLift([
+      row({ arm: "pass", mean_r: 0.7, se_r: 0.02 }),
+      row({ arm: "fail", mean_r: -0.1, se_r: 0.03, cluster_n: 2 }),
+    ]);
+    expect(gate!.verdict).toBe("not_yet_decidable");
+    expect(gate!.detail).toContain(`${MIN_ARM_CLUSTERS - 2} more independent trading days`);
+  });
+
+  it("[INVARIANT] a gate outside the predeclared family is never read as a direction", () => {
+    const [gate] = summarizeFilterLift([
+      row({ gate: "made_up_gate", arm: "pass", mean_r: 0.7, se_r: 0.02 }),
+      row({ gate: "made_up_gate", arm: "fail", mean_r: -0.1, se_r: 0.03 }),
+    ]);
+    expect(gate!.verdict).toBe("not_yet_decidable");
+    expect(gate!.qValue).toBeNull();
+  });
+
+  it("[INVARIANT] no direction is read while the q-value exceeds the family ceiling", () => {
+    const [gate] = summarizeFilterLift([
+      row({ arm: "pass", mean_r: 0.2, se_r: 0.04 }),
+      row({ arm: "fail", mean_r: 0.33, se_r: 0.04 }),
+    ]);
+    expect(gate!.qValue).not.toBeNull();
+    expect(gate!.qValue!).toBeGreaterThan(0.05);
+    expect(["no_difference", "not_yet_decidable"]).toContain(gate!.verdict);
+  });
+
+  it("[UNIT] a strongly separated declared gate does survive the family control", () => {
+    const [gate] = summarizeFilterLift([
+      row({ arm: "pass", mean_r: 0.1, se_r: 0.02 }),
+      row({ arm: "fail", mean_r: 0.6, se_r: 0.03 }),
+    ]);
+    expect(gate!.verdict).toBe("loosening_supported");
+    expect(gate!.qValue!).toBeLessThanOrEqual(0.05);
   });
 });

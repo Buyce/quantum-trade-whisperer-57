@@ -1,16 +1,32 @@
 /**
  * Reads the resolved replay history that {@link buildCohortEvidence} measures.
  *
- * Only rows the replay engine actually resolved on real candles are read. A row
- * with no resolved outcome, or with no R to read, is skipped rather than
- * defaulted — an unmeasured cohort must stay unmeasured.
+ * SCOPING (load-bearing): this read is pinned to the PRODUCTION cohort, Replay
+ * V1 and the legacy execution policy, exactly like every sibling reader of
+ * `shadow_executions`. Without those predicates a research-candidate outcome or
+ * a corrected-policy (V2) outcome would pool into the same population, and this
+ * population can refuse a live order — mixing replay versions or cohorts here
+ * would silently change what gets sent to a broker.
+ *
+ * ESTIMAND: the per-plan estimand defined in `payoff.ts` — a plan that never
+ * traded (never filled, or an entry-side gap beyond the stop) counts as exactly
+ * 0R, and a broken observation (`invalid_plan`) is excluded from the denominator
+ * rather than scored. Dropping the no-trade rows instead would flatter
+ * expectancy on the very population used to refuse orders.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import {
+  EXECUTION_POLICY_LEGACY,
+  REPLAY_V1_VERSION,
+} from "@/lib/execution/replay-registry";
 import { buildCohortEvidence, type CohortEvidence, type CohortObservation } from "./cohort";
 
 /** Bounded read: the harness is a background rule, not a report. */
 const ROW_LIMIT = 5000;
+
+/** Production replay cohort label, matching the resolver. */
+const PRODUCTION_COHORT = "production";
 
 export interface CohortEvidenceSnapshot {
   evidence: Map<string, CohortEvidence>;
@@ -19,14 +35,36 @@ export interface CohortEvidenceSnapshot {
   rows: number;
 }
 
+/**
+ * Per-plan effective R. `null` means "exclude", never "zero".
+ * Mirrors `effectiveR` in `learning/walk-forward.server.ts` and the
+ * `mean_r_per_plan` estimand in `learning/payoff.ts`.
+ */
+export function perPlanR(row: {
+  data_quality_outcome?: unknown;
+  resolved_outcome?: unknown;
+  gross_r?: unknown;
+  realized_r?: unknown;
+}): number | null {
+  if (row.data_quality_outcome === "invalid_plan") return null;
+  if (row.data_quality_outcome === "gap_beyond_stop") return 0;
+  if (row.resolved_outcome === "never_filled") return 0;
+  const raw = row.gross_r ?? row.realized_r;
+  const r = raw === null || raw === undefined ? NaN : Number(raw);
+  return Number.isFinite(r) ? r : null;
+}
+
 export async function loadCohortEvidence(
   db: SupabaseClient,
 ): Promise<CohortEvidenceSnapshot> {
   const { data, error } = await db
     .from("shadow_executions")
     .select(
-      "detected_at, instrument, direction, trading_session, resolved_outcome, gross_r, realized_r",
+      "detected_at, instrument, direction, trading_session, resolved_outcome, data_quality_outcome, gross_r, realized_r",
     )
+    .eq("cohort", PRODUCTION_COHORT)
+    .eq("replay_version", REPLAY_V1_VERSION)
+    .eq("execution_policy", EXECUTION_POLICY_LEGACY)
     .not("resolved_outcome", "is", null)
     .order("detected_at", { ascending: false })
     .limit(ROW_LIMIT);
@@ -39,11 +77,8 @@ export async function loadCohortEvidence(
 
   const observations: CohortObservation[] = [];
   for (const row of (data ?? []) as Record<string, unknown>[]) {
-    const outcome = row["resolved_outcome"];
-    if (outcome !== "win" && outcome !== "loss" && outcome !== "expired") continue;
-    const raw = row["gross_r"] ?? row["realized_r"];
-    const r = raw === null || raw === undefined ? NaN : Number(raw);
-    if (!Number.isFinite(r)) continue;
+    const r = perPlanR(row);
+    if (r === null) continue;
     const detectedAt = row["detected_at"];
     const instrument = row["instrument"];
     const direction = row["direction"];
@@ -67,3 +102,4 @@ export async function loadCohortEvidence(
     rows: observations.length,
   };
 }
+

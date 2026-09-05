@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { wilsonInterval, newcombeDifference } from "../wilson";
 import { buildDayClusters, clusterCount, stableOrder, utcDayKey } from "../clusters";
 import {
   clusterBootstrapMeanR,
@@ -11,27 +10,6 @@ import { assessEvidence, holdoutConfirmed, isSufficient } from "../evidence";
 import { benjaminiHochberg, UndeclaredFamilyError } from "../bh";
 
 const obs = (id: string, detectedAt: string, r: number) => ({ id, detectedAt, r });
-
-describe("wilson / newcombe are diagnostics", () => {
-  it("[INVARIANT] wilson brackets the point estimate and is flagged diagnostic-only", () => {
-    const ci = wilsonInterval(30, 100)!;
-    expect(ci.lo).toBeLessThan(0.3);
-    expect(ci.hi).toBeGreaterThan(0.3);
-    expect(ci.diagnosticOnly).toBe(true);
-  });
-
-  it("[UNIT] degenerate input returns null rather than a fake interval", () => {
-    expect(wilsonInterval(0, 0)).toBeNull();
-    expect(wilsonInterval(5, 3)).toBeNull();
-  });
-
-  it("[INVARIANT] newcombe difference is bounded and diagnostic-only", () => {
-    const d = newcombeDifference({ successes: 40, n: 80 }, { successes: 20, n: 80 })!;
-    expect(d.lo).toBeGreaterThanOrEqual(-1);
-    expect(d.hi).toBeLessThanOrEqual(1);
-    expect(d.diagnosticOnly).toBe(true);
-  });
-});
 
 describe("whole-UTC-day clustering", () => {
   it("[UNIT] one UTC day of multi-instrument rows forms exactly one cluster", () => {

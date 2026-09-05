@@ -20,10 +20,20 @@
  *    change, never authorise one.
  */
 
+import { EVIDENCE_TIERS } from "./evidence";
+
+/**
+ * Floors come from the shared `chronological_period` tier — this module does not
+ * define its own bar. Independence is counted per instrument-day, which is what
+ * that tier declares.
+ */
+const PERIOD_TIER = EVIDENCE_TIERS.chronological_period;
+
 /** Minimum resolved observations each arm needs, in EACH period. */
-export const MIN_PERIOD_SAMPLES = 30;
+export const MIN_PERIOD_SAMPLES = PERIOD_TIER.minSamples;
 /** Minimum independent instrument-day clusters each arm needs, in each period. */
-export const MIN_PERIOD_CLUSTERS = 5;
+export const MIN_PERIOD_CLUSTERS = PERIOD_TIER.minClusters;
+
 /** Smallest mean-R difference in the holdout period worth acting on. */
 export const MIN_HOLDOUT_EFFECT = 0.05;
 /** Share of the measured trading days used for training; the rest is holdout. */

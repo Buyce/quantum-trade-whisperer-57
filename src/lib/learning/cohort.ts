@@ -20,7 +20,11 @@
  */
 import { SESSION_NAMES } from "@/lib/scanner/session";
 import { clusterBootstrapMeanR, type BootstrapResult, type RObservation } from "@/lib/stats/bootstrap";
-import { DECIDABLE_MIN_SAMPLES_PER_ARM } from "./readiness";
+import { EVIDENCE_TIERS, tierMet } from "@/lib/stats/evidence";
+
+/** The bar this surface names. Not a local number. */
+const COHORT_TIER = EVIDENCE_TIERS.descriptive;
+
 
 export const COHORT_VERSION = 1;
 
@@ -109,12 +113,13 @@ export function buildCohortEvidence(
 }
 
 function judge(bootstrap: BootstrapResult, n: number): { verdict: CohortVerdict; detail: string } {
-  if (n < DECIDABLE_MIN_SAMPLES_PER_ARM) {
+  if (!tierMet(COHORT_TIER, n, bootstrap.clusterN)) {
     return {
       verdict: "insufficient",
-      detail: `needs ${DECIDABLE_MIN_SAMPLES_PER_ARM} matured outcomes to read (has ${n})`,
+      detail: `needs ${COHORT_TIER.minSamples} matured outcomes across ${COHORT_TIER.minClusters} independent days to read (has ${n} across ${bootstrap.clusterN})`,
     };
   }
+
   if (bootstrap.status !== "ok" || bootstrap.ciLo == null || bootstrap.ciHi == null) {
     return {
       verdict: "insufficient",

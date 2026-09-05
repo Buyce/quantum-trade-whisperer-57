@@ -68,7 +68,12 @@ interface Setup {
   calls: FakeCall[];
 }
 
-function setup(opts: { production: unknown[]; candidates: unknown[]; budget?: number }): Setup {
+function setup(opts: {
+  production: unknown[];
+  candidates: unknown[];
+  budget?: number;
+  enrolment?: boolean;
+}): Setup {
   const fake = createFakeSupabase((call) => {
     if (call.table === "shadow_engine_state") {
       return {
@@ -76,6 +81,7 @@ function setup(opts: { production: unknown[]; candidates: unknown[]; budget?: nu
           {
             replay_v2_shadow_enabled: false,
             candidate_rows_per_run: opts.budget ?? 30,
+            candidate_enrolment_enabled: opts.enrolment ?? false,
           },
         ],
         error: null,
@@ -279,5 +285,39 @@ describe("candidate resolution capacity and provider budget", () => {
         candidateBackfillFetches: 0,
       }),
     ).toBeNull();
+  });
+
+  /**
+   * A structure enrolled from history is further back than the live tail. It must
+   * be replayed against the bars that actually followed it, via one anchored
+   * historical read, not against the most recent bars.
+   */
+  it("[INVARIANT] a historical candidate is replayed from an anchored past window", async () => {
+    const old = row("old", "XAUUSD");
+    old.detected_at = new Date(Date.now() - 9 * 24 * 3_600_000).toISOString();
+    old.replay_cursor = old.detected_at;
+    const s = setup({ production: [row("p1")], candidates: [old], enrolment: true });
+
+    await resolveShadowExecutions(s.db);
+
+    const anchored = fetchCandles.mock.calls.find((c) => c[0] === "XAUUSD");
+    expect(anchored).toBeDefined();
+    const startTime = anchored![3] as string;
+    expect(typeof startTime).toBe("string");
+    // The window sits in the past, forward of the row it is anchored on.
+    expect(Date.parse(startTime)).toBeGreaterThan(Date.parse(old.detected_at));
+    expect(Date.parse(startTime)).toBeLessThan(Date.now());
+  });
+
+  it("[INVARIANT] historical candidate reads stay off while enrolment is switched off", async () => {
+    const old = row("old", "XAUUSD");
+    old.detected_at = new Date(Date.now() - 9 * 24 * 3_600_000).toISOString();
+    old.replay_cursor = old.detected_at;
+    const s = setup({ production: [row("p1")], candidates: [old], enrolment: false });
+
+    const summary = await resolveShadowExecutions(s.db);
+
+    expect(fetchCandles.mock.calls.map((c) => c[0])).toEqual(["EURUSD"]);
+    expect(summary.candidateBacklogNoCandles).toBe(1);
   });
 });
