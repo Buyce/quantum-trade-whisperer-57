@@ -192,6 +192,10 @@ function AdminIntelligencePage() {
         <EnqueueDecisionPanel />
       </PanelBoundary>
 
+      <PanelBoundary name="Execution quality">
+        <ExecutionQualityPanel />
+      </PanelBoundary>
+
       <PanelBoundary name="Symbol bindings">
         <SymbolBindingPanel />
       </PanelBoundary>
