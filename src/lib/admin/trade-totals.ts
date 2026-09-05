@@ -61,8 +61,16 @@ export interface JournalTotals {
   rows: number;
 }
 
+export interface BrokerTotalsByAttribution {
+  auto: BrokerTotals;
+  unlinked: BrokerTotals;
+  external: BrokerTotals;
+  /** Every closed row, whatever placed it. */
+  all: BrokerTotals;
+}
+
 export interface TradeTotals {
-  broker: BrokerTotals;
+  broker: BrokerTotalsByAttribution;
   journal: JournalTotals;
 }
 
