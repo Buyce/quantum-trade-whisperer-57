@@ -355,9 +355,13 @@ export const getAdminExecutionSwitches = createServerFn({ method: "GET" })
  *
  * Demo switches are ordinary toggles. The LIVE switches are deliberately harder:
  *
- *  - Live execution cannot be enabled while `force_dry_run` is on, while the
- *    global emergency stop is on, or with an empty host allow-list — an armed
- *    switch with no destination is a trap, not a feature.
+ *  - Live execution cannot be enabled while `force_dry_run` is on or while the
+ *    global emergency stop is on.
+ *  - The host allow-list applies to the EXTERNAL WEBHOOK BRIDGE destination
+ *    only. Direct MetaApi (MT4/MT5) execution has no operator-chosen host —
+ *    its hosts come from the pinned trusted-host resolver — so an empty
+ *    allow-list never blocks enabling live execution. A live bridge delivery
+ *    to a non-listed host still fails closed at pre-send revalidation.
  *  - Hosts are normalised to bare lowercase hostnames and must be plain
  *    hostnames; a URL, a path, a port or a wildcard is rejected here so the
  *    allow-list can never be widened by a sloppy entry. Per-request SSRF
