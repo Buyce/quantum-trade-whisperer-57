@@ -50,9 +50,11 @@ export async function loadCohortEvidence(
     if (typeof detectedAt !== "string" || typeof instrument !== "string") continue;
     if (typeof direction !== "string" || direction.length === 0) continue;
     const session = row["trading_session"];
+    const id = `${instrument}|${direction}|${detectedAt}|${observations.length}`;
     observations.push({
+      id,
       r,
-      at: detectedAt,
+      detectedAt,
       instrument,
       direction,
       session: typeof session === "string" && session.length > 0 ? session : null,
