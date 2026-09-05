@@ -35,7 +35,7 @@ const signal = (id: string, hour: number, instrument: string): EligibilitySignal
   direction: "long",
 });
 
-const frame = [signal("a", 1, "EURUSD"), signal("b", 2, "XAUUSD"), signal("c", 3, "GBPUSD")];
+const frame = [signal("a", 1, "EURUSD"), signal("b", 2, "XAUUSD"), signal("c", 3, "GBPAUD")];
 
 describe("capSequence with an evidence ranker", () => {
   it("stays chronological with no ranker", () => {
@@ -44,7 +44,7 @@ describe("capSequence with an evidence ranker", () => {
 
   it("puts the measured cohort first, best score first", () => {
     const ranker: CapRanker = (s) =>
-      s.instrument === "GBPUSD" ? 0.4 : s.instrument === "XAUUSD" ? 0.9 : null;
+      s.instrument === "GBPAUD" ? 0.4 : s.instrument === "XAUUSD" ? 0.9 : null;
     expect(capSequence(frame, settings, "alert", NOW, ranker).map((s) => s.id)).toEqual([
       "b",
       "c",
@@ -53,7 +53,7 @@ describe("capSequence with an evidence ranker", () => {
   });
 
   it("keeps unmeasured setups in their original order behind measured ones", () => {
-    const ranker: CapRanker = (s) => (s.instrument === "GBPUSD" ? 0.1 : null);
+    const ranker: CapRanker = (s) => (s.instrument === "GBPAUD" ? 0.1 : null);
     expect(capSequence(frame, settings, "alert", NOW, ranker).map((s) => s.id)).toEqual([
       "c",
       "a",
@@ -64,7 +64,7 @@ describe("capSequence with an evidence ranker", () => {
   it("changes which setups are capped out but never how many", () => {
     const none = buildCapFrame(frame, settings, "alert", NOW);
     const ranked = buildCapFrame(frame, settings, "alert", NOW, (s) =>
-      s.instrument === "GBPUSD" ? 0.5 : null,
+      s.instrument === "GBPAUD" ? 0.5 : null,
     );
     expect(none.size).toBe(ranked.size);
     expect([...none]).toEqual(["c"]);
