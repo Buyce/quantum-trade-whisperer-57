@@ -25,12 +25,19 @@ export const Route = createFileRoute("/api/public/cron/telemetry-rollup")({
           readResolverHealth,
         } = await import("@/lib/telemetry/workers.server");
 
+        // Execution-quality scoring rides this pass rather than a new schedule:
+        // it is pure database work over the same recorded evidence, and folding
+        // it in keeps one bounded job instead of two polling ones.
+        const { recomputeExecutionQuality } = await import("@/lib/execution/quality.server");
+
         const startedAt = Date.now();
-        const [aggregation, retention, resolver] = await Promise.allSettled([
+        const [aggregation, retention, resolver, quality] = await Promise.allSettled([
           runSpreadAggregation(supabaseAdmin),
           runTelemetryRetention(supabaseAdmin),
           readResolverHealth(supabaseAdmin),
+          recomputeExecutionQuality(supabaseAdmin as never),
         ]);
+
 
         const health =
           resolver.status === "fulfilled" ? resolver.value : { backlog: null, oldestAgeMs: null };
@@ -43,10 +50,11 @@ export const Route = createFileRoute("/api/public/cron/telemetry-rollup")({
           details: {
             aggregation: aggregation.status === "fulfilled" ? aggregation.value : "rejected",
             retention: retention.status === "fulfilled" ? retention.value : "rejected",
+            executionQuality: quality.status === "fulfilled" ? quality.value : "rejected",
           },
         });
 
-        const rejected = [aggregation, retention].filter((r) => r.status === "rejected");
+        const rejected = [aggregation, retention, quality].filter((r) => r.status === "rejected");
         for (const r of rejected)
           console.error("[cron/telemetry-rollup]", (r as PromiseRejectedResult).reason);
 
@@ -55,10 +63,12 @@ export const Route = createFileRoute("/api/public/cron/telemetry-rollup")({
             ok: rejected.length === 0,
             aggregation: aggregation.status === "fulfilled" ? aggregation.value : null,
             retention: retention.status === "fulfilled" ? retention.value : null,
+            executionQuality: quality.status === "fulfilled" ? quality.value : null,
             resolver: health,
           },
-          { status: rejected.length === 2 ? 500 : 200 },
+          { status: rejected.length === 3 ? 500 : 200 },
         );
+
       },
     },
   },

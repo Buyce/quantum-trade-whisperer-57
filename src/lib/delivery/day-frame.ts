@@ -43,12 +43,15 @@ interface FrameRow {
   detected_at: string;
   instrument: string;
   grade: Grade;
+  direction?: string | null;
   market_context?: { trading_session: string }[] | { trading_session: string } | null;
 }
 
 /** Normalises a signal row (feed or frame shape) into the eligibility input. */
 export function toEligibilitySignal(
-  row: Pick<SignalRow, "id" | "detected_at" | "instrument" | "grade" | "market_context">,
+  row: Pick<SignalRow, "id" | "detected_at" | "instrument" | "grade" | "market_context"> & {
+    direction?: string | null;
+  },
 ): EligibilitySignal {
   return {
     id: row.id,
@@ -56,6 +59,7 @@ export function toEligibilitySignal(
     instrument: row.instrument,
     grade: row.grade,
     trading_session: contextOf(row as SignalRow)?.trading_session ?? null,
+    direction: row.direction ?? null,
   };
 }
 
@@ -73,7 +77,7 @@ export async function fetchDayFrame(
   for (let page = 0; ; page += 1) {
     const { data, error } = await client
       .from("scanned_signals")
-      .select("id, detected_at, instrument, grade, market_context(trading_session)")
+      .select("id, detected_at, instrument, grade, direction, market_context(trading_session)")
       .gte("detected_at", since)
       .order("detected_at", { ascending: true })
       .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
@@ -85,7 +89,7 @@ export async function fetchDayFrame(
           row as unknown as Pick<
             SignalRow,
             "id" | "detected_at" | "instrument" | "grade" | "market_context"
-          >,
+          > & { direction?: string | null },
         ),
       );
     }
