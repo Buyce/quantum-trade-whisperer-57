@@ -27,7 +27,11 @@
  *  A break-even/trailing rule needs the ORDER of post-entry events, which a
  *  two-number path summary does not carry — hence `not_decidable`.
  */
-import { bootstrapMeanR, type BootstrapResult, type RObservation } from "@/lib/stats/bootstrap";
+import {
+  clusterBootstrapMeanR,
+  type BootstrapResult,
+  type RObservation,
+} from "@/lib/stats/bootstrap";
 
 export const COUNTERFACTUAL_VERSION = 1;
 
@@ -221,7 +225,7 @@ function arm(rows: Array<RowCounterfactual & { pick: number | null }>): Counterf
     if (row.pick > 0) wins += 1;
     else if (row.pick < 0) losses += 1;
   }
-  const bootstrap = bootstrapMeanR(observations);
+  const bootstrap = clusterBootstrapMeanR(observations);
   return {
     n: observations.length,
     meanR: bootstrap.mean,
