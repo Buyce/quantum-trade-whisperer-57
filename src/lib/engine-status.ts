@@ -110,6 +110,12 @@ export interface ScanWindowInput {
   succeeded: number;
   last_success_at?: string | null;
   last_failure_at?: string | null;
+  /**
+   * True while the FX weekend closure (Friday 21:00 → Sunday 21:00 UTC) is in
+   * effect. During the closure the scanner deliberately enqueues no cycles, so
+   * an empty window is a scheduled pause, not a silent engine.
+   */
+  weekendClosed?: boolean;
 }
 
 export interface ScanHealth {
@@ -132,6 +138,14 @@ function parseTime(value: string | null | undefined): number | null {
 
 export function classifyScanHealth(scan: ScanWindowInput): ScanHealth {
   if (scan.total === 0) {
+    if (scan.weekendClosed) {
+      return {
+        state: "no_cycles",
+        value: "WEEKEND — PAUSED",
+        tone: "good",
+        errorIsCurrent: false,
+      };
+    }
     return { state: "no_cycles", value: "NO CYCLES", tone: "warn", errorIsCurrent: false };
   }
   if (scan.failed === 0) {
