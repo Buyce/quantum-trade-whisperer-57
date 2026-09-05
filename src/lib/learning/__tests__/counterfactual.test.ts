@@ -24,7 +24,7 @@ const report = (rows: CounterfactualInput[], factor = 0.6): CounterfactualReport
 };
 
 describe("evaluateTighterStop — admissible factors", () => {
-  it.each([0, 1, 1.5, -0.5, Number.NaN, Infinity])("refuses factor %s as not decidable", (f) => {
+  it.each([0, 1, 1.5, -0.5, Number.NaN, Infinity])("[INVARIANT] refuses factor %s as not decidable", (f) => {
     const r = evaluateTighterStop([row({ id: "a" })], f);
     expect(r).toMatchObject({ decidable: false, version: COUNTERFACTUAL_VERSION });
     if ("decidable" in r) expect(r.missing).toContain("strictly between 0 and 1");
@@ -32,7 +32,7 @@ describe("evaluateTighterStop — admissible factors", () => {
 });
 
 describe("evaluateTighterStop — per-row adjudication", () => {
-  it("a winner whose adverse path stayed inside the tighter stop is proven and pays more", () => {
+  it("[UNIT] a winner whose adverse path stayed inside the tighter stop is proven and pays more", () => {
     const r = report([row({ id: "a", outcome: "win", grossR: 1, maeR: 0.2 })], 0.6);
     expect(r.rows[0]).toMatchObject({ verdict: "deterministic", baseR: 1 });
     // 1R against a 0.6x risk denominator.
@@ -40,7 +40,7 @@ describe("evaluateTighterStop — per-row adjudication", () => {
     expect(r.rows[0]!.bestR).toBeCloseTo(1 / 0.6, 10);
   });
 
-  it("a winner that reached the tighter stop is AMBIGUOUS, never resolved favourably", () => {
+  it("[INVARIANT] a winner that reached the tighter stop is AMBIGUOUS, never resolved favourably", () => {
     const r = report([row({ id: "a", outcome: "win", grossR: 1, maeR: 0.75 })], 0.6);
     expect(r.rows[0]!.verdict).toBe("ambiguous");
     expect(r.rows[0]!.worstR).toBe(-1);
@@ -48,17 +48,17 @@ describe("evaluateTighterStop — per-row adjudication", () => {
     expect(r.rows[0]!.reason).toContain("cannot order");
   });
 
-  it("a loser is deterministic: a tighter stop was reached too", () => {
+  it("[UNIT] a loser is deterministic: a tighter stop was reached too", () => {
     const r = report([row({ id: "a", outcome: "loss", grossR: -1, maeR: 1.4 })], 0.6);
     expect(r.rows[0]).toMatchObject({ verdict: "deterministic", worstR: -1, bestR: -1 });
   });
 
-  it("a never-filled setup is untouched by stop distance", () => {
+  it("[INVARIANT] a never-filled setup is untouched by stop distance", () => {
     const r = report([row({ id: "a", outcome: "never_filled", grossR: 0, maeR: 0 })]);
     expect(r.rows[0]).toMatchObject({ verdict: "deterministic", baseR: 0, worstR: 0, bestR: 0 });
   });
 
-  it("excludes outcomes it cannot adjudicate rather than guessing", () => {
+  it("[INVARIANT] excludes outcomes it cannot adjudicate rather than guessing", () => {
     const r = report([
       row({ id: "a", outcome: "gap_beyond_stop", grossR: null }),
       row({ id: "b", outcome: "invalid_plan", grossR: null }),
@@ -69,13 +69,13 @@ describe("evaluateTighterStop — per-row adjudication", () => {
     for (const got of r.rows) expect(got.worstR).toBeNull();
   });
 
-  it("excludes a row with a missing adverse excursion instead of assuming zero", () => {
+  it("[INVARIANT] excludes a row with a missing adverse excursion instead of assuming zero", () => {
     const r = report([row({ id: "a", outcome: "win", grossR: 1, maeR: null })]);
     expect(r.rows[0]).toMatchObject({ verdict: "excluded", worstR: null });
     expect(r.rows[0]!.reason).toContain("max adverse excursion");
   });
 
-  it("scales an expiry by the same denominator when it stayed inside the stop", () => {
+  it("[UNIT] scales an expiry by the same denominator when it stayed inside the stop", () => {
     const r = report([row({ id: "a", outcome: "expired", grossR: 0.3, maeR: 0.1 })], 0.5);
     expect(r.rows[0]!.worstR).toBeCloseTo(0.6, 10);
   });
@@ -103,7 +103,7 @@ describe("evaluateTighterStop — arms", () => {
     ),
   ];
 
-  it("compares the live rule and the proposal over exactly the same rows", () => {
+  it("[INVARIANT] compares the live rule and the proposal over exactly the same rows", () => {
     const r = report(rows, 0.6);
     expect(r.baseline.n).toBe(r.conservative.n);
     expect(r.baseline.n).toBe(24);
@@ -113,24 +113,24 @@ describe("evaluateTighterStop — arms", () => {
     expect(r.conservative.meanR).toBeCloseTo((12 * (1 / 0.6) - 12) / 24, 10);
   });
 
-  it("the conservative arm is never better than the optimistic arm", () => {
+  it("[INVARIANT] the conservative arm is never better than the optimistic arm", () => {
     const r = report([...rows, row({ id: "amb", outcome: "win", grossR: 1, maeR: 0.9 })], 0.6);
     expect(r.ambiguous).toBe(1);
     expect(r.conservative.meanR!).toBeLessThan(r.optimistic.meanR!);
   });
 
-  it("reports a supported verdict only when the conservative arm beats the baseline above zero", () => {
+  it("[INVARIANT] reports a supported verdict only when the conservative arm beats the baseline above zero", () => {
     expect(isSupported(report(rows, 0.6))).toBe(true);
   });
 
-  it("withholds support when there are too few independent day clusters", () => {
+  it("[INVARIANT] withholds support when there are too few independent day clusters", () => {
     const sameDay = rows.map((r) => ({ ...r, detectedAt: "2026-08-27T00:00:00.000Z" }));
     const r = report(sameDay, 0.6);
     expect(r.conservative.bootstrap.status).toBe("insufficient_clusters");
     expect(isSupported(r)).toBe(false);
   });
 
-  it("withholds support when the proposal does not beat the live rule", () => {
+  it("[INVARIANT] withholds support when the proposal does not beat the live rule", () => {
     const allAmbiguous = rows.map((r) =>
       r.outcome === "win" ? { ...r, maeR: 0.95 } : r,
     );
@@ -139,7 +139,7 @@ describe("evaluateTighterStop — arms", () => {
 });
 
 describe("evaluateBreakevenStop", () => {
-  it("refuses to answer and names the measurement it lacks", () => {
+  it("[INVARIANT] refuses to answer and names the measurement it lacks", () => {
     const r = evaluateBreakevenStop(0.7);
     expect(r.decidable).toBe(false);
     expect(r.rule).toBe("breakeven_stop@0.7R");
