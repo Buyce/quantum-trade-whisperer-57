@@ -55,6 +55,7 @@ import { EnqueueDecisionPanel } from "@/components/admin/EnqueueDecisionPanel";
 import { AutoTraderPanel } from "@/components/admin/AutoTraderPanel";
 import { ExecutionQualityPanel } from "@/components/admin/ExecutionQualityPanel";
 import { WalkForwardPanel } from "@/components/admin/WalkForwardPanel";
+import { ExitVariantsPanel } from "@/components/admin/ExitVariantsPanel";
 import { SymbolBindingPanel } from "@/components/admin/SymbolBindingPanel";
 
 
@@ -200,6 +201,7 @@ function AdminIntelligencePage() {
 
       <PanelBoundary name="Out-of-sample confirmation">
         <WalkForwardPanel />
+        <ExitVariantsPanel />
       </PanelBoundary>
 
       <PanelBoundary name="Symbol bindings">
