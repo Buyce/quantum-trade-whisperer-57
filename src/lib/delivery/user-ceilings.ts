@@ -74,9 +74,7 @@ export function pipSizeFromSpec(
   return fractional ? point * 10 : point;
 }
 
-export type CeilingVerdict =
-  | { ok: true; measured: number | null }
-  | { ok: false; detail: string };
+export type CeilingVerdict = { ok: true; measured: number | null } | { ok: false; detail: string };
 
 /** Is the live spread inside the owner's pip ceiling? */
 export function spreadWithinUserCeiling(
@@ -165,7 +163,9 @@ export function exposurePercentWithinCeiling(
         "the risk of this order as a percent of your broker equity could not be established, so your total-exposure limit could not be checked",
     };
   }
-  const known = Number.isFinite(accumulated.knownPercent) ? Math.max(0, accumulated.knownPercent) : 0;
+  const known = Number.isFinite(accumulated.knownPercent)
+    ? Math.max(0, accumulated.knownPercent)
+    : 0;
   const total = known + Math.max(0, incomingPercent);
   const incomplete = accumulated.unknownOrders > 0;
   const suffix = incomplete

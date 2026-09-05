@@ -784,7 +784,11 @@ async function runDirectEnqueue(
     {
       const cooldown = await activeCooldown(
         db,
-        { accountId: account.id, instrument: signal.instrument, session: signal.session ?? "unknown" },
+        {
+          accountId: account.id,
+          instrument: signal.instrument,
+          session: signal.session ?? "unknown",
+        },
         nowMs,
       );
       if (cooldown) {
@@ -814,7 +818,8 @@ async function runDirectEnqueue(
           instrument: signal.instrument,
           grade: signal.grade,
           decision: "risk_brake_paused",
-          detail: `${BRAKE_REASON_COPY[brake.verdict.reason ?? "risk_state_unmeasured"]} ${brake.verdict.detail ?? ""}`.trim(),
+          detail:
+            `${BRAKE_REASON_COPY[brake.verdict.reason ?? "risk_state_unmeasured"]} ${brake.verdict.detail ?? ""}`.trim(),
           enqueued: 0,
           filtered: 1,
         });

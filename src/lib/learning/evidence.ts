@@ -16,7 +16,6 @@
  */
 import { EVIDENCE_TIERS } from "@/lib/stats/evidence";
 
-
 export interface LearningStatRow {
   manifest_hash: string;
   gate: string;
@@ -110,12 +109,14 @@ export function ci95(
 ): [number, number] | null {
   if (row.mean_r === null || row.se_r === null) return null;
   if (!Number.isFinite(row.mean_r) || !Number.isFinite(row.se_r)) return null;
-  if (row.cluster_n !== undefined && (row.cluster_n ?? 0) < EVIDENCE_TIERS.descriptive.minClusters) {
+  if (
+    row.cluster_n !== undefined &&
+    (row.cluster_n ?? 0) < EVIDENCE_TIERS.descriptive.minClusters
+  ) {
     return null;
   }
   return [row.mean_r - 1.96 * row.se_r, row.mean_r + 1.96 * row.se_r];
 }
-
 
 /** True when two intervals cannot be separated at the 95% level. */
 export function intervalsOverlap(a: [number, number], b: [number, number]): boolean {
@@ -149,7 +150,10 @@ export function slicesByDim(rows: LearningStatRow[]): Record<SliceDim, LearningS
 }
 
 /** One decidable slice must clear every floor on both arms. */
-export function sliceDecidable(pass: LearningStatRow | undefined, fail: LearningStatRow | undefined): boolean {
+export function sliceDecidable(
+  pass: LearningStatRow | undefined,
+  fail: LearningStatRow | undefined,
+): boolean {
   if (!pass || !fail) return false;
   if (pass.stat_status !== "descriptive" || fail.stat_status !== "descriptive") return false;
   const tier = EVIDENCE_TIERS.descriptive;
@@ -159,7 +163,6 @@ export function sliceDecidable(pass: LearningStatRow | undefined, fail: Learning
   }
   return ci95(pass) !== null && ci95(fail) !== null;
 }
-
 
 export const PROPOSAL_STATUS_LABELS: Record<GateChangeProposal["status"], string> = {
   proposed: "Awaiting decision",

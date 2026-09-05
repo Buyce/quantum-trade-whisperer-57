@@ -6,9 +6,9 @@ calendar from being mistaken for a clear one.
 
 ## Sources
 
-| Provider                 | What it proves                                                                                                                                | What it cannot prove                                                                                                                                                       |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **FRED** (St. Louis Fed) | Which US statistical releases exist (stable numeric release ids) and which **calendar dates** they are scheduled for, including future dates. | The intraday release **time**. `/fred/releases/dates` returns a bare date, so no exact instant exists. Actual/forecast/previous values are not requested by the adapter.   |
+| Provider                 | What it proves                                                                                                                                | What it cannot prove                                                                                                                                                     |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **FRED** (St. Louis Fed) | Which US statistical releases exist (stable numeric release ids) and which **calendar dates** they are scheduled for, including future dates. | The intraday release **time**. `/fred/releases/dates` returns a bare date, so no exact instant exists. Actual/forecast/previous values are not requested by the adapter. |
 
 FRED is currently the **only** integrated provider. The interface stays
 provider-neutral so an authorized provider can be added without changing the

@@ -23,12 +23,7 @@ import { computeR, R_MATH_VERSION } from "@/lib/journal/r-math";
 import { fetchDeals, fetchHistoryOrders } from "@/lib/metaapi/history.server";
 import { fetchPositions } from "@/lib/metaapi/accounts.server";
 import { isSafeResearchRef, newsContextFor, pooledInclusionAllowed } from "@/lib/research/consent";
-import {
-  evidenceClassFor,
-  groupOwnedDeals,
-  resolveBrokerStop,
-  summariseGroup,
-} from "./associate";
+import { evidenceClassFor, groupOwnedDeals, resolveBrokerStop, summariseGroup } from "./associate";
 import { recoveredCharacterisationFields } from "./grade-recovery";
 import { recoverCharacterisation } from "./grade-recovery.server";
 

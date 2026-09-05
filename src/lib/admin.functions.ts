@@ -1178,8 +1178,7 @@ export const getAdminExecutionQuality = createServerFn({ method: "GET" })
           r["norm_median_slippage"] === null ? null : Number(r["norm_median_slippage"]),
         normRejectRate: r["norm_reject_rate"] === null ? null : Number(r["norm_reject_rate"]),
         measured: r["measured"] === true,
-        unmeasuredReason:
-          r["unmeasured_reason"] === null ? null : String(r["unmeasured_reason"]),
+        unmeasuredReason: r["unmeasured_reason"] === null ? null : String(r["unmeasured_reason"]),
       })),
       cooldowns: ((cooldowns.data ?? []) as Record<string, unknown>[]).map((r) => ({
         accountId: String(r["account_id"]),

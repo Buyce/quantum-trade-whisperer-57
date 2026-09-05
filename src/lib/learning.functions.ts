@@ -11,10 +11,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { assertOwner, ownerEmail } from "@/lib/candidates.functions";
-import {
-  EMPTY_LEARNING_EVIDENCE,
-  type LearningEvidence,
-} from "@/lib/learning/evidence";
+import { EMPTY_LEARNING_EVIDENCE, type LearningEvidence } from "@/lib/learning/evidence";
 import { EMPTY_GATE_READINESS, type GateReadiness } from "@/lib/learning/readiness";
 
 type Rpc = (

@@ -454,11 +454,19 @@ export function capturePostFillPath(
   input: ReplayInput,
   candles: Candle[],
   fill: { price: number; barTime: string; riskActual: number },
-): { bars: PathBar[]; targetsR: [number | null, number | null, number | null]; truncated: boolean } {
+): {
+  bars: PathBar[];
+  targetsR: [number | null, number | null, number | null];
+  truncated: boolean;
+} {
   const isLong = input.direction === "long";
   const risk = fill.riskActual;
   const base = fill.price;
-  const empty = { bars: [] as PathBar[], targetsR: [null, null, null] as [null, null, null], truncated: false };
+  const empty = {
+    bars: [] as PathBar[],
+    targetsR: [null, null, null] as [null, null, null],
+    truncated: false,
+  };
   if (!Number.isFinite(risk) || risk <= 0 || !Number.isFinite(base)) return empty;
 
   const r4 = (v: number): number | null => (Number.isFinite(v) ? Number(v.toFixed(4)) : null);

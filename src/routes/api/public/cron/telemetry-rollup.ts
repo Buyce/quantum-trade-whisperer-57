@@ -38,7 +38,6 @@ export const Route = createFileRoute("/api/public/cron/telemetry-rollup")({
           recomputeExecutionQuality(supabaseAdmin as never),
         ]);
 
-
         const health =
           resolver.status === "fulfilled" ? resolver.value : { backlog: null, oldestAgeMs: null };
 
@@ -68,7 +67,6 @@ export const Route = createFileRoute("/api/public/cron/telemetry-rollup")({
           },
           { status: rejected.length === 3 ? 500 : 200 },
         );
-
       },
     },
   },

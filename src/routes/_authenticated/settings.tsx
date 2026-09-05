@@ -70,6 +70,8 @@ export const Route = createFileRoute("/_authenticated/settings")({
         property: "og:description",
         content: "Scanner filters, alerts and sender-domain configuration.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
       { name: "robots", content: "noindex" },
     ],
   }),
@@ -1223,8 +1225,8 @@ function SettingsPage() {
                   />
                   <p className="mt-1 text-xs text-muted-foreground">
                     Measured against the highest equity P-Trades has actually observed on the
-                    account — not an assumed starting balance. This one stays on until you change
-                    it or your equity recovers.
+                    account — not an assumed starting balance. This one stays on until you change it
+                    or your equity recovers.
                   </p>
                 </div>
               </div>

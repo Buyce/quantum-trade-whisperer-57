@@ -54,8 +54,7 @@ const netOf = (row: {
   gross_profit: number | null;
   commission: number | null;
   swap: number | null;
-}): number =>
-  Number(row.gross_profit ?? 0) + Number(row.commission ?? 0) + Number(row.swap ?? 0);
+}): number => Number(row.gross_profit ?? 0) + Number(row.commission ?? 0) + Number(row.swap ?? 0);
 
 /**
  * Evaluate the brakes for a set of armed accounts in one pass.
@@ -104,7 +103,10 @@ export async function evaluateAccountBrakes(
       .from("connected_trading_accounts")
       .select("id, broker_equity, broker_observed_at")
       .in("id", accountIds),
-    db.from("account_risk_state").select("account_id, peak_equity, peak_equity_at").in("account_id", accountIds),
+    db
+      .from("account_risk_state")
+      .select("account_id, peak_equity, peak_equity_at")
+      .in("account_id", accountIds),
   ]);
 
   if (accountRows.error) console.error("brakes: accounts unreadable", accountRows.error.message);
@@ -137,7 +139,6 @@ export async function evaluateAccountBrakes(
     tradesByAccount.set(accountId, list);
   });
 
-
   const equityByAccount = new Map<string, { equity: number | null; observedAt: string | null }>();
   for (const row of (accountRows.data ?? []) as {
     id: string;
@@ -145,7 +146,9 @@ export async function evaluateAccountBrakes(
     broker_observed_at: string | null;
   }[]) {
     const equity =
-      typeof row.broker_equity === "number" && Number.isFinite(row.broker_equity) && row.broker_equity > 0
+      typeof row.broker_equity === "number" &&
+      Number.isFinite(row.broker_equity) &&
+      row.broker_equity > 0
         ? row.broker_equity
         : null;
     equityByAccount.set(row.id, { equity, observedAt: row.broker_observed_at ?? null });
@@ -220,13 +223,16 @@ export async function evaluateAccountBrakes(
       pause_reason: verdict.reason,
       pause_detail: verdict.detail,
       paused_at: verdict.paused ? new Date(nowMs).toISOString() : null,
-      resume_after: verdict.resumeAfterMs === null ? null : new Date(verdict.resumeAfterMs).toISOString(),
+      resume_after:
+        verdict.resumeAfterMs === null ? null : new Date(verdict.resumeAfterMs).toISOString(),
       resume_boundary: verdict.resumeBoundary,
     });
   }
 
   if (upserts.length > 0) {
-    const { error } = await db.from("account_risk_state").upsert(upserts, { onConflict: "account_id" });
+    const { error } = await db
+      .from("account_risk_state")
+      .upsert(upserts, { onConflict: "account_id" });
     // A failed write must never loosen the verdict already decided above.
     if (error) console.error("brakes: risk state not persisted", error.message);
   }

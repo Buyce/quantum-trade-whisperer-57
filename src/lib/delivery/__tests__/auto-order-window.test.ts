@@ -78,9 +78,9 @@ describe("per-owner window in the enqueue path", () => {
         };
       }
       // Armed symbols always have a published broker contract specification in
-    // production; without a tick size the enqueue path refuses up front.
-    if (call.table === "broker_symbol_specs") return { data: [{ tick_size: 0.01 }], error: null };
-    if (call.table === "scanner_settings") {
+      // production; without a tick size the enqueue path refuses up front.
+      if (call.table === "broker_symbol_specs") return { data: [{ tick_size: 0.01 }], error: null };
+      if (call.table === "scanner_settings") {
         return {
           data: [
             {

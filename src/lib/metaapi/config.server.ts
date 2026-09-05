@@ -48,10 +48,7 @@ const REFUSED_TOKENS = new Map<string, Set<string>>();
  * Record that the provider refused this credential. Called ONLY on an explicit
  * 401/403 by the request boundary; it never reacts to network or 5xx failures.
  */
-export function noteMetaApiTokenRefused(
-  purpose: "general" | "provisioning",
-  token: string,
-): void {
+export function noteMetaApiTokenRefused(purpose: "general" | "provisioning", token: string): void {
   const set = REFUSED_TOKENS.get(purpose) ?? new Set<string>();
   set.add(token);
   REFUSED_TOKENS.set(purpose, set);

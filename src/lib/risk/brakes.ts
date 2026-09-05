@@ -222,7 +222,8 @@ export function evaluateBrakes(
   }
 
   const equity = inputs.equity ?? 0;
-  const money = (n: number): string => `${n.toFixed(2)}${inputs.totals?.currency ? ` ${inputs.totals.currency}` : ""}`;
+  const money = (n: number): string =>
+    `${n.toFixed(2)}${inputs.totals?.currency ? ` ${inputs.totals.currency}` : ""}`;
 
   // Peak-to-current equity drawdown. Only measurable once a higher equity has
   // actually been observed; a fresh account has no peak and no drawdown claim.
@@ -292,7 +293,8 @@ export const BRAKE_REASON_COPY: Record<BrakeReason, string> = {
   daily_loss_limit: "Your daily loss limit was reached on closed broker trades.",
   weekly_loss_limit: "Your weekly loss limit was reached on closed broker trades.",
   consecutive_loss_limit: "Your consecutive-losing-trades limit was reached.",
-  equity_drawdown_limit: "Your account drawdown limit was reached against the highest equity observed.",
+  equity_drawdown_limit:
+    "Your account drawdown limit was reached against the highest equity observed.",
   risk_state_unmeasured:
     "Your loss limits could not be measured from your broker, so automatic orders are held rather than allowed through unchecked.",
 };

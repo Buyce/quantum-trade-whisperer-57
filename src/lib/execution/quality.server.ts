@@ -161,7 +161,8 @@ export async function recomputeExecutionQuality(
     enqueued_at: string;
     scanned_signals: {
       instrument: string | null;
-      market_context: { trading_session: string | null } | { trading_session: string | null }[] | null;
+      market_context:
+        { trading_session: string | null } | { trading_session: string | null }[] | null;
     } | null;
   }[]) {
     if (!row.connected_account_id) continue;

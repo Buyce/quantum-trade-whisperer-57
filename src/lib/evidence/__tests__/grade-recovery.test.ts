@@ -85,7 +85,9 @@ describe("[INVARIANT] evidence/grade-recovery refuses anything ambiguous", () =>
 
   it("[INVARIANT] refuses when the decision instrument contradicts the broker symbol", () => {
     expect(
-      resolveCharacterisationFromDecisions(CLIENT_ID, "EURUSD", [decision({ instrument: "XAUUSD" })]),
+      resolveCharacterisationFromDecisions(CLIENT_ID, "EURUSD", [
+        decision({ instrument: "XAUUSD" }),
+      ]),
     ).toBeNull();
   });
 

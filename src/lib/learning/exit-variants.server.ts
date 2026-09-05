@@ -33,7 +33,6 @@ import {
 import { evaluateWalkForward, type WalkForwardObservation } from "@/lib/stats/walk-forward";
 import { EVIDENCE_TIERS } from "@/lib/stats/evidence";
 
-
 /** Maturity horizon, matching the other research passes. */
 export const MATURITY_HOURS = 24;
 /** Bound on rows read per pass. */
@@ -46,7 +45,6 @@ const ROW_LIMIT = 2000;
 export const MIN_VARIANT_SAMPLES = EVIDENCE_TIERS.chronological_period.minSamples;
 /** Minimum independent instrument-day clusters before a mean is reported. */
 export const MIN_VARIANT_CLUSTERS = EVIDENCE_TIERS.chronological_period.minClusters;
-
 
 interface PathRow {
   detected_at: string;
@@ -74,7 +72,9 @@ export interface VariantSummary {
 }
 
 const mean = (values: number[]): number | null =>
-  values.length === 0 ? null : Number((values.reduce((a, b) => a + b, 0) / values.length).toFixed(4));
+  values.length === 0
+    ? null
+    : Number((values.reduce((a, b) => a + b, 0) / values.length).toFixed(4));
 
 /** Pure: turn read rows into one summary per variant. */
 export function summariseVariants(rows: PathRow[], nowMs: number): VariantSummary[] {

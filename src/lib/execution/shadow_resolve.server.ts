@@ -25,7 +25,6 @@ import { anchorForRows, windowCoversRow } from "./replay-anchor";
  */
 const CANDIDATE_BACKFILL_FETCH_BUDGET = 3;
 
-
 const MAX_ROWS_PER_RUN = 200;
 /**
  * Replay-V2 gets its OWN budget on top of the production one, so a research
@@ -118,7 +117,6 @@ export interface ResolveSummary {
   /** Bounded candidate-only historical fetches performed by the backfill pass. */
   candidateBackfillFetches: number;
 }
-
 
 export function replayCandleDepthForRows(rows: ReplayFetchRow[], nowMs = Date.now()): number {
   if (rows.length === 0) return 0;
@@ -494,7 +492,6 @@ export async function resolveShadowExecutions(db: SupabaseClient): Promise<Resol
   /** Candles fetched for production this run, reusable by the candidate pass. */
   const productionCandles = new Map<string, Awaited<ReturnType<typeof fetchCandles>>>();
 
-
   for (const [instrument, group] of byInstrument) {
     /**
      * Lifecycle data gate (Phase A2A, R6-FIX).
@@ -771,9 +768,6 @@ async function resolveCandidateBacklog(
   }
 }
 
-
-
-
 function round(value: number) {
   return Number.isFinite(value) ? Number(value.toFixed(4)) : null;
 }
@@ -788,7 +782,11 @@ function round(value: number) {
  */
 function appendPath(
   previous: unknown,
-  captured: { bars: PathBar[]; targetsR: [number | null, number | null, number | null]; truncated: boolean },
+  captured: {
+    bars: PathBar[];
+    targetsR: [number | null, number | null, number | null];
+    truncated: boolean;
+  },
 ) {
   const before: PathBar[] = [];
   let truncated = captured.truncated;

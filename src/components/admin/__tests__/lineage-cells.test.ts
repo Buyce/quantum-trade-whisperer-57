@@ -49,7 +49,12 @@ describe("replayOutcome", () => {
 
   it("[UNIT] labels replay R when present", () => {
     expect(
-      replayOutcome({ ...base, shadow_status: "resolved", shadow_outcome: "win", shadow_realized_r: 1.5 }),
+      replayOutcome({
+        ...base,
+        shadow_status: "resolved",
+        shadow_outcome: "win",
+        shadow_realized_r: 1.5,
+      }),
     ).toBe("win · 1.50R (replay)");
   });
 });

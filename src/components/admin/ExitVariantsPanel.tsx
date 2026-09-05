@@ -11,12 +11,15 @@ import { useServerFn } from "@tanstack/react-start";
 import { getAdminExitVariants } from "@/lib/admin.functions";
 import { PanelShell } from "@/components/admin/AdminPanels";
 import { Skeleton } from "@/components/ui/skeleton";
-import { BASELINE_VARIANT, EXIT_VARIANT_LABELS, type ExitVariant } from "@/lib/execution/exit-variants";
+import {
+  BASELINE_VARIANT,
+  EXIT_VARIANT_LABELS,
+  type ExitVariant,
+} from "@/lib/execution/exit-variants";
 
 const r3 = (value: number | null): string => (value === null ? "not measured" : value.toFixed(3));
 
-const label = (variant: string): string =>
-  EXIT_VARIANT_LABELS[variant as ExitVariant] ?? variant;
+const label = (variant: string): string => EXIT_VARIANT_LABELS[variant as ExitVariant] ?? variant;
 
 export function ExitVariantsPanel() {
   const load = useServerFn(getAdminExitVariants);

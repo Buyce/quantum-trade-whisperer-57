@@ -98,7 +98,17 @@ function resultFor(table: string, calls: QueryCall[]): { data: unknown[]; error:
 function queryFor(table: string): FakeQuery {
   const calls: QueryCall[] = [];
   const query = {} as FakeQuery;
-  for (const method of ["select", "eq", "in", "gte", "not", "or", "order", "range", "update"] as const) {
+  for (const method of [
+    "select",
+    "eq",
+    "in",
+    "gte",
+    "not",
+    "or",
+    "order",
+    "range",
+    "update",
+  ] as const) {
     query[method] = (...args: unknown[]) => {
       calls.push({ method, args });
       if (method === "update") updates.push({ table, payload: args[0] });

@@ -576,12 +576,15 @@ export async function revalidateDelivery(
       "unknown";
     const cooldown = await activeCooldown(
       db as unknown as SupabaseClient,
-      { accountId: delivery.connected_account_id, instrument: signal.instrument, session: signalSession },
+      {
+        accountId: delivery.connected_account_id,
+        instrument: signal.instrument,
+        session: signalSession,
+      },
       now,
     );
     if (cooldown) return reject("execution_cooldown", cooldown.detail);
   }
-
 
   // The planned geometry. The ORDER is only assembled once an authoritative
   // quantity exists, so a BridgeOrder can never exist without one.

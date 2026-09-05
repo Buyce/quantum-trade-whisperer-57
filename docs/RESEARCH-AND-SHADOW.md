@@ -30,7 +30,7 @@ Replay V2 also records the ordered post-fill path of every filled setup in R
 units (`shadow_executions.post_entry_path`, bounded to 400 M15 bars). That record
 exists so alternative exit rules — half out at the first target with a runner,
 stop to break-even after 1R, and a 1R trailing stop — can be simulated against
-the *same* path as the live single-exit policy instead of being reported as "not
+the _same_ path as the live single-exit policy instead of being reported as "not
 decidable". `src/lib/execution/exit-variants.ts` does the simulation, purely and
 with no I/O; the hourly pass in `src/lib/learning/exit-variants.server.ts` pairs
 each variant against the baseline, computes cluster-robust means and reuses the

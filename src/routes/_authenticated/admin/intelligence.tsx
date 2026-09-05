@@ -58,7 +58,6 @@ import { WalkForwardPanel } from "@/components/admin/WalkForwardPanel";
 import { ExitVariantsPanel } from "@/components/admin/ExitVariantsPanel";
 import { PromotionPanel } from "@/components/admin/PromotionPanel";
 
-
 export const Route = createFileRoute("/_authenticated/admin/intelligence")({
   head: () => ({
     meta: [
@@ -210,7 +209,6 @@ function AdminIntelligencePage() {
 
       <PanelBoundary name="Headline stats">
         <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
-
           <StatCard
             label="Cycle latency p50 / p95"
             value={`${num(health.p50_ms, 0)} / ${num(health.p95_ms, 0)} ms`}

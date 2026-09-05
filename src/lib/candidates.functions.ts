@@ -19,7 +19,6 @@ import {
   type FilterLiftRow,
 } from "@/lib/learning/filter-lift";
 
-
 const OWNER_EMAIL = "boatengampomah@gmail.com";
 
 /** Exported for the sibling learning functions — one owner check, one source. */
@@ -104,4 +103,3 @@ export const getFilterLift = createServerFn({ method: "GET" })
       gates: summarizeFilterLift(global),
     };
   });
-

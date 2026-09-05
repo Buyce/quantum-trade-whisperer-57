@@ -201,9 +201,7 @@ describe("broker Performance evidence separation", () => {
   });
 
   it("[INVARIANT] a broker row with no money figure is unpriced, never zero", () => {
-    const summary = brokerMoneySummary([
-      { ...evidence[0]!, grossProfit: null, netProfit: null },
-    ]);
+    const summary = brokerMoneySummary([{ ...evidence[0]!, grossProfit: null, netProfit: null }]);
     expect(summary.buckets).toHaveLength(0);
     expect(summary.unpriced).toBe(1);
   });

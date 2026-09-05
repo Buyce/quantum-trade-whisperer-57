@@ -31,9 +31,7 @@ const trade = (iso: string, net: number): ClosedTrade => ({
 describe("readBrakeLimits", () => {
   it("[UNIT] is off unless the owner switched it on", () => {
     expect(brakesConfigured(readBrakeLimits({}))).toBe(false);
-    expect(
-      brakesConfigured(readBrakeLimits({ daily_loss_limit_percent: 3 })),
-    ).toBe(false);
+    expect(brakesConfigured(readBrakeLimits({ daily_loss_limit_percent: 3 }))).toBe(false);
   });
 
   it("[UNIT] is still off when switched on with no limit set", () => {
@@ -183,8 +181,11 @@ describe("evaluateBrakes", () => {
   it("[INVARIANT] never brakes on a profitable day", () => {
     const green = summariseRealised([trade("2026-09-02T09:00:00Z", 5_000)], NOW);
     expect(
-      evaluateBrakes(on({ dailyLossPercent: 1 }), { totals: green, equity: 10_000, peakEquity: 10_000 }, NOW)
-        .paused,
+      evaluateBrakes(
+        on({ dailyLossPercent: 1 }),
+        { totals: green, equity: 10_000, peakEquity: 10_000 },
+        NOW,
+      ).paused,
     ).toBe(false);
   });
 

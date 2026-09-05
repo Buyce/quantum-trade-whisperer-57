@@ -100,7 +100,6 @@ interface EventRow {
   event_status: string;
 }
 
-
 /**
  * Read helper that never throws into the execution path.
  *
@@ -109,7 +108,9 @@ interface EventRow {
  * an unreadable feed can never invent a refusal, and coverage stays "unproven"
  * rather than being reported as healthy.
  */
-async function safeQuery<T>(run: () => PromiseLike<{ data: T[] | null }>): Promise<{ data: T[] | null }> {
+async function safeQuery<T>(
+  run: () => PromiseLike<{ data: T[] | null }>,
+): Promise<{ data: T[] | null }> {
   try {
     return await run();
   } catch (err) {
@@ -147,11 +148,11 @@ export async function evaluateNewsGate(
       db
         .from("news_coverage_snapshots")
         .select("currency, event_family, coverage_state, computed_at")
-      .in("event_family", families)
+        .in("event_family", families)
         .order("computed_at", { ascending: false })
         .limit(500),
     );
-    for (const row of ((data ?? []) as CoverageRow[])) {
+    for (const row of (data ?? []) as CoverageRow[]) {
       const key = `${(row.currency ?? "").toUpperCase()}|${row.event_family}`;
       // Ordered newest-first, so the first sighting of a scope is the current one.
       if (!coverage.has(key)) coverage.set(key, toCoverageState(row.coverage_state));
@@ -175,7 +176,7 @@ export async function evaluateNewsGate(
         )
         .limit(500),
     );
-    for (const row of ((data ?? []) as EventRow[])) {
+    for (const row of (data ?? []) as EventRow[]) {
       events.push({
         canonicalEventId: row.canonical_event_id,
         family: row.event_family as NewsFamily,
@@ -192,7 +193,8 @@ export async function evaluateNewsGate(
 
   const requiredStates = currencies.flatMap((currency) =>
     families.map(
-      (family) => coverage.get(`${currency.toUpperCase()}|${family}`) ?? ("unproven" as CoverageState),
+      (family) =>
+        coverage.get(`${currency.toUpperCase()}|${family}`) ?? ("unproven" as CoverageState),
     ),
   );
   const coverageProven = requiredStates.length > 0 && coverageClears(worstCoverage(requiredStates));
@@ -208,14 +210,17 @@ export async function evaluateNewsGate(
   });
 
   const namesAnEvent = verdict.blockingEventIds.length > 0;
-  const enforceable = verdict.reason === "event_window" ? namesAnEvent : coverageProven && namesAnEvent;
+  const enforceable =
+    verdict.reason === "event_window" ? namesAnEvent : coverageProven && namesAnEvent;
   const blocked = optedIn && verdict.wouldSuppressNewEntries && enforceable;
 
   const detail = blocked
     ? `news gate: ${verdict.detail}`
     : verdict.wouldSuppressNewEntries
       ? `news gate would suppress (${verdict.reason}: ${verdict.detail}) but is not enforced: ${
-          optedIn ? "coverage is not proven for this instrument" : "you have news blocking switched off"
+          optedIn
+            ? "coverage is not proven for this instrument"
+            : "you have news blocking switched off"
         }`
       : `news gate clear: ${verdict.detail}`;
 
@@ -255,7 +260,8 @@ async function recordEvaluation(
       instrument: args.verdict.symbol,
       mode: args.blocked ? "enforcing" : args.verdict.mode,
       decision,
-      coverage_state: args.verdict.coverageState === "unproven" ? "unknown" : args.verdict.coverageState,
+      coverage_state:
+        args.verdict.coverageState === "unproven" ? "unknown" : args.verdict.coverageState,
       required_currencies: [...new Set(args.verdict.requiredScopes.map((s) => s.currency))],
       required_families: [...new Set(args.verdict.requiredScopes.map((s) => s.family))],
       news_snapshot_version: NEWS_GATE_VERSION,

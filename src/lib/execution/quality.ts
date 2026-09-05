@@ -87,7 +87,9 @@ export function median(values: readonly number[]): number | null {
   if (values.length === 0) return null;
   const s = sorted(values);
   const mid = Math.floor(s.length / 2);
-  return s.length % 2 === 1 ? (s[mid] as number) : ((s[mid - 1] as number) + (s[mid] as number)) / 2;
+  return s.length % 2 === 1
+    ? (s[mid] as number)
+    : ((s[mid - 1] as number) + (s[mid] as number)) / 2;
 }
 
 /** Nearest-rank 90th percentile: a tail figure, never an average. */

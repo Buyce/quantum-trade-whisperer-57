@@ -39,9 +39,7 @@ export function ExecutionQualityPanel() {
       title="Execution quality and automatic pauses"
       right={
         <span className="text-[11px] text-muted-foreground">
-          {scores.length === 0
-            ? "nothing scored yet"
-            : `${measured} of ${scores.length} measured`}
+          {scores.length === 0 ? "nothing scored yet" : `${measured} of ${scores.length} measured`}
         </span>
       }
     >
@@ -63,8 +61,9 @@ export function ExecutionQualityPanel() {
                   <span className="font-mono text-warning">
                     {c.instrument} · {c.session}
                   </span>{" "}
-                  paused until {new Date(c.resumeAfter).toISOString().slice(0, 16).replace("T", " ")}{" "}
-                  UTC — {c.detail ?? c.reason}
+                  paused until{" "}
+                  {new Date(c.resumeAfter).toISOString().slice(0, 16).replace("T", " ")} UTC —{" "}
+                  {c.detail ?? c.reason}
                 </li>
               ))}
             </ul>

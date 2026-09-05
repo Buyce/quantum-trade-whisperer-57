@@ -81,7 +81,9 @@ export const getCounterfactualStops = createServerFn({ method: "GET" })
 
     const { data, error } = await context.supabase
       .from("shadow_executions")
-      .select("id, detected_at, resolved_outcome, gross_r, realized_r, max_adverse_excursion_r, max_favorable_excursion_r")
+      .select(
+        "id, detected_at, resolved_outcome, gross_r, realized_r, max_adverse_excursion_r, max_favorable_excursion_r",
+      )
       .not("resolved_outcome", "is", null)
       .order("detected_at", { ascending: true })
       .limit(ROW_LIMIT);

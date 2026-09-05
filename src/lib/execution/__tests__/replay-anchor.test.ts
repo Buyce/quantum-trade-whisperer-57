@@ -60,10 +60,7 @@ describe("anchorForRows", () => {
 });
 
 describe("windowCoversRow", () => {
-  const candles = [
-    { time: "2026-08-27T00:00:00.000Z" },
-    { time: "2026-08-27T02:00:00.000Z" },
-  ];
+  const candles = [{ time: "2026-08-27T00:00:00.000Z" }, { time: "2026-08-27T02:00:00.000Z" }];
 
   it("[UNIT] covers a row that starts inside the window", () => {
     expect(

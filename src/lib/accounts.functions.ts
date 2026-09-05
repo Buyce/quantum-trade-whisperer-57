@@ -78,7 +78,6 @@ export const refreshBrokerConnection = createServerFn({ method: "POST" })
     return await toAccountView(context.supabase, row);
   });
 
-
 export const disconnectBrokerConnection = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((input: { accountId: string; force?: boolean }) => input)
@@ -138,7 +137,6 @@ export const releaseAccountEmergencyStop = createServerFn({ method: "POST" })
     const views = await loadAccountViews(context.supabase, context.userId);
     return views.find((v) => v.id === data.accountId) ?? null;
   });
-
 
 export const setAccountExposureBoundary = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

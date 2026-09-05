@@ -25,7 +25,6 @@ export const READINESS_MIN_TRADING_DAYS = 20;
 /** Descriptive floor — enough to read a verdict, not enough to train on. */
 export const DECIDABLE_MIN_SAMPLES_PER_ARM = EVIDENCE_TIERS.descriptive.minSamples;
 
-
 export type TunableGate = "risk_ceiling" | "headroom" | "reachable_r";
 
 export interface GateReadinessRow {
@@ -84,10 +83,14 @@ export function missingFloors(row: GateReadinessRow, readiness: GateReadiness): 
     missing.push(`rejected arm needs ${minN} matured samples (has ${row.fail_n_used ?? 0})`);
   }
   if ((row.pass_cluster_n ?? 0) < minC) {
-    missing.push(`published arm needs ${minC} independent clusters (has ${row.pass_cluster_n ?? 0})`);
+    missing.push(
+      `published arm needs ${minC} independent clusters (has ${row.pass_cluster_n ?? 0})`,
+    );
   }
   if ((row.fail_cluster_n ?? 0) < minC) {
-    missing.push(`rejected arm needs ${minC} independent clusters (has ${row.fail_cluster_n ?? 0})`);
+    missing.push(
+      `rejected arm needs ${minC} independent clusters (has ${row.fail_cluster_n ?? 0})`,
+    );
   }
   if (readiness.trading_days < readiness.min_trading_days) {
     missing.push(

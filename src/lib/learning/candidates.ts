@@ -37,7 +37,6 @@ export interface CandidateEnrolledDayRow {
   oldest_detected_at: string | null;
 }
 
-
 export interface CandidateStageRow {
   terminal_stage: string;
   n: number;
@@ -130,7 +129,6 @@ export const EMPTY_CANDIDATE_FUNNEL: CandidateFunnel = {
   cohort_counts: {},
   enrolled_by_day: [],
   outside_replay_window: 0,
-
 };
 
 /** Human label for each terminal evaluation stage. */

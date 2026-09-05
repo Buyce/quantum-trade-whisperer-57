@@ -34,9 +34,9 @@ describe("[UNIT] chunk reload recovery", () => {
   it("[UNIT] does nothing without storage or for other errors", () => {
     const reload = vi.fn();
     expect(recoverFromChunkError(new Error("boom"), fakeStorage(), reload)).toBe(false);
-    expect(
-      recoverFromChunkError(new Error("Loading chunk 1 failed"), undefined, reload),
-    ).toBe(false);
+    expect(recoverFromChunkError(new Error("Loading chunk 1 failed"), undefined, reload)).toBe(
+      false,
+    );
     expect(reload).not.toHaveBeenCalled();
   });
 });

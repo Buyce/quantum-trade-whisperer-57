@@ -27,23 +27,25 @@ and is never updated retroactively.
 
 **Money and measurement**
 
-9. [RISK-SIZING.md](RISK-SIZING.md)
-10. [JOURNAL-AND-R.md](JOURNAL-AND-R.md)
-11. [PERFORMANCE-AND-STATISTICS.md](PERFORMANCE-AND-STATISTICS.md)
-12. [BROKER-EVIDENCE.md](BROKER-EVIDENCE.md)
-13. [RESEARCH-AND-SHADOW.md](RESEARCH-AND-SHADOW.md)
+11. [RISK-SIZING.md](RISK-SIZING.md)
+12. [JOURNAL-AND-R.md](JOURNAL-AND-R.md)
+13. [PERFORMANCE-AND-STATISTICS.md](PERFORMANCE-AND-STATISTICS.md)
+14. [BROKER-EVIDENCE.md](BROKER-EVIDENCE.md)
+15. [RESEARCH-AND-SHADOW.md](RESEARCH-AND-SHADOW.md)
 
 **Integrations and operations**
 
-14. [BROKER-ACCOUNTS.md](BROKER-ACCOUNTS.md)
-15. [METASTATS.md](METASTATS.md)
-16. [RISK-GUARDIAN.md](RISK-GUARDIAN.md)
-17. [EXECUTION.md](EXECUTION.md)
-18. [MCP.md](MCP.md)
-19. [SECURITY.md](SECURITY.md)
-20. [OPERATIONS.md](OPERATIONS.md)
-21. [TESTING.md](TESTING.md)
-    **Audits and indexes**
+16. [BROKER-ACCOUNTS.md](BROKER-ACCOUNTS.md)
+17. [METASTATS.md](METASTATS.md)
+18. [RISK-GUARDIAN.md](RISK-GUARDIAN.md)
+19. [EXECUTION.md](EXECUTION.md)
+20. [EXECUTION-QUALITY.md](EXECUTION-QUALITY.md) — drawdown brakes, execution-quality cooldowns and evidence-ranked cap ordering
+21. [MCP.md](MCP.md)
+22. [SECURITY.md](SECURITY.md)
+23. [OPERATIONS.md](OPERATIONS.md)
+24. [TESTING.md](TESTING.md)
+
+**Audits and indexes**
 
 - [LINK-AUDIT.md](LINK-AUDIT.md) — canonical URLs, internal link results and the
   vendor-guide audit behind the `/connect` steps.
@@ -62,19 +64,19 @@ and is never updated retroactively.
 Documents here are one of three kinds, and only the first carries the full
 structural contract:
 
-22. **Feature references** — every numbered document in the reading order above.
-    Each opens with its purpose and then states current behaviour, inputs, outputs,
-    provenance, failure behaviour, user-facing meaning, explicit non-guarantees,
-    implementation files and tests. `src/test/__tests__/docs-contract.test.ts`
-    enforces the parts that can be checked mechanically — provenance, explicit
-    non-guarantees and named tests — rather than the presence of literal headings.
-23. **Indexes and historical ledgers** — this file, `LINK-AUDIT.md`,
-    `CHARACTERISATION.md` and `DB-TESTS.md`. They describe the documentation set, a
-    frozen behaviour ledger, or a test layer rather than a shipped feature, so the
-    feature-reference headings do not apply.
-24. **Dated audit snapshots** — everything under `audits/`. Each is frozen evidence
-    from a named date and is never retrofitted to HEAD. Excluded from the contract
-    by design; adding empty headings to a historical record would falsify it.
+1. **Feature references** — every numbered document in the reading order above.
+   Each opens with its purpose and then states current behaviour, inputs, outputs,
+   provenance, failure behaviour, user-facing meaning, explicit non-guarantees,
+   implementation files and tests. `src/test/__tests__/docs-contract.test.ts`
+   enforces the parts that can be checked mechanically — provenance, explicit
+   non-guarantees and named tests — rather than the presence of literal headings.
+2. **Indexes and historical ledgers** — this file, `LINK-AUDIT.md`,
+   `CHARACTERISATION.md` and `DB-TESTS.md`. They describe the documentation set, a
+   frozen behaviour ledger, or a test layer rather than a shipped feature, so the
+   feature-reference headings do not apply.
+3. **Dated audit snapshots** — everything under `audits/`. Each is frozen evidence
+   from a named date and is never retrofitted to HEAD. Excluded from the contract
+   by design; adding empty headings to a historical record would falsify it.
 
 Every document listed in this index resolves, and every implementation path it
 cites exists — both checked mechanically rather than asserted as a count, because

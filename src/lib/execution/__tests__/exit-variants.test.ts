@@ -12,7 +12,10 @@ const bar = (t: string, h: number | null, l: number | null, amb = false): PathBa
   amb,
 });
 
-const path = (bars: PathBar[], targets: [number | null, number | null, number | null] = [2, 3, 4]): ExitPath => ({
+const path = (
+  bars: PathBar[],
+  targets: [number | null, number | null, number | null] = [2, 3, 4],
+): ExitPath => ({
   bars,
   targetsR: targets,
   truncated: false,
@@ -20,7 +23,10 @@ const path = (bars: PathBar[], targets: [number | null, number | null, number | 
 
 describe("exit variants — baseline", () => {
   it("[UNIT] exits at the first target when it is reached first", () => {
-    const out = simulateVariant("single_exit_first_target", path([bar("t1", 0.5, 0.2), bar("t2", 2.1, 0.3)]));
+    const out = simulateVariant(
+      "single_exit_first_target",
+      path([bar("t1", 0.5, 0.2), bar("t2", 2.1, 0.3)]),
+    );
     expect(out).toMatchObject({ decidable: true, r: 2 });
   });
 
@@ -36,7 +42,10 @@ describe("exit variants — baseline", () => {
   });
 
   it("[INVARIANT] an ambiguous bar is undecidable", () => {
-    const out = simulateVariant("single_exit_first_target", path([{ t: "t1", hR: null, lR: null, amb: true }]));
+    const out = simulateVariant(
+      "single_exit_first_target",
+      path([{ t: "t1", hR: null, lR: null, amb: true }]),
+    );
     expect(out.decidable).toBe(false);
   });
 
@@ -65,7 +74,10 @@ describe("exit variants — partial with a runner", () => {
   });
 
   it("[INVARIANT] reports no deeper target rather than inventing one", () => {
-    const out = simulateVariant("partial_tp1_runner_tp3", path([bar("t1", 2.1, 0.2)], [2, 3, null]));
+    const out = simulateVariant(
+      "partial_tp1_runner_tp3",
+      path([bar("t1", 2.1, 0.2)], [2, 3, null]),
+    );
     expect(out.decidable).toBe(false);
     expect(out.reason).toContain("third target");
   });

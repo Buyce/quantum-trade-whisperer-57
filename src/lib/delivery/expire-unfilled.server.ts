@@ -101,7 +101,6 @@ export function neverSubmitted(
   );
 }
 
-
 /**
  * Classifies what the broker currently holds for this order id.
  *

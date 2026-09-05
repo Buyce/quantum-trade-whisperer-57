@@ -479,6 +479,118 @@ const SECTIONS: Section[] = [
       },
     ],
   },
+  {
+    id: "safety-limits",
+    title: "Automatic safety limits",
+    blurb:
+      "The Settings controls that can only ever refuse an automatic order — never authorise one.",
+    entries: [
+      {
+        id: "order-ceilings",
+        q: "What do the concurrent, daily and per-instrument order limits do?",
+        a: [
+          "Three separate ceilings bound automatic orders. The concurrent limit caps how many are unresolved at the same time and falls again as orders resolve. The daily limit caps how many were created in the current UTC day and does not fall when an order closes. The per-instrument limit caps how many one instrument may consume inside that daily figure, so a single busy market cannot spend the whole day.",
+          "Dry-run rows reach no broker and spend none of the three. If a count cannot be read, orders are refused rather than allowed through.",
+        ],
+        means: "Upper bounds on automatic order volume.",
+        matters:
+          "They limit how much can go wrong in one day while a configuration is still being trusted.",
+        todo: "Set each to the smallest number that still lets your plan run.",
+        assume:
+          "A ceiling is never a quota. Being below one is not a reason to place an order, and your broker's own pending-order and margin limits still apply on top.",
+      },
+      {
+        id: "order-window",
+        q: "Why did an automatic order stop being placed after a while?",
+        a: [
+          "The automatic order window sets how long after detection a setup may still be sent. Past that age the setup is no longer acted on automatically, because the market that produced it has moved on. A resting order that was already placed is labelled as resting at the broker and not as filled.",
+        ],
+        means: "A freshness limit on automatic orders.",
+        matters: "It stops stale setups being executed at prices they were never measured at.",
+        todo: "Shorten the window if you want only immediate reactions.",
+        assume: "An expired window is not a judgement that the setup was wrong.",
+      },
+      {
+        id: "drawdown-brakes",
+        q: "What are the loss limits, and when do they pause trading?",
+        a: [
+          "Four optional limits, each switched off at zero: daily realised loss, weekly realised loss, consecutive losing trades, and drawdown from your highest observed equity. Only closed, settled broker trades count — an open position and a journal entry both count for nothing, and an exactly break-even close ends a losing run without counting as a loss.",
+          "When one is reached, new automatic orders stop. Daily and consecutive-loss pauses lift at the next UTC day; the weekly one at Monday; the equity-drawdown one only when you act. If your closed trades or your broker equity cannot be read, automatic orders are held rather than allowed.",
+        ],
+        means: "Your own stated loss limits, measured from broker facts.",
+        matters:
+          "It is the one control that stops a bad run continuing automatically while you are away.",
+        todo: "Set limits you would actually honour by hand, then leave them alone.",
+        assume:
+          "A pause never touches anything already resting or filled at your broker — closing a live position stays your decision. A brake that has not fired is not evidence that risk is absent; an account that cannot be measured is held, not approved.",
+      },
+      {
+        id: "quality-cooldowns",
+        q: "What is an execution cooldown?",
+        a: [
+          "Each combination of account, instrument and trading session is scored on how it recently filled — median slippage and rejection rate over the last 14 days — against its own earlier 60-day record. It is never compared with a different instrument, a different account or a fixed number.",
+          "If recent slippage is more than double its own earlier level, or the rejection rate rises by 15 points or more, that combination is paused for 24 hours and then tested again. Below the minimum sample sizes it reads as not measured and pauses nothing.",
+        ],
+        means:
+          "A pause on one account, instrument and session that recently filled unusually badly.",
+        matters:
+          "A setup being good and your broker filling it well are two different things, and only the second is measurable here.",
+        todo: "Read a cooldown as information about your broker conditions, not about the strategy.",
+        assume:
+          "Not measured does not mean healthy and does not mean zero. A cooldown is an operator-chosen comparison rule, not a statistical test, and says nothing about the instrument in general or about your other accounts.",
+      },
+      {
+        id: "overrides",
+        q: "What do the market-entry and unmeasured-intelligence overrides change?",
+        a: [
+          "Both widen what may be attempted, and both are yours to switch on deliberately. The market-entry override allows an immediate market order where the engine would otherwise wait for its measured price. The unmeasured-intelligence override allows an order to proceed when a supporting measurement is unavailable rather than refusing on the missing input.",
+        ],
+        means: "Deliberate relaxations of a refusal.",
+        matters: "Each one removes a check that exists because a number was missing or worse.",
+        todo: "Leave both off unless you have a specific reason and are watching the result.",
+        assume:
+          "An override never creates evidence. It only permits an action the engine could not justify from what it had measured.",
+      },
+      {
+        id: "adaptive-ceiling",
+        q: "What is the adaptive spread ceiling?",
+        a: [
+          "Instead of one fixed maximum spread, the engine compares the current spread against that instrument's own recorded 21-day pattern, within the floor and maximum you set. When conditions are unusually wide for that instrument, entry tightens; when they are normal, it does not.",
+        ],
+        means: "A per-instrument spread limit derived from that instrument's own history.",
+        matters: "One fixed number is either too loose for gold or too tight for a major pair.",
+        todo: "Set the floor and maximum as the bounds you never want crossed either way.",
+        assume: "It is a cost filter, not a forecast of the next move.",
+      },
+      {
+        id: "webhook-and-sender",
+        q: "What are the webhook destination and sender-domain settings for?",
+        a: [
+          "The webhook destination is the single address automatic instructions may be sent to; requests are signed so your receiver can verify they came from P-Trades, and addresses on private networks are refused. Nothing is ever sent to an address you have not configured.",
+          "The sender-domain records are the DNS entries that let email arrive from notify.getptrades.com rather than a generic address. Until they verify, email alerts may be filtered by your provider.",
+        ],
+        means: "Where instructions and emails are allowed to go.",
+        matters:
+          "Alerts and instructions travel on separate paths; the alert path can never carry a broker instruction.",
+        todo: "Send the test webhook after any change, and check the sender records show verified.",
+        assume:
+          "A successful send is not an acceptance. Only an acknowledgement from your receiver proves that.",
+      },
+      {
+        id: "broker-telemetry",
+        q: "What do the broker statistics and drawdown tracker panels tell me?",
+        a: [
+          "They report what your broker says about your account: equity, balance, closed-trade history and the peak-to-current drawdown computed from it. They are the same figures the loss limits are measured against, which is why both are labelled as broker-derived.",
+          "Anything the broker has not supplied is shown as unavailable. No figure is substituted from your Settings equity or from your journal.",
+        ],
+        means: "Broker-reported account facts and the drawdown derived from them.",
+        matters: "They are the only account numbers that can gate an automatic order.",
+        todo: "Refresh the account if a figure reads unavailable and you expect it to exist.",
+        assume:
+          "They are not a performance claim about the engine, and they never mix with your self-reported journal.",
+      },
+    ],
+  },
 ];
 
 /** The consistent explanation frame, rendered only for the fields present. */

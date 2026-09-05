@@ -21,10 +21,7 @@ import { reconcileActiveSignals } from "./reconcile-active.server";
 export const EVENT_RECONCILE_MAX_SIGNALS = 10;
 
 export type ReconcileEvent =
-  | "account_armed"
-  | "settings_saved"
-  | "account_reconciled"
-  | "auto_trading_enabled";
+  "account_armed" | "settings_saved" | "account_reconciled" | "auto_trading_enabled";
 
 export async function reconcileAfterEvent(event: ReconcileEvent): Promise<void> {
   try {

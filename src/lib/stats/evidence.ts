@@ -74,7 +74,6 @@ export const MIN_GROUP_CLUSTERS = EVIDENCE_TIERS.descriptive.minClusters;
 /** Smallest difference we would act on, in proportion points. */
 export const PRACTICAL_EFFECT_THRESHOLD = 0.05;
 
-
 export type EvidenceLevel = "insufficient" | "descriptive" | "suggestive" | "actionable";
 
 export interface EvidenceInput {

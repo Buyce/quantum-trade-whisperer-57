@@ -38,6 +38,8 @@ export const Route = createFileRoute("/auth")({
         { name: "description", content: copy.description },
         { property: "og:title", content: copy.title },
         { property: "og:description", content: copy.description },
+        { property: "og:type", content: "website" },
+        { name: "twitter:card", content: "summary" },
         // Signed-out authentication is intentionally kept out of the index:
         // it carries no content a searcher wants and is absent from the sitemap.
         { name: "robots", content: "noindex" },

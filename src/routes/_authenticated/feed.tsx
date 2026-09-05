@@ -58,6 +58,8 @@ export const Route = createFileRoute("/_authenticated/feed")({
         property: "og:description",
         content: "Live graded forex trade profiles with confidence scoring.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
       { name: "robots", content: "noindex" },
     ],
   }),

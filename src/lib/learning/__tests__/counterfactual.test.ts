@@ -24,11 +24,14 @@ const report = (rows: CounterfactualInput[], factor = 0.6): CounterfactualReport
 };
 
 describe("evaluateTighterStop — admissible factors", () => {
-  it.each([0, 1, 1.5, -0.5, Number.NaN, Infinity])("[INVARIANT] refuses factor %s as not decidable", (f) => {
-    const r = evaluateTighterStop([row({ id: "a" })], f);
-    expect(r).toMatchObject({ decidable: false, version: COUNTERFACTUAL_VERSION });
-    if ("decidable" in r) expect(r.missing).toContain("strictly between 0 and 1");
-  });
+  it.each([0, 1, 1.5, -0.5, Number.NaN, Infinity])(
+    "[INVARIANT] refuses factor %s as not decidable",
+    (f) => {
+      const r = evaluateTighterStop([row({ id: "a" })], f);
+      expect(r).toMatchObject({ decidable: false, version: COUNTERFACTUAL_VERSION });
+      if ("decidable" in r) expect(r.missing).toContain("strictly between 0 and 1");
+    },
+  );
 });
 
 describe("evaluateTighterStop — per-row adjudication", () => {
@@ -131,9 +134,7 @@ describe("evaluateTighterStop — arms", () => {
   });
 
   it("[INVARIANT] withholds support when the proposal does not beat the live rule", () => {
-    const allAmbiguous = rows.map((r) =>
-      r.outcome === "win" ? { ...r, maeR: 0.95 } : r,
-    );
+    const allAmbiguous = rows.map((r) => (r.outcome === "win" ? { ...r, maeR: 0.95 } : r));
     expect(isSupported(report(allAmbiguous, 0.6))).toBe(false);
   });
 });
