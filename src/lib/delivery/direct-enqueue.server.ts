@@ -41,7 +41,7 @@ import {
   type RestingOrder,
 } from "./duplicate-orders";
 import type { RegimeStatRow } from "@/lib/learning/regime";
-import { cohortRefused, type CohortEvidence } from "@/lib/learning/cohort";
+import { cohortRefused, cohortRankScore, type CohortEvidence } from "@/lib/learning/cohort";
 import { loadCohortEvidence } from "@/lib/learning/cohort.server";
 import { fetchDayFrame, type FrameClient } from "./day-frame";
 import {
@@ -654,6 +654,19 @@ async function runDirectEnqueue(
    * nothing.
    */
   const cohortSnapshot = await loadCohortEvidence(db);
+  // Unreadable history ⇒ no ranking at all, so the sequence stays chronological
+  // rather than being reordered on absent evidence.
+  const executionRanker: CapRanker | undefined = cohortSnapshot.readable
+    ? (signal) =>
+        signal.direction
+          ? cohortRankScore(
+              cohortSnapshot.evidence,
+              signal.instrument,
+              signal.direction,
+              signal.trading_session,
+            )
+          : null
+    : undefined;
 
   const rows: Record<string, unknown>[] = [];
   let filtered = 0;
@@ -917,7 +930,10 @@ async function runDirectEnqueue(
       alert_min_grade: grade,
       daily_setup_cap: row.daily_setup_cap ?? 0,
     };
-    const cappedOutIds = buildCapFrame(frame, settings, "alert", nowMs);
+    // Evidence-based ordering of the execution slots only. Ranking swaps WHICH
+    // setups spend a small cap, never how many: the cap count is unchanged, and a
+    // cohort with no measured replay evidence keeps its chronological place.
+    const cappedOutIds = buildCapFrame(frame, settings, "alert", nowMs, executionRanker);
     const verdict = evaluateEligibility({
       signal: target,
       settings,
