@@ -132,15 +132,20 @@ never renders a synthesised row or an example trade.
 
 - No predictive claim, no statement about future performance.
 - No causal claim about why a bucket performed as it did.
-- No out-of-sample validation exists yet.
+- No **forward** out-of-sample validation exists: `HOLDOUT_AVAILABLE = false`. The
+  walk-forward layer re-splits recorded history chronologically and is not a
+  substitute for a sample gathered after the decision.
+- A confirmed gate is a statement about held-out recorded days, not about the next
+  trade.
 - Self-reported fills flow into personal statistics unchanged; garbage in, garbage
   out, with the author recorded.
 
 ## Implementation
 
 `src/lib/performance.ts`, `src/lib/performance-evidence.server.ts`,
-`src/lib/stats/wilson.ts`, `bootstrap.ts`, `bh.ts`,
-`clusters.ts`, `evidence.ts`, `src/lib/learning/*`, `src/lib/reports/weekly*`.
+`src/lib/stats/bootstrap.ts`, `bh.ts`, `clusters.ts`, `evidence.ts`,
+`walk-forward.ts`, `src/lib/baseline/capture.server.ts` (`wilson`),
+`src/lib/learning/*`, `src/lib/reports/weekly*`.
 
 ## Tests
 
