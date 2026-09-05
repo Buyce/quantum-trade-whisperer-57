@@ -18,6 +18,9 @@ export interface FakeCall {
   neq: Record<string, unknown>;
   or: string[];
   gte: Record<string, unknown>;
+  gt: Record<string, unknown>;
+  lt: Record<string, unknown>;
+  lte: Record<string, unknown>;
   range: { from: number; to: number } | null;
   order: { column: string; ascending: boolean } | null;
   limit: number | null;
@@ -58,6 +61,9 @@ export function createFakeSupabase(
       neq: {},
       or: [],
       gte: {},
+      gt: {},
+      lt: {},
+      lte: {},
       range: null,
       order: null,
       limit: null,
@@ -98,6 +104,18 @@ export function createFakeSupabase(
       },
       gte(column: string, value: unknown) {
         call.gte[column] = value;
+        return api;
+      },
+      gt(column: string, value: unknown) {
+        call.gt[column] = value;
+        return api;
+      },
+      lt(column: string, value: unknown) {
+        call.lt[column] = value;
+        return api;
+      },
+      lte(column: string, value: unknown) {
+        call.lte[column] = value;
         return api;
       },
       range(from: number, to: number) {
