@@ -238,8 +238,12 @@ function Landing() {
                 </Link>
               </Button>
               <Button asChild size="lg" variant="outline">
+                <Link to="/calculator">Position size calculator</Link>
+              </Button>
+              <Button asChild size="lg" variant="outline">
                 <Link to="/connect">Connect an AI assistant</Link>
               </Button>
+
             </div>
           </div>
         </section>
