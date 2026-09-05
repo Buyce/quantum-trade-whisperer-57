@@ -1410,12 +1410,23 @@ function SettingsPage() {
             {scanReport && (
               <div className="space-y-1 rounded border border-border bg-background p-3 font-mono text-xs">
                 <p className="text-muted-foreground">
-                  run {scanReport.runId.slice(0, 8)} · {scanReport.enqueued} enqueued ·{" "}
-                  {scanReport.processed.length} reported
-                  {scanReport.claimedByWorker > 0
-                    ? ` · ${scanReport.claimedByWorker} completed by the background worker`
-                    : ""}
-                  {scanReport.stillPending > 0 ? ` · ${scanReport.stillPending} still queued` : ""}
+                  {scanReport.skipped === "weekend_market_closed" ? (
+                    <>
+                      Market closed for the weekend (Friday 21:00 - Sunday 21:00 UTC) — no scan ran
+                      and no market data was fetched. Scans resume automatically at the reopen.
+                    </>
+                  ) : (
+                    <>
+                      run {scanReport.runId?.slice(0, 8)} · {scanReport.enqueued} enqueued ·{" "}
+                      {scanReport.processed.length} reported
+                      {scanReport.claimedByWorker > 0
+                        ? ` · ${scanReport.claimedByWorker} completed by the background worker`
+                        : ""}
+                      {scanReport.stillPending > 0
+                        ? ` · ${scanReport.stillPending} still queued`
+                        : ""}
+                    </>
+                  )}
                 </p>
                 {scanReport.reconcileError ? (
                   <p className="text-warning">
