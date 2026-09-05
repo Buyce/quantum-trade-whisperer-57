@@ -1,16 +1,18 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  parseExitPath,
-  simulateVariant,
-  type ExitPath,
-} from "../exit-variants";
+import { parseExitPath, simulateVariant, type ExitPath } from "../exit-variants";
+import type { PathBar } from "../replay-v2";
 import { summariseVariants } from "@/lib/learning/exit-variants.server";
 
 /** Bar helper: `h` and `l` are the bar's high and adverse excursion in R. */
-const bar = (t: string, h: number, l: number, amb = false) => ({ t, hR: h, lR: l, amb });
+const bar = (t: string, h: number | null, l: number | null, amb = false): PathBar => ({
+  t,
+  hR: h,
+  lR: l,
+  amb,
+});
 
-const path = (bars: ReturnType<typeof bar>[], targets: [number | null, number | null, number | null] = [2, 3, 4]): ExitPath => ({
+const path = (bars: PathBar[], targets: [number | null, number | null, number | null] = [2, 3, 4]): ExitPath => ({
   bars,
   targetsR: targets,
   truncated: false,
@@ -98,7 +100,7 @@ describe("exit variants — break-even and trailing", () => {
 });
 
 describe("exit variant aggregation", () => {
-  const stored = (targets: number[], bars: ReturnType<typeof bar>[]) => ({
+  const stored = (targets: number[], bars: PathBar[]) => ({
     bars,
     targetsR: targets,
     truncated: false,
