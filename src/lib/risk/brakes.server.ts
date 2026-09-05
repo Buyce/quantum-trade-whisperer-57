@@ -83,16 +83,23 @@ export async function evaluateAccountBrakes(
   const accountIds = [...limitsByAccount.keys()];
   const since = new Date(nowMs - LOOKBACK_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
-  const [evidence, accountRows, existingStates] = await Promise.all([
-    db
-      .from("broker_trade_evidence")
-      .select("account_id, exit_at, gross_profit, commission, swap, profit_currency")
-      .in("account_id", accountIds)
-      .eq("state", "closed")
-      .not("exit_at", "is", null)
-      .gte("exit_at", since)
-      .order("exit_at", { ascending: false })
-      .limit(MAX_TRADES),
+  // Closed trades are read PER ACCOUNT. One shared row cap would let a busy
+  // account crowd another one out of its own window, and a partially-read history
+  // is not a measurement we may brake — or pass — on.
+  const [evidencePerAccount, accountRows, existingStates] = await Promise.all([
+    Promise.all(
+      accountIds.map((accountId) =>
+        db
+          .from("broker_trade_evidence")
+          .select("account_id, exit_at, gross_profit, commission, swap, profit_currency")
+          .eq("account_id", accountId)
+          .eq("state", "closed")
+          .not("exit_at", "is", null)
+          .gte("exit_at", since)
+          .order("exit_at", { ascending: false })
+          .limit(MAX_TRADES_PER_ACCOUNT),
+      ),
+    ),
     db
       .from("connected_trading_accounts")
       .select("id, broker_equity, broker_observed_at")
@@ -100,29 +107,36 @@ export async function evaluateAccountBrakes(
     db.from("account_risk_state").select("account_id, peak_equity, peak_equity_at").in("account_id", accountIds),
   ]);
 
-  // An unreadable history is NOT an empty history. Zero rows with no error means
-  // "no closed trades in the window", which is a real measurement of zero loss.
-  const evidenceReadable = !evidence.error;
-  if (evidence.error) console.error("brakes: closed evidence unreadable", evidence.error.message);
   if (accountRows.error) console.error("brakes: accounts unreadable", accountRows.error.message);
   if (existingStates.error)
     console.error("brakes: risk state unreadable", existingStates.error.message);
 
+  // An unreadable history is NOT an empty history. Zero rows with no error means
+  // "no closed trades in the window", which is a real measurement of zero loss.
   const tradesByAccount = new Map<string, ClosedTrade[]>();
-  for (const row of (evidence.data ?? []) as {
-    account_id: string;
-    exit_at: string;
-    gross_profit: number | null;
-    commission: number | null;
-    swap: number | null;
-    profit_currency: string | null;
-  }[]) {
-    const exitAtMs = Date.parse(row.exit_at);
-    if (!Number.isFinite(exitAtMs)) continue;
-    const list = tradesByAccount.get(row.account_id) ?? [];
-    list.push({ exitAtMs, net: netOf(row), currency: row.profit_currency ?? null });
-    tradesByAccount.set(row.account_id, list);
-  }
+  const unreadableAccounts = new Set<string>();
+  evidencePerAccount.forEach((result, index) => {
+    const accountId = accountIds[index] as string;
+    if (result.error) {
+      console.error("brakes: closed evidence unreadable", accountId, result.error.message);
+      unreadableAccounts.add(accountId);
+      return;
+    }
+    const list: ClosedTrade[] = [];
+    for (const row of (result.data ?? []) as {
+      exit_at: string;
+      gross_profit: number | null;
+      commission: number | null;
+      swap: number | null;
+      profit_currency: string | null;
+    }[]) {
+      const exitAtMs = Date.parse(row.exit_at);
+      if (!Number.isFinite(exitAtMs)) continue;
+      list.push({ exitAtMs, net: netOf(row), currency: row.profit_currency ?? null });
+    }
+    tradesByAccount.set(accountId, list);
+  });
+
 
   const equityByAccount = new Map<string, { equity: number | null; observedAt: string | null }>();
   for (const row of (accountRows.data ?? []) as {
