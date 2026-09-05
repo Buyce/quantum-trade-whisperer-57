@@ -25,7 +25,6 @@ export const Route = createFileRoute("/sitemap.xml")({
           { path: "/connect", changefreq: "monthly", priority: "0.7" },
         ];
 
-
         const urls = entries.map((e) =>
           [
             `  <url>`,

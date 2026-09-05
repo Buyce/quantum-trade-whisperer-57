@@ -243,7 +243,6 @@ function Landing() {
               <Button asChild size="lg" variant="outline">
                 <Link to="/connect">Connect an AI assistant</Link>
               </Button>
-
             </div>
           </div>
         </section>
@@ -259,7 +258,6 @@ function Landing() {
             Position size calculator
           </Link>
           <Link to="/auth" className="text-primary underline underline-offset-2">
-
             Sign in
           </Link>
         </div>
