@@ -41,28 +41,28 @@ const frame = [
 ];
 
 describe("capSequence", () => {
-  it("stays chronological when no ranker is supplied", () => {
+  it("[INVARIANT] stays chronological when no ranker is supplied", () => {
     expect(capSequence(frame, settings, "alert", now).map((s) => s.id)).toEqual(["a", "b", "c"]);
   });
 
-  it("puts higher-scoring measured cohorts first", () => {
+  it("[UNIT] puts higher-scoring measured cohorts first", () => {
     const scores: Record<string, number | null> = { a: 0.1, b: 0.9, c: 0.5 };
     const ordered = capSequence(frame, settings, "alert", now, (s) => scores[s.id] ?? null);
     expect(ordered.map((s) => s.id)).toEqual(["b", "c", "a"]);
   });
 
-  it("never lets an unmeasured setup outrank a measured one", () => {
+  it("[INVARIANT] never lets an unmeasured setup outrank a measured one", () => {
     const scores: Record<string, number | null> = { a: null, b: null, c: 0.2 };
     const ordered = capSequence(frame, settings, "alert", now, (s) => scores[s.id] ?? null);
     expect(ordered.map((s) => s.id)).toEqual(["c", "a", "b"]);
   });
 
-  it("keeps chronological order among equal and unmeasured setups", () => {
+  it("[INVARIANT] keeps chronological order among equal and unmeasured setups", () => {
     const ordered = capSequence(frame, settings, "alert", now, () => null);
     expect(ordered.map((s) => s.id)).toEqual(["a", "b", "c"]);
   });
 
-  it("spends the cap on the ranked setups", () => {
+  it("[UNIT] spends the cap on the ranked setups", () => {
     const scores: Record<string, number | null> = { a: 0.1, b: 0.9, c: 0.5 };
     const cappedOut = buildCapFrame(frame, settings, "alert", now, (s) => scores[s.id] ?? null);
     expect([...cappedOut]).toEqual(["a"]);

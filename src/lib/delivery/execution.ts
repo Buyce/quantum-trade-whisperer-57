@@ -109,7 +109,8 @@ export type RejectReason =
   | "spread_above_your_limit"
   | "slippage_above_your_limit"
   | "total_exposure_limit"
-  | "news_blackout";
+  | "news_blackout"
+  | "account_risk_brake";
 
 export const REJECT_COPY: Record<RejectReason, string> = {
   live_execution_globally_disabled: "Live execution is disabled system-wide.",
@@ -170,6 +171,8 @@ export const REJECT_COPY: Record<RejectReason, string> = {
     "P-Trades could not refresh this broker account immediately before sizing, so nothing was sent. Stored equity is never used as a fallback for an automatic order.",
   account_currency_unavailable:
     "Your broker did not report the deposit currency of this account, so the order could not be sized. A currency is never assumed.",
+  account_risk_brake:
+    "Your own drawdown brake is holding automatic orders on this account: a loss limit you set was reached on CLOSED broker trades, or it could not be measured from your broker. Orders already at your broker are untouched — those remain yours to manage at the broker.",
   account_not_armed:
     "This broker account is not armed for automatic orders, or the matching system-wide switch is off.",
 };

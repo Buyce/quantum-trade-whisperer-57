@@ -61,6 +61,8 @@ import { readLifecycleView } from "@/lib/instruments/lifecycle.server";
 import { neverReachedBroker, occupiesSlot } from "@/lib/evidence/order-state";
 import { formatDuration, marketStatus } from "@/lib/market-hours";
 import { readCeilingSettings, type ExposureAccumulation } from "./user-ceilings";
+import { evaluateAccountBrakes, type AccountBrakeState } from "@/lib/risk/brakes.server";
+import { BRAKE_REASON_COPY } from "@/lib/risk/brakes";
 
 export interface DirectEnqueueSignal {
   id: string;
@@ -152,6 +154,15 @@ interface SettingsRow {
   max_entry_slippage_pips: number | null;
   max_total_exposure_percent: number | null;
   exposure_limit_enabled: boolean | null;
+  /**
+   * Owner drawdown brakes. Measured from CLOSED broker trades and broker equity
+   * only; reduce-only, and off unless the owner switched them on.
+   */
+  drawdown_brakes_enabled: boolean | null;
+  daily_loss_limit_percent: number | null;
+  weekly_loss_limit_percent: number | null;
+  consecutive_loss_limit: number | null;
+  max_drawdown_percent: number | null;
 }
 
 /**
@@ -578,7 +589,7 @@ async function runDirectEnqueue(
   const { data: settingsRows, error: settingsError } = await db
     .from("scanner_settings")
     .select(
-      "user_id, instruments, sessions, alert_min_grade, daily_setup_cap, execution_config_version, auto_intel_gate_enabled, auto_intel_min_win_pct, auto_intel_min_sample, auto_execute_c_grade, maximum_active_signal_orders, maximum_concurrent_signal_orders, maximum_daily_signal_orders, allow_unmeasured_intel, auto_order_window_minutes, maximum_daily_orders_per_symbol, adaptive_order_ceilings_enabled, adaptive_order_ceiling_max, adaptive_order_ceiling_floor, news_block_new_entries, news_suppression_minutes_before, news_suppression_minutes_after, max_entry_spread_pips, max_entry_slippage_pips, max_total_exposure_percent, exposure_limit_enabled",
+      "user_id, instruments, sessions, alert_min_grade, daily_setup_cap, execution_config_version, auto_intel_gate_enabled, auto_intel_min_win_pct, auto_intel_min_sample, auto_execute_c_grade, maximum_active_signal_orders, maximum_concurrent_signal_orders, maximum_daily_signal_orders, allow_unmeasured_intel, auto_order_window_minutes, maximum_daily_orders_per_symbol, adaptive_order_ceilings_enabled, adaptive_order_ceiling_max, adaptive_order_ceiling_floor, news_block_new_entries, news_suppression_minutes_before, news_suppression_minutes_after, max_entry_spread_pips, max_entry_slippage_pips, max_total_exposure_percent, exposure_limit_enabled, drawdown_brakes_enabled, daily_loss_limit_percent, weekly_loss_limit_percent, consecutive_loss_limit, max_drawdown_percent",
     )
     .in("user_id", userIds);
   if (settingsError) return await empty("settings_unreadable", settingsError.message);
@@ -701,6 +712,38 @@ async function runDirectEnqueue(
     armed.map((a) => a.id),
   );
 
+  /**
+   * Drawdown brakes. Reduce-only and measurement-bound: an account whose owner
+   * configured no brake is not read at all, and a brake that cannot be measured
+   * from the broker holds rather than passes. This stops NEW orders only —
+   * anything already at the broker is untouched.
+   */
+  let brakeStates = new Map<string, AccountBrakeState>();
+  try {
+    brakeStates = await evaluateAccountBrakes(db, armed, settingsByUser, nowMs);
+  } catch (err) {
+    // A brake that throws must not become permission. Every configured account is
+    // held; accounts with no brake configured were never in the map anyway.
+    console.error("direct enqueue drawdown brakes unavailable", err);
+    for (const account of armed) {
+      const row = settingsByUser.get(account.user_id);
+      if (!row || row.drawdown_brakes_enabled !== true) continue;
+      brakeStates.set(account.id, {
+        accountId: account.id,
+        verdict: {
+          paused: true,
+          reason: "risk_state_unmeasured",
+          detail: "your loss limits could not be evaluated, so no automatic order was queued",
+          resumeAfterMs: null,
+          resumeBoundary: "owner",
+        },
+        totals: null,
+        equity: null,
+        peakEquity: null,
+      });
+    }
+  }
+
   for (const account of armed) {
     const row = settingsByUser.get(account.user_id);
     if (!row) {
@@ -717,6 +760,25 @@ async function runDirectEnqueue(
         filtered: 1,
       });
       continue;
+    }
+
+    // A braked account takes no new automatic order, whatever the setup looks like.
+    {
+      const brake = brakeStates.get(account.id);
+      if (brake && brake.verdict.paused) {
+        filtered += 1;
+        decisions.push({
+          user_id: account.user_id,
+          signal_id: signal.id,
+          instrument: signal.instrument,
+          grade: signal.grade,
+          decision: "risk_brake_paused",
+          detail: `${BRAKE_REASON_COPY[brake.verdict.reason ?? "risk_state_unmeasured"]} ${brake.verdict.detail ?? ""}`.trim(),
+          enqueued: 0,
+          filtered: 1,
+        });
+        continue;
+      }
     }
     // Owner opt-in for C-Grade. Absent or false means the historical refusal.
     const cGradeAllowed = row.auto_execute_c_grade === true;

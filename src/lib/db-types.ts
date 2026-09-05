@@ -269,6 +269,21 @@ export interface ScannerSettingsRow {
    */
   max_total_exposure_percent: number;
   /**
+   * Owner drawdown brakes. Every value is measured from CLOSED broker trades and
+   * the broker's own equity reading; they stop NEW automatic orders only, and an
+   * unmeasurable brake holds rather than passes. 0 disables an individual limit,
+   * and the switch alone brakes nothing.
+   */
+  drawdown_brakes_enabled: boolean;
+  /** Closed loss since 00:00 UTC as a percent of broker equity. 0 disables. */
+  daily_loss_limit_percent: number;
+  /** Closed loss since Monday 00:00 UTC as a percent of broker equity. 0 disables. */
+  weekly_loss_limit_percent: number;
+  /** Losing closed trades in a row, counted back from the last close. 0 disables. */
+  consecutive_loss_limit: number;
+  /** Equity drop from the highest OBSERVED equity, in percent. 0 disables. */
+  max_drawdown_percent: number;
+  /**
    * Fail-closed news protection for new automatic entries. When true, an incomplete
    * or active high-impact news window suppresses the order.
    */

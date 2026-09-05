@@ -149,6 +149,13 @@ function SettingsPage() {
   const [maxSpreadPips, setMaxSpreadPips] = useState("0");
   const [maxSlippagePips, setMaxSlippagePips] = useState("0");
   const [maxTotalExposurePercent, setMaxTotalExposurePercent] = useState("0");
+  // Drawdown brakes. Measured from CLOSED broker trades and the broker's own
+  // equity reading; they only ever stop NEW orders.
+  const [drawdownBrakesEnabled, setDrawdownBrakesEnabled] = useState(false);
+  const [dailyLossLimitPercent, setDailyLossLimitPercent] = useState("0");
+  const [weeklyLossLimitPercent, setWeeklyLossLimitPercent] = useState("0");
+  const [consecutiveLossLimit, setConsecutiveLossLimit] = useState("0");
+  const [maxDrawdownPercent, setMaxDrawdownPercent] = useState("0");
 
   const [saving, setSaving] = useState(false);
   const triggerScan = useServerFn(runScanNow);
@@ -276,6 +283,11 @@ function SettingsPage() {
     setMaxSpreadPips(String(Number(s.max_entry_spread_pips ?? 0)));
     setMaxSlippagePips(String(Number(s.max_entry_slippage_pips ?? 0)));
     setMaxTotalExposurePercent(String(Number(s.max_total_exposure_percent ?? 0)));
+    setDrawdownBrakesEnabled(s.drawdown_brakes_enabled === true);
+    setDailyLossLimitPercent(String(Number(s.daily_loss_limit_percent ?? 0)));
+    setWeeklyLossLimitPercent(String(Number(s.weekly_loss_limit_percent ?? 0)));
+    setConsecutiveLossLimit(String(Number(s.consecutive_loss_limit ?? 0)));
+    setMaxDrawdownPercent(String(Number(s.max_drawdown_percent ?? 0)));
   }, [settings.data]);
 
   function toggle(list: string[], value: string, set: (v: string[]) => void) {
@@ -315,6 +327,10 @@ function SettingsPage() {
     const spreadCeilingValue = clamp(num(maxSpreadPips, 0), 0, 10000);
     const slippageCeilingValue = clamp(num(maxSlippagePips, 0), 0, 10000);
     const exposureCeilingValue = clamp(num(maxTotalExposurePercent, 0), 0, 100);
+    const dailyLossValue = clamp(num(dailyLossLimitPercent, 0), 0, 100);
+    const weeklyLossValue = clamp(num(weeklyLossLimitPercent, 0), 0, 100);
+    const consecutiveLossValue = Math.round(clamp(num(consecutiveLossLimit, 0), 0, 100));
+    const maxDrawdownValue = clamp(num(maxDrawdownPercent, 0), 0, 100);
 
     setSaving(true);
     try {
@@ -341,6 +357,12 @@ function SettingsPage() {
         max_entry_spread_pips: spreadCeilingValue,
         max_entry_slippage_pips: slippageCeilingValue,
         max_total_exposure_percent: exposureCeilingValue,
+        // Drawdown brakes. 0 turns one off; the switch alone brakes nothing.
+        drawdown_brakes_enabled: drawdownBrakesEnabled,
+        daily_loss_limit_percent: dailyLossValue,
+        weekly_loss_limit_percent: weeklyLossValue,
+        consecutive_loss_limit: consecutiveLossValue,
+        max_drawdown_percent: maxDrawdownValue,
 
         // Never fabricate the acknowledgement: above-2% saves are blocked above
         // unless the box is ticked, so this only persists the user's own choice.
@@ -1101,6 +1123,110 @@ function SettingsPage() {
                   refuses with &ldquo;total exposure limit&rdquo;. Older orders with no recorded
                   risk figure are reported as unknown, never counted as zero.
                 </p>
+              </div>
+            </div>
+
+            <div className="mt-6 space-y-4 rounded-md border border-border bg-background p-4">
+              <label className="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={drawdownBrakesEnabled}
+                  onChange={(e) => setDrawdownBrakesEnabled(e.target.checked)}
+                />
+                <span className="text-sm">
+                  <span className="font-medium">Pause automatic trading when I am losing</span>
+                  <span className="mt-1 block text-xs text-muted-foreground">
+                    Off by default. Every figure below is measured from your <em>closed</em> broker
+                    trades and the equity your broker reports — never from an estimate. When a limit
+                    is reached, no new automatic order is placed; anything already sitting at your
+                    broker stays there and remains yours to manage at the broker. If P-Trades cannot
+                    read your closed trades or your broker equity, it holds new orders rather than
+                    guessing you are safe. Leave a field at 0 to switch that one limit off.
+                  </span>
+                </span>
+              </label>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <Label className="text-xs" htmlFor="daily-loss-limit">
+                    Daily loss limit (% of equity)
+                  </Label>
+                  <Input
+                    id="daily-loss-limit"
+                    type="number"
+                    inputMode="decimal"
+                    min={0}
+                    max={100}
+                    step="0.1"
+                    className="num mt-2"
+                    value={dailyLossLimitPercent}
+                    onChange={(e) => setDailyLossLimitPercent(e.target.value)}
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Closed losses since 00:00 UTC. Lifts by itself at the next UTC midnight.
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-xs" htmlFor="weekly-loss-limit">
+                    Weekly loss limit (% of equity)
+                  </Label>
+                  <Input
+                    id="weekly-loss-limit"
+                    type="number"
+                    inputMode="decimal"
+                    min={0}
+                    max={100}
+                    step="0.1"
+                    className="num mt-2"
+                    value={weeklyLossLimitPercent}
+                    onChange={(e) => setWeeklyLossLimitPercent(e.target.value)}
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Closed losses since Monday 00:00 UTC. Lifts at the next Monday.
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-xs" htmlFor="consecutive-loss-limit">
+                    Losing trades in a row
+                  </Label>
+                  <Input
+                    id="consecutive-loss-limit"
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    max={100}
+                    step="1"
+                    className="num mt-2"
+                    value={consecutiveLossLimit}
+                    onChange={(e) => setConsecutiveLossLimit(e.target.value)}
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Counted backwards from your most recent closed trade. A break-even close ends
+                    the run. Lifts at the next UTC midnight.
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-xs" htmlFor="max-drawdown">
+                    Equity drop from peak (%)
+                  </Label>
+                  <Input
+                    id="max-drawdown"
+                    type="number"
+                    inputMode="decimal"
+                    min={0}
+                    max={100}
+                    step="0.1"
+                    className="num mt-2"
+                    value={maxDrawdownPercent}
+                    onChange={(e) => setMaxDrawdownPercent(e.target.value)}
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Measured against the highest equity P-Trades has actually observed on the
+                    account — not an assumed starting balance. This one stays on until you change
+                    it or your equity recovers.
+                  </p>
+                </div>
               </div>
             </div>
           </section>

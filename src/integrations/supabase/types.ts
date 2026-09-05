@@ -116,6 +116,101 @@ export type Database = {
           },
         ]
       }
+      account_risk_state: {
+        Row: {
+          account_id: string
+          closed_sample: number
+          computed_at: string
+          consecutive_losses: number | null
+          created_at: string
+          current_equity: number | null
+          current_equity_at: string | null
+          day_realized: number | null
+          day_utc: string | null
+          drawdown_percent: number | null
+          id: string
+          measured: boolean
+          pause_detail: string | null
+          pause_reason: string | null
+          paused: boolean
+          paused_at: string | null
+          peak_equity: number | null
+          peak_equity_at: string | null
+          realized_currency: string | null
+          resume_after: string | null
+          resume_boundary: string | null
+          unmeasured_reason: string | null
+          updated_at: string
+          user_id: string
+          week_realized: number | null
+          week_start_utc: string | null
+        }
+        Insert: {
+          account_id: string
+          closed_sample?: number
+          computed_at?: string
+          consecutive_losses?: number | null
+          created_at?: string
+          current_equity?: number | null
+          current_equity_at?: string | null
+          day_realized?: number | null
+          day_utc?: string | null
+          drawdown_percent?: number | null
+          id?: string
+          measured?: boolean
+          pause_detail?: string | null
+          pause_reason?: string | null
+          paused?: boolean
+          paused_at?: string | null
+          peak_equity?: number | null
+          peak_equity_at?: string | null
+          realized_currency?: string | null
+          resume_after?: string | null
+          resume_boundary?: string | null
+          unmeasured_reason?: string | null
+          updated_at?: string
+          user_id: string
+          week_realized?: number | null
+          week_start_utc?: string | null
+        }
+        Update: {
+          account_id?: string
+          closed_sample?: number
+          computed_at?: string
+          consecutive_losses?: number | null
+          created_at?: string
+          current_equity?: number | null
+          current_equity_at?: string | null
+          day_realized?: number | null
+          day_utc?: string | null
+          drawdown_percent?: number | null
+          id?: string
+          measured?: boolean
+          pause_detail?: string | null
+          pause_reason?: string | null
+          paused?: boolean
+          paused_at?: string | null
+          peak_equity?: number | null
+          peak_equity_at?: string | null
+          realized_currency?: string | null
+          resume_after?: string | null
+          resume_boundary?: string | null
+          unmeasured_reason?: string | null
+          updated_at?: string
+          user_id?: string
+          week_realized?: number | null
+          week_start_utc?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_risk_state_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: true
+            referencedRelation: "connected_trading_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       account_risk_trackers: {
         Row: {
           account_id: string
@@ -3926,8 +4021,11 @@ export type Database = {
           auto_intel_min_win_pct: number | null
           auto_market_entry_enabled: boolean
           auto_order_window_minutes: number
+          consecutive_loss_limit: number
           created_at: string
+          daily_loss_limit_percent: number
           daily_setup_cap: number
+          drawdown_brakes_enabled: boolean
           equity_as_of: string | null
           execution_config_version: number
           execution_dry_run: boolean
@@ -3939,6 +4037,7 @@ export type Database = {
           live_execution_confirmed_global_live: boolean
           live_execution_confirmed_host: string | null
           live_execution_confirmed_version: number | null
+          max_drawdown_percent: number
           max_entry_slippage_pips: number
           max_entry_spread_pips: number
           max_position_size: number
@@ -3967,6 +4066,7 @@ export type Database = {
           webhook_url: string | null
           webhook_validated_at: string | null
           webhook_validation_reason: string | null
+          weekly_loss_limit_percent: number
         }
         Insert: {
           account_currency?: string
@@ -3982,8 +4082,11 @@ export type Database = {
           auto_intel_min_win_pct?: number | null
           auto_market_entry_enabled?: boolean
           auto_order_window_minutes?: number
+          consecutive_loss_limit?: number
           created_at?: string
+          daily_loss_limit_percent?: number
           daily_setup_cap?: number
+          drawdown_brakes_enabled?: boolean
           equity_as_of?: string | null
           execution_config_version?: number
           execution_dry_run?: boolean
@@ -3995,6 +4098,7 @@ export type Database = {
           live_execution_confirmed_global_live?: boolean
           live_execution_confirmed_host?: string | null
           live_execution_confirmed_version?: number | null
+          max_drawdown_percent?: number
           max_entry_slippage_pips?: number
           max_entry_spread_pips?: number
           max_position_size?: number
@@ -4023,6 +4127,7 @@ export type Database = {
           webhook_url?: string | null
           webhook_validated_at?: string | null
           webhook_validation_reason?: string | null
+          weekly_loss_limit_percent?: number
         }
         Update: {
           account_currency?: string
@@ -4038,8 +4143,11 @@ export type Database = {
           auto_intel_min_win_pct?: number | null
           auto_market_entry_enabled?: boolean
           auto_order_window_minutes?: number
+          consecutive_loss_limit?: number
           created_at?: string
+          daily_loss_limit_percent?: number
           daily_setup_cap?: number
+          drawdown_brakes_enabled?: boolean
           equity_as_of?: string | null
           execution_config_version?: number
           execution_dry_run?: boolean
@@ -4051,6 +4159,7 @@ export type Database = {
           live_execution_confirmed_global_live?: boolean
           live_execution_confirmed_host?: string | null
           live_execution_confirmed_version?: number | null
+          max_drawdown_percent?: number
           max_entry_slippage_pips?: number
           max_entry_spread_pips?: number
           max_position_size?: number
@@ -4079,6 +4188,7 @@ export type Database = {
           webhook_url?: string | null
           webhook_validated_at?: string | null
           webhook_validation_reason?: string | null
+          weekly_loss_limit_percent?: number
         }
         Relationships: []
       }

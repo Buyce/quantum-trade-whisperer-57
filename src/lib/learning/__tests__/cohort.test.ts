@@ -32,13 +32,13 @@ function rows(args: {
 }
 
 describe("cohortKey", () => {
-  it("buckets a missing session rather than dropping it", () => {
+  it("[UNIT] buckets a missing session rather than dropping it", () => {
     expect(cohortKey("EURUSD", "long", null)).toBe(`EURUSD|long|${UNKNOWN_SESSION}`);
   });
 });
 
 describe("declaredCohortKeys", () => {
-  it("is bounded and predeclared, not grown from the data", () => {
+  it("[INVARIANT] is bounded and predeclared, not grown from the data", () => {
     const keys = declaredCohortKeys(["EURUSD", "XAUUSD"]);
     // 2 instruments x 2 directions x (5 sessions + unknown)
     expect(keys.length).toBe(24);
@@ -48,7 +48,7 @@ describe("declaredCohortKeys", () => {
 });
 
 describe("buildCohortEvidence", () => {
-  it("marks a thin cohort insufficient and never refuses it", () => {
+  it("[INVARIANT] marks a thin cohort insufficient and never refuses it", () => {
     const evidence = buildCohortEvidence(
       rows({ instrument: "EURUSD", direction: "long", session: "london", values: [-1, -1, -1] }),
     );
@@ -58,7 +58,7 @@ describe("buildCohortEvidence", () => {
     expect(cohortRefused(evidence, "EURUSD", "long", "london")).toBeNull();
   });
 
-  it("refuses only a cohort whose whole interval is below zero", () => {
+  it("[INVARIANT] refuses only a cohort whose whole interval is below zero", () => {
     const evidence = buildCohortEvidence(
       rows({
         instrument: "GBPAUD",
@@ -74,7 +74,7 @@ describe("buildCohortEvidence", () => {
     expect(cohortRefused(evidence, "GBPAUD", "short", "tokyo")).not.toBeNull();
   });
 
-  it("leaves an inconclusive cohort alone", () => {
+  it("[INVARIANT] leaves an inconclusive cohort alone", () => {
     const evidence = buildCohortEvidence(
       rows({
         instrument: "EURUSD",
@@ -89,7 +89,7 @@ describe("buildCohortEvidence", () => {
     expect(cohortRankScore(evidence, "EURUSD", "long", "new_york")).toBeNull();
   });
 
-  it("scores a proven-positive cohort for ranking", () => {
+  it("[UNIT] scores a proven-positive cohort for ranking", () => {
     const evidence = buildCohortEvidence(
       rows({
         instrument: "XAUUSD",
@@ -102,13 +102,13 @@ describe("buildCohortEvidence", () => {
     expect(cohortRankScore(evidence, "XAUUSD", "long", "london")).toBeCloseTo(1, 6);
   });
 
-  it("returns no score for a cohort it has never measured", () => {
+  it("[INVARIANT] returns no score for a cohort it has never measured", () => {
     const evidence = buildCohortEvidence([]);
     expect(cohortRankScore(evidence, "EURUSD", "long", "london")).toBeNull();
     expect(cohortRefused(evidence, "EURUSD", "long", "london")).toBeNull();
   });
 
-  it("ignores rows with a non-finite R rather than defaulting them", () => {
+  it("[INVARIANT] ignores rows with a non-finite R rather than defaulting them", () => {
     const evidence = buildCohortEvidence([
       ...rows({ instrument: "EURUSD", direction: "long", session: "london", values: [1, -1] }),
       {
