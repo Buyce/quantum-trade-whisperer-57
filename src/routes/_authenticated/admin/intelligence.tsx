@@ -302,7 +302,6 @@ function AdminIntelligencePage() {
       </PanelBoundary>
 
       <PanelBoundary name="Auto trader">
-
         <AutoTraderPanel />
       </PanelBoundary>
 

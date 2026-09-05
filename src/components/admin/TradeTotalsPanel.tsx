@@ -12,15 +12,7 @@ import { getAdminTradeTotals } from "@/lib/admin.functions";
 import { PanelShell, num } from "@/components/admin/AdminPanels";
 import { Skeleton } from "@/components/ui/skeleton";
 
-function Line({
-  label,
-  value,
-  emphasis,
-}: {
-  label: string;
-  value: string;
-  emphasis?: boolean;
-}) {
+function Line({ label, value, emphasis }: { label: string; value: string; emphasis?: boolean }) {
   return (
     <div
       className={
@@ -104,8 +96,8 @@ export function TradeTotalsPanel() {
               <Line label="Total journal rows" value={String(data.journal.rows)} emphasis />
               {data.journal.other > 0 ? (
                 <p className="text-[10px] text-muted-foreground">
-                  {data.journal.other} row(s) carry no recognised outcome and are counted only in the
-                  row total.
+                  {data.journal.other} row(s) carry no recognised outcome and are counted only in
+                  the row total.
                 </p>
               ) : null}
             </div>

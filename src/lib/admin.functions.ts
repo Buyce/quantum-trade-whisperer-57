@@ -22,7 +22,6 @@ import {
   type TradeTotals,
 } from "@/lib/admin/trade-totals";
 
-
 const OWNER_EMAIL = "boatengampomah@gmail.com";
 
 export interface AdminEngine {
