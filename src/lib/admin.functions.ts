@@ -17,8 +17,9 @@ import {
   type AutoTraderOutcomes,
 } from "@/lib/admin/auto-trader-outcomes";
 import {
-  aggregateBrokerTotals,
+  aggregateBrokerTotalsByAttribution,
   aggregateJournalTotals,
+  type BrokerAttribution,
   type TradeTotals,
 } from "@/lib/admin/trade-totals";
 
