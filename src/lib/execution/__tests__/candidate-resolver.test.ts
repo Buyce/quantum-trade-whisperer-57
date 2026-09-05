@@ -148,6 +148,26 @@ describe("candidate resolution capacity and provider budget", () => {
     expect(candidateRead.eq["replay_version"]).toBe(1);
   });
 
+  /**
+   * Regression: `outside_replay_window` is terminal but leaves the row
+   * `pending`. Without this predicate the oldest unreachable rows were re-read
+   * every hour and ate the entire budget, so no reachable candidate ever
+   * resolved.
+   */
+  it("[INVARIANT] the candidate query excludes rows already labelled outside the replay window", async () => {
+    const s = setup({ production: [row("p1")], candidates: [row("c1")] });
+    await resolveShadowExecutions(s.db);
+    const candidateRead = s.calls.find(
+      (c) =>
+        c.table === "shadow_executions" &&
+        c.op === "select" &&
+        c.eq["cohort"] === "research_candidate",
+    )!;
+    expect(candidateRead.or).toContain(
+      "research_window_status.is.null,research_window_status.neq.outside_replay_window",
+    );
+  });
+
   it("[INVARIANT] candidate replay causes zero incremental broker fetches", async () => {
     const withoutCandidates = setup({ production: [row("p1")], candidates: [] });
     await resolveShadowExecutions(withoutCandidates.db);
