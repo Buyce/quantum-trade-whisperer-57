@@ -675,9 +675,11 @@ function SettingsPage() {
             </div>
 
             <div className="border-t border-border pt-4">
-              <Label className="text-xs" htmlFor="max-concurrent-orders">
+              <h3 className="label-xs">1. How many automatic orders</h3>
+              <Label className="mt-3 block text-xs" htmlFor="max-concurrent-orders">
                 Automatic orders open at once
               </Label>
+
               <Input
                 id="max-concurrent-orders"
                 type="number"
