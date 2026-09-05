@@ -1915,6 +1915,78 @@ export type Database = {
           },
         ]
       }
+      exit_variant_results: {
+        Row: {
+          baseline_mean_r: number | null
+          blockers: Json
+          clusters: number
+          computed_at: string
+          created_at: string
+          delta_r: number | null
+          detail: string
+          execution_policy: string
+          holdout_confirmed: boolean
+          holdout_days: number
+          holdout_delta_r: number | null
+          holdout_high: number | null
+          holdout_low: number | null
+          mean_r: number | null
+          replay_version: number
+          samples: number
+          split_day: string | null
+          train_days: number
+          undecidable: number
+          updated_at: string
+          variant: string
+        }
+        Insert: {
+          baseline_mean_r?: number | null
+          blockers?: Json
+          clusters?: number
+          computed_at?: string
+          created_at?: string
+          delta_r?: number | null
+          detail?: string
+          execution_policy: string
+          holdout_confirmed?: boolean
+          holdout_days?: number
+          holdout_delta_r?: number | null
+          holdout_high?: number | null
+          holdout_low?: number | null
+          mean_r?: number | null
+          replay_version: number
+          samples?: number
+          split_day?: string | null
+          train_days?: number
+          undecidable?: number
+          updated_at?: string
+          variant: string
+        }
+        Update: {
+          baseline_mean_r?: number | null
+          blockers?: Json
+          clusters?: number
+          computed_at?: string
+          created_at?: string
+          delta_r?: number | null
+          detail?: string
+          execution_policy?: string
+          holdout_confirmed?: boolean
+          holdout_days?: number
+          holdout_delta_r?: number | null
+          holdout_high?: number | null
+          holdout_low?: number | null
+          mean_r?: number | null
+          replay_version?: number
+          samples?: number
+          split_day?: string | null
+          train_days?: number
+          undecidable?: number
+          updated_at?: string
+          variant?: string
+        }
+        Relationships: []
+      }
       experiment_arms: {
         Row: {
           arm_label: string
@@ -4479,6 +4551,7 @@ export type Database = {
           observation_key: string | null
           plan_id: string
           plan_origin: string
+          post_entry_path: Json | null
           quality_grade: string | null
           realized_r: number | null
           replay_cursor: string | null
@@ -4550,6 +4623,7 @@ export type Database = {
           observation_key?: string | null
           plan_id?: string
           plan_origin?: string
+          post_entry_path?: Json | null
           quality_grade?: string | null
           realized_r?: number | null
           replay_cursor?: string | null
@@ -4621,6 +4695,7 @@ export type Database = {
           observation_key?: string | null
           plan_id?: string
           plan_origin?: string
+          post_entry_path?: Json | null
           quality_grade?: string | null
           realized_r?: number | null
           replay_cursor?: string | null

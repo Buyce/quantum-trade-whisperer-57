@@ -128,6 +128,23 @@ export const Route = createFileRoute("/api/public/cron/shadow-resolve")({
           }
 
           /**
+           * Exit-variant research pass. Simulates partial exits, runners,
+           * break-even and trailing stops against the ordered post-fill path
+           * Replay V2 now records, purely as research. It changes no live
+           * policy: the executed policy stays single-exit-at-first-target.
+           */
+          let exitVariants: unknown = null;
+          try {
+            const { runExitVariantPass } = await import("@/lib/learning/exit-variants.server");
+            exitVariants = await runExitVariantPass(db);
+          } catch (evErr) {
+            console.error(
+              "[cron/shadow-resolve] exit-variant pass failed:",
+              evErr instanceof Error ? evErr.message : String(evErr),
+            );
+          }
+
+          /**
            * Gate-change automation — opens a system proposal when the evidence
            * decides, applies it only under the owner switch and the strict
            * training bar, and auto-reverts an automatic change whose follow-up
@@ -162,6 +179,7 @@ export const Route = createFileRoute("/api/public/cron/shadow-resolve")({
             statsError,
             milestones,
             walkForward,
+            exitVariants,
             gateAutomation,
             candidateEnrolment,
             ...summary,

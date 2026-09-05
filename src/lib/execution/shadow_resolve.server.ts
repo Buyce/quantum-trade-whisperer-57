@@ -13,7 +13,7 @@ import { describeError } from "@/lib/scanner/pipeline.server";
 import { ORDER_TIF_MINUTES, SIGNAL_MAX_AGE_HOURS } from "@/lib/scanner/types";
 import { ACTIVE_MODEL_VERSION } from "@/lib/versioning";
 import { replaySetup, type ReplayInput } from "./replay";
-import { replaySetupV2 } from "./replay-v2";
+import { MAX_PATH_BARS, capturePostFillPath, replaySetupV2, type PathBar } from "./replay-v2";
 import { REPLAY_V1_VERSION, REPLAY_V2_VERSION } from "./replay-registry";
 import { classifyReplayWindow, OUTSIDE_REPLAY_WINDOW } from "./replay-window";
 
@@ -81,6 +81,8 @@ interface ShadowRow {
   replay_cursor: string | null;
   model_version: number;
   replay_version: number;
+  /** Research-only ordered post-fill path accumulated by earlier passes. */
+  post_entry_path: unknown;
 }
 
 export interface ReplayFetchRow {
@@ -152,7 +154,7 @@ export function allFetchesFailedMessage(summary: ResolveSummary): string | null 
 }
 
 const OPEN_ROW_COLUMNS =
-  "id, signal_id, instrument, direction, detected_at, entry_price, stop_loss, tp1, tp2, tp3, tp1_r, tp2_r, tp3_r, risk_price, atr, filled_at, fill_price, execution_slippage_pips, max_favorable_excursion_r, max_adverse_excursion_r, bars_replayed, replay_cursor, model_version, replay_version";
+  "id, signal_id, instrument, direction, detected_at, entry_price, stop_loss, tp1, tp2, tp3, tp1_r, tp2_r, tp3_r, risk_price, atr, filled_at, fill_price, execution_slippage_pips, max_favorable_excursion_r, max_adverse_excursion_r, bars_replayed, replay_cursor, model_version, replay_version, post_entry_path";
 
 /**
  * Production (Replay-V1) rows, resolved in a strict model hierarchy: the live
@@ -311,7 +313,18 @@ async function resolveResearchRow(
   candles: Awaited<ReturnType<typeof fetchCandles>>,
 ): Promise<boolean> {
   try {
-    const state = replaySetupV2(toReplayInput(row), candles);
+    const replayInput = toReplayInput(row);
+    const state = replaySetupV2(replayInput, candles);
+    // Research-only path walk. Separate from adjudication on purpose: V2 stops
+    // at the first target, but exit variants need the bars that came after.
+    const captured =
+      state.fillPrice != null && state.fillBarTime != null && (state.riskPriceActual ?? 0) > 0
+        ? capturePostFillPath(replayInput, candles, {
+            price: state.fillPrice,
+            barTime: state.fillBarTime,
+            riskActual: state.riskPriceActual as number,
+          })
+        : null;
     const advanced = state.replayCursor !== row.replay_cursor || state.status === "resolved";
     const now = new Date().toISOString();
     if (!advanced) {
@@ -355,6 +368,9 @@ async function resolveResearchRow(
         stop_before_tp1: state.stopBeforeTp1,
         first_target_touched: state.firstTargetTouched,
         max_target_touched: state.maxTargetTouched,
+        // Research-only path record, merged across passes. It never feeds a
+        // label, a statistic a trader sees, or production replay.
+        post_entry_path: captured ? appendPath(row.post_entry_path, captured) : row.post_entry_path,
         last_polled_at: now,
         resolved_at: state.status === "resolved" ? now : null,
       })
@@ -718,4 +734,51 @@ async function backfillStarvedCandidates(
 
 function round(value: number) {
   return Number.isFinite(value) ? Number(value.toFixed(4)) : null;
+}
+
+/**
+ * Merges the bars recorded in THIS pass onto whatever earlier passes recorded.
+ *
+ * Replay resumes from a stored cursor, so each pass sees only new candles. Bars
+ * are keyed by their open timestamp so a re-read of the boundary bar cannot be
+ * counted twice, and the total stays bounded — once the cap is reached the tail
+ * is honestly marked truncated rather than silently dropped.
+ */
+function appendPath(
+  previous: unknown,
+  captured: { bars: PathBar[]; targetsR: [number | null, number | null, number | null]; truncated: boolean },
+) {
+  const before: PathBar[] = [];
+  let truncated = captured.truncated;
+  if (previous && typeof previous === "object") {
+    const raw = previous as { bars?: unknown; truncated?: unknown };
+    if (Array.isArray(raw.bars)) {
+      for (const entry of raw.bars) {
+        if (!entry || typeof entry !== "object") continue;
+        const b = entry as PathBar;
+        if (typeof b.t !== "string") continue;
+        before.push({
+          t: b.t,
+          hR: typeof b.hR === "number" ? b.hR : null,
+          lR: typeof b.lR === "number" ? b.lR : null,
+          amb: b.amb === true,
+        });
+      }
+    }
+    if (raw.truncated === true) truncated = true;
+  }
+
+  const seen = new Set(before.map((b) => b.t));
+  const bars = [...before];
+  for (const bar of captured.bars) {
+    if (seen.has(bar.t)) continue;
+    if (bars.length >= MAX_PATH_BARS) {
+      truncated = true;
+      break;
+    }
+    seen.add(bar.t);
+    bars.push(bar);
+  }
+
+  return { bars, targetsR: captured.targetsR, truncated };
 }
