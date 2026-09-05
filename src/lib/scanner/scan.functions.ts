@@ -15,7 +15,10 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 export interface ManualScanResult {
-  runId: string;
+  /** Null when the cycle was deliberately skipped (weekend market closure). */
+  runId: string | null;
+  /** Set when no cycle ran; currently only "weekend_market_closed". */
+  skipped?: "weekend_market_closed";
   enqueued: number;
   processed: Array<{
     instrument: string;
