@@ -37,7 +37,15 @@ function money(t: BrokerTotals): string {
   }`;
 }
 
-function BrokerBlock({ title, note, totals }: { title: string; note?: string; totals: BrokerTotals }) {
+function BrokerBlock({
+  title,
+  note,
+  totals,
+}: {
+  title: string;
+  note?: string;
+  totals: BrokerTotals;
+}) {
   return (
     <div className="space-y-1">
       <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{title}</p>

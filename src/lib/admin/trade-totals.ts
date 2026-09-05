@@ -127,7 +127,8 @@ export function aggregateBrokerTotals(rows: BrokerEvidenceRow[]): BrokerTotals {
 export function aggregateBrokerTotalsByAttribution(
   rows: BrokerEvidenceRow[],
 ): BrokerTotalsByAttribution {
-  const of = (a: BrokerAttribution) => aggregateBrokerTotals(rows.filter((r) => r.attribution === a));
+  const of = (a: BrokerAttribution) =>
+    aggregateBrokerTotals(rows.filter((r) => r.attribution === a));
   return {
     auto: of("auto"),
     unlinked: of("unlinked"),
