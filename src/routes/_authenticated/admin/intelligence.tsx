@@ -204,8 +204,8 @@ function AdminIntelligencePage() {
         <ExitVariantsPanel />
       </PanelBoundary>
 
-      <PanelBoundary name="Symbol bindings">
-        <SymbolBindingPanel />
+      <PanelBoundary name="Promotion checkpoint">
+        <PromotionPanel />
       </PanelBoundary>
 
       <PanelBoundary name="Headline stats">
