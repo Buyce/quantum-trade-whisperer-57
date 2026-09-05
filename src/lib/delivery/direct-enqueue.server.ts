@@ -63,6 +63,7 @@ import { formatDuration, marketStatus } from "@/lib/market-hours";
 import { readCeilingSettings, type ExposureAccumulation } from "./user-ceilings";
 import { evaluateAccountBrakes, type AccountBrakeState } from "@/lib/risk/brakes.server";
 import { BRAKE_REASON_COPY } from "@/lib/risk/brakes";
+import { activeCooldown } from "@/lib/execution/quality.server";
 
 export interface DirectEnqueueSignal {
   id: string;
@@ -760,6 +761,31 @@ async function runDirectEnqueue(
         filtered: 1,
       });
       continue;
+    }
+
+    // An account/instrument/session whose recent broker execution was materially
+    // worse than its own norm is cooling down: no new order for that dimension.
+    // Read-only and cheap — the score itself is computed by the scheduled pass.
+    {
+      const cooldown = await activeCooldown(
+        db,
+        { accountId: account.id, instrument: signal.instrument, session: signal.session ?? "unknown" },
+        nowMs,
+      );
+      if (cooldown) {
+        filtered += 1;
+        decisions.push({
+          user_id: account.user_id,
+          signal_id: signal.id,
+          instrument: signal.instrument,
+          grade: signal.grade,
+          decision: "execution_cooldown",
+          detail: `${cooldown.detail} Resumes after ${cooldown.resumeAfter}.`,
+          enqueued: 0,
+          filtered: 1,
+        });
+        continue;
+      }
     }
 
     // A braked account takes no new automatic order, whatever the setup looks like.
