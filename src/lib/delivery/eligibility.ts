@@ -45,7 +45,14 @@ export interface EligibilitySignal {
    * so a missing context must NOT suppress the signal.
    */
   trading_session: string | null;
+  /**
+   * Direction, when the row carried one. Used ONLY by the optional evidence
+   * ranker below; eligibility itself never reads it, so a missing direction can
+   * never change whether a signal is eligible.
+   */
+  direction?: string | null;
 }
+
 
 export interface EligibilitySettings {
   instruments: string[];
