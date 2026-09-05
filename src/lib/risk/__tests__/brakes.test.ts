@@ -29,18 +29,18 @@ const trade = (iso: string, net: number): ClosedTrade => ({
 });
 
 describe("readBrakeLimits", () => {
-  it("is off unless the owner switched it on", () => {
+  it("[UNIT] is off unless the owner switched it on", () => {
     expect(brakesConfigured(readBrakeLimits({}))).toBe(false);
     expect(
       brakesConfigured(readBrakeLimits({ daily_loss_limit_percent: 3 })),
     ).toBe(false);
   });
 
-  it("is still off when switched on with no limit set", () => {
+  it("[UNIT] is still off when switched on with no limit set", () => {
     expect(brakesConfigured(readBrakeLimits({ drawdown_brakes_enabled: true }))).toBe(false);
   });
 
-  it("clamps nonsense to disabled and caps percentages at 100", () => {
+  it("[UNIT] clamps nonsense to disabled and caps percentages at 100", () => {
     const limits = readBrakeLimits({
       drawdown_brakes_enabled: true,
       daily_loss_limit_percent: -5,
@@ -56,7 +56,7 @@ describe("readBrakeLimits", () => {
 });
 
 describe("summariseRealised", () => {
-  it("counts the UTC day and the ISO week separately", () => {
+  it("[UNIT] counts the UTC day and the ISO week separately", () => {
     const totals = summariseRealised(
       [
         trade("2026-08-31T09:00:00Z", -100), // Monday, this week
@@ -73,7 +73,7 @@ describe("summariseRealised", () => {
     expect(totals.sample).toBe(4);
   });
 
-  it("counts the consecutive losing run backwards from the last close", () => {
+  it("[UNIT] counts the consecutive losing run backwards from the last close", () => {
     const totals = summariseRealised(
       [
         trade("2026-09-02T06:00:00Z", -10),
@@ -86,7 +86,7 @@ describe("summariseRealised", () => {
     expect(totals.consecutiveLosses).toBe(2);
   });
 
-  it("treats a break-even close as ending the run without counting as a loss", () => {
+  it("[UNIT] treats a break-even close as ending the run without counting as a loss", () => {
     const totals = summariseRealised(
       [trade("2026-09-02T08:00:00Z", -10), trade("2026-09-02T09:00:00Z", 0)],
       NOW,
@@ -94,7 +94,7 @@ describe("summariseRealised", () => {
     expect(totals.consecutiveLosses).toBe(0);
   });
 
-  it("ignores rows with an unusable timestamp or amount", () => {
+  it("[UNIT] ignores rows with an unusable timestamp or amount", () => {
     const totals = summariseRealised(
       [{ exitAtMs: Number.NaN, net: -1000, currency: null }, trade("2026-09-02T09:00:00Z", -10)],
       NOW,
@@ -105,7 +105,7 @@ describe("summariseRealised", () => {
 });
 
 describe("isoWeekStartUtc", () => {
-  it("puts Sunday in the week that started the previous Monday", () => {
+  it("[UNIT] puts Sunday in the week that started the previous Monday", () => {
     expect(isoWeekStartUtc(Date.parse("2026-09-06T23:00:00Z"))).toBe("2026-08-31");
     expect(isoWeekStartUtc(Date.parse("2026-09-07T00:00:00Z"))).toBe("2026-09-07");
   });
@@ -114,13 +114,13 @@ describe("isoWeekStartUtc", () => {
 describe("evaluateBrakes", () => {
   const totals = summariseRealised([trade("2026-09-02T09:00:00Z", -400)], NOW);
 
-  it("passes when nothing is configured", () => {
+  it("[UNIT] passes when nothing is configured", () => {
     expect(evaluateBrakes(OFF, { totals, equity: 10_000, peakEquity: 10_000 }, NOW).paused).toBe(
       false,
     );
   });
 
-  it("refuses when the closed-trade history could not be read", () => {
+  it("[INVARIANT] refuses when the closed-trade history could not be read", () => {
     const v = evaluateBrakes(
       on({ dailyLossPercent: 3 }),
       { totals: null, equity: 10_000, peakEquity: 10_000 },
@@ -131,7 +131,7 @@ describe("evaluateBrakes", () => {
     expect(v.resumeBoundary).toBe("owner");
   });
 
-  it("refuses when the broker reported no equity to measure a percentage against", () => {
+  it("[INVARIANT] refuses when the broker reported no equity to measure a percentage against", () => {
     const v = evaluateBrakes(
       on({ dailyLossPercent: 3 }),
       { totals, equity: null, peakEquity: null },
@@ -141,7 +141,7 @@ describe("evaluateBrakes", () => {
     expect(v.reason).toBe("risk_state_unmeasured");
   });
 
-  it("does not need equity when only the consecutive-loss brake is set", () => {
+  it("[INVARIANT] does not need equity when only the consecutive-loss brake is set", () => {
     const run = summariseRealised(
       [
         trade("2026-09-02T07:00:00Z", -10),
@@ -160,7 +160,7 @@ describe("evaluateBrakes", () => {
     expect(v.resumeBoundary).toBe("next_utc_day");
   });
 
-  it("pauses on the daily loss limit and resumes at the next UTC midnight", () => {
+  it("[INVARIANT] pauses on the daily loss limit and resumes at the next UTC midnight", () => {
     const v = evaluateBrakes(
       on({ dailyLossPercent: 3 }),
       { totals, equity: 10_000, peakEquity: 10_000 },
@@ -171,7 +171,7 @@ describe("evaluateBrakes", () => {
     expect(v.resumeAfterMs).toBe(Date.parse("2026-09-03T00:00:00.000Z"));
   });
 
-  it("leaves a loss under the limit alone", () => {
+  it("[UNIT] leaves a loss under the limit alone", () => {
     const v = evaluateBrakes(
       on({ dailyLossPercent: 5 }),
       { totals, equity: 10_000, peakEquity: 10_000 },
@@ -180,7 +180,7 @@ describe("evaluateBrakes", () => {
     expect(v.paused).toBe(false);
   });
 
-  it("never brakes on a profitable day", () => {
+  it("[INVARIANT] never brakes on a profitable day", () => {
     const green = summariseRealised([trade("2026-09-02T09:00:00Z", 5_000)], NOW);
     expect(
       evaluateBrakes(on({ dailyLossPercent: 1 }), { totals: green, equity: 10_000, peakEquity: 10_000 }, NOW)
@@ -188,7 +188,7 @@ describe("evaluateBrakes", () => {
     ).toBe(false);
   });
 
-  it("reports the weekly limit ahead of the daily one when both are breached", () => {
+  it("[UNIT] reports the weekly limit ahead of the daily one when both are breached", () => {
     const week = summariseRealised(
       [trade("2026-08-31T09:00:00Z", -500), trade("2026-09-02T09:00:00Z", -400)],
       NOW,
@@ -202,7 +202,7 @@ describe("evaluateBrakes", () => {
     expect(v.resumeAfterMs).toBe(Date.parse("2026-09-07T00:00:00.000Z"));
   });
 
-  it("brakes on equity drawdown against the observed peak, and needs the owner to lift it", () => {
+  it("[UNIT] brakes on equity drawdown against the observed peak, and needs the owner to lift it", () => {
     const v = evaluateBrakes(
       on({ maxDrawdownPercent: 10 }),
       { totals, equity: 8_900, peakEquity: 10_000 },
@@ -214,7 +214,7 @@ describe("evaluateBrakes", () => {
     expect(v.detail).toContain("highest equity P-Trades has observed");
   });
 
-  it("makes no drawdown claim before a higher equity was ever observed", () => {
+  it("[INVARIANT] makes no drawdown claim before a higher equity was ever observed", () => {
     const v = evaluateBrakes(
       on({ maxDrawdownPercent: 10 }),
       { totals, equity: 8_900, peakEquity: 8_900 },
