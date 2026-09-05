@@ -392,3 +392,42 @@ describe("4. eligibility changes invalidate queued deliveries", () => {
     });
   }
 });
+
+// ===========================================================================
+// 5. The host allow-list gates the webhook bridge only, never the switch
+// ===========================================================================
+describe("5. live-host allow-list applies to the external bridge only", () => {
+  it("[INVARIANT] a live bridge delivery with an empty allow-list is refused", async () => {
+    const result = await revalidateDelivery(
+      fakeDb(CONFIRMED_SETTINGS, { ...LIVE_CONTROLS, allowed_live_hosts: [] }) as never,
+      delivery,
+      NOW,
+    );
+    expect(result).toMatchObject({ ok: false, reason: "host_not_allowlisted" });
+  });
+
+  it("[INVARIANT] a live bridge delivery to a listed host still passes", async () => {
+    const result = await revalidateDelivery(
+      fakeDb(CONFIRMED_SETTINGS, LIVE_CONTROLS) as never,
+      delivery,
+      NOW,
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.dryRun).toBe(false);
+  });
+
+  it("[UNIT] the host matcher fails closed on an empty list", async () => {
+    const { hostAllowedForLive } = await import("../execution");
+    expect(hostAllowedForLive("bridge.example.com", [])).toBe(false);
+    expect(hostAllowedForLive("", ["bridge.example.com"])).toBe(false);
+    expect(hostAllowedForLive("bridge.example.com", ["bridge.example.com"])).toBe(true);
+  });
+
+  it("[INVARIANT] enabling live execution never requires an allowed host", () => {
+    // Direct MetaApi (MT4/MT5) execution has no operator-chosen host, so the
+    // switch writer must not gate live execution on the bridge allow-list.
+    const src = readFileSync(join(process.cwd(), "src/lib/admin.functions.ts"), "utf8");
+    expect(src).not.toContain("Add at least one allowed live host");
+  });
+});
