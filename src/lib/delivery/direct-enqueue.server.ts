@@ -47,9 +47,11 @@ import { fetchDayFrame, type FrameClient } from "./day-frame";
 import {
   buildCapFrame,
   evaluateEligibility,
+  type CapRanker,
   type EligibilitySettings,
   type EligibilitySignal,
 } from "./eligibility";
+
 import { evaluateIntelGate, gateConfigured, type IntelGateSettings } from "./intel-gate";
 import { recordEnqueueDecisions, type EnqueueDecisionRow } from "./enqueue-log.server";
 import {
