@@ -361,6 +361,10 @@ function AdminIntelligencePage() {
         <PanelBoundary name="Filter lift">
           <FilterLiftPanel />
         </PanelBoundary>
+        <PanelBoundary name="Counterfactual stop harness">
+          <CounterfactualStopPanel />
+        </PanelBoundary>
+
         <PanelBoundary name="Learning evidence">
           <LearningEvidencePanel />
         </PanelBoundary>
