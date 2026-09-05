@@ -712,6 +712,38 @@ async function runDirectEnqueue(
     armed.map((a) => a.id),
   );
 
+  /**
+   * Drawdown brakes. Reduce-only and measurement-bound: an account whose owner
+   * configured no brake is not read at all, and a brake that cannot be measured
+   * from the broker holds rather than passes. This stops NEW orders only —
+   * anything already at the broker is untouched.
+   */
+  let brakeStates = new Map<string, AccountBrakeState>();
+  try {
+    brakeStates = await evaluateAccountBrakes(db, armed, settingsByUser, nowMs);
+  } catch (err) {
+    // A brake that throws must not become permission. Every configured account is
+    // held; accounts with no brake configured were never in the map anyway.
+    console.error("direct enqueue drawdown brakes unavailable", err);
+    for (const account of armed) {
+      const row = settingsByUser.get(account.user_id);
+      if (!row || row.drawdown_brakes_enabled !== true) continue;
+      brakeStates.set(account.id, {
+        accountId: account.id,
+        verdict: {
+          paused: true,
+          reason: "risk_state_unmeasured",
+          detail: "your loss limits could not be evaluated, so no automatic order was queued",
+          resumeAfterMs: null,
+          resumeBoundary: "owner",
+        },
+        totals: null,
+        equity: null,
+        peakEquity: null,
+      });
+    }
+  }
+
   for (const account of armed) {
     const row = settingsByUser.get(account.user_id);
     if (!row) {
