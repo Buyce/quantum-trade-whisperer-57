@@ -152,6 +152,15 @@ interface SettingsRow {
   max_entry_slippage_pips: number | null;
   max_total_exposure_percent: number | null;
   exposure_limit_enabled: boolean | null;
+  /**
+   * Owner drawdown brakes. Measured from CLOSED broker trades and broker equity
+   * only; reduce-only, and off unless the owner switched them on.
+   */
+  drawdown_brakes_enabled: boolean | null;
+  daily_loss_limit_percent: number | null;
+  weekly_loss_limit_percent: number | null;
+  consecutive_loss_limit: number | null;
+  max_drawdown_percent: number | null;
 }
 
 /**
