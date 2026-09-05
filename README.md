@@ -213,6 +213,7 @@ commits pushed to `main` sync both ways.
 | [docs/RESEARCH-AND-SHADOW.md](docs/RESEARCH-AND-SHADOW.md)               | Replay, candidates, isolation                                   |
 | [docs/ALERTS-AND-ELIGIBILITY.md](docs/ALERTS-AND-ELIGIBILITY.md)         | Feed/alert rules, daily cap                                     |
 | [docs/EXECUTION.md](docs/EXECUTION.md)                                   | Delivery state machine and safety locks                         |
+| [docs/EXECUTION-QUALITY.md](docs/EXECUTION-QUALITY.md)                   | Drawdown brakes, quality cooldowns, cap ranking                 |
 | [docs/BROKER-ACCOUNTS.md](docs/BROKER-ACCOUNTS.md)                       | MetaTrader connection and account modes                         |
 | [docs/BROKER-EVIDENCE.md](docs/BROKER-EVIDENCE.md)                       | Association and Performance provenance                          |
 | [docs/METASTATS.md](docs/METASTATS.md)                                   | Broker statistics telemetry                                     |
