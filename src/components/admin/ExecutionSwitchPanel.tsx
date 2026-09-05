@@ -48,9 +48,9 @@ function confirmCopy(pending: NonNullable<Pending>): { title: string; detail: st
   if (pending.field === "liveExecutionEnabled") {
     return pending.next
       ? {
-          title: "Enable REAL-MONEY webhook and broker execution?",
+          title: "Enable REAL-MONEY broker execution?",
           detail:
-            "Deliveries that pass every gate may be POSTed to an allowed live host, or submitted to a real broker account, and can create real orders with real money. The dry-run lock must already be off and at least one host must be allowed. Per-user live confirmation, endpoint validation and pre-send revalidation still apply to every single delivery.",
+            "Deliveries that pass every gate may be submitted to a real broker account through MetaApi (MT4/MT5), or POSTed to an allow-listed webhook bridge, and can create real orders with real money. The dry-run lock must already be off and the emergency stop clear. Per-user live confirmation, endpoint validation and pre-send revalidation still apply to every single delivery.",
         }
       : {
           title: "Disable real-money execution?",
@@ -153,7 +153,7 @@ export function ExecutionSwitchPanel() {
       key: "liveExecutionEnabled",
       label: "Real-money execution",
       detail:
-        "Allows outbound live webhook POSTs to an allowed host and submissions to real broker accounts. Cannot be enabled while dry run is forced or the host allow-list is empty.",
+        "Allows submissions to real broker accounts through MetaApi (MT4/MT5) and live webhook POSTs to an allow-listed bridge host. Cannot be enabled while dry run is forced or the emergency stop is on.",
       on: data.liveExecutionEnabled,
       onLabel: "ARMED",
       offLabel: "OFF",
