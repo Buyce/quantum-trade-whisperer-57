@@ -500,6 +500,21 @@ const SECTIONS: Section[] = [
           "A ceiling is never a quota. Being below one is not a reason to place an order, and your broker's own pending-order and margin limits still apply on top.",
       },
       {
+        id: "order-rules-together",
+        q: "Do the submission ceilings, the freshness-adaptive limits and immediate market entry conflict?",
+        a: [
+          "No. They answer three different questions, in order. The daily, per-instrument and concurrent limits — optionally moved between your own floor and your own maximum by how fresh the broker equity and price behind sizing are — decide HOW MANY automatic orders may exist. Immediate market entry decides HOW an already-approved order goes in: at market on its first dispatch, or resting at a planned limit. The spread, slippage and total-exposure ceilings decide WHETHER this particular order's price and exposure are acceptable, using your broker's own quote and specification just before it is sent.",
+          "They chain rather than compete: whichever rule refuses first wins, and none of them can widen a safety gate. The one interaction worth knowing is that with immediate market entry on, your spread and slippage ceilings are what keep that entry honest. Left at 0 they are off, and the entry is then bounded only by the setup's published maximum acceptable entry.",
+        ],
+        means: "How many, how it enters, and at what price quality — three layers, one order.",
+        matters:
+          "Read as competing switches they look contradictory; read in order they describe a single decision path.",
+        todo: "Set the counts first, then decide the entry style, then set the price ceilings that bound it.",
+        assume:
+          "Freshness describes our data, not the market, and it never changes an order's price, size or stop. A ceiling that cannot be measured refuses rather than passing.",
+      },
+      {
+
         id: "order-window",
         q: "Why did an automatic order stop being placed after a while?",
         a: [
