@@ -27,6 +27,8 @@ import {
   type RejectReason,
 } from "./execution";
 import { evaluateExposure, type ExposureVerdict } from "./exposure";
+import { effectiveSpreadCeiling } from "./spread-norms";
+import { loadSpreadNorm } from "./spread-norms.server";
 import {
   exposurePercentWithinCeiling,
   pipSizeFromSpec,
