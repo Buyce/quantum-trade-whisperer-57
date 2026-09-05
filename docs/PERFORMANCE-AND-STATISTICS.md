@@ -40,20 +40,43 @@ rate or expectancy.
 
 | Method                          | Constant                                                                                                                                | Purpose                                                                                                                |
 | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Wilson score interval           | `src/lib/stats/wilson.ts`                                                                                                               | Proportion intervals; carries `DIAGNOSTIC_ONLY_NOTE`                                                                   |
+| Wilson score interval           | `wilson()` in `src/lib/baseline/capture.server.ts`                                                                                      | Proportion intervals for baseline fill and win-if-filled rates; correct at small `n`, unlike the normal approximation   |
 | Whole-UTC-day cluster bootstrap | `BOOTSTRAP_METHOD = "whole_utc_day_cluster_bootstrap"`, `DEFAULT_REPLICATES = 2000`, `DEFAULT_SEED = 20260821`, `BOOTSTRAP_VERSION = 1` | Dependence-aware intervals: trades from one UTC day are correlated, so whole days are resampled, not individual trades |
 | Benjamini–Hochberg              | `src/lib/stats/bh.ts`                                                                                                                   | Multiple-comparison control across buckets; carries `BH_DIAGNOSTIC_NOTE`                                               |
 
-Maturity gates: `MIN_GROUP_SAMPLES = 30`, `MIN_GROUP_CLUSTERS = 10` (equal to
-`MIN_CLUSTERS`), practical-effect threshold `PRACTICAL_EFFECT_THRESHOLD = 0.05`.
-Below a gate the group is reported as immature. Its raw point estimate may still
-be shown as a description of the selected rows, never as an inferential or
+#### The three evidence tiers
+
+`EVIDENCE_TIERS` in `src/lib/stats/evidence.ts` names every floor used anywhere in
+research, so a claim can always be traced to the tier that licensed it. There are
+exactly three, and no code invents a fourth:
+
+| Tier                    | Samples | Clusters | Cluster unit    | Licenses                                    |
+| ----------------------- | ------- | -------- | --------------- | ------------------------------------------- |
+| `descriptive`           | 30      | 10       | UTC day         | describing a difference on full history      |
+| `chronological_period`  | 30      | 5        | instrument-day  | reading ONE side of a chronological split    |
+| `training`              | 200     | 10       | UTC day         | fitting on, not merely describing            |
+
+`chronological_period` counts independence per instrument-day rather than per whole
+UTC day because a split period contains fewer whole days by construction.
+`MIN_GROUP_SAMPLES = 30` and `MIN_GROUP_CLUSTERS = 10` are the `descriptive` tier's
+floors; the practical-effect threshold is `PRACTICAL_EFFECT_THRESHOLD = 0.05`.
+
+Below a tier's floor the group is reported as immature. Its raw point estimate may
+still be shown as a description of the selected rows, never as an inferential or
 forward-looking estimate.
 
-`HOLDOUT_AVAILABLE = false`. There is currently **no** holdout or out-of-sample
-validation layer, so every statistic in the app is **descriptive of its sample**,
-never predictive. Results below the gates, or lacking cluster support, are labelled
-diagnostic-only and are not actionable evidence.
+#### In-sample versus forward
+
+`HOLDOUT_AVAILABLE = false` and this remains true. It refers specifically to a
+**forward** holdout: no sample has been accumulated after a decision was taken and
+registered as an out-of-sample test of it, so no statistic in the app is
+predictive. Every figure is descriptive of its own sample.
+
+The walk-forward layer below is a different and weaker thing: a **chronological
+re-split of the same historical population**. It removes the in-sample advantage a
+gate gets from being measured on the history that suggested it, which is worth
+having, but held-out later days are still recorded history. Both statements are
+true at once, and neither upgrades the other.
 
 The bootstrap is deterministic: same input, same seed, same interval.
 
