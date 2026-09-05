@@ -260,6 +260,12 @@ async function loadResearchRows(db: SupabaseClient): Promise<ShadowRow[]> {
 /**
  * Research-candidate rows: Replay-V1 semantics, own bounded budget, loaded LAST
  * and never able to shrink the production query above. Fails open.
+ *
+ * Rows already labelled `outside_replay_window` are EXCLUDED. That label is
+ * terminal — the provider cannot reach their history — but the row stays
+ * `pending`, so without this predicate the oldest unreachable rows were re-read
+ * every hour, consumed the whole candidate budget, and no reachable row was ever
+ * replayed.
  */
 async function loadCandidateRows(db: SupabaseClient): Promise<ShadowRow[]> {
   const budget = await candidateBudget(db);
@@ -270,6 +276,7 @@ async function loadCandidateRows(db: SupabaseClient): Promise<ShadowRow[]> {
     .in("status", ["pending", "open"])
     .eq("cohort", CANDIDATE_COHORT)
     .eq("replay_version", REPLAY_V1_VERSION)
+    .or(`research_window_status.is.null,research_window_status.neq.${OUTSIDE_REPLAY_WINDOW}`)
     .order("detected_at", { ascending: true })
     .limit(budget);
   if (res.error) {
