@@ -564,7 +564,7 @@ describe("[INVARIANT] Written record tracks what ships", () => {
       expect(doc, `EXECUTION-QUALITY.md must state ${needle}`).toContain(needle);
     }
     // The two opposite failure postures are the point of the document.
-    expect(doc).toMatch(/fail closed/i);
+    expect(doc).toMatch(/fail[ -]closed/i);
     expect(doc).toMatch(/refuses nothing|blocks nothing/i);
   });
 
