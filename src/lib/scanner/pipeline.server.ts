@@ -500,19 +500,6 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
     }
   }
 
-  /**
-   * Weekend safety net. The cron entry no longer enqueues weekend cycles, but
-   * a job claimed after Friday 21:00 UTC (or enqueued by any other path) must
-   * still never fetch candles while the market is closed. Deliberate skip, not
-   * a failure: the health window counts this as a completed job.
-   */
-  if (isWeekendClosed(new Date())) {
-    return await finish(
-      "skipped",
-      "Weekend market closed (Friday 21:00 - Sunday 21:00 UTC); no candles were fetched",
-    );
-  }
-
   try {
     /**
      * Symbol authority (R8). A canonical P-Trades name is NOT a broker symbol, so
