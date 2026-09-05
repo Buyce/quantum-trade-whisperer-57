@@ -19,14 +19,22 @@ export async function loadSpreadNorm(
   now: number = Date.now(),
 ): Promise<SpreadNorm> {
   const since = new Date(now - NORM_WINDOW_DAYS * 86_400_000).toISOString().slice(0, 10);
-  const { data, error } = await db
-    .from("instrument_spread_stats")
-    .select("trading_date, valid_samples, p90_spread_price")
-    .eq("instrument", instrument)
-    .eq("session", session)
-    .gte("trading_date", since)
-    .limit(200);
-  if (error) return { measured: false, reason: "the spread statistics could not be read" };
+  let data: unknown[] | null = null;
+  try {
+    const res = await db
+      .from("instrument_spread_stats")
+      .select("trading_date, valid_samples, p90_spread_price")
+      .eq("instrument", instrument)
+      .eq("session", session)
+      .gte("trading_date", since)
+      .limit(200);
+    if (res.error) return { measured: false, reason: "the spread statistics could not be read" };
+    data = res.data ?? [];
+  } catch {
+    // No readable statistics means no adaptive tightening at all. This gate can
+    // only reduce a ceiling, so its absence is never a relaxation.
+    return { measured: false, reason: "the spread statistics could not be read" };
+  }
   return spreadNorm(
     (data ?? []).map((row) => {
       const r = row as { trading_date: string; valid_samples: number; p90_spread_price: number | null };
