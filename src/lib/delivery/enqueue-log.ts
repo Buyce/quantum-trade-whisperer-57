@@ -24,6 +24,8 @@ export const ENQUEUE_DECISION_COPY: Record<string, string> = {
   execution_window_expired:
     "The setup was already outside your automatic-order window, so no broker order was queued.",
   daily_cap_reached: "Your trades-per-day limit was already used up.",
+  cohort_negative_expectancy:
+    "This instrument, direction and session combination has lost money across enough resolved replay outcomes that its whole confidence interval sits below break-even, so no order was placed. This is a measured history, not a forecast about this setup.",
   intelligence_gate_below_threshold:
     "The historical win-if-filled rate for this regime is below your intelligence-gate threshold.",
   intelligence_gate_sample_insufficient:
