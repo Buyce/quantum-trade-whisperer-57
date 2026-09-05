@@ -24,6 +24,27 @@ risk, records adverse gaps and treats unresolved M15 intrabar order conservative
 It has a distinct replay version and never overwrites or masquerades as V1. The
 replay registry pins the implementation, policy and hash for every stored outcome.
 
+### Exit variants (replay only)
+
+Replay V2 also records the ordered post-fill path of every filled setup in R
+units (`shadow_executions.post_entry_path`, bounded to 400 M15 bars). That record
+exists so alternative exit rules — half out at the first target with a runner,
+stop to break-even after 1R, and a 1R trailing stop — can be simulated against
+the *same* path as the live single-exit policy instead of being reported as "not
+decidable". `src/lib/execution/exit-variants.ts` does the simulation, purely and
+with no I/O; the hourly pass in `src/lib/learning/exit-variants.server.ts` pairs
+each variant against the baseline, computes cluster-robust means and reuses the
+walk-forward evaluator for an out-of-sample check, then records
+`exit_variant_results`.
+
+A setup only enters a variant's sample when the recorded path decides both the
+baseline and that variant. A candle in which a favourable and an adverse barrier
+are both crossed, or whose internal event order is unknowable, is counted as
+undecidable and excluded — never resolved favourably, never unfavourably. A path
+that ends with the position open is undecidable too: no closing price is invented.
+Live execution stays `single_exit_first_target`; nothing in this surface can
+promote a variant.
+
 ### Research candidates
 
 To remove selection bias, structures are enrolled **before** the publication
@@ -92,12 +113,14 @@ history under one fixed policy.
 ## Implementation
 
 `src/lib/execution/replay.ts`, `replay-v2.ts`, `replay-registry.ts`,
+`exit-variants.ts`, `src/lib/learning/exit-variants.server.ts`,
 `shadow_resolve.server.ts`, `shadow_worker.server.ts`, `src/lib/research/*`,
 `src/lib/learning/*`, `src/components/admin/*`.
 
 ## Tests
 
 `src/lib/execution/__tests__/replay.test.ts`, `replay-corrected.test.ts`,
+`exit-variants.test.ts`,
 `replay.v2.test.ts`, `candidate-resolver.test.ts`,
 `src/test/db/__tests__/candidate-cohort.db.test.ts`,
 `src/test/db/__tests__/model-version.db.test.ts`.
