@@ -46,7 +46,11 @@ export function ScanHeartbeat({ lastScanAt }: { lastScanAt: string | null | unde
           )}
         />
       </span>
-      {valid && !stale ? (
+      {weekend ? (
+        <span>
+          Market closed for the weekend — background scans are paused and resume Sunday 21:00 UTC.
+        </span>
+      ) : valid && !stale ? (
         <span className="num">
           Last background scan completed at: {formatTime(last!)} — Next scan in ~{nextInMin} mins.
         </span>
