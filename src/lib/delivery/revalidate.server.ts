@@ -75,6 +75,7 @@ import {
 } from "@/lib/instruments/lifecycle";
 import { evaluateNewsGate } from "@/lib/news/gate.server";
 import { accountBrakeVerdict } from "@/lib/risk/brakes.server";
+import { activeCooldown } from "@/lib/execution/quality.server";
 import { readLifecycleView } from "@/lib/instruments/lifecycle.server";
 import { normalizeOrderGeometry } from "@/lib/instruments/precision";
 
