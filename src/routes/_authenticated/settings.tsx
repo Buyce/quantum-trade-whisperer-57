@@ -70,6 +70,8 @@ export const Route = createFileRoute("/_authenticated/settings")({
         property: "og:description",
         content: "Scanner filters, alerts and sender-domain configuration.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
       { name: "robots", content: "noindex" },
     ],
   }),

@@ -69,6 +69,8 @@ export const Route = createFileRoute("/_authenticated/history")({
         property: "og:description",
         content: "Your permanent log of taken forex trades and their outcomes.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
       { name: "robots", content: "noindex" },
     ],
   }),
