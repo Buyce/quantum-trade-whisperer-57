@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   aggregateBrokerTotals,
+  aggregateBrokerTotalsByAttribution,
   aggregateJournalTotals,
   type BrokerEvidenceRow,
 } from "@/lib/admin/trade-totals";
@@ -12,6 +13,7 @@ const row = (over: Partial<BrokerEvidenceRow> = {}): BrokerEvidenceRow => ({
   swap: 0,
   commission: 0,
   currency: "USD",
+  attribution: "auto",
   ...over,
 });
 
