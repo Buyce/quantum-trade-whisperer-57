@@ -45,6 +45,8 @@ import { PayoffPanel } from "@/components/admin/PayoffPanel";
 import { CandidatePanel } from "@/components/admin/CandidatePanel";
 import { CandidateLineagePanel } from "@/components/admin/CandidateLineagePanel";
 import { FilterLiftPanel } from "@/components/admin/FilterLiftPanel";
+import { CounterfactualStopPanel } from "@/components/admin/CounterfactualStopPanel";
+
 import { LearningEvidencePanel } from "@/components/admin/LearningEvidencePanel";
 
 import { EngineStatusPanel } from "@/components/admin/EngineStatusPanel";
