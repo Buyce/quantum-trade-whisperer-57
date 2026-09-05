@@ -922,14 +922,31 @@ export const getAdminTradeTotals = createServerFn({ method: "GET" })
             ? Number(v)
             : null;
 
+    // Attribution is read off the row, never assumed: a live dispatch link proves the
+    // automatic trader placed it; the platform's own order tag without that link
+    // proves only that P-Trades placed it at some point; neither means it is a
+    // trade a person opened by hand.
+    const attribution = (row: {
+      delivery_id: number | null;
+      signal_id: string | null;
+      client_id: string | null;
+      magic: number | null;
+    }): BrokerAttribution => {
+      if (row.delivery_id !== null && row.delivery_id !== undefined) return "auto";
+      if (row.signal_id || row.client_id || (row.magic !== null && row.magic !== undefined))
+        return "unlinked";
+      return "external";
+    };
+
     return {
-      broker: aggregateBrokerTotals(
+      broker: aggregateBrokerTotalsByAttribution(
         (evidence.data ?? []).map((row) => ({
           accountId: row.account_id ?? null,
           grossProfit: numeric(row.gross_profit),
           swap: numeric(row.swap),
           commission: numeric(row.commission),
           currency: row.profit_currency ?? null,
+          attribution: attribution(row),
         })),
       ),
       journal: aggregateJournalTotals((journal.data ?? []).map((row) => row.outcome ?? null)),
