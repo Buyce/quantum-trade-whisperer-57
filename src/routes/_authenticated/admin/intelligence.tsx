@@ -53,6 +53,8 @@ import { EngineStatusPanel } from "@/components/admin/EngineStatusPanel";
 import { ExecutionSwitchPanel } from "@/components/admin/ExecutionSwitchPanel";
 import { EnqueueDecisionPanel } from "@/components/admin/EnqueueDecisionPanel";
 import { AutoTraderPanel } from "@/components/admin/AutoTraderPanel";
+import { TradeTotalsPanel } from "@/components/admin/TradeTotalsPanel";
+
 import { ExecutionQualityPanel } from "@/components/admin/ExecutionQualityPanel";
 import { WalkForwardPanel } from "@/components/admin/WalkForwardPanel";
 import { ExitVariantsPanel } from "@/components/admin/ExitVariantsPanel";
