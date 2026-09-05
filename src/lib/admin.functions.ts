@@ -1192,3 +1192,63 @@ export const getAdminExecutionQuality = createServerFn({ method: "GET" })
       })),
     };
   });
+
+export interface AdminWalkForwardRow {
+  gate: string;
+  confirmed: boolean;
+  splitDay: string | null;
+  trainDays: number;
+  holdoutDays: number;
+  trainPassN: number;
+  trainFailN: number;
+  holdoutPassN: number;
+  holdoutFailN: number;
+  trainDeltaR: number | null;
+  holdoutDeltaR: number | null;
+  holdoutLow: number | null;
+  holdoutHigh: number | null;
+  blockers: string[];
+  detail: string;
+  computedAt: string;
+}
+
+/**
+ * Out-of-sample (walk-forward) confirmation per gate, owner only.
+ *
+ * Pure read of rows the hourly pass wrote. No row for a gate means no
+ * confirmation exists — which withholds any automatic threshold change for that
+ * gate rather than permitting one.
+ */
+export const getAdminWalkForward = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<AdminWalkForwardRow[]> => {
+    const email = String(context.claims["email"] ?? "").toLowerCase();
+    if (email !== OWNER_EMAIL) throw new Error("Forbidden");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await supabaseAdmin
+      .from("walk_forward_confirmations")
+      .select("*")
+      .order("gate", { ascending: true })
+      .limit(50);
+    if (error) throw new Error(error.message);
+
+    return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+      gate: String(r["gate"]),
+      confirmed: r["confirmed"] === true,
+      splitDay: r["split_day"] === null ? null : String(r["split_day"]),
+      trainDays: Number(r["train_days"] ?? 0),
+      holdoutDays: Number(r["holdout_days"] ?? 0),
+      trainPassN: Number(r["train_pass_n"] ?? 0),
+      trainFailN: Number(r["train_fail_n"] ?? 0),
+      holdoutPassN: Number(r["holdout_pass_n"] ?? 0),
+      holdoutFailN: Number(r["holdout_fail_n"] ?? 0),
+      trainDeltaR: r["train_delta_r"] === null ? null : Number(r["train_delta_r"]),
+      holdoutDeltaR: r["holdout_delta_r"] === null ? null : Number(r["holdout_delta_r"]),
+      holdoutLow: r["holdout_low"] === null ? null : Number(r["holdout_low"]),
+      holdoutHigh: r["holdout_high"] === null ? null : Number(r["holdout_high"]),
+      blockers: Array.isArray(r["blockers"]) ? (r["blockers"] as string[]).map(String) : [],
+      detail: String(r["detail"] ?? ""),
+      computedAt: String(r["computed_at"] ?? ""),
+    }));
+  });
