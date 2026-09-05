@@ -527,3 +527,77 @@ describe("documentation contract: public routes", () => {
     expect(connect).toMatch(/public HTTPS registration endpoint/i);
   });
 });
+
+/**
+ * Drift gates added by the 2026-09-05 documentation audit. Each one closes a
+ * specific way the written record went stale without any test noticing: a
+ * shipped feature nobody documented, a panel file left behind after its panel
+ * was removed, and a safety control with no in-app explanation.
+ */
+describe("[INVARIANT] Written record tracks what ships", () => {
+  it("[INVARIANT] every admin panel file is actually mounted", () => {
+    const page = read("src/routes/_authenticated/admin/intelligence.tsx");
+    const panels = readdirSync(join(ROOT, "src/components/admin"))
+      .filter((f) => f.endsWith("Panel.tsx"))
+      .map((f) => f.replace(/\.tsx$/, ""));
+    expect(panels.length).toBeGreaterThan(0);
+    for (const panel of panels) {
+      // A panel file that no page renders is dead code that still reads as a
+      // shipped feature to anyone auditing the repository.
+      expect(page, `${panel} exists but Admin Intelligence does not render it`).toContain(
+        `<${panel}`,
+      );
+    }
+  });
+
+  it("[INVARIANT] reduce-only brakes and cooldowns are documented with their constants", () => {
+    const doc = read("docs/EXECUTION-QUALITY.md");
+    for (const needle of [
+      "RECENT_WINDOW_DAYS = 14",
+      "NORM_WINDOW_DAYS = 60",
+      "SLIPPAGE_BREACH_MULTIPLE = 2",
+      "REJECT_RATE_BREACH_MARGIN = 0.15",
+      "COOLDOWN_HOURS = 24",
+      "risk_state_unmeasured",
+      "execution_cooldown",
+    ]) {
+      expect(doc, `EXECUTION-QUALITY.md must state ${needle}`).toContain(needle);
+    }
+    // The two opposite failure postures are the point of the document.
+    expect(doc).toMatch(/fail closed/i);
+    expect(doc).toMatch(/refuses nothing|blocks nothing/i);
+  });
+
+  it("[INVARIANT] the holdout claim is not contradicted by the walk-forward layer", () => {
+    const doc = read("docs/PERFORMANCE-AND-STATISTICS.md");
+    expect(doc).toContain("HOLDOUT_AVAILABLE = false");
+    // Retrospective chronological splitting must never be described as forward
+    // out-of-sample validation.
+    expect(doc).toMatch(/chronological/i);
+    expect(doc).toMatch(/forward/i);
+    // The deleted implementation path must not come back.
+    expect(doc).not.toContain("src/lib/stats/wilson.ts");
+    expect(read("README.md")).not.toContain("src/lib/stats/wilson.ts");
+    for (const tier of ["descriptive", "chronological_period", "training"]) {
+      expect(doc, `evidence tier ${tier} must be named`).toContain(tier);
+    }
+  });
+
+  it("[INVARIANT] every safety control has an in-app explanation", () => {
+    const guide = read("src/routes/_authenticated/guide.tsx");
+    for (const id of [
+      "order-ceilings",
+      "order-window",
+      "drawdown-brakes",
+      "quality-cooldowns",
+      "overrides",
+      "adaptive-ceiling",
+      "webhook-and-sender",
+      "broker-telemetry",
+    ]) {
+      expect(guide, `Guide must cover ${id}`).toContain(`id: "${id}"`);
+    }
+    // The Guide must not promise that a quiet brake means risk is absent.
+    expect(guide).toMatch(/not evidence that risk is absent/i);
+  });
+});
