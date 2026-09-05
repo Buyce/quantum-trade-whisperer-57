@@ -27,7 +27,7 @@ import {
 
 /** How far back closed trades are read. Bounded: this runs on a request path. */
 const LOOKBACK_DAYS = 21;
-const MAX_TRADES = 500;
+const MAX_TRADES_PER_ACCOUNT = 500;
 
 export interface BrakeAccount {
   id: string;
@@ -161,9 +161,9 @@ export async function evaluateAccountBrakes(
     const limits = limitsByAccount.get(account.id);
     if (!limits) continue;
 
-    const totals = evidenceReadable
-      ? summariseRealised(tradesByAccount.get(account.id) ?? [], nowMs)
-      : null;
+    const totals = unreadableAccounts.has(account.id)
+      ? null
+      : summariseRealised(tradesByAccount.get(account.id) ?? [], nowMs);
     const observed = equityByAccount.get(account.id) ?? { equity: null, observedAt: null };
     const prior = stateByAccount.get(account.id) ?? null;
 
