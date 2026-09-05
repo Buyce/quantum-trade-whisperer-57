@@ -14,6 +14,8 @@
  *  - Replay-derived research numbers are labelled as such by the caller; this
  *    module never converts them into money or broker outcomes.
  */
+import { EVIDENCE_TIERS } from "@/lib/stats/evidence";
+
 
 export interface LearningStatRow {
   manifest_hash: string;
@@ -98,12 +100,22 @@ export const EMPTY_LEARNING_EVIDENCE: LearningEvidence = {
   post_change: [],
 };
 
-/** 95% interval from the cluster-robust standard error; null when unavailable. */
-export function ci95(row: Pick<LearningStatRow, "mean_r" | "se_r">): [number, number] | null {
+/**
+ * 95% interval from the cluster-robust standard error the database computed over
+ * whole-UTC-day clusters; null when unavailable. Nothing is derived from a raw
+ * mean, and no interval is offered for a row without a recorded cluster count.
+ */
+export function ci95(
+  row: Pick<LearningStatRow, "mean_r" | "se_r"> & { cluster_n?: number | null },
+): [number, number] | null {
   if (row.mean_r === null || row.se_r === null) return null;
   if (!Number.isFinite(row.mean_r) || !Number.isFinite(row.se_r)) return null;
+  if (row.cluster_n !== undefined && (row.cluster_n ?? 0) < EVIDENCE_TIERS.descriptive.minClusters) {
+    return null;
+  }
   return [row.mean_r - 1.96 * row.se_r, row.mean_r + 1.96 * row.se_r];
 }
+
 
 /** True when two intervals cannot be separated at the 95% level. */
 export function intervalsOverlap(a: [number, number], b: [number, number]): boolean {
@@ -140,9 +152,14 @@ export function slicesByDim(rows: LearningStatRow[]): Record<SliceDim, LearningS
 export function sliceDecidable(pass: LearningStatRow | undefined, fail: LearningStatRow | undefined): boolean {
   if (!pass || !fail) return false;
   if (pass.stat_status !== "descriptive" || fail.stat_status !== "descriptive") return false;
-  if (pass.n_used < 30 || fail.n_used < 30) return false;
+  const tier = EVIDENCE_TIERS.descriptive;
+  if (pass.n_used < tier.minSamples || fail.n_used < tier.minSamples) return false;
+  if ((pass.cluster_n ?? 0) < tier.minClusters || (fail.cluster_n ?? 0) < tier.minClusters) {
+    return false;
+  }
   return ci95(pass) !== null && ci95(fail) !== null;
 }
+
 
 export const PROPOSAL_STATUS_LABELS: Record<GateChangeProposal["status"], string> = {
   proposed: "Awaiting decision",

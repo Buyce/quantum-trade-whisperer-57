@@ -31,15 +31,22 @@ import {
   type ExitVariant,
 } from "@/lib/execution/exit-variants";
 import { evaluateWalkForward, type WalkForwardObservation } from "@/lib/stats/walk-forward";
+import { EVIDENCE_TIERS } from "@/lib/stats/evidence";
+
 
 /** Maturity horizon, matching the other research passes. */
 export const MATURITY_HOURS = 24;
 /** Bound on rows read per pass. */
 const ROW_LIMIT = 2000;
+/**
+ * Floors come from the shared `chronological_period` tier (instrument-day
+ * clusters), the same bar the walk-forward evaluator uses. No local numbers.
+ */
 /** Minimum paired, decidable setups before a variant reports a mean at all. */
-export const MIN_VARIANT_SAMPLES = 30;
+export const MIN_VARIANT_SAMPLES = EVIDENCE_TIERS.chronological_period.minSamples;
 /** Minimum independent instrument-day clusters before a mean is reported. */
-export const MIN_VARIANT_CLUSTERS = 5;
+export const MIN_VARIANT_CLUSTERS = EVIDENCE_TIERS.chronological_period.minClusters;
+
 
 interface PathRow {
   detected_at: string;

@@ -11,14 +11,69 @@
  */
 import { MIN_CLUSTERS } from "./bootstrap";
 
+/**
+ * NAMED TIERS — the only place a sufficiency floor may be defined.
+ *
+ * Different surfaces legitimately need different floors (a chronological
+ * sub-period cannot carry as many independent days as all of history), but a
+ * surface may NOT invent its own number: it names a tier here. `clusterUnit`
+ * records what the cluster count actually counts, because an instrument-day is
+ * a finer unit than a whole UTC day and the two floors are not comparable.
+ */
+export interface EvidenceTier {
+  key: string;
+  minSamples: number;
+  minClusters: number;
+  clusterUnit: "utc_day" | "instrument_day";
+  note: string;
+}
+
+export const EVIDENCE_TIERS = {
+  /** Read a verdict on a full history. The headline bar. */
+  descriptive: {
+    key: "descriptive",
+    minSamples: 30,
+    minClusters: MIN_CLUSTERS,
+    clusterUnit: "utc_day",
+    note: "Enough to describe a difference on full history.",
+  },
+  /**
+   * One chronological sub-period of a split (train or holdout). Fewer whole days
+   * are available by construction, so independence is counted per instrument-day.
+   */
+  chronological_period: {
+    key: "chronological_period",
+    minSamples: 30,
+    minClusters: 5,
+    clusterUnit: "instrument_day",
+    note: "Enough to read one side of a chronological split.",
+  },
+  /** Enough to fit a model on, not merely to describe. */
+  training: {
+    key: "training",
+    minSamples: 200,
+    minClusters: MIN_CLUSTERS,
+    clusterUnit: "utc_day",
+    note: "Enough to train on, not merely to describe.",
+  },
+} as const satisfies Record<string, EvidenceTier>;
+
+export type EvidenceTierKey = keyof typeof EVIDENCE_TIERS;
+
+/** True when one group clears the named tier. Never partially credited. */
+export function tierMet(tier: EvidenceTier, n: number, clusters: number): boolean {
+  return n >= tier.minSamples && clusters >= tier.minClusters;
+}
+
 /** Minimum resolved observations per compared group. */
-export const MIN_GROUP_SAMPLES = 30;
+export const MIN_GROUP_SAMPLES = EVIDENCE_TIERS.descriptive.minSamples;
 
 /** Minimum independent day clusters per compared group. */
-export const MIN_GROUP_CLUSTERS = MIN_CLUSTERS;
+export const MIN_GROUP_CLUSTERS = EVIDENCE_TIERS.descriptive.minClusters;
 
 /** Smallest difference we would act on, in proportion points. */
 export const PRACTICAL_EFFECT_THRESHOLD = 0.05;
+
 
 export type EvidenceLevel = "insufficient" | "descriptive" | "suggestive" | "actionable";
 

@@ -15,7 +15,8 @@ import { ACTIVE_MODEL_VERSION } from "@/lib/versioning";
 import { replaySetup, type ReplayInput } from "./replay";
 import { MAX_PATH_BARS, capturePostFillPath, replaySetupV2, type PathBar } from "./replay-v2";
 import { REPLAY_V1_VERSION, REPLAY_V2_VERSION } from "./replay-registry";
-import { classifyReplayWindow, OUTSIDE_REPLAY_WINDOW } from "./replay-window";
+import { OUTSIDE_REPLAY_WINDOW } from "./replay-window";
+import { anchorForRows, windowCoversRow } from "./replay-anchor";
 
 /**
  * Research backfill only: the maximum number of candidate-only candle fetches a
@@ -478,18 +479,20 @@ export async function resolveShadowExecutions(db: SupabaseClient): Promise<Resol
     researchByInstrument.set(row.instrument, list);
   }
   /**
-   * Candidates ride along with production wherever production is already
-   * fetching. Instruments production is NOT fetching are held aside for the
-   * bounded backfill pass at the end of the run rather than silently starved.
+   * Candidates are grouped per instrument and resolved in their OWN pass after
+   * production, because a historical candidate cannot be adjudicated from the
+   * live tail at all: its detection sits further back than the provider depth
+   * cap. That pass anchors a bounded window on the oldest waiting row, and reuses
+   * the production candles whenever the group is already inside the live tail.
    */
   const candidateByInstrument = new Map<string, ShadowRow[]>();
-  const starvedCandidates = new Map<string, ShadowRow[]>();
   for (const row of candidateRows) {
-    const target = byInstrument.has(row.instrument) ? candidateByInstrument : starvedCandidates;
-    const list = target.get(row.instrument) ?? [];
+    const list = candidateByInstrument.get(row.instrument) ?? [];
     list.push(row);
-    target.set(row.instrument, list);
+    candidateByInstrument.set(row.instrument, list);
   }
+  /** Candles fetched for production this run, reusable by the candidate pass. */
+  const productionCandles = new Map<string, Awaited<ReturnType<typeof fetchCandles>>>();
 
 
   for (const [instrument, group] of byInstrument) {
@@ -509,7 +512,6 @@ export async function resolveShadowExecutions(db: SupabaseClient): Promise<Resol
         candles: 0,
         error: dataGate.reason ?? "not in service",
       });
-      summary.candidateBacklogNoCandles += (candidateByInstrument.get(instrument) ?? []).length;
       continue;
     }
 
@@ -526,7 +528,6 @@ export async function resolveShadowExecutions(db: SupabaseClient): Promise<Resol
         candles: 0,
         error: authority.refusal ?? "no verified broker symbol",
       });
-      summary.candidateBacklogNoCandles += (candidateByInstrument.get(instrument) ?? []).length;
       continue;
     }
 
@@ -539,7 +540,6 @@ export async function resolveShadowExecutions(db: SupabaseClient): Promise<Resol
     const requested = replayCandleDepthForRows([
       ...group,
       ...(researchByInstrument.get(instrument) ?? []),
-      ...(candidateByInstrument.get(instrument) ?? []),
     ]);
 
     try {
@@ -548,12 +548,12 @@ export async function resolveShadowExecutions(db: SupabaseClient): Promise<Resol
       // Timeouts, 504s and closed-market responses are expected. Skip the
       // instrument; the next hourly pass replays from the same cursor.
       summary.fetchFailures += 1;
-      summary.candidateBacklogNoCandles += (candidateByInstrument.get(instrument) ?? []).length;
       summary.instruments.push({ instrument, candles: 0, requested, error: describeError(err) });
       continue;
     }
 
     summary.instruments.push({ instrument, candles: candles.length, requested });
+    productionCandles.set(instrument, candles);
 
     for (const row of group) {
       const input = toReplayInput(row);
@@ -598,27 +598,25 @@ export async function resolveShadowExecutions(db: SupabaseClient): Promise<Resol
       const advancedRow = await resolveResearchRow(db, row, candles);
       if (advancedRow) summary.researchAdvanced += 1;
     }
-
-    // Candidate phase — last, same immutable candle array, zero extra fetches.
-    await runCandidatePhase(db, candidateByInstrument.get(instrument) ?? [], candles, summary);
   }
 
   /**
-   * Backfill pass (bounded). Enrolled candidates on instruments production did
-   * not fetch this run would otherwise never resolve, so a small, fixed number
-   * of candidate-only fetches is allowed per run — oldest backlog first. Every
-   * instrument beyond the budget stays counted as starved backlog, and the pass
-   * runs only while candidate enrolment is switched on.
+   * Candidate pass (bounded). Anchored on the oldest waiting row per instrument,
+   * oldest backlog first, at most CANDIDATE_BACKFILL_FETCH_BUDGET provider reads
+   * per run. Production resolution above is already finished and unaffected.
    */
-  await backfillStarvedCandidates(db, starvedCandidates, summary);
+  await resolveCandidateBacklog(db, candidateByInstrument, productionCandles, summary);
 
   return summary;
 }
 
 /**
- * Resolve candidate rows against an already-fetched candle array. Rows whose
- * history is further back than the provider cap are labelled once and skipped
- * instead of being replayed against candles that cannot contain their outcome.
+ * Resolve candidate rows against one fetched candle window.
+ *
+ * A row the window does not reach is left completely untouched — no advance, no
+ * label, not even a poll timestamp that would suggest it was examined. It is
+ * simply not this window's business and a later pass, anchored further forward,
+ * will reach it.
  */
 async function runCandidatePhase(
   db: SupabaseClient,
@@ -626,11 +624,9 @@ async function runCandidatePhase(
   candles: Awaited<ReturnType<typeof fetchCandles>>,
   summary: ResolveSummary,
 ): Promise<void> {
-  const nowMs = Date.now();
   for (const row of rows) {
-    if (classifyReplayWindow(row, REPLAY_MAX_CANDLE_DEPTH, nowMs) === OUTSIDE_REPLAY_WINDOW) {
-      summary.candidateOutsideWindow += 1;
-      await markOutsideReplayWindow(db, row.id);
+    if (!windowCoversRow(row, candles)) {
+      summary.candidateBacklogNoCandles += 1;
       continue;
     }
     const advancedRow = await resolveCandidateRow(db, row, candles);
@@ -657,19 +653,23 @@ async function markOutsideReplayWindow(db: SupabaseClient, id: string): Promise<
 }
 
 /**
- * Bounded candidate-only historical fetch. Chooses at most
- * `CANDIDATE_BACKFILL_FETCH_BUDGET` instruments, oldest backlog first, and
- * resolves their candidate rows. Failures are counted, never thrown.
+ * Bounded candidate pass. At most `CANDIDATE_BACKFILL_FETCH_BUDGET` provider
+ * reads per run, oldest backlog first, each anchored on the oldest waiting row of
+ * that instrument so a structure detected days ago is replayed against the bars
+ * that actually followed it. The production candles fetched earlier in the run
+ * are reused whenever the group already sits inside the live tail, so the common
+ * case costs no extra read at all. Failures are counted, never thrown.
  */
-async function backfillStarvedCandidates(
+async function resolveCandidateBacklog(
   db: SupabaseClient,
-  starved: Map<string, ShadowRow[]>,
+  groups: Map<string, ShadowRow[]>,
+  productionCandles: Map<string, Awaited<ReturnType<typeof fetchCandles>>>,
   summary: ResolveSummary,
 ): Promise<void> {
-  if (starved.size === 0) return;
+  if (groups.size === 0) return;
 
   const countAllAsBacklog = () => {
-    for (const list of starved.values()) summary.candidateBacklogNoCandles += list.length;
+    for (const list of groups.values()) summary.candidateBacklogNoCandles += list.length;
   };
 
   let enabled = false;
@@ -684,20 +684,29 @@ async function backfillStarvedCandidates(
     return;
   }
 
-  // Oldest backlog first: the rows closest to falling out of the window entirely.
-  const ordered = [...starved.entries()].sort((a, b) => {
+  const nowMs = Date.now();
+  // Oldest backlog first: chronological progress through the enrolled history.
+  const ordered = [...groups.entries()].sort((a, b) => {
     const oldest = (list: ShadowRow[]) =>
       list.reduce((min, row) => Math.min(min, Date.parse(row.detected_at) || Infinity), Infinity);
     return oldest(a[1]) - oldest(b[1]);
   });
 
-  for (const [index, [instrument, group]] of ordered.entries()) {
-    if (index >= CANDIDATE_BACKFILL_FETCH_BUDGET) {
-      summary.candidateBacklogNoCandles += group.length;
-      continue;
-    }
-
+  let fetches = 0;
+  for (const [instrument, group] of ordered) {
     try {
+      const anchor = anchorForRows(group, REPLAY_MAX_CANDLE_DEPTH, nowMs);
+      const reusable = anchor.startTime === null ? productionCandles.get(instrument) : undefined;
+      if (reusable) {
+        await runCandidatePhase(db, group, reusable, summary);
+        continue;
+      }
+
+      if (fetches >= CANDIDATE_BACKFILL_FETCH_BUDGET) {
+        summary.candidateBacklogNoCandles += group.length;
+        continue;
+      }
+
       const dataGate = await assertCapability(db, instrument, "collect_data");
       if (!dataGate.allowed) {
         summary.candidateBacklogNoCandles += group.length;
@@ -709,34 +718,63 @@ async function backfillStarvedCandidates(
         continue;
       }
 
-      const requested = replayCandleDepthForRows(group);
       let candles;
       try {
-        candles = await fetchCandles(authority.providerSymbol, "M15", requested);
+        candles = await fetchCandles(
+          authority.providerSymbol,
+          "M15",
+          anchor.limit,
+          anchor.startTime,
+        );
       } catch (err) {
         summary.fetchFailures += 1;
         summary.candidateBacklogNoCandles += group.length;
         summary.instruments.push({
           instrument,
           candles: 0,
-          requested,
-          error: `research backfill: ${describeError(err)}`,
+          requested: anchor.limit,
+          error: `research window ${anchor.startTime ?? "live"}: ${describeError(err)}`,
         });
         continue;
       }
 
+      fetches += 1;
       summary.candidateBackfillFetches += 1;
-      summary.instruments.push({ instrument, candles: candles.length, requested });
+      summary.instruments.push({
+        instrument,
+        candles: candles.length,
+        requested: anchor.limit,
+      });
+
+      if (candles.length === 0) {
+        /**
+         * The provider has no history at this instant. That is a real provider
+         * limit, not an outcome: the oldest rows in this group are labelled once
+         * so they stop consuming the budget, and nothing is invented for them.
+         */
+        for (const row of group) {
+          if ((row.replay_cursor ?? row.detected_at) === anchor.oldestStart) {
+            summary.candidateOutsideWindow += 1;
+            await markOutsideReplayWindow(db, row.id);
+          } else {
+            summary.candidateBacklogNoCandles += 1;
+          }
+        }
+        continue;
+      }
+
       await runCandidatePhase(db, group, candles, summary);
     } catch (err) {
       summary.candidateBacklogNoCandles += group.length;
       console.error(
-        "[shadow-resolve] candidate backfill failed:",
+        "[shadow-resolve] candidate pass failed:",
         err instanceof Error ? err.message : err,
       );
     }
   }
 }
+
+
 
 
 function round(value: number) {

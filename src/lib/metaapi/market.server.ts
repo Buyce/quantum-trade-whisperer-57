@@ -35,24 +35,34 @@ export interface BrokerQuote {
   receivedAt: string;
 }
 
-/** Historical OHLCV candles for one symbol/timeframe on a given account. */
+/**
+ * Historical OHLCV candles for one symbol/timeframe on a given account.
+ *
+ * `startTime` reads a WINDOW OF THE PAST instead of the live tail: MetaApi loads
+ * candles backwards from that instant, so `startTime` is the newest bar of the
+ * returned window. Research replay needs this — a structure detected ten days
+ * ago cannot be adjudicated from the most recent 200 bars, and quietly replaying
+ * it against the wrong bars would manufacture an outcome that never happened.
+ */
 export async function fetchCandlesFor(
   accountId: string,
   region: string,
   symbol: string,
   timeframe: Timeframe,
   limit = 200,
+  startTime?: string | null,
 ): Promise<Candle[]> {
   // Gated: the provider allows only 5 concurrent historical reads per account.
   const raw = await withMarketDataSlot(() =>
     metaApiRequest<RawCandle[]>({
       service: "market-data",
       region,
-      label: `${symbol} ${timeframe}`,
+      label: startTime ? `${symbol} ${timeframe} @${startTime}` : `${symbol} ${timeframe}`,
       path:
         `/users/current/accounts/${accountId}` +
         `/historical-market-data/symbols/${encodeURIComponent(symbol)}` +
-        `/timeframes/${TF_MAP[timeframe]}/candles?limit=${limit}`,
+        `/timeframes/${TF_MAP[timeframe]}/candles?limit=${limit}` +
+        (startTime ? `&startTime=${encodeURIComponent(startTime)}` : ""),
     }),
   );
 
@@ -79,9 +89,10 @@ export async function fetchCandles(
   symbol: string,
   timeframe: Timeframe,
   limit = 200,
+  startTime?: string | null,
 ): Promise<Candle[]> {
   return await withBenchmarkAccount(({ accountId, region }) =>
-    fetchCandlesFor(accountId, region, symbol, timeframe, limit),
+    fetchCandlesFor(accountId, region, symbol, timeframe, limit, startTime),
   );
 }
 

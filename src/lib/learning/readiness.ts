@@ -16,11 +16,15 @@
  *    module only formats and explains it.
  */
 
-export const READINESS_MIN_SAMPLES_PER_ARM = 200;
-export const READINESS_MIN_CLUSTERS_PER_ARM = 10;
+import { EVIDENCE_TIERS } from "@/lib/stats/evidence";
+
+/** Training bar and descriptive floor both come from the shared named tiers. */
+export const READINESS_MIN_SAMPLES_PER_ARM = EVIDENCE_TIERS.training.minSamples;
+export const READINESS_MIN_CLUSTERS_PER_ARM = EVIDENCE_TIERS.training.minClusters;
 export const READINESS_MIN_TRADING_DAYS = 20;
 /** Descriptive floor — enough to read a verdict, not enough to train on. */
-export const DECIDABLE_MIN_SAMPLES_PER_ARM = 30;
+export const DECIDABLE_MIN_SAMPLES_PER_ARM = EVIDENCE_TIERS.descriptive.minSamples;
+
 
 export type TunableGate = "risk_ceiling" | "headroom" | "reachable_r";
 
