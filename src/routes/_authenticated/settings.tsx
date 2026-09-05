@@ -620,7 +620,30 @@ function SettingsPage() {
           </section>
 
           <section className="space-y-4 rounded-md border border-border bg-card p-4">
-            <h2 className="label-xs">Alert &amp; automatic-order tier</h2>
+            <div>
+              <h2 className="label-xs">Automatic order rules</h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Three separate questions, asked in this order and never in competition: how many
+                orders may exist, how an approved order enters, and what price and exposure is
+                acceptable. Whichever rule refuses first wins; none of them can overrule a safety
+                check.
+              </p>
+              <p className="mt-2 text-xs text-foreground">
+                In force now:{" "}
+                {maxDailyOrders === 0
+                  ? "no automatic orders"
+                  : `up to ${maxDailyOrders} orders a day${adaptiveCeilings ? ` (${adaptiveFloor}–${adaptiveMax} with data freshness)` : ""}`}
+                , {marketEntry ? "entering at market" : "resting as planned limits"}, spread limit{" "}
+                {Number(maxSpreadPips) > 0 ? `${Number(maxSpreadPips)} pips` : "off"}, slippage limit{" "}
+                {Number(maxSlippagePips) > 0 ? `${Number(maxSlippagePips)} pips` : "off"}, total
+                exposure{" "}
+                {Number(maxTotalExposurePercent) > 0
+                  ? `${Number(maxTotalExposurePercent)}%${exposureLimitEnabled ? "" : " (advisory)"}`
+                  : "off"}
+                .
+              </p>
+            </div>
+
 
             <div>
               <Label className="text-xs" htmlFor="alert-min-grade">
