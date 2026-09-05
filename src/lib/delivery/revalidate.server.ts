@@ -75,6 +75,7 @@ import {
 } from "@/lib/instruments/lifecycle";
 import { evaluateNewsGate } from "@/lib/news/gate.server";
 import { accountBrakeVerdict } from "@/lib/risk/brakes.server";
+import { activeCooldown } from "@/lib/execution/quality.server";
 import { readLifecycleView } from "@/lib/instruments/lifecycle.server";
 import { normalizeOrderGeometry } from "@/lib/instruments/precision";
 
@@ -549,7 +550,13 @@ export async function revalidateDelivery(
       );
       if (brake?.paused) return reject("account_risk_brake", brake.detail ?? brake.reason ?? null);
     } catch (err) {
-      void err;
+      console.error("revalidate drawdown brake unavailable", err);
+      if (settings.drawdown_brakes_enabled === true) {
+        return reject(
+          "account_risk_brake",
+          "your loss limits could not be evaluated before sending, so the order was held",
+        );
+      }
     }
   }
 
@@ -571,15 +578,8 @@ export async function revalidateDelivery(
       now,
     );
     if (cooldown) return reject("execution_cooldown", cooldown.detail);
-      console.error("revalidate drawdown brake unavailable", err);
-      if (settings.drawdown_brakes_enabled === true) {
-        return reject(
-          "account_risk_brake",
-          "your loss limits could not be evaluated before sending, so the order was held",
-        );
-      }
-    }
   }
+
 
   // The planned geometry. The ORDER is only assembled once an authoritative
   // quantity exists, so a BridgeOrder can never exist without one.

@@ -154,7 +154,7 @@ export async function recomputeExecutionQuality(
   }
 
   let deliveriesWithoutSignal = 0;
-  for (const row of (deliveries.data ?? []) as {
+  for (const row of (deliveries.data ?? []) as unknown as {
     connected_account_id: string | null;
     state: string;
     reason: string | null;
