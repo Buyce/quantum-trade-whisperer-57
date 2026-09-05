@@ -20,6 +20,7 @@ import {
   classifyScanHealth,
   cooldownRemaining,
 } from "@/lib/engine-status";
+import { isWeekendClosed } from "@/lib/market-hours";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
