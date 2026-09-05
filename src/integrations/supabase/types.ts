@@ -1533,6 +1533,62 @@ export type Database = {
         }
         Relationships: []
       }
+      execution_cooldowns: {
+        Row: {
+          account_id: string
+          created_at: string
+          detail: string
+          id: string
+          instrument: string
+          lifted_at: string | null
+          norm_value: number | null
+          observed_value: number | null
+          reason: string
+          resume_after: string
+          session: string
+          started_at: string
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          detail: string
+          id?: string
+          instrument: string
+          lifted_at?: string | null
+          norm_value?: number | null
+          observed_value?: number | null
+          reason: string
+          resume_after: string
+          session: string
+          started_at?: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          detail?: string
+          id?: string
+          instrument?: string
+          lifted_at?: string | null
+          norm_value?: number | null
+          observed_value?: number | null
+          reason?: string
+          resume_after?: string
+          session?: string
+          started_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "execution_cooldowns_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "connected_trading_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       execution_deliveries: {
         Row: {
           account_mode: string | null
@@ -1778,6 +1834,86 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      execution_quality_scores: {
+        Row: {
+          account_id: string
+          avg_r: number | null
+          closed_sample: number
+          computed_at: string
+          delivery_sample: number
+          instrument: string
+          margin_refusals: number
+          measured: boolean
+          median_order_to_fill_seconds: number | null
+          median_slippage: number | null
+          norm_closed_sample: number
+          norm_median_slippage: number | null
+          norm_reject_rate: number | null
+          p90_slippage: number | null
+          r_sample: number
+          recent_window_days: number
+          reject_rate: number | null
+          rejected_count: number
+          session: string
+          slippage_sample: number
+          unmeasured_reason: string | null
+        }
+        Insert: {
+          account_id: string
+          avg_r?: number | null
+          closed_sample: number
+          computed_at?: string
+          delivery_sample: number
+          instrument: string
+          margin_refusals?: number
+          measured: boolean
+          median_order_to_fill_seconds?: number | null
+          median_slippage?: number | null
+          norm_closed_sample?: number
+          norm_median_slippage?: number | null
+          norm_reject_rate?: number | null
+          p90_slippage?: number | null
+          r_sample: number
+          recent_window_days: number
+          reject_rate?: number | null
+          rejected_count: number
+          session: string
+          slippage_sample: number
+          unmeasured_reason?: string | null
+        }
+        Update: {
+          account_id?: string
+          avg_r?: number | null
+          closed_sample?: number
+          computed_at?: string
+          delivery_sample?: number
+          instrument?: string
+          margin_refusals?: number
+          measured?: boolean
+          median_order_to_fill_seconds?: number | null
+          median_slippage?: number | null
+          norm_closed_sample?: number
+          norm_median_slippage?: number | null
+          norm_reject_rate?: number | null
+          p90_slippage?: number | null
+          r_sample?: number
+          recent_window_days?: number
+          reject_rate?: number | null
+          rejected_count?: number
+          session?: string
+          slippage_sample?: number
+          unmeasured_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "execution_quality_scores_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "connected_trading_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       experiment_arms: {
         Row: {
