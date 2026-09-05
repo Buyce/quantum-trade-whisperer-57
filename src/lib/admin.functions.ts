@@ -879,6 +879,56 @@ export const getAdminAutoTraderOutcomes = createServerFn({ method: "GET" })
   });
 
 /**
+ * Platform-wide trade totals (owner only).
+ *
+ * Two independent counts, deliberately not merged: closed customer broker-trade
+ * evidence across every connected account, and the in-app `executed_trades`
+ * journal. Aggregation rules live in `@/lib/admin/trade-totals`; nothing here is
+ * scoped to a single user or account.
+ */
+export const getAdminTradeTotals = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<TradeTotals> => {
+    const email = String(context.claims["email"] ?? "").toLowerCase();
+    if (email !== OWNER_EMAIL) throw new Error("Forbidden");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const [evidence, journal] = await Promise.all([
+      supabaseAdmin
+        .from("broker_trade_evidence")
+        .select("connected_account_id, gross_profit, swap, commission, profit_currency")
+        .eq("evidence_class", "customer")
+        .eq("state", "closed"),
+      supabaseAdmin.from("executed_trades").select("outcome"),
+    ]);
+    if (evidence.error) throw new Error(evidence.error.message);
+    if (journal.error) throw new Error(journal.error.message);
+
+    const numeric = (v: unknown): number | null =>
+      typeof v === "number" && Number.isFinite(v)
+        ? v
+        : v === null || v === undefined
+          ? null
+          : Number.isFinite(Number(v))
+            ? Number(v)
+            : null;
+
+    return {
+      broker: aggregateBrokerTotals(
+        (evidence.data ?? []).map((row) => ({
+          accountId: row.connected_account_id ?? null,
+          grossProfit: numeric(row.gross_profit),
+          swap: numeric(row.swap),
+          commission: numeric(row.commission),
+          currency: row.profit_currency ?? null,
+        })),
+      ),
+      journal: aggregateJournalTotals((journal.data ?? []).map((row) => row.outcome ?? null)),
+    };
+  });
+
+/**
  * Symbol-binding surface (owner only).
  *
  * These three functions exist for exactly one deadlock: discovery correctly
