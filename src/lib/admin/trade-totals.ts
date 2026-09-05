@@ -119,6 +119,23 @@ export function aggregateBrokerTotals(rows: BrokerEvidenceRow[]): BrokerTotals {
   };
 }
 
+/**
+ * Same classification, split by who placed the trade. Each bucket is an ordinary
+ * `BrokerTotals`, so mixed-currency refusal applies per bucket and to the combined
+ * total independently.
+ */
+export function aggregateBrokerTotalsByAttribution(
+  rows: BrokerEvidenceRow[],
+): BrokerTotalsByAttribution {
+  const of = (a: BrokerAttribution) => aggregateBrokerTotals(rows.filter((r) => r.attribution === a));
+  return {
+    auto: of("auto"),
+    unlinked: of("unlinked"),
+    external: of("external"),
+    all: aggregateBrokerTotals(rows),
+  };
+}
+
 export function aggregateJournalTotals(outcomes: (string | null)[]): JournalTotals {
   const totals: JournalTotals = {
     wins: 0,
