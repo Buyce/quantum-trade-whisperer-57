@@ -15,7 +15,10 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 export interface ManualScanResult {
-  runId: string;
+  /** Null when the cycle was deliberately skipped (weekend market closure). */
+  runId: string | null;
+  /** Set when no cycle ran; currently only "weekend_market_closed". */
+  skipped?: "weekend_market_closed";
   enqueued: number;
   processed: Array<{
     instrument: string;
@@ -45,7 +48,21 @@ export const runScanNow = createServerFn({ method: "POST" })
     const { adminClient, enqueueScanCycle, processNextJob, describeError } =
       await import("@/lib/scanner/pipeline.server");
     const db = adminClient();
-    const { runId, enqueued } = await enqueueScanCycle(db);
+    const cycle = await enqueueScanCycle(db);
+
+    // Weekend closure: no cycle was enqueued and no candles were fetched. Say
+    // so plainly instead of reporting an empty run.
+    if (cycle.skipped === "weekend_market_closed" || !cycle.runId) {
+      return {
+        runId: null,
+        skipped: "weekend_market_closed",
+        enqueued: 0,
+        processed: [],
+        claimedByWorker: 0,
+        stillPending: 0,
+      };
+    }
+    const { runId, enqueued } = cycle;
 
     // Locally observed outcomes. The drain is queue-wide, so an entry here is not
     // necessarily one of this run's jobs; the reconciliation below is authority.

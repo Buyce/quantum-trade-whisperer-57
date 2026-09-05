@@ -32,6 +32,7 @@ import { presentSignalBreakdown } from "./copy";
 import { ACTIVE_MODEL_VERSION, observationKey } from "@/lib/versioning";
 import { isTransientMetaApiReadFailure } from "@/lib/metaapi/errors";
 import { fetchCandles, MetaApiNotConfiguredError } from "./metaapi.server";
+import { isWeekendClosed } from "@/lib/market-hours";
 import {
   CANDLE_LIMITS,
   INSTRUMENTS,
@@ -114,6 +115,23 @@ export async function scanUniverse(db: SupabaseClient): Promise<string[]> {
 /** Enqueue one job per monitored instrument for this scan cycle. */
 export async function enqueueScanCycle(db: SupabaseClient) {
   const { expired, error: expireError } = await expireStaleSignals(db);
+
+  /**
+   * Weekend closure (Friday 21:00 → Sunday 21:00 UTC, `isWeekendClosed`): no
+   * new price exists, so enqueuing a cycle would only fetch the same Friday
+   * candles again. Signal expiry above still runs — it is cheap database
+   * housekeeping and keeps the feed truthful over the weekend.
+   */
+  if (isWeekendClosed(new Date())) {
+    return {
+      runId: null,
+      enqueued: 0,
+      expired,
+      expireError,
+      skipped: "weekend_market_closed" as const,
+    };
+  }
+
   const runId = crypto.randomUUID();
   const rows = (await scanUniverse(db)).map((instrument) => ({
     run_id: runId,

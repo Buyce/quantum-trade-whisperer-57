@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { isWeekendClosed } from "@/lib/market-hours";
 import { cn } from "@/lib/utils";
 
 function formatTime(date: Date) {
@@ -8,6 +9,10 @@ function formatTime(date: Date) {
 /**
  * "Last scanned" heartbeat. Reads the timestamp the scanner already writes to
  * instrument_health — no scanner logic is involved or modified.
+ *
+ * Weekend-aware: while the FX weekend closure is in effect the scanner
+ * deliberately runs no cycles, so a stale timestamp then means "scheduled
+ * pause", never "delayed scan".
  */
 export function ScanHeartbeat({ lastScanAt }: { lastScanAt: string | null | undefined }) {
   const [now, setNow] = useState(() => Date.now());
@@ -17,10 +22,11 @@ export function ScanHeartbeat({ lastScanAt }: { lastScanAt: string | null | unde
     return () => clearInterval(id);
   }, []);
 
+  const weekend = isWeekendClosed(new Date(now));
   const last = lastScanAt ? new Date(lastScanAt) : null;
   const valid = last && !Number.isNaN(last.getTime());
   const ageMin = valid ? (now - last.getTime()) / 60_000 : Infinity;
-  const stale = ageMin > 45;
+  const stale = !weekend && ageMin > 45;
 
   const nextInMin = valid && !stale ? Math.max(1, Math.ceil(15 - (ageMin % 15))) : null;
 
@@ -30,17 +36,21 @@ export function ScanHeartbeat({ lastScanAt }: { lastScanAt: string | null | unde
         <span
           className={cn(
             "absolute inline-flex size-full animate-ping rounded-full opacity-75",
-            stale ? "bg-warning" : "bg-success",
+            weekend ? "bg-muted-foreground" : stale ? "bg-warning" : "bg-success",
           )}
         />
         <span
           className={cn(
             "relative inline-flex size-2 rounded-full",
-            stale ? "bg-warning" : "bg-success",
+            weekend ? "bg-muted-foreground" : stale ? "bg-warning" : "bg-success",
           )}
         />
       </span>
-      {valid && !stale ? (
+      {weekend ? (
+        <span>
+          Market closed for the weekend — background scans are paused and resume Sunday 21:00 UTC.
+        </span>
+      ) : valid && !stale ? (
         <span className="num">
           Last background scan completed at: {formatTime(last!)} — Next scan in ~{nextInMin} mins.
         </span>

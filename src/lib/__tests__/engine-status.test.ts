@@ -70,6 +70,14 @@ describe("classifyScanHealth", () => {
     expect(h.errorIsCurrent).toBe(false);
   });
 
+  it("[UNIT] reports a deliberate weekend pause, never a failure, for an empty weekend window", () => {
+    const h = classifyScanHealth({ total: 0, failed: 0, succeeded: 0, weekendClosed: true });
+    expect(h.state).toBe("no_cycles");
+    expect(h.value).toBe("WEEKEND — PAUSED");
+    expect(h.tone).toBe("good");
+    expect(h.errorIsCurrent).toBe(false);
+  });
+
   it("[UNIT] reports FAILING when every cycle in the window failed", () => {
     const h = classifyScanHealth({
       total: 9,

@@ -20,6 +20,7 @@ import {
   classifyScanHealth,
   cooldownRemaining,
 } from "@/lib/engine-status";
+import { isWeekendClosed } from "@/lib/market-hours";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
@@ -66,14 +67,17 @@ export function EngineStatusPanel() {
   const breaker = data.breaker;
   const scanClass = classifyEngineError(scan.last_error);
   const breakerClass = classifyEngineError(breaker?.last_error ?? null);
-  const health = classifyScanHealth(scan);
+  const weekendClosed = isWeekendClosed(new Date());
+  const health = classifyScanHealth({ ...scan, weekendClosed });
   const replayHealth = classifyReplayHealth(breaker);
   const cooldown = cooldownRemaining(breaker?.paused_until ?? null);
 
   const scanSub =
-    health.state === "recovered"
-      ? `${scan.succeeded}/${scan.total} jobs ok in the rolling ${scan.window_minutes}m window · recovered: last failure ${timeAgo(scan.last_failure_at)}, last cycle ok ${timeAgo(scan.last_success_at)}`
-      : `${scan.succeeded}/${scan.total} jobs ok in the rolling ${scan.window_minutes}m window · last cycle ${timeAgo(scan.last_finished_at)}`;
+    weekendClosed && scan.total === 0
+      ? "Market closed (Friday 21:00 - Sunday 21:00 UTC) — scan cycles deliberately paused, no data fetches running"
+      : health.state === "recovered"
+        ? `${scan.succeeded}/${scan.total} jobs ok in the rolling ${scan.window_minutes}m window · recovered: last failure ${timeAgo(scan.last_failure_at)}, last cycle ok ${timeAgo(scan.last_success_at)}`
+        : `${scan.succeeded}/${scan.total} jobs ok in the rolling ${scan.window_minutes}m window · last cycle ${timeAgo(scan.last_finished_at)}`;
 
   return (
     <PanelShell

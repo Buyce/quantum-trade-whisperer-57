@@ -15,10 +15,16 @@ export const Route = createFileRoute("/api/public/cron/refresh-account-specs")({
       POST: async ({ request }) => {
         if (!authorizeCronRequest(request)) return unauthorizedResponse();
 
+        const { isWeekendClosed } = await import("@/lib/market-hours");
+        // Weekend closure: specifications cannot change while the market is
+        // closed; the next weekday run refreshes them before any order.
+        if (isWeekendClosed(new Date())) {
+          return Response.json({ ok: true, skipped: "weekend_market_closed" });
+        }
+
         const { adminClient } = await import("@/lib/scanner/pipeline.server");
-        const { refreshArmedAccountSpecs } = await import(
-          "@/lib/accounts/refresh-armed-specs.server"
-        );
+        const { refreshArmedAccountSpecs } =
+          await import("@/lib/accounts/refresh-armed-specs.server");
 
         try {
           const outcome = await refreshArmedAccountSpecs(adminClient());

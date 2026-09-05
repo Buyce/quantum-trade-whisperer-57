@@ -15,6 +15,13 @@ export const Route = createFileRoute("/api/public/cron/refresh-accounts")({
       POST: async ({ request }) => {
         if (!authorizeCronRequest(request)) return unauthorizedResponse();
 
+        const { isWeekendClosed } = await import("@/lib/market-hours");
+        // Weekend closure: the broker state from Friday close is retained and
+        // refreshed on the Sunday 21:00 UTC reopen; no MetaApi calls until then.
+        if (isWeekendClosed(new Date())) {
+          return Response.json({ ok: true, skipped: "weekend_market_closed" });
+        }
+
         const { adminClient } = await import("@/lib/scanner/pipeline.server");
         const { refreshArmedAccounts } = await import("@/lib/accounts/refresh-armed.server");
 

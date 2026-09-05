@@ -7,11 +7,7 @@
  * results are MISSING, not empty.
  */
 export type EngineErrorKind =
-  | "none"
-  | "provider_access"
-  | "provider_rate_limit"
-  | "provider"
-  | "engine";
+  "none" | "provider_access" | "provider_rate_limit" | "provider" | "engine";
 
 export interface EngineErrorClassification {
   kind: EngineErrorKind;
@@ -110,6 +106,12 @@ export interface ScanWindowInput {
   succeeded: number;
   last_success_at?: string | null;
   last_failure_at?: string | null;
+  /**
+   * True while the FX weekend closure (Friday 21:00 → Sunday 21:00 UTC) is in
+   * effect. During the closure the scanner deliberately enqueues no cycles, so
+   * an empty window is a scheduled pause, not a silent engine.
+   */
+  weekendClosed?: boolean;
 }
 
 export interface ScanHealth {
@@ -132,6 +134,14 @@ function parseTime(value: string | null | undefined): number | null {
 
 export function classifyScanHealth(scan: ScanWindowInput): ScanHealth {
   if (scan.total === 0) {
+    if (scan.weekendClosed) {
+      return {
+        state: "no_cycles",
+        value: "WEEKEND — PAUSED",
+        tone: "good",
+        errorIsCurrent: false,
+      };
+    }
     return { state: "no_cycles", value: "NO CYCLES", tone: "warn", errorIsCurrent: false };
   }
   if (scan.failed === 0) {
@@ -150,13 +160,7 @@ export function classifyScanHealth(scan: ScanWindowInput): ScanHealth {
     : { state: "degraded", value: "DEGRADED", tone: "warn", errorIsCurrent: true };
 }
 
-export type ReplayHealthState =
-  | "no_runs"
-  | "tripped"
-  | "degraded"
-  | "recovering"
-  | "running";
-
+export type ReplayHealthState = "no_runs" | "tripped" | "degraded" | "recovering" | "running";
 
 export interface ReplayBreakerInput {
   paused?: boolean | null;
@@ -201,4 +205,3 @@ export function classifyReplayHealth(breaker: ReplayBreakerInput | null | undefi
   }
   return { state: "running", value: "RUNNING", tone: "good", errorIsCurrent: false };
 }
-

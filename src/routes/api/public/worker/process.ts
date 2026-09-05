@@ -40,6 +40,16 @@ export const Route = createFileRoute("/api/public/worker/process")({
 
         const { adminClient, processNextJob, pendingScanJobs } =
           await import("@/lib/scanner/pipeline.server");
+        const { isWeekendClosed } = await import("@/lib/market-hours");
+        // Weekend safety net: the cron entry no longer enqueues weekend
+        // cycles, but if any job somehow sits pending after Friday 21:00 UTC
+        // the worker leaves it queued rather than fetch candles while the
+        // market is closed. On the Sunday reopen it is far past its interval
+        // and closes as backlogged without a fetch.
+        if (isWeekendClosed(new Date())) {
+          return Response.json({ ok: true, skipped: "weekend_market_closed", processed: [] });
+        }
+
         try {
           const db = adminClient();
           const startedAt = Date.now();
