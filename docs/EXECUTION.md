@@ -155,6 +155,16 @@ data**, not the market, and adaptive mode relaxes no safety gate, changes no siz
 mathematics and authorises nothing — every decision records the ceiling and the
 freshness reading that applied.
 
+### Adaptive spread ceiling (tighten-only)
+
+Your spread limit in pips is the absolute maximum. Before submission it may be
+**reduced** when the instrument and session are currently worse than their own
+recently measured normal, using the spread samples already aggregated hourly into
+`instrument_spread_stats` — no new collection. A norm is only trusted with at least
+5 measured trading days and 40 valid samples inside a 21-day window; the reduction
+is bounded at half your limit; an unmeasured or unreadable norm leaves your limit
+exactly as configured. Nothing here can widen a ceiling or authorise an order.
+
 ### Retrying momentary failures
 
 Pre-send revalidation refusals split in two. A **momentary market condition** —
