@@ -97,6 +97,29 @@ automatic orders **one instrument** may consume in the current UTC day
 (`instrument_daily_order_limit_reached`), so a single busy instrument cannot spend the
 whole daily ceiling. It sits inside the daily ceiling and can only refuse.
 
+### Which setups spend the daily cap
+
+The daily setup cap fixes **how many** setups are delivered. When cohort evidence
+is readable, `capSequence` in `eligibility.ts` accepts an optional `CapRanker` that
+decides **which** ones — never how many. Ranking is stable on the chronological
+index, so equal scores and unmeasured setups keep the order they already had, and
+an unmeasured setup can never outrank a measured one.
+
+The production ranker (`cohortRankScore` over `loadCohortEvidence`) demotes only an
+`instrument x direction x session` cohort whose entire 95% cluster-robust interval
+sits below zero. An unreadable history installs no ranker, leaving the sequence
+purely chronological. See
+[EXECUTION-QUALITY.md](EXECUTION-QUALITY.md).
+
+### Loss limits and quality cooldowns
+
+Two further reduce-only refusals sit on this pipeline and are documented in
+[EXECUTION-QUALITY.md](EXECUTION-QUALITY.md): the owner's broker-derived drawdown
+brakes, which fail closed when the account cannot be measured, and per
+`(account, instrument, session)` execution-quality cooldowns
+(`execution_cooldown`), which are asked at enqueue and again before submission and
+refuse nothing when unreadable.
+
 ### The unfilled-order timeout
 
 How long an order may occupy a concurrent slot without becoming a position is the
