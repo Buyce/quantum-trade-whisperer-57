@@ -74,6 +74,7 @@ import {
   lifecycleAllows,
 } from "@/lib/instruments/lifecycle";
 import { evaluateNewsGate } from "@/lib/news/gate.server";
+import { accountBrakeVerdict } from "@/lib/risk/brakes.server";
 import { readLifecycleView } from "@/lib/instruments/lifecycle.server";
 import { normalizeOrderGeometry } from "@/lib/instruments/precision";
 
@@ -267,6 +268,12 @@ interface SettingsRow {
   max_entry_spread_pips?: number | null;
   max_entry_slippage_pips?: number | null;
   max_total_exposure_percent?: number | null;
+  /** Owner drawdown brakes; measured from closed broker trades and broker equity. */
+  drawdown_brakes_enabled?: boolean | null;
+  daily_loss_limit_percent?: number | null;
+  weekly_loss_limit_percent?: number | null;
+  consecutive_loss_limit?: number | null;
+  max_drawdown_percent?: number | null;
 }
 
 /**
@@ -319,7 +326,7 @@ export async function revalidateDelivery(
   const { data: settingsRow } = await db
     .from("scanner_settings")
     .select(
-      "instruments, sessions, alert_min_grade, daily_setup_cap, execution_enabled, execution_dry_run, execution_config_version, exposure_limit_enabled, webhook_enabled, webhook_url, webhook_secret, webhook_format, webhook_validated_at, auto_order_window_minutes, auto_market_entry_enabled, live_execution_confirmed_at, live_execution_confirmed_version, live_execution_confirmed_global_live, news_block_new_entries, news_suppression_minutes_before, news_suppression_minutes_after, max_entry_spread_pips, max_entry_slippage_pips, max_total_exposure_percent",
+      "instruments, sessions, alert_min_grade, daily_setup_cap, execution_enabled, execution_dry_run, execution_config_version, exposure_limit_enabled, webhook_enabled, webhook_url, webhook_secret, webhook_format, webhook_validated_at, auto_order_window_minutes, auto_market_entry_enabled, live_execution_confirmed_at, live_execution_confirmed_version, live_execution_confirmed_global_live, news_block_new_entries, news_suppression_minutes_before, news_suppression_minutes_after, max_entry_spread_pips, max_entry_slippage_pips, max_total_exposure_percent, drawdown_brakes_enabled, daily_loss_limit_percent, weekly_loss_limit_percent, consecutive_loss_limit, max_drawdown_percent",
     )
     .eq("user_id", delivery.user_id)
     .maybeSingle();
@@ -523,6 +530,33 @@ export async function revalidateDelivery(
       deliveryId: delivery.id,
     });
     if (newsGate.blocked) return reject("news_blackout", newsGate.detail);
+  }
+
+  // ---- 5b. The owner's drawdown brakes, re-asked before the order is built ---
+  // A losing day can cross the owner's line while this delivery sits in the queue,
+  // so the brake is measured again here from CLOSED broker trades and the broker's
+  // own equity reading. Reduce-only: it refuses, and authorises nothing. A brake
+  // that cannot be measured, or that throws, holds the order rather than passing
+  // it — an account P-Trades cannot measure is not a safe one. Benchmark
+  // deliveries follow the operator policy and are deliberately exempt.
+  if (!isBenchmark && settings && delivery.connected_account_id) {
+    try {
+      const brake = await accountBrakeVerdict(
+        db as unknown as SupabaseClient,
+        { id: delivery.connected_account_id, user_id: delivery.user_id },
+        settings,
+        now,
+      );
+      if (brake?.paused) return reject("account_risk_brake", brake.detail ?? brake.reason ?? null);
+    } catch (err) {
+      console.error("revalidate drawdown brake unavailable", err);
+      if (settings.drawdown_brakes_enabled === true) {
+        return reject(
+          "account_risk_brake",
+          "your loss limits could not be evaluated before sending, so the order was held",
+        );
+      }
+    }
   }
 
   // The planned geometry. The ORDER is only assembled once an authoritative
