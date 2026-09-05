@@ -45,6 +45,8 @@ import { PayoffPanel } from "@/components/admin/PayoffPanel";
 import { CandidatePanel } from "@/components/admin/CandidatePanel";
 import { CandidateLineagePanel } from "@/components/admin/CandidateLineagePanel";
 import { FilterLiftPanel } from "@/components/admin/FilterLiftPanel";
+import { CounterfactualStopPanel } from "@/components/admin/CounterfactualStopPanel";
+
 import { LearningEvidencePanel } from "@/components/admin/LearningEvidencePanel";
 
 import { EngineStatusPanel } from "@/components/admin/EngineStatusPanel";
@@ -361,6 +363,10 @@ function AdminIntelligencePage() {
         <PanelBoundary name="Filter lift">
           <FilterLiftPanel />
         </PanelBoundary>
+        <PanelBoundary name="Counterfactual stop harness">
+          <CounterfactualStopPanel />
+        </PanelBoundary>
+
         <PanelBoundary name="Learning evidence">
           <LearningEvidencePanel />
         </PanelBoundary>

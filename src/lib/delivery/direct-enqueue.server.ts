@@ -41,6 +41,8 @@ import {
   type RestingOrder,
 } from "./duplicate-orders";
 import type { RegimeStatRow } from "@/lib/learning/regime";
+import { cohortRefused, type CohortEvidence } from "@/lib/learning/cohort";
+import { loadCohortEvidence } from "@/lib/learning/cohort.server";
 import { fetchDayFrame, type FrameClient } from "./day-frame";
 import {
   buildCapFrame,
@@ -632,6 +634,15 @@ async function runDirectEnqueue(
     }
   }
 
+  /**
+   * Cohort evidence: instrument x direction x session, measured from resolved
+   * replay outcomes. Reduce-only and evidence-bound — it refuses ONLY a cohort
+   * whose entire 95% cluster-robust interval sits below zero. An unmeasured,
+   * thin or inconclusive cohort is untouched, and an unreadable history refuses
+   * nothing.
+   */
+  const cohortSnapshot = await loadCohortEvidence(db);
+
   const rows: Record<string, unknown>[] = [];
   let filtered = 0;
   /** One news evaluation per distinct owner news configuration, per publish. */
@@ -754,7 +765,7 @@ async function runDirectEnqueue(
      * for comparison rather than turned into a market claim.
      */
     {
-      const newsKey = `${row.news_block_new_entries === false ? "off" : "on"}|${row.news_suppression_minutes_before ?? ""}|${row.news_suppression_minutes_after ?? ""}`;
+      const newsKey = `${signal.instrument}|${row.news_block_new_entries === false ? "off" : "on"}|${row.news_suppression_minutes_before ?? ""}|${row.news_suppression_minutes_after ?? ""}`;
       let gateResult = newsGateCache.get(newsKey);
       if (!gateResult) {
         gateResult = await evaluateNewsGate(db, {
@@ -775,6 +786,34 @@ async function runDirectEnqueue(
           grade: signal.grade,
           decision: "news_blackout",
           detail: gateResult.detail,
+          enqueued: 0,
+          filtered: 1,
+        });
+        continue;
+      }
+    }
+
+    /**
+     * Cohort expectancy gate. Reduce-only: a cohort proven to lose money in
+     * replay is refused; every other cohort passes untouched. This is a measured
+     * history, never a forecast about this particular setup.
+     */
+    if (cohortSnapshot.readable && signal.direction) {
+      const negative: CohortEvidence | null = cohortRefused(
+        cohortSnapshot.evidence,
+        signal.instrument,
+        signal.direction,
+        signal.session || null,
+      );
+      if (negative) {
+        filtered += 1;
+        decisions.push({
+          user_id: account.user_id,
+          signal_id: signal.id,
+          instrument: signal.instrument,
+          grade: signal.grade,
+          decision: "cohort_negative_expectancy",
+          detail: `${negative.instrument} ${negative.direction} in ${negative.session}: ${negative.detail}`,
           enqueued: 0,
           filtered: 1,
         });

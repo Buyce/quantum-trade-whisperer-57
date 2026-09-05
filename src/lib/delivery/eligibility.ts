@@ -123,19 +123,36 @@ export function utcDayStart(now: number): number {
 }
 
 /**
+ * Optional evidence-based ordering for the cap sequence.
+ *
+ * Returns a score for a signal, or `null` when the signal's cohort has NOT
+ * cleared the evidence bar. Scored signals sort ahead of unscored ones, highest
+ * first; everything else keeps the chronological order. Omitting the ranker
+ * leaves the sequence purely chronological, which is what the feed and alert
+ * channels do — their ordering is a user-visible contract and does not change.
+ */
+export type CapRanker = (signal: EligibilitySignal) => number | null;
+
+/**
  * The channel's cap sequence for the UTC day: base-eligible, cap-consuming
  * signals in `(detected_at ASC, id ASC)` order. Base eligibility is evaluated at
  * each signal's own detection instant so the sequence is stable for the whole
  * day rather than shifting as retention elapses.
+ *
+ * With a `ranker`, measured cohorts are ordered by score first so a small cap is
+ * spent on the setups the evidence prefers instead of whichever arrived first.
+ * Unmeasured setups never outrank measured ones and never lose their relative
+ * chronological order.
  */
 export function capSequence(
   frame: EligibilitySignal[],
   settings: EligibilitySettings,
   channel: EligibilityChannel,
   now: number,
+  ranker?: CapRanker,
 ): EligibilitySignal[] {
   const dayStart = utcDayStart(now);
-  return frame
+  const chronological = frame
     .filter((s) => consumesCap(s))
     .filter((s) => new Date(s.detected_at).getTime() >= dayStart)
     .filter(
@@ -147,6 +164,20 @@ export function capSequence(
       if (ta !== tb) return ta - tb;
       return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
     });
+
+  if (!ranker) return chronological;
+
+  // Stable: the chronological index is the tie-break, so equal scores and
+  // unmeasured setups keep exactly the order they had above.
+  return chronological
+    .map((signal, index) => ({ signal, index, score: ranker(signal) }))
+    .sort((a, b) => {
+      if (a.score !== null && b.score !== null && a.score !== b.score) return b.score - a.score;
+      if (a.score !== null && b.score === null) return -1;
+      if (a.score === null && b.score !== null) return 1;
+      return a.index - b.index;
+    })
+    .map((entry) => entry.signal);
 }
 
 /**
@@ -160,13 +191,15 @@ export function buildCapFrame(
   settings: EligibilitySettings,
   channel: EligibilityChannel,
   now: number,
+  ranker?: CapRanker,
 ): Set<string> {
   const out = new Set<string>();
   const cap = settings.daily_setup_cap ?? 0;
   if (cap <= 0) return out;
-  for (const s of capSequence(frame, settings, channel, now).slice(cap)) out.add(s.id);
+  for (const s of capSequence(frame, settings, channel, now, ranker).slice(cap)) out.add(s.id);
   return out;
 }
+
 
 /** Base rules plus the cap frame. The single answer every channel uses. */
 export function evaluateEligibility(args: {
