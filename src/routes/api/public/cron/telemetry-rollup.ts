@@ -50,10 +50,11 @@ export const Route = createFileRoute("/api/public/cron/telemetry-rollup")({
           details: {
             aggregation: aggregation.status === "fulfilled" ? aggregation.value : "rejected",
             retention: retention.status === "fulfilled" ? retention.value : "rejected",
+            executionQuality: quality.status === "fulfilled" ? quality.value : "rejected",
           },
         });
 
-        const rejected = [aggregation, retention].filter((r) => r.status === "rejected");
+        const rejected = [aggregation, retention, quality].filter((r) => r.status === "rejected");
         for (const r of rejected)
           console.error("[cron/telemetry-rollup]", (r as PromiseRejectedResult).reason);
 
@@ -62,10 +63,12 @@ export const Route = createFileRoute("/api/public/cron/telemetry-rollup")({
             ok: rejected.length === 0,
             aggregation: aggregation.status === "fulfilled" ? aggregation.value : null,
             retention: retention.status === "fulfilled" ? retention.value : null,
+            executionQuality: quality.status === "fulfilled" ? quality.value : null,
             resolver: health,
           },
-          { status: rejected.length === 2 ? 500 : 200 },
+          { status: rejected.length === 3 ? 500 : 200 },
         );
+
       },
     },
   },
