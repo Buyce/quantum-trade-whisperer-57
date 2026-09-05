@@ -799,6 +799,7 @@ function SettingsPage() {
             </div>
 
             <div className="border-t border-border pt-4">
+              <h3 className="label-xs">2. How an approved order enters</h3>
               <Row
                 id="auto-market-entry"
                 title="Enter eligible orders immediately at market"
@@ -812,6 +813,11 @@ function SettingsPage() {
                   setMarketEntry(v);
                 }}
               />
+              <p className="mt-2 text-xs text-muted-foreground">
+                Your spread and slippage ceilings below are what bound an immediate entry. Left at 0
+                they are off, so an entry at market is bounded only by the setup&apos;s published
+                maximum acceptable entry.
+              </p>
               {marketEntry ? (
                 <p className="mt-2 text-xs text-warning">
                   Immediate market entry is enabled. It never widens the maximum acceptable entry:
@@ -820,6 +826,7 @@ function SettingsPage() {
                 </p>
               ) : null}
             </div>
+
 
             <div className="border-t border-border pt-4">
               <Row
