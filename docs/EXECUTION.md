@@ -293,12 +293,17 @@ Resolution of those states is manual or dry-run.
   explicit quantity, so it is eligible for automatic live execution.
   **PineConnector remains dry-run only** for automatic execution because its
   quantity/risk field contract is not verified; its sizing syntax is not guessed.
-- **Live-host allow-list is owner-managed and fails closed.** A live POST may only
-  go to a host on `execution_controls.allowed_live_hosts`. Live execution cannot be
-  enabled while `force_dry_run` is on or while the list is empty, automatic live
-  orders cannot be armed unless live execution is already on, and removing the last
-  allowed host disarms both. Hosts must be plain lowercase hostnames — a URL, path,
-  port or wildcard is rejected on save.
+- **Live-host allow-list gates the external webhook bridge only, and fails
+  closed.** A live bridge POST may only go to a host on
+  `execution_controls.allowed_live_hosts`; an empty list refuses live bridge
+  deliveries with `host_not_allowlisted` at pre-send revalidation. Direct
+  MetaApi (MT4/MT5) execution has no operator-chosen host — its hosts come
+  from the pinned trusted-host resolver — so the allow-list never gates
+  enabling live execution or direct broker submissions. Live execution cannot
+  be enabled while `force_dry_run` is on or the emergency stop is on, and
+  automatic live orders cannot be armed unless live execution is already on.
+  Hosts must be plain lowercase hostnames — a URL, path, port or wildcard is
+  rejected on save.
 - **Live-host allow-list** plus server-side URL validation at both save and
   dispatch, and `redirect: "manual"` everywhere.
 - **Connectivity test.** The test webhook validates the URL immediately before the

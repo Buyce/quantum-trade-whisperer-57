@@ -43,7 +43,8 @@ own caller:
 - Private, loopback, link-local and metadata ranges are refused; resolution is
   checked over DoH to close the SSRF gap.
 - `redirect: "manual"` everywhere, so a 302 cannot relocate a signed order.
-- Live orders may only reach allow-listed hosts.
+- Live webhook-bridge orders may only reach allow-listed hosts; direct MetaApi
+  (MT4/MT5) execution uses pinned, trusted MetaApi hosts instead.
 - Payloads are signed with HMAC-SHA256 (v2 scheme); the credential's identity —
   not its plaintext — participates in the execution configuration fingerprint.
 
