@@ -903,7 +903,7 @@ export const getAdminTradeTotals = createServerFn({ method: "GET" })
     const [evidence, journal] = await Promise.all([
       supabaseAdmin
         .from("broker_trade_evidence")
-        .select("connected_account_id, gross_profit, swap, commission, profit_currency")
+        .select("account_id, gross_profit, swap, commission, profit_currency")
         .eq("evidence_class", "customer")
         .eq("state", "closed"),
       supabaseAdmin.from("executed_trades").select("outcome"),
@@ -923,7 +923,7 @@ export const getAdminTradeTotals = createServerFn({ method: "GET" })
     return {
       broker: aggregateBrokerTotals(
         (evidence.data ?? []).map((row) => ({
-          accountId: row.connected_account_id ?? null,
+          accountId: row.account_id ?? null,
           grossProfit: numeric(row.gross_profit),
           swap: numeric(row.swap),
           commission: numeric(row.commission),
