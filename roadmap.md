@@ -60,3 +60,28 @@
 - [x] Remove Refusal cost, Instrument lifecycle/telemetry, Commissioning status, Promotion checkpoint, and Economic Events panels from the page.
 - [x] Keep Broker symbol bindings panel (operator decision surface for instrument tickers).
 
+
+## 2026-09-05 — Later panel decision (supersedes the entry above)
+
+- [x] Broker symbol bindings panel REMOVED from Admin Intelligence on owner instruction.
+      Bindings themselves are unchanged and still honoured by spec refresh and readiness;
+      only the Admin surface is gone.
+- [x] Promotion checkpoint panel RE-INSTATED — it is the answer to "when do new signals
+      become available to customers", so it stays mounted.
+- The 2026-09-03 entry above records what was true that day and is left as written.
+
+## 2026-09-05 — Documentation truth audit
+- [x] New `docs/EXECUTION-QUALITY.md`: drawdown brakes, execution-quality scoring,
+      24h cooldowns and evidence-ranked cap ordering (previously shipped, undocumented).
+- [x] `docs/EXECUTION.md`: cap ordering + brake/cooldown cross-references.
+- [x] `docs/PERFORMANCE-AND-STATISTICS.md`: named the three evidence tiers, corrected the
+      deleted `src/lib/stats/wilson.ts` path, and resolved the holdout contradiction —
+      `HOLDOUT_AVAILABLE = false` means no FORWARD sample; walk-forward is a retrospective
+      chronological re-split of recorded history.
+- [x] `docs/OPERATIONS.md`: sampling scope stated as `sampler_symbols` (8) rather than by
+      stage, NAS100's data_validation-but-unsampled position recorded, stale review date removed.
+- [x] `docs/README.md` + root README: index renumbered, new document linked.
+- [ ] Guide Mode coverage for the safety settings (brakes, ceilings, cooldowns, webhook).
+- [ ] Social metadata on `auth`, `settings`, `feed`, `history`.
+- [ ] Documentation-contract assertions for panel reachability and Guide coverage.
+- [ ] Repository-wide formatting pass.
