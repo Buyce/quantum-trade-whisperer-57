@@ -668,20 +668,17 @@ async function resolveCandidateBacklog(
 ): Promise<void> {
   if (groups.size === 0) return;
 
-  const countAllAsBacklog = () => {
-    for (const list of groups.values()) summary.candidateBacklogNoCandles += list.length;
-  };
-
-  let enabled = false;
+  /**
+   * The enrolment switch gates only INCREMENTAL provider spend. Replaying a
+   * candidate against candles production has already paid for costs nothing, so
+   * it is never withheld; a historical window is an extra read and is.
+   */
+  let historicalReadsAllowed = false;
   try {
     const { isCandidateEnrolmentEnabled } = await import("@/lib/research/enrol-candidates.server");
-    enabled = await isCandidateEnrolmentEnabled(db);
+    historicalReadsAllowed = await isCandidateEnrolmentEnabled(db);
   } catch {
-    enabled = false;
-  }
-  if (!enabled) {
-    countAllAsBacklog();
-    return;
+    historicalReadsAllowed = false;
   }
 
   const nowMs = Date.now();
@@ -702,7 +699,7 @@ async function resolveCandidateBacklog(
         continue;
       }
 
-      if (fetches >= CANDIDATE_BACKFILL_FETCH_BUDGET) {
+      if (!historicalReadsAllowed || fetches >= CANDIDATE_BACKFILL_FETCH_BUDGET) {
         summary.candidateBacklogNoCandles += group.length;
         continue;
       }
