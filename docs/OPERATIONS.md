@@ -39,20 +39,33 @@ exactly one run per 15-minute UTC slot per sampler version, per-run instrument a
 request ceilings that the database may lower but never raise above the compiled
 values, and a fresh per-instrument stage and breaker check before any request.
 
-Authorised scope today is the eight in-service instruments: Wave 0 (XAUUSD,
-GBPAUD, EURUSD) at `execution_approved`, plus GBPUSD, AUDUSD, USDCAD, USDCHF and
-USDJPY at `data_validation`. That is 768 instrument-slots per day, one quote each,
-no candle fetches. Wave 2 symbols are `disabled` and are not sampled.
+Sampling scope is not the registry and not the stage table — it is exactly the
+`telemetry_controls.sampler_symbols` list, floored by the compiled
+`MAX_INSTRUMENTS_PER_RUN = 8`. A symbol at a sampling-eligible stage that is absent
+from that list is **not** sampled, and the database may lower the ceiling but never
+raise it above the compiled value.
+
+The list holds eight instruments: Wave 0 (XAUUSD, GBPAUD, EURUSD) at
+`execution_approved`, plus GBPUSD, AUDUSD, USDCAD, USDCHF and USDJPY at
+`data_validation`. That is 768 instrument-slots per day, one quote each, no candle
+fetches.
+
+Two stage facts do not follow from that list. NAS100 sits at `data_validation`
+after being bound to its broker ticker, so it is sampling-eligible by stage, but it
+is not in `sampler_symbols` and therefore collects no spread samples; adding it
+would require displacing another symbol or raising the compiled ceiling. XAGUSD,
+USOIL and UKOIL remain `disabled` and are not sampled.
 
 ### Promotion review
 
 The **Promotion checkpoint** panel in Admin Intelligence answers, per instrument,
 whether the recorded evidence satisfies the `data_validation -> shadow` gate
 documented in [INSTRUMENT-LIFECYCLE.md](INSTRUMENT-LIFECYCLE.md), and names every
-unmet criterion beside the measured value. With Wave 1 sampling started on
-2026-08-25, the five-trading-day window closes around 2026-09-01. Promotion stays
-a manual, audited `transition_instrument_stage` decision taken one instrument at a
-time, with the checkpoint output recorded as its evidence.
+unmet criterion beside the measured value. Promotion stays a manual, audited
+`transition_instrument_stage` decision taken one instrument at a time, with the
+checkpoint output recorded as its evidence. The panel reads the window from the
+recorded evidence rather than from a date written here, because a date in prose is
+stale the day after it is written.
 
 
 Sampling is side-effect-free collection: it grades nothing, publishes nothing,
