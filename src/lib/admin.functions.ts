@@ -16,6 +16,12 @@ import {
   aggregateAutoTraderOutcomes,
   type AutoTraderOutcomes,
 } from "@/lib/admin/auto-trader-outcomes";
+import {
+  aggregateBrokerTotals,
+  aggregateJournalTotals,
+  type TradeTotals,
+} from "@/lib/admin/trade-totals";
+
 
 const OWNER_EMAIL = "boatengampomah@gmail.com";
 
