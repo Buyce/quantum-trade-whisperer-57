@@ -56,7 +56,7 @@ import { AutoTraderPanel } from "@/components/admin/AutoTraderPanel";
 import { ExecutionQualityPanel } from "@/components/admin/ExecutionQualityPanel";
 import { WalkForwardPanel } from "@/components/admin/WalkForwardPanel";
 import { ExitVariantsPanel } from "@/components/admin/ExitVariantsPanel";
-import { SymbolBindingPanel } from "@/components/admin/SymbolBindingPanel";
+import { PromotionPanel } from "@/components/admin/PromotionPanel";
 
 
 export const Route = createFileRoute("/_authenticated/admin/intelligence")({
@@ -204,8 +204,8 @@ function AdminIntelligencePage() {
         <ExitVariantsPanel />
       </PanelBoundary>
 
-      <PanelBoundary name="Symbol bindings">
-        <SymbolBindingPanel />
+      <PanelBoundary name="Promotion checkpoint">
+        <PromotionPanel />
       </PanelBoundary>
 
       <PanelBoundary name="Headline stats">
