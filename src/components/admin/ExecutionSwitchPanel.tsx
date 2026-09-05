@@ -217,8 +217,8 @@ export function ExecutionSwitchPanel() {
           </p>
           {data.allowedLiveHosts.length === 0 ? (
             <p className="text-[11px] text-muted-foreground">
-              No bridge host listed — live webhook-bridge deliveries will be refused. Direct
-              MetaApi (MT4/MT5) execution is unaffected.
+              No bridge host listed — live webhook-bridge deliveries will be refused. Direct MetaApi
+              (MT4/MT5) execution is unaffected.
             </p>
           ) : (
             <ul className="flex flex-wrap gap-2">

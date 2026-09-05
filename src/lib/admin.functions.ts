@@ -520,10 +520,16 @@ export const getAdminRefusalCost = createServerFn({ method: "GET" })
       .limit(2000);
     if (error) throw new Error(error.message);
 
-    const groups = new Map<string, { rows: number; attempts: number; max: number; waits: number[] }>();
+    const groups = new Map<
+      string,
+      { rows: number; attempts: number; max: number; waits: number[] }
+    >();
     for (const raw of (data ?? []) as Record<string, unknown>[]) {
       // The bare reason, without its per-row numeric detail, is the unit of cost.
-      const reason = String(raw["reason"] ?? "unrecorded").split(":")[0]!.trim() || "unrecorded";
+      const reason =
+        String(raw["reason"] ?? "unrecorded")
+          .split(":")[0]!
+          .trim() || "unrecorded";
       const bucket = groups.get(reason) ?? { rows: 0, attempts: 0, max: 0, waits: [] };
       const attempts = Number(raw["attempts"] ?? 0);
       bucket.rows += 1;
@@ -840,13 +846,21 @@ export const getAdminAutoTraderOutcomes = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data, error } = await supabaseAdmin
       .from("broker_trade_evidence")
-      .select("signal_grade, signal_grade_source, gross_profit, swap, commission, profit_currency, r_vs_plan")
+      .select(
+        "signal_grade, signal_grade_source, gross_profit, swap, commission, profit_currency, r_vs_plan",
+      )
       .eq("evidence_class", "customer")
       .eq("state", "closed");
     if (error) throw new Error(error.message);
 
     const finite = (v: unknown): number | null =>
-      typeof v === "number" && Number.isFinite(v) ? v : v === null ? null : Number.isFinite(Number(v)) ? Number(v) : null;
+      typeof v === "number" && Number.isFinite(v)
+        ? v
+        : v === null
+          ? null
+          : Number.isFinite(Number(v))
+            ? Number(v)
+            : null;
 
     return aggregateAutoTraderOutcomes(
       (data ?? []).map((row) => {
@@ -920,7 +934,8 @@ export const getAdminSymbolBindings = createServerFn({ method: "GET" })
     const bindingOf = new Map(bindings.map((b) => [b.canonical, b]));
     const latestDiscovery = new Map<string, NonNullable<typeof discovery.data>[number]>();
     for (const row of discovery.data ?? []) {
-      if (!latestDiscovery.has(String(row.canonical))) latestDiscovery.set(String(row.canonical), row);
+      if (!latestDiscovery.has(String(row.canonical)))
+        latestDiscovery.set(String(row.canonical), row);
     }
 
     return INSTRUMENTS.map((symbol) => {
@@ -958,10 +973,15 @@ export const bindInstrumentSymbol = createServerFn({ method: "POST" })
     const email = String(context.claims["email"] ?? "").toLowerCase();
     if (email !== OWNER_EMAIL) throw new Error("Forbidden");
 
-    const canonical = String(data.canonical ?? "").trim().toUpperCase();
+    const canonical = String(data.canonical ?? "")
+      .trim()
+      .toUpperCase();
     const providerSymbol = String(data.providerSymbol ?? "").trim();
     if (!canonical || !providerSymbol) {
-      return { ok: false, error: "Both a canonical instrument and one exact broker symbol are required." };
+      return {
+        ok: false,
+        error: "Both a canonical instrument and one exact broker symbol are required.",
+      };
     }
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -975,7 +995,10 @@ export const bindInstrumentSymbol = createServerFn({ method: "POST" })
     const { fetchInventory } = await import("@/lib/instruments/discovery.server");
     const inventory = await fetchInventory();
     if (inventory.length === 0) {
-      return { ok: false, error: "The broker symbol inventory could not be read, so the binding was not recorded." };
+      return {
+        ok: false,
+        error: "The broker symbol inventory could not be read, so the binding was not recorded.",
+      };
     }
     if (!inventory.includes(providerSymbol)) {
       return { ok: false, error: `The broker inventory does not list "${providerSymbol}".` };
@@ -1037,7 +1060,9 @@ export const recommissionInstrument = createServerFn({ method: "POST" })
     const email = String(context.claims["email"] ?? "").toLowerCase();
     if (email !== OWNER_EMAIL) throw new Error("Forbidden");
 
-    const canonical = String(data.canonical ?? "").trim().toUpperCase();
+    const canonical = String(data.canonical ?? "")
+      .trim()
+      .toUpperCase();
     const { INSTRUMENTS } = await import("@/lib/scanner/types");
     if (!(INSTRUMENTS as readonly string[]).includes(canonical)) {
       throw new Error(`${canonical} is not a registered instrument.`);
