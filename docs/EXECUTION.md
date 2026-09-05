@@ -441,7 +441,8 @@ read only the facts the provider returns, and missing facts remain unavailable.
 `src/lib/delivery/__tests__/execution-safety.test.ts`,
 `src/lib/delivery/__tests__/control-plane.test.ts`,
 `src/lib/delivery/__tests__/direct-enqueue.test.ts`,
-`src/lib/delivery/__tests__/intel-gate.test.ts`.
+`src/lib/delivery/__tests__/intel-gate.test.ts`,
+`src/lib/delivery/__tests__/cap-ranking.test.ts`.
 
 ## Order capacity follows the broker
 
