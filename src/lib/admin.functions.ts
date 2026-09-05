@@ -435,8 +435,9 @@ export const setAdminExecutionSwitches = createServerFn({ method: "POST" })
           throw new Error("Turn the system-wide dry-run lock off before enabling live execution.");
         if (emergencyStopAfter)
           throw new Error("Disable the emergency stop before enabling live execution.");
-        if (hosts.length === 0)
-          throw new Error("Add at least one allowed live host before enabling live execution.");
+        // No host allow-list requirement here: that list gates the external
+        // webhook bridge only (enforced at pre-send revalidation). Direct
+        // MetaApi execution has no operator-chosen host.
       }
       patch["live_execution_enabled"] = data.liveExecutionEnabled;
     }
