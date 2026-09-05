@@ -1092,3 +1092,103 @@ export const recommissionInstrument = createServerFn({ method: "POST" })
       error: result.error,
     };
   });
+
+export interface AdminExecutionQualityRow {
+  accountId: string;
+  instrument: string;
+  session: string;
+  computedAt: string;
+  closedSample: number;
+  medianSlippage: number | null;
+  p90Slippage: number | null;
+  avgR: number | null;
+  deliverySample: number;
+  rejectRate: number | null;
+  marginRefusals: number;
+  normMedianSlippage: number | null;
+  normRejectRate: number | null;
+  measured: boolean;
+  unmeasuredReason: string | null;
+}
+
+export interface AdminExecutionCooldownRow {
+  accountId: string;
+  instrument: string;
+  session: string;
+  reason: string;
+  detail: string | null;
+  startedAt: string;
+  resumeAfter: string;
+}
+
+export interface AdminExecutionQuality {
+  scores: AdminExecutionQualityRow[];
+  cooldowns: AdminExecutionCooldownRow[];
+}
+
+/**
+ * Execution quality per account/instrument/session, plus any automatic pause
+ * currently in force (owner only).
+ *
+ * Pure read of already-computed rows: the scheduled rollup writes them, this
+ * only reports them. A dimension with too little recorded broker evidence comes
+ * back as "not measured" and is shown as such — never as a zero.
+ */
+export const getAdminExecutionQuality = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<AdminExecutionQuality> => {
+    const email = String(context.claims["email"] ?? "").toLowerCase();
+    if (email !== OWNER_EMAIL) throw new Error("Forbidden");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const nowIso = new Date().toISOString();
+    const [scores, cooldowns] = await Promise.all([
+      supabaseAdmin
+        .from("execution_quality_scores")
+        .select(
+          "account_id, instrument, session, computed_at, closed_sample, median_slippage, p90_slippage, avg_r, delivery_sample, reject_rate, margin_refusals, norm_median_slippage, norm_reject_rate, measured, unmeasured_reason",
+        )
+        .order("computed_at", { ascending: false })
+        .limit(200),
+      supabaseAdmin
+        .from("execution_cooldowns")
+        .select("account_id, instrument, session, reason, detail, started_at, resume_after")
+        .is("lifted_at", null)
+        .gt("resume_after", nowIso)
+        .order("resume_after", { ascending: false })
+        .limit(100),
+    ]);
+    if (scores.error) throw new Error(scores.error.message);
+    if (cooldowns.error) throw new Error(cooldowns.error.message);
+
+    return {
+      scores: ((scores.data ?? []) as Record<string, unknown>[]).map((r) => ({
+        accountId: String(r["account_id"]),
+        instrument: String(r["instrument"]),
+        session: String(r["session"]),
+        computedAt: String(r["computed_at"]),
+        closedSample: Number(r["closed_sample"] ?? 0),
+        medianSlippage: r["median_slippage"] === null ? null : Number(r["median_slippage"]),
+        p90Slippage: r["p90_slippage"] === null ? null : Number(r["p90_slippage"]),
+        avgR: r["avg_r"] === null ? null : Number(r["avg_r"]),
+        deliverySample: Number(r["delivery_sample"] ?? 0),
+        rejectRate: r["reject_rate"] === null ? null : Number(r["reject_rate"]),
+        marginRefusals: Number(r["margin_refusals"] ?? 0),
+        normMedianSlippage:
+          r["norm_median_slippage"] === null ? null : Number(r["norm_median_slippage"]),
+        normRejectRate: r["norm_reject_rate"] === null ? null : Number(r["norm_reject_rate"]),
+        measured: r["measured"] === true,
+        unmeasuredReason:
+          r["unmeasured_reason"] === null ? null : String(r["unmeasured_reason"]),
+      })),
+      cooldowns: ((cooldowns.data ?? []) as Record<string, unknown>[]).map((r) => ({
+        accountId: String(r["account_id"]),
+        instrument: String(r["instrument"]),
+        session: String(r["session"]),
+        reason: String(r["reason"]),
+        detail: r["detail"] === null ? null : String(r["detail"]),
+        startedAt: String(r["started_at"]),
+        resumeAfter: String(r["resume_after"]),
+      })),
+    };
+  });
