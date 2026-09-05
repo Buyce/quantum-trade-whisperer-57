@@ -7,11 +7,7 @@
  * results are MISSING, not empty.
  */
 export type EngineErrorKind =
-  | "none"
-  | "provider_access"
-  | "provider_rate_limit"
-  | "provider"
-  | "engine";
+  "none" | "provider_access" | "provider_rate_limit" | "provider" | "engine";
 
 export interface EngineErrorClassification {
   kind: EngineErrorKind;
@@ -164,13 +160,7 @@ export function classifyScanHealth(scan: ScanWindowInput): ScanHealth {
     : { state: "degraded", value: "DEGRADED", tone: "warn", errorIsCurrent: true };
 }
 
-export type ReplayHealthState =
-  | "no_runs"
-  | "tripped"
-  | "degraded"
-  | "recovering"
-  | "running";
-
+export type ReplayHealthState = "no_runs" | "tripped" | "degraded" | "recovering" | "running";
 
 export interface ReplayBreakerInput {
   paused?: boolean | null;
@@ -215,4 +205,3 @@ export function classifyReplayHealth(breaker: ReplayBreakerInput | null | undefi
   }
   return { state: "running", value: "RUNNING", tone: "good", errorIsCurrent: false };
 }
-

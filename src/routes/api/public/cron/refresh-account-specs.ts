@@ -23,9 +23,8 @@ export const Route = createFileRoute("/api/public/cron/refresh-account-specs")({
         }
 
         const { adminClient } = await import("@/lib/scanner/pipeline.server");
-        const { refreshArmedAccountSpecs } = await import(
-          "@/lib/accounts/refresh-armed-specs.server"
-        );
+        const { refreshArmedAccountSpecs } =
+          await import("@/lib/accounts/refresh-armed-specs.server");
 
         try {
           const outcome = await refreshArmedAccountSpecs(adminClient());
