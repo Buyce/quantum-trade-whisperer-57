@@ -634,16 +634,15 @@ function SettingsPage() {
                   ? "no automatic orders"
                   : `up to ${maxDailyOrders} orders a day${adaptiveCeilings ? ` (${adaptiveFloor}–${adaptiveMax} with data freshness)` : ""}`}
                 , {marketEntry ? "entering at market" : "resting as planned limits"}, spread limit{" "}
-                {Number(maxSpreadPips) > 0 ? `${Number(maxSpreadPips)} pips` : "off"}, slippage limit{" "}
-                {Number(maxSlippagePips) > 0 ? `${Number(maxSlippagePips)} pips` : "off"}, total
-                exposure{" "}
+                {Number(maxSpreadPips) > 0 ? `${Number(maxSpreadPips)} pips` : "off"}, slippage
+                limit {Number(maxSlippagePips) > 0 ? `${Number(maxSlippagePips)} pips` : "off"},
+                total exposure{" "}
                 {Number(maxTotalExposurePercent) > 0
                   ? `${Number(maxTotalExposurePercent)}%${exposureLimitEnabled ? "" : " (advisory)"}`
                   : "off"}
                 .
               </p>
             </div>
-
 
             <div>
               <Label className="text-xs" htmlFor="alert-min-grade">
@@ -852,7 +851,6 @@ function SettingsPage() {
               ) : null}
             </div>
 
-
             <div className="border-t border-border pt-4">
               <Row
                 id="allow-unmeasured-intel"
@@ -909,9 +907,9 @@ function SettingsPage() {
               <h3 className="label-xs">3. What price and exposure is acceptable</h3>
               <p className="mt-1 text-xs text-muted-foreground">
                 Checked immediately before an automatic order is sent to your broker, using your
-                broker&apos;s own quote and specification. 0 turns a ceiling off. If a ceiling is set
-                but the broker figure needed to measure it is missing, the order is refused rather
-                than sent — an unmeasurable limit is not a met one.
+                broker&apos;s own quote and specification. 0 turns a ceiling off. If a ceiling is
+                set but the broker figure needed to measure it is missing, the order is refused
+                rather than sent — an unmeasurable limit is not a met one.
               </p>
               <div className="mt-3 grid gap-4 sm:grid-cols-3">
                 <div>
@@ -930,8 +928,8 @@ function SettingsPage() {
                     onChange={(e) => setMaxSpreadPips(e.target.value)}
                   />
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Refuses with &ldquo;spread above your limit&rdquo; when the live broker spread is
-                    wider. Retried while your order window is still open.
+                    Refuses with &ldquo;spread above your limit&rdquo; when the live broker spread
+                    is wider. Retried while your order window is still open.
                   </p>
                 </div>
                 <div>
@@ -971,15 +969,14 @@ function SettingsPage() {
                   />
                   <p className="mt-1 text-xs text-muted-foreground">
                     Open plus resting P-Trades risk at one broker account, against broker equity.
-                    Advisory unless you switch on the exposure limit under Automatic trading; then it
-                    refuses with &ldquo;total exposure limit&rdquo;. Older orders with no recorded
-                    risk figure are reported as unknown, never counted as zero.
+                    Advisory unless you switch on the exposure limit under Automatic trading; then
+                    it refuses with &ldquo;total exposure limit&rdquo;. Older orders with no
+                    recorded risk figure are reported as unknown, never counted as zero.
                   </p>
                 </div>
               </div>
             </div>
           </section>
-
 
           <SaveBar saving={saving} loadFailed={settings.isError} onSave={() => void onSave()} />
         </TabsContent>
@@ -1167,7 +1164,6 @@ function SettingsPage() {
                 automatic-order rules, under Feed &amp; automatic orders.
               </p>
             </div>
-
 
             <div className="mt-6 space-y-4 rounded-md border border-border bg-background p-4">
               <label className="flex items-start gap-3">

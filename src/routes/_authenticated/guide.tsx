@@ -514,7 +514,6 @@ const SECTIONS: Section[] = [
           "Freshness describes our data, not the market, and it never changes an order's price, size or stop. A ceiling that cannot be measured refuses rather than passing.",
       },
       {
-
         id: "order-window",
         q: "Why did an automatic order stop being placed after a while?",
         a: [
