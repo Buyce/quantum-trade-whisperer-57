@@ -204,15 +204,21 @@ export function ExecutionSwitchPanel() {
         ))}
 
         <div className="space-y-2 rounded-sm border border-border p-2">
-          <div className="text-[11px] font-medium text-foreground">Allowed live hosts</div>
+          <div className="text-[11px] font-medium text-foreground">
+            Allowed live hosts — external webhook bridge only
+          </div>
           <p className="text-[11px] text-muted-foreground">
-            A live webhook POST may only go to a host listed here. An empty list means nothing can
-            leave the server, whatever any other switch says. Per-request URL validation at dispatch
-            is unchanged and still authoritative.
+            This list gates the optional external webhook bridge only: a live webhook POST may only
+            go to a host listed here, and an empty list means no live bridge delivery can leave the
+            server. Direct MetaApi (MT4/MT5) execution does not use this list — broker orders go
+            through MetaApi's own pinned, trusted hosts, so real-money execution does not require
+            any entry here. Per-request URL validation at dispatch is unchanged and still
+            authoritative.
           </p>
           {data.allowedLiveHosts.length === 0 ? (
-            <p className="text-[11px] text-warning">
-              No host allowed — real-money webhook delivery cannot be enabled.
+            <p className="text-[11px] text-muted-foreground">
+              No bridge host listed — live webhook-bridge deliveries will be refused. Direct
+              MetaApi (MT4/MT5) execution is unaffected.
             </p>
           ) : (
             <ul className="flex flex-wrap gap-2">
@@ -229,11 +235,6 @@ export function ExecutionSwitchPanel() {
                     onClick={() =>
                       mutation.mutate({
                         allowedLiveHosts: data.allowedLiveHosts.filter((h) => h !== host),
-                        // Removing the last destination must not leave live execution armed
-                        // with nowhere legitimate to send.
-                        ...(data.allowedLiveHosts.length === 1
-                          ? { liveExecutionEnabled: false, liveAutoEnabled: false }
-                          : {}),
                       })
                     }
                     aria-label={`Remove ${host}`}
