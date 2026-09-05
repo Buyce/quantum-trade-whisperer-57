@@ -761,6 +761,25 @@ async function runDirectEnqueue(
       });
       continue;
     }
+
+    // A braked account takes no new automatic order, whatever the setup looks like.
+    {
+      const brake = brakeStates.get(account.id);
+      if (brake && brake.verdict.paused) {
+        filtered += 1;
+        decisions.push({
+          user_id: account.user_id,
+          signal_id: signal.id,
+          instrument: signal.instrument,
+          grade: signal.grade,
+          decision: "risk_brake_paused",
+          detail: `${BRAKE_REASON_COPY[brake.verdict.reason ?? "risk_state_unmeasured"]} ${brake.verdict.detail ?? ""}`.trim(),
+          enqueued: 0,
+          filtered: 1,
+        });
+        continue;
+      }
+    }
     // Owner opt-in for C-Grade. Absent or false means the historical refusal.
     const cGradeAllowed = row.auto_execute_c_grade === true;
     if (signal.grade === "C" && !cGradeAllowed) {
