@@ -27,23 +27,26 @@ and is never updated retroactively.
 
 **Money and measurement**
 
-9. [RISK-SIZING.md](RISK-SIZING.md)
-10. [JOURNAL-AND-R.md](JOURNAL-AND-R.md)
-11. [PERFORMANCE-AND-STATISTICS.md](PERFORMANCE-AND-STATISTICS.md)
-12. [BROKER-EVIDENCE.md](BROKER-EVIDENCE.md)
-13. [RESEARCH-AND-SHADOW.md](RESEARCH-AND-SHADOW.md)
+11. [RISK-SIZING.md](RISK-SIZING.md)
+12. [JOURNAL-AND-R.md](JOURNAL-AND-R.md)
+13. [PERFORMANCE-AND-STATISTICS.md](PERFORMANCE-AND-STATISTICS.md)
+14. [BROKER-EVIDENCE.md](BROKER-EVIDENCE.md)
+15. [RESEARCH-AND-SHADOW.md](RESEARCH-AND-SHADOW.md)
 
 **Integrations and operations**
 
-14. [BROKER-ACCOUNTS.md](BROKER-ACCOUNTS.md)
-15. [METASTATS.md](METASTATS.md)
-16. [RISK-GUARDIAN.md](RISK-GUARDIAN.md)
-17. [EXECUTION.md](EXECUTION.md)
-18. [MCP.md](MCP.md)
-19. [SECURITY.md](SECURITY.md)
-20. [OPERATIONS.md](OPERATIONS.md)
-21. [TESTING.md](TESTING.md)
-    **Audits and indexes**
+16. [BROKER-ACCOUNTS.md](BROKER-ACCOUNTS.md)
+17. [METASTATS.md](METASTATS.md)
+18. [RISK-GUARDIAN.md](RISK-GUARDIAN.md)
+19. [EXECUTION.md](EXECUTION.md)
+20. [EXECUTION-QUALITY.md](EXECUTION-QUALITY.md) — drawdown brakes, execution-quality cooldowns and evidence-ranked cap ordering
+21. [MCP.md](MCP.md)
+22. [SECURITY.md](SECURITY.md)
+23. [OPERATIONS.md](OPERATIONS.md)
+24. [TESTING.md](TESTING.md)
+
+**Audits and indexes**
+
 
 - [LINK-AUDIT.md](LINK-AUDIT.md) — canonical URLs, internal link results and the
   vendor-guide audit behind the `/connect` steps.
