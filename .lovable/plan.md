@@ -1,94 +1,83 @@
-# Execution Quality & Loss Reduction for the Auto-Trader
+# Making the Auto-Trader Win More Per Trade
 
-## Context
+This replaces the earlier loss-containment plan. That plan was about losing less. This one is about the actual question: more wins, and more won per trade.
 
-The learning loop already exists: research candidates → shadow replay → filter-lift →
-threshold proposals → readiness-gated automatic threshold application. That loop improves
-**signal selection**. What it does not yet measure or adapt is **execution quality** —
-what actually happens between "signal published" and "broker fill/close".
+## What the data actually says
 
-Current state (verified in code):
-- Auto-enqueue (`direct-enqueue.server.ts`) gates on: AutoIntelGate (win-rate + sample),
-  `auto_execute_c_grade` toggle (default off), news blackout, spread/slippage/exposure
-  ceilings, duplicate prevention, refusal backoff, market-open check.
-- Sizing: Model 1 (static) is authoritative; broker-spec dual-run logs divergence.
-- Exit policy: `single_exit_first_target` (binding — unchanged by this plan).
-- Broker evidence: `broker_trade_evidence` holds real fills/closes with grade provenance.
+I measured the real closed trades and the replay engine. Everything below is a measured number, not an estimate.
 
-The recurring loss pattern seen in the demo account (12 losses / 8 wins on recovered
-orphans, mostly C-grades) is a **cohort selection and execution-cost problem**, not a
-scanner problem. This plan closes that loop with broker-measured evidence only.
+**The core problem is not the win rate. It is that every win is capped.**
 
-## Binding constraints (unchanged)
+Every automatic order exits at the first target, and the first target sits at almost exactly 1R for every grade (A 0.94, B 1.02, C 1.00). Every loss is 1R. So a win is +1 and a loss is -1.
 
-- No fabricated evidence: every number below comes from `broker_trade_evidence` /
-  `execution_deliveries` / `execution_enqueue_decisions`; missing data renders as
-  "insufficient evidence", never an assumed value.
-- Advisory limits never imply broker state; Model 1 sizing stays authoritative.
-- `single_exit_first_target` exit policy stays.
-- Live stays OFF; all changes apply to demo first and inherit into live gates.
+That means profit depends entirely on winning more than half the time:
 
-## Work items
+| Source | Trades | Win rate | Average per trade |
+|---|---|---|---|
+| Real broker, B-grade | 52 | 38% | -0.29R (-2,319) |
+| Real broker, C-grade | 66 | 52% | +0.27R (+7,111) |
+| Replay, all filled | 328 | 51.5% | +0.04R |
 
-### 1. Execution-quality telemetry (measurement first)
-- New view/RPC `execution_quality_stats`: per (symbol, grade, session) cohort compute
-  from broker evidence only:
-  - **entry slippage**: |broker fill price − signal entry price| in pips
-  - **fill rate**: filled deliveries / submitted deliveries
-  - **achieved R vs planned R**: realized R-multiple vs the signal's planned R
-  - **expectancy in R** over the full payoff distribution (existing payoff math)
-- Admin Intelligence panel: "Execution quality" table with sample sizes, Wilson 95%
-  intervals, and explicit "insufficient evidence" state under 30 samples.
+A 1-to-1 payoff at a ~51% win rate is a coin flip. No amount of better signal picking fixes this reliably, because the win rate would have to be pushed far above 55% and held there. The fix is to change the payoff.
 
-### 2. Evidence-based cohort gating for auto-execution
-Extend AutoIntelGate from a single win-rate check to cohort-aware expectancy gating:
-- Auto-execute a (symbol, grade) cohort only when its matured expectancy is positive
-  with a lower-95%-CI > 0 R, minimum 30 samples (descriptive) / 200 (full gate).
-- Negative-evidence cohorts (lower CI < 0 R) are auto-excluded with a recorded
-  `cohort_negative_expectancy` refusal reason — visible in refusal telemetry.
-- C-grade auto-execution additionally requires the per-user `auto_execute_c_grade`
-  opt-in (existing) AND positive cohort expectancy. C never rides on A/B evidence.
+**The winners and losers behave very differently, and that is the opening.**
 
-### 3. Per-account loss circuit breaker
-- Per (account, symbol): after 3 consecutive broker-confirmed losses, pause new
-  auto-orders for that symbol on that account for 24h (persisted, survives restarts).
-- Resume is automatic after the window; each pause/resume is audited and shown in
-  Admin Intelligence and the account's history page.
-- Global kill switches and emergency stop remain untouched and authoritative.
+Measured across 169 replay winners and 147 losers:
 
-### 4. Evidence-scaled risk (bounded, advisory)
-- Risk multiplier per cohort derived from expectancy evidence: 1.0 (full evidence,
-  positive), 0.5 (thin evidence 30–199 samples), 0 (negative cohort).
-- Hard bounds: never above the user's configured risk %, never below 0; multiplier is
-  logged on the delivery (`risk_multiplier`, `risk_multiplier_reason`) for audit.
-- Model 1 base sizing is unchanged — the multiplier only scales its output down.
+- Winners barely go against us first. Median worst drawdown on a winner is **0.265R**; 73% of winners never go more than 0.5R against us.
+- Losers go *in our favour* first, then reverse. Median best excursion on a loser is **0.535R**; 36% of losers travel 0.7R or more in our favour before failing.
 
-### 5. Order-window and timing tuning from fill evidence
-- Where a symbol's fill rate is high but entry slippage is consistently adverse,
-  shorten the effective order window within the user-configured
-  `auto_order_window_minutes` ceiling (never exceed it).
-- Where fill rate is low with negligible slippage, keep the window unchanged — no
-  widening is ever automatic.
+So our stop is far wider than winners actually need, and losers repeatedly hand us a profit we never take.
 
-### 6. Refusal-reason taxonomy extension
-New recorded reasons: `cohort_negative_expectancy`, `cohort_insufficient_evidence`
-(when gate is strict), `symbol_loss_circuit`, `adverse_slippage_history`. All appear
-in the existing refusal-cost telemetry so "Not sent — refused by P-Trades" stays
-explainable per order.
+**Letting winners run further does not work.** I checked before proposing it: only 10 of 96 B-grade winners and 11 of 72 C-grade winners ever reached the second target. Extending to the second target would give back the sure +1R on 85-90% of winners. This idea is closed, not deferred.
 
-## Out of scope
-- Exit-policy changes, trailing stops, partial exits (locked by `single_exit_first_target`).
-- New ML predictor models (the readiness-gated proposal system remains the path).
-- Live enablement (still requires the separate staged rollout + broker evidence).
+## The plan
 
-## Testing
-- Unit: cohort expectancy gating math (CI boundaries, sample floors), circuit-breaker
-  transitions, risk-multiplier bounds, new refusal reasons.
-- Invariant: negative-evidence cohort never auto-executes; multiplier never raises risk;
-  missing evidence never becomes 0 R or 100% win rate.
-- Docs-contract tests stay green; no seed/mock data anywhere.
+### 1. Build the counterfactual replay harness first
 
-## Rollout
-1. Telemetry (read-only) → 2. Circuit breaker (demo) → 3. Cohort gating (demo) →
-4. Risk scaling (demo, default conservative) → 5. Window tuning. Each step is
-independently shippable and demo-first.
+Nothing below gets shipped on my arithmetic. We already store the full price path per setup (best excursion, worst excursion, bar-by-bar cursor). The harness re-runs already-resolved setups under an alternative stop-and-exit rule and reports the honest distribution of results, using the existing frozen replay-version and as-of provenance so the comparison is reproducible.
+
+This is the prerequisite for items 2, 3 and 4. It reads history only and touches nothing live.
+
+### 2. Tighter structural stop — the biggest lever
+
+Because winners rarely retrace past ~0.5R, a stop placed closer (while still structurally valid behind the pattern) keeps most winners and makes each one worth more relative to the risk taken. On the measured distribution this trades roughly 20% of winners for a payoff that rises from 1.0 to about 1.6 per win — a materially positive expectancy instead of a coin flip.
+
+The stop must remain anchored to real structure. If a tighter stop would sit inside the pattern, the setup keeps its current stop or is not taken. No stop is ever moved to a level the structure does not support.
+
+### 3. Scratch-stop on losers that go our way first
+
+For the 36% of losers that travel 0.7R or more in our favour, move the stop to break-even once that level is reached, turning a full loss into roughly nothing. The harness measures the cost — winners that reach 0.7R, retrace, and get scratched — before this ships. If the cost exceeds the saving, it does not ship.
+
+### 4. Cohort gating on instrument, direction and session
+
+There are large, consistent differences the trader currently ignores completely. Measured:
+
+- Gold shorts: 1 win in 18 real trades (-7,867). Gold longs: 10 wins in 12 (+7,073).
+- GBPAUD shorts outside New York: 0 wins in 11 (-4,535).
+- EURUSD longs in London: 8 wins in 10. EURUSD longs in Tokyo: 2 in 11.
+
+We already have the statistics machinery for this (confidence intervals, clustered bootstrap, multiple-comparison correction, pass-versus-reject lift). It is currently wired to only three gates and ignores instrument, direction and session. Extend it to those, and refuse only cohorts that fail the existing evidence bar. No cohort is blocked on a hunch.
+
+### 5. Rank the daily cap by evidence, not by clock
+
+The daily order cap currently fills first-come, sorted by detection time. With a 2-order daily default, that wastes the cap on whatever appeared first. Rank instead by the measured expectancy of the setup's cohort.
+
+**Not** by the confidence score. I tested it: it does not order outcomes (16-20 scores -0.47R, 20-40 scores +0.18R, 40-59 scores -0.05R). Ranking by it would be ranking by noise. Leaving it as display-only.
+
+### 6. What I am not claiming
+
+The real-money grade inversion — C-grade outperforming B-grade — is 52 and 66 trades. Replay disagrees slightly. That is inside the noise, so I am not treating grading as broken and not reordering grades. Item 4 answers it properly with the evidence bar applied.
+
+### Rollout
+
+Harness and measurement first. Then the stop and exit changes go to demo auto-trading only, and only cohorts and rules that clear the existing evidence gates. Live execution stays off and untouched throughout. Demo auto-trading keeps running the whole time.
+
+## Technical notes
+
+- New replay harness alongside `src/lib/execution/replay-v2.ts`, reading resolved `shadow_executions` rows; reuses `max_favorable_excursion_r` / `max_adverse_excursion_r` and the `replay_versions` registry. Frozen `as_of` provenance preserved.
+- Stop-geometry changes flow through the existing unified sizing math so Model 1 remains authoritative; no risk percentage is raised anywhere.
+- `single_exit_first_target` stays the only execution policy — items 2 and 3 change stop placement and stop movement, not the number of exits.
+- `TunableGate` in `src/lib/learning/readiness.ts` extends from three gates to include instrument, direction and session cohorts; `filter-lift.ts` verdict thresholds and Benjamini-Hochberg correction unchanged.
+- `capSequence()` in `src/lib/delivery/eligibility.ts` gains an evidence-ranked ordering; cap size, grade eligibility and UTC-day frame authority unchanged.
+- Binding rules preserved: no fabricated or inferred broker evidence, advisory limits never imply broker state, Model 1 sizing authoritative, promotions service-role only, live execution disabled.
