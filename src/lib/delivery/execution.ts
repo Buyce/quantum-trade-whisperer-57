@@ -174,6 +174,8 @@ export const REJECT_COPY: Record<RejectReason, string> = {
     "Your broker did not report the deposit currency of this account, so the order could not be sized. A currency is never assumed.",
   account_risk_brake:
     "Your own drawdown brake is holding automatic orders on this account: a loss limit you set was reached on CLOSED broker trades, or it could not be measured from your broker. Orders already at your broker are untouched — those remain yours to manage at the broker.",
+  execution_cooldown:
+    "This account, instrument and session is in an automatic cool-down: its recent broker execution quality, measured from closed trades and the delivery ledger, was materially worse than its own earlier norm. New orders pause for a bounded window; orders already at your broker are untouched.",
   account_not_armed:
     "This broker account is not armed for automatic orders, or the matching system-wide switch is off.",
 };
