@@ -1252,3 +1252,60 @@ export const getAdminWalkForward = createServerFn({ method: "GET" })
       computedAt: String(r["computed_at"] ?? ""),
     }));
   });
+
+export interface AdminExitVariantRow {
+  variant: string;
+  samples: number;
+  undecidable: number;
+  clusters: number;
+  meanR: number | null;
+  baselineMeanR: number | null;
+  deltaR: number | null;
+  holdoutConfirmed: boolean;
+  holdoutDeltaR: number | null;
+  holdoutLow: number | null;
+  holdoutHigh: number | null;
+  splitDay: string | null;
+  blockers: string[];
+  detail: string;
+  computedAt: string;
+}
+
+/**
+ * Replay-only exit-variant research, owner only.
+ *
+ * These are simulated outcomes over recorded market paths, not executed trades.
+ * The live policy is unaffected by anything shown here.
+ */
+export const getAdminExitVariants = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<AdminExitVariantRow[]> => {
+    const email = String(context.claims["email"] ?? "").toLowerCase();
+    if (email !== OWNER_EMAIL) throw new Error("Forbidden");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await supabaseAdmin
+      .from("exit_variant_results")
+      .select("*")
+      .order("variant", { ascending: true })
+      .limit(50);
+    if (error) throw new Error(error.message);
+
+    return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+      variant: String(r["variant"]),
+      samples: Number(r["samples"] ?? 0),
+      undecidable: Number(r["undecidable"] ?? 0),
+      clusters: Number(r["clusters"] ?? 0),
+      meanR: r["mean_r"] === null ? null : Number(r["mean_r"]),
+      baselineMeanR: r["baseline_mean_r"] === null ? null : Number(r["baseline_mean_r"]),
+      deltaR: r["delta_r"] === null ? null : Number(r["delta_r"]),
+      holdoutConfirmed: r["holdout_confirmed"] === true,
+      holdoutDeltaR: r["holdout_delta_r"] === null ? null : Number(r["holdout_delta_r"]),
+      holdoutLow: r["holdout_low"] === null ? null : Number(r["holdout_low"]),
+      holdoutHigh: r["holdout_high"] === null ? null : Number(r["holdout_high"]),
+      splitDay: r["split_day"] === null ? null : String(r["split_day"]),
+      blockers: Array.isArray(r["blockers"]) ? (r["blockers"] as string[]).map(String) : [],
+      detail: String(r["detail"] ?? ""),
+      computedAt: String(r["computed_at"] ?? ""),
+    }));
+  });

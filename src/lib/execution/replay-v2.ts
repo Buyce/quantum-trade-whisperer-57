@@ -77,7 +77,34 @@ export interface ReplayV2State {
   firstTargetTouched: number | null;
   /** Deepest target the market path touched — analytics only. */
   maxTargetTouched: number | null;
+  /**
+   * RESEARCH ONLY — the ordered post-fill path in R units. It never touches
+   * gross R, labels, learning or anything a trader sees; it exists so exit
+   * variants (partials, runners, break-even, trailing) can be simulated instead
+   * of reported as "not decidable". Bars whose internal order is unknowable are
+   * flagged and carry no excursion values.
+   */
+  postEntryPath: PathBar[];
+  /** True when the cap was reached and later bars were not recorded. */
+  pathTruncated: boolean;
+  /** Ladder levels in R against the ACTUAL filled risk. Null when unavailable. */
+  targetsR: [number | null, number | null, number | null];
 }
+
+/** One recorded post-fill bar. `hR`/`lR` are null on an undecidable bar. */
+export interface PathBar {
+  /** Bar-OPEN timestamp. */
+  t: string;
+  /** Favourable excursion of this bar, in R against the filled risk. */
+  hR: number | null;
+  /** Adverse excursion of this bar, in R (positive = against the position). */
+  lR: number | null;
+  /** True when this bar's internal event order cannot be established. */
+  amb: boolean;
+}
+
+/** Cap on recorded bars per setup (~4 days of M15) — storage stays bounded. */
+export const MAX_PATH_BARS = 400;
 
 const ms = (iso: string) => new Date(iso).getTime();
 const M15_MS = 15 * 60_000;
@@ -115,6 +142,28 @@ export function replaySetupV2(input: ReplayInput, candles: Candle[]): ReplayV2St
     stopBeforeTp1: null,
     firstTargetTouched: null,
     maxTargetTouched: null,
+    postEntryPath: [],
+    pathTruncated: false,
+    targetsR: [null, null, null],
+  };
+
+  /** Records one post-fill bar, bounded. Never influences adjudication. */
+  const recordBar = (bar: PathBar): void => {
+    if (state.postEntryPath.length >= MAX_PATH_BARS) {
+      state.pathTruncated = true;
+      return;
+    }
+    state.postEntryPath.push(bar);
+  };
+  const r4 = (v: number): number | null => (Number.isFinite(v) ? Number(v.toFixed(4)) : null);
+  const setTargetsR = (): void => {
+    const risk = state.riskPriceActual;
+    const base = state.fillPrice;
+    if (risk == null || base == null || !Number.isFinite(risk) || risk <= 0) return;
+    const sign = isLong ? 1 : -1;
+    const level = (price: number | null | undefined): number | null =>
+      price == null || !Number.isFinite(price) ? null : r4((sign * (price - base)) / risk);
+    state.targetsR = [level(input.tp1), level(input.tp2), level(input.tp3)];
   };
 
   // --- Plan validity (fails closed, never a fabricated loss) -----------------
@@ -123,6 +172,7 @@ export function replaySetupV2(input: ReplayInput, candles: Candle[]): ReplayV2St
   }
   if (state.fillPrice != null) {
     state.riskPriceActual = Math.abs(state.fillPrice - input.stopLoss);
+    setTargetsR();
   }
 
   const detected = ms(input.detectedAt);
@@ -226,12 +276,14 @@ export function replaySetupV2(input: ReplayInput, candles: Candle[]): ReplayV2St
       if (!Number.isFinite(state.riskPriceActual) || state.riskPriceActual <= 0) {
         return { ...state, status: "resolved", outcome: "invalid_plan", label: null, grossR: null };
       }
+      setTargetsR();
 
       if (!gapAtOpenFill) {
         // Ordinary intrabar fill: this bar can prove neither the order of events
         // nor the excursions that followed entry.
         state.barsReplayed += 1;
         state.fillBarExcursionAmbiguous = true;
+        recordBar({ t: candle.time, hR: null, lR: null, amb: true });
         const stopHit = isLong ? candle.low <= input.stopLoss : candle.high >= input.stopLoss;
         const target = deepestTouched(candle);
         if (stopHit) {
@@ -269,6 +321,9 @@ export function replaySetupV2(input: ReplayInput, candles: Candle[]): ReplayV2St
     const adverse = isLong ? base - candle.low : candle.high - base;
     state.mfeR = Math.max(state.mfeR, favorable / risk);
     state.maeR = Math.max(state.maeR, adverse / risk);
+    // Research path record. The bar's own high/low order is unknown, so the
+    // variant simulator — not this engine — decides when that matters.
+    recordBar({ t: candle.time, hR: r4(favorable / risk), lR: r4(adverse / risk), amb: false });
 
     // --- Horizontal barriers -------------------------------------------------
     const stopHit = isLong ? candle.low <= input.stopLoss : candle.high >= input.stopLoss;
@@ -380,4 +435,64 @@ function planIsValid(input: ReplayInput, isLong: boolean): boolean {
     if (input.tp1 >= input.entryPrice) return false;
   }
   return true;
+}
+
+/**
+ * RESEARCH ONLY — record the ordered post-fill market path in R units.
+ *
+ * Replay V2 stops adjudicating at the first target, which is correct for the
+ * live policy but leaves exit variants (partials, runners, break-even, trailing)
+ * un-simulatable. This walk is deliberately separate: it makes no decision, has
+ * no barriers, and continues to the same vertical barrier V2 uses, so a variant
+ * simulator can decide for itself when order-of-events matters.
+ *
+ * It never influences a label, gross R, learning or anything a trader sees.
+ * Nothing here is invented: every value is arithmetic on real candles, and a bar
+ * whose internal order cannot be established carries no excursion values.
+ */
+export function capturePostFillPath(
+  input: ReplayInput,
+  candles: Candle[],
+  fill: { price: number; barTime: string; riskActual: number },
+): { bars: PathBar[]; targetsR: [number | null, number | null, number | null]; truncated: boolean } {
+  const isLong = input.direction === "long";
+  const risk = fill.riskActual;
+  const base = fill.price;
+  const empty = { bars: [] as PathBar[], targetsR: [null, null, null] as [null, null, null], truncated: false };
+  if (!Number.isFinite(risk) || risk <= 0 || !Number.isFinite(base)) return empty;
+
+  const r4 = (v: number): number | null => (Number.isFinite(v) ? Number(v.toFixed(4)) : null);
+  const sign = isLong ? 1 : -1;
+  const level = (price: number | null | undefined): number | null =>
+    price == null || !Number.isFinite(price) ? null : r4((sign * (price - base)) / risk);
+  const targetsR: [number | null, number | null, number | null] = [
+    level(input.tp1),
+    level(input.tp2),
+    level(input.tp3),
+  ];
+
+  const fillBar = ms(fill.barTime);
+  const verticalBarrier = ms(input.detectedAt) + SIGNAL_MAX_AGE_HOURS * 3_600_000;
+  const ordered = candles
+    .filter((c) => ms(c.time) >= fillBar && ms(c.time) < verticalBarrier)
+    .sort((a, b) => ms(a.time) - ms(b.time));
+
+  const bars: PathBar[] = [];
+  let truncated = false;
+  for (const candle of ordered) {
+    if (bars.length >= MAX_PATH_BARS) {
+      truncated = true;
+      break;
+    }
+    // The fill bar cannot prove what happened after entry inside itself.
+    if (ms(candle.time) === fillBar && input.fillPrice == null) {
+      bars.push({ t: candle.time, hR: null, lR: null, amb: true });
+      continue;
+    }
+    const favorable = isLong ? candle.high - base : base - candle.low;
+    const adverse = isLong ? base - candle.low : candle.high - base;
+    bars.push({ t: candle.time, hR: r4(favorable / risk), lR: r4(adverse / risk), amb: false });
+  }
+
+  return { bars, targetsR, truncated };
 }
