@@ -91,7 +91,6 @@ function windowFor(
   return SUPPRESSION_WINDOWS[importance] ?? SUPPRESSION_WINDOWS.unknown;
 }
 
-
 function eventTouches(event: PolicyEvent, symbol: string, currencies: string[]): boolean {
   if (event.affectedInstruments && event.affectedInstruments.length > 0) {
     return event.affectedInstruments.includes(symbol);

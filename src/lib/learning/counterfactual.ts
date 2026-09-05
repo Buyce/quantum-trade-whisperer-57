@@ -194,7 +194,14 @@ function evaluateRow(row: CounterfactualInput, factor: number): RowCounterfactua
   // A loser already travelled at least the full original risk against us, so any
   // tighter stop was reached too. Loss stands, at -1R on the new risk basis.
   if (row.outcome === "loss") {
-    return { ...base, verdict: "deterministic", baseR: row.grossR, worstR: -1, bestR: -1, reason: null };
+    return {
+      ...base,
+      verdict: "deterministic",
+      baseR: row.grossR,
+      worstR: -1,
+      bestR: -1,
+      reason: null,
+    };
   }
 
   // Winners and expiries: the R denominator shrinks by `factor`.
@@ -202,7 +209,14 @@ function evaluateRow(row: CounterfactualInput, factor: number): RowCounterfactua
 
   if (row.maeR < factor) {
     // The entire adverse path stayed inside the tighter stop.
-    return { ...base, verdict: "deterministic", baseR: row.grossR, worstR: scaled, bestR: scaled, reason: null };
+    return {
+      ...base,
+      verdict: "deterministic",
+      baseR: row.grossR,
+      worstR: scaled,
+      bestR: scaled,
+      reason: null,
+    };
   }
 
   return {

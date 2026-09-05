@@ -19,12 +19,15 @@
  *    this is not a rolling search over an ever-growing set of slices.
  */
 import { SESSION_NAMES } from "@/lib/scanner/session";
-import { clusterBootstrapMeanR, type BootstrapResult, type RObservation } from "@/lib/stats/bootstrap";
+import {
+  clusterBootstrapMeanR,
+  type BootstrapResult,
+  type RObservation,
+} from "@/lib/stats/bootstrap";
 import { EVIDENCE_TIERS, tierMet } from "@/lib/stats/evidence";
 
 /** The bar this surface names. Not a local number. */
 const COHORT_TIER = EVIDENCE_TIERS.descriptive;
-
 
 export const COHORT_VERSION = 1;
 

@@ -120,22 +120,22 @@ function ProposalRow({
           {proposal.current_value ?? "default"} → {proposal.proposed_value}
         </span>
         <span className="flex items-center gap-1">
-        {proposal.origin === "system" && (
-          <Badge variant="outline">
-            {proposal.auto_applied ? "system · auto-applied" : "system"}
+          {proposal.origin === "system" && (
+            <Badge variant="outline">
+              {proposal.auto_applied ? "system · auto-applied" : "system"}
+            </Badge>
+          )}
+          <Badge
+            variant={
+              proposal.status === "approved"
+                ? "default"
+                : proposal.status === "proposed"
+                  ? "secondary"
+                  : "outline"
+            }
+          >
+            {PROPOSAL_STATUS_LABELS[proposal.status]}
           </Badge>
-        )}
-        <Badge
-          variant={
-            proposal.status === "approved"
-              ? "default"
-              : proposal.status === "proposed"
-                ? "secondary"
-                : "outline"
-          }
-        >
-          {PROPOSAL_STATUS_LABELS[proposal.status]}
-        </Badge>
         </span>
       </div>
       <p className="mt-1 text-muted-foreground">
@@ -177,7 +177,6 @@ function ProposalRow({
     </div>
   );
 }
-
 
 function ReadinessSection({
   readiness,

@@ -89,10 +89,7 @@ export interface FilterLiftArm {
 }
 
 export type FilterLiftVerdict =
-  | "loosening_supported"
-  | "gate_supported"
-  | "no_difference"
-  | "not_yet_decidable";
+  "loosening_supported" | "gate_supported" | "no_difference" | "not_yet_decidable";
 
 export interface FilterLiftGate {
   gate: string;
@@ -232,9 +229,7 @@ export function summarizeFilterLift(rows: FilterLiftRow[]): FilterLiftGate[] {
           if (arm.missingSamples > 0) {
             missing.push(`${label} arm needs ${arm.missingSamples} more matured samples`);
           } else if (arm.missingClusters > 0) {
-            missing.push(
-              `${label} arm needs ${arm.missingClusters} more independent trading days`,
-            );
+            missing.push(`${label} arm needs ${arm.missingClusters} more independent trading days`);
           } else {
             missing.push(`${label} arm not reportable${arm.reason ? ` (${arm.reason})` : ""}`);
           }
@@ -318,7 +313,6 @@ export function summarizeFilterLift(rows: FilterLiftRow[]): FilterLiftGate[] {
     })
     .sort((a, b) => a.gate.localeCompare(b.gate));
 }
-
 
 export const VERDICT_LABELS: Record<FilterLiftVerdict, string> = {
   loosening_supported: "Loosening supported",

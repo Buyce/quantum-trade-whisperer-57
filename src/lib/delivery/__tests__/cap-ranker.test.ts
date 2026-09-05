@@ -34,11 +34,7 @@ function signal(id: string, instrument: string, hour: number): EligibilitySignal
   };
 }
 
-const frame = [
-  signal("a", "EURUSD", 8),
-  signal("b", "XAUUSD", 9),
-  signal("c", "GBPJPY", 10),
-];
+const frame = [signal("a", "EURUSD", 8), signal("b", "XAUUSD", 9), signal("c", "GBPJPY", 10)];
 
 describe("capSequence", () => {
   it("[INVARIANT] stays chronological when no ranker is supplied", () => {

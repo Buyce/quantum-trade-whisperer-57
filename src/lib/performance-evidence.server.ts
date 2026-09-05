@@ -183,7 +183,9 @@ export async function loadPerformanceEvidence(
       netProfit:
         finite(row.gross_profit) === null
           ? null
-          : (finite(row.gross_profit) ?? 0) + (finite(row.swap) ?? 0) + (finite(row.commission) ?? 0),
+          : (finite(row.gross_profit) ?? 0) +
+            (finite(row.swap) ?? 0) +
+            (finite(row.commission) ?? 0),
       currency: row.profit_currency,
       slippagePrice: finite(row.slippage_price),
       slippageAvailability: row.slippage_availability,

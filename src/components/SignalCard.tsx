@@ -766,7 +766,7 @@ export function SignalCard({
   const windowMinutes =
     autoOrderWindowMinutes === undefined || autoOrderWindowMinutes === null
       ? ORDER_TIF_MINUTES
-      : (clampAutoOrderWindowMinutes(autoOrderWindowMinutes) || ORDER_TIF_MINUTES);
+      : clampAutoOrderWindowMinutes(autoOrderWindowMinutes) || ORDER_TIF_MINUTES;
   const windowLabel = formatWindowMinutes(windowMinutes);
   const long = signal.direction === "long";
   const conf = Number(signal.confidence_score);

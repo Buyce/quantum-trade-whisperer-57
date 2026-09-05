@@ -15,9 +15,7 @@ const MAX_VALUE = 100;
 
 export async function loadGateThresholds(db: SupabaseClient): Promise<GateThresholds> {
   try {
-    const { data, error } = await db
-      .from("gate_threshold_overrides")
-      .select("gate, value");
+    const { data, error } = await db.from("gate_threshold_overrides").select("gate, value");
     if (error || !data) return {};
 
     const out: GateThresholds = {};

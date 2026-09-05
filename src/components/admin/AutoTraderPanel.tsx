@@ -90,8 +90,8 @@ export function AutoTraderPanel() {
         </p>
       ) : data.total.trades === 0 ? (
         <p className="text-[11px] text-muted-foreground">
-          No automatic order has closed at the broker yet. That says nothing about the scanner or the
-          dispatcher — only that there is no closed fill to measure.
+          No automatic order has closed at the broker yet. That says nothing about the scanner or
+          the dispatcher — only that there is no closed fill to measure.
         </p>
       ) : (
         <div className="space-y-2">
@@ -117,9 +117,9 @@ export function AutoTraderPanel() {
           </div>
           <p className="text-[10px] leading-relaxed text-muted-foreground">
             Win = broker net profit above zero (gross + swap + commission); an exactly flat trade is
-            a scratch. Trades with no broker-reported money are shown in the trade count but excluded
-            from win rate. * marks grades proved from the enqueue decision log after the setup row
-            was purged — those trades have no plan geometry, so they carry no R.
+            a scratch. Trades with no broker-reported money are shown in the trade count but
+            excluded from win rate. * marks grades proved from the enqueue decision log after the
+            setup row was purged — those trades have no plan geometry, so they carry no R.
           </p>
         </div>
       )}

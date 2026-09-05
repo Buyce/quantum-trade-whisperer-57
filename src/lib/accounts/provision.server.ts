@@ -690,7 +690,6 @@ export async function refreshSymbolMap(
       { onConflict: "account_id,broker_symbol" },
     );
   }
-
 }
 
 /**

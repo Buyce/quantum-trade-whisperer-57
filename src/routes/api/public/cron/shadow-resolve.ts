@@ -83,7 +83,6 @@ export const Route = createFileRoute("/api/public/cron/shadow-resolve")({
             }
           }
 
-
           // Statistics rebuild runs last and is guarded separately: a failure
           // here must never re-label a successful resolution pass as failed.
           let stats: unknown = null;

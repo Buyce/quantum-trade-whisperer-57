@@ -1,6 +1,7 @@
 # Roadmap
 
 ## Part A — Grade recovery for orphaned broker trades
+
 - [x] Migration: `signal_grade_source`, `signal_first_decision_at`, `signal_ref`, one-time-fill trigger
 - [x] `grade-recovery.ts` / `.server.ts` + tests, wired into `recover.server.ts` and `reconcile.server.ts`
 - [x] Backfill the 20 orphan evidence rows (writes `signal_ref`, not the FK `signal_id`)
@@ -8,6 +9,7 @@
 - [x] Performance: include recovered grades, report the recovered population separately
 
 ## Part B — Reduce "Not sent — refused by P-Trades"
+
 - [x] `next_attempt_at` + backoff on retryable refusals; claim RPC skips future-scheduled rows
 - [x] Terminalise runaway price gates; stop retrying when the window is shorter than the next step
 - [x] Batch/fair claiming so one hot symbol cannot starve the queue
@@ -22,6 +24,7 @@
 - [ ] Restore `shadow_engine_state.candidate_rows_per_run` to 30 once the enrolable backlog reaches 0
 
 ## Part C — Blocked instruments (XAGUSD, USOIL, UKOIL, NAS100)
+
 - [x] Migration: `instrument_symbol_bindings` (operator decision + candidate evidence), `broker_symbol_specs.provider_symbol`
 - [x] Spec refresh fetches under the bound broker symbol and records which name it used
 - [x] Mapping honours a binding as `configured`, usable only with a fresh spec fetched under that exact name
@@ -47,6 +50,7 @@
   candidates labelled `outside_replay_window`.
 
 ## Evidence-grade filter evaluation + proposal workflow (archived plan 2026-09-03) — DONE
+
 - filter_lift_stats: slice rows (instrument/direction/session), cluster-robust SE (instrument-day clusters), stat_status + reason.
 - gate_change_proposals ledger + gate_threshold_overrides (approve/reject/revert, owner-only, audited via execution_control_changes).
 - get_admin_learning_evidence RPC (rows/proposals/overrides/post-change cohorts).
@@ -57,9 +61,9 @@
 - [x] Admin Intelligence resilience: per-panel error boundaries, safe UTC timestamp formatter (`src/lib/format-utc.ts`), stale-chunk single reload recovery in the root error boundary.
 
 ## 2026-09-03 — Slim down Admin Intelligence
+
 - [x] Remove Refusal cost, Instrument lifecycle/telemetry, Commissioning status, Promotion checkpoint, and Economic Events panels from the page.
 - [x] Keep Broker symbol bindings panel (operator decision surface for instrument tickers).
-
 
 ## 2026-09-05 — Later panel decision (supersedes the entry above)
 
@@ -71,6 +75,7 @@
 - The 2026-09-03 entry above records what was true that day and is left as written.
 
 ## 2026-09-05 — Documentation truth audit
+
 - [x] New `docs/EXECUTION-QUALITY.md`: drawdown brakes, execution-quality scoring,
       24h cooldowns and evidence-ranked cap ordering (previously shipped, undocumented).
 - [x] `docs/EXECUTION.md`: cap ordering + brake/cooldown cross-references.

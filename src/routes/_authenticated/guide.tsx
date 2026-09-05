@@ -531,7 +531,8 @@ const SECTIONS: Section[] = [
           "Each combination of account, instrument and trading session is scored on how it recently filled — median slippage and rejection rate over the last 14 days — against its own earlier 60-day record. It is never compared with a different instrument, a different account or a fixed number.",
           "If recent slippage is more than double its own earlier level, or the rejection rate rises by 15 points or more, that combination is paused for 24 hours and then tested again. Below the minimum sample sizes it reads as not measured and pauses nothing.",
         ],
-        means: "A pause on one account, instrument and session that recently filled unusually badly.",
+        means:
+          "A pause on one account, instrument and session that recently filled unusually badly.",
         matters:
           "A setup being good and your broker filling it well are two different things, and only the second is measurable here.",
         todo: "Read a cooldown as information about your broker conditions, not about the strategy.",

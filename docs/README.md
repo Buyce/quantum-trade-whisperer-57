@@ -47,7 +47,6 @@ and is never updated retroactively.
 
 **Audits and indexes**
 
-
 - [LINK-AUDIT.md](LINK-AUDIT.md) — canonical URLs, internal link results and the
   vendor-guide audit behind the `/connect` steps.
 - [audits/2026-08-23-prompt-14.md](audits/2026-08-23-prompt-14.md) — dated Prompt 14

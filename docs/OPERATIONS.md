@@ -20,8 +20,8 @@ cadence rather than asserting a crontab line.
 | `worker/dispatch`           | frequent         | hand queued jobs to workers                                       |
 | `worker/process`            | frequent         | one instrument x timeframe per invocation                         |
 | `worker/shadow`             | frequent         | shadow replay work                                                |
-| `worker/reconcile-active`   | every 5 minutes  | second attempt at automatic orders for still-active setups         |
-| `worker/reconcile`          | every 5 minutes  | match submitted broker orders/deals into broker evidence           |
+| `worker/reconcile-active`   | every 5 minutes  | second attempt at automatic orders for still-active setups        |
+| `worker/reconcile`          | every 5 minutes  | match submitted broker orders/deals into broker evidence          |
 | `cron/shadow-resolve`       | periodic         | resolve shadow executions from stored candles                     |
 | `cron/refresh-specs`        | daily, 02:40 UTC | refresh broker symbol specs on a separate 24h budget              |
 | `cron/verify-reminders`     | daily            | remind users to backfill actual prices                            |
@@ -66,7 +66,6 @@ unmet criterion beside the measured value. Promotion stays a manual, audited
 checkpoint output recorded as its evidence. The panel reads the window from the
 recorded evidence rather than from a date written here, because a date in prose is
 stale the day after it is written.
-
 
 Sampling is side-effect-free collection: it grades nothing, publishes nothing,
 alerts nobody and cannot promote an instrument. It is allowed at
@@ -176,7 +175,6 @@ account (5). Three controls keep jobs inside that cap:
 A rate-limited cycle means missing evaluation data for that pass — never "no
 setups" and never a scanner-wide No Trade. The shadow replay engine reads
 RECOVERING after one failed pass and DEGRADED only once failures repeat.
-
 
 ## User-facing meaning
 

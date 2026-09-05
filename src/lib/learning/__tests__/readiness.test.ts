@@ -65,7 +65,13 @@ describe("gate readiness", () => {
 
   it("[UNIT] explains an undecidable gate through the descriptive floor", () => {
     const r = readiness([
-      row({ decidable: false, verdict: null, training_ready: false, pass_n_used: 4, fail_n_used: 3 }),
+      row({
+        decidable: false,
+        verdict: null,
+        training_ready: false,
+        pass_n_used: 4,
+        fail_n_used: 3,
+      }),
     ]);
     expect(missingFloors(r.gates[0]!, r).join(" ")).toContain(
       `${DECIDABLE_MIN_SAMPLES_PER_ARM}-sample descriptive floor`,

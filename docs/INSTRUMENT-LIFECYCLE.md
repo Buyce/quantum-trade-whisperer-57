@@ -51,11 +51,11 @@ far the instrument had progressed.
 The terminal collapses the stage into three user-visible states, so a reachable
 broker feed is never mistaken for availability:
 
-| User-visible state  | Stages                          | Feed strip label             | Selectable in Settings |
-| ------------------- | ------------------------------- | ---------------------------- | ---------------------- |
-| measuring           | `data_validation`, `shadow`     | measuring — not published yet | no                     |
-| publishable         | `signals_only`, `execution_approved` | live feed               | yes                    |
-| out of service      | `disabled`, `suspended`         | not in service               | no                     |
+| User-visible state | Stages                               | Feed strip label              | Selectable in Settings |
+| ------------------ | ------------------------------------ | ----------------------------- | ---------------------- |
+| measuring          | `data_validation`, `shadow`          | measuring — not published yet | no                     |
+| publishable        | `signals_only`, `execution_approved` | live feed                     | yes                    |
+| out of service     | `disabled`, `suspended`              | not in service                | no                     |
 
 The Settings instrument list is **derived** from the restricted
 `instrument_stages` view via `publishableInstruments()` in `lib/db-types.ts`, not

@@ -51,7 +51,10 @@ export async function recoverCharacterisation(
   const span = DECISION_LOOKUP_WINDOW_DAYS * 86_400_000;
   const anchor = input.aroundIso ? Date.parse(input.aroundIso) : NaN;
   const window = Number.isFinite(anchor)
-    ? { fromIso: new Date(anchor - span).toISOString(), toIso: new Date(anchor + span).toISOString() }
+    ? {
+        fromIso: new Date(anchor - span).toISOString(),
+        toIso: new Date(anchor + span).toISOString(),
+      }
     : {};
 
   // The broker symbol narrows the read first; a symbol the decision log spells

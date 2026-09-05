@@ -14,7 +14,13 @@ function hourly(count: number, startMs: number, gapAt: number, gapHours: number)
   let t = startMs;
   for (let i = 0; i < count; i++) {
     if (i === gapAt) t += gapHours * 3_600_000;
-    out.push({ time: new Date(t).toISOString(), open: 100, high: 101, low: 99, close: 100 } as Candle);
+    out.push({
+      time: new Date(t).toISOString(),
+      open: 100,
+      high: 101,
+      low: 99,
+      close: 100,
+    } as Candle);
     t += 3_600_000;
   }
   return out;

@@ -37,7 +37,11 @@ export async function loadSpreadNorm(
   }
   return spreadNorm(
     (data ?? []).map((row) => {
-      const r = row as { trading_date: string; valid_samples: number; p90_spread_price: number | null };
+      const r = row as {
+        trading_date: string;
+        valid_samples: number;
+        p90_spread_price: number | null;
+      };
       return {
         tradingDate: String(r.trading_date),
         validSamples: Number(r.valid_samples),

@@ -26,7 +26,14 @@ function view(overrides: Partial<BrokerOrderView> = {}): BrokerOrderView {
     dryRun: false,
     entryMode: "market",
     status: { kind: "closed_at_broker", label: "Closed at the broker", detail: null },
-    submitted: { volume: 1, entry: 1.1, stop: 1.11, target: 1.09, at: null, brokerSymbol: "EURUSD" },
+    submitted: {
+      volume: 1,
+      entry: 1.1,
+      stop: 1.11,
+      target: 1.09,
+      at: null,
+      brokerSymbol: "EURUSD",
+    },
     broker: {
       state: "closed",
       entryPrice: 1.1,
@@ -73,10 +80,16 @@ describe("order filters", () => {
     const rows = [
       view({ key: "a" }),
       view({ key: "b", instrument: "XAUUSD", grade: "B" }),
-      view({ key: "c", broker: null, status: { kind: "not_sent", label: "Not sent", detail: null } }),
+      view({
+        key: "c",
+        broker: null,
+        status: { kind: "not_sent", label: "Not sent", detail: null },
+      }),
     ];
     expect(
-      filterBrokerOrders(rows, { ...EMPTY_ORDER_FILTERS, instruments: ["XAUUSD"] }).map((r) => r.key),
+      filterBrokerOrders(rows, { ...EMPTY_ORDER_FILTERS, instruments: ["XAUUSD"] }).map(
+        (r) => r.key,
+      ),
     ).toEqual(["b"]);
     expect(filterBrokerOrders(rows, { ...EMPTY_ORDER_FILTERS, grades: ["B"] })).toHaveLength(1);
     expect(
@@ -86,9 +99,9 @@ describe("order filters", () => {
 
   it("[INVARIANT] excludes unpriced rows from a money range instead of treating them as zero", () => {
     const rows = [view({ key: "a" }), view({ key: "b", broker: null })];
-    expect(filterBrokerOrders(rows, { ...EMPTY_ORDER_FILTERS, minNet: 0 }).map((r) => r.key)).toEqual(
-      ["a"],
-    );
+    expect(
+      filterBrokerOrders(rows, { ...EMPTY_ORDER_FILTERS, minNet: 0 }).map((r) => r.key),
+    ).toEqual(["a"]);
     expect(filterBrokerOrders(rows, { ...EMPTY_ORDER_FILTERS, maxNet: 10 })).toHaveLength(0);
   });
 

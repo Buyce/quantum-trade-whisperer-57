@@ -40,7 +40,7 @@ rate or expectancy.
 
 | Method                          | Constant                                                                                                                                | Purpose                                                                                                                |
 | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Wilson score interval           | `wilson()` in `src/lib/baseline/capture.server.ts`                                                                                      | Proportion intervals for baseline fill and win-if-filled rates; correct at small `n`, unlike the normal approximation   |
+| Wilson score interval           | `wilson()` in `src/lib/baseline/capture.server.ts`                                                                                      | Proportion intervals for baseline fill and win-if-filled rates; correct at small `n`, unlike the normal approximation  |
 | Whole-UTC-day cluster bootstrap | `BOOTSTRAP_METHOD = "whole_utc_day_cluster_bootstrap"`, `DEFAULT_REPLICATES = 2000`, `DEFAULT_SEED = 20260821`, `BOOTSTRAP_VERSION = 1` | Dependence-aware intervals: trades from one UTC day are correlated, so whole days are resampled, not individual trades |
 | Benjamini–Hochberg              | `src/lib/stats/bh.ts`                                                                                                                   | Multiple-comparison control across buckets; carries `BH_DIAGNOSTIC_NOTE`                                               |
 
@@ -50,11 +50,11 @@ rate or expectancy.
 research, so a claim can always be traced to the tier that licensed it. There are
 exactly three, and no code invents a fourth:
 
-| Tier                    | Samples | Clusters | Cluster unit    | Licenses                                    |
-| ----------------------- | ------- | -------- | --------------- | ------------------------------------------- |
-| `descriptive`           | 30      | 10       | UTC day         | describing a difference on full history      |
-| `chronological_period`  | 30      | 5        | instrument-day  | reading ONE side of a chronological split    |
-| `training`              | 200     | 10       | UTC day         | fitting on, not merely describing            |
+| Tier                   | Samples | Clusters | Cluster unit   | Licenses                                  |
+| ---------------------- | ------- | -------- | -------------- | ----------------------------------------- |
+| `descriptive`          | 30      | 10       | UTC day        | describing a difference on full history   |
+| `chronological_period` | 30      | 5        | instrument-day | reading ONE side of a chronological split |
+| `training`             | 200     | 10       | UTC day        | fitting on, not merely describing         |
 
 `chronological_period` counts independence per instrument-day rather than per whole
 UTC day because a split period contains fewer whole days by construction.

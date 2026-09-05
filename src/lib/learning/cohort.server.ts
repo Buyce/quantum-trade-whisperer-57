@@ -16,10 +16,7 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import {
-  EXECUTION_POLICY_LEGACY,
-  REPLAY_V1_VERSION,
-} from "@/lib/execution/replay-registry";
+import { EXECUTION_POLICY_LEGACY, REPLAY_V1_VERSION } from "@/lib/execution/replay-registry";
 import { buildCohortEvidence, type CohortEvidence, type CohortObservation } from "./cohort";
 
 /** Bounded read: the harness is a background rule, not a report. */
@@ -54,9 +51,7 @@ export function perPlanR(row: {
   return Number.isFinite(r) ? r : null;
 }
 
-export async function loadCohortEvidence(
-  db: SupabaseClient,
-): Promise<CohortEvidenceSnapshot> {
+export async function loadCohortEvidence(db: SupabaseClient): Promise<CohortEvidenceSnapshot> {
   const { data, error } = await db
     .from("shadow_executions")
     .select(
@@ -102,4 +97,3 @@ export async function loadCohortEvidence(
     rows: observations.length,
   };
 }
-

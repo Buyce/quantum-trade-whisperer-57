@@ -69,22 +69,17 @@ export function CounterfactualStopPanel() {
                     <div>same {f.considered} setups</div>
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    <div className="text-foreground">
-                      Conservative {fmtR(f.conservativeMeanR)}
-                    </div>
+                    <div className="text-foreground">Conservative {fmtR(f.conservativeMeanR)}</div>
                     <div>{interval(f.conservativeCiLo, f.conservativeCiHi)}</div>
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    <div className="text-foreground">
-                      Upper bound {fmtR(f.optimisticMeanR)}
-                    </div>
+                    <div className="text-foreground">Upper bound {fmtR(f.optimisticMeanR)}</div>
                     <div>not a claim</div>
                   </div>
                 </div>
                 <p className="mt-2 text-xs text-muted-foreground">
                   {f.deterministic} proven · {f.ambiguous} unprovable (charged as losses) ·{" "}
-                  {f.excluded} not adjudicable · {f.clusterN} independent days ·{" "}
-                  {f.bootstrapStatus}
+                  {f.excluded} not adjudicable · {f.clusterN} independent days · {f.bootstrapStatus}
                 </p>
               </div>
             ))}

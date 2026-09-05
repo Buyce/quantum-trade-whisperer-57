@@ -17,12 +17,7 @@
  * module never derives, estimates, or fills in a statistic of its own.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
-import {
-  EMPTY_GATE_READINESS,
-  type GateReadiness,
-  isTrainingReady,
-  readyGates,
-} from "./readiness";
+import { EMPTY_GATE_READINESS, type GateReadiness, isTrainingReady, readyGates } from "./readiness";
 
 export interface GateAutomationChange {
   id: string;
@@ -113,9 +108,7 @@ async function notifyModelReadiness(
   }
 }
 
-export async function runGateChangeAutomation(
-  db: SupabaseClient,
-): Promise<GateAutomationOutcome> {
+export async function runGateChangeAutomation(db: SupabaseClient): Promise<GateAutomationOutcome> {
   let result: GateAutomationResult;
   try {
     const { data, error } = await db.rpc("run_gate_change_automation");

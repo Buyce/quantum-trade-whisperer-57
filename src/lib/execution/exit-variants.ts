@@ -91,9 +91,7 @@ const stopHit = (bar: Bar, stopR: number): boolean => bar.lR >= -stopR;
 const targetHit = (bar: Bar, targetR: number): boolean => bar.hR >= targetR;
 
 function openEnded(path: ExitPath, detail: string): VariantOutcome {
-  return undecidable(
-    path.truncated ? "The recorded path was capped before an exit." : detail,
-  );
+  return undecidable(path.truncated ? "The recorded path was capped before an exit." : detail);
 }
 
 /** Simulate one exit variant against one recorded path. */

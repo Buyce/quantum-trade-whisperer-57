@@ -95,7 +95,6 @@ describe("submission proof", () => {
   });
 });
 
-
 describe("broker presence", () => {
   it("[INVARIANT] a filled order is never cancellable", () => {
     expect(classifyBrokerPresence("1", [], [{ id: "1" }])).toBe("filled");

@@ -53,17 +53,17 @@ describe("percentiles", () => {
 
 describe("scoreWindow", () => {
   it("[UNIT] marks a thin window as not measured and says why", () => {
-    const score = scoreWindow(
-      { closed: [closed(0.0001, 1)], deliveries: [] },
-      RECENT_WINDOW_DAYS,
-    );
+    const score = scoreWindow({ closed: [closed(0.0001, 1)], deliveries: [] }, RECENT_WINDOW_DAYS);
     expect(score.measured).toBe(false);
     expect(score.unmeasuredReason).toContain(String(MIN_RECENT_CLOSED));
   });
 
   it("[INVARIANT] never treats unavailable slippage or R as zero", () => {
     const score = scoreWindow(
-      { closed: Array.from({ length: MIN_RECENT_CLOSED }, () => closed(null, null)), deliveries: [] },
+      {
+        closed: Array.from({ length: MIN_RECENT_CLOSED }, () => closed(null, null)),
+        deliveries: [],
+      },
       RECENT_WINDOW_DAYS,
     );
     expect(score.measured).toBe(true);
@@ -87,7 +87,10 @@ describe("scoreWindow", () => {
 
   it("[UNIT] reports no reject rate at all when there were no deliveries", () => {
     const score = scoreWindow(
-      { closed: Array.from({ length: MIN_RECENT_CLOSED }, () => closed(0.0002, 0.5)), deliveries: [] },
+      {
+        closed: Array.from({ length: MIN_RECENT_CLOSED }, () => closed(0.0002, 0.5)),
+        deliveries: [],
+      },
       RECENT_WINDOW_DAYS,
     );
     expect(score.rejectRate).toBeNull();
@@ -155,7 +158,10 @@ describe("evaluateCooldown", () => {
   it("[UNIT] ignores a bad reject rate on too few recent deliveries", () => {
     const verdict = evaluateCooldown(
       measuredRecent(0.0001, [delivery("rejected", "invalid")]),
-      measuredNorm(0.0001, Array.from({ length: 20 }, () => delivery("acknowledged"))),
+      measuredNorm(
+        0.0001,
+        Array.from({ length: 20 }, () => delivery("acknowledged")),
+      ),
       NOW,
     );
     expect(verdict.breached).toBe(false);

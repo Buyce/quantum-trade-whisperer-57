@@ -74,14 +74,14 @@ another.
 Every reconciliation pass also resolves what the broker says about each submitted
 order, and stores it on the delivery as `broker_order_state`:
 
-| State | Meaning | Occupies a slot |
-| --- | --- | --- |
-| `resting` | the broker still holds an unfilled pending order | yes |
-| `open` | a position exists (entry deal matched, no exit yet) | yes |
-| `closed` | broker-confirmed closed evidence | no |
-| `cancelled` | the broker cancelled, rejected or expired the order | no |
-| `absent` | the broker was readable and lists it nowhere | no |
-| `unresolved` | broker state could not be established this pass | yes |
+| State        | Meaning                                             | Occupies a slot |
+| ------------ | --------------------------------------------------- | --------------- |
+| `resting`    | the broker still holds an unfilled pending order    | yes             |
+| `open`       | a position exists (entry deal matched, no exit yet) | yes             |
+| `closed`     | broker-confirmed closed evidence                    | no              |
+| `cancelled`  | the broker cancelled, rejected or expired the order | no              |
+| `absent`     | the broker was readable and lists it nowhere        | no              |
+| `unresolved` | broker state could not be established this pass     | yes             |
 
 Rules that follow from this:
 

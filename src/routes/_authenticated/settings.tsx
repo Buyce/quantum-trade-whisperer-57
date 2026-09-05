@@ -1225,8 +1225,8 @@ function SettingsPage() {
                   />
                   <p className="mt-1 text-xs text-muted-foreground">
                     Measured against the highest equity P-Trades has actually observed on the
-                    account — not an assumed starting balance. This one stays on until you change
-                    it or your equity recovers.
+                    account — not an assumed starting balance. This one stays on until you change it
+                    or your equity recovers.
                   </p>
                 </div>
               </div>

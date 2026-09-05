@@ -71,10 +71,7 @@ export function anchorForRows(
  * the window must reach the row's start point at all. A row whose start is after
  * the last bar of the window is simply not this window's business.
  */
-export function windowCoversRow(
-  row: ReplayWindowRow,
-  candles: Array<{ time: string }>,
-): boolean {
+export function windowCoversRow(row: ReplayWindowRow, candles: Array<{ time: string }>): boolean {
   if (candles.length === 0) return false;
   const start = Date.parse(row.replay_cursor ?? row.detected_at);
   if (!Number.isFinite(start)) return false;

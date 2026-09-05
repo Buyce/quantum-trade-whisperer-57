@@ -53,7 +53,6 @@ export interface EligibilitySignal {
   direction?: string | null;
 }
 
-
 export interface EligibilitySettings {
   instruments: string[];
   sessions: string[];
@@ -206,7 +205,6 @@ export function buildCapFrame(
   for (const s of capSequence(frame, settings, channel, now, ranker).slice(cap)) out.add(s.id);
   return out;
 }
-
 
 /** Base rules plus the cap frame. The single answer every channel uses. */
 export function evaluateEligibility(args: {

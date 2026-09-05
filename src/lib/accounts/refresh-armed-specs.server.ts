@@ -173,7 +173,13 @@ export async function refreshArmedAccountSpecs(
  */
 export async function refreshAccountSpecForInstrument(
   db: SupabaseClient,
-  account: { id: string; userId: string; metaapiAccountId: string; region: string; platform: string | null },
+  account: {
+    id: string;
+    userId: string;
+    metaapiAccountId: string;
+    region: string;
+    platform: string | null;
+  },
   canonicalSymbol: string,
   now = Date.now(),
 ): Promise<boolean> {

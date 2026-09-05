@@ -56,7 +56,6 @@ export function rateLimitDelayMs(retryAfterSec: number | null, attempt: number):
   return Math.min(RATE_LIMIT_MAX_DELAY_MS, Math.max(fromHeader ?? backoff, backoff));
 }
 
-
 /**
  * Fire-and-forget provider-usage observation. Loaded lazily and swallowed, so the
  * outbound path keeps working unchanged when the telemetry table, the database or
@@ -240,8 +239,6 @@ export async function metaApiRequest<T = unknown>(
           );
           continue;
         }
-
-
 
         const rejectedToken =
           err instanceof MetaApiHttpError && (err.status === 401 || err.status === 403);

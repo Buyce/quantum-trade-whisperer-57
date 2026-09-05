@@ -157,8 +157,6 @@ A broker-accepted pending order with no matched broker evidence is reported as
 **resting at broker** in History and in Performance's delivery accounting. It is
 not a fill and never contributes to wins or losses.
 
-
-
 ### Freshness-adaptive ceilings (opt-in)
 
 `scanner_settings.adaptive_order_ceilings_enabled` (default false). When on, the daily
@@ -253,8 +251,6 @@ changes only what P-Trades will place for that owner; it does not move any
 statistic, grade or historical comparison. The window widens nothing else: tier,
 instruments, sessions, risk, lot ceiling, exposure limit, the intelligence gate and
 the pre-send broker re-check all still decide independently.
-
-
 
 On top of eligibility there is one optional, off-by-default, reduce-only rule:
 the **intelligence gate** (`src/lib/delivery/intel-gate.ts`). When an owner sets a

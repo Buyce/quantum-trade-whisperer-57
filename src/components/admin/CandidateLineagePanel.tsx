@@ -21,9 +21,6 @@ const PAGE_SIZE = 25;
 
 const utc = utcMinute;
 
-
-
-
 export function CandidateLineagePanel() {
   const [offset, setOffset] = useState(0);
   const fetchLineage = useServerFn(getCandidateLineage);

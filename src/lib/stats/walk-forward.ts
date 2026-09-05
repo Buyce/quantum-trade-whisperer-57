@@ -102,8 +102,7 @@ function armStats(rows: WalkForwardObservation[]): WalkForwardArm {
   // not between individual observations.
   let ss = 0;
   for (const c of totals.values()) ss += (c.total - c.n * mean) ** 2;
-  const seR =
-    clusters > 1 ? Math.sqrt((ss * clusters) / (clusters - 1)) / n : null;
+  const seR = clusters > 1 ? Math.sqrt((ss * clusters) / (clusters - 1)) / n : null;
   return { n, clusters, meanR: mean, seR };
 }
 

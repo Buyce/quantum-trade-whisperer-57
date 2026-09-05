@@ -21,7 +21,6 @@ const { allFetchesFailedMessage, replayCandleDepthForRows, resolveShadowExecutio
  */
 const DETECTED = new Date(Date.now() - 30 * 15 * 60_000).toISOString();
 
-
 function candles(from: number) {
   return Array.from({ length: 40 }, (_, i) => {
     const close = from + i * 0.0005;

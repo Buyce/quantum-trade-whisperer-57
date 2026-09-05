@@ -7,11 +7,11 @@ an order; none can authorise one, raise a limit, or place anything. They exist
 because a setup being good is not the same as an account being fit to trade it
 right now.
 
-| Brake                     | Asks                                                            | Evidence                          |
-| ------------------------- | --------------------------------------------------------------- | --------------------------------- |
-| Drawdown brakes           | Is this account losing beyond the owner's own limits?           | Closed broker trades, broker equity |
+| Brake                     | Asks                                                                         | Evidence                              |
+| ------------------------- | ---------------------------------------------------------------------------- | ------------------------------------- |
+| Drawdown brakes           | Is this account losing beyond the owner's own limits?                        | Closed broker trades, broker equity   |
 | Execution-quality scoring | Is this account/instrument/session filling materially worse than it used to? | Closed broker trades, delivery ledger |
-| Automatic cooldowns       | Has that degradation been recorded, and is the pause still live? | `execution_cooldowns`             |
+| Automatic cooldowns       | Has that degradation been recorded, and is the pause still live?             | `execution_cooldowns`                 |
 
 ## Current behaviour
 
@@ -31,13 +31,13 @@ drawdown, then weekly, then daily, then consecutive losses — so the owner sees
 most serious reason rather than the first one found. Each breach carries its own
 resume boundary:
 
-| Reason                     | Resumes                    |
-| -------------------------- | -------------------------- |
-| `daily_loss_limit`         | next UTC day, 00:00        |
-| `weekly_loss_limit`        | next ISO week, Monday 00:00 |
-| `consecutive_loss_limit`   | next UTC day, 00:00        |
-| `equity_drawdown_limit`    | owner action only          |
-| `risk_state_unmeasured`    | owner action only          |
+| Reason                   | Resumes                     |
+| ------------------------ | --------------------------- |
+| `daily_loss_limit`       | next UTC day, 00:00         |
+| `weekly_loss_limit`      | next ISO week, Monday 00:00 |
+| `consecutive_loss_limit` | next UTC day, 00:00         |
+| `equity_drawdown_limit`  | owner action only           |
+| `risk_state_unmeasured`  | owner action only           |
 
 If the closed trades cannot be read, or the broker did not report an equity figure
 that a percentage limit needs, the verdict is `risk_state_unmeasured` and orders
@@ -64,11 +64,11 @@ positive meaning the broker filled worse.
 
 Sample floors, below which a window says nothing at all:
 
-| Floor                            | Value | Meaning                             |
-| -------------------------------- | ----- | ----------------------------------- |
-| `MIN_RECENT_CLOSED`              | 5     | recent window is otherwise unmeasured |
-| `MIN_NORM_CLOSED`                | 10    | no norm exists to breach            |
-| `MIN_RECENT_DELIVERIES`          | 10    | reject rate says nothing            |
+| Floor                   | Value | Meaning                               |
+| ----------------------- | ----- | ------------------------------------- |
+| `MIN_RECENT_CLOSED`     | 5     | recent window is otherwise unmeasured |
+| `MIN_NORM_CLOSED`       | 10    | no norm exists to breach              |
+| `MIN_RECENT_DELIVERIES` | 10    | reject rate says nothing              |
 
 An unmeasured dimension reads `not measured` with the reason spelled out. It never
 scores zero and never triggers a cooldown.

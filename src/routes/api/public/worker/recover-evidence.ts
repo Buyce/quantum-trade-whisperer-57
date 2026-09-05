@@ -19,9 +19,8 @@ export const Route = createFileRoute("/api/public/worker/recover-evidence")({
 
         const { adminClient } = await import("@/lib/scanner/pipeline.server");
         const { recoverOrphanEvidence } = await import("@/lib/evidence/recover.server");
-        const { hasBenchmarkAccount, readBenchmarkAccount } = await import(
-          "@/lib/metaapi/config.server"
-        );
+        const { hasBenchmarkAccount, readBenchmarkAccount } =
+          await import("@/lib/metaapi/config.server");
 
         let windowDays: number | undefined;
         try {

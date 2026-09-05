@@ -178,7 +178,10 @@ export function AutomaticOrders({ userId }: { userId: string | undefined }) {
             variant="ghost"
             disabled={visible.length === 0}
             onClick={() =>
-              downloadCsv(`ptrades_automatic_orders_${todayStamp()}.csv`, brokerOrdersToCsv(visible))
+              downloadCsv(
+                `ptrades_automatic_orders_${todayStamp()}.csv`,
+                brokerOrdersToCsv(visible),
+              )
             }
           >
             <Download className="size-4" /> Export filtered (CSV)
@@ -206,7 +209,8 @@ export function AutomaticOrders({ userId }: { userId: string | undefined }) {
               <Filter className="size-3" /> Filters
             </span>
             <span className="num text-xs text-muted-foreground">
-              {visible.length} of {rows.length} loaded {rows.length === 1 ? "order" : "orders"} shown
+              {visible.length} of {rows.length} loaded {rows.length === 1 ? "order" : "orders"}{" "}
+              shown
             </span>
             {active ? (
               <Button
@@ -330,9 +334,9 @@ export function AutomaticOrders({ userId }: { userId: string | undefined }) {
         <div className="space-y-3">
           {pendingCount > 0 ? (
             <p className="text-xs text-muted-foreground">
-              {pendingCount} {pendingCount === 1 ? "order in this view has" : "orders in this view have"}{" "}
-              no closed broker result yet, so no outcome is claimed for{" "}
-              {pendingCount === 1 ? "it" : "them"}.
+              {pendingCount}{" "}
+              {pendingCount === 1 ? "order in this view has" : "orders in this view have"} no closed
+              broker result yet, so no outcome is claimed for {pendingCount === 1 ? "it" : "them"}.
             </p>
           ) : null}
           {layout === "table" ? (
@@ -447,17 +451,27 @@ function OrderTable({ rows }: { rows: BrokerOrderView[] }) {
                 >
                   {row.direction ? row.direction.toUpperCase() : "—"}
                 </td>
-                <td className="px-2.5 py-2">{num(row.broker?.volume ?? row.submitted.volume, 2)}</td>
+                <td className="px-2.5 py-2">
+                  {num(row.broker?.volume ?? row.submitted.volume, 2)}
+                </td>
                 <td className="px-2.5 py-2">{num(row.broker?.entryPrice, digits)}</td>
                 <td className="px-2.5 py-2">{num(row.broker?.exitPrice, digits)}</td>
-                <td className="px-2.5 py-2 whitespace-nowrap">{when(row.broker?.exitAt ?? null)}</td>
+                <td className="px-2.5 py-2 whitespace-nowrap">
+                  {when(row.broker?.exitAt ?? null)}
+                </td>
                 <td className="px-2.5 py-2">{num(row.broker?.grossProfit, 2)}</td>
                 <td className="px-2.5 py-2">{num(row.broker?.swap, 2)}</td>
                 <td className="px-2.5 py-2">{num(row.broker?.commission, 2)}</td>
                 <td
                   className={cn(
                     "px-2.5 py-2 font-semibold whitespace-nowrap",
-                    net === null ? "" : net > 0 ? "text-success" : net < 0 ? "text-destructive" : "",
+                    net === null
+                      ? ""
+                      : net > 0
+                        ? "text-success"
+                        : net < 0
+                          ? "text-destructive"
+                          : "",
                   )}
                 >
                   {money(net, row.broker?.currency)}
@@ -468,7 +482,10 @@ function OrderTable({ rows }: { rows: BrokerOrderView[] }) {
                 <td className="px-2.5 py-2 whitespace-nowrap" title={row.r.reason ?? undefined}>
                   {formatJournalR(row.r)}
                 </td>
-                <td className="px-2.5 py-2 whitespace-nowrap" title={row.status.detail ?? undefined}>
+                <td
+                  className="px-2.5 py-2 whitespace-nowrap"
+                  title={row.status.detail ?? undefined}
+                >
                   {row.status.label}
                 </td>
               </tr>

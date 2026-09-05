@@ -10,7 +10,6 @@ import { withMarketDataSlot } from "./market-gate.server";
 import { validQuoteGeometry } from "./quote";
 import { metaApiRequest } from "./request.server";
 
-
 const TF_MAP: Record<Timeframe, string> = { H4: "4h", H1: "1h", M15: "15m" };
 
 interface RawCandle {
@@ -65,7 +64,6 @@ export async function fetchCandlesFor(
         (startTime ? `&startTime=${encodeURIComponent(startTime)}` : ""),
     }),
   );
-
 
   if (!Array.isArray(raw) || raw.length === 0) {
     throw new Error(`MetaApi returned no candles for ${symbol} ${timeframe}`);
