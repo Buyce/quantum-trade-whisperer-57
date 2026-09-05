@@ -549,6 +549,28 @@ export async function revalidateDelivery(
       );
       if (brake?.paused) return reject("account_risk_brake", brake.detail ?? brake.reason ?? null);
     } catch (err) {
+      void err;
+    }
+  }
+
+  // ---- 5c. Automatic execution cooldown, re-asked before submission ---------
+  // The dimension may have cooled down while this delivery waited in the queue.
+  // Reduce-only like every gate here: it can refuse, never authorise. A read
+  // failure does NOT block — the cooldown is an additional refusal on top of
+  // every existing gate, so its table being unreadable must not by itself stop
+  // a trade the rest of the stack approved.
+  if (!isBenchmark && delivery.connected_account_id) {
+    const signalSession =
+      (Array.isArray(signal.market_context)
+        ? signal.market_context[0]?.trading_session
+        : (signal.market_context as { trading_session: string | null } | null)?.trading_session) ??
+      "unknown";
+    const cooldown = await activeCooldown(
+      db as unknown as SupabaseClient,
+      { accountId: delivery.connected_account_id, instrument: signal.instrument, session: signalSession },
+      now,
+    );
+    if (cooldown) return reject("execution_cooldown", cooldown.detail);
       console.error("revalidate drawdown brake unavailable", err);
       if (settings.drawdown_brakes_enabled === true) {
         return reject(

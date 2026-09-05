@@ -63,6 +63,7 @@ import { formatDuration, marketStatus } from "@/lib/market-hours";
 import { readCeilingSettings, type ExposureAccumulation } from "./user-ceilings";
 import { evaluateAccountBrakes, type AccountBrakeState } from "@/lib/risk/brakes.server";
 import { BRAKE_REASON_COPY } from "@/lib/risk/brakes";
+import { activeCooldown } from "@/lib/execution/quality.server";
 
 export interface DirectEnqueueSignal {
   id: string;
