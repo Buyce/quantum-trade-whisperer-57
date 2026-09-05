@@ -18,7 +18,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  AuthorSplitPanel,
   DedupPanel,
   DisciplinePanel,
   EmptyNote,
@@ -388,11 +387,7 @@ function AdminIntelligencePage() {
         </PanelBoundary>
       </PanelShell>
 
-      <PanelBoundary name="Human vs AI agent">
-        <PanelShell title="Human vs AI agent — accounts, decisions and reported outcomes">
-          <AuthorSplitPanel split={data.author_split} />
-        </PanelShell>
-      </PanelBoundary>
+
 
       <PanelBoundary name="User-reported integrity">
         <PanelShell title="User-reported data integrity — checked against deterministic replay">
