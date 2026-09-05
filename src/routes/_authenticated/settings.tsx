@@ -1055,78 +1055,13 @@ function SettingsPage() {
 
           <section className="space-y-4 rounded-md border border-border bg-card p-4">
             <div>
-              <h2 className="label-xs">Order ceilings at submission</h2>
+              <h2 className="label-xs">Losing-streak protection</h2>
               <p className="mt-1 text-xs text-muted-foreground">
-                Checked immediately before an automatic order is sent to your broker, using your
-                broker&apos;s own quote and specification. 0 turns a ceiling off. If a ceiling is
-                set but the broker figure needed to measure it is missing, the order is refused
-                rather than sent — an unmeasurable limit is not a met one.
+                Your spread, slippage and total-exposure ceilings now live together with the other
+                automatic-order rules, under Feed &amp; automatic orders.
               </p>
             </div>
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div>
-                <Label className="text-xs" htmlFor="max-spread">
-                  Max spread at entry (pips)
-                </Label>
-                <Input
-                  id="max-spread"
-                  type="number"
-                  inputMode="decimal"
-                  min={0}
-                  max={10000}
-                  step="0.1"
-                  className="num mt-2"
-                  value={maxSpreadPips}
-                  onChange={(e) => setMaxSpreadPips(e.target.value)}
-                />
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Refuses with &ldquo;spread above your limit&rdquo; when the live broker spread is
-                  wider. Retried while your order window is still open.
-                </p>
-              </div>
-              <div>
-                <Label className="text-xs" htmlFor="max-slippage">
-                  Max slippage from entry (pips)
-                </Label>
-                <Input
-                  id="max-slippage"
-                  type="number"
-                  inputMode="decimal"
-                  min={0}
-                  max={10000}
-                  step="0.1"
-                  className="num mt-2"
-                  value={maxSlippagePips}
-                  onChange={(e) => setMaxSlippagePips(e.target.value)}
-                />
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Refuses with &ldquo;slippage above your limit&rdquo; when the price P-Trades would
-                  actually trade at has moved further than this from the published entry.
-                </p>
-              </div>
-              <div>
-                <Label className="text-xs" htmlFor="max-exposure">
-                  Max total exposure (% of equity)
-                </Label>
-                <Input
-                  id="max-exposure"
-                  type="number"
-                  inputMode="decimal"
-                  min={0}
-                  max={100}
-                  step="0.1"
-                  className="num mt-2"
-                  value={maxTotalExposurePercent}
-                  onChange={(e) => setMaxTotalExposurePercent(e.target.value)}
-                />
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Open plus resting P-Trades risk at one broker account, against broker equity.
-                  Advisory unless you switch on the exposure limit under Automatic trading; then it
-                  refuses with &ldquo;total exposure limit&rdquo;. Older orders with no recorded
-                  risk figure are reported as unknown, never counted as zero.
-                </p>
-              </div>
-            </div>
+
 
             <div className="mt-6 space-y-4 rounded-md border border-border bg-background p-4">
               <label className="flex items-start gap-3">
