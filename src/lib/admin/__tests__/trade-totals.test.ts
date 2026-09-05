@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   aggregateBrokerTotals,
+  aggregateBrokerTotalsByAttribution,
   aggregateJournalTotals,
   type BrokerEvidenceRow,
 } from "@/lib/admin/trade-totals";
@@ -12,6 +13,7 @@ const row = (over: Partial<BrokerEvidenceRow> = {}): BrokerEvidenceRow => ({
   swap: 0,
   commission: 0,
   currency: "USD",
+  attribution: "auto",
   ...over,
 });
 
@@ -64,5 +66,36 @@ describe("aggregateJournalTotals", () => {
   it("counts each recorded outcome and keeps unknowns visible", () => {
     const t = aggregateJournalTotals(["win", "win", "loss", "open", "breakeven", null, "weird"]);
     expect(t).toEqual({ wins: 2, losses: 1, breakeven: 1, open: 1, other: 2, rows: 7 });
+  });
+});
+
+describe("aggregateBrokerTotalsByAttribution", () => {
+  const rows: BrokerEvidenceRow[] = [
+    row({ attribution: "auto", grossProfit: 10 }),
+    row({ attribution: "auto", grossProfit: -4 }),
+    row({ attribution: "unlinked", grossProfit: 6, accountId: "acc-2" }),
+    row({ attribution: "external", grossProfit: -1, accountId: "acc-3" }),
+  ];
+
+  it("routes each row into exactly one bucket", () => {
+    const t = aggregateBrokerTotalsByAttribution(rows);
+    expect(t.auto).toMatchObject({ wins: 1, losses: 1, closed: 2 });
+    expect(t.unlinked).toMatchObject({ wins: 1, losses: 0, closed: 1 });
+    expect(t.external).toMatchObject({ wins: 0, losses: 1, closed: 1 });
+  });
+
+  it("keeps the combined total equal to the buckets", () => {
+    const t = aggregateBrokerTotalsByAttribution(rows);
+    expect(t.all.closed).toBe(t.auto.closed + t.unlinked.closed + t.external.closed);
+    expect(t.all.wins).toBe(t.auto.wins + t.unlinked.wins + t.external.wins);
+    expect(t.all.losses).toBe(t.auto.losses + t.unlinked.losses + t.external.losses);
+    expect(t.all.grossProfit).toBe(11);
+    expect(t.all).toEqual(aggregateBrokerTotals(rows));
+  });
+
+  it("renders empty buckets as zeros, never as a placeholder", () => {
+    const t = aggregateBrokerTotalsByAttribution([row({ attribution: "auto" })]);
+    expect(t.unlinked).toMatchObject({ closed: 0, wins: 0, losses: 0, accounts: 0 });
+    expect(t.external.grossProfit).toBe(0);
   });
 });

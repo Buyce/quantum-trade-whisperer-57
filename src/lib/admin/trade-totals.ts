@@ -15,12 +15,22 @@
  * Pure and total: no clock, no Supabase.
  */
 
+/**
+ * Who placed the trade, decided from the evidence row itself:
+ * - `auto`: still linked to an automatic dispatch record.
+ * - `unlinked`: carries the platform's own order tag but the dispatch link is gone
+ *   (its setup row was purged), so the run cannot be named.
+ * - `external`: no platform tag at all — placed outside P-Trades.
+ */
+export type BrokerAttribution = "auto" | "unlinked" | "external";
+
 export interface BrokerEvidenceRow {
   accountId: string | null;
   grossProfit: number | null;
   swap: number | null;
   commission: number | null;
   currency: string | null;
+  attribution: BrokerAttribution;
 }
 
 export interface BrokerTotals {
@@ -51,8 +61,16 @@ export interface JournalTotals {
   rows: number;
 }
 
+export interface BrokerTotalsByAttribution {
+  auto: BrokerTotals;
+  unlinked: BrokerTotals;
+  external: BrokerTotals;
+  /** Every closed row, whatever placed it. */
+  all: BrokerTotals;
+}
+
 export interface TradeTotals {
-  broker: BrokerTotals;
+  broker: BrokerTotalsByAttribution;
   journal: JournalTotals;
 }
 
@@ -98,6 +116,24 @@ export function aggregateBrokerTotals(rows: BrokerEvidenceRow[]): BrokerTotals {
     netProfit: mixedCurrency ? null : net,
     currency: mixedCurrency ? null : (currencies.values().next().value ?? null),
     mixedCurrency,
+  };
+}
+
+/**
+ * Same classification, split by who placed the trade. Each bucket is an ordinary
+ * `BrokerTotals`, so mixed-currency refusal applies per bucket and to the combined
+ * total independently.
+ */
+export function aggregateBrokerTotalsByAttribution(
+  rows: BrokerEvidenceRow[],
+): BrokerTotalsByAttribution {
+  const of = (a: BrokerAttribution) =>
+    aggregateBrokerTotals(rows.filter((r) => r.attribution === a));
+  return {
+    auto: of("auto"),
+    unlinked: of("unlinked"),
+    external: of("external"),
+    all: aggregateBrokerTotals(rows),
   };
 }
 
