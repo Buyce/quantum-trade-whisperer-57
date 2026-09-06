@@ -112,7 +112,8 @@ describe("gate evidence", () => {
       ],
       [],
     );
-    expect(rows[0]!.expectedR).toBeNull();
-    expect(rows[0]!.verdict).toBe("refused_unmeasured");
+    // An unreportable statistic contributes no cohort at all — it is never
+    // rounded up into a usable measurement.
+    expect(rows).toHaveLength(0);
   });
 });
