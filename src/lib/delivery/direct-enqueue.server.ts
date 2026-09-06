@@ -127,6 +127,8 @@ interface SettingsRow {
   auto_intel_gate_enabled: boolean | null;
   auto_intel_min_win_pct: number | string | null;
   auto_intel_min_sample: number | null;
+  /** Optional expected-R floor per published plan. NULL = leg not configured. */
+  auto_intel_min_expected_r: number | string | null;
   auto_execute_c_grade: boolean | null;
   /** Legacy single ceiling, kept only for historical rows. */
   maximum_active_signal_orders: number | null;
