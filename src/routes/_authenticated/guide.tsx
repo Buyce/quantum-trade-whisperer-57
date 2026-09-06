@@ -144,6 +144,17 @@ const SECTIONS: Section[] = [
           "C-Grade is the lowest-confluence tier: an opted-in C-Grade order is your explicit choice, recorded in the automatic-order decision log.",
       },
       {
+        id: "intelligence-gate",
+        q: "What does the intelligence gate actually filter on?",
+        a: [
+          "It is off by default and can only ever send fewer orders, never more. When it is on it has two independent checks and you can use either or both: a minimum expected return per setup, measured in R, and a minimum win-if-filled rate with a sample floor behind it.",
+          "Expected return per setup is the money measure — it averages every replay outcome for that instrument and direction and counts setups that never traded as exactly zero. The win-if-filled rate only counts how often a filled setup won, so on its own it can block instruments that made money and let through ones that lost it. If you use just one check, use the expected-return one.",
+          "Either way, a cohort P-Trades has not measured well enough is refused, not passed, and every refusal is written to your automatic-order decision log with the numbers behind it. The gate never changes your feed, your alerts, your grades or any statistic.",
+        ],
+        assume:
+          "Both figures come from resolved replay outcomes. They are historical measurements, not predictions of the next trade.",
+      },
+      {
         id: "broker-performance",
         q: "Where do connected-account results appear?",
         a: [
