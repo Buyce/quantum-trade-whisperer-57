@@ -14,11 +14,7 @@
  */
 
 export type GateVerdict =
-  | "gate_off"
-  | "allowed"
-  | "refused_unmeasured"
-  | "refused_win_rate"
-  | "refused_expected_r";
+  "gate_off" | "allowed" | "refused_unmeasured" | "refused_win_rate" | "refused_expected_r";
 
 export interface GateEvidenceThresholds {
   enabled: boolean;
@@ -155,8 +151,7 @@ export function buildGateEvidence(
   }
 
   return [...cohorts.values()].sort(
-    (a, b) =>
-      a.instrument.localeCompare(b.instrument) || a.direction.localeCompare(b.direction),
+    (a, b) => a.instrument.localeCompare(b.instrument) || a.direction.localeCompare(b.direction),
   );
 }
 

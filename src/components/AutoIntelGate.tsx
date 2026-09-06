@@ -47,10 +47,10 @@ export function AutoIntelGate(props: AutoIntelGateProps) {
         <div>
           <h2 className="label-xs">Intelligence gate (automatic orders only)</h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            Off by default. When on, an eligible setup only becomes an order if the measured
-            history of its own cohort — same instrument and direction, from resolved replay
-            outcomes — clears the thresholds you set below. It never changes your feed, your
-            alerts or any statistic.
+            Off by default. When on, an eligible setup only becomes an order if the measured history
+            of its own cohort — same instrument and direction, from resolved replay outcomes —
+            clears the thresholds you set below. It never changes your feed, your alerts or any
+            statistic.
           </p>
         </div>
         <Switch checked={enabled} onCheckedChange={props.onEnabledChange} />
@@ -70,9 +70,9 @@ export function AutoIntelGate(props: AutoIntelGateProps) {
               placeholder="e.g. 0.05 — leave blank to skip this check"
             />
             <p className="text-[11px] text-muted-foreground">
-              This is the money measure: the average R per published plan, counting plans that
-              never traded as exactly 0R. A cohort also has to have a measured range that is not
-              entirely below zero. Leave blank and this check refuses nothing.
+              This is the money measure: the average R per published plan, counting plans that never
+              traded as exactly 0R. A cohort also has to have a measured range that is not entirely
+              below zero. Leave blank and this check refuses nothing.
             </p>
           </div>
 
@@ -104,17 +104,17 @@ export function AutoIntelGate(props: AutoIntelGateProps) {
           </div>
 
           <p className="text-[11px] text-muted-foreground">
-            A hit rate on its own does not say how much is won or lost per trade, so a high
-            win-rate threshold can block cohorts that actually made money and allow ones that
-            lost it. If you use only one of the two checks, use the expected-return one.
+            A hit rate on its own does not say how much is won or lost per trade, so a high win-rate
+            threshold can block cohorts that actually made money and allow ones that lost it. If you
+            use only one of the two checks, use the expected-return one.
           </p>
         </div>
       ) : null}
 
       {enabled && !configured ? (
         <p className="text-xs text-warning">
-          Set an expected-return floor or a win-rate threshold above 0% for the gate to do
-          anything. Until then it is treated as unconfigured and refuses nothing.
+          Set an expected-return floor or a win-rate threshold above 0% for the gate to do anything.
+          Until then it is treated as unconfigured and refuses nothing.
         </p>
       ) : null}
 

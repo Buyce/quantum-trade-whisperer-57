@@ -119,11 +119,11 @@ export function GateEvidencePanel() {
             </table>
           </div>
           <p className="text-[10px] text-muted-foreground">
-            Replay figures are historical measurements from resolved replay outcomes, not
-            forecasts. The broker columns are what the accounts were actually paid on closed
-            evidence, and the two can disagree — a cohort can win often and still lose money, or
-            win rarely and make it. A cohort with no reportable measurement is refused while the
-            gate is on, never passed. Refreshes every minute.
+            Replay figures are historical measurements from resolved replay outcomes, not forecasts.
+            The broker columns are what the accounts were actually paid on closed evidence, and the
+            two can disagree — a cohort can win often and still lose money, or win rarely and make
+            it. A cohort with no reportable measurement is refused while the gate is on, never
+            passed. Refreshes every minute.
           </p>
         </div>
       )}

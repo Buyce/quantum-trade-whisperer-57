@@ -276,7 +276,14 @@ export function evaluateIntelGate(
 
   // ---- Win-if-filled: secondary hit-rate filter, only when configured. ----
   if (!winGateConfigured(settings)) {
-    return { allowed: true, reason: "gate_passed", winPct: null, filledN: null, tier: null, ...payoffFields };
+    return {
+      allowed: true,
+      reason: "gate_passed",
+      winPct: null,
+      filledN: null,
+      tier: null,
+      ...payoffFields,
+    };
   }
 
   const prior: RegimePrior | null = lookupRegime(rows, query);

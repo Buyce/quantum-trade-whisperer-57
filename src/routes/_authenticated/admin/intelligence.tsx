@@ -392,8 +392,6 @@ function AdminIntelligencePage() {
         </PanelBoundary>
       </PanelShell>
 
-
-
       <PanelBoundary name="User-reported integrity">
         <PanelShell title="User-reported data integrity — checked against deterministic replay">
           {audit.isError ? (

@@ -1050,9 +1050,7 @@ export const getAdminGateEvidence = createServerFn({ method: "GET" })
             instrument: r.instrument ?? null,
             direction: r.direction ?? null,
             netProfit:
-              gross === null
-                ? null
-                : gross + (numeric(r.swap) ?? 0) + (numeric(r.commission) ?? 0),
+              gross === null ? null : gross + (numeric(r.swap) ?? 0) + (numeric(r.commission) ?? 0),
             currency: r.profit_currency ?? null,
           };
         }),
