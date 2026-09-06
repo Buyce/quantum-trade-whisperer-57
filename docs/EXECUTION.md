@@ -253,14 +253,27 @@ instruments, sessions, risk, lot ceiling, exposure limit, the intelligence gate 
 the pre-send broker re-check all still decide independently.
 
 On top of eligibility there is one optional, off-by-default, reduce-only rule:
-the **intelligence gate** (`src/lib/delivery/intel-gate.ts`). When an owner sets a
-minimum win-if-filled rate, an eligible setup only becomes an order if the
-replay-derived `regime_stats` rate for its own regime meets that threshold with at
-least the configured number of filled samples behind it. A regime with too few
-resolved samples — or unreadable statistics — is **refused, not passed**: the gate
-fails closed and its refusal is recorded as a missing measurement, never as a
-forecast. The gate governs automatic orders only; it never touches the feed,
-alerts, grading, replay or any statistic.
+the **intelligence gate** (`src/lib/delivery/intel-gate.ts`). It has two
+independent legs, either of which may be left unconfigured:
+
+| Leg                           | Setting                                            | Source                                                                            | Refuses when                                                                                                                                                                                                                                           |
+| ----------------------------- | -------------------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Expected R per published plan | `auto_intel_min_expected_r` (NULL = off)           | `payoff_stats.mean_r_per_plan`, tier 2 then tier 1, `stat_status = 'descriptive'` | no reportable cohort (`intelligence_gate_expected_r_unmeasured`), the measured interval sits entirely below zero (`intelligence_gate_expected_r_interval_below_zero`), or the mean is under the floor (`intelligence_gate_expected_r_below_threshold`) |
+| Win-if-filled rate            | `auto_intel_min_win_pct` + `auto_intel_min_sample` | `regime_stats.p_win_shrunk` via `lookupRegime`                                    | too few filled samples (`intelligence_gate_sample_insufficient`) or a measured rate under the threshold (`intelligence_gate_below_threshold`)                                                                                                          |
+
+Expected R is the money measure: it averages the whole payoff distribution and
+counts plans that never traded as exactly 0R, so it accounts for how much is won
+or lost per setup. The win-if-filled rate is a hit rate only and can refuse
+cohorts that made money while admitting cohorts that lost it — which is why both
+legs are optional and reported side by side in Admin → Intelligence
+(`GateEvidencePanel`, backed by `getAdminGateEvidence`), against what the broker
+actually paid per cohort.
+
+A cohort with too few resolved samples — or unreadable statistics — is
+**refused, not passed**: the gate fails closed and its refusal is recorded as a
+missing measurement, never as a forecast. Reading `payoff_stats` here does not
+promote research output anywhere else: the gate governs automatic orders only, and
+never touches the feed, alerts, grading, replay or any statistic.
 
 Every enqueue decision, including each refusal and each system-wide refusal, is
 recorded in `execution_enqueue_decisions` (`enqueue-log.server.ts`, best-effort so
