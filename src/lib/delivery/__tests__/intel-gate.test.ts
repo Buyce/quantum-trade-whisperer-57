@@ -201,3 +201,100 @@ describe("enqueueDirectDeliveries with the gate", () => {
     });
   });
 });
+
+/**
+ * Expected R per published plan is the money leg of the gate. These pin that it
+ * refuses an unmeasured cohort, refuses a range entirely below zero, and can
+ * only ever reduce what is sent.
+ */
+const PAYOFF = [
+  {
+    tier: 2,
+    instrument: "XAUUSD",
+    direction: "long",
+    estimand: "mean_r_per_plan",
+    stat_status: "descriptive",
+    n_used: 90,
+    mean_r: 0.0344,
+    ci_lo: -0.0378,
+    ci_hi: 0.1067,
+  },
+];
+
+describe("evaluateIntelGate — expected R leg", () => {
+  const query = {
+    instrument: "XAUUSD",
+    direction: "long",
+    session: "london",
+    volatilityIndex: 1,
+  };
+
+  it("[INVARIANT] refuses when no reportable expected-R cohort exists", () => {
+    const v = evaluateIntelGate(
+      { enabled: true, minWinPct: null, minSample: 30, minExpectedR: 0.02 },
+      STATS,
+      query,
+      [],
+    );
+    expect(v.allowed).toBe(false);
+    expect(v.reason).toBe("intelligence_gate_expected_r_unmeasured");
+    expect(v.expectedR).toBeNull();
+  });
+
+  it("passes a measured cohort above the floor and reports the numbers behind it", () => {
+    const v = evaluateIntelGate(
+      { enabled: true, minWinPct: null, minSample: 30, minExpectedR: 0.02 },
+      STATS,
+      query,
+      PAYOFF,
+    );
+    expect(v.allowed).toBe(true);
+    expect(v.reason).toBe("gate_passed");
+    expect(v.expectedR).toBe(0.0344);
+    expect(v.expectedRN).toBe(90);
+  });
+
+  it("refuses a cohort below the floor", () => {
+    const v = evaluateIntelGate(
+      { enabled: true, minWinPct: null, minSample: 30, minExpectedR: 0.5 },
+      STATS,
+      query,
+      PAYOFF,
+    );
+    expect(v.allowed).toBe(false);
+    expect(v.reason).toBe("intelligence_gate_expected_r_below_threshold");
+  });
+
+  it("[INVARIANT] refuses a cohort whose whole measured range sits below zero", () => {
+    const v = evaluateIntelGate(
+      { enabled: true, minWinPct: null, minSample: 30, minExpectedR: -9 },
+      STATS,
+      query,
+      [{ ...PAYOFF[0]!, mean_r: -0.2, ci_lo: -0.4, ci_hi: -0.05 }],
+    );
+    expect(v.allowed).toBe(false);
+    expect(v.reason).toBe("intelligence_gate_expected_r_interval_below_zero");
+  });
+
+  it("[INVARIANT] is reduce-only: the win-rate leg still refuses after expected R passes", () => {
+    const v = evaluateIntelGate(
+      { enabled: true, minWinPct: 99, minSample: 30, minExpectedR: 0.01 },
+      STATS,
+      query,
+      PAYOFF,
+    );
+    expect(v.allowed).toBe(false);
+    expect(v.reason).toBe("intelligence_gate_below_threshold");
+  });
+
+  it("[INVARIANT] an expected-R floor alone is off when the gate switch is off", () => {
+    const v = evaluateIntelGate(
+      { enabled: false, minWinPct: null, minSample: 30, minExpectedR: 5 },
+      STATS,
+      query,
+      [],
+    );
+    expect(v.allowed).toBe(true);
+    expect(v.reason).toBe("gate_disabled");
+  });
+});

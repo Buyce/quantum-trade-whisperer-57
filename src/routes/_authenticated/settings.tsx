@@ -143,6 +143,7 @@ function SettingsPage() {
   const [autoWindowMinutes, setAutoWindowMinutes] = useState(AUTO_ORDER_WINDOW_DEFAULT_MINUTES);
   const [intelMinWin, setIntelMinWin] = useState("");
   const [intelMinSample, setIntelMinSample] = useState("30");
+  const [intelMinExpectedR, setIntelMinExpectedR] = useState("");
   const [equityAsOf, setEquityAsOf] = useState<string | null>(null);
   const [maxLots, setMaxLots] = useState("0");
   const [leverage, setLeverage] = useState("100");
@@ -278,6 +279,9 @@ function SettingsPage() {
       s.auto_intel_min_win_pct == null ? "" : String(Number(s.auto_intel_min_win_pct)),
     );
     setIntelMinSample(String(Number(s.auto_intel_min_sample ?? 30)));
+    setIntelMinExpectedR(
+      s.auto_intel_min_expected_r == null ? "" : String(Number(s.auto_intel_min_expected_r)),
+    );
     setEquityAsOf(s.equity_as_of ?? null);
     setMaxLots(String(Number(s.max_position_size ?? 0)));
     setLeverage(String(Number(s.leverage ?? 100)));
@@ -396,6 +400,11 @@ function SettingsPage() {
             ? clamp(Number(intelMinWin), 0, 100)
             : null,
         auto_intel_min_sample: Math.round(clamp(num(intelMinSample, 30), 1, 100000)),
+        // Expected R floor: blank stays NULL so this leg refuses nothing.
+        auto_intel_min_expected_r:
+          Number.isFinite(Number(intelMinExpectedR)) && intelMinExpectedR.trim() !== ""
+            ? clamp(Number(intelMinExpectedR), -5, 5)
+            : null,
         // Provenance: user-entered balance, timestamped when it changes.
         ...(equityChanged || !equityAsOf ? { equity_as_of: new Date().toISOString() } : {}),
       });
@@ -494,9 +503,11 @@ function SettingsPage() {
             enabled={intelGate}
             minWinPct={intelMinWin}
             minSample={intelMinSample}
+            minExpectedR={intelMinExpectedR}
             onEnabledChange={setIntelGate}
             onMinWinPctChange={setIntelMinWin}
             onMinSampleChange={setIntelMinSample}
+            onMinExpectedRChange={setIntelMinExpectedR}
           />
 
           <AutoOrderDecisions />

@@ -53,6 +53,7 @@ import { ExecutionSwitchPanel } from "@/components/admin/ExecutionSwitchPanel";
 import { EnqueueDecisionPanel } from "@/components/admin/EnqueueDecisionPanel";
 import { AutoTraderPanel } from "@/components/admin/AutoTraderPanel";
 import { TradeTotalsPanel } from "@/components/admin/TradeTotalsPanel";
+import { GateEvidencePanel } from "@/components/admin/GateEvidencePanel";
 
 import { ExecutionQualityPanel } from "@/components/admin/ExecutionQualityPanel";
 import { WalkForwardPanel } from "@/components/admin/WalkForwardPanel";
@@ -300,6 +301,10 @@ function AdminIntelligencePage() {
         <TradeTotalsPanel />
       </PanelBoundary>
 
+      <PanelBoundary name="Intelligence gate evidence">
+        <GateEvidencePanel />
+      </PanelBoundary>
+
       <PanelBoundary name="Auto trader">
         <AutoTraderPanel />
       </PanelBoundary>
@@ -386,8 +391,6 @@ function AdminIntelligencePage() {
           <LearningEvidencePanel />
         </PanelBoundary>
       </PanelShell>
-
-
 
       <PanelBoundary name="User-reported integrity">
         <PanelShell title="User-reported data integrity — checked against deterministic replay">

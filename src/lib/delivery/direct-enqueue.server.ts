@@ -52,7 +52,13 @@ import {
   type EligibilitySignal,
 } from "./eligibility";
 
-import { evaluateIntelGate, gateConfigured, type IntelGateSettings } from "./intel-gate";
+import {
+  evaluateIntelGate,
+  expectedRGateConfigured,
+  gateConfigured,
+  type IntelGateSettings,
+  type PayoffGateRow,
+} from "./intel-gate";
 import { recordEnqueueDecisions, type EnqueueDecisionRow } from "./enqueue-log.server";
 import {
   INSTRUMENT_NOT_APPROVED,
@@ -127,6 +133,8 @@ interface SettingsRow {
   auto_intel_gate_enabled: boolean | null;
   auto_intel_min_win_pct: number | string | null;
   auto_intel_min_sample: number | null;
+  /** Optional expected-R floor per published plan. NULL = leg not configured. */
+  auto_intel_min_expected_r: number | string | null;
   auto_execute_c_grade: boolean | null;
   /** Legacy single ceiling, kept only for historical rows. */
   maximum_active_signal_orders: number | null;
@@ -592,7 +600,7 @@ async function runDirectEnqueue(
   const { data: settingsRows, error: settingsError } = await db
     .from("scanner_settings")
     .select(
-      "user_id, instruments, sessions, alert_min_grade, daily_setup_cap, execution_config_version, auto_intel_gate_enabled, auto_intel_min_win_pct, auto_intel_min_sample, auto_execute_c_grade, maximum_active_signal_orders, maximum_concurrent_signal_orders, maximum_daily_signal_orders, allow_unmeasured_intel, auto_order_window_minutes, maximum_daily_orders_per_symbol, adaptive_order_ceilings_enabled, adaptive_order_ceiling_max, adaptive_order_ceiling_floor, news_block_new_entries, news_suppression_minutes_before, news_suppression_minutes_after, max_entry_spread_pips, max_entry_slippage_pips, max_total_exposure_percent, exposure_limit_enabled, drawdown_brakes_enabled, daily_loss_limit_percent, weekly_loss_limit_percent, consecutive_loss_limit, max_drawdown_percent",
+      "user_id, instruments, sessions, alert_min_grade, daily_setup_cap, execution_config_version, auto_intel_gate_enabled, auto_intel_min_win_pct, auto_intel_min_sample, auto_intel_min_expected_r, auto_execute_c_grade, maximum_active_signal_orders, maximum_concurrent_signal_orders, maximum_daily_signal_orders, allow_unmeasured_intel, auto_order_window_minutes, maximum_daily_orders_per_symbol, adaptive_order_ceilings_enabled, adaptive_order_ceiling_max, adaptive_order_ceiling_floor, news_block_new_entries, news_suppression_minutes_before, news_suppression_minutes_after, max_entry_spread_pips, max_entry_slippage_pips, max_total_exposure_percent, exposure_limit_enabled, drawdown_brakes_enabled, daily_loss_limit_percent, weekly_loss_limit_percent, consecutive_loss_limit, max_drawdown_percent",
     )
     .in("user_id", userIds);
   if (settingsError) return await empty("settings_unreadable", settingsError.message);
@@ -629,6 +637,10 @@ async function runDirectEnqueue(
         ? null
         : Number(row.auto_intel_min_win_pct),
     minSample: Number(row.auto_intel_min_sample ?? 30),
+    minExpectedR:
+      row.auto_intel_min_expected_r === null || row.auto_intel_min_expected_r === undefined
+        ? null
+        : Number(row.auto_intel_min_expected_r),
     allowUnmeasured: row.allow_unmeasured_intel === true,
   });
   const anyGate = [...settingsByUser.values()].some((row) => gateConfigured(gateSettingsOf(row)));
@@ -645,6 +657,28 @@ async function runDirectEnqueue(
       console.error("direct enqueue regime stats unreadable", statError.message);
     } else {
       regimeRows = (statRows ?? []) as unknown as RegimeStatRow[];
+    }
+  }
+
+  /**
+   * Expected R per published plan, read only when at least one armed owner set an
+   * expected-R floor. Unreadable statistics leave the list EMPTY, and an empty
+   * list refuses inside `evaluateIntelGate` — an absent measurement is never
+   * read as a passing one.
+   */
+  let payoffRows: PayoffGateRow[] = [];
+  const anyExpectedRGate = [...settingsByUser.values()].some((row) =>
+    expectedRGateConfigured(gateSettingsOf(row)),
+  );
+  if (anyExpectedRGate) {
+    const { data: payoffData, error: payoffError } = await db
+      .from("payoff_stats")
+      .select("tier, instrument, direction, estimand, stat_status, n_used, mean_r, ci_lo, ci_hi")
+      .eq("estimand", "mean_r_per_plan");
+    if (payoffError) {
+      console.error("direct enqueue payoff stats unreadable", payoffError.message);
+    } else {
+      payoffRows = (payoffData ?? []) as unknown as PayoffGateRow[];
     }
   }
 
@@ -966,12 +1000,17 @@ async function runDirectEnqueue(
     // Optional, owner-configured, reduce-only. Off by default.
     const gate = gateSettingsOf(row);
     if (gateConfigured(gate)) {
-      const gateVerdict = evaluateIntelGate(gate, regimeRows, {
-        instrument: signal.instrument,
-        direction: signal.direction ?? "",
-        session: signal.session,
-        volatilityIndex: signal.volatilityIndex ?? null,
-      });
+      const gateVerdict = evaluateIntelGate(
+        gate,
+        regimeRows,
+        {
+          instrument: signal.instrument,
+          direction: signal.direction ?? "",
+          session: signal.session,
+          volatilityIndex: signal.volatilityIndex ?? null,
+        },
+        payoffRows,
+      );
       if (!gateVerdict.allowed) {
         filtered += 1;
         decisions.push({
@@ -980,8 +1019,11 @@ async function runDirectEnqueue(
           instrument: signal.instrument,
           grade: signal.grade,
           decision: gateVerdict.reason,
-          detail:
-            gateVerdict.winPct === null
+          detail: gateVerdict.reason.startsWith("intelligence_gate_expected_r")
+            ? gateVerdict.expectedR === null
+              ? `no reportable expected-R cohort; floor ${gate.minExpectedR}R`
+              : `expected ${gateVerdict.expectedR}R per setup on ${gateVerdict.expectedRN} plans (range ${gateVerdict.expectedRCiLo ?? "unavailable"} to ${gateVerdict.expectedRCiHi ?? "unavailable"}) vs floor ${gate.minExpectedR}R`
+            : gateVerdict.winPct === null
               ? `filled samples: ${gateVerdict.filledN ?? "unavailable"}`
               : `win-if-filled ${gateVerdict.winPct}% on ${gateVerdict.filledN} filled samples vs threshold ${gate.minWinPct}%`,
           enqueued: 0,
