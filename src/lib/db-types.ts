@@ -194,6 +194,11 @@ export interface ScannerSettingsRow {
   auto_intel_min_win_pct: number | null;
   auto_intel_min_sample: number;
   /**
+   * Optional expected-R floor per published plan for AUTOMATIC ORDERS. NULL means
+   * this leg is unconfigured and refuses nothing.
+   */
+  auto_intel_min_expected_r: number | null;
+  /**
    * Owner opt-in for C-Grade AUTOMATIC ORDERS. False by default, which keeps the
    * historical unconditional refusal. True does not authorise anything on its
    * own: a C-Grade setup still faces the alert tier, instruments, sessions,

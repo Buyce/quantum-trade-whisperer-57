@@ -993,9 +993,12 @@ export const getAdminGateEvidence = createServerFn({ method: "GET" })
     const [settings, regime, payoff, evidence] = await Promise.all([
       supabaseAdmin
         .from("scanner_settings")
+        // The expected-R column is newer than the generated types, so it is read
+        // through an untyped projection and validated numerically below.
         .select(
           "auto_intel_gate_enabled, auto_intel_min_win_pct, auto_intel_min_sample, auto_intel_min_expected_r",
         )
+        .returns<Record<string, unknown>[]>()
         .eq("user_id", String(context.userId))
         .maybeSingle(),
       supabaseAdmin
@@ -1009,7 +1012,7 @@ export const getAdminGateEvidence = createServerFn({ method: "GET" })
         .eq("tier", 2),
       supabaseAdmin
         .from("broker_trade_evidence")
-        .select("instrument, direction, gross_profit, swap, commission, profit_currency")
+        .select("signal_instrument, direction, gross_profit, swap, commission, profit_currency")
         .eq("evidence_class", "customer")
         .eq("state", "closed"),
     ]);
@@ -1047,7 +1050,7 @@ export const getAdminGateEvidence = createServerFn({ method: "GET" })
         (evidence.data ?? []).map((r) => {
           const gross = numeric(r.gross_profit);
           return {
-            instrument: r.instrument ?? null,
+            instrument: r.signal_instrument ?? null,
             direction: r.direction ?? null,
             netProfit:
               gross === null ? null : gross + (numeric(r.swap) ?? 0) + (numeric(r.commission) ?? 0),
