@@ -143,6 +143,7 @@ function SettingsPage() {
   const [autoWindowMinutes, setAutoWindowMinutes] = useState(AUTO_ORDER_WINDOW_DEFAULT_MINUTES);
   const [intelMinWin, setIntelMinWin] = useState("");
   const [intelMinSample, setIntelMinSample] = useState("30");
+  const [intelMinExpectedR, setIntelMinExpectedR] = useState("");
   const [equityAsOf, setEquityAsOf] = useState<string | null>(null);
   const [maxLots, setMaxLots] = useState("0");
   const [leverage, setLeverage] = useState("100");
