@@ -23,6 +23,12 @@ import {
   type TradeTotals,
 } from "@/lib/admin/trade-totals";
 
+import {
+  buildGateEvidence,
+  type GateEvidenceRow,
+  type GateEvidenceThresholds,
+} from "@/lib/admin/gate-evidence";
+
 const OWNER_EMAIL = "boatengampomah@gmail.com";
 
 export interface AdminEngine {
@@ -950,6 +956,107 @@ export const getAdminTradeTotals = createServerFn({ method: "GET" })
         })),
       ),
       journal: aggregateJournalTotals((journal.data ?? []).map((row) => row.outcome ?? null)),
+    };
+  });
+
+/**
+ * Intelligence-gate evidence (owner only).
+ *
+ * Places, per instrument/direction cohort, the replay win-if-filled rate, the
+ * replay expected R per published plan, and what the broker actually paid, next
+ * to the verdict the owner's CURRENT thresholds would give. Nothing here changes
+ * a threshold or places an order; it exists so the gate can be judged against
+ * money rather than against a hit rate alone.
+ */
+export interface GateEvidence {
+  thresholds: GateEvidenceThresholds;
+  rows: GateEvidenceRow[];
+}
+
+export const getAdminGateEvidence = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<GateEvidence> => {
+    const email = String(context.claims["email"] ?? "").toLowerCase();
+    if (email !== OWNER_EMAIL) throw new Error("Forbidden");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const numeric = (v: unknown): number | null =>
+      typeof v === "number" && Number.isFinite(v)
+        ? v
+        : v === null || v === undefined
+          ? null
+          : Number.isFinite(Number(v))
+            ? Number(v)
+            : null;
+
+    const [settings, regime, payoff, evidence] = await Promise.all([
+      supabaseAdmin
+        .from("scanner_settings")
+        .select(
+          "auto_intel_gate_enabled, auto_intel_min_win_pct, auto_intel_min_sample, auto_intel_min_expected_r",
+        )
+        .eq("user_id", String(context.userId))
+        .maybeSingle(),
+      supabaseAdmin
+        .from("regime_stats")
+        .select("instrument, direction, p_win_shrunk, n_filled")
+        .eq("tier", 2),
+      supabaseAdmin
+        .from("payoff_stats")
+        .select("instrument, direction, mean_r, n_used, ci_lo, ci_hi, stat_status")
+        .eq("estimand", "mean_r_per_plan")
+        .eq("tier", 2),
+      supabaseAdmin
+        .from("broker_trade_evidence")
+        .select("instrument, direction, gross_profit, swap, commission, profit_currency")
+        .eq("evidence_class", "customer")
+        .eq("state", "closed"),
+    ]);
+    if (regime.error) throw new Error(regime.error.message);
+    if (payoff.error) throw new Error(payoff.error.message);
+    if (evidence.error) throw new Error(evidence.error.message);
+
+    const s = settings.data;
+    const thresholds: GateEvidenceThresholds = {
+      enabled: s?.auto_intel_gate_enabled === true,
+      minWinPct: numeric(s?.auto_intel_min_win_pct ?? null),
+      minSample: numeric(s?.auto_intel_min_sample ?? null) ?? 30,
+      minExpectedR: numeric(s?.auto_intel_min_expected_r ?? null),
+    };
+
+    return {
+      thresholds,
+      rows: buildGateEvidence(
+        thresholds,
+        (regime.data ?? []).map((r) => ({
+          instrument: r.instrument ?? null,
+          direction: r.direction ?? null,
+          pWin: numeric(r.p_win_shrunk),
+          filledN: numeric(r.n_filled),
+        })),
+        (payoff.data ?? []).map((r) => ({
+          instrument: r.instrument ?? null,
+          direction: r.direction ?? null,
+          meanR: numeric(r.mean_r),
+          nUsed: numeric(r.n_used),
+          ciLo: numeric(r.ci_lo),
+          ciHi: numeric(r.ci_hi),
+          statStatus: r.stat_status ?? null,
+        })),
+        (evidence.data ?? []).map((r) => {
+          const gross = numeric(r.gross_profit);
+          return {
+            instrument: r.instrument ?? null,
+            direction: r.direction ?? null,
+            netProfit:
+              gross === null
+                ? null
+                : gross + (numeric(r.swap) ?? 0) + (numeric(r.commission) ?? 0),
+            currency: r.profit_currency ?? null,
+          };
+        }),
+      ),
     };
   });
 
