@@ -1022,10 +1022,10 @@ export const getAdminGateEvidence = createServerFn({ method: "GET" })
 
     const s = settings.data;
     const thresholds: GateEvidenceThresholds = {
-      enabled: s?.auto_intel_gate_enabled === true,
-      minWinPct: numeric(s?.auto_intel_min_win_pct ?? null),
-      minSample: numeric(s?.auto_intel_min_sample ?? null) ?? 30,
-      minExpectedR: numeric(s?.auto_intel_min_expected_r ?? null),
+      enabled: s?.["auto_intel_gate_enabled"] === true,
+      minWinPct: numeric(s?.["auto_intel_min_win_pct"] ?? null),
+      minSample: numeric(s?.["auto_intel_min_sample"] ?? null) ?? 30,
+      minExpectedR: numeric(s?.["auto_intel_min_expected_r"] ?? null),
     };
 
     return {
