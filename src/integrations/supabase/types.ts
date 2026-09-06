@@ -4225,6 +4225,7 @@ export type Database = {
           allow_unmeasured_intel: boolean
           auto_execute_c_grade: boolean
           auto_intel_gate_enabled: boolean
+          auto_intel_min_expected_r: number | null
           auto_intel_min_sample: number
           auto_intel_min_win_pct: number | null
           auto_market_entry_enabled: boolean
@@ -4286,6 +4287,7 @@ export type Database = {
           allow_unmeasured_intel?: boolean
           auto_execute_c_grade?: boolean
           auto_intel_gate_enabled?: boolean
+          auto_intel_min_expected_r?: number | null
           auto_intel_min_sample?: number
           auto_intel_min_win_pct?: number | null
           auto_market_entry_enabled?: boolean
@@ -4347,6 +4349,7 @@ export type Database = {
           allow_unmeasured_intel?: boolean
           auto_execute_c_grade?: boolean
           auto_intel_gate_enabled?: boolean
+          auto_intel_min_expected_r?: number | null
           auto_intel_min_sample?: number
           auto_intel_min_win_pct?: number | null
           auto_market_entry_enabled?: boolean
