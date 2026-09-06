@@ -998,9 +998,9 @@ export const getAdminGateEvidence = createServerFn({ method: "GET" })
         .select(
           "auto_intel_gate_enabled, auto_intel_min_win_pct, auto_intel_min_sample, auto_intel_min_expected_r",
         )
-        .returns<Record<string, unknown>[]>()
         .eq("user_id", String(context.userId))
-        .maybeSingle(),
+        .maybeSingle()
+        .returns<Record<string, unknown>>(),
       supabaseAdmin
         .from("regime_stats")
         .select("instrument, direction, p_win_shrunk, n_filled")
