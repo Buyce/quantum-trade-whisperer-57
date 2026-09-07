@@ -568,6 +568,7 @@ export type Database = {
           entry_price: number | null
           evidence_class: string
           evidence_phase: string
+          execution_policy: string | null
           exit_at: string | null
           exit_price: number | null
           first_observed_at: string
@@ -575,6 +576,7 @@ export type Database = {
           id: string
           last_reconciled_at: string | null
           magic: number | null
+          managed_exit: boolean
           metaapi_account_id: string | null
           news_context: string
           planned_entry: number | null
@@ -606,6 +608,7 @@ export type Database = {
           stop_provenance: string | null
           stop_source: string | null
           swap: number | null
+          target_rank: number | null
           updated_at: string
           user_id: string | null
           volume: number | null
@@ -627,6 +630,7 @@ export type Database = {
           entry_price?: number | null
           evidence_class: string
           evidence_phase?: string
+          execution_policy?: string | null
           exit_at?: string | null
           exit_price?: number | null
           first_observed_at?: string
@@ -634,6 +638,7 @@ export type Database = {
           id?: string
           last_reconciled_at?: string | null
           magic?: number | null
+          managed_exit?: boolean
           metaapi_account_id?: string | null
           news_context?: string
           planned_entry?: number | null
@@ -665,6 +670,7 @@ export type Database = {
           stop_provenance?: string | null
           stop_source?: string | null
           swap?: number | null
+          target_rank?: number | null
           updated_at?: string
           user_id?: string | null
           volume?: number | null
@@ -686,6 +692,7 @@ export type Database = {
           entry_price?: number | null
           evidence_class?: string
           evidence_phase?: string
+          execution_policy?: string | null
           exit_at?: string | null
           exit_price?: number | null
           first_observed_at?: string
@@ -693,6 +700,7 @@ export type Database = {
           id?: string
           last_reconciled_at?: string | null
           magic?: number | null
+          managed_exit?: boolean
           metaapi_account_id?: string | null
           news_context?: string
           planned_entry?: number | null
@@ -724,6 +732,7 @@ export type Database = {
           stop_provenance?: string | null
           stop_source?: string | null
           swap?: number | null
+          target_rank?: number | null
           updated_at?: string
           user_id?: string | null
           volume?: number | null
@@ -1484,6 +1493,7 @@ export type Database = {
           live_confirm_enabled: boolean
           live_execution_enabled: boolean
           live_kill_switch_reason: string | null
+          max_customer_exit_policy: string
           note: string | null
           updated_at: string
         }
@@ -1506,6 +1516,7 @@ export type Database = {
           live_confirm_enabled?: boolean
           live_execution_enabled?: boolean
           live_kill_switch_reason?: string | null
+          max_customer_exit_policy?: string
           note?: string | null
           updated_at?: string
         }
@@ -1528,6 +1539,7 @@ export type Database = {
           live_confirm_enabled?: boolean
           live_execution_enabled?: boolean
           live_kill_switch_reason?: string | null
+          max_customer_exit_policy?: string
           note?: string | null
           updated_at?: string
         }
@@ -3495,6 +3507,87 @@ export type Database = {
         }
         Relationships: []
       }
+      position_management_state: {
+        Row: {
+          account_id: string
+          account_mode: string
+          broker_position_id: string
+          created_at: string
+          delivery_id: number
+          execution_policy: string
+          id: string
+          partial_attempted_at: string | null
+          partial_confirmed_at: string | null
+          partial_detail: string | null
+          partial_state: string
+          partial_volume: number | null
+          stop_move_attempted_at: string | null
+          stop_move_confirmed_at: string | null
+          stop_move_detail: string | null
+          stop_move_state: string
+          stop_move_target: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_id: string
+          account_mode: string
+          broker_position_id: string
+          created_at?: string
+          delivery_id: number
+          execution_policy: string
+          id?: string
+          partial_attempted_at?: string | null
+          partial_confirmed_at?: string | null
+          partial_detail?: string | null
+          partial_state?: string
+          partial_volume?: number | null
+          stop_move_attempted_at?: string | null
+          stop_move_confirmed_at?: string | null
+          stop_move_detail?: string | null
+          stop_move_state?: string
+          stop_move_target?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string
+          account_mode?: string
+          broker_position_id?: string
+          created_at?: string
+          delivery_id?: number
+          execution_policy?: string
+          id?: string
+          partial_attempted_at?: string | null
+          partial_confirmed_at?: string | null
+          partial_detail?: string | null
+          partial_state?: string
+          partial_volume?: number | null
+          stop_move_attempted_at?: string | null
+          stop_move_confirmed_at?: string | null
+          stop_move_detail?: string | null
+          stop_move_state?: string
+          stop_move_target?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "position_management_state_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "connected_trading_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "position_management_state_delivery_id_fkey"
+            columns: ["delivery_id"]
+            isOneToOne: false
+            referencedRelation: "execution_deliveries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -4224,6 +4317,7 @@ export type Database = {
           alert_min_grade: Database["public"]["Enums"]["signal_grade"]
           allow_unmeasured_intel: boolean
           auto_execute_c_grade: boolean
+          auto_exit_policy: string
           auto_intel_gate_enabled: boolean
           auto_intel_min_expected_r: number | null
           auto_intel_min_sample: number
@@ -4286,6 +4380,7 @@ export type Database = {
           alert_min_grade?: Database["public"]["Enums"]["signal_grade"]
           allow_unmeasured_intel?: boolean
           auto_execute_c_grade?: boolean
+          auto_exit_policy?: string
           auto_intel_gate_enabled?: boolean
           auto_intel_min_expected_r?: number | null
           auto_intel_min_sample?: number
@@ -4348,6 +4443,7 @@ export type Database = {
           alert_min_grade?: Database["public"]["Enums"]["signal_grade"]
           allow_unmeasured_intel?: boolean
           auto_execute_c_grade?: boolean
+          auto_exit_policy?: string
           auto_intel_gate_enabled?: boolean
           auto_intel_min_expected_r?: number | null
           auto_intel_min_sample?: number

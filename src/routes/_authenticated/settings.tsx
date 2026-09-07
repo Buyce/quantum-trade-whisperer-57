@@ -8,6 +8,15 @@ import { useServerFn } from "@tanstack/react-start";
 import { runScanNow, type ManualScanResult } from "@/lib/scanner/scan.functions";
 import { sendTestWebhook } from "@/lib/webhook-test.functions";
 import { getExecutionStatus, saveBridgeSettings } from "@/lib/execution.functions";
+import {
+  DEFAULT_EXECUTION_POLICY,
+  EXECUTION_POLICIES,
+  EXECUTION_POLICY_LABELS,
+  isExecutionPolicy,
+  isManagedPolicy,
+  resolveExitPolicy,
+  type ExecutionPolicy,
+} from "@/lib/delivery/execution";
 
 import { useAuth } from "@/hooks/useAuth";
 import { instrumentStagesQuery, saveSettings, settingsQuery } from "@/lib/queries";
@@ -139,6 +148,8 @@ function SettingsPage() {
   const [adaptiveMax, setAdaptiveMax] = useState(DAILY_ORDER_CEILING_MAX);
   const [adaptiveFloor, setAdaptiveFloor] = useState(1);
   const [marketEntry, setMarketEntry] = useState(false);
+  /** Which published target an automatic order takes profit at. */
+  const [exitPolicy, setExitPolicy] = useState<ExecutionPolicy>(DEFAULT_EXECUTION_POLICY);
   const [allowUnmeasured, setAllowUnmeasured] = useState(false);
   const [autoWindowMinutes, setAutoWindowMinutes] = useState(AUTO_ORDER_WINDOW_DEFAULT_MINUTES);
   const [intelMinWin, setIntelMinWin] = useState("");
@@ -174,6 +185,16 @@ function SettingsPage() {
     queryFn: () => getExecutionStatus(),
     staleTime: 60_000,
   });
+  // The platform ceiling on exit depth, and what the saved choice resolves to
+  // under it. The server applies the same clamp before every submission.
+  const exitPolicyCeiling: ExecutionPolicy = isExecutionPolicy(
+    executionStatus.data?.maxCustomerExitPolicy,
+  )
+    ? (executionStatus.data?.maxCustomerExitPolicy as ExecutionPolicy)
+    : DEFAULT_EXECUTION_POLICY;
+  const resolvedExit = resolveExitPolicy(exitPolicy, exitPolicyCeiling);
+  const effectiveExitPolicy = resolvedExit.policy;
+  const exitPolicyClamped = resolvedExit.clamped;
   const savedWebhookUrl = settings.data?.webhook_url?.trim() ?? "";
   const hasSavedWebhookSecret = executionStatus.data?.webhookSecretConfigured === true;
   const canTestWebhook = /^https:\/\//i.test(savedWebhookUrl) && hasSavedWebhookSecret;
@@ -273,6 +294,9 @@ function SettingsPage() {
     setAdaptiveMax(clampAdaptiveCeilingMax(s.adaptive_order_ceiling_max));
     setAdaptiveFloor(clampAdaptiveCeilingFloor(s.adaptive_order_ceiling_floor));
     setMarketEntry(s.auto_market_entry_enabled === true);
+    setExitPolicy(
+      isExecutionPolicy(s.auto_exit_policy) ? s.auto_exit_policy : DEFAULT_EXECUTION_POLICY,
+    );
     setAllowUnmeasured(s.allow_unmeasured_intel === true);
     setAutoWindowMinutes(clampAutoOrderWindowMinutes(s.auto_order_window_minutes));
     setIntelMinWin(
@@ -391,6 +415,10 @@ function SettingsPage() {
         adaptive_order_ceiling_max: clampAdaptiveCeilingMax(adaptiveMax),
         adaptive_order_ceiling_floor: clampAdaptiveCeilingFloor(adaptiveFloor),
         auto_market_entry_enabled: marketEntry,
+        // Which target an automatic order exits at. The platform ceiling is
+        // applied again server-side before every submission, so a stale choice
+        // here can only ever be reduced, never widened.
+        auto_exit_policy: exitPolicy,
         allow_unmeasured_intel: allowUnmeasured,
         // How long after detection a published setup may still become an
         // automatic order. 0 disables automatic orders on age grounds.
@@ -634,17 +662,18 @@ function SettingsPage() {
             <div>
               <h2 className="label-xs">Automatic order rules</h2>
               <p className="mt-1 text-xs text-muted-foreground">
-                Three separate questions, asked in this order and never in competition: how many
-                orders may exist, how an approved order enters, and what price and exposure is
-                acceptable. Whichever rule refuses first wins; none of them can overrule a safety
-                check.
+                Four separate questions, asked in this order and never in competition: how many
+                orders may exist, where an approved order takes profit, how it enters, and what
+                price and exposure is acceptable. Whichever rule refuses first wins; none of them
+                can overrule a safety check.
               </p>
               <p className="mt-2 text-xs text-foreground">
                 In force now:{" "}
                 {maxDailyOrders === 0
                   ? "no automatic orders"
                   : `up to ${maxDailyOrders} orders a day${adaptiveCeilings ? ` (${adaptiveFloor}–${adaptiveMax} with data freshness)` : ""}`}
-                , {marketEntry ? "entering at market" : "resting as planned limits"}, spread limit{" "}
+                , {marketEntry ? "entering at market" : "resting as planned limits"}, taking profit
+                at {EXECUTION_POLICY_LABELS[effectiveExitPolicy].toLowerCase()}, spread limit{" "}
                 {Number(maxSpreadPips) > 0 ? `${Number(maxSpreadPips)} pips` : "off"}, slippage
                 limit {Number(maxSlippagePips) > 0 ? `${Number(maxSlippagePips)} pips` : "off"},
                 total exposure{" "}
@@ -834,7 +863,66 @@ function SettingsPage() {
             </div>
 
             <div className="border-t border-border pt-4">
-              <h3 className="label-xs">2. How an approved order enters</h3>
+              <h3 className="label-xs">2. Where an approved order takes profit</h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                One order is sent with one exit. This chooses which of the setup&apos;s published
+                targets that exit sits at. A deeper target wins less often and wins more when it
+                wins; the first target is the default and the only choice the published statistics
+                currently describe.
+              </p>
+              <Label className="mt-3 block text-xs" htmlFor="auto-exit-policy">
+                Take profit at
+              </Label>
+              <Select
+                value={exitPolicy}
+                onValueChange={(v) => {
+                  if (!isExecutionPolicy(v)) return;
+                  if (v !== DEFAULT_EXECUTION_POLICY)
+                    toast.warning(
+                      "A deeper target is reached less often. Losses stay the same size, wins get bigger, and fewer trades win. Existing statistics describe the first target only.",
+                    );
+                  setExitPolicy(v);
+                }}
+              >
+                <SelectTrigger id="auto-exit-policy" className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {EXECUTION_POLICIES.filter(
+                    (candidate) =>
+                      resolveExitPolicy(candidate, exitPolicyCeiling).policy === candidate,
+                  ).map((candidate) => (
+                    <SelectItem key={candidate} value={candidate}>
+                      {EXECUTION_POLICY_LABELS[candidate]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {exitPolicyClamped ? (
+                <p className="mt-2 text-xs text-warning">
+                  The platform currently allows no deeper than &ldquo;
+                  {EXECUTION_POLICY_LABELS[effectiveExitPolicy]}&rdquo;, so that is what your
+                  automatic orders use until the limit is raised.
+                </p>
+              ) : null}
+              {isManagedPolicy(effectiveExitPolicy) ? (
+                <p className="mt-2 text-xs text-warning">
+                  This choice acts on a position after it fills: part is closed at the first target
+                  and the remaining stop is moved to break-even. It runs on demo accounts only, and
+                  a broker action that cannot be confirmed is reported as unconfirmed rather than
+                  assumed.
+                </p>
+              ) : (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Nothing is managed after the fill: the order carries its stop and its single
+                  target from the moment it is submitted. If the setup does not publish the target
+                  you chose, the order is refused rather than sent to a nearer one.
+                </p>
+              )}
+            </div>
+
+            <div className="border-t border-border pt-4">
+              <h3 className="label-xs">3. How an approved order enters</h3>
               <Row
                 id="auto-market-entry"
                 title="Enter eligible orders immediately at market"
@@ -915,7 +1003,7 @@ function SettingsPage() {
               </p>
             </div>
             <div className="border-t border-border pt-4">
-              <h3 className="label-xs">3. What price and exposure is acceptable</h3>
+              <h3 className="label-xs">4. What price and exposure is acceptable</h3>
               <p className="mt-1 text-xs text-muted-foreground">
                 Checked immediately before an automatic order is sent to your broker, using your
                 broker&apos;s own quote and specification. 0 turns a ceiling off. If a ceiling is

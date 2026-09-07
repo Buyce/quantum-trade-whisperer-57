@@ -525,6 +525,21 @@ const SECTIONS: Section[] = [
           "Freshness describes our data, not the market, and it never changes an order's price, size or stop. A ceiling that cannot be measured refuses rather than passing.",
       },
       {
+        id: "exit-target",
+        q: "Where does an automatic order take profit, and can I change it?",
+        a: [
+          "Yes. In Settings, under the automatic order rules, you choose which of the setup's published targets your automatic orders exit at: the first, the second or the third. The order still goes out once, with its stop and that single target attached, so nothing has to be watched afterwards.",
+          "The first target is the default and the only choice our published statistics currently describe. A deeper target is reached less often; losses stay the same size, so fewer trades win and the wins that do land are bigger. If a setup does not publish the target you chose, the order is refused rather than sent to a nearer one.",
+          "The platform can cap how deep the choice may go. If it does, your setting is reduced to that cap and Settings says so. Results are reported per target in our own records, so a deeper-target trade is never counted as a first-target result.",
+        ],
+        means: "You pick the profit target; the order carries it from the moment it is placed.",
+        matters:
+          "The reward figure on a signal card describes the whole ladder. What your order actually takes is the target you chose here.",
+        todo: "Leave it on the first target unless you deliberately want fewer, larger wins.",
+        assume:
+          "A deeper target is not a better trade. It is a different trade-off, and it is not predicted by anything on this page.",
+      },
+      {
         id: "order-window",
         q: "Why did an automatic order stop being placed after a while?",
         a: [

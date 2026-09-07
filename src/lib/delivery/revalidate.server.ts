@@ -16,6 +16,8 @@ import {
   bridgeSupportsVerifiedQuantity,
   buildBridgeOrder,
   isExecutionPolicy,
+  isManagedPolicy,
+  resolveExitPolicy,
   targetForPolicy,
   hostAllowedForLive,
   spreadAcceptable,
@@ -203,6 +205,8 @@ interface ControlsRow {
   disabled_instruments: string[] | null;
   allowed_live_hosts: string[] | null;
   execution_policy: string | null;
+  /** Platform ceiling on how deep a customer may set their exit target. */
+  max_customer_exit_policy?: string | null;
   /** Stage-3 mode gates. Absent ⇒ disabled. */
   demo_auto_enabled?: boolean | null;
   live_confirm_enabled?: boolean | null;
@@ -261,6 +265,8 @@ interface SettingsRow {
   auto_order_window_minutes?: number | null;
   /** Owner opt-in: prefer immediate market entry inside the published ceiling. */
   auto_market_entry_enabled?: boolean | null;
+  /** The customer's chosen exit target rule; clamped to the platform ceiling. */
+  auto_exit_policy?: string | null;
   /** Explicit owner confirmation of the dry-run → live transition. */
   live_execution_confirmed_at?: string | null;
   live_execution_confirmed_version?: number | null;
@@ -324,14 +330,19 @@ export async function revalidateDelivery(
   if ((controls.disabled_bridges ?? []).includes(delivery.bridge_profile)) {
     return reject("bridge_disabled", delivery.bridge_profile);
   }
-  const policy = (controls.execution_policy ?? DEFAULT_EXECUTION_POLICY) as ExecutionPolicy;
-  if (!isExecutionPolicy(policy)) return reject("policy_unsupported", policy);
+  // The platform default (used for benchmark deliveries and as the fallback when
+  // a customer has expressed no choice) and the platform CEILING a customer's own
+  // choice is clamped to. Both fail safe to the first target.
+  const platformPolicy = (controls.execution_policy ?? DEFAULT_EXECUTION_POLICY) as ExecutionPolicy;
+  if (!isExecutionPolicy(platformPolicy)) return reject("policy_unsupported", platformPolicy);
+  const policyCeiling = (controls.max_customer_exit_policy ??
+    DEFAULT_EXECUTION_POLICY) as ExecutionPolicy;
 
   // ---- 2. The user's own opt-in and bridge configuration --------------------
   const { data: settingsRow } = await db
     .from("scanner_settings")
     .select(
-      "instruments, sessions, alert_min_grade, daily_setup_cap, execution_enabled, execution_dry_run, execution_config_version, exposure_limit_enabled, webhook_enabled, webhook_url, webhook_secret, webhook_format, webhook_validated_at, auto_order_window_minutes, auto_market_entry_enabled, live_execution_confirmed_at, live_execution_confirmed_version, live_execution_confirmed_global_live, news_block_new_entries, news_suppression_minutes_before, news_suppression_minutes_after, max_entry_spread_pips, max_entry_slippage_pips, max_total_exposure_percent, drawdown_brakes_enabled, daily_loss_limit_percent, weekly_loss_limit_percent, consecutive_loss_limit, max_drawdown_percent",
+      "instruments, sessions, alert_min_grade, daily_setup_cap, execution_enabled, execution_dry_run, execution_config_version, exposure_limit_enabled, webhook_enabled, webhook_url, webhook_secret, webhook_format, webhook_validated_at, auto_order_window_minutes, auto_market_entry_enabled, auto_exit_policy, live_execution_confirmed_at, live_execution_confirmed_version, live_execution_confirmed_global_live, news_block_new_entries, news_suppression_minutes_before, news_suppression_minutes_after, max_entry_spread_pips, max_entry_slippage_pips, max_total_exposure_percent, drawdown_brakes_enabled, daily_loss_limit_percent, weekly_loss_limit_percent, consecutive_loss_limit, max_drawdown_percent",
     )
     .eq("user_id", delivery.user_id)
     .maybeSingle();
@@ -389,10 +400,27 @@ export async function revalidateDelivery(
       webhook_secret: null,
       webhook_format: null,
       webhook_validated_at: null,
+      auto_exit_policy: platformPolicy,
     };
   }
 
   if (!settings) return reject("user_execution_disabled");
+
+  // ---- 2a-bis. Which target this order exits at ----------------------------
+  // A benchmark order follows the operator policy. A customer order follows the
+  // customer's own choice, never deeper than the platform ceiling. The managed
+  // partial policy takes broker actions after the fill, so it is DEMO ONLY: on a
+  // live account it is reduced to the equivalent unmanaged single exit rather
+  // than half-managed.
+  const resolvedPolicy = resolveExitPolicy(
+    isBenchmark ? platformPolicy : (settings.auto_exit_policy ?? platformPolicy),
+    isBenchmark ? platformPolicy : policyCeiling,
+  );
+  let policy = resolvedPolicy.policy;
+  if (isManagedPolicy(policy) && delivery.account_mode !== "demo") {
+    policy = "single_exit_second_target";
+  }
+  if (!isExecutionPolicy(policy)) return reject("policy_unsupported", policy);
   // A DIRECT delivery is authorized by the ACCOUNT's armed mode, not by the
   // customer-bridge switches: it never touches a webhook, so requiring bridge
   // configuration for it would be meaningless. Bridge deliveries are unchanged.

@@ -1,0 +1,138 @@
+/**
+ * Managed-exit and exit-policy resolution invariants.
+ *
+ * These are the rules a customer's target choice and the demo position-management
+ * pass must obey. Nothing here talks to a broker or a database.
+ */
+import { describe, expect, it } from "vitest";
+
+import {
+  DEFAULT_EXECUTION_POLICY,
+  isManagedPolicy,
+  POLICY_TARGET_RANK,
+  resolveExitPolicy,
+  targetForPolicy,
+} from "../execution";
+import {
+  decideManagedPosition,
+  roundDownToStep,
+  type ManagedPositionFacts,
+} from "../manage-positions";
+
+describe("resolveExitPolicy", () => {
+  it("keeps a choice that sits inside the platform ceiling", () => {
+    const r = resolveExitPolicy("single_exit_second_target", "single_exit_third_target");
+    expect(r.policy).toBe("single_exit_second_target");
+    expect(r.clamped).toBe(false);
+  });
+
+  it("reduces a deeper choice to the ceiling", () => {
+    const r = resolveExitPolicy("single_exit_third_target", "single_exit_second_target");
+    expect(r.policy).toBe("single_exit_second_target");
+    expect(r.clamped).toBe(true);
+  });
+
+  it("falls back to the first target for unknown values on either side", () => {
+    expect(resolveExitPolicy("nonsense", "also_nonsense").policy).toBe(DEFAULT_EXECUTION_POLICY);
+  });
+
+  it("offers the managed policy only when the ceiling names it exactly", () => {
+    expect(resolveExitPolicy("partial_tp1_runner_tp2", "single_exit_third_target").policy).toBe(
+      "single_exit_third_target",
+    );
+    expect(
+      isManagedPolicy(resolveExitPolicy("partial_tp1_runner_tp2", "partial_tp1_runner_tp2").policy),
+    ).toBe(true);
+  });
+});
+
+describe("targetForPolicy", () => {
+  const plan = { tp1: 10, tp2: 20, tp3: null };
+
+  it("submits the target the policy names", () => {
+    expect(targetForPolicy("single_exit_first_target", plan)).toBe(10);
+    expect(targetForPolicy("single_exit_second_target", plan)).toBe(20);
+  });
+
+  it("refuses rather than falling back to a nearer target", () => {
+    expect(targetForPolicy("single_exit_third_target", plan)).toBeNull();
+  });
+
+  it("submits the managed policy's single exit at the second target", () => {
+    expect(POLICY_TARGET_RANK["partial_tp1_runner_tp2"]).toBe(2);
+    expect(targetForPolicy("partial_tp1_runner_tp2", plan)).toBe(20);
+  });
+});
+
+const facts = (over: Partial<ManagedPositionFacts> = {}): ManagedPositionFacts => ({
+  side: "long",
+  openPrice: 100,
+  currentPrice: 100.5,
+  volume: 1,
+  firstTarget: 101,
+  volumeStep: 0.01,
+  minVolume: 0.01,
+  currentStop: 99,
+  ...over,
+});
+
+describe("decideManagedPosition", () => {
+  it("does nothing before the first target is reached", () => {
+    const d = decideManagedPosition(facts(), false, false);
+    expect(d.closeVolume).toBeNull();
+    expect(d.undecidable).toBe(false);
+  });
+
+  it("closes half, rounded down to the broker's volume step", () => {
+    const d = decideManagedPosition(facts({ currentPrice: 101, volume: 0.07 }), false, false);
+    expect(d.closeVolume).toBe(0.03);
+  });
+
+  it("refuses to split a position the broker's minimum volume cannot split", () => {
+    const d = decideManagedPosition(
+      facts({ currentPrice: 101, volume: 0.02, minVolume: 0.02 }),
+      false,
+      false,
+    );
+    expect(d.closeVolume).toBeNull();
+    expect(d.reason).toContain("minimum volume");
+  });
+
+  it("treats missing broker facts as undecidable, never as an action", () => {
+    expect(decideManagedPosition(facts({ openPrice: null }), false, false).undecidable).toBe(true);
+    expect(
+      decideManagedPosition(facts({ currentPrice: 101, volumeStep: null }), false, false)
+        .undecidable,
+    ).toBe(true);
+    expect(decideManagedPosition(facts({ firstTarget: null }), false, false).undecidable).toBe(
+      true,
+    );
+  });
+
+  it("moves the stop to the fill price only after a confirmed partial", () => {
+    const d = decideManagedPosition(facts(), true, false);
+    expect(d.moveStopTo).toBe(100);
+  });
+
+  it("never moves a stop backwards", () => {
+    const d = decideManagedPosition(facts({ currentStop: 100.4 }), true, false);
+    expect(d.moveStopTo).toBeNull();
+  });
+
+  it("uses the short side's direction for the target test", () => {
+    expect(
+      decideManagedPosition(
+        facts({ side: "short", firstTarget: 99, currentPrice: 99 }),
+        false,
+        false,
+      ).closeVolume,
+    ).toBe(0.5);
+  });
+});
+
+describe("roundDownToStep", () => {
+  it("never rounds up", () => {
+    expect(roundDownToStep(0.199, 0.01)).toBe(0.19);
+    expect(roundDownToStep(0.004, 0.01)).toBe(0);
+  });
+});

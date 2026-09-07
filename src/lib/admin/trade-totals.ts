@@ -31,6 +31,14 @@ export interface BrokerEvidenceRow {
   commission: number | null;
   currency: string | null;
   attribution: BrokerAttribution;
+  /**
+   * Which target rank the submitted exit sat at (1, 2 or 3), copied from the
+   * dispatch record at observation time. NULL on rows dispatched before the rule
+   * was recorded — those are reported as not recorded, never assumed first-target.
+   */
+  targetRank?: 1 | 2 | 3 | null;
+  /** True when the position was managed after the fill (partial close + stop move). */
+  managedExit?: boolean | null;
 }
 
 export interface BrokerTotals {
@@ -69,8 +77,22 @@ export interface BrokerTotalsByAttribution {
   all: BrokerTotals;
 }
 
+/**
+ * Automatic broker trades split by which published target their exit sat at, so a
+ * deeper-target trade is never scored against first-target history. `notRecorded`
+ * holds the rows dispatched before the rule was recorded.
+ */
+export interface BrokerTotalsByTarget {
+  firstTarget: BrokerTotals;
+  secondTarget: BrokerTotals;
+  thirdTarget: BrokerTotals;
+  managed: BrokerTotals;
+  notRecorded: BrokerTotals;
+}
+
 export interface TradeTotals {
   broker: BrokerTotalsByAttribution;
+  byTarget: BrokerTotalsByTarget;
   journal: JournalTotals;
 }
 
@@ -134,6 +156,23 @@ export function aggregateBrokerTotalsByAttribution(
     unlinked: of("unlinked"),
     external: of("external"),
     all: aggregateBrokerTotals(rows),
+  };
+}
+
+export function aggregateBrokerTotalsByTarget(rows: BrokerEvidenceRow[]): BrokerTotalsByTarget {
+  // Only automatic dispatches can carry an exit rule; an externally placed trade
+  // has none by definition, so it is not counted in any target bucket.
+  const auto = rows.filter((r) => r.attribution === "auto");
+  const rank = (n: 1 | 2 | 3) =>
+    aggregateBrokerTotals(auto.filter((r) => r.targetRank === n && r.managedExit !== true));
+  return {
+    firstTarget: rank(1),
+    secondTarget: rank(2),
+    thirdTarget: rank(3),
+    managed: aggregateBrokerTotals(auto.filter((r) => r.managedExit === true)),
+    notRecorded: aggregateBrokerTotals(
+      auto.filter((r) => r.targetRank !== 1 && r.targetRank !== 2 && r.targetRank !== 3),
+    ),
   };
 }
 
