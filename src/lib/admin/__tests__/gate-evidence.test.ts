@@ -10,7 +10,7 @@ const T = (over: Partial<GateEvidenceThresholds> = {}): GateEvidenceThresholds =
 });
 
 describe("gate evidence", () => {
-  it("keeps replay, expected R and broker money as separate readings", () => {
+  it("[UNIT] keeps replay, expected R and broker money as separate readings", () => {
     const rows = buildGateEvidence(
       T(),
       [{ instrument: "XAUUSD", direction: "long", pWin: 0.483, filledN: 120 }],
@@ -40,7 +40,7 @@ describe("gate evidence", () => {
     expect(rows[0]!.verdict).toBe("refused_win_rate");
   });
 
-  it("refuses an unmeasured cohort rather than passing it", () => {
+  it("[UNIT] refuses an unmeasured cohort rather than passing it", () => {
     const rows = buildGateEvidence(
       T({ minWinPct: null, minExpectedR: 0.05 }),
       [],
@@ -51,7 +51,7 @@ describe("gate evidence", () => {
     expect(rows[0]!.verdict).toBe("refused_unmeasured");
   });
 
-  it("refuses a cohort whose whole measured range sits below zero", () => {
+  it("[UNIT] refuses a cohort whose whole measured range sits below zero", () => {
     const rows = buildGateEvidence(
       T({ minWinPct: null, minExpectedR: -1 }),
       [],
@@ -71,7 +71,7 @@ describe("gate evidence", () => {
     expect(rows[0]!.verdict).toBe("refused_expected_r");
   });
 
-  it("reports gate_off when no threshold is configured", () => {
+  it("[UNIT] reports gate_off when no threshold is configured", () => {
     const rows = buildGateEvidence(
       T({ enabled: false }),
       [{ instrument: "EURUSD", direction: "long", pWin: 0.6, filledN: 300 }],
@@ -81,7 +81,7 @@ describe("gate evidence", () => {
     expect(rows[0]!.verdict).toBe("gate_off");
   });
 
-  it("refuses to add unlike currencies", () => {
+  it("[UNIT] refuses to add unlike currencies", () => {
     const rows = buildGateEvidence(
       T({ enabled: false }),
       [],
@@ -95,7 +95,7 @@ describe("gate evidence", () => {
     expect(rows[0]!.brokerNet).toBeNull();
   });
 
-  it("skips payoff rows whose statistics are not reportable", () => {
+  it("[UNIT] skips payoff rows whose statistics are not reportable", () => {
     const rows = buildGateEvidence(
       T({ minWinPct: null, minExpectedR: 0 }),
       [],

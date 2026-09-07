@@ -241,7 +241,7 @@ describe("evaluateIntelGate — expected R leg", () => {
     expect(v.expectedR).toBeNull();
   });
 
-  it("passes a measured cohort above the floor and reports the numbers behind it", () => {
+  it("[UNIT] passes a measured cohort above the floor and reports the numbers behind it", () => {
     const v = evaluateIntelGate(
       { enabled: true, minWinPct: null, minSample: 30, minExpectedR: 0.02 },
       STATS,
@@ -254,7 +254,7 @@ describe("evaluateIntelGate — expected R leg", () => {
     expect(v.expectedRN).toBe(90);
   });
 
-  it("refuses a cohort below the floor", () => {
+  it("[UNIT] refuses a cohort below the floor", () => {
     const v = evaluateIntelGate(
       { enabled: true, minWinPct: null, minSample: 30, minExpectedR: 0.5 },
       STATS,
