@@ -130,10 +130,10 @@ describe("per-owner window in the enqueue path", () => {
   });
 
   it("[INVARIANT] nothing is attempted past the widest supported window", async () => {
-    const f = fake(360);
+    const f = fake(600);
     const out = await enqueueDirectDeliveries(
       f.client as SupabaseClient,
-      { ...SIGNAL, detectedAt: new Date(NOW - 400 * 60_000).toISOString() },
+      { ...SIGNAL, detectedAt: new Date(NOW - 700 * 60_000).toISOString() },
       NOW,
     );
     expect(out).toMatchObject({ enqueued: 0, reason: "execution_window_expired" });
