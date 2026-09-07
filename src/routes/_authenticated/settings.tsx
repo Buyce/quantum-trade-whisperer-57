@@ -1003,7 +1003,7 @@ function SettingsPage() {
               />
               <p className="mt-2 text-xs text-muted-foreground">
                 How long after a setup was detected it may still become an automatic order — between
-                0 and {AUTO_ORDER_WINDOW_MAX_MINUTES} minutes (6 hours), default{" "}
+                0 and {AUTO_ORDER_WINDOW_MAX_MINUTES} minutes (10 hours), default{" "}
                 {AUTO_ORDER_WINDOW_DEFAULT_MINUTES} minutes (3 hours). 0 stops automatic orders on
                 age grounds entirely. A setup older than your window is refused before anything is
                 sent to a broker, and any pending order placed inside the window expires at the end

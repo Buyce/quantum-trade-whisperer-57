@@ -1,5 +1,5 @@
 /**
- * The automatic-order window is a per-owner setting (0-360 minutes, default 180).
+ * The automatic-order window is a per-owner setting (0-600 minutes, default 180).
  * These tests pin its boundaries and, critically, that it is SEPARATE from the
  * structural 30-minute time-in-force that replay, shadow and research use — a
  * user widening their window must never move research mathematics.
