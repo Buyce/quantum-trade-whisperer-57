@@ -15,6 +15,8 @@ import {
   REVALIDATION_QUOTE_MAX_AGE_MS,
   bridgeSupportsVerifiedQuantity,
   buildBridgeOrder,
+  isExecutionPolicy,
+  targetForPolicy,
   hostAllowedForLive,
   spreadAcceptable,
   validateQuantity,
@@ -791,6 +793,12 @@ export async function revalidateDelivery(
     tp3: submitted.tp3,
   };
 
+  // The single exit price this policy submits. A policy whose target the plan
+  // never published refuses the delivery rather than quietly falling back to a
+  // nearer target the trader did not choose.
+  const exitTarget = targetForPolicy(policy, execPlan);
+  if (exitTarget === null) return reject("policy_target_missing", policy);
+
   if (spec) {
     const minDistance = minStopDistance(spec);
     if (minDistance !== null && Math.abs(execPlan.entryPrice - execPlan.stopLoss) < minDistance) {
@@ -999,7 +1007,8 @@ export async function revalidateDelivery(
     detectedAt: signal.detected_at,
     entryPrice: execPlan.entryPrice,
     stopLoss: execPlan.stopLoss,
-    tp1: execPlan.tp1,
+    tp1: exitTarget,
+    exitPolicy: policy,
     publishedEntryPrice: plan.entryPrice,
     publishedStopLoss: plan.stopLoss,
     publishedTp1: plan.tp1,

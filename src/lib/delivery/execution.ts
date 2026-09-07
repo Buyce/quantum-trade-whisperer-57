@@ -126,6 +126,7 @@ export type RejectReason =
   | "host_not_allowlisted"
   | "configuration_changed_since_enqueue"
   | "policy_unsupported"
+  | "policy_target_missing"
   | "live_authorization_stale"
   | "account_spec_unavailable"
   | "account_equity_unavailable"
@@ -189,6 +190,8 @@ export const REJECT_COPY: Record<RejectReason, string> = {
   configuration_changed_since_enqueue:
     "Your execution configuration changed after this setup was queued, so the queued order was not sent under the new authorization.",
   policy_unsupported: "The configured execution policy is not supported.",
+  policy_target_missing:
+    "This setup does not publish the target the configured execution policy exits at.",
   live_authorization_stale:
     "Your live-execution confirmation does not match the current configuration, so no live order was sent. Confirm live execution again to re-authorise it.",
   account_spec_unavailable:
