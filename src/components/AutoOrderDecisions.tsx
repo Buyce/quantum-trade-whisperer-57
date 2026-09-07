@@ -12,6 +12,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { getAutoOrderDecisions, getGateImpactReport } from "@/lib/execution.functions";
 import { describeEnqueueDecision } from "@/lib/delivery/enqueue-log";
 import { INSTRUMENT_LABELS } from "@/lib/db-types";
+import { RiskHoldBanner } from "@/components/RiskHoldBanner";
 
 function when(iso: string): string {
   const d = new Date(iso);
@@ -42,6 +43,7 @@ export function AutoOrderDecisions() {
   return (
     <div className="rounded-sm border border-border/60 bg-background/40 p-3">
       <h3 className="label-xs">Last automatic-order decisions</h3>
+      <RiskHoldBanner />
 
       {decisions.isLoading ? (
         <p className="mt-2 text-xs text-muted-foreground">Reading the decision log…</p>
@@ -78,8 +80,13 @@ export function AutoOrderDecisions() {
                 </span>
               </div>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                {describeEnqueueDecision(d.decision)}
-                {d.detail && d.decision !== "enqueued" ? ` (${d.detail})` : ""}
+                {/* A risk hold is explained once in the banner above, so the row
+                    stays short instead of repeating the same paragraph. */}
+                {d.decision === "risk_brake_paused"
+                  ? "Held by your risk rules — see the pause notice above."
+                  : `${describeEnqueueDecision(d.decision)}${
+                      d.detail && d.decision !== "enqueued" ? ` (${d.detail})` : ""
+                    }`}
               </p>
             </li>
           ))}
