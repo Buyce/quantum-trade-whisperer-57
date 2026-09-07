@@ -30,6 +30,12 @@ export const ENQUEUE_DECISION_COPY: Record<string, string> = {
     "The historical win-if-filled rate for this regime is below your intelligence-gate threshold.",
   intelligence_gate_sample_insufficient:
     "Too few resolved replay samples behind this regime to satisfy your intelligence gate. This is a missing measurement, not a prediction.",
+  intelligence_gate_expected_r_below_threshold:
+    "Your intelligence gate refused this order: the measured expected return for this pair and direction is below the floor you set. The gate reads the pair-and-direction history only — it does not look at the setup's grade, so an A or B setup on a pair whose measured history is weak is refused just the same.",
+  intelligence_gate_expected_r_unmeasured:
+    "Your intelligence gate has no reportable expected-return measurement for this pair and direction yet, so no order was placed. This is a missing measurement, not a prediction, and it is unrelated to the setup's grade.",
+  intelligence_gate_expected_r_interval_below_zero:
+    "Your intelligence gate refused this order: the whole measured range of expected return for this pair and direction sits below zero. The gate reads the pair-and-direction history only, never the setup's grade.",
   enqueue_attempt_failed:
     "The automatic-order check itself failed, so no order was placed. This is a system fault, not a decision about the setup.",
   concurrent_order_limit_reached:

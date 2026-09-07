@@ -20,14 +20,14 @@ import {
 import { createFakeSupabase, type FakeCall } from "@/test/fakes/supabase";
 
 describe("automatic-order window bounds", () => {
-  it("[UNIT] defaults to 3 hours and never exceeds 6 hours", () => {
+  it("[UNIT] defaults to 3 hours and never exceeds 10 hours", () => {
     expect(AUTO_ORDER_WINDOW_DEFAULT_MINUTES).toBe(180);
-    expect(AUTO_ORDER_WINDOW_MAX_MINUTES).toBe(360);
+    expect(AUTO_ORDER_WINDOW_MAX_MINUTES).toBe(600);
     expect(clampAutoOrderWindowMinutes(null)).toBe(180);
     expect(clampAutoOrderWindowMinutes(undefined)).toBe(180);
     expect(clampAutoOrderWindowMinutes(Number.NaN)).toBe(180);
     expect(clampAutoOrderWindowMinutes(-5)).toBe(0);
-    expect(clampAutoOrderWindowMinutes(1000)).toBe(360);
+    expect(clampAutoOrderWindowMinutes(1000)).toBe(600);
     expect(clampAutoOrderWindowMinutes(90.6)).toBe(91);
   });
 

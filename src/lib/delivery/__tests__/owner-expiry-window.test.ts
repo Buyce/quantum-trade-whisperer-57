@@ -14,8 +14,8 @@ describe("unfilled-order sweep uses the owner's own automatic-order window", () 
     }
   });
 
-  it("[INVARIANT] the window can never exceed the six-hour maximum", () => {
-    expect(ownerTimeoutMs(99999)).toBe(360 * 60_000);
+  it("[INVARIANT] the window can never exceed the ten-hour maximum", () => {
+    expect(ownerTimeoutMs(99999)).toBe(600 * 60_000);
   });
 
   it("[UNIT] a three-hour owner keeps their order past one hour and loses it after three", () => {
