@@ -28,6 +28,8 @@ import type { PathBar } from "./replay-v2";
 
 export const EXIT_VARIANTS = [
   "single_exit_first_target",
+  "single_exit_second_target",
+  "single_exit_third_target",
   "partial_tp1_runner_tp2",
   "partial_tp1_runner_tp3",
   "breakeven_after_1r",
@@ -41,11 +43,14 @@ export const BASELINE_VARIANT: ExitVariant = "single_exit_first_target";
 
 export const EXIT_VARIANT_LABELS: Record<ExitVariant, string> = {
   single_exit_first_target: "Single exit at first target (current policy)",
+  single_exit_second_target: "Whole position to the second target",
+  single_exit_third_target: "Whole position to the third target",
   partial_tp1_runner_tp2: "Half out at first target, rest to second (stop to break-even)",
   partial_tp1_runner_tp3: "Half out at first target, rest to third (stop to break-even)",
   breakeven_after_1r: "Stop to break-even after 1R, then exit at first target",
   trail_1r: "Trailing stop 1R behind the best excursion",
 };
+
 
 export interface ExitPath {
   bars: PathBar[];
