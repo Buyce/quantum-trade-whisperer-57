@@ -236,7 +236,7 @@ describe("consecutive-loss pause window", () => {
   ];
   const totals = () => summariseRealised(losses, NOW);
 
-  it("defaults to the next UTC midnight when no window is chosen", () => {
+  it("[INVARIANT] defaults to the next UTC midnight when no window is chosen", () => {
     const v = evaluateBrakes(
       on({ consecutiveLosses: 4 }),
       { totals: totals(), equity: 1000, peakEquity: 1000 },
@@ -247,7 +247,7 @@ describe("consecutive-loss pause window", () => {
     expect(v.resumeAfterMs).toBe(Date.parse("2026-09-03T00:00:00.000Z"));
   });
 
-  it("measures a chosen window from when the pause started, not from now", () => {
+  it("[INVARIANT] measures a chosen window from when the pause started, not from now", () => {
     const startedAt = Date.parse("2026-09-02T11:00:00.000Z");
     const v = evaluateBrakes(
       on({ consecutiveLosses: 4, consecutivePauseHours: 3 }),
@@ -264,7 +264,7 @@ describe("consecutive-loss pause window", () => {
     expect(v.resumeAfterMs).toBe(startedAt + 3 * 60 * 60 * 1000);
   });
 
-  it("releases once the chosen window has elapsed, even while the run stands", () => {
+  it("[INVARIANT] releases once the chosen window has elapsed, even while the run stands", () => {
     const startedAt = Date.parse("2026-09-02T05:00:00.000Z");
     const v = evaluateBrakes(
       on({ consecutiveLosses: 4, consecutivePauseHours: 3 }),
@@ -279,7 +279,7 @@ describe("consecutive-loss pause window", () => {
     expect(v.paused).toBe(false);
   });
 
-  it("stores only the offered windows", () => {
+  it("[INVARIANT] stores only the offered windows", () => {
     expect(readBrakeLimits({ consecutive_loss_pause_hours: 3 }).consecutivePauseHours).toBe(3);
     expect(readBrakeLimits({ consecutive_loss_pause_hours: 5 }).consecutivePauseHours).toBe(5);
     expect(readBrakeLimits({ consecutive_loss_pause_hours: 9 }).consecutivePauseHours).toBe(null);
