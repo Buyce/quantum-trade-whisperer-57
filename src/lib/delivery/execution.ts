@@ -57,18 +57,48 @@ export function isTerminal(state: DeliveryState): boolean {
 }
 
 /**
- * Named execution policy. The bridge places ONE order that exits at the first
- * target — exactly the object the shadow replay registry measures under
- * `single_exit_first_target`. TP2/TP3 are shown to the trader but are NOT
- * managed by the bridge; inventing a third, unmeasured multi-exit behaviour
- * would mean the bridge result and the engine's statistics describe different
- * strategies.
+ * Named execution policy. The bridge places ONE order with ONE exit; the policy
+ * names WHICH published target that exit sits at. `single_exit_first_target` is
+ * the default and the only policy the engine's live statistics currently
+ * describe; the deeper variants exist so an owner can opt into holding the whole
+ * position to the second or third target after the replay research under
+ * `src/lib/execution/exit-variants.ts` reports on them. No policy here manages a
+ * partial exit or moves a stop after submission: that behaviour is unmeasured,
+ * so it is not offered.
  */
-export type ExecutionPolicy = "single_exit_first_target";
+export const EXECUTION_POLICIES = [
+  "single_exit_first_target",
+  "single_exit_second_target",
+  "single_exit_third_target",
+] as const;
+export type ExecutionPolicy = (typeof EXECUTION_POLICIES)[number];
 export const DEFAULT_EXECUTION_POLICY: ExecutionPolicy = "single_exit_first_target";
 
+export function isExecutionPolicy(value: unknown): value is ExecutionPolicy {
+  return (EXECUTION_POLICIES as readonly string[]).includes(String(value));
+}
+
+/**
+ * The single exit price this policy submits, or `null` when the plan does not
+ * publish that target. A missing target is never silently replaced by a nearer
+ * one: the caller refuses the order instead.
+ */
+export function targetForPolicy(
+  policy: ExecutionPolicy,
+  plan: { tp1: number | null; tp2: number | null; tp3: number | null },
+): number | null {
+  const raw =
+    policy === "single_exit_first_target"
+      ? plan.tp1
+      : policy === "single_exit_second_target"
+        ? plan.tp2
+        : plan.tp3;
+  return typeof raw === "number" && Number.isFinite(raw) && raw > 0 ? raw : null;
+}
+
 export const EXECUTION_POLICY_NOTE =
-  "One pending order, single exit at the first target. TP2 and TP3 are not managed by the bridge.";
+  "One pending order with a single exit at the target named by the active policy (first target by default). No partial exits and no stop moves are managed after submission.";
+
 
 export type RejectReason =
   | "live_execution_globally_disabled"
