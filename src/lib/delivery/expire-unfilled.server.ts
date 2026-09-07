@@ -20,6 +20,7 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { AUTO_ORDER_WINDOW_MAX_MINUTES } from "@/lib/db-types";
 import { UNFILLED_ORDER_TIMEOUT_MS, isTerminal, type DeliveryState } from "./execution";
 
 type Db = Pick<SupabaseClient, "from">;
