@@ -14,7 +14,9 @@ const OFF: BrakeLimits = {
   dailyLossPercent: 0,
   weeklyLossPercent: 0,
   consecutiveLosses: 0,
+  consecutivePauseHours: null,
   maxDrawdownPercent: 0,
+
 };
 
 const on = (over: Partial<BrakeLimits>): BrakeLimits => ({ ...OFF, enabled: true, ...over });
