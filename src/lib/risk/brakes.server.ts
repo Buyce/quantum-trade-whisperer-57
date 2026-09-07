@@ -48,7 +48,11 @@ interface StateRow {
   account_id: string;
   peak_equity: number | null;
   peak_equity_at: string | null;
+  paused: boolean | null;
+  pause_reason: string | null;
+  paused_at: string | null;
 }
+
 
 const netOf = (row: {
   gross_profit: number | null;
