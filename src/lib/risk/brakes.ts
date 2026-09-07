@@ -22,9 +22,18 @@ export interface BrakeLimits {
   weeklyLossPercent: number;
   /** Consecutive closed losing trades. 0 disables. */
   consecutiveLosses: number;
+  /**
+   * How long a consecutive-loss pause lasts. `null` means "until the next UTC
+   * midnight", which is the historical behaviour and stays the default. A number
+   * is a fixed window in hours, measured from when the pause actually started.
+   */
+  consecutivePauseHours: number | null;
   /** Peak-to-current equity drawdown, as a percent of the peak. 0 disables. */
   maxDrawdownPercent: number;
 }
+
+/** The pause lengths a user may choose. Anything else falls back to next-day. */
+export const CONSECUTIVE_PAUSE_HOURS = [3, 5] as const;
 
 const clampPercent = (value: unknown, cap = 100): number => {
   const n = typeof value === "number" ? value : Number(value);
@@ -38,11 +47,19 @@ const clampCount = (value: unknown): number => {
   return Math.min(Math.floor(n), 1_000);
 };
 
+/** An unrecognised stored value means the safe default, never an invented window. */
+export function readPauseHours(value: unknown): number | null {
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n)) return null;
+  return (CONSECUTIVE_PAUSE_HOURS as readonly number[]).includes(n) ? n : null;
+}
+
 export function readBrakeLimits(row: {
   drawdown_brakes_enabled?: boolean | null;
   daily_loss_limit_percent?: number | null;
   weekly_loss_limit_percent?: number | null;
   consecutive_loss_limit?: number | null;
+  consecutive_loss_pause_hours?: number | null;
   max_drawdown_percent?: number | null;
 }): BrakeLimits {
   return {
@@ -50,9 +67,11 @@ export function readBrakeLimits(row: {
     dailyLossPercent: clampPercent(row.daily_loss_limit_percent),
     weeklyLossPercent: clampPercent(row.weekly_loss_limit_percent),
     consecutiveLosses: clampCount(row.consecutive_loss_limit),
+    consecutivePauseHours: readPauseHours(row.consecutive_loss_pause_hours),
     maxDrawdownPercent: clampPercent(row.max_drawdown_percent),
   };
 }
+
 
 /** Is any brake actually configured? Nobody pays for a feature they left off. */
 export function brakesConfigured(limits: BrakeLimits): boolean {
@@ -156,7 +175,8 @@ export interface BrakeVerdict {
   detail: string | null;
   /** When the brake lifts by itself. null means it needs the owner. */
   resumeAfterMs: number | null;
-  resumeBoundary: "next_utc_day" | "next_iso_week" | "owner" | null;
+  resumeBoundary: "next_utc_day" | "next_iso_week" | "duration" | "owner" | null;
+
 }
 
 const PASS: BrakeVerdict = {
@@ -181,7 +201,14 @@ export interface BrakeInputs {
   equity: number | null;
   /** Highest broker equity P-Trades has observed for this account. */
   peakEquity: number | null;
+  /**
+   * When a consecutive-loss pause on this account already started, and for what
+   * reason. A fixed pause window is measured from THAT instant, so re-evaluating
+   * every few minutes cannot keep pushing the release time forward.
+   */
+  pauseSince?: { reason: BrakeReason | null; atMs: number | null } | null;
 }
+
 
 /**
  * Does any configured brake hold right now?
@@ -276,14 +303,44 @@ export function evaluateBrakes(
   }
 
   if (limits.consecutiveLosses > 0 && inputs.totals.consecutiveLosses >= limits.consecutiveLosses) {
-    return {
-      paused: true,
-      reason: "consecutive_loss_limit",
-      detail: `the last ${inputs.totals.consecutiveLosses} closed broker trades on this account were all losses, at or past your limit of ${limits.consecutiveLosses}. Automatic orders resume at 00:00 UTC.`,
-      resumeAfterMs: nextUtcDayMs(nowMs),
-      resumeBoundary: "next_utc_day",
-    };
+    const hours = limits.consecutivePauseHours;
+    // The window runs from when the pause STARTED, not from this evaluation, so
+    // repeated checks can neither extend nor shorten it. Once it has elapsed the
+    // pause is served: the losing run itself can only end at the broker, and
+    // holding orders forever would make a chosen window meaningless.
+    const startedAt =
+      inputs.pauseSince?.reason === "consecutive_loss_limit" &&
+      typeof inputs.pauseSince.atMs === "number" &&
+      Number.isFinite(inputs.pauseSince.atMs)
+        ? inputs.pauseSince.atMs
+        : null;
+
+    const servedUntilMs =
+      startedAt === null
+        ? null
+        : hours === null
+          ? nextUtcDayMs(startedAt)
+          : startedAt + hours * 60 * 60 * 1000;
+    if (servedUntilMs !== null && nowMs >= servedUntilMs) {
+      // Window served; fall through so no further consecutive-loss claim is made.
+    } else {
+      const from = startedAt ?? nowMs;
+      const resumeAfterMs = hours === null ? nextUtcDayMs(from) : from + hours * 60 * 60 * 1000;
+      const resumeCopy =
+        hours === null
+          ? "Automatic orders resume at 00:00 UTC."
+          : `Automatic orders resume ${hours} hours after this pause started, at ${new Date(resumeAfterMs).toISOString().slice(11, 16)} UTC.`;
+      return {
+        paused: true,
+        reason: "consecutive_loss_limit",
+        detail: `the last ${inputs.totals.consecutiveLosses} closed broker trades on this account were all losses, at or past your limit of ${limits.consecutiveLosses}. ${resumeCopy}`,
+        resumeAfterMs,
+        resumeBoundary: hours === null ? "next_utc_day" : "duration",
+      };
+    }
   }
+
+
 
   return PASS;
 }

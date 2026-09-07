@@ -30,6 +30,7 @@ import { SignalCard } from "@/components/SignalCard";
 import { ScanHeartbeat } from "@/components/ScanHeartbeat";
 import { MarketStatus } from "@/components/MarketStatus";
 import { OnboardingBanner } from "@/components/OnboardingBanner";
+import { RiskHoldBanner } from "@/components/RiskHoldBanner";
 import { DayGradeMix } from "@/components/DayGradeMix";
 import { GuideNote, useGuideMode } from "@/components/GuideMode";
 import { Button } from "@/components/ui/button";
@@ -324,6 +325,7 @@ function FeedPage() {
   return (
     <div className="space-y-5">
       <OnboardingBanner />
+      <RiskHoldBanner />
 
       <MarketStatus health={health.data ?? []} stages={stages.data ?? []} />
 

@@ -18,13 +18,13 @@ const row = (over: Partial<BrokerEvidenceRow> = {}): BrokerEvidenceRow => ({
 });
 
 describe("aggregateBrokerTotals", () => {
-  it("returns zeros for no rows rather than any placeholder", () => {
+  it("[UNIT] returns zeros for no rows rather than any placeholder", () => {
     const t = aggregateBrokerTotals([]);
     expect(t).toMatchObject({ wins: 0, losses: 0, breakeven: 0, closed: 0, accounts: 0 });
     expect(t.grossProfit).toBe(0);
   });
 
-  it("classifies win, loss and breakeven by broker net money", () => {
+  it("[UNIT] classifies win, loss and breakeven by broker net money", () => {
     const t = aggregateBrokerTotals([
       row({ grossProfit: 10 }),
       row({ grossProfit: -5 }),
@@ -37,12 +37,12 @@ describe("aggregateBrokerTotals", () => {
     expect(t.netProfit).toBe(3);
   });
 
-  it("never counts an unreported trade as a loss", () => {
+  it("[UNIT] never counts an unreported trade as a loss", () => {
     const t = aggregateBrokerTotals([row({ grossProfit: null }), row({ grossProfit: 5 })]);
     expect(t).toMatchObject({ wins: 1, losses: 0, breakeven: 0, unmeasured: 1, closed: 2 });
   });
 
-  it("counts distinct accounts and ignores missing account ids", () => {
+  it("[UNIT] counts distinct accounts and ignores missing account ids", () => {
     const t = aggregateBrokerTotals([
       row({ accountId: "a" }),
       row({ accountId: "a" }),
@@ -52,7 +52,7 @@ describe("aggregateBrokerTotals", () => {
     expect(t.accounts).toBe(2);
   });
 
-  it("refuses to add unlike currencies", () => {
+  it("[UNIT] refuses to add unlike currencies", () => {
     const t = aggregateBrokerTotals([row({ currency: "USD" }), row({ currency: "EUR" })]);
     expect(t.mixedCurrency).toBe(true);
     expect(t.grossProfit).toBeNull();
@@ -63,7 +63,7 @@ describe("aggregateBrokerTotals", () => {
 });
 
 describe("aggregateJournalTotals", () => {
-  it("counts each recorded outcome and keeps unknowns visible", () => {
+  it("[UNIT] counts each recorded outcome and keeps unknowns visible", () => {
     const t = aggregateJournalTotals(["win", "win", "loss", "open", "breakeven", null, "weird"]);
     expect(t).toEqual({ wins: 2, losses: 1, breakeven: 1, open: 1, other: 2, rows: 7 });
   });
@@ -77,14 +77,14 @@ describe("aggregateBrokerTotalsByAttribution", () => {
     row({ attribution: "external", grossProfit: -1, accountId: "acc-3" }),
   ];
 
-  it("routes each row into exactly one bucket", () => {
+  it("[UNIT] routes each row into exactly one bucket", () => {
     const t = aggregateBrokerTotalsByAttribution(rows);
     expect(t.auto).toMatchObject({ wins: 1, losses: 1, closed: 2 });
     expect(t.unlinked).toMatchObject({ wins: 1, losses: 0, closed: 1 });
     expect(t.external).toMatchObject({ wins: 0, losses: 1, closed: 1 });
   });
 
-  it("keeps the combined total equal to the buckets", () => {
+  it("[UNIT] keeps the combined total equal to the buckets", () => {
     const t = aggregateBrokerTotalsByAttribution(rows);
     expect(t.all.closed).toBe(t.auto.closed + t.unlinked.closed + t.external.closed);
     expect(t.all.wins).toBe(t.auto.wins + t.unlinked.wins + t.external.wins);
@@ -93,7 +93,7 @@ describe("aggregateBrokerTotalsByAttribution", () => {
     expect(t.all).toEqual(aggregateBrokerTotals(rows));
   });
 
-  it("renders empty buckets as zeros, never as a placeholder", () => {
+  it("[UNIT] renders empty buckets as zeros, never as a placeholder", () => {
     const t = aggregateBrokerTotalsByAttribution([row({ attribution: "auto" })]);
     expect(t.unlinked).toMatchObject({ closed: 0, wins: 0, losses: 0, accounts: 0 });
     expect(t.external.grossProfit).toBe(0);

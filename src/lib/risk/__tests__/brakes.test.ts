@@ -14,7 +14,9 @@ const OFF: BrakeLimits = {
   dailyLossPercent: 0,
   weeklyLossPercent: 0,
   consecutiveLosses: 0,
+  consecutivePauseHours: null,
   maxDrawdownPercent: 0,
+
 };
 
 const on = (over: Partial<BrakeLimits>): BrakeLimits => ({ ...OFF, enabled: true, ...over });
@@ -222,5 +224,65 @@ describe("evaluateBrakes", () => {
       NOW,
     );
     expect(v.paused).toBe(false);
+  });
+});
+
+describe("consecutive-loss pause window", () => {
+  const losses: ClosedTrade[] = [
+    trade("2026-09-02T08:00:00.000Z", -5),
+    trade("2026-09-02T09:00:00.000Z", -5),
+    trade("2026-09-02T10:00:00.000Z", -5),
+    trade("2026-09-02T11:00:00.000Z", -5),
+  ];
+  const totals = () => summariseRealised(losses, NOW);
+
+  it("[INVARIANT] defaults to the next UTC midnight when no window is chosen", () => {
+    const v = evaluateBrakes(
+      on({ consecutiveLosses: 4 }),
+      { totals: totals(), equity: 1000, peakEquity: 1000 },
+      NOW,
+    );
+    expect(v.paused).toBe(true);
+    expect(v.resumeBoundary).toBe("next_utc_day");
+    expect(v.resumeAfterMs).toBe(Date.parse("2026-09-03T00:00:00.000Z"));
+  });
+
+  it("[INVARIANT] measures a chosen window from when the pause started, not from now", () => {
+    const startedAt = Date.parse("2026-09-02T11:00:00.000Z");
+    const v = evaluateBrakes(
+      on({ consecutiveLosses: 4, consecutivePauseHours: 3 }),
+      {
+        totals: totals(),
+        equity: 1000,
+        peakEquity: 1000,
+        pauseSince: { reason: "consecutive_loss_limit", atMs: startedAt },
+      },
+      NOW,
+    );
+    expect(v.paused).toBe(true);
+    expect(v.resumeBoundary).toBe("duration");
+    expect(v.resumeAfterMs).toBe(startedAt + 3 * 60 * 60 * 1000);
+  });
+
+  it("[INVARIANT] releases once the chosen window has elapsed, even while the run stands", () => {
+    const startedAt = Date.parse("2026-09-02T05:00:00.000Z");
+    const v = evaluateBrakes(
+      on({ consecutiveLosses: 4, consecutivePauseHours: 3 }),
+      {
+        totals: totals(),
+        equity: 1000,
+        peakEquity: 1000,
+        pauseSince: { reason: "consecutive_loss_limit", atMs: startedAt },
+      },
+      NOW,
+    );
+    expect(v.paused).toBe(false);
+  });
+
+  it("[INVARIANT] stores only the offered windows", () => {
+    expect(readBrakeLimits({ consecutive_loss_pause_hours: 3 }).consecutivePauseHours).toBe(3);
+    expect(readBrakeLimits({ consecutive_loss_pause_hours: 5 }).consecutivePauseHours).toBe(5);
+    expect(readBrakeLimits({ consecutive_loss_pause_hours: 9 }).consecutivePauseHours).toBe(null);
+    expect(readBrakeLimits({}).consecutivePauseHours).toBe(null);
   });
 });

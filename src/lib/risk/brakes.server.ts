@@ -20,10 +20,12 @@ import {
   readBrakeLimits,
   summariseRealised,
   type BrakeLimits,
+  type BrakeReason,
   type BrakeVerdict,
   type ClosedTrade,
   type RealisedTotals,
 } from "./brakes";
+
 
 /** How far back closed trades are read. Bounded: this runs on a request path. */
 const LOOKBACK_DAYS = 21;
@@ -48,7 +50,11 @@ interface StateRow {
   account_id: string;
   peak_equity: number | null;
   peak_equity_at: string | null;
+  paused: boolean | null;
+  pause_reason: string | null;
+  paused_at: string | null;
 }
+
 
 const netOf = (row: {
   gross_profit: number | null;
@@ -105,8 +111,9 @@ export async function evaluateAccountBrakes(
       .in("id", accountIds),
     db
       .from("account_risk_state")
-      .select("account_id, peak_equity, peak_equity_at")
+      .select("account_id, peak_equity, peak_equity_at, paused, pause_reason, paused_at")
       .in("account_id", accountIds),
+
   ]);
 
   if (accountRows.error) console.error("brakes: accounts unreadable", accountRows.error.message);
@@ -182,7 +189,21 @@ export async function evaluateAccountBrakes(
       peakAt = observed.observedAt ?? new Date(nowMs).toISOString();
     }
 
-    const verdict = evaluateBrakes(limits, { totals, equity: observed.equity, peakEquity }, nowMs);
+    // A pause that is still running keeps its ORIGINAL start instant, so a chosen
+    // window is measured once and never slides forward on re-evaluation.
+    const priorPausedAtMs =
+      prior?.paused === true && prior.paused_at ? Date.parse(prior.paused_at) : NaN;
+    const pauseSince = Number.isFinite(priorPausedAtMs)
+      ? { reason: (prior?.pause_reason ?? null) as BrakeReason | null, atMs: priorPausedAtMs }
+      : null;
+
+
+    const verdict = evaluateBrakes(
+      limits,
+      { totals, equity: observed.equity, peakEquity, pauseSince },
+      nowMs,
+    );
+
     out.set(account.id, {
       accountId: account.id,
       verdict,
@@ -222,7 +243,13 @@ export async function evaluateAccountBrakes(
       paused: verdict.paused,
       pause_reason: verdict.reason,
       pause_detail: verdict.detail,
-      paused_at: verdict.paused ? new Date(nowMs).toISOString() : null,
+      paused_at: verdict.paused
+        ? pauseSince !== null && pauseSince.reason === verdict.reason
+          ? new Date(pauseSince.atMs).toISOString()
+          : new Date(nowMs).toISOString()
+        : null,
+
+
       resume_after:
         verdict.resumeAfterMs === null ? null : new Date(verdict.resumeAfterMs).toISOString(),
       resume_boundary: verdict.resumeBoundary,

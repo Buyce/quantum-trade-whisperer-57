@@ -4325,6 +4325,7 @@ export type Database = {
           auto_market_entry_enabled: boolean
           auto_order_window_minutes: number
           consecutive_loss_limit: number
+          consecutive_loss_pause_hours: number | null
           created_at: string
           daily_loss_limit_percent: number
           daily_setup_cap: number
@@ -4388,6 +4389,7 @@ export type Database = {
           auto_market_entry_enabled?: boolean
           auto_order_window_minutes?: number
           consecutive_loss_limit?: number
+          consecutive_loss_pause_hours?: number | null
           created_at?: string
           daily_loss_limit_percent?: number
           daily_setup_cap?: number
@@ -4451,6 +4453,7 @@ export type Database = {
           auto_market_entry_enabled?: boolean
           auto_order_window_minutes?: number
           consecutive_loss_limit?: number
+          consecutive_loss_pause_hours?: number | null
           created_at?: string
           daily_loss_limit_percent?: number
           daily_setup_cap?: number

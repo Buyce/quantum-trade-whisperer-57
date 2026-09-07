@@ -169,6 +169,8 @@ function SettingsPage() {
   const [dailyLossLimitPercent, setDailyLossLimitPercent] = useState("0");
   const [weeklyLossLimitPercent, setWeeklyLossLimitPercent] = useState("0");
   const [consecutiveLossLimit, setConsecutiveLossLimit] = useState("0");
+  // "day" = pause until the next UTC midnight (the default); "3"/"5" = a fixed window.
+  const [consecutiveLossPauseHours, setConsecutiveLossPauseHours] = useState("day");
   const [maxDrawdownPercent, setMaxDrawdownPercent] = useState("0");
 
   const [saving, setSaving] = useState(false);
@@ -317,6 +319,11 @@ function SettingsPage() {
     setDailyLossLimitPercent(String(Number(s.daily_loss_limit_percent ?? 0)));
     setWeeklyLossLimitPercent(String(Number(s.weekly_loss_limit_percent ?? 0)));
     setConsecutiveLossLimit(String(Number(s.consecutive_loss_limit ?? 0)));
+    setConsecutiveLossPauseHours(
+      s.consecutive_loss_pause_hours === 3 || s.consecutive_loss_pause_hours === 5
+        ? String(s.consecutive_loss_pause_hours)
+        : "day",
+    );
     setMaxDrawdownPercent(String(Number(s.max_drawdown_percent ?? 0)));
   }, [settings.data]);
 
@@ -392,6 +399,10 @@ function SettingsPage() {
         daily_loss_limit_percent: dailyLossValue,
         weekly_loss_limit_percent: weeklyLossValue,
         consecutive_loss_limit: consecutiveLossValue,
+        // Only the two offered windows may be stored; anything else means "until
+        // the next UTC midnight" rather than an invented duration.
+        consecutive_loss_pause_hours:
+          consecutiveLossPauseHours === "3" ? 3 : consecutiveLossPauseHours === "5" ? 5 : null,
         max_drawdown_percent: maxDrawdownValue,
 
         // Never fabricate the acknowledgement: above-2% saves are blocked above
@@ -1328,22 +1339,52 @@ function SettingsPage() {
                   <Label className="text-xs" htmlFor="consecutive-loss-limit">
                     Losing trades in a row
                   </Label>
-                  <Input
-                    id="consecutive-loss-limit"
-                    type="number"
-                    inputMode="numeric"
-                    min={0}
-                    max={100}
-                    step="1"
-                    className="num mt-2"
+                  <Select
                     value={consecutiveLossLimit}
-                    onChange={(e) => setConsecutiveLossLimit(e.target.value)}
-                  />
+                    onValueChange={(v) => setConsecutiveLossLimit(v)}
+                  >
+                    <SelectTrigger id="consecutive-loss-limit" className="mt-2">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">Off — never pause on a losing run</SelectItem>
+                      <SelectItem value="4">4 in a row — stops you soonest</SelectItem>
+                      <SelectItem value="5">5 in a row</SelectItem>
+                      <SelectItem value="6">6 in a row</SelectItem>
+                      <SelectItem value="7">7 in a row</SelectItem>
+                      <SelectItem value="8">8 in a row — most tolerant</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <p className="mt-1 text-xs text-muted-foreground">
                     Counted backwards from your most recent closed trade. A break-even close ends
-                    the run. Lifts at the next UTC midnight.
+                    the run. A lower number stops you sooner in a bad run; a higher number lets an
+                    ordinary losing patch pass without pausing.
                   </p>
                 </div>
+                <div>
+                  <Label className="text-xs" htmlFor="consecutive-loss-pause">
+                    How long that pause lasts
+                  </Label>
+                  <Select
+                    value={consecutiveLossPauseHours}
+                    onValueChange={(v) => setConsecutiveLossPauseHours(v)}
+                  >
+                    <SelectTrigger id="consecutive-loss-pause" className="mt-2">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="3">3 hours</SelectItem>
+                      <SelectItem value="5">5 hours</SelectItem>
+                      <SelectItem value="day">Rest of the trading day (00:00 UTC)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Measured from the moment the pause started, so the time shown in the hold
+                    notice is the real release time. Applies to the losing-run pause only — your
+                    daily, weekly and equity-drop limits keep their own timing.
+                  </p>
+                </div>
+
                 <div>
                   <Label className="text-xs" htmlFor="max-drawdown">
                     Equity drop from peak (%)

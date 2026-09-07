@@ -284,6 +284,7 @@ interface SettingsRow {
   daily_loss_limit_percent?: number | null;
   weekly_loss_limit_percent?: number | null;
   consecutive_loss_limit?: number | null;
+  consecutive_loss_pause_hours?: number | null;
   max_drawdown_percent?: number | null;
 }
 
@@ -342,7 +343,7 @@ export async function revalidateDelivery(
   const { data: settingsRow } = await db
     .from("scanner_settings")
     .select(
-      "instruments, sessions, alert_min_grade, daily_setup_cap, execution_enabled, execution_dry_run, execution_config_version, exposure_limit_enabled, webhook_enabled, webhook_url, webhook_secret, webhook_format, webhook_validated_at, auto_order_window_minutes, auto_market_entry_enabled, auto_exit_policy, live_execution_confirmed_at, live_execution_confirmed_version, live_execution_confirmed_global_live, news_block_new_entries, news_suppression_minutes_before, news_suppression_minutes_after, max_entry_spread_pips, max_entry_slippage_pips, max_total_exposure_percent, drawdown_brakes_enabled, daily_loss_limit_percent, weekly_loss_limit_percent, consecutive_loss_limit, max_drawdown_percent",
+      "instruments, sessions, alert_min_grade, daily_setup_cap, execution_enabled, execution_dry_run, execution_config_version, exposure_limit_enabled, webhook_enabled, webhook_url, webhook_secret, webhook_format, webhook_validated_at, auto_order_window_minutes, auto_market_entry_enabled, auto_exit_policy, live_execution_confirmed_at, live_execution_confirmed_version, live_execution_confirmed_global_live, news_block_new_entries, news_suppression_minutes_before, news_suppression_minutes_after, max_entry_spread_pips, max_entry_slippage_pips, max_total_exposure_percent, drawdown_brakes_enabled, daily_loss_limit_percent, weekly_loss_limit_percent, consecutive_loss_limit, consecutive_loss_pause_hours, max_drawdown_percent",
     )
     .eq("user_id", delivery.user_id)
     .maybeSingle();
