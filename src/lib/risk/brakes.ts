@@ -303,14 +303,34 @@ export function evaluateBrakes(
   }
 
   if (limits.consecutiveLosses > 0 && inputs.totals.consecutiveLosses >= limits.consecutiveLosses) {
+    const hours = limits.consecutivePauseHours;
+    // A fixed window runs from when the pause STARTED, not from this evaluation,
+    // so repeated checks cannot silently extend it. A window that has already
+    // elapsed never resolves backwards: the run is still there, so the pause is
+    // re-armed from now rather than reported as already over.
+    const startedAt =
+      inputs.pauseSince?.reason === "consecutive_loss_limit" &&
+      typeof inputs.pauseSince.atMs === "number" &&
+      Number.isFinite(inputs.pauseSince.atMs)
+        ? inputs.pauseSince.atMs
+        : nowMs;
+    const resumeAfterMs =
+      hours === null
+        ? nextUtcDayMs(nowMs)
+        : Math.max(nowMs, startedAt + hours * 60 * 60 * 1000);
+    const resumeCopy =
+      hours === null
+        ? "Automatic orders resume at 00:00 UTC."
+        : `Automatic orders resume ${hours} hours after the pause started, at ${new Date(resumeAfterMs).toISOString().slice(11, 16)} UTC.`;
     return {
       paused: true,
       reason: "consecutive_loss_limit",
-      detail: `the last ${inputs.totals.consecutiveLosses} closed broker trades on this account were all losses, at or past your limit of ${limits.consecutiveLosses}. Automatic orders resume at 00:00 UTC.`,
-      resumeAfterMs: nextUtcDayMs(nowMs),
-      resumeBoundary: "next_utc_day",
+      detail: `the last ${inputs.totals.consecutiveLosses} closed broker trades on this account were all losses, at or past your limit of ${limits.consecutiveLosses}. ${resumeCopy}`,
+      resumeAfterMs,
+      resumeBoundary: hours === null ? "next_utc_day" : "duration",
     };
   }
+
 
   return PASS;
 }
