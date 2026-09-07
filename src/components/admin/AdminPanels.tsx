@@ -111,7 +111,7 @@ export function PanelShell({
 
   return (
     <Card className="overflow-hidden">
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-border px-3 py-2">
+      <div className="grid grid-cols-1 gap-1 border-b border-border px-3 py-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-2">
         {collapsible ? (
           <button
             type="button"
@@ -171,7 +171,7 @@ export function RegimeTable({ rows }: { rows: AdminRegimeRow[] }) {
     return <EmptyNote>The learning engine has not produced regime statistics yet.</EmptyNote>;
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-[11px]">
+      <table className="w-full min-w-[560px] text-[11px]">
         <thead className="text-left text-muted-foreground">
           <tr className="border-b border-border">
             <th className="py-1 pr-2 font-medium">Regime</th>
@@ -184,7 +184,7 @@ export function RegimeTable({ rows }: { rows: AdminRegimeRow[] }) {
             <th className="py-1 font-medium">Win gate ≥200</th>
           </tr>
         </thead>
-        <tbody className="font-mono">
+        <tbody className="whitespace-nowrap font-mono">
           {rows.map((r) => (
             <tr key={`${r.tier}-${r.regime_key}`} className="border-b border-border/50">
               <td className="py-1 pr-2 max-w-[220px] truncate" title={r.regime_key}>
@@ -240,40 +240,42 @@ export function FillTable({ label, rows }: { label: string; rows: AdminFillRow[]
       {rows.length === 0 ? (
         <EmptyNote>No resolved shadow rows in this window.</EmptyNote>
       ) : (
-        <table className="w-full text-[11px]">
-          <thead className="text-left text-muted-foreground">
-            <tr className="border-b border-border">
-              <th className="py-1 pr-2 font-medium">Session</th>
-              <th className="py-1 pr-2 text-right font-medium">N</th>
-              <th className="py-1 pr-2 text-right font-medium">Fill %</th>
-              <th className="py-1 text-right font-medium">Median miss (ATR)</th>
-            </tr>
-          </thead>
-          <tbody className="font-mono">
-            {rows.map((r) => {
-              const rate = r.n === 0 ? null : r.filled / r.n;
-              return (
-                <tr key={r.sess} className="border-b border-border/50">
-                  <td className="py-1 pr-2">{r.sess}</td>
-                  <td className="py-1 pr-2 text-right">{r.n}</td>
-                  <td
-                    className={cn(
-                      "py-1 pr-2 text-right",
-                      rate != null && rate >= 0.6
-                        ? "text-emerald-400"
-                        : rate != null && rate < 0.3
-                          ? "text-destructive"
-                          : "",
-                    )}
-                  >
-                    {pctOf(rate)}
-                  </td>
-                  <td className="py-1 text-right">{num(r.median_miss_atr, 2)}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[420px] text-[11px]">
+            <thead className="text-left text-muted-foreground">
+              <tr className="border-b border-border">
+                <th className="py-1 pr-2 font-medium">Session</th>
+                <th className="py-1 pr-2 text-right font-medium">N</th>
+                <th className="py-1 pr-2 text-right font-medium">Fill %</th>
+                <th className="py-1 text-right font-medium">Median miss (ATR)</th>
+              </tr>
+            </thead>
+            <tbody className="whitespace-nowrap font-mono">
+              {rows.map((r) => {
+                const rate = r.n === 0 ? null : r.filled / r.n;
+                return (
+                  <tr key={r.sess} className="border-b border-border/50">
+                    <td className="py-1 pr-2">{r.sess}</td>
+                    <td className="py-1 pr-2 text-right">{r.n}</td>
+                    <td
+                      className={cn(
+                        "py-1 pr-2 text-right",
+                        rate != null && rate >= 0.6
+                          ? "text-emerald-400"
+                          : rate != null && rate < 0.3
+                            ? "text-destructive"
+                            : "",
+                      )}
+                    >
+                      {pctOf(rate)}
+                    </td>
+                    <td className="py-1 text-right">{num(r.median_miss_atr, 2)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );
@@ -299,34 +301,36 @@ export function DisciplinePanel({ discipline }: { discipline: AdminDiscipline })
       : null;
   return (
     <div className="space-y-2">
-      <table className="w-full text-[11px]">
-        <thead className="text-left text-muted-foreground">
-          <tr className="border-b border-border">
-            <th className="py-1 pr-2 font-medium">Decision</th>
-            <th className="py-1 pr-2 text-right font-medium">Decisions</th>
-            <th
-              className="py-1 pr-2 text-right font-medium cursor-help decoration-dotted underline-offset-4 hover:underline"
-              title="Only filled replays count toward win rate and mean R."
-            >
-              Filled
-            </th>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[520px] text-[11px]">
+          <thead className="text-left text-muted-foreground">
+            <tr className="border-b border-border">
+              <th className="py-1 pr-2 font-medium">Decision</th>
+              <th className="py-1 pr-2 text-right font-medium">Decisions</th>
+              <th
+                className="py-1 pr-2 text-right font-medium cursor-help decoration-dotted underline-offset-4 hover:underline"
+                title="Only filled replays count toward win rate and mean R."
+              >
+                Filled
+              </th>
 
-            <th className="py-1 pr-2 text-right font-medium">Win rate</th>
-            <th className="py-1 text-right font-medium">Mean R</th>
-          </tr>
-        </thead>
-        <tbody className="font-mono">
-          {sides.map(({ key, side }) => (
-            <tr key={key} className="border-b border-border/50">
-              <td className="py-1 pr-2">{key}</td>
-              <td className="py-1 pr-2 text-right">{side.n}</td>
-              <td className="py-1 pr-2 text-right">{side.filled}</td>
-              <td className="py-1 pr-2 text-right">{pctOf(side.win_rate)}</td>
-              <td className="py-1 text-right">{num(side.mean_r)}</td>
+              <th className="py-1 pr-2 text-right font-medium">Win rate</th>
+              <th className="py-1 text-right font-medium">Mean R</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="whitespace-nowrap font-mono">
+            {sides.map(({ key, side }) => (
+              <tr key={key} className="border-b border-border/50">
+                <td className="py-1 pr-2">{key}</td>
+                <td className="py-1 pr-2 text-right">{side.n}</td>
+                <td className="py-1 pr-2 text-right">{side.filled}</td>
+                <td className="py-1 pr-2 text-right">{pctOf(side.win_rate)}</td>
+                <td className="py-1 text-right">{num(side.mean_r)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
       {difference != null ? (
         <p className="text-[11px] text-muted-foreground">
           {difference > 0
@@ -345,31 +349,33 @@ export function GradeTable({ rows }: { rows: AdminGradeRow[] }) {
   if (!rows.length)
     return <EmptyNote>No resolved shadow executions to calibrate against yet.</EmptyNote>;
   return (
-    <table className="w-full text-[11px]">
-      <thead className="text-left text-muted-foreground">
-        <tr className="border-b border-border">
-          <th className="py-1 pr-2 font-medium">Grade</th>
-          <th className="py-1 pr-2 text-right font-medium">N</th>
-          <th className="py-1 pr-2 text-right font-medium">Win rate</th>
-          <th className="py-1 pr-2 text-right font-medium">Mean R</th>
-          <th className="py-1 text-right font-medium">Avg conf.</th>
-        </tr>
-      </thead>
-      <tbody className="font-mono">
-        {rows.map((r) => (
-          <tr key={r.grade} className="border-b border-border/50">
-            <td className="py-1 pr-2">{r.grade}</td>
-            <td className="py-1 pr-2 text-right">
-              {r.n}
-              <span className="ml-1 text-muted-foreground">({r.filled}f)</span>
-            </td>
-            <td className="py-1 pr-2 text-right">{pctOf(r.win_rate)}</td>
-            <td className="py-1 pr-2 text-right">{num(r.mean_r)}</td>
-            <td className="py-1 text-right">{num(r.avg_confidence, 1)}</td>
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[480px] text-[11px]">
+        <thead className="text-left text-muted-foreground">
+          <tr className="border-b border-border">
+            <th className="py-1 pr-2 font-medium">Grade</th>
+            <th className="py-1 pr-2 text-right font-medium">N</th>
+            <th className="py-1 pr-2 text-right font-medium">Win rate</th>
+            <th className="py-1 pr-2 text-right font-medium">Mean R</th>
+            <th className="py-1 text-right font-medium">Avg conf.</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody className="whitespace-nowrap font-mono">
+          {rows.map((r) => (
+            <tr key={r.grade} className="border-b border-border/50">
+              <td className="py-1 pr-2">{r.grade}</td>
+              <td className="py-1 pr-2 text-right">
+                {r.n}
+                <span className="ml-1 text-muted-foreground">({r.filled}f)</span>
+              </td>
+              <td className="py-1 pr-2 text-right">{pctOf(r.win_rate)}</td>
+              <td className="py-1 pr-2 text-right">{num(r.mean_r)}</td>
+              <td className="py-1 text-right">{num(r.avg_confidence, 1)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -430,7 +436,7 @@ export function IntersectionTable({ rows }: { rows: AdminFeedRow[] }) {
   if (!rows.length) return <EmptyNote>No signals have been published yet.</EmptyNote>;
   return (
     <div className="max-h-[520px] overflow-auto">
-      <table className="w-full text-[11px]">
+      <table className="w-full min-w-[760px] text-[11px]">
         <thead className="sticky top-0 bg-card text-left text-muted-foreground">
           <tr className="border-b border-border">
             <th className="py-1 pr-2 font-medium">Detected</th>
@@ -444,7 +450,7 @@ export function IntersectionTable({ rows }: { rows: AdminFeedRow[] }) {
             <th className="py-1 text-right font-medium">Miss ATR</th>
           </tr>
         </thead>
-        <tbody className="font-mono">
+        <tbody className="whitespace-nowrap font-mono">
           {rows.map((r) => (
             <tr key={r.id} className="border-b border-border/50">
               <td className="py-1 pr-2 whitespace-nowrap text-muted-foreground">
@@ -507,32 +513,34 @@ export function WeeklyTierPanel({ report }: { report: WeeklyReport | undefined }
   const tiers = [report.high, report.low];
   return (
     <div className="space-y-3">
-      <table className="w-full text-[11px] font-mono">
-        <thead className="text-muted-foreground">
-          <tr className="border-b border-border">
-            <th className="py-1 text-left">tier</th>
-            <th className="py-1 text-right">resolved</th>
-            <th className="py-1 text-right">filled</th>
-            <th className="py-1 text-right">fill %</th>
-            <th className="py-1 text-right">win %</th>
-            <th className="py-1 text-right">mean R</th>
-            <th className="py-1 text-right">total R</th>
-          </tr>
-        </thead>
-        <tbody>
-          {tiers.map((t) => (
-            <tr key={t.tier} className="border-b border-border/50">
-              <td className="py-1">{t.label}</td>
-              <td className="py-1 text-right">{t.resolved}</td>
-              <td className="py-1 text-right">{t.filled}</td>
-              <td className="py-1 text-right">{pctOf(t.fillRate)}</td>
-              <td className="py-1 text-right">{pctOf(t.winRate)}</td>
-              <td className="py-1 text-right">{num(t.meanR)}</td>
-              <td className="py-1 text-right">{num(t.totalR)}</td>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[560px] text-[11px] font-mono">
+          <thead className="text-muted-foreground">
+            <tr className="border-b border-border">
+              <th className="py-1 text-left">tier</th>
+              <th className="py-1 text-right">resolved</th>
+              <th className="py-1 text-right">filled</th>
+              <th className="py-1 text-right">fill %</th>
+              <th className="py-1 text-right">win %</th>
+              <th className="py-1 text-right">mean R</th>
+              <th className="py-1 text-right">total R</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {tiers.map((t) => (
+              <tr key={t.tier} className="border-b border-border/50">
+                <td className="py-1">{t.label}</td>
+                <td className="py-1 text-right">{t.resolved}</td>
+                <td className="py-1 text-right">{t.filled}</td>
+                <td className="py-1 text-right">{pctOf(t.fillRate)}</td>
+                <td className="py-1 text-right">{pctOf(t.winRate)}</td>
+                <td className="py-1 text-right">{num(t.meanR)}</td>
+                <td className="py-1 text-right">{num(t.totalR)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       <ul className="space-y-2 text-[11px]">
         {report.comparisons.map((c) => (

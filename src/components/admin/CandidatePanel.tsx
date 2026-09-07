@@ -141,7 +141,7 @@ export function CandidatePanel() {
           </div>
           {data && data.enrolled_by_day?.length ? (
             <div className="mt-3 overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[420px] text-sm">
                 <thead className="text-xs uppercase text-muted-foreground">
                   <tr className="border-b border-border">
                     <th className="py-1.5 text-left font-medium">Enrolled on (UTC)</th>
@@ -175,7 +175,7 @@ export function CandidatePanel() {
           </h4>
           {data && data.by_plan_origin?.length ? (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[420px] text-sm">
                 <thead className="text-left text-xs uppercase tracking-wider text-muted-foreground">
                   <tr>
                     <th className="py-1.5 pr-3 font-medium">Origin</th>
@@ -207,7 +207,7 @@ export function CandidatePanel() {
           </h4>
           {data && data.by_stage.length > 0 ? (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[420px] text-sm">
                 <thead className="text-left text-xs uppercase tracking-wider text-muted-foreground">
                   <tr>
                     <th className="py-1.5 pr-3 font-medium">Stage</th>
@@ -239,7 +239,7 @@ export function CandidatePanel() {
           </h4>
           {data && data.gate_outcomes.length > 0 ? (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[420px] text-sm">
                 <thead className="text-left text-xs uppercase tracking-wider text-muted-foreground">
                   <tr>
                     <th className="py-1.5 pr-3 font-medium">Gate</th>

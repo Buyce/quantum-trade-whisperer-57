@@ -60,7 +60,7 @@ export function ExitVariantsPanel() {
         </p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-[11px]">
+          <table className="w-full min-w-[720px] text-[11px]">
             <thead className="text-muted-foreground">
               <tr className="border-b border-border/60 text-left">
                 <th className="py-1 pr-2 font-medium">Exit rule</th>

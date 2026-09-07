@@ -416,17 +416,19 @@ function AdminIntelligencePage() {
             {engagement.by_instrument.length === 0 ? (
               <EmptyNote>No user decisions logged yet.</EmptyNote>
             ) : (
-              <table className="w-full text-[11px] font-mono">
-                <tbody>
-                  {engagement.by_instrument.map((i) => (
-                    <tr key={i.instrument} className="border-b border-border/50">
-                      <td className="py-1">{i.instrument}</td>
-                      <td className="py-1 text-right text-emerald-400">{i.taken}</td>
-                      <td className="py-1 text-right text-muted-foreground">{i.skipped}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[280px] text-[11px] font-mono">
+                  <tbody>
+                    {engagement.by_instrument.map((i) => (
+                      <tr key={i.instrument} className="border-b border-border/50">
+                        <td className="py-1">{i.instrument}</td>
+                        <td className="py-1 text-right text-emerald-400">{i.taken}</td>
+                        <td className="py-1 text-right text-muted-foreground">{i.skipped}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </PanelShell>
         </div>

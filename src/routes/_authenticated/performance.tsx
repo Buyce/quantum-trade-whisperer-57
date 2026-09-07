@@ -473,7 +473,7 @@ function PerformancePage() {
               />
             ) : (
               <div className="mt-4 overflow-x-auto">
-                <table className="w-full border-separate border-spacing-0.5">
+                <table className="w-full min-w-[560px] border-separate border-spacing-0.5">
                   <thead>
                     <tr>
                       <th className="label-xs w-10 text-left" />
