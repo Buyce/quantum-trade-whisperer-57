@@ -317,3 +317,34 @@ export const getGateImpactReport = createServerFn({ method: "GET" })
         .sort((a, b) => b.count - a.count),
     };
   });
+
+/**
+ * The caller's ACTIVE automatic-order holds, one row per connected account.
+ *
+ * This is a read of the persisted brake state written from CLOSED broker trades
+ * and the broker's own equity reading. It records nothing and decides nothing:
+ * a hold shown here is the same hold the queue already applied. An account with
+ * no recorded hold is simply absent — silence is not proof that no risk exists.
+ */
+export const getRiskHolds = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data, error } = await context.supabase
+      .from("account_risk_state")
+      .select(
+        "account_id, paused, pause_reason, pause_detail, paused_at, resume_after, resume_boundary, computed_at, consecutive_losses",
+      )
+      .eq("paused", true);
+    if (error) throw new Error(error.message);
+    return ((data ?? []) as Record<string, unknown>[]).map((row) => ({
+      accountId: String(row["account_id"]),
+      reason: (row["pause_reason"] as string | null) ?? null,
+      detail: (row["pause_detail"] as string | null) ?? null,
+      pausedAt: (row["paused_at"] as string | null) ?? null,
+      resumeAfter: (row["resume_after"] as string | null) ?? null,
+      resumeBoundary: (row["resume_boundary"] as string | null) ?? null,
+      computedAt: (row["computed_at"] as string | null) ?? null,
+      consecutiveLosses:
+        row["consecutive_losses"] === null ? null : Number(row["consecutive_losses"]),
+    }));
+  });
