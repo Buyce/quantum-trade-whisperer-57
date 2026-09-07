@@ -175,7 +175,8 @@ export interface BrakeVerdict {
   detail: string | null;
   /** When the brake lifts by itself. null means it needs the owner. */
   resumeAfterMs: number | null;
-  resumeBoundary: "next_utc_day" | "next_iso_week" | "owner" | null;
+  resumeBoundary: "next_utc_day" | "next_iso_week" | "duration" | "owner" | null;
+
 }
 
 const PASS: BrakeVerdict = {
@@ -200,7 +201,14 @@ export interface BrakeInputs {
   equity: number | null;
   /** Highest broker equity P-Trades has observed for this account. */
   peakEquity: number | null;
+  /**
+   * When a consecutive-loss pause on this account already started, and for what
+   * reason. A fixed pause window is measured from THAT instant, so re-evaluating
+   * every few minutes cannot keep pushing the release time forward.
+   */
+  pauseSince?: { reason: BrakeReason | null; atMs: number | null } | null;
 }
+
 
 /**
  * Does any configured brake hold right now?
