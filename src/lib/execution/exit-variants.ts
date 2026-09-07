@@ -110,6 +110,10 @@ export function simulateVariant(variant: ExitVariant, path: ExitPath): VariantOu
   switch (variant) {
     case "single_exit_first_target":
       return simulateSingle(path, tp1);
+    case "single_exit_second_target":
+      return simulateDeepSingle(path, tp1, path.targetsR[1], "second");
+    case "single_exit_third_target":
+      return simulateDeepSingle(path, tp1, path.targetsR[2], "third");
     case "partial_tp1_runner_tp2":
       return simulatePartial(path, tp1, path.targetsR[1], "second");
     case "partial_tp1_runner_tp3":
@@ -120,6 +124,33 @@ export function simulateVariant(variant: ExitVariant, path: ExitPath): VariantOu
       return simulateTrail(path, tp1);
   }
 }
+
+/**
+ * Whole position held to a deeper target with the original stop unchanged: no
+ * partial, no break-even move. Either the deeper target or the -1R stop decides
+ * the outcome, whichever the recorded path reaches first.
+ */
+function simulateDeepSingle(
+  path: ExitPath,
+  tp1: number,
+  targetR: number | null,
+  label: string,
+): VariantOutcome {
+  if (targetR === null || !Number.isFinite(targetR) || targetR <= tp1) {
+    return undecidable(`The plan defines no ${label} target beyond the first.`);
+  }
+  for (const raw of path.bars) {
+    const bar = usable(raw);
+    if (!bar) return undecidable(AMBIGUOUS_BAR);
+    const target = targetHit(bar, targetR);
+    const stopped = stopHit(bar, -1);
+    if (target && stopped) return undecidable(BOTH_BARRIERS);
+    if (stopped) return decided(-1);
+    if (target) return decided(targetR);
+  }
+  return openEnded(path, "The path ended with the position still open.");
+}
+
 
 /** Current policy: first target or the -1R stop, whichever comes first. */
 function simulateSingle(path: ExitPath, tp1: number): VariantOutcome {
