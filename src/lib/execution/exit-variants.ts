@@ -51,7 +51,6 @@ export const EXIT_VARIANT_LABELS: Record<ExitVariant, string> = {
   trail_1r: "Trailing stop 1R behind the best excursion",
 };
 
-
 export interface ExitPath {
   bars: PathBar[];
   /** [tp1, tp2, tp3] in R against the filled risk; null when not defined. */
@@ -150,7 +149,6 @@ function simulateDeepSingle(
   }
   return openEnded(path, "The path ended with the position still open.");
 }
-
 
 /** Current policy: first target or the -1R stop, whichever comes first. */
 function simulateSingle(path: ExitPath, tp1: number): VariantOutcome {
