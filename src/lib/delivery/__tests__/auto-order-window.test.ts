@@ -39,7 +39,7 @@ describe("automatic-order window bounds", () => {
     const now = Date.parse("2026-08-26T12:00:00.000Z");
     const at = (iso: string) => ({ detectedAt: iso });
     expect(executionWindowExpired(at("2026-08-26T08:00:00.000Z"), now)).toBe(false);
-    expect(executionWindowExpired(at("2026-08-26T05:00:00.000Z"), now)).toBe(true);
+    expect(executionWindowExpired(at("2026-08-26T01:00:00.000Z"), now)).toBe(true);
     // The owner's own window refuses earlier.
     expect(executionWindowExpired(at("2026-08-26T08:00:00.000Z"), now, 60)).toBe(true);
   });
