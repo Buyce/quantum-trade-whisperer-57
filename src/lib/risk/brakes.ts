@@ -22,9 +22,18 @@ export interface BrakeLimits {
   weeklyLossPercent: number;
   /** Consecutive closed losing trades. 0 disables. */
   consecutiveLosses: number;
+  /**
+   * How long a consecutive-loss pause lasts. `null` means "until the next UTC
+   * midnight", which is the historical behaviour and stays the default. A number
+   * is a fixed window in hours, measured from when the pause actually started.
+   */
+  consecutivePauseHours: number | null;
   /** Peak-to-current equity drawdown, as a percent of the peak. 0 disables. */
   maxDrawdownPercent: number;
 }
+
+/** The pause lengths a user may choose. Anything else falls back to next-day. */
+export const CONSECUTIVE_PAUSE_HOURS = [3, 5] as const;
 
 const clampPercent = (value: unknown, cap = 100): number => {
   const n = typeof value === "number" ? value : Number(value);
@@ -38,11 +47,19 @@ const clampCount = (value: unknown): number => {
   return Math.min(Math.floor(n), 1_000);
 };
 
+/** An unrecognised stored value means the safe default, never an invented window. */
+export function readPauseHours(value: unknown): number | null {
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n)) return null;
+  return (CONSECUTIVE_PAUSE_HOURS as readonly number[]).includes(n) ? n : null;
+}
+
 export function readBrakeLimits(row: {
   drawdown_brakes_enabled?: boolean | null;
   daily_loss_limit_percent?: number | null;
   weekly_loss_limit_percent?: number | null;
   consecutive_loss_limit?: number | null;
+  consecutive_loss_pause_hours?: number | null;
   max_drawdown_percent?: number | null;
 }): BrakeLimits {
   return {
@@ -50,9 +67,11 @@ export function readBrakeLimits(row: {
     dailyLossPercent: clampPercent(row.daily_loss_limit_percent),
     weeklyLossPercent: clampPercent(row.weekly_loss_limit_percent),
     consecutiveLosses: clampCount(row.consecutive_loss_limit),
+    consecutivePauseHours: readPauseHours(row.consecutive_loss_pause_hours),
     maxDrawdownPercent: clampPercent(row.max_drawdown_percent),
   };
 }
+
 
 /** Is any brake actually configured? Nobody pays for a feature they left off. */
 export function brakesConfigured(limits: BrakeLimits): boolean {
