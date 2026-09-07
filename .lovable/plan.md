@@ -53,12 +53,18 @@ Where the gate refuses an A or B setup, the notice will say plainly that the ref
 
 Add a short notice on History when recent automatic orders were rejected for insufficient free margin, so it is visible without opening a table.
 
-### 4. No rule changes without your say-so
+### 4. Extend the automatic-order window choice up to 10 hours
 
-I will not change your floor, your losing-run settings or your window. If you want more A/B orders, the direct levers are: lower the floor (or leave it blank), or widen the order window. Tell me which and I will set it.
+Today the window can go up to 6 hours; yours is at the 6-hour maximum and setups are still expiring ("350 minutes old, window 360"). I will raise the selectable maximum to **10 hours**, keeping the same default (3 hours) and the same meaning: 0 still turns automatic orders off on age grounds. A longer window means acting on an older structure — the page will say so plainly. The order left at your broker expires at the end of your window, so a 10-hour choice means a resting order can live up to 10 hours.
+
+### 5. No other rule changes without your say-so
+
+I will not touch your Intelligence Gate floor, your losing-run settings or your ceilings. If you want more A/B orders, the direct lever is the floor: lower it, or leave it blank. Tell me and I will set it.
 
 ## Technical notes
 
-- Sources: `execution_enqueue_decisions`, `execution_deliveries`, `payoff_stats`, `scanner_settings`.
-- The gate lives in `direct-enqueue.server.ts` and is evaluated on cohort `(instrument, direction)` after eligibility; no change to its logic is planned.
+- Sources checked: `execution_enqueue_decisions`, `execution_deliveries`, `payoff_stats`, `scanner_settings`.
+- Gate lives in `direct-enqueue.server.ts`, evaluated on cohort `(instrument, direction)` after eligibility; its logic is unchanged.
+- Window: raise `AUTO_ORDER_WINDOW_MAX_MINUTES` from 360 to 600 in `src/lib/db-types.ts`, with matching bounds in the settings save path, the MCP settings validator, the Settings selector, and the unfilled-order sweep (`ownerTimeoutMs` cap). The structural 30-minute replay/research time-in-force stays untouched, and existing window tests are updated to the new ceiling.
 - Panel work is read-only display plus decision-copy wording; no gate, sizing, grading or risk maths is touched.
+
