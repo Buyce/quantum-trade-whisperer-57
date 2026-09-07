@@ -173,6 +173,7 @@ interface SettingsRow {
   daily_loss_limit_percent: number | null;
   weekly_loss_limit_percent: number | null;
   consecutive_loss_limit: number | null;
+  consecutive_loss_pause_hours: number | null;
   max_drawdown_percent: number | null;
 }
 

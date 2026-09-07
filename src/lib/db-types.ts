@@ -288,6 +288,8 @@ export interface ScannerSettingsRow {
   weekly_loss_limit_percent: number;
   /** Losing closed trades in a row, counted back from the last close. 0 disables. */
   consecutive_loss_limit: number;
+  /** null = pause until the next UTC midnight; 3 or 5 = that many hours. */
+  consecutive_loss_pause_hours: number | null;
   /** Equity drop from the highest OBSERVED equity, in percent. 0 disables. */
   max_drawdown_percent: number;
   /**
