@@ -63,6 +63,7 @@ import { PushSection } from "@/components/PushSection";
 import { AgentConnectCard } from "@/components/AgentConnectCard";
 import { AutoTradingSummary } from "@/components/AutoTradingSummary";
 import { AutoIntelGate } from "@/components/AutoIntelGate";
+import { IntelGateCohorts } from "@/components/IntelGateCohorts";
 import { AutoOrderDecisions } from "@/components/AutoOrderDecisions";
 
 export const Route = createFileRoute("/_authenticated/settings")({
@@ -548,6 +549,10 @@ function SettingsPage() {
             onMinSampleChange={setIntelMinSample}
             onMinExpectedRChange={setIntelMinExpectedR}
           />
+
+          <IntelGateCohorts />
+
+
 
           <AutoOrderDecisions />
 
