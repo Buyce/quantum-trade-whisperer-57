@@ -99,7 +99,6 @@ export function targetForPolicy(
 export const EXECUTION_POLICY_NOTE =
   "One pending order with a single exit at the target named by the active policy (first target by default). No partial exits and no stop moves are managed after submission.";
 
-
 export type RejectReason =
   | "live_execution_globally_disabled"
   | "user_execution_disabled"

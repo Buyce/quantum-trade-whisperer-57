@@ -327,7 +327,6 @@ export async function revalidateDelivery(
   const policy = (controls.execution_policy ?? DEFAULT_EXECUTION_POLICY) as ExecutionPolicy;
   if (!isExecutionPolicy(policy)) return reject("policy_unsupported", policy);
 
-
   // ---- 2. The user's own opt-in and bridge configuration --------------------
   const { data: settingsRow } = await db
     .from("scanner_settings")
