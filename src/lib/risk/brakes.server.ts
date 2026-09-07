@@ -20,10 +20,12 @@ import {
   readBrakeLimits,
   summariseRealised,
   type BrakeLimits,
+  type BrakeReason,
   type BrakeVerdict,
   type ClosedTrade,
   type RealisedTotals,
 } from "./brakes";
+
 
 /** How far back closed trades are read. Bounded: this runs on a request path. */
 const LOOKBACK_DAYS = 21;
@@ -192,8 +194,9 @@ export async function evaluateAccountBrakes(
     const priorPausedAtMs =
       prior?.paused === true && prior.paused_at ? Date.parse(prior.paused_at) : NaN;
     const pauseSince = Number.isFinite(priorPausedAtMs)
-      ? { reason: (prior?.pause_reason ?? null) as never, atMs: priorPausedAtMs }
+      ? { reason: (prior?.pause_reason ?? null) as BrakeReason | null, atMs: priorPausedAtMs }
       : null;
+
 
     const verdict = evaluateBrakes(
       limits,
