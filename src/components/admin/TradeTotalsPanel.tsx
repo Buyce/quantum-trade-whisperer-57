@@ -23,8 +23,8 @@ function Line({ label, value, emphasis }: { label: string; value: string; emphas
           : "flex items-baseline justify-between"
       }
     >
-      <span className={emphasis ? "" : "text-muted-foreground"}>{label}</span>
-      <span className="font-mono">{value}</span>
+      <span className={emphasis ? "pr-2" : "pr-2 text-muted-foreground"}>{label}</span>
+      <span className="whitespace-nowrap font-mono">{value}</span>
     </div>
   );
 }

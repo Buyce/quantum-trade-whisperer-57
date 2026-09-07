@@ -54,7 +54,7 @@ export function CandidateLineagePanel() {
         ) : (
           <>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[640px] text-sm">
                 <thead className="text-xs uppercase text-muted-foreground">
                   <tr className="border-b border-border">
                     <th className="py-2 pr-3 text-left">Instrument</th>

@@ -73,7 +73,7 @@ export function GateEvidencePanel() {
       ) : (
         <div className="space-y-2">
           <div className="overflow-x-auto">
-            <table className="w-full text-[11px]">
+            <table className="w-full min-w-[760px] text-[11px]">
               <thead className="text-[10px] uppercase tracking-wider text-muted-foreground">
                 <tr className="text-left">
                   <th className="py-1 pr-3">Cohort</th>

@@ -76,7 +76,7 @@ export function ExecutionQualityPanel() {
             </p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-[11px]">
+              <table className="w-full min-w-[760px] text-[11px]">
                 <thead className="text-muted-foreground">
                   <tr className="border-b border-border/60 text-left">
                     <th className="py-1 pr-2 font-medium">Instrument · session</th>
