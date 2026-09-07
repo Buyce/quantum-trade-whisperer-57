@@ -243,7 +243,12 @@ export async function evaluateAccountBrakes(
       paused: verdict.paused,
       pause_reason: verdict.reason,
       pause_detail: verdict.detail,
-      paused_at: verdict.paused ? new Date(nowMs).toISOString() : null,
+      paused_at: verdict.paused
+        ? pauseSince !== null && pauseSince.reason === verdict.reason
+          ? new Date(pauseSince.atMs).toISOString()
+          : new Date(nowMs).toISOString()
+        : null,
+
       resume_after:
         verdict.resumeAfterMs === null ? null : new Date(verdict.resumeAfterMs).toISOString(),
       resume_boundary: verdict.resumeBoundary,
