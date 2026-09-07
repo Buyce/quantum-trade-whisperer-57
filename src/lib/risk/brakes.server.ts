@@ -187,7 +187,20 @@ export async function evaluateAccountBrakes(
       peakAt = observed.observedAt ?? new Date(nowMs).toISOString();
     }
 
-    const verdict = evaluateBrakes(limits, { totals, equity: observed.equity, peakEquity }, nowMs);
+    // A pause that is still running keeps its ORIGINAL start instant, so a chosen
+    // window is measured once and never slides forward on re-evaluation.
+    const priorPausedAtMs =
+      prior?.paused === true && prior.paused_at ? Date.parse(prior.paused_at) : NaN;
+    const pauseSince = Number.isFinite(priorPausedAtMs)
+      ? { reason: (prior?.pause_reason ?? null) as never, atMs: priorPausedAtMs }
+      : null;
+
+    const verdict = evaluateBrakes(
+      limits,
+      { totals, equity: observed.equity, peakEquity, pauseSince },
+      nowMs,
+    );
+
     out.set(account.id, {
       accountId: account.id,
       verdict,
