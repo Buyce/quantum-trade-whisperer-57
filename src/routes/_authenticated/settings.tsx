@@ -169,8 +169,8 @@ function SettingsPage() {
   const [dailyLossLimitPercent, setDailyLossLimitPercent] = useState("0");
   const [weeklyLossLimitPercent, setWeeklyLossLimitPercent] = useState("0");
   const [consecutiveLossLimit, setConsecutiveLossLimit] = useState("0");
-  // "" = pause until the next UTC midnight (the default); "3"/"5" = a fixed window.
-  const [consecutiveLossPauseHours, setConsecutiveLossPauseHours] = useState("");
+  // "day" = pause until the next UTC midnight (the default); "3"/"5" = a fixed window.
+  const [consecutiveLossPauseHours, setConsecutiveLossPauseHours] = useState("day");
   const [maxDrawdownPercent, setMaxDrawdownPercent] = useState("0");
 
   const [saving, setSaving] = useState(false);
@@ -322,7 +322,7 @@ function SettingsPage() {
     setConsecutiveLossPauseHours(
       s.consecutive_loss_pause_hours === 3 || s.consecutive_loss_pause_hours === 5
         ? String(s.consecutive_loss_pause_hours)
-        : "",
+        : "day",
     );
     setMaxDrawdownPercent(String(Number(s.max_drawdown_percent ?? 0)));
   }, [settings.data]);
@@ -1367,7 +1367,7 @@ function SettingsPage() {
                   </Label>
                   <Select
                     value={consecutiveLossPauseHours}
-                    onValueChange={(v) => setConsecutiveLossPauseHours(v === "day" ? "" : v)}
+                    onValueChange={(v) => setConsecutiveLossPauseHours(v)}
                   >
                     <SelectTrigger id="consecutive-loss-pause" className="mt-2">
                       <SelectValue />
