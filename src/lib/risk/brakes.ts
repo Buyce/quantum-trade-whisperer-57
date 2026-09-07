@@ -304,32 +304,42 @@ export function evaluateBrakes(
 
   if (limits.consecutiveLosses > 0 && inputs.totals.consecutiveLosses >= limits.consecutiveLosses) {
     const hours = limits.consecutivePauseHours;
-    // A fixed window runs from when the pause STARTED, not from this evaluation,
-    // so repeated checks cannot silently extend it. A window that has already
-    // elapsed never resolves backwards: the run is still there, so the pause is
-    // re-armed from now rather than reported as already over.
+    // The window runs from when the pause STARTED, not from this evaluation, so
+    // repeated checks can neither extend nor shorten it. Once it has elapsed the
+    // pause is served: the losing run itself can only end at the broker, and
+    // holding orders forever would make a chosen window meaningless.
     const startedAt =
       inputs.pauseSince?.reason === "consecutive_loss_limit" &&
       typeof inputs.pauseSince.atMs === "number" &&
       Number.isFinite(inputs.pauseSince.atMs)
         ? inputs.pauseSince.atMs
-        : nowMs;
-    const resumeAfterMs =
-      hours === null
-        ? nextUtcDayMs(nowMs)
-        : Math.max(nowMs, startedAt + hours * 60 * 60 * 1000);
-    const resumeCopy =
-      hours === null
-        ? "Automatic orders resume at 00:00 UTC."
-        : `Automatic orders resume ${hours} hours after the pause started, at ${new Date(resumeAfterMs).toISOString().slice(11, 16)} UTC.`;
-    return {
-      paused: true,
-      reason: "consecutive_loss_limit",
-      detail: `the last ${inputs.totals.consecutiveLosses} closed broker trades on this account were all losses, at or past your limit of ${limits.consecutiveLosses}. ${resumeCopy}`,
-      resumeAfterMs,
-      resumeBoundary: hours === null ? "next_utc_day" : "duration",
-    };
+        : null;
+
+    const servedUntilMs =
+      startedAt === null
+        ? null
+        : hours === null
+          ? nextUtcDayMs(startedAt)
+          : startedAt + hours * 60 * 60 * 1000;
+    if (servedUntilMs !== null && nowMs >= servedUntilMs) {
+      // Window served; fall through so no further consecutive-loss claim is made.
+    } else {
+      const from = startedAt ?? nowMs;
+      const resumeAfterMs = hours === null ? nextUtcDayMs(from) : from + hours * 60 * 60 * 1000;
+      const resumeCopy =
+        hours === null
+          ? "Automatic orders resume at 00:00 UTC."
+          : `Automatic orders resume ${hours} hours after this pause started, at ${new Date(resumeAfterMs).toISOString().slice(11, 16)} UTC.`;
+      return {
+        paused: true,
+        reason: "consecutive_loss_limit",
+        detail: `the last ${inputs.totals.consecutiveLosses} closed broker trades on this account were all losses, at or past your limit of ${limits.consecutiveLosses}. ${resumeCopy}`,
+        resumeAfterMs,
+        resumeBoundary: hours === null ? "next_utc_day" : "duration",
+      };
+    }
   }
+
 
 
   return PASS;
