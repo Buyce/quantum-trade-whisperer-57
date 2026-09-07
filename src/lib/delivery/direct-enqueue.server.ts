@@ -144,7 +144,7 @@ interface SettingsRow {
   maximum_daily_signal_orders: number | null;
   /** Owner opt-in: let a regime with too few samples pass the intelligence gate. */
   allow_unmeasured_intel: boolean | null;
-  /** Owner's automatic-order window, in minutes (0–360). */
+  /** Owner's automatic-order window, in minutes (0–600). */
   auto_order_window_minutes: number | null;
   /** How many automatic orders one instrument may consume per UTC day (0-25). */
   maximum_daily_orders_per_symbol: number | null;
@@ -266,7 +266,7 @@ export async function occupiedOrderCounts(
   const perSymbol = new Map<string, number>();
   if (userIds.length === 0) return { counts, daily, perSymbol, readable: true };
   // Bounded lookback: anything older than a week cannot still be an unresolved
-  // automatic order, because every owner window tops out at six hours.
+  // automatic order, because every owner window tops out at ten hours.
   const since = new Date(nowMs - 7 * 24 * 60 * 60_000).toISOString();
   const { data, error } = await db
     .from("execution_deliveries")

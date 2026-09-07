@@ -1,5 +1,5 @@
 /**
- * The automatic-order window is a per-owner setting (0-360 minutes, default 180).
+ * The automatic-order window is a per-owner setting (0-600 minutes, default 180).
  * These tests pin its boundaries and, critically, that it is SEPARATE from the
  * structural 30-minute time-in-force that replay, shadow and research use — a
  * user widening their window must never move research mathematics.
@@ -20,14 +20,14 @@ import {
 import { createFakeSupabase, type FakeCall } from "@/test/fakes/supabase";
 
 describe("automatic-order window bounds", () => {
-  it("[UNIT] defaults to 3 hours and never exceeds 6 hours", () => {
+  it("[UNIT] defaults to 3 hours and never exceeds 10 hours", () => {
     expect(AUTO_ORDER_WINDOW_DEFAULT_MINUTES).toBe(180);
-    expect(AUTO_ORDER_WINDOW_MAX_MINUTES).toBe(360);
+    expect(AUTO_ORDER_WINDOW_MAX_MINUTES).toBe(600);
     expect(clampAutoOrderWindowMinutes(null)).toBe(180);
     expect(clampAutoOrderWindowMinutes(undefined)).toBe(180);
     expect(clampAutoOrderWindowMinutes(Number.NaN)).toBe(180);
     expect(clampAutoOrderWindowMinutes(-5)).toBe(0);
-    expect(clampAutoOrderWindowMinutes(1000)).toBe(360);
+    expect(clampAutoOrderWindowMinutes(1000)).toBe(600);
     expect(clampAutoOrderWindowMinutes(90.6)).toBe(91);
   });
 
@@ -39,7 +39,7 @@ describe("automatic-order window bounds", () => {
     const now = Date.parse("2026-08-26T12:00:00.000Z");
     const at = (iso: string) => ({ detectedAt: iso });
     expect(executionWindowExpired(at("2026-08-26T08:00:00.000Z"), now)).toBe(false);
-    expect(executionWindowExpired(at("2026-08-26T05:00:00.000Z"), now)).toBe(true);
+    expect(executionWindowExpired(at("2026-08-26T01:00:00.000Z"), now)).toBe(true);
     // The owner's own window refuses earlier.
     expect(executionWindowExpired(at("2026-08-26T08:00:00.000Z"), now, 60)).toBe(true);
   });
@@ -130,10 +130,10 @@ describe("per-owner window in the enqueue path", () => {
   });
 
   it("[INVARIANT] nothing is attempted past the widest supported window", async () => {
-    const f = fake(360);
+    const f = fake(600);
     const out = await enqueueDirectDeliveries(
       f.client as SupabaseClient,
-      { ...SIGNAL, detectedAt: new Date(NOW - 400 * 60_000).toISOString() },
+      { ...SIGNAL, detectedAt: new Date(NOW - 700 * 60_000).toISOString() },
       NOW,
     );
     expect(out).toMatchObject({ enqueued: 0, reason: "execution_window_expired" });

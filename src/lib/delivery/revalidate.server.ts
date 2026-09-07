@@ -261,7 +261,7 @@ interface SettingsRow {
   webhook_secret: string | null;
   webhook_format: string | null;
   webhook_validated_at: string | null;
-  /** Owner's automatic-order window in minutes (0–360). */
+  /** Owner's automatic-order window in minutes (0–600). */
   auto_order_window_minutes?: number | null;
   /** Owner opt-in: prefer immediate market entry inside the published ceiling. */
   auto_market_entry_enabled?: boolean | null;

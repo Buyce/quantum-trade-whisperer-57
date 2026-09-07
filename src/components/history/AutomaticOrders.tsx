@@ -128,6 +128,20 @@ export function AutomaticOrders({ userId }: { userId: string | undefined }) {
   const grades = useMemo(() => gradesInRows(rows), [rows]);
   const money$ = useMemo(() => netByCurrency(visible), [visible]);
   const active = orderFiltersActive(filters);
+  /**
+   * Broker refusals for insufficient free margin, counted from the LOADED rows
+   * only. The broker's own retcode is the evidence; nothing about account size
+   * or sizing is inferred here.
+   */
+  const marginRejections = useMemo(
+    () =>
+      rows.filter(
+        (row) =>
+          row.status.kind === "rejected" &&
+          /no_money|not enough money|insufficient (free )?margin/i.test(row.status.detail ?? ""),
+      ).length,
+    [rows],
+  );
 
   if (orders.isLoading) {
     return (
@@ -201,6 +215,15 @@ export function AutomaticOrders({ userId }: { userId: string | undefined }) {
           </Button>
         </div>
       </div>
+
+      {marginRejections > 0 ? (
+        <p className="rounded-md border border-warning/40 bg-warning/10 px-4 py-3 text-sm">
+          Your broker refused {marginRejections} of the orders shown here for not enough free
+          margin. That is the broker's own verdict on the loaded rows: the order was sent, and the
+          account did not have the free margin the broker required for that lot size at that
+          moment. Nothing was retried and nothing is open from those attempts.
+        </p>
+      ) : null}
 
       {rows.length > 0 ? (
         <div className="space-y-3 rounded-md border border-border bg-card px-3 py-3 sm:px-4">

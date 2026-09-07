@@ -370,11 +370,12 @@ export const ORDER_TIF_MINUTES = 30;
 /**
  * How long after detection P-Trades may still place an AUTOMATIC order, per
  * owner. Default three hours; anything from 0 (never place an automatic order on
- * age grounds) to six hours is allowed. A longer window means acting on an older
- * structure — every other safety gate still applies unchanged.
+ * age grounds) to ten hours is allowed. A longer window means acting on an older
+ * structure, and a pending order rests at the broker until the end of it — every
+ * other safety gate still applies unchanged.
  */
 export const AUTO_ORDER_WINDOW_DEFAULT_MINUTES = 180;
-export const AUTO_ORDER_WINDOW_MAX_MINUTES = 360;
+export const AUTO_ORDER_WINDOW_MAX_MINUTES = 600;
 export const AUTO_ORDER_WINDOW_MIN_MINUTES = 0;
 
 /**

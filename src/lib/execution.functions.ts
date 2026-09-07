@@ -348,3 +348,88 @@ export const getRiskHolds = createServerFn({ method: "GET" })
         row["consecutive_losses"] === null ? null : Number(row["consecutive_losses"]),
     }));
   });
+
+/**
+ * READ-ONLY readout of the measured expected return behind the caller's
+ * intelligence gate, one row per pair and direction the caller trades.
+ *
+ * It exists to answer "why was an A or B setup refused": the gate reads the
+ * PAIR-AND-DIRECTION payoff history, never the setup's grade. Nothing here
+ * decides anything, and nothing is estimated — each row is the stored measured
+ * value with the sample size behind it, or explicitly "not measured yet".
+ */
+export const getIntelGateCohorts = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data: settings, error: settingsError } = await context.supabase
+      .from("scanner_settings")
+      .select("instruments, auto_intel_gate_enabled, auto_intel_min_expected_r, allow_unmeasured_intel")
+      .eq("user_id", context.userId)
+      .maybeSingle();
+    if (settingsError) throw new Error(settingsError.message);
+
+    const row = (settings ?? null) as {
+      instruments?: string[] | null;
+      auto_intel_gate_enabled?: boolean | null;
+      auto_intel_min_expected_r?: number | null;
+      allow_unmeasured_intel?: boolean | null;
+    } | null;
+    const instruments = (row?.instruments ?? []).filter((i): i is string => typeof i === "string");
+    const floor =
+      row?.auto_intel_min_expected_r === null || row?.auto_intel_min_expected_r === undefined
+        ? null
+        : Number(row.auto_intel_min_expected_r);
+
+    // payoff_stats is engine-owned and not exposed to end-user roles, so this
+    // projection is read with the privileged client AFTER the caller is known.
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: payoff, error: payoffError } = await supabaseAdmin
+      .from("payoff_stats")
+      .select("tier, instrument, direction, stat_status, n_used, mean_r, ci_lo, ci_hi")
+      .eq("estimand", "mean_r_per_plan");
+    if (payoffError) throw new Error(payoffError.message);
+
+    const measured = ((payoff ?? []) as Record<string, unknown>[]).filter(
+      (p) => p["instrument"] && p["direction"],
+    );
+    const cohorts: Array<{
+      instrument: string;
+      direction: "long" | "short";
+      meanR: number | null;
+      ciLo: number | null;
+      ciHi: number | null;
+      samples: number | null;
+      status: string | null;
+      passesFloor: boolean | null;
+    }> = [];
+    for (const instrument of instruments) {
+      for (const direction of ["long", "short"] as const) {
+        const hit = measured.find(
+          (p) => p["instrument"] === instrument && p["direction"] === direction,
+        );
+        const meanR = hit && hit["mean_r"] !== null ? Number(hit["mean_r"]) : null;
+        const ciLo = hit && hit["ci_lo"] !== null ? Number(hit["ci_lo"]) : null;
+        const ciHi = hit && hit["ci_hi"] !== null ? Number(hit["ci_hi"]) : null;
+        cohorts.push({
+          instrument,
+          direction,
+          meanR,
+          ciLo,
+          ciHi,
+          samples: hit && hit["n_used"] !== null ? Number(hit["n_used"]) : null,
+          status: (hit?.["stat_status"] as string | null) ?? null,
+          passesFloor:
+            meanR === null || floor === null
+              ? null
+              : meanR >= floor && !(ciHi !== null && ciHi < 0),
+        });
+      }
+    }
+
+    return {
+      gateEnabled: row?.auto_intel_gate_enabled === true,
+      floor,
+      allowUnmeasured: row?.allow_unmeasured_intel === true,
+      cohorts,
+    };
+  });

@@ -20,6 +20,7 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { AUTO_ORDER_WINDOW_MAX_MINUTES } from "@/lib/db-types";
 import { UNFILLED_ORDER_TIMEOUT_MS, isTerminal, type DeliveryState } from "./execution";
 
 type Db = Pick<SupabaseClient, "from">;
@@ -59,7 +60,7 @@ export function ownerTimeoutMs(windowMinutes: number | null | undefined): number
   if (windowMinutes === null || windowMinutes === undefined) return UNFILLED_ORDER_TIMEOUT_MS;
   const minutes = Number(windowMinutes);
   if (!Number.isFinite(minutes) || minutes <= 0) return UNFILLED_ORDER_TIMEOUT_MS;
-  return Math.min(minutes, 360) * 60_000;
+  return Math.min(minutes, AUTO_ORDER_WINDOW_MAX_MINUTES) * 60_000;
 }
 
 export type ExpiryOutcome =
