@@ -169,6 +169,8 @@ function SettingsPage() {
   const [dailyLossLimitPercent, setDailyLossLimitPercent] = useState("0");
   const [weeklyLossLimitPercent, setWeeklyLossLimitPercent] = useState("0");
   const [consecutiveLossLimit, setConsecutiveLossLimit] = useState("0");
+  // "" = pause until the next UTC midnight (the default); "3"/"5" = a fixed window.
+  const [consecutiveLossPauseHours, setConsecutiveLossPauseHours] = useState("");
   const [maxDrawdownPercent, setMaxDrawdownPercent] = useState("0");
 
   const [saving, setSaving] = useState(false);
@@ -317,6 +319,11 @@ function SettingsPage() {
     setDailyLossLimitPercent(String(Number(s.daily_loss_limit_percent ?? 0)));
     setWeeklyLossLimitPercent(String(Number(s.weekly_loss_limit_percent ?? 0)));
     setConsecutiveLossLimit(String(Number(s.consecutive_loss_limit ?? 0)));
+    setConsecutiveLossPauseHours(
+      s.consecutive_loss_pause_hours === 3 || s.consecutive_loss_pause_hours === 5
+        ? String(s.consecutive_loss_pause_hours)
+        : "",
+    );
     setMaxDrawdownPercent(String(Number(s.max_drawdown_percent ?? 0)));
   }, [settings.data]);
 
@@ -392,6 +399,10 @@ function SettingsPage() {
         daily_loss_limit_percent: dailyLossValue,
         weekly_loss_limit_percent: weeklyLossValue,
         consecutive_loss_limit: consecutiveLossValue,
+        // Only the two offered windows may be stored; anything else means "until
+        // the next UTC midnight" rather than an invented duration.
+        consecutive_loss_pause_hours:
+          consecutiveLossPauseHours === "3" ? 3 : consecutiveLossPauseHours === "5" ? 5 : null,
         max_drawdown_percent: maxDrawdownValue,
 
         // Never fabricate the acknowledgement: above-2% saves are blocked above
