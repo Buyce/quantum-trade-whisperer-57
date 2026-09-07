@@ -325,8 +325,17 @@ Resolution of those states is manual or dry-run.
   or writing URL-validation, dry/live, configuration-version and live-confirmation
   fields directly. Those fields are changed only by the authenticated server
   function after its validation and confirmation checks.
-- **Named policy.** `single_exit_first_target` — one pending order exiting at the
-  first target. Any other policy value is rejected as `policy_unsupported`.
+- **Named policy.** One pending order with ONE exit, at the target the policy
+  names. `single_exit_first_target` is the default and the only policy the live
+  statistics currently describe; `single_exit_second_target` and
+  `single_exit_third_target` hold the whole position to the deeper published
+  target and are opt-in, operator-set on `execution_controls.execution_policy`
+  (not a customer setting). A setup that publishes no such target is rejected as
+  `policy_target_missing` rather than exiting at a nearer target; an unknown
+  value is rejected as `policy_unsupported`. No policy manages partial exits or
+  moves a stop after submission — that behaviour is unmeasured, so it is not
+  offered. Deeper-target evidence is built in replay first
+  (`docs/RESEARCH-AND-SHADOW.md`).
 - **Authoritative quantity.** Bridge orders carry the authoritative sizing result.
   Direct connected-account orders are sized from fresh broker equity and that
   account's broker specification, then checked against broker min/max/step. No

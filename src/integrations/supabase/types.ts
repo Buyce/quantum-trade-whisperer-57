@@ -4739,7 +4739,7 @@ export type Database = {
           {
             foreignKeyName: "shadow_executions_signal_id_fkey"
             columns: ["signal_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "scanned_signals"
             referencedColumns: ["id"]
           },
@@ -5579,7 +5579,7 @@ export type Database = {
           {
             foreignKeyName: "shadow_executions_signal_id_fkey"
             columns: ["signal_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "scanned_signals"
             referencedColumns: ["id"]
           },

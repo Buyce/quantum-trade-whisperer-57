@@ -1491,9 +1491,9 @@ function SettingsPage() {
                           </span>{" "}
                           Eligible setups may create real broker orders at{" "}
                           <span className="num">{hostOf(webhookUrl) || "your bridge host"}</span>{" "}
-                          without another manual click. Policy:{" "}
-                          <span className="num">single_exit_first_target</span> — one pending
-                          buy/sell limit exiting at the first target. Position size comes solely
+                          without another manual click. One pending buy/sell limit with a single
+                          exit, at the target named by the active execution policy shown in
+                          Execution status (the first target by default). Position size comes solely
                           from your saved risk profile and your broker's contract specification; no
                           quantity is ever invented. This confirmation applies to the current
                           configuration only — changing your bridge, secret, format, risk profile,

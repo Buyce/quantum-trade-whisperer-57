@@ -157,3 +157,41 @@ describe("exit variant aggregation", () => {
     expect(parseExitPath({ bars: [] })).toBeNull();
   });
 });
+
+describe("exit variants — whole position to a deeper target", () => {
+  it("[UNIT] pays the second target when the path reaches it before the stop", () => {
+    const out = simulateVariant(
+      "single_exit_second_target",
+      path([bar("t1", 2.1, 0.3), bar("t2", 3.2, 0.4)]),
+    );
+    expect(out).toMatchObject({ decidable: true, r: 3 });
+  });
+
+  it("[UNIT] takes the full -1R when the stop is hit after the first target is passed", () => {
+    const out = simulateVariant(
+      "single_exit_second_target",
+      path([bar("t1", 2.4, 0.2), bar("t2", 2.5, 1.3)]),
+    );
+    expect(out).toMatchObject({ decidable: true, r: -1 });
+  });
+
+  it("[UNIT] pays the third target only when it is actually reached", () => {
+    const reached = simulateVariant("single_exit_third_target", path([bar("t1", 4.05, 0.2)]));
+    expect(reached).toMatchObject({ decidable: true, r: 4 });
+    const notReached = simulateVariant("single_exit_third_target", path([bar("t1", 3.5, 0.2)]));
+    expect(notReached).toMatchObject({ decidable: false, r: null });
+  });
+
+  it("[INVARIANT] a plan without the deeper target is undecidable, not downgraded to TP1", () => {
+    const out = simulateVariant(
+      "single_exit_third_target",
+      path([bar("t1", 5, 0.1)], [2, 3, null]),
+    );
+    expect(out).toMatchObject({ decidable: false, r: null });
+  });
+
+  it("[INVARIANT] a bar crossing the deeper target and the stop is undecidable", () => {
+    const out = simulateVariant("single_exit_second_target", path([bar("t1", 3.4, 1.5)]));
+    expect(out).toMatchObject({ decidable: false, r: null });
+  });
+});

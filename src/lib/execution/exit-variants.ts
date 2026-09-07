@@ -28,6 +28,8 @@ import type { PathBar } from "./replay-v2";
 
 export const EXIT_VARIANTS = [
   "single_exit_first_target",
+  "single_exit_second_target",
+  "single_exit_third_target",
   "partial_tp1_runner_tp2",
   "partial_tp1_runner_tp3",
   "breakeven_after_1r",
@@ -41,6 +43,8 @@ export const BASELINE_VARIANT: ExitVariant = "single_exit_first_target";
 
 export const EXIT_VARIANT_LABELS: Record<ExitVariant, string> = {
   single_exit_first_target: "Single exit at first target (current policy)",
+  single_exit_second_target: "Whole position to the second target",
+  single_exit_third_target: "Whole position to the third target",
   partial_tp1_runner_tp2: "Half out at first target, rest to second (stop to break-even)",
   partial_tp1_runner_tp3: "Half out at first target, rest to third (stop to break-even)",
   breakeven_after_1r: "Stop to break-even after 1R, then exit at first target",
@@ -105,6 +109,10 @@ export function simulateVariant(variant: ExitVariant, path: ExitPath): VariantOu
   switch (variant) {
     case "single_exit_first_target":
       return simulateSingle(path, tp1);
+    case "single_exit_second_target":
+      return simulateDeepSingle(path, tp1, path.targetsR[1], "second");
+    case "single_exit_third_target":
+      return simulateDeepSingle(path, tp1, path.targetsR[2], "third");
     case "partial_tp1_runner_tp2":
       return simulatePartial(path, tp1, path.targetsR[1], "second");
     case "partial_tp1_runner_tp3":
@@ -114,6 +122,32 @@ export function simulateVariant(variant: ExitVariant, path: ExitPath): VariantOu
     case "trail_1r":
       return simulateTrail(path, tp1);
   }
+}
+
+/**
+ * Whole position held to a deeper target with the original stop unchanged: no
+ * partial, no break-even move. Either the deeper target or the -1R stop decides
+ * the outcome, whichever the recorded path reaches first.
+ */
+function simulateDeepSingle(
+  path: ExitPath,
+  tp1: number,
+  targetR: number | null,
+  label: string,
+): VariantOutcome {
+  if (targetR === null || !Number.isFinite(targetR) || targetR <= tp1) {
+    return undecidable(`The plan defines no ${label} target beyond the first.`);
+  }
+  for (const raw of path.bars) {
+    const bar = usable(raw);
+    if (!bar) return undecidable(AMBIGUOUS_BAR);
+    const target = targetHit(bar, targetR);
+    const stopped = stopHit(bar, -1);
+    if (target && stopped) return undecidable(BOTH_BARRIERS);
+    if (stopped) return decided(-1);
+    if (target) return decided(targetR);
+  }
+  return openEnded(path, "The path ended with the position still open.");
 }
 
 /** Current policy: first target or the -1R stop, whichever comes first. */
