@@ -381,7 +381,7 @@ export interface BridgeOrder {
   entry: number;
   maxAcceptableEntry: number;
   stopLoss: number;
-  /** Single exit under `single_exit_first_target`. */
+  /** The single exit price named by `policy`. */
   takeProfit: number;
   expiresInMinutes: number;
   policy: ExecutionPolicy;
@@ -400,9 +400,18 @@ export function buildBridgeOrder(
   expiresInMinutes: number = ORDER_TIF_MINUTES,
   entryMode: EntryMode = "pending_limit",
 ): BridgeOrder {
-  if (policy !== "single_exit_first_target") {
+  if (!isExecutionPolicy(policy)) {
     throw new Error(`unsupported execution policy: ${String(policy)}`);
   }
+  const takeProfit = targetForPolicy(policy, {
+    tp1: signal.tp1,
+    tp2: signal.tp2,
+    tp3: signal.tp3,
+  });
+  if (takeProfit === null) {
+    throw new Error(`the plan publishes no target for execution policy ${policy}`);
+  }
+
   const long = signal.direction === "long";
   return {
     signalId: signal.id,
