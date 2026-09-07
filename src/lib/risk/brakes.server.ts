@@ -109,8 +109,9 @@ export async function evaluateAccountBrakes(
       .in("id", accountIds),
     db
       .from("account_risk_state")
-      .select("account_id, peak_equity, peak_equity_at")
+      .select("account_id, peak_equity, peak_equity_at, paused, pause_reason, paused_at")
       .in("account_id", accountIds),
+
   ]);
 
   if (accountRows.error) console.error("brakes: accounts unreadable", accountRows.error.message);
