@@ -192,7 +192,7 @@ export const getExecutionStatus = createServerFn({ method: "GET" })
       supabaseAdmin
         .from("execution_controls")
         .select(
-          "live_execution_enabled, force_dry_run, execution_policy, disabled_instruments, demo_auto_enabled, live_auto_enabled",
+          "live_execution_enabled, force_dry_run, execution_policy, max_customer_exit_policy, disabled_instruments, demo_auto_enabled, live_auto_enabled",
         )
         .maybeSingle(),
       supabaseAdmin
@@ -206,6 +206,7 @@ export const getExecutionStatus = createServerFn({ method: "GET" })
       live_execution_enabled?: boolean;
       force_dry_run?: boolean;
       execution_policy?: string;
+      max_customer_exit_policy?: string;
       disabled_instruments?: string[];
       demo_auto_enabled?: boolean;
       live_auto_enabled?: boolean;
@@ -215,6 +216,12 @@ export const getExecutionStatus = createServerFn({ method: "GET" })
       forceDryRun: row?.force_dry_run !== false,
       policy: row?.execution_policy ?? DEFAULT_EXECUTION_POLICY,
       policyNote: EXECUTION_POLICY_NOTE,
+      /**
+       * How deep the platform allows a customer's own exit-target choice to go.
+       * Unreadable or unknown values fall back to the first target, so a deeper
+       * exit is never offered on the strength of a bad value.
+       */
+      maxCustomerExitPolicy: row?.max_customer_exit_policy ?? DEFAULT_EXECUTION_POLICY,
       disabledInstruments: row?.disabled_instruments ?? [],
       // Automatic-order capabilities are separate switches and default to OFF, so
       // the UI can only offer arming when the capability genuinely exists now.

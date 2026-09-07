@@ -5,6 +5,8 @@
  * setting is, so every bound lives here. Values are clamped rather than
  * silently accepted: an agent asking for 500% risk gets 10%, and is told so.
  */
+import { EXECUTION_POLICIES, isExecutionPolicy } from "@/lib/delivery/execution";
+
 export const INSTRUMENT_CHOICES = ["XAUUSD", "GBPAUD", "EURUSD"] as const;
 export const TIMEFRAME_CHOICES = ["H4", "H1", "M15"] as const;
 export const SESSION_CHOICES = [
@@ -44,6 +46,12 @@ export interface SettingsInput {
   max_stop_loss_percent?: number | undefined;
   /** Explicit, persisted acknowledgement for risking more than 2% per trade. */
   risk_ack_high?: boolean | undefined;
+  /**
+   * Which published target automatic orders take profit at. Only the named
+   * policies are accepted; anything else is refused with a warning rather than
+   * written, and the platform ceiling is applied again before every submission.
+   */
+  auto_exit_policy?: string | undefined;
 }
 
 /**
@@ -117,6 +125,16 @@ export function validateSettings(
 ): ValidatedSettings {
   const patch: Record<string, unknown> = {};
   const warnings: string[] = [];
+
+  if (input.auto_exit_policy !== undefined) {
+    if (isExecutionPolicy(input.auto_exit_policy)) {
+      patch["auto_exit_policy"] = input.auto_exit_policy;
+    } else {
+      warnings.push(
+        `auto_exit_policy: unknown exit rule, not written. Allowed: ${EXECUTION_POLICIES.join(", ")}.`,
+      );
+    }
+  }
 
   if (input.instruments) {
     const v = filterList(input.instruments, INSTRUMENT_CHOICES, "instruments", warnings);

@@ -60,22 +60,93 @@ export function isTerminal(state: DeliveryState): boolean {
  * Named execution policy. The bridge places ONE order with ONE exit; the policy
  * names WHICH published target that exit sits at. `single_exit_first_target` is
  * the default and the only policy the engine's live statistics currently
- * describe; the deeper variants exist so an owner can opt into holding the whole
- * position to the second or third target after the replay research under
- * `src/lib/execution/exit-variants.ts` reports on them. No policy here manages a
- * partial exit or moves a stop after submission: that behaviour is unmeasured,
- * so it is not offered.
+ * describe; the deeper variants let a customer hold the whole position to the
+ * second or third target, bounded by the owner's platform ceiling.
+ *
+ * `partial_tp1_runner_tp2` is the one MANAGED policy: the order is still
+ * submitted once, with its single exit at the second target, and a separate
+ * management pass closes part of the filled position at the first target and
+ * moves the remainder's stop to break-even. It is demo-only and requires the
+ * owner to raise the ceiling to it deliberately, because it depends on broker
+ * actions taken AFTER the fill.
  */
 export const EXECUTION_POLICIES = [
   "single_exit_first_target",
   "single_exit_second_target",
   "single_exit_third_target",
+  "partial_tp1_runner_tp2",
 ] as const;
 export type ExecutionPolicy = (typeof EXECUTION_POLICIES)[number];
 export const DEFAULT_EXECUTION_POLICY: ExecutionPolicy = "single_exit_first_target";
 
 export function isExecutionPolicy(value: unknown): value is ExecutionPolicy {
   return (EXECUTION_POLICIES as readonly string[]).includes(String(value));
+}
+
+/**
+ * Which published target rank the submitted exit sits at (1, 2 or 3). This is
+ * provenance, recorded on the broker evidence so a finished trade states which
+ * rule produced it instead of being assumed to be a first-target trade.
+ */
+export const POLICY_TARGET_RANK: Record<ExecutionPolicy, 1 | 2 | 3> = {
+  single_exit_first_target: 1,
+  single_exit_second_target: 2,
+  single_exit_third_target: 3,
+  partial_tp1_runner_tp2: 2,
+};
+
+/** How deep the policy reaches. Used only to clamp a choice to a ceiling. */
+const POLICY_DEPTH: Record<ExecutionPolicy, number> = {
+  single_exit_first_target: 1,
+  single_exit_second_target: 2,
+  single_exit_third_target: 3,
+  partial_tp1_runner_tp2: 4,
+};
+
+/** True when the policy needs broker actions after the fill. */
+export function isManagedPolicy(policy: ExecutionPolicy): boolean {
+  return policy === "partial_tp1_runner_tp2";
+}
+
+export const EXECUTION_POLICY_LABELS: Record<ExecutionPolicy, string> = {
+  single_exit_first_target: "Take profit at the first target",
+  single_exit_second_target: "Hold the whole position to the second target",
+  single_exit_third_target: "Hold the whole position to the third target",
+  partial_tp1_runner_tp2:
+    "Close half at the first target, move the stop to break-even, run the rest to the second target",
+};
+
+export interface ResolvedExitPolicy {
+  policy: ExecutionPolicy;
+  /** True when the customer's choice was reduced to the platform ceiling. */
+  clamped: boolean;
+  requested: ExecutionPolicy;
+}
+
+/**
+ * The policy an order is actually submitted under: the customer's choice, never
+ * deeper than the owner's platform ceiling. An unreadable or unknown value on
+ * either side falls back to the first target, which is the safe end of the
+ * range — a deeper exit is never assumed.
+ */
+export function resolveExitPolicy(requestedRaw: unknown, ceilingRaw: unknown): ResolvedExitPolicy {
+  const requested = isExecutionPolicy(requestedRaw)
+    ? (requestedRaw as ExecutionPolicy)
+    : DEFAULT_EXECUTION_POLICY;
+  const ceiling = isExecutionPolicy(ceilingRaw)
+    ? (ceilingRaw as ExecutionPolicy)
+    : DEFAULT_EXECUTION_POLICY;
+  // The managed policy is not "deeper than the third target": it is a different
+  // kind of order, so it is only available when the ceiling names it exactly.
+  if (isManagedPolicy(requested)) {
+    return isManagedPolicy(ceiling)
+      ? { policy: requested, clamped: false, requested }
+      : { policy: ceiling, clamped: true, requested };
+  }
+  if (isManagedPolicy(ceiling)) return { policy: requested, clamped: false, requested };
+  return POLICY_DEPTH[requested] <= POLICY_DEPTH[ceiling]
+    ? { policy: requested, clamped: false, requested }
+    : { policy: ceiling, clamped: true, requested };
 }
 
 /**
@@ -87,17 +158,13 @@ export function targetForPolicy(
   policy: ExecutionPolicy,
   plan: { tp1: number | null; tp2: number | null; tp3: number | null },
 ): number | null {
-  const raw =
-    policy === "single_exit_first_target"
-      ? plan.tp1
-      : policy === "single_exit_second_target"
-        ? plan.tp2
-        : plan.tp3;
+  const rank = POLICY_TARGET_RANK[policy];
+  const raw = rank === 1 ? plan.tp1 : rank === 2 ? plan.tp2 : plan.tp3;
   return typeof raw === "number" && Number.isFinite(raw) && raw > 0 ? raw : null;
 }
 
 export const EXECUTION_POLICY_NOTE =
-  "One pending order with a single exit at the target named by the active policy (first target by default). No partial exits and no stop moves are managed after submission.";
+  "One pending order with a single exit at the target named by the active policy (first target by default). Only the managed partial policy takes a broker action after submission, and only on demo accounts.";
 
 export type RejectReason =
   | "live_execution_globally_disabled"

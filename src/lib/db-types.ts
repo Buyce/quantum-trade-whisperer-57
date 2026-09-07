@@ -231,6 +231,8 @@ export interface ScannerSettingsRow {
    * widens the slippage ceiling.
    */
   auto_market_entry_enabled: boolean;
+  /** Which published target automatic orders take profit at. */
+  auto_exit_policy: string | null;
   /**
    * Owner opt-in: while the intelligence gate is on, allow a setup whose regime
    * has too FEW resolved replay samples to be judged. A measured rate that is

@@ -23,6 +23,12 @@ import {
   type BrokerStop,
   type DealGroup,
 } from "./associate";
+import {
+  isExecutionPolicy,
+  isManagedPolicy,
+  POLICY_TARGET_RANK,
+  type ExecutionPolicy,
+} from "@/lib/delivery/execution";
 import { computeSlippage } from "./slippage";
 import { recoverCharacterisation } from "./grade-recovery.server";
 import { resolveBrokerOrderState } from "./order-state";
@@ -70,6 +76,12 @@ interface DeliveryRow {
   submitted_at: string | null;
   account_mode: string | null;
   broker_order_id: string | null;
+  /**
+   * The exit-target rule this order was actually submitted under, as recorded on
+   * the dispatch row. NULL on rows dispatched before the rule was recorded; such
+   * a trade is reported as "not recorded", never assumed to be first-target.
+   */
+  execution_policy: string | null;
 }
 
 interface OpenEvidenceRow {
@@ -188,7 +200,7 @@ export async function reconcileBrokerEvidence(
   const { data: deliveryRows, error: deliveryError } = await db
     .from("execution_deliveries")
     .select(
-      "id, user_id, signal_id, connected_account_id, client_id, magic, broker_symbol, published_entry, submitted_entry, submitted_stop, submitted_target, submitted_at, account_mode, broker_order_id",
+      "id, user_id, signal_id, connected_account_id, client_id, magic, broker_symbol, published_entry, submitted_entry, submitted_stop, submitted_target, submitted_at, account_mode, broker_order_id, execution_policy",
     )
     .eq("destination_type", "metaapi_direct")
     .or(RECONCILABLE_FILTER)
@@ -215,7 +227,7 @@ export async function reconcileBrokerEvidence(
     const { data, error } = await db
       .from("execution_deliveries")
       .select(
-        "id, user_id, signal_id, connected_account_id, client_id, magic, broker_symbol, published_entry, submitted_entry, submitted_stop, submitted_target, submitted_at, account_mode, broker_order_id",
+        "id, user_id, signal_id, connected_account_id, client_id, magic, broker_symbol, published_entry, submitted_entry, submitted_stop, submitted_target, submitted_at, account_mode, broker_order_id, execution_policy",
       )
       .eq("destination_type", "metaapi_direct")
       .or(RECONCILABLE_FILTER)
@@ -545,6 +557,17 @@ async function writeEvidence(
     planned_entry: delivery.submitted_entry,
     planned_stop: delivery.submitted_stop,
     planned_target: delivery.submitted_target,
+    // Exit-rule provenance, copied from the dispatch record — never reconstructed
+    // from prices afterwards. A blank policy stays blank.
+    execution_policy: isExecutionPolicy(delivery.execution_policy)
+      ? delivery.execution_policy
+      : null,
+    target_rank: isExecutionPolicy(delivery.execution_policy)
+      ? POLICY_TARGET_RANK[delivery.execution_policy as ExecutionPolicy]
+      : null,
+    managed_exit: isExecutionPolicy(delivery.execution_policy)
+      ? isManagedPolicy(delivery.execution_policy as ExecutionPolicy)
+      : false,
     actual_initial_stop: input.brokerStop.stop,
     stop_source: input.brokerStop.source,
     broker_account_type: account.broker_account_type,

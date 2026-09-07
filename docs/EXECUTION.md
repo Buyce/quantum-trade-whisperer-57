@@ -325,17 +325,36 @@ Resolution of those states is manual or dry-run.
   or writing URL-validation, dry/live, configuration-version and live-confirmation
   fields directly. Those fields are changed only by the authenticated server
   function after its validation and confirmation checks.
-- **Named policy.** One pending order with ONE exit, at the target the policy
-  names. `single_exit_first_target` is the default and the only policy the live
-  statistics currently describe; `single_exit_second_target` and
-  `single_exit_third_target` hold the whole position to the deeper published
-  target and are opt-in, operator-set on `execution_controls.execution_policy`
-  (not a customer setting). A setup that publishes no such target is rejected as
-  `policy_target_missing` rather than exiting at a nearer target; an unknown
-  value is rejected as `policy_unsupported`. No policy manages partial exits or
-  moves a stop after submission — that behaviour is unmeasured, so it is not
-  offered. Deeper-target evidence is built in replay first
-  (`docs/RESEARCH-AND-SHADOW.md`).
+- **Named policy (customer-chosen, platform-bounded).** One order with ONE exit,
+  at the target the policy names. `single_exit_first_target` is the default and
+  the only policy the live statistics currently describe;
+  `single_exit_second_target` and `single_exit_third_target` hold the whole
+  position to the deeper published target. Each customer chooses their own target
+  in Settings (`scanner_settings.auto_exit_policy`); the choice is clamped at
+  dispatch to `execution_controls.max_customer_exit_policy`, and an unreadable or
+  unknown value on either side falls back to the first target. Benchmark
+  deliveries continue to follow `execution_controls.execution_policy`. A setup
+  that publishes no such target is rejected as `policy_target_missing` rather
+  than exiting at a nearer target; an unknown policy is rejected as
+  `policy_unsupported`.
+- **Managed exit (`partial_tp1_runner_tp2`), DEMO ONLY.** The one policy that
+  acts after the fill: part of the position is closed at the first target and the
+  remaining stop is moved to the fill price. It requires the owner to set the
+  ceiling to it exactly, is refused on any non-demo account (reduced to
+  `single_exit_second_target`), and is driven by
+  `src/lib/delivery/manage-positions.server.ts` from the reconcile-active worker.
+  Each position has one durable `position_management_state` row: a step is marked
+  `attempted` before the broker call and `confirmed` only on a definite broker
+  acceptance, so a crash cannot repeat a close. A broker verdict that is not
+  definite is recorded as `unknown` and NOT retried. Missing broker facts (fill
+  price, current price, volume, volume step, first target) produce a recorded
+  reason, never an action.
+- **Recorded provenance.** `execution_deliveries.execution_policy` is copied onto
+  the broker evidence as `execution_policy`, `target_rank` and `managed_exit`
+  when the trade is observed, so Intelligence can report outcomes per target.
+  Rows dispatched before this was recorded stay blank and are reported as "exit
+  rule not recorded" — never counted as first-target results. Deeper-target
+  research evidence is built in replay first (`docs/RESEARCH-AND-SHADOW.md`).
 - **Authoritative quantity.** Bridge orders carry the authoritative sizing result.
   Direct connected-account orders are sized from fresh broker equity and that
   account's broker specification, then checked against broker min/max/step. No

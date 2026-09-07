@@ -5,9 +5,15 @@
  * scan worker and the delivery dispatcher: a slow reconciliation pass can never
  * delay a scan, a publication or a statistic.
  *
- * This route only ever creates queued deliveries through the authoritative
- * enqueue path. It sends nothing to a broker — the dispatcher does that, after
- * its own pre-send revalidation.
+ * This route creates queued deliveries through the authoritative enqueue path.
+ * The dispatcher, not this route, submits orders after its own pre-send
+ * revalidation.
+ *
+ * It then runs the managed-exit pass, which is the ONE place P-Trades acts on an
+ * already-filled position: on DEMO accounts running the managed policy, it closes
+ * part of the position at the first target and moves the remaining stop to
+ * break-even. Every action is recorded before it is attempted and only marked
+ * confirmed on a definite broker acceptance.
  */
 import { createFileRoute } from "@tanstack/react-router";
 
@@ -23,8 +29,21 @@ export const Route = createFileRoute("/api/public/worker/reconcile-active")({
         const { reconcileActiveSignals } = await import("@/lib/delivery/reconcile-active.server");
 
         try {
-          const outcome = await reconcileActiveSignals(adminClient());
-          return Response.json({ ok: true, ...outcome });
+          const db = adminClient();
+          const outcome = await reconcileActiveSignals(db);
+          // Managed exits run after enqueueing and cannot affect it: a failure here
+          // is reported, never allowed to mask the reconciliation result.
+          let managed = null;
+          try {
+            const { manageDemoPositions } = await import("@/lib/delivery/manage-positions.server");
+            managed = await manageDemoPositions(db);
+          } catch (err) {
+            console.error(
+              "[worker/reconcile-active] managed exits",
+              err instanceof Error ? err.message : String(err),
+            );
+          }
+          return Response.json({ ok: true, ...outcome, managedExits: managed });
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           console.error("[worker/reconcile-active]", message);

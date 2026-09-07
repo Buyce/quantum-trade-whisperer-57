@@ -18,6 +18,7 @@ import {
 } from "@/lib/admin/auto-trader-outcomes";
 import {
   aggregateBrokerTotalsByAttribution,
+  aggregateBrokerTotalsByTarget,
   aggregateJournalTotals,
   type BrokerAttribution,
   type TradeTotals,
@@ -910,7 +911,7 @@ export const getAdminTradeTotals = createServerFn({ method: "GET" })
       supabaseAdmin
         .from("broker_trade_evidence")
         .select(
-          "account_id, gross_profit, swap, commission, profit_currency, delivery_id, signal_id, association_basis, client_id, magic",
+          "account_id, gross_profit, swap, commission, profit_currency, delivery_id, signal_id, association_basis, client_id, magic, target_rank, managed_exit",
         )
         .eq("evidence_class", "customer")
         .eq("state", "closed"),
@@ -944,17 +945,24 @@ export const getAdminTradeTotals = createServerFn({ method: "GET" })
       return "external";
     };
 
+    const rank = (v: unknown): 1 | 2 | 3 | null =>
+      v === 1 || v === 2 || v === 3 ? (v as 1 | 2 | 3) : null;
+    const rows = (evidence.data ?? []).map((row) => ({
+      accountId: row.account_id ?? null,
+      grossProfit: numeric(row.gross_profit),
+      swap: numeric(row.swap),
+      commission: numeric(row.commission),
+      currency: row.profit_currency ?? null,
+      attribution: attribution(row),
+      // Exit-rule provenance recorded when the trade was observed. A blank value
+      // stays blank: such a trade is reported as not recorded.
+      targetRank: rank((row as { target_rank?: unknown }).target_rank),
+      managedExit: (row as { managed_exit?: unknown }).managed_exit === true,
+    }));
+
     return {
-      broker: aggregateBrokerTotalsByAttribution(
-        (evidence.data ?? []).map((row) => ({
-          accountId: row.account_id ?? null,
-          grossProfit: numeric(row.gross_profit),
-          swap: numeric(row.swap),
-          commission: numeric(row.commission),
-          currency: row.profit_currency ?? null,
-          attribution: attribution(row),
-        })),
-      ),
+      broker: aggregateBrokerTotalsByAttribution(rows),
+      byTarget: aggregateBrokerTotalsByTarget(rows),
       journal: aggregateJournalTotals((journal.data ?? []).map((row) => row.outcome ?? null)),
     };
   });

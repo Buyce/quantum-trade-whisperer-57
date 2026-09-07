@@ -127,6 +127,41 @@ export function TradeTotalsPanel() {
               ) : null}
             </div>
           </div>
+          <div className="space-y-2 border-t border-border pt-2 text-[11px]">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              Automatic trader by exit target (broker-verified)
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {(
+                [
+                  ["First target", data.byTarget.firstTarget],
+                  ["Second target", data.byTarget.secondTarget],
+                  ["Third target", data.byTarget.thirdTarget],
+                  ["Managed (half out, stop to break-even)", data.byTarget.managed],
+                  ["Exit rule not recorded", data.byTarget.notRecorded],
+                ] as const
+              )
+                .filter(([, totals]) => totals.closed > 0)
+                .map(([title, totals]) => (
+                  <BrokerBlock key={title} title={title} totals={totals} />
+                ))}
+            </div>
+            {data.byTarget.firstTarget.closed === 0 &&
+            data.byTarget.secondTarget.closed === 0 &&
+            data.byTarget.thirdTarget.closed === 0 &&
+            data.byTarget.managed.closed === 0 &&
+            data.byTarget.notRecorded.closed === 0 ? (
+              <p className="text-[10px] text-muted-foreground">
+                No closed automatic trades yet, so no target has an outcome to report.
+              </p>
+            ) : (
+              <p className="text-[10px] text-muted-foreground">
+                The exit rule is copied from the dispatch record when the trade is observed. Trades
+                placed before that was recorded appear as &ldquo;exit rule not recorded&rdquo; and
+                are never counted as first-target results.
+              </p>
+            )}
+          </div>
           <div className="space-y-1 border-t border-border pt-2 text-[11px]">
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
               All broker-verified (every source combined)
