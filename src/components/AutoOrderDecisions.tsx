@@ -43,7 +43,9 @@ export function AutoOrderDecisions() {
   return (
     <div className="rounded-sm border border-border/60 bg-background/40 p-3">
       <h3 className="label-xs">Last automatic-order decisions</h3>
-      <RiskHoldBanner />
+      <div className="mt-2">
+        <RiskHoldBanner />
+      </div>
 
       {decisions.isLoading ? (
         <p className="mt-2 text-xs text-muted-foreground">Reading the decision log…</p>
