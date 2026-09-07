@@ -421,7 +421,7 @@ export function buildBridgeOrder(
     entry: signal.entryPrice,
     maxAcceptableEntry: signal.maxAcceptableEntry,
     stopLoss: signal.stopLoss,
-    takeProfit: signal.tp1,
+    takeProfit,
     expiresInMinutes,
     policy,
     grade: String(signal.grade),
