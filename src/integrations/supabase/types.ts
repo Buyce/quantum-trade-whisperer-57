@@ -5350,6 +5350,36 @@ export type Database = {
         }
         Relationships: []
       }
+      worker_call_health: {
+        Row: {
+          failed: number
+          id: number
+          last_failure_at: string | null
+          last_failure_detail: string | null
+          ok: number
+          sampled_at: string
+          window_minutes: number
+        }
+        Insert: {
+          failed: number
+          id?: number
+          last_failure_at?: string | null
+          last_failure_detail?: string | null
+          ok: number
+          sampled_at?: string
+          window_minutes: number
+        }
+        Update: {
+          failed?: number
+          id?: number
+          last_failure_at?: string | null
+          last_failure_detail?: string | null
+          ok?: number
+          sampled_at?: string
+          window_minutes?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       instrument_spread_samples_valid: {
@@ -5891,6 +5921,7 @@ export type Database = {
       }
       release_weekly_report: { Args: { _week: string }; Returns: undefined }
       run_gate_change_automation: { Args: never; Returns: Json }
+      sample_worker_call_health: { Args: never; Returns: Json }
       session_of_v1: { Args: { _at: string }; Returns: string }
       set_auto_apply_gate_changes: {
         Args: { _actor: string; _enabled: boolean; _reason: string }
