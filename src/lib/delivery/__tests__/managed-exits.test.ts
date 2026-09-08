@@ -15,8 +15,11 @@ import {
 } from "../execution";
 import {
   decideManagedPosition,
+  decideManagedStep,
+  managedPlan,
   roundDownToStep,
   type ManagedPositionFacts,
+  type ManagedProgress,
 } from "../manage-positions";
 
 describe("resolveExitPolicy", () => {
@@ -134,5 +137,126 @@ describe("roundDownToStep", () => {
   it("[INVARIANT] never rounds up", () => {
     expect(roundDownToStep(0.199, 0.01)).toBe(0.19);
     expect(roundDownToStep(0.004, 0.01)).toBe(0);
+  });
+});
+
+describe("decideManagedStep — laddered exits", () => {
+  const plan = { laddered: true, shares: [1 / 3, 1 / 3, 1 / 3] as const, trailRunner: false };
+  const progress = (over: Partial<ManagedProgress> = {}): ManagedProgress => ({
+    partialDone: false,
+    stopMoved: false,
+    secondPartialDone: false,
+    runnerStopMoved: false,
+    ...over,
+  });
+  const laddered = (over: Partial<ManagedPositionFacts> = {}): ManagedPositionFacts =>
+    facts({ secondTarget: 102, originalVolume: 0.9, ...over });
+
+  it("[INVARIANT] takes the configured share of the ORIGINAL fill at the first target", () => {
+    const d = decideManagedStep(laddered({ currentPrice: 101, volume: 0.9 }), progress(), plan);
+    expect(d.step).toBe("partial_1");
+    expect(d.closeVolume).toBe(0.3);
+  });
+
+  it("[INVARIANT] protects the remainder at the fill price before looking deeper", () => {
+    const d = decideManagedStep(
+      laddered({ currentPrice: 102, volume: 0.6 }),
+      progress({ partialDone: true }),
+      plan,
+    );
+    expect(d.step).toBe("stop_to_entry");
+    expect(d.moveStopTo).toBe(100);
+  });
+
+  it("[INVARIANT] waits for the second target before closing the second share", () => {
+    const d = decideManagedStep(
+      laddered({ currentPrice: 101.5, volume: 0.6, currentStop: 100 }),
+      progress({ partialDone: true, stopMoved: true }),
+      plan,
+    );
+    expect(d.step).toBeNull();
+    expect(d.reason).toContain("second target");
+    expect(d.undecidable).toBe(false);
+  });
+
+  it("[UNIT] closes the second share and then lifts the stop to the first target", () => {
+    const at2 = laddered({ currentPrice: 102, volume: 0.6, currentStop: 100 });
+    const close2 = decideManagedStep(at2, progress({ partialDone: true, stopMoved: true }), plan);
+    expect(close2.step).toBe("partial_2");
+    expect(close2.closeVolume).toBe(0.3);
+
+    const lift = decideManagedStep(
+      laddered({ currentPrice: 102, volume: 0.3, currentStop: 100 }),
+      progress({ partialDone: true, stopMoved: true, secondPartialDone: true }),
+      plan,
+    );
+    expect(lift.step).toBe("stop_to_first_target");
+    expect(lift.moveStopTo).toBe(101);
+  });
+
+  it("[INVARIANT] treats a missing second target as undecidable, never as an action", () => {
+    const d = decideManagedStep(
+      laddered({ currentPrice: 102, volume: 0.6, secondTarget: null, currentStop: 100 }),
+      progress({ partialDone: true, stopMoved: true }),
+      plan,
+    );
+    expect(d.undecidable).toBe(true);
+    expect(d.step).toBeNull();
+  });
+
+  it("[INVARIANT] trails only when it is switched on, and never backwards", () => {
+    const settled = progress({
+      partialDone: true,
+      stopMoved: true,
+      secondPartialDone: true,
+      runnerStopMoved: true,
+    });
+    const off = decideManagedStep(
+      laddered({
+        currentPrice: 103,
+        volume: 0.3,
+        currentStop: 101,
+        bestPrice: 104,
+        riskDistance: 1,
+      }),
+      settled,
+      plan,
+    );
+    expect(off.step).toBeNull();
+
+    const on = decideManagedStep(
+      laddered({
+        currentPrice: 103,
+        volume: 0.3,
+        currentStop: 101,
+        bestPrice: 104,
+        riskDistance: 1.5,
+      }),
+      settled,
+      { ...plan, trailRunner: true },
+    );
+    expect(on.step).toBe("trail");
+    expect(on.moveStopTo).toBe(102.5);
+
+    const backwards = decideManagedStep(
+      laddered({
+        currentPrice: 103,
+        volume: 0.3,
+        currentStop: 102.9,
+        bestPrice: 104,
+        riskDistance: 1.5,
+      }),
+      settled,
+      { ...plan, trailRunner: true },
+    );
+    expect(backwards.moveStopTo).toBeNull();
+  });
+});
+
+describe("managedPlan", () => {
+  it("[UNIT] reads the split preset and marks only the laddered policy as laddered", () => {
+    expect(managedPlan("ladder_tp1_tp2_runner_tp3", "thirds").laddered).toBe(true);
+    expect(managedPlan("partial_tp1_runner_tp2", "thirds").laddered).toBe(false);
+    expect(managedPlan("ladder_tp1_tp2_runner_tp3", "quarter_half_quarter").shares[1]).toBe(0.5);
   });
 });

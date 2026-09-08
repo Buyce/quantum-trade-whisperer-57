@@ -10,8 +10,13 @@ import { sendTestWebhook } from "@/lib/webhook-test.functions";
 import { getExecutionStatus, saveBridgeSettings } from "@/lib/execution.functions";
 import {
   DEFAULT_EXECUTION_POLICY,
+  DEFAULT_EXIT_SHARE_PRESET,
   EXECUTION_POLICIES,
   EXECUTION_POLICY_LABELS,
+  EXIT_SHARE_PRESET_KEYS,
+  EXIT_SHARE_PRESET_LABELS,
+  isExitSharePreset,
+  type ExitSharePreset,
   isExecutionPolicy,
   isManagedPolicy,
   resolveExitPolicy,
@@ -151,6 +156,9 @@ function SettingsPage() {
   const [marketEntry, setMarketEntry] = useState(false);
   /** Which published target an automatic order takes profit at. */
   const [exitPolicy, setExitPolicy] = useState<ExecutionPolicy>(DEFAULT_EXECUTION_POLICY);
+  /** How a managed (laddered) exit splits the position, and whether it trails. */
+  const [exitShares, setExitShares] = useState<ExitSharePreset>(DEFAULT_EXIT_SHARE_PRESET);
+  const [exitTrail, setExitTrail] = useState(false);
   const [allowUnmeasured, setAllowUnmeasured] = useState(false);
   const [autoWindowMinutes, setAutoWindowMinutes] = useState(AUTO_ORDER_WINDOW_DEFAULT_MINUTES);
   const [intelMinWin, setIntelMinWin] = useState("");
@@ -300,6 +308,10 @@ function SettingsPage() {
     setExitPolicy(
       isExecutionPolicy(s.auto_exit_policy) ? s.auto_exit_policy : DEFAULT_EXECUTION_POLICY,
     );
+    setExitShares(
+      isExitSharePreset(s.auto_exit_shares) ? s.auto_exit_shares : DEFAULT_EXIT_SHARE_PRESET,
+    );
+    setExitTrail(s.auto_exit_trail_runner === true);
     setAllowUnmeasured(s.allow_unmeasured_intel === true);
     setAutoWindowMinutes(clampAutoOrderWindowMinutes(s.auto_order_window_minutes));
     setIntelMinWin(
@@ -431,6 +443,9 @@ function SettingsPage() {
         // applied again server-side before every submission, so a stale choice
         // here can only ever be reduced, never widened.
         auto_exit_policy: exitPolicy,
+        // Only read by the managed policies; harmless for a single exit.
+        auto_exit_shares: exitShares,
+        auto_exit_trail_runner: exitTrail,
         allow_unmeasured_intel: allowUnmeasured,
         // How long after detection a published setup may still become an
         // automatic order. 0 disables automatic orders on age grounds.
@@ -551,8 +566,6 @@ function SettingsPage() {
           />
 
           <IntelGateCohorts />
-
-
 
           <AutoOrderDecisions />
 
@@ -922,12 +935,55 @@ function SettingsPage() {
                 </p>
               ) : null}
               {isManagedPolicy(effectiveExitPolicy) ? (
-                <p className="mt-2 text-xs text-warning">
-                  This choice acts on a position after it fills: part is closed at the first target
-                  and the remaining stop is moved to break-even. It runs on demo accounts only, and
-                  a broker action that cannot be confirmed is reported as unconfirmed rather than
-                  assumed.
-                </p>
+                <>
+                  <p className="mt-2 text-xs text-warning">
+                    This choice acts on a position after it fills: part is closed at the first
+                    target and the remaining stop is moved to break-even, and the laddered choice
+                    then closes another part at the second target and lifts the stop to the first
+                    target before the rest runs on. It runs on demo accounts only, and a broker
+                    action that cannot be confirmed is reported as unconfirmed rather than assumed.
+                  </p>
+                  <Label className="mt-3 block text-xs" htmlFor="auto-exit-shares">
+                    How much comes off at each target
+                  </Label>
+                  <Select
+                    value={exitShares}
+                    onValueChange={(v) => {
+                      if (isExitSharePreset(v)) setExitShares(v);
+                    }}
+                  >
+                    <SelectTrigger id="auto-exit-shares" className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {EXIT_SHARE_PRESET_KEYS.map((candidate) => (
+                        <SelectItem key={candidate} value={candidate}>
+                          {EXIT_SHARE_PRESET_LABELS[candidate]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Shares are taken of the amount the broker actually filled and rounded down to
+                    the size the broker allows. If the broker cannot split the position, nothing is
+                    closed and the position keeps its original protection.
+                  </p>
+                  <div className="mt-3 flex items-center justify-between gap-3">
+                    <Label className="text-xs" htmlFor="auto-exit-trail">
+                      Let the last part follow the price
+                    </Label>
+                    <Switch
+                      id="auto-exit-trail"
+                      checked={exitTrail}
+                      onCheckedChange={setExitTrail}
+                    />
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Off by default. When on, the final remainder&apos;s stop is kept one risk
+                    distance behind the best price the broker has printed, and is never moved
+                    backwards.
+                  </p>
+                </>
               ) : (
                 <p className="mt-2 text-xs text-muted-foreground">
                   Nothing is managed after the fill: the order carries its stop and its single
@@ -1384,9 +1440,9 @@ function SettingsPage() {
                     </SelectContent>
                   </Select>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Measured from the moment the pause started, so the time shown in the hold
-                    notice is the real release time. Applies to the losing-run pause only — your
-                    daily, weekly and equity-drop limits keep their own timing.
+                    Measured from the moment the pause started, so the time shown in the hold notice
+                    is the real release time. Applies to the losing-run pause only — your daily,
+                    weekly and equity-drop limits keep their own timing.
                   </p>
                 </div>
 

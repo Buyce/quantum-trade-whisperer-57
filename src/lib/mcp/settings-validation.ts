@@ -5,7 +5,12 @@
  * setting is, so every bound lives here. Values are clamped rather than
  * silently accepted: an agent asking for 500% risk gets 10%, and is told so.
  */
-import { EXECUTION_POLICIES, isExecutionPolicy } from "@/lib/delivery/execution";
+import {
+  EXECUTION_POLICIES,
+  EXIT_SHARE_PRESET_KEYS,
+  isExecutionPolicy,
+  isExitSharePreset,
+} from "@/lib/delivery/execution";
 
 export const INSTRUMENT_CHOICES = ["XAUUSD", "GBPAUD", "EURUSD"] as const;
 export const TIMEFRAME_CHOICES = ["H4", "H1", "M15"] as const;
@@ -52,6 +57,13 @@ export interface SettingsInput {
    * written, and the platform ceiling is applied again before every submission.
    */
   auto_exit_policy?: string | undefined;
+  /**
+   * How a managed (laddered) exit splits the position between the targets, and
+   * whether the final runner's stop trails the best broker price. Ignored by the
+   * single-exit policies.
+   */
+  auto_exit_shares?: string | undefined;
+  auto_exit_trail_runner?: boolean | undefined;
 }
 
 /**
@@ -134,6 +146,20 @@ export function validateSettings(
         `auto_exit_policy: unknown exit rule, not written. Allowed: ${EXECUTION_POLICIES.join(", ")}.`,
       );
     }
+  }
+
+  if (input.auto_exit_shares !== undefined) {
+    if (isExitSharePreset(input.auto_exit_shares)) {
+      patch["auto_exit_shares"] = input.auto_exit_shares;
+    } else {
+      warnings.push(
+        `auto_exit_shares: unknown split, not written. Allowed: ${EXIT_SHARE_PRESET_KEYS.join(", ")}.`,
+      );
+    }
+  }
+
+  if (input.auto_exit_trail_runner !== undefined) {
+    patch["auto_exit_trail_runner"] = input.auto_exit_trail_runner === true;
   }
 
   if (input.instruments) {
