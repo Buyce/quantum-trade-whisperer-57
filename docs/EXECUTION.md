@@ -337,18 +337,31 @@ Resolution of those states is manual or dry-run.
   that publishes no such target is rejected as `policy_target_missing` rather
   than exiting at a nearer target; an unknown policy is rejected as
   `policy_unsupported`.
-- **Managed exit (`partial_tp1_runner_tp2`), DEMO ONLY.** The one policy that
-  acts after the fill: part of the position is closed at the first target and the
-  remaining stop is moved to the fill price. It requires the owner to set the
-  ceiling to it exactly, is refused on any non-demo account (reduced to
-  `single_exit_second_target`), and is driven by
+- **Managed exits (`partial_tp1_runner_tp2`, `ladder_tp1_tp2_runner_tp3`), DEMO
+  ONLY.** The only policies that act after the fill.
+  `partial_tp1_runner_tp2` closes part of the position at the first target and
+  moves the remaining stop to the fill price. `ladder_tp1_tp2_runner_tp3` then
+  closes a further part once the second target is reached, lifts the remaining
+  stop to the first target, and lets the rest run to the third target; when
+  `scanner_settings.auto_exit_trail_runner` is on, that final remainder's stop is
+  kept one risk distance behind the best price the broker has printed and is never
+  moved backwards. The split comes from `scanner_settings.auto_exit_shares`
+  (`half_runner`, `thirds`, `quarter_half_quarter`), applied to the ORIGINAL
+  filled volume, rounded DOWN to the broker's volume step and refused when the
+  broker's minimum volume cannot split the position.
+  A managed policy requires the owner to set the ceiling to it exactly, is refused
+  on any non-demo account, and is driven by
   `src/lib/delivery/manage-positions.server.ts` from the reconcile-active worker.
-  Each position has one durable `position_management_state` row: a step is marked
-  `attempted` before the broker call and `confirmed` only on a definite broker
-  acceptance, so a crash cannot repeat a close. A broker verdict that is not
-  definite is recorded as `unknown` and NOT retried. Missing broker facts (fill
-  price, current price, volume, volume step, first target) produce a recorded
-  reason, never an action.
+  Each position has one durable `position_management_state` row, one step per
+  pass, in order: a step is marked `attempted` before the broker call and
+  `confirmed` only on a definite broker acceptance, so a crash cannot repeat a
+  close. A broker verdict that is not definite is recorded as `unknown` and NOT
+  retried. Missing broker facts (fill price, current price, volume, volume step,
+  first or second target, risk distance) produce a recorded reason, never an
+  action. Laddered outcomes are labelled by their own policy and never mixed into
+  single-exit history; the research counterpart is the
+  `ladder_thirds_tp1_tp2_tp3` replay variant.
+
 - **Recorded provenance.** `execution_deliveries.execution_policy` is copied onto
   the broker evidence as `execution_policy`, `target_rank` and `managed_exit`
   when the trade is observed, so Intelligence can report outcomes per target.
