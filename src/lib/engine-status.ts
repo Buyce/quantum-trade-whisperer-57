@@ -339,14 +339,23 @@ export function classifyLinkHealth(input: LinkHealthInput | null | undefined): L
   }
   const timeouts = input.failed_timeout ?? 0;
   const dns = input.failed_dns ?? 0;
+  const serverErrors = input.failed_5xx ?? 0;
   const dominantCause: LinkHealth["dominantCause"] =
-    timeouts === 0 && dns === 0 ? null : dns > timeouts ? "dns" : "timeout";
+    timeouts === 0 && dns === 0 && serverErrors === 0
+      ? null
+      : serverErrors >= timeouts && serverErrors >= dns
+        ? "server_error"
+        : dns > timeouts
+          ? "dns"
+          : "timeout";
   const causeLabel =
     dominantCause === "dns"
       ? "mostly upstream name-lookup stalls"
-      : dominantCause === "timeout"
-        ? "mostly no answer inside the caller's window"
-        : "";
+      : dominantCause === "server_error"
+        ? "mostly app errors or hung requests cancelled by the platform (5xx)"
+        : dominantCause === "timeout"
+          ? "mostly no answer inside the caller's window"
+          : "";
 
   const share = failed / total;
   const base = { failShare: share, unmeasured: false, dominantCause, causeLabel };
