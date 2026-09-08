@@ -5,7 +5,13 @@
  * setting is, so every bound lives here. Values are clamped rather than
  * silently accepted: an agent asking for 500% risk gets 10%, and is told so.
  */
-import { EXECUTION_POLICIES, isExecutionPolicy } from "@/lib/delivery/execution";
+import {
+  EXECUTION_POLICIES,
+  EXIT_SHARE_PRESET_KEYS,
+  isExecutionPolicy,
+  isExitSharePreset,
+} from "@/lib/delivery/execution";
+
 
 export const INSTRUMENT_CHOICES = ["XAUUSD", "GBPAUD", "EURUSD"] as const;
 export const TIMEFRAME_CHOICES = ["H4", "H1", "M15"] as const;
