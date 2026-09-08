@@ -9,6 +9,8 @@ import { template as modelReadinessTemplate } from "./model-readiness";
 import { template as gateChangeAppliedTemplate } from "./gate-change-applied";
 import { template as weeklyShadowReportTemplate } from "./weekly-shadow-report";
 import { template as verifyTradePricesTemplate } from "./verify-trade-prices";
+import { template as scannerStarvedTemplate } from "./scanner-starved";
+
 
 export interface TemplateEntry {
   component: ElementType;
