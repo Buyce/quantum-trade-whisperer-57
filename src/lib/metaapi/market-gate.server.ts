@@ -76,8 +76,10 @@ export async function withMarketDataSlot<T>(
     if (db && globalSlot !== null && globalSlot > 0) {
       await db
         .rpc("release_market_data_slot", { p_slot_id: globalSlot })
-        .then(() => {})
-        .catch(() => {});
+        .then(
+          () => {},
+          () => {},
+        );
     }
     release();
   }
