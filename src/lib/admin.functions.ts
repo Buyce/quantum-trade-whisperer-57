@@ -494,7 +494,7 @@ export const setAdminExecutionSwitches = createServerFn({ method: "POST" })
       patch["live_auto_enabled"] = data.liveAutoEnabled;
     }
 
-    if (Object.keys(patch).length === 0 && !ceilingChanged) throw new Error("Nothing to change.");
+    if (Object.keys(patch).length === 0) throw new Error("Nothing to change.");
 
     if (Object.keys(patch).length > 0) {
       const { error } = await supabaseAdmin
