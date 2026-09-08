@@ -325,14 +325,14 @@ Resolution of those states is manual or dry-run.
   or writing URL-validation, dry/live, configuration-version and live-confirmation
   fields directly. Those fields are changed only by the authenticated server
   function after its validation and confirmation checks.
-- **Named policy (customer-chosen, platform-bounded).** One order with ONE exit,
+- **Named policy (customer-chosen).** One order with ONE exit,
   at the target the policy names. `single_exit_first_target` is the default and
   the only policy the live statistics currently describe;
   `single_exit_second_target` and `single_exit_third_target` hold the whole
   position to the deeper published target. Each customer chooses their own target
-  in Settings (`scanner_settings.auto_exit_policy`); the choice is clamped at
-  dispatch to `execution_controls.max_customer_exit_policy`, and an unreadable or
-  unknown value on either side falls back to the first target. Benchmark
+  in Settings (`scanner_settings.auto_exit_policy`), and every policy is offered
+  there — there is no platform depth ceiling in front of it, and an unreadable or
+  unknown stored value falls back to the first target. Benchmark
   deliveries continue to follow `execution_controls.execution_policy`. A setup
   that publishes no such target is rejected as `policy_target_missing` rather
   than exiting at a nearer target; an unknown policy is rejected as
@@ -349,15 +349,12 @@ Resolution of those states is manual or dry-run.
   (`half_runner`, `thirds`, `quarter_half_quarter`), applied to the ORIGINAL
   filled volume, rounded DOWN to the broker's volume step and refused when the
   broker's minimum volume cannot split the position.
-  A managed policy requires the owner to set the ceiling to it exactly, is refused
-  on any non-demo account, and is driven by
+  A managed policy is chosen by the customer in the same Settings section as the
+  single-exit choices, is reduced to `single_exit_second_target` on any non-demo
+  account at dispatch rather than run half-managed, and is driven by
   `src/lib/delivery/manage-positions.server.ts` from the reconcile-active worker.
-  The ceiling itself is set in Admin → Execution switches ("How deep customers may
-  take profit"); the write goes through `set_execution_control`, which validates the
-  value against the five named policies, refuses when the stored value moved since
-  it was read, and records the actor and reason in `execution_control_changes`.
-  While the ceiling names no managed policy, Settings lists neither stepped choice
-  and says so in place of omitting them silently.
+  There is no owner control over exit depth: `execution_controls.max_customer_exit_policy`
+  is retained in the schema but no longer read by dispatch or shown in Admin.
 
   Each position has one durable `position_management_state` row, one step per
   pass, in order: a step is marked `attempted` before the broker call and

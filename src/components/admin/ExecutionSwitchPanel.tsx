@@ -125,7 +125,6 @@ export function ExecutionSwitchPanel() {
     return <Skeleton className="h-32" />;
   }
 
-
   const rows: {
     key: SwitchField;
     label: string;

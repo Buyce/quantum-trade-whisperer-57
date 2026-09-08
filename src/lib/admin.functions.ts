@@ -432,7 +432,6 @@ export const setAdminExecutionSwitches = createServerFn({ method: "POST" })
     if (currentError) throw new Error(currentError.message);
     const current = mapSwitches(currentRow as SwitchRow | null);
 
-
     const patch: Record<string, unknown> = {};
 
     if (typeof data.demoAutoEnabled === "boolean")
