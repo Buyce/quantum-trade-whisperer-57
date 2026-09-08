@@ -23,7 +23,7 @@ import { anchorForRows, windowCoversRow } from "./replay-anchor";
  * single run may perform for instruments production is not fetching. Bounded on
  * purpose — production resolution always runs first and is never affected.
  */
-const CANDIDATE_BACKFILL_FETCH_BUDGET = 3;
+const CANDIDATE_BACKFILL_FETCH_BUDGET = 12;
 
 const MAX_ROWS_PER_RUN = 200;
 /**

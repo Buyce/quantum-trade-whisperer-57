@@ -49,6 +49,7 @@ import { CounterfactualStopPanel } from "@/components/admin/CounterfactualStopPa
 import { LearningEvidencePanel } from "@/components/admin/LearningEvidencePanel";
 
 import { EngineStatusPanel } from "@/components/admin/EngineStatusPanel";
+import { RecentScanResults } from "@/components/admin/RecentScanResults";
 import { ExecutionSwitchPanel } from "@/components/admin/ExecutionSwitchPanel";
 import { EnqueueDecisionPanel } from "@/components/admin/EnqueueDecisionPanel";
 import { AutoTraderPanel } from "@/components/admin/AutoTraderPanel";
@@ -334,6 +335,7 @@ function AdminIntelligencePage() {
                 ))}
               </ul>
             )}
+            <RecentScanResults />
           </PanelShell>
           <PanelShell title="Structure cooldown pressure">
             <DedupPanel dedup={dedup_pressure} />

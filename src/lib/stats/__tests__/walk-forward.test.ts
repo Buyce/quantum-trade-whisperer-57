@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   evaluateWalkForward,
+  GATE_MEASURABILITY_COPY,
+  gateMeasurability,
   MIN_PERIOD_SAMPLES,
   type WalkForwardObservation,
 } from "../walk-forward";
@@ -82,5 +84,39 @@ describe("walk-forward confirmation", () => {
     expect(result.confirmed).toBe(false);
     expect(result.holdout!.fail.n).toBe(0);
     expect(result.holdout!.fail.meanR).toBeNull();
+  });
+});
+
+describe("gate measurability", () => {
+  it("marks a structural gate as never measurable rather than short of samples", () => {
+    expect(
+      gateMeasurability({
+        gate: "m15_direction",
+        confirmed: false,
+        trainFailN: 0,
+        holdoutFailN: 0,
+      }),
+    ).toBe("structural");
+    expect(GATE_MEASURABILITY_COPY.structural).toMatch(/before a plan exists/);
+  });
+
+  it("separates a measurable gate with no rejections yet from one collecting them", () => {
+    expect(
+      gateMeasurability({ gate: "headroom", confirmed: false, trainFailN: 0, holdoutFailN: 0 }),
+    ).toBe("no_rejections");
+    expect(
+      gateMeasurability({
+        gate: "risk_ceiling",
+        confirmed: false,
+        trainFailN: 65,
+        holdoutFailN: 15,
+      }),
+    ).toBe("accumulating");
+  });
+
+  it("reports a confirmed gate as confirmed whatever its arm counts", () => {
+    expect(
+      gateMeasurability({ gate: "reachable_r", confirmed: true, trainFailN: 48, holdoutFailN: 12 }),
+    ).toBe("confirmed");
   });
 });

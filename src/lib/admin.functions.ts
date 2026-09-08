@@ -1478,6 +1478,33 @@ export const getAdminWalkForward = createServerFn({ method: "GET" })
     }));
   });
 
+/** Scan outcomes over just the last 3 hours, so a repaired engine reads as repaired. */
+export interface AdminRecentScanResults {
+  windowHours: number;
+  total: number;
+  results: Record<string, number>;
+}
+
+export const getAdminScanResultsRecent = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<AdminRecentScanResults> => {
+    const email = String(context.claims["email"] ?? "").toLowerCase();
+    if (email !== OWNER_EMAIL) throw new Error("Forbidden");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await supabaseAdmin.rpc("get_admin_scan_results_recent");
+    if (error) throw new Error(error.message);
+    const row = (data ?? {}) as Record<string, unknown>;
+    const raw = (row["results"] ?? {}) as Record<string, unknown>;
+    const results: Record<string, number> = {};
+    for (const [k, v] of Object.entries(raw)) results[k] = Number(v ?? 0);
+    return {
+      windowHours: Number(row["window_hours"] ?? 3),
+      total: Number(row["total"] ?? 0),
+      results,
+    };
+  });
+
 export interface AdminExitVariantRow {
   variant: string;
   samples: number;

@@ -212,3 +212,44 @@ export function evaluateWalkForward(
       : "Not confirmed out of sample. No threshold change may be proposed on this evidence.",
   };
 }
+
+/**
+ * Gates whose failure still leaves a fully derived entry, stop, risk distance
+ * and ATR — the only ones whose REJECTED setups can be replayed against real
+ * candles at all. Frozen: research policy, not a tuning knob.
+ * `src/lib/research/enrol-candidates.server.ts` consumes this same list, so the
+ * measurability shown to the owner can never drift from what is enrolled.
+ */
+export const MEASURABLE_FAIL_GATES: readonly string[] = ["risk_ceiling", "headroom", "reachable_r"];
+
+/**
+ * Why a gate has no out-of-sample confirmation. These are different facts and
+ * must never be shown with one blanket "needs more samples" string:
+ *  - `structural`  — rejection happens before a plan exists, so a rejected arm
+ *                    can never be measured this way. Waiting will not change it.
+ *  - `no_rejections` — measurable in principle, but no setup has been rejected
+ *                    by this gate alone yet.
+ *  - `accumulating` — genuinely collecting rejected observations.
+ *  - `confirmed`   — held up on the unseen period.
+ */
+export type GateMeasurability = "structural" | "no_rejections" | "accumulating" | "confirmed";
+
+export function gateMeasurability(input: {
+  gate: string;
+  confirmed: boolean;
+  trainFailN: number;
+  holdoutFailN: number;
+}): GateMeasurability {
+  if (input.confirmed) return "confirmed";
+  if (!MEASURABLE_FAIL_GATES.includes(input.gate)) return "structural";
+  if (input.trainFailN + input.holdoutFailN === 0) return "no_rejections";
+  return "accumulating";
+}
+
+export const GATE_MEASURABILITY_COPY: Record<GateMeasurability, string> = {
+  confirmed: "confirmed out of sample",
+  structural:
+    "cannot be measured this way — setups are rejected before a plan exists, so there is no rejected arm to replay",
+  no_rejections: "measurable, but no setup has been rejected by this check on its own yet",
+  accumulating: "collecting rejected observations",
+};
