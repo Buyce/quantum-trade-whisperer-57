@@ -60,10 +60,12 @@ describe("classifyLinkHealth", () => {
   });
 
   it("[UNIT] names the larger measured cause and nothing more", () => {
-    expect(classifyLinkHealth({ ok: 10, failed: 9, failed_timeout: 7, failed_dns: 2 }).dominantCause)
-      .toBe("timeout");
-    expect(classifyLinkHealth({ ok: 10, failed: 9, failed_timeout: 1, failed_dns: 8 }).dominantCause)
-      .toBe("dns");
+    expect(
+      classifyLinkHealth({ ok: 10, failed: 9, failed_timeout: 7, failed_dns: 2 }).dominantCause,
+    ).toBe("timeout");
+    expect(
+      classifyLinkHealth({ ok: 10, failed: 9, failed_timeout: 1, failed_dns: 8 }).dominantCause,
+    ).toBe("dns");
   });
 
   it("[INVARIANT] an unattributed failure is never given a cause", () => {
@@ -74,4 +76,3 @@ describe("classifyLinkHealth", () => {
     expect(classifyLinkHealth({ ok: 10, failed: 0, failed_dns: 5 }).dominantCause).toBeNull();
   });
 });
-

@@ -24,7 +24,6 @@ const TIME_BUDGET_MS = 12_000;
  */
 const MAX_HOPS = 8;
 
-
 export const Route = createFileRoute("/api/public/worker/process")({
   server: {
     handlers: {
@@ -116,7 +115,6 @@ export const Route = createFileRoute("/api/public/worker/process")({
             hop,
             chained,
           });
-
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           console.error("[worker/process]", message);

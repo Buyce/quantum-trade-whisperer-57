@@ -351,4 +351,3 @@ export function classifyLinkHealth(input: LinkHealthInput | null | undefined): L
     causeLabel: "",
   };
 }
-

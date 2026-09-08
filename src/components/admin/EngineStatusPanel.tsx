@@ -138,7 +138,6 @@ export function EngineStatusPanel() {
           }
           tone={link.tone}
           hint="The queue only advances when the database's scheduled calls reach the app. Sampled from the platform's own HTTP response log, and split by cause: a name-lookup stall is upstream, a plain timeout means the app did not answer inside the caller's window. Failures here starve the scanner while every other counter still looks ordinary."
-
         />
       </div>
 

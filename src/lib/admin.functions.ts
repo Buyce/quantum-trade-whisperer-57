@@ -251,7 +251,6 @@ export interface AdminLinkHealth {
   last_sampled_at: string | null;
 }
 
-
 export interface AdminEngineStatus {
   generated_at: string;
   breaker: AdminBreaker | null;
