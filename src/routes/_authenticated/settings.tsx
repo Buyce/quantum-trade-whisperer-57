@@ -19,7 +19,6 @@ import {
   type ExitSharePreset,
   isExecutionPolicy,
   isManagedPolicy,
-  resolveExitPolicy,
   type ExecutionPolicy,
 } from "@/lib/delivery/execution";
 
@@ -196,16 +195,11 @@ function SettingsPage() {
     queryFn: () => getExecutionStatus(),
     staleTime: 60_000,
   });
-  // The platform ceiling on exit depth, and what the saved choice resolves to
-  // under it. The server applies the same clamp before every submission.
-  const exitPolicyCeiling: ExecutionPolicy = isExecutionPolicy(
-    executionStatus.data?.maxCustomerExitPolicy,
-  )
-    ? (executionStatus.data?.maxCustomerExitPolicy as ExecutionPolicy)
+  // This choice belongs to the customer: every policy is offered, and the only
+  // restriction left is that a stepped (managed) exit runs on demo accounts only.
+  const effectiveExitPolicy: ExecutionPolicy = isExecutionPolicy(exitPolicy)
+    ? exitPolicy
     : DEFAULT_EXECUTION_POLICY;
-  const resolvedExit = resolveExitPolicy(exitPolicy, exitPolicyCeiling);
-  const effectiveExitPolicy = resolvedExit.policy;
-  const exitPolicyClamped = resolvedExit.clamped;
   const savedWebhookUrl = settings.data?.webhook_url?.trim() ?? "";
   const hasSavedWebhookSecret = executionStatus.data?.webhookSecretConfigured === true;
   const canTestWebhook = /^https:\/\//i.test(savedWebhookUrl) && hasSavedWebhookSecret;
@@ -917,30 +911,14 @@ function SettingsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {EXECUTION_POLICIES.filter(
-                    (candidate) =>
-                      resolveExitPolicy(candidate, exitPolicyCeiling).policy === candidate,
-                  ).map((candidate) => (
+                  {EXECUTION_POLICIES.map((candidate) => (
                     <SelectItem key={candidate} value={candidate}>
                       {EXECUTION_POLICY_LABELS[candidate]}
+                      {isManagedPolicy(candidate) ? " — demo accounts only" : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {exitPolicyClamped ? (
-                <p className="mt-2 text-xs text-warning">
-                  The platform currently allows no deeper than &ldquo;
-                  {EXECUTION_POLICY_LABELS[effectiveExitPolicy]}&rdquo;, so that is what your
-                  automatic orders use until the limit is raised.
-                </p>
-              ) : null}
-              {!isManagedPolicy(exitPolicyCeiling) ? (
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Taking profit in steps (part off at the first target, part off at the second, the
-                  rest running on) is not currently enabled by the platform, so it is not listed
-                  above. It stays a demo-only choice and appears here once it is switched on.
-                </p>
-              ) : null}
 
               {isManagedPolicy(effectiveExitPolicy) ? (
                 <>
