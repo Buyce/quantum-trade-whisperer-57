@@ -3511,6 +3511,7 @@ export type Database = {
         Row: {
           account_id: string
           account_mode: string
+          best_price: number | null
           broker_position_id: string
           created_at: string
           delivery_id: number
@@ -3521,17 +3522,31 @@ export type Database = {
           partial_detail: string | null
           partial_state: string
           partial_volume: number | null
+          runner_stop_attempted_at: string | null
+          runner_stop_confirmed_at: string | null
+          runner_stop_detail: string | null
+          runner_stop_state: string
+          runner_stop_target: number | null
+          second_partial_attempted_at: string | null
+          second_partial_confirmed_at: string | null
+          second_partial_detail: string | null
+          second_partial_state: string
+          second_partial_volume: number | null
           stop_move_attempted_at: string | null
           stop_move_confirmed_at: string | null
           stop_move_detail: string | null
           stop_move_state: string
           stop_move_target: number | null
+          trail_detail: string | null
+          trail_moves: number
+          trail_stop_target: number | null
           updated_at: string
           user_id: string
         }
         Insert: {
           account_id: string
           account_mode: string
+          best_price?: number | null
           broker_position_id: string
           created_at?: string
           delivery_id: number
@@ -3542,17 +3557,31 @@ export type Database = {
           partial_detail?: string | null
           partial_state?: string
           partial_volume?: number | null
+          runner_stop_attempted_at?: string | null
+          runner_stop_confirmed_at?: string | null
+          runner_stop_detail?: string | null
+          runner_stop_state?: string
+          runner_stop_target?: number | null
+          second_partial_attempted_at?: string | null
+          second_partial_confirmed_at?: string | null
+          second_partial_detail?: string | null
+          second_partial_state?: string
+          second_partial_volume?: number | null
           stop_move_attempted_at?: string | null
           stop_move_confirmed_at?: string | null
           stop_move_detail?: string | null
           stop_move_state?: string
           stop_move_target?: number | null
+          trail_detail?: string | null
+          trail_moves?: number
+          trail_stop_target?: number | null
           updated_at?: string
           user_id: string
         }
         Update: {
           account_id?: string
           account_mode?: string
+          best_price?: number | null
           broker_position_id?: string
           created_at?: string
           delivery_id?: number
@@ -3563,11 +3592,24 @@ export type Database = {
           partial_detail?: string | null
           partial_state?: string
           partial_volume?: number | null
+          runner_stop_attempted_at?: string | null
+          runner_stop_confirmed_at?: string | null
+          runner_stop_detail?: string | null
+          runner_stop_state?: string
+          runner_stop_target?: number | null
+          second_partial_attempted_at?: string | null
+          second_partial_confirmed_at?: string | null
+          second_partial_detail?: string | null
+          second_partial_state?: string
+          second_partial_volume?: number | null
           stop_move_attempted_at?: string | null
           stop_move_confirmed_at?: string | null
           stop_move_detail?: string | null
           stop_move_state?: string
           stop_move_target?: number | null
+          trail_detail?: string | null
+          trail_moves?: number
+          trail_stop_target?: number | null
           updated_at?: string
           user_id?: string
         }
@@ -4318,6 +4360,8 @@ export type Database = {
           allow_unmeasured_intel: boolean
           auto_execute_c_grade: boolean
           auto_exit_policy: string
+          auto_exit_shares: string
+          auto_exit_trail_runner: boolean
           auto_intel_gate_enabled: boolean
           auto_intel_min_expected_r: number | null
           auto_intel_min_sample: number
@@ -4382,6 +4426,8 @@ export type Database = {
           allow_unmeasured_intel?: boolean
           auto_execute_c_grade?: boolean
           auto_exit_policy?: string
+          auto_exit_shares?: string
+          auto_exit_trail_runner?: boolean
           auto_intel_gate_enabled?: boolean
           auto_intel_min_expected_r?: number | null
           auto_intel_min_sample?: number
@@ -4446,6 +4492,8 @@ export type Database = {
           allow_unmeasured_intel?: boolean
           auto_execute_c_grade?: boolean
           auto_exit_policy?: string
+          auto_exit_shares?: string
+          auto_exit_trail_runner?: boolean
           auto_intel_gate_enabled?: boolean
           auto_intel_min_expected_r?: number | null
           auto_intel_min_sample?: number

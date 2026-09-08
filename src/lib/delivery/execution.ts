@@ -75,6 +75,7 @@ export const EXECUTION_POLICIES = [
   "single_exit_second_target",
   "single_exit_third_target",
   "partial_tp1_runner_tp2",
+  "ladder_tp1_tp2_runner_tp3",
 ] as const;
 export type ExecutionPolicy = (typeof EXECUTION_POLICIES)[number];
 export const DEFAULT_EXECUTION_POLICY: ExecutionPolicy = "single_exit_first_target";
@@ -82,6 +83,31 @@ export const DEFAULT_EXECUTION_POLICY: ExecutionPolicy = "single_exit_first_targ
 export function isExecutionPolicy(value: unknown): value is ExecutionPolicy {
   return (EXECUTION_POLICIES as readonly string[]).includes(String(value));
 }
+
+/**
+ * How the closed share is split between the first target, the second target and
+ * the runner. Shares are fractions of the ORIGINAL filled volume; a zero middle
+ * share means nothing is taken at the second target.
+ */
+export const EXIT_SHARE_PRESETS = {
+  half_runner: [0.5, 0, 0.5],
+  thirds: [1 / 3, 1 / 3, 1 / 3],
+  quarter_half_quarter: [0.25, 0.5, 0.25],
+} as const satisfies Record<string, readonly [number, number, number]>;
+
+export type ExitSharePreset = keyof typeof EXIT_SHARE_PRESETS;
+export const EXIT_SHARE_PRESET_KEYS = Object.keys(EXIT_SHARE_PRESETS) as ExitSharePreset[];
+export const DEFAULT_EXIT_SHARE_PRESET: ExitSharePreset = "half_runner";
+
+export function isExitSharePreset(value: unknown): value is ExitSharePreset {
+  return (EXIT_SHARE_PRESET_KEYS as readonly string[]).includes(String(value));
+}
+
+export const EXIT_SHARE_PRESET_LABELS: Record<ExitSharePreset, string> = {
+  half_runner: "Half at the first target, the rest runs",
+  thirds: "A third at each target",
+  quarter_half_quarter: "A quarter, then a half, then the rest runs",
+};
 
 /**
  * Which published target rank the submitted exit sits at (1, 2 or 3). This is
@@ -93,6 +119,7 @@ export const POLICY_TARGET_RANK: Record<ExecutionPolicy, 1 | 2 | 3> = {
   single_exit_second_target: 2,
   single_exit_third_target: 3,
   partial_tp1_runner_tp2: 2,
+  ladder_tp1_tp2_runner_tp3: 3,
 };
 
 /** How deep the policy reaches. Used only to clamp a choice to a ceiling. */
@@ -101,11 +128,12 @@ const POLICY_DEPTH: Record<ExecutionPolicy, number> = {
   single_exit_second_target: 2,
   single_exit_third_target: 3,
   partial_tp1_runner_tp2: 4,
+  ladder_tp1_tp2_runner_tp3: 5,
 };
 
 /** True when the policy needs broker actions after the fill. */
 export function isManagedPolicy(policy: ExecutionPolicy): boolean {
-  return policy === "partial_tp1_runner_tp2";
+  return policy === "partial_tp1_runner_tp2" || policy === "ladder_tp1_tp2_runner_tp3";
 }
 
 export const EXECUTION_POLICY_LABELS: Record<ExecutionPolicy, string> = {
@@ -114,7 +142,10 @@ export const EXECUTION_POLICY_LABELS: Record<ExecutionPolicy, string> = {
   single_exit_third_target: "Hold the whole position to the third target",
   partial_tp1_runner_tp2:
     "Close half at the first target, move the stop to break-even, run the rest to the second target",
+  ladder_tp1_tp2_runner_tp3:
+    "Take profit in steps: part out at the first target with the stop to break-even, part out at the second target with the stop to the first target, the rest runs to the third target",
 };
+
 
 export interface ResolvedExitPolicy {
   policy: ExecutionPolicy;
@@ -139,10 +170,12 @@ export function resolveExitPolicy(requestedRaw: unknown, ceilingRaw: unknown): R
   // The managed policy is not "deeper than the third target": it is a different
   // kind of order, so it is only available when the ceiling names it exactly.
   if (isManagedPolicy(requested)) {
-    return isManagedPolicy(ceiling)
+    if (!isManagedPolicy(ceiling)) return { policy: ceiling, clamped: true, requested };
+    return POLICY_DEPTH[requested] <= POLICY_DEPTH[ceiling]
       ? { policy: requested, clamped: false, requested }
       : { policy: ceiling, clamped: true, requested };
   }
+
   if (isManagedPolicy(ceiling)) return { policy: requested, clamped: false, requested };
   return POLICY_DEPTH[requested] <= POLICY_DEPTH[ceiling]
     ? { policy: requested, clamped: false, requested }
