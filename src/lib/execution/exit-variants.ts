@@ -32,6 +32,7 @@ export const EXIT_VARIANTS = [
   "single_exit_third_target",
   "partial_tp1_runner_tp2",
   "partial_tp1_runner_tp3",
+  "ladder_thirds_tp1_tp2_tp3",
   "breakeven_after_1r",
   "trail_1r",
 ] as const;
@@ -47,6 +48,8 @@ export const EXIT_VARIANT_LABELS: Record<ExitVariant, string> = {
   single_exit_third_target: "Whole position to the third target",
   partial_tp1_runner_tp2: "Half out at first target, rest to second (stop to break-even)",
   partial_tp1_runner_tp3: "Half out at first target, rest to third (stop to break-even)",
+  ladder_thirds_tp1_tp2_tp3:
+    "A third at each target (stop to break-even, then to the first target)",
   breakeven_after_1r: "Stop to break-even after 1R, then exit at first target",
   trail_1r: "Trailing stop 1R behind the best excursion",
 };
@@ -117,6 +120,8 @@ export function simulateVariant(variant: ExitVariant, path: ExitPath): VariantOu
       return simulatePartial(path, tp1, path.targetsR[1], "second");
     case "partial_tp1_runner_tp3":
       return simulatePartial(path, tp1, path.targetsR[2], "third");
+    case "ladder_thirds_tp1_tp2_tp3":
+      return simulateLadder(path, tp1, path.targetsR[1], path.targetsR[2]);
     case "breakeven_after_1r":
       return simulateBreakeven(path, tp1);
     case "trail_1r":
@@ -210,6 +215,71 @@ function simulatePartial(
       ? "The runner was still open when the recorded path ended."
       : "The path ended with the position still open.",
   );
+}
+
+/**
+ * Laddered exit: a third leaves at each of the three targets, the stop moves to
+ * break-even after the first partial and up to the first target after the second.
+ * Whatever is still open when a stop is reached exits at that stop.
+ */
+function simulateLadder(
+  path: ExitPath,
+  tp1: number,
+  tp2: number | null,
+  tp3: number | null,
+): VariantOutcome {
+  if (tp2 === null || !Number.isFinite(tp2) || tp2 <= tp1) {
+    return undecidable("The plan defines no second target beyond the first.");
+  }
+  if (tp3 === null || !Number.isFinite(tp3) || tp3 <= tp2) {
+    return undecidable("The plan defines no third target beyond the second.");
+  }
+  const share = 1 / 3;
+  // 0 = nothing closed yet, 1 = first third out, 2 = second third out.
+  let stage = 0;
+  const blend = (restR: number) =>
+    stage === 1 ? decided(share * tp1 + (1 - share) * restR)
+    : decided(share * tp1 + share * tp2 + share * restR);
+
+  for (const raw of path.bars) {
+    const bar = usable(raw);
+    if (!bar) return undecidable(AMBIGUOUS_BAR);
+
+    if (stage === 0) {
+      const target = targetHit(bar, tp1);
+      const stopped = stopHit(bar, -1);
+      if (target && stopped) return undecidable(BOTH_BARRIERS);
+      if (stopped) return decided(-1);
+      if (!target) continue;
+      stage = 1;
+      // Deeper rungs may sit in this same bar; only their order against the
+      // break-even stop would be unknowable, and that stop cannot have been hit
+      // before the first target on this bar.
+      if (targetHit(bar, tp2)) {
+        stage = 2;
+        if (targetHit(bar, tp3)) return blend(tp3);
+      }
+      continue;
+    }
+
+    if (stage === 1) {
+      const target = targetHit(bar, tp2);
+      const stopped = stopHit(bar, 0);
+      if (target && stopped) return undecidable(BOTH_BARRIERS);
+      if (stopped) return blend(0);
+      if (!target) continue;
+      stage = 2;
+      if (targetHit(bar, tp3)) return blend(tp3);
+      continue;
+    }
+
+    const target = targetHit(bar, tp3);
+    const stopped = stopHit(bar, tp1);
+    if (target && stopped) return undecidable(BOTH_BARRIERS);
+    if (stopped) return blend(tp1);
+    if (target) return blend(tp3);
+  }
+  return openEnded(path, "The path ended with part of the position still open.");
 }
 
 /** Stop moves to break-even once price has advanced 1R; the exit stays at TP1. */
