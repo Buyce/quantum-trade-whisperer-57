@@ -134,10 +134,11 @@ export function EngineStatusPanel() {
           sub={
             link.unmeasured
               ? "No samples in the last hour — the sampler has not reported yet"
-              : `${data.link?.ok ?? 0} ok · ${data.link?.failed ?? 0} failed in the last ${data.link?.window_minutes ?? 60}m · last failure ${timeAgo(data.link?.last_failure_at ?? null)}`
+              : `${data.link?.ok ?? 0} ok · ${data.link?.failed ?? 0} failed in the last ${data.link?.window_minutes ?? 60}m${link.causeLabel ? ` (${link.causeLabel})` : ""} · last failure ${timeAgo(data.link?.last_failure_at ?? null)}`
           }
           tone={link.tone}
-          hint="The queue only advances when the database's scheduled calls reach the app. Sampled from the platform's own HTTP response log; failures here starve the scanner while every other counter still looks ordinary."
+          hint="The queue only advances when the database's scheduled calls reach the app. Sampled from the platform's own HTTP response log, and split by cause: a name-lookup stall is upstream, a plain timeout means the app did not answer inside the caller's window. Failures here starve the scanner while every other counter still looks ordinary."
+
         />
       </div>
 
