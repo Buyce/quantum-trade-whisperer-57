@@ -1,9 +1,10 @@
 /**
- * Which take-profit choices Settings may offer under a given platform ceiling.
+ * Which take-profit choices Settings offers.
  *
- * The Settings dropdown lists exactly the policies that resolve to themselves
- * under the ceiling, so these assertions are the contract behind "why is the
- * stepped choice not in my list".
+ * The choice belongs to the customer: every policy is listed, with no platform
+ * depth ceiling in front of it. The one restriction left is that a stepped
+ * (managed) exit runs on DEMO accounts only, which the send-time revalidation
+ * enforces by reducing it to the equivalent unmanaged single exit.
  */
 import { describe, expect, it } from "vitest";
 
@@ -14,33 +15,36 @@ import {
   type ExecutionPolicy,
 } from "../execution";
 
-const offered = (ceiling: ExecutionPolicy): ExecutionPolicy[] =>
-  EXECUTION_POLICIES.filter((p) => resolveExitPolicy(p, ceiling).policy === p);
+/** Settings lists every policy verbatim. */
+const offered = (): readonly ExecutionPolicy[] => EXECUTION_POLICIES;
 
-describe("take-profit choices offered under a ceiling", () => {
-  it("[UNIT] offers no stepped choice while the ceiling names the third target", () => {
-    const list = offered("single_exit_third_target");
-    expect(list).toEqual([
+describe("take-profit choices offered to a customer", () => {
+  it("[UNIT] offers all five choices, stepped ones included", () => {
+    expect(offered()).toEqual([
       "single_exit_first_target",
       "single_exit_second_target",
       "single_exit_third_target",
+      "partial_tp1_runner_tp2",
+      "ladder_tp1_tp2_runner_tp3",
     ]);
-    expect(list.some(isManagedPolicy)).toBe(false);
+    expect(offered().filter(isManagedPolicy)).toHaveLength(2);
   });
 
-  it("[UNIT] offers both stepped choices once the ceiling names the ladder", () => {
-    const list = offered("ladder_tp1_tp2_runner_tp3");
-    expect(list).toContain("partial_tp1_runner_tp2");
-    expect(list).toContain("ladder_tp1_tp2_runner_tp3");
+  it("[UNIT] leaves a customer choice unclamped at send time", () => {
+    for (const policy of EXECUTION_POLICIES) {
+      const resolved = resolveExitPolicy(policy, "ladder_tp1_tp2_runner_tp3");
+      expect(resolved.policy).toBe(policy);
+      expect(resolved.clamped).toBe(false);
+    }
   });
 
-  it("[UNIT] offers the half-out choice but not the ladder at the shallower managed ceiling", () => {
-    const list = offered("partial_tp1_runner_tp2");
-    expect(list).toContain("partial_tp1_runner_tp2");
-    expect(list).not.toContain("ladder_tp1_tp2_runner_tp3");
-  });
-
-  it("[UNIT] offers only the first target when the ceiling is unreadable", () => {
-    expect(offered("not-a-policy" as ExecutionPolicy)).toEqual(["single_exit_first_target"]);
+  it("[UNIT] still treats stepped exits as demo-only", () => {
+    // Mirrors revalidation: a managed policy on a non-demo account becomes the
+    // equivalent unmanaged single exit rather than running half-managed.
+    const forNonDemo = (policy: ExecutionPolicy): ExecutionPolicy =>
+      isManagedPolicy(policy) ? "single_exit_second_target" : policy;
+    expect(forNonDemo("ladder_tp1_tp2_runner_tp3")).toBe("single_exit_second_target");
+    expect(forNonDemo("partial_tp1_runner_tp2")).toBe("single_exit_second_target");
+    expect(forNonDemo("single_exit_third_target")).toBe("single_exit_third_target");
   });
 });
