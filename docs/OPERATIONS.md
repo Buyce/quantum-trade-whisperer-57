@@ -134,13 +134,12 @@ would fabricate a setup. Check three things in order:
    below the drain crons' `timeout_milliseconds` (25s). When they are equal, every
    busy pass is cut off, is recorded as a failed call, and — because the request is
    aborted — cannot hand the remainder on.
-3. **Hand-off.** `worker/process` dispatches its successor *before* working its
+3. **Hand-off.** `worker/process` dispatches its successor _before_ working its
    batch, so an aborted pass still passes the baton. Both drain crons are guarded by
    `WHERE EXISTS (... status = 'pending')`, so idle minutes make no call at all.
 
 `scanner_starvation_incidents` records an open incident and emails the owner while
 the fault persists, and clears itself once analysis resumes.
-
 
 **MetaApi timeout.** Every fetch is wrapped in an 8-second timeout; on expiry the
 pair is skipped, flagged temporarily unavailable, and the scanner advances. Shadow
