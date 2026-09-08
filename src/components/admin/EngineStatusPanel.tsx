@@ -74,6 +74,8 @@ export function EngineStatusPanel() {
   const health = classifyScanHealth({ ...scan, weekendClosed });
   const replayHealth = classifyReplayHealth(breaker);
   const cooldown = cooldownRemaining(breaker?.paused_until ?? null);
+  const starvation = classifyScanStarvation({ ...scan, weekendClosed });
+  const link = classifyLinkHealth(data.link);
 
   const scanSub =
     weekendClosed && scan.total === 0
@@ -113,7 +115,44 @@ export function EngineStatusPanel() {
           tone={replayHealth.tone}
           hint="Statistics/replay only. Live signal scanning and delivery are unaffected by this flag."
         />
+        <StatCard
+          label="Candle analysis"
+          value={starvation.value}
+          sub={
+            starvation.state === "idle"
+              ? starvation.value === "WEEKEND — PAUSED"
+                ? "No jobs finished — scheduled weekend closure"
+                : "No jobs finished in this window"
+              : `${scan.analysed} analysed · ${scan.stale} discarded before fetch (${Math.round(starvation.staleShare * 100)}%) · last analysis ${timeAgo(scan.last_analysed_at)} · last candle fetch ${timeAgo(scan.last_candle_fetch_at)}`
+          }
+          tone={starvation.tone}
+          hint="A job that waits past its freshness limit is closed without fetching candles. Those jobs still count as done, so this card — not the job counter — is what proves the scanner is actually analysing the market."
+        />
+        <StatCard
+          label="Database → app calls"
+          value={link.value}
+          sub={
+            link.unmeasured
+              ? "No samples in the last hour — the sampler has not reported yet"
+              : `${data.link?.ok ?? 0} ok · ${data.link?.failed ?? 0} failed in the last ${data.link?.window_minutes ?? 60}m · last failure ${timeAgo(data.link?.last_failure_at ?? null)}`
+          }
+          tone={link.tone}
+          hint="The queue only advances when the database's scheduled calls reach the app. Sampled from the platform's own HTTP response log; failures here starve the scanner while every other counter still looks ordinary."
+        />
       </div>
+
+      {starvation.isFault && (
+        <p className="mt-3 rounded border border-destructive/40 bg-destructive/10 p-2 text-[11px] text-destructive-foreground">
+          Scanner not analysing — jobs are being discarded before any candle is fetched, so no
+          setups can be published. This is a queue-throughput fault, not an absence of setups.
+          {!link.unmeasured && (data.link?.failed ?? 0) > 0 && (
+            <span className="mt-1 block break-all font-mono text-[10px] opacity-80">
+              latest failed call: {data.link?.last_failure_detail ?? "no detail recorded"}
+            </span>
+          )}
+        </p>
+      )}
+
 
       {(scanClass.kind !== "none" || breakerClass.kind !== "none") && (
         <div className="mt-3 space-y-2 text-[11px]">
