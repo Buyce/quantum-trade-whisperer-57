@@ -293,8 +293,18 @@ export interface LinkHealthInput {
   failed: number;
   /** Failures that timed out with the time spent outside name resolution. */
   failed_timeout?: number | null;
-  /** Failures whose elapsed time was spent in DNS: an upstream name-lookup stall. */
+  /**
+   * Failures whose elapsed time was spent in DNS: an upstream name-lookup
+   * stall. The sampler only counts a timeout here when name resolution
+   * consumed ~all of the allowed time — a 1ms lookup inside a 20s hang is our
+   * own slowness, not DNS.
+   */
   failed_dns?: number | null;
+  /**
+   * Failures where the app answered 5xx or the platform cancelled a hung
+   * request (502). Our own fault, counted apart from timeouts.
+   */
+  failed_5xx?: number | null;
   last_sampled_at?: string | null;
 }
 
@@ -308,7 +318,7 @@ export interface LinkHealth {
    * The larger measured cause, or `null` when no failure was classified. Never a
    * guess: a failure the sampler could not attribute leaves this null.
    */
-  dominantCause: "timeout" | "dns" | null;
+  dominantCause: "timeout" | "dns" | "server_error" | null;
   /** Plain-language cause, empty when nothing was classified. */
   causeLabel: string;
 }
@@ -329,14 +339,23 @@ export function classifyLinkHealth(input: LinkHealthInput | null | undefined): L
   }
   const timeouts = input.failed_timeout ?? 0;
   const dns = input.failed_dns ?? 0;
+  const serverErrors = input.failed_5xx ?? 0;
   const dominantCause: LinkHealth["dominantCause"] =
-    timeouts === 0 && dns === 0 ? null : dns > timeouts ? "dns" : "timeout";
+    timeouts === 0 && dns === 0 && serverErrors === 0
+      ? null
+      : serverErrors >= timeouts && serverErrors >= dns
+        ? "server_error"
+        : dns > timeouts
+          ? "dns"
+          : "timeout";
   const causeLabel =
     dominantCause === "dns"
       ? "mostly upstream name-lookup stalls"
-      : dominantCause === "timeout"
-        ? "mostly no answer inside the caller's window"
-        : "";
+      : dominantCause === "server_error"
+        ? "mostly app errors or hung requests cancelled by the platform (5xx)"
+        : dominantCause === "timeout"
+          ? "mostly no answer inside the caller's window"
+          : "";
 
   const share = failed / total;
   const base = { failShare: share, unmeasured: false, dominantCause, causeLabel };

@@ -2914,6 +2914,24 @@ export type Database = {
           },
         ]
       }
+      market_data_slots: {
+        Row: {
+          acquired_at: string
+          expires_at: string
+          id: number
+        }
+        Insert: {
+          acquired_at?: string
+          expires_at: string
+          id?: never
+        }
+        Update: {
+          acquired_at?: string
+          expires_at?: string
+          id?: never
+        }
+        Relationships: []
+      }
       metaapi_api_observations: {
         Row: {
           account_id: string | null
@@ -4100,6 +4118,27 @@ export type Database = {
           started_at?: string | null
           status?: string
           timeframe?: Database["public"]["Enums"]["tf_code"] | null
+        }
+        Relationships: []
+      }
+      scan_worker_lease: {
+        Row: {
+          acquired_at: string
+          expires_at: string
+          holder: string
+          id: boolean
+        }
+        Insert: {
+          acquired_at?: string
+          expires_at: string
+          holder: string
+          id?: boolean
+        }
+        Update: {
+          acquired_at?: string
+          expires_at?: string
+          holder?: string
+          id?: boolean
         }
         Relationships: []
       }
@@ -5431,6 +5470,7 @@ export type Database = {
       worker_call_health: {
         Row: {
           failed: number
+          failed_5xx: number
           failed_dns: number
           failed_timeout: number
           id: number
@@ -5438,10 +5478,13 @@ export type Database = {
           last_failure_detail: string | null
           ok: number
           sampled_at: string
+          scanner_failed: number
+          scanner_ok: number
           window_minutes: number
         }
         Insert: {
           failed: number
+          failed_5xx?: number
           failed_dns?: number
           failed_timeout?: number
           id?: number
@@ -5449,10 +5492,13 @@ export type Database = {
           last_failure_detail?: string | null
           ok: number
           sampled_at?: string
+          scanner_failed?: number
+          scanner_ok?: number
           window_minutes: number
         }
         Update: {
           failed?: number
+          failed_5xx?: number
           failed_dns?: number
           failed_timeout?: number
           id?: number
@@ -5460,6 +5506,8 @@ export type Database = {
           last_failure_detail?: string | null
           ok?: number
           sampled_at?: string
+          scanner_failed?: number
+          scanner_ok?: number
           window_minutes?: number
         }
         Relationships: []
@@ -5807,6 +5855,10 @@ export type Database = {
           max_live: number
         }[]
       }
+      acquire_market_data_slot: {
+        Args: { p_ttl_seconds?: number }
+        Returns: number
+      }
       admin_reset_shadow_breaker: { Args: never; Returns: Json }
       claim_account_telemetry: {
         Args: {
@@ -6005,6 +6057,14 @@ export type Database = {
         Args: { _gate: string }
         Returns: undefined
       }
+      release_market_data_slot: {
+        Args: { p_slot_id: number }
+        Returns: undefined
+      }
+      release_scan_worker_lease: {
+        Args: { p_holder: string }
+        Returns: undefined
+      }
       release_verify_reminder: {
         Args: { _user_id: string; _week: string }
         Returns: undefined
@@ -6050,6 +6110,10 @@ export type Database = {
           _to: string
         }
         Returns: Json
+      }
+      try_acquire_scan_worker_lease: {
+        Args: { p_holder: string; p_ttl_seconds?: number }
+        Returns: boolean
       }
       walk_forward_confirmed: { Args: { _gate: string }; Returns: boolean }
     }

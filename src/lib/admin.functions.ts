@@ -244,8 +244,13 @@ export interface AdminLinkHealth {
   failed: number;
   /** Failures that simply did not answer in time. */
   failed_timeout: number;
-  /** Failures spent in upstream name resolution. */
+  /** Failures spent in upstream name resolution (>= ~90% of elapsed time). */
   failed_dns: number;
+  /** Failures where the app answered 5xx or was cancelled as hung. */
+  failed_5xx: number;
+  /** Outcomes of the scanner's own scheduled calls (from the cron run log). */
+  scanner_ok: number;
+  scanner_failed: number;
   last_failure_at: string | null;
   last_failure_detail: string | null;
   last_sampled_at: string | null;
