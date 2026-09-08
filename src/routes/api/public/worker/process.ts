@@ -100,12 +100,10 @@ export const Route = createFileRoute("/api/public/worker/process")({
           // is what got it cancelled as "hung" and stranded its claimed jobs.
           return Response.json({ ok: false, error: message }, { status: 500 });
         } finally {
-          await db
-            .rpc("release_scan_worker_lease", { p_holder: holder })
-            .then(
-              () => {},
-              () => {},
-            );
+          await db.rpc("release_scan_worker_lease", { p_holder: holder }).then(
+            () => {},
+            () => {},
+          );
         }
 
         // Post-work hand-off only: the successor starts after THIS pass has
