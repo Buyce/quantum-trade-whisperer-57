@@ -223,15 +223,27 @@ describe("decideManagedStep — laddered exits", () => {
     expect(off.step).toBeNull();
 
     const on = decideManagedStep(
-      laddered({ currentPrice: 103, volume: 0.3, currentStop: 101, bestPrice: 104, riskDistance: 1 }),
+      laddered({
+        currentPrice: 103,
+        volume: 0.3,
+        currentStop: 101,
+        bestPrice: 104,
+        riskDistance: 1.5,
+      }),
       settled,
       { ...plan, trailRunner: true },
     );
     expect(on.step).toBe("trail");
-    expect(on.moveStopTo).toBe(103 - 0);
+    expect(on.moveStopTo).toBe(102.5);
 
     const backwards = decideManagedStep(
-      laddered({ currentPrice: 103, volume: 0.3, currentStop: 103.5, bestPrice: 104, riskDistance: 1 }),
+      laddered({
+        currentPrice: 103,
+        volume: 0.3,
+        currentStop: 102.9,
+        bestPrice: 104,
+        riskDistance: 1.5,
+      }),
       settled,
       { ...plan, trailRunner: true },
     );
