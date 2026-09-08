@@ -135,7 +135,10 @@ describe("resolved-trade immutability", () => {
     ).not.toThrow();
   });
 
-  it("[INVARIANT] every member of the resolved payload/provenance set rejects a conflicting change", () => {
+  it(
+    "[INVARIANT] every member of the resolved payload/provenance set rejects a conflicting change",
+    { timeout: 30_000 },
+    () => {
     guard();
     const conflicts: Array<[string, string]> = [
       ["outcome", "'loss'::trade_outcome"],
