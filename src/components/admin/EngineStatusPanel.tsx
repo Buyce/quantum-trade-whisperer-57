@@ -16,10 +16,13 @@ import { RotateCcw } from "lucide-react";
 import { getAdminEngineStatus, resetShadowBreaker } from "@/lib/admin.functions";
 import {
   classifyEngineError,
+  classifyLinkHealth,
   classifyReplayHealth,
   classifyScanHealth,
+  classifyScanStarvation,
   cooldownRemaining,
 } from "@/lib/engine-status";
+
 import { isWeekendClosed } from "@/lib/market-hours";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
