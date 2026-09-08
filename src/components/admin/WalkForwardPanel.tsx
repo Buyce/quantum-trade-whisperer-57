@@ -11,6 +11,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 
 import { getAdminWalkForward } from "@/lib/admin.functions";
+import { GATE_MEASURABILITY_COPY, gateMeasurability } from "@/lib/stats/walk-forward";
 import { PanelShell } from "@/components/admin/AdminPanels";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -78,16 +79,17 @@ export function WalkForwardPanel() {
                       : `${r3(row.holdoutLow)} … ${r3(row.holdoutHigh)}`}
                   </td>
                   <td className="py-1 text-muted-foreground">
-                    {row.confirmed ? (
-                      <span className="text-success">confirmed out of sample</span>
-                    ) : (
-                      (row.blockers[0] ?? "not confirmed")
-                    )}
+                    <GateState row={row} />
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            Five of these checks reject a setup before an entry, a stop and a risk distance exist,
+            so those rejections can never be replayed against candles — they are marked as such
+            rather than as waiting for samples.
+          </p>
           <p className="mt-2 text-[11px] text-muted-foreground">
             The split is chronological by trading day, so no later day influences the earlier
             period. A difference counts only when it keeps the same direction on the held-out days,
@@ -97,4 +99,28 @@ export function WalkForwardPanel() {
       )}
     </PanelShell>
   );
+}
+
+/**
+ * One row's state, told truthfully: a check that can never have a rejected arm
+ * is not "waiting for 30 observations", and saying so would be a false claim
+ * about the data.
+ */
+function GateState({
+  row,
+}: {
+  row: {
+    gate: string;
+    confirmed: boolean;
+    trainFailN: number;
+    holdoutFailN: number;
+    blockers: string[];
+  };
+}) {
+  const state = gateMeasurability(row);
+  if (state === "confirmed")
+    return <span className="text-success">{GATE_MEASURABILITY_COPY.confirmed}</span>;
+  if (state === "accumulating")
+    return <span>{row.blockers[0] ?? GATE_MEASURABILITY_COPY.accumulating}</span>;
+  return <span>{GATE_MEASURABILITY_COPY[state]}</span>;
 }

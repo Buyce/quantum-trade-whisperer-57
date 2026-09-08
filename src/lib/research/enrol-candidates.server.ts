@@ -28,6 +28,7 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { REPLAY_V1_VERSION } from "@/lib/execution/replay-registry";
+import { MEASURABLE_FAIL_GATES } from "@/lib/stats/walk-forward";
 import { RESEARCH_PLAN_VERSION } from "./counterfactual-plan";
 import { noteResearchFailure, RESEARCH_WRITE_DEADLINE_MS } from "./observations.server";
 
@@ -50,11 +51,7 @@ export const CANDIDATE_CLAIM_COOLDOWN_MINUTES = 120;
  * The only gates whose failure still leaves a fully derived entry/stop/risk/ATR.
  * Frozen: adding a gate here is a deliberate research-policy change.
  */
-export const COUNTERFACTUAL_FAIL_GATES: readonly string[] = [
-  "risk_ceiling",
-  "headroom",
-  "reachable_r",
-];
+export const COUNTERFACTUAL_FAIL_GATES: readonly string[] = MEASURABLE_FAIL_GATES;
 
 /** Reads the enrolment kill switch. Any failure is treated as "disabled". */
 export async function isCandidateEnrolmentEnabled(db: SupabaseClient): Promise<boolean> {

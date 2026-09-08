@@ -6001,6 +6001,7 @@ export type Database = {
       get_admin_learning_evidence: { Args: never; Returns: Json }
       get_admin_news: { Args: never; Returns: Json }
       get_admin_payoff_research: { Args: never; Returns: Json }
+      get_admin_scan_results_recent: { Args: never; Returns: Json }
       instrument_capability_allowed: {
         Args: { _capability: string; _instrument: string }
         Returns: Json

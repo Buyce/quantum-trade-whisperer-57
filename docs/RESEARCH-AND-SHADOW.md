@@ -61,6 +61,22 @@ comparison, and lift reporting is admin-only. Volatility-regime boundaries are
 frozen (`vol_definitions`) so a later regime redefinition cannot silently rewrite
 history.
 
+### Which gates can be measured at all
+
+Five of the eight publication checks (`abc_structure`, `candles_present`,
+`grade`, `m15_direction`, `risk_defined`) reject a structure **before** an entry,
+stop, risk distance and ATR exist. No plan can be derived, so their rejected arm
+can never be replayed and filter lift for them is structurally undefined, not
+pending. Those rows are stored as `counterfactual_class = 'structurally_not_evaluable'`.
+
+Only `risk_ceiling`, `headroom` and `reachable_r` leave full geometry behind, so
+only those three can ever carry a rejected arm. The list is frozen in
+`MEASURABLE_FAIL_GATES` (`src/lib/stats/walk-forward.ts`) and consumed by
+enrolment, so the owner-facing walk-forward state and what is actually enrolled
+cannot drift apart. The panel distinguishes three states — structurally
+unmeasurable, measurable but no rejection seen yet, and collecting observations
+— instead of one blanket sample shortfall.
+
 ### Isolation
 
 Production reads go through cohort-scoped views, not the research tables. Research
