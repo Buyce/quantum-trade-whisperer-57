@@ -58,4 +58,21 @@ describe("classifyLinkHealth", () => {
     expect(classifyLinkHealth({ ok: 100, failed: 1 }).value).toBe("DEGRADED");
     expect(classifyLinkHealth({ ok: 100, failed: 0 }).value).toBe("OK");
   });
+
+  it("[UNIT] names the larger measured cause and nothing more", () => {
+    expect(
+      classifyLinkHealth({ ok: 10, failed: 9, failed_timeout: 7, failed_dns: 2 }).dominantCause,
+    ).toBe("timeout");
+    expect(
+      classifyLinkHealth({ ok: 10, failed: 9, failed_timeout: 1, failed_dns: 8 }).dominantCause,
+    ).toBe("dns");
+  });
+
+  it("[INVARIANT] an unattributed failure is never given a cause", () => {
+    const h = classifyLinkHealth({ ok: 10, failed: 9 });
+    expect(h.dominantCause).toBeNull();
+    expect(h.causeLabel).toBe("");
+    // A healthy link reports no cause either, rather than a stale one.
+    expect(classifyLinkHealth({ ok: 10, failed: 0, failed_dns: 5 }).dominantCause).toBeNull();
+  });
 });

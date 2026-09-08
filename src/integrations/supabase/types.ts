@@ -5431,6 +5431,8 @@ export type Database = {
       worker_call_health: {
         Row: {
           failed: number
+          failed_dns: number
+          failed_timeout: number
           id: number
           last_failure_at: string | null
           last_failure_detail: string | null
@@ -5440,6 +5442,8 @@ export type Database = {
         }
         Insert: {
           failed: number
+          failed_dns?: number
+          failed_timeout?: number
           id?: number
           last_failure_at?: string | null
           last_failure_detail?: string | null
@@ -5449,6 +5453,8 @@ export type Database = {
         }
         Update: {
           failed?: number
+          failed_dns?: number
+          failed_timeout?: number
           id?: number
           last_failure_at?: string | null
           last_failure_detail?: string | null
