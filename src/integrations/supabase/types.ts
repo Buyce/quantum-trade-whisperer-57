@@ -4502,6 +4502,36 @@ export type Database = {
         }
         Relationships: []
       }
+      scanner_starvation_incidents: {
+        Row: {
+          analysed: number
+          cleared_at: string | null
+          detail: string | null
+          id: number
+          notified: boolean
+          opened_at: string
+          stale: number
+        }
+        Insert: {
+          analysed: number
+          cleared_at?: string | null
+          detail?: string | null
+          id?: number
+          notified?: boolean
+          opened_at?: string
+          stale: number
+        }
+        Update: {
+          analysed?: number
+          cleared_at?: string | null
+          detail?: string | null
+          id?: number
+          notified?: boolean
+          opened_at?: string
+          stale?: number
+        }
+        Relationships: []
+      }
       session_definitions: {
         Row: {
           algorithm: string
@@ -5807,6 +5837,10 @@ export type Database = {
         Args: { _min_interval_seconds: number; _symbol: string }
         Returns: boolean
       }
+      claim_starvation_incident: {
+        Args: { _analysed: number; _detail: string; _stale: number }
+        Returns: number
+      }
       claim_v2_structure: {
         Args: {
           _cooldown_minutes?: number
@@ -5820,6 +5854,7 @@ export type Database = {
         Returns: boolean
       }
       claim_weekly_report: { Args: { _week: string }; Returns: boolean }
+      clear_starvation_incident: { Args: never; Returns: boolean }
       decide_gate_change: {
         Args: {
           _actor: string
@@ -5867,6 +5902,7 @@ export type Database = {
       is_admin: { Args: never; Returns: boolean }
       maintain_scan_queue: { Args: never; Returns: Json }
       maintain_shadow_queue: { Args: never; Returns: Json }
+      mark_starvation_notified: { Args: { _id: number }; Returns: undefined }
       park_account_telemetry: {
         Args: {
           _account_id: string
