@@ -40,4 +40,6 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   "gate-change-applied": gateChangeAppliedTemplate,
   "weekly-shadow-report": weeklyShadowReportTemplate,
   "verify-trade-prices": verifyTradePricesTemplate,
+  "scanner-starved": scannerStarvedTemplate,
+
 };
