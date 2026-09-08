@@ -205,3 +205,107 @@ export function classifyReplayHealth(breaker: ReplayBreakerInput | null | undefi
   }
   return { state: "running", value: "RUNNING", tone: "good", errorIsCurrent: false };
 }
+
+/**
+ * Starvation of the scanner: jobs discarded before any candle was fetched.
+ *
+ * A job older than the freshness limit is closed as `stale` without analysis —
+ * correct behaviour on its own, but when it becomes the NORM the engine is
+ * publishing nothing while every other counter still reads "done". This is the
+ * state that hid a seven-hour outage: 36 done jobs an hour, zero analysis.
+ *
+ * Nothing is inferred beyond the counters: `stale` and `analysed` are recorded
+ * outcomes, and a starved verdict never claims the market had no setups.
+ */
+export type ScanStarvationState = "idle" | "healthy" | "partial" | "starved";
+
+export interface ScanStarvationInput {
+  total: number;
+  stale: number;
+  analysed: number;
+  last_analysed_at?: string | null;
+  last_candle_fetch_at?: string | null;
+  weekendClosed?: boolean;
+}
+
+export interface ScanStarvation {
+  state: ScanStarvationState;
+  value: string;
+  tone: "good" | "warn" | "bad";
+  /** Share of finished jobs discarded before analysis, 0..1. */
+  staleShare: number;
+  /** True when the engine is producing no analysis at all right now. */
+  isFault: boolean;
+}
+
+/** Above this share of discarded jobs the engine is treated as starved. */
+export const STALE_SHARE_FAULT = 0.25;
+
+export function classifyScanStarvation(input: ScanStarvationInput): ScanStarvation {
+  const finished = input.stale + input.analysed;
+  const share = finished > 0 ? input.stale / finished : 0;
+
+  if (finished === 0) {
+    return {
+      state: "idle",
+      value: input.weekendClosed ? "WEEKEND — PAUSED" : "NO JOBS FINISHED",
+      tone: input.weekendClosed ? "good" : "warn",
+      staleShare: 0,
+      isFault: false,
+    };
+  }
+
+  if (input.analysed === 0) {
+    return {
+      state: "starved",
+      value: "NOT ANALYSING",
+      tone: "bad",
+      staleShare: share,
+      isFault: true,
+    };
+  }
+
+  if (share > STALE_SHARE_FAULT) {
+    return {
+      state: "partial",
+      value: "WORK DISCARDED",
+      tone: "warn",
+      staleShare: share,
+      isFault: true,
+    };
+  }
+
+  return { state: "healthy", value: "ANALYSING", tone: "good", staleShare: share, isFault: false };
+}
+
+/**
+ * Health of the database -> app scheduled-call link. `failed` counts non-2xx
+ * responses and outright timeouts sampled from the platform's own HTTP log, so
+ * a broken link is a measured fact rather than an inference from queue lag.
+ */
+export interface LinkHealthInput {
+  ok: number;
+  failed: number;
+  last_sampled_at?: string | null;
+}
+
+export interface LinkHealth {
+  value: string;
+  tone: "good" | "warn" | "bad";
+  failShare: number;
+  /** No samples yet: the sampler has not run, so nothing is known. */
+  unmeasured: boolean;
+}
+
+export function classifyLinkHealth(input: LinkHealthInput | null | undefined): LinkHealth {
+  const ok = input?.ok ?? 0;
+  const failed = input?.failed ?? 0;
+  const total = ok + failed;
+  if (!input || total === 0) {
+    return { value: "NOT MEASURED YET", tone: "warn", failShare: 0, unmeasured: true };
+  }
+  const share = failed / total;
+  if (share >= 0.2) return { value: "FAILING", tone: "bad", failShare: share, unmeasured: false };
+  if (failed > 0) return { value: "DEGRADED", tone: "warn", failShare: share, unmeasured: false };
+  return { value: "OK", tone: "good", failShare: 0, unmeasured: false };
+}
