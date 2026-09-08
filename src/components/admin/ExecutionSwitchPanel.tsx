@@ -12,6 +12,15 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { getAdminExecutionSwitches, setAdminExecutionSwitches } from "@/lib/admin.functions";
+import {
+  DEFAULT_EXECUTION_POLICY,
+  EXECUTION_POLICIES,
+  EXECUTION_POLICY_LABELS,
+  isExecutionPolicy,
+  isManagedPolicy,
+  type ExecutionPolicy,
+} from "@/lib/delivery/execution";
+
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -97,6 +106,10 @@ export function ExecutionSwitchPanel() {
   });
 
   const [hostDraft, setHostDraft] = useState("");
+  // The exit-depth ceiling is a deliberate change: a reason is required, and the
+  // draft starts empty so an accidental Enter cannot move it.
+  const [ceilingDraft, setCeilingDraft] = useState<string>("");
+  const [ceilingReason, setCeilingReason] = useState("");
 
   const mutation = useMutation({
     mutationFn: (input: {
@@ -105,7 +118,10 @@ export function ExecutionSwitchPanel() {
       liveExecutionEnabled?: boolean;
       liveAutoEnabled?: boolean;
       allowedLiveHosts?: string[];
+      maxCustomerExitPolicy?: string;
+      reason?: string;
     }) => saveSwitches({ data: input }),
+
     onSuccess: () => {
       setPending(null);
       toast.success("Execution switches updated");
@@ -122,6 +138,11 @@ export function ExecutionSwitchPanel() {
   if (isLoading || !data) {
     return <Skeleton className="h-32" />;
   }
+
+  // An unknown stored value reads as the shallowest exit, never a deeper one.
+  const currentCeiling: ExecutionPolicy = isExecutionPolicy(data.maxCustomerExitPolicy)
+    ? data.maxCustomerExitPolicy
+    : DEFAULT_EXECUTION_POLICY;
 
   const rows: {
     key: SwitchField;
@@ -202,6 +223,58 @@ export function ExecutionSwitchPanel() {
             </Button>
           </div>
         ))}
+
+        <div className="space-y-2 rounded-sm border border-border p-2">
+          <div className="text-[11px] font-medium text-foreground">
+            How deep customers may take profit
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            Currently &ldquo;{EXECUTION_POLICY_LABELS[currentCeiling]}&rdquo;. A customer&apos;s own
+            choice in Settings is never deeper than this, and the two stepped choices are only
+            offered when this names one of them exactly. Stepped exits act on a position after it
+            fills and run on DEMO accounts only.
+          </p>
+          <select
+            value={ceilingDraft || currentCeiling}
+            onChange={(e) => setCeilingDraft(e.target.value)}
+            aria-label="Customer take-profit ceiling"
+            className="h-8 w-full rounded-sm border border-border bg-background px-2 text-[11px]"
+          >
+            {EXECUTION_POLICIES.map((policy) => (
+              <option key={policy} value={policy}>
+                {EXECUTION_POLICY_LABELS[policy]}
+                {isManagedPolicy(policy) ? " (demo only)" : ""}
+              </option>
+            ))}
+          </select>
+          <div className="flex gap-2">
+            <input
+              value={ceilingReason}
+              onChange={(e) => setCeilingReason(e.target.value)}
+              placeholder="Reason for this change"
+              className="h-8 flex-1 rounded-sm border border-border bg-background px-2 text-[11px]"
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={
+                mutation.isPending ||
+                ceilingReason.trim().length < 4 ||
+                (ceilingDraft || currentCeiling) === currentCeiling
+              }
+              onClick={() => {
+                mutation.mutate({
+                  maxCustomerExitPolicy: ceilingDraft || currentCeiling,
+                  reason: ceilingReason.trim(),
+                });
+                setCeilingReason("");
+                setCeilingDraft("");
+              }}
+            >
+              Apply
+            </Button>
+          </div>
+        </div>
 
         <div className="space-y-2 rounded-sm border border-border p-2">
           <div className="text-[11px] font-medium text-foreground">

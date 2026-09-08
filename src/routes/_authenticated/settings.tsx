@@ -934,6 +934,14 @@ function SettingsPage() {
                   automatic orders use until the limit is raised.
                 </p>
               ) : null}
+              {!isManagedPolicy(exitPolicyCeiling) ? (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Taking profit in steps (part off at the first target, part off at the second, the
+                  rest running on) is not currently enabled by the platform, so it is not listed
+                  above. It stays a demo-only choice and appears here once it is switched on.
+                </p>
+              ) : null}
+
               {isManagedPolicy(effectiveExitPolicy) ? (
                 <>
                   <p className="mt-2 text-xs text-warning">

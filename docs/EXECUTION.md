@@ -352,6 +352,13 @@ Resolution of those states is manual or dry-run.
   A managed policy requires the owner to set the ceiling to it exactly, is refused
   on any non-demo account, and is driven by
   `src/lib/delivery/manage-positions.server.ts` from the reconcile-active worker.
+  The ceiling itself is set in Admin → Execution switches ("How deep customers may
+  take profit"); the write goes through `set_execution_control`, which validates the
+  value against the five named policies, refuses when the stored value moved since
+  it was read, and records the actor and reason in `execution_control_changes`.
+  While the ceiling names no managed policy, Settings lists neither stepped choice
+  and says so in place of omitting them silently.
+
   Each position has one durable `position_management_state` row, one step per
   pass, in order: a step is marked `attempted` before the broker call and
   `confirmed` only on a definite broker acceptance, so a crash cannot repeat a
