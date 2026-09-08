@@ -233,6 +233,10 @@ export interface ScannerSettingsRow {
   auto_market_entry_enabled: boolean;
   /** Which published target automatic orders take profit at. */
   auto_exit_policy: string | null;
+  /** Managed-exit split preset and whether the final runner's stop trails. */
+  auto_exit_shares: string | null;
+  auto_exit_trail_runner: boolean | null;
+
   /**
    * Owner opt-in: while the intelligence gate is on, allow a setup whose regime
    * has too FEW resolved replay samples to be judged. A measured rate that is
