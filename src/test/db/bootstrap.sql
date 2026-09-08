@@ -145,6 +145,25 @@ BEGIN
   RETURN true;
 END $$;
 
+-- pg_cron.alter_job stub: mirrors the production signature closely enough for
+-- migrations that retune schedule/command/active on an existing job id.
+CREATE OR REPLACE FUNCTION cron.alter_job(
+  job_id bigint,
+  schedule text DEFAULT NULL,
+  command text DEFAULT NULL,
+  database text DEFAULT NULL,
+  username text DEFAULT NULL,
+  active boolean DEFAULT NULL
+) RETURNS boolean LANGUAGE plpgsql AS $$
+BEGIN
+  UPDATE cron.job SET
+    schedule = COALESCE(alter_job.schedule, job.schedule),
+    command = COALESCE(alter_job.command, job.command),
+    active = COALESCE(alter_job.active, job.active)
+  WHERE jobid = job_id;
+  RETURN true;
+END $$;
+
 CREATE OR REPLACE FUNCTION cron.unschedule(job_id bigint)
 RETURNS boolean LANGUAGE plpgsql AS $$
 BEGIN

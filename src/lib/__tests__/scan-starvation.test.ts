@@ -70,9 +70,7 @@ describe("classifyLinkHealth", () => {
       classifyLinkHealth({ ok: 10, failed: 9, failed_timeout: 2, failed_dns: 1, failed_5xx: 6 })
         .dominantCause,
     ).toBe("server_error");
-    expect(
-      classifyLinkHealth({ ok: 10, failed: 9, failed_5xx: 6 }).causeLabel,
-    ).toContain("5xx");
+    expect(classifyLinkHealth({ ok: 10, failed: 9, failed_5xx: 6 }).causeLabel).toContain("5xx");
   });
 
   it("[INVARIANT] an unattributed failure is never given a cause", () => {

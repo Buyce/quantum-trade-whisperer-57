@@ -127,16 +127,26 @@ setup can be published from it. That is a throughput fault, never an absence of
 setups, and the freshness rule itself is not to be relaxed — analysing stale prices
 would fabricate a setup. Check three things in order:
 
-1. **Database → app calls** in Admin → Engine status. The card now names the cause:
-   an upstream name-lookup stall (outside our control, usually transient) or a plain
-   timeout (the handler outstayed the caller's window).
-2. **Timeout headroom.** `TIME_BUDGET_MS` in `worker/process` (12s) must stay well
-   below the drain crons' `timeout_milliseconds` (25s). When they are equal, every
-   busy pass is cut off, is recorded as a failed call, and — because the request is
-   aborted — cannot hand the remainder on.
-3. **Hand-off.** `worker/process` dispatches its successor _before_ working its
-   batch, so an aborted pass still passes the baton. Both drain crons are guarded by
-   `WHERE EXISTS (... status = 'pending')`, so idle minutes make no call at all.
+1. **Database → app calls** in Admin → Engine status. The card names the cause:
+   an upstream name-lookup stall (DNS consumed ~all the elapsed time), a plain
+   timeout (the handler outstayed the caller's window), or a 5xx (the app errored
+   or the platform cancelled a hung request). Scanner calls are counted separately
+   from dispatch/reconcile traffic.
+2. **Single-flight lease.** `worker/process` takes a TTL lease row
+   (`scan_worker_lease`) before working; a second concurrent pass answers "busy"
+   and exits. This replaced the pre-work hand-off, which used to fan one timer
+   tick into a burst of 10–16 simultaneous passes that strangled each other on
+   the provider's 5-request concurrency cap and were cancelled as hung. If the
+   queue stalls with no failures, check for a stuck lease row older than its TTL.
+3. **Hand-off and guards.** The chain fires only AFTER a pass finishes
+   (`MAX_HOPS` 3). Both drain crons run every minute, guarded by
+   `EXISTS (pending) OR EXISTS (processing older than 2 minutes)` so expired
+   claims also wake the worker, and allow 30s per call. `maintain_scan_queue`
+   runs every minute and returns claims older than 2 minutes to pending.
+4. **Market-data concurrency.** Historical reads pass a global TTL slot budget
+   (`market_data_slots`, cap 5, mirroring the provider limit) inside the
+   per-instance gate. If the slot store is unreachable the gate degrades to
+   per-instance only rather than blocking candle reads.
 
 `scanner_starvation_incidents` records an open incident and emails the owner while
 the fault persists, and clears itself once analysis resumes.

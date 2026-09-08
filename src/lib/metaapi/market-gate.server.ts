@@ -51,10 +51,7 @@ async function acquireGlobalSlot(db: SupabaseClient): Promise<number | null> {
  * rate-limit-shaped error so the caller records a throttle, not a fetch
  * failure.
  */
-export async function withMarketDataSlot<T>(
-  fn: () => Promise<T>,
-  db?: SupabaseClient,
-): Promise<T> {
+export async function withMarketDataSlot<T>(fn: () => Promise<T>, db?: SupabaseClient): Promise<T> {
   if (active >= MARKET_DATA_MAX_CONCURRENCY) {
     await new Promise<void>((resolve) => waiters.push(resolve));
   } else {
@@ -74,12 +71,10 @@ export async function withMarketDataSlot<T>(
     return await fn();
   } finally {
     if (db && globalSlot !== null && globalSlot > 0) {
-      await db
-        .rpc("release_market_data_slot", { p_slot_id: globalSlot })
-        .then(
-          () => {},
-          () => {},
-        );
+      await db.rpc("release_market_data_slot", { p_slot_id: globalSlot }).then(
+        () => {},
+        () => {},
+      );
     }
     release();
   }
