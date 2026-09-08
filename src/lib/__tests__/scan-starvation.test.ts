@@ -17,19 +17,19 @@ describe("classifyScanStarvation", () => {
     expect(s.staleShare).toBe(1);
   });
 
-  it("flags a partial discard rate above the fault share", () => {
+  it("[UNIT] flags a partial discard rate above the fault share", () => {
     const s = classifyScanStarvation({ total: 36, stale: 12, analysed: 24 });
     expect(s.state).toBe("partial");
     expect(s.isFault).toBe(true);
   });
 
-  it("treats an occasional discard as healthy", () => {
+  it("[UNIT] treats an occasional discard as healthy", () => {
     const s = classifyScanStarvation({ total: 36, stale: 2, analysed: 34 });
     expect(s.state).toBe("healthy");
     expect(s.isFault).toBe(false);
   });
 
-  it("no finished jobs is unknown, and the weekend pause is not a fault", () => {
+  it("[UNIT] no finished jobs is unknown, and the weekend pause is not a fault", () => {
     expect(classifyScanStarvation({ total: 0, stale: 0, analysed: 0 }).tone).toBe("warn");
     const weekend = classifyScanStarvation({
       total: 0,
@@ -48,13 +48,13 @@ describe("classifyLinkHealth", () => {
     expect(classifyLinkHealth({ ok: 0, failed: 0 }).value).toBe("NOT MEASURED YET");
   });
 
-  it("a high failure share reads FAILING", () => {
+  it("[UNIT] a high failure share reads FAILING", () => {
     const h = classifyLinkHealth({ ok: 105, failed: 49 });
     expect(h.value).toBe("FAILING");
     expect(h.tone).toBe("bad");
   });
 
-  it("a few failures read DEGRADED, none reads OK", () => {
+  it("[UNIT] a few failures read DEGRADED, none reads OK", () => {
     expect(classifyLinkHealth({ ok: 100, failed: 1 }).value).toBe("DEGRADED");
     expect(classifyLinkHealth({ ok: 100, failed: 0 }).value).toBe("OK");
   });
