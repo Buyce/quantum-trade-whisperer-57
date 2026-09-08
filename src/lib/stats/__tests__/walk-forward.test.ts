@@ -88,7 +88,7 @@ describe("walk-forward confirmation", () => {
 });
 
 describe("gate measurability", () => {
-  it("marks a structural gate as never measurable rather than short of samples", () => {
+  it("[INVARIANT] marks a structural gate as never measurable rather than short of samples", () => {
     expect(
       gateMeasurability({
         gate: "m15_direction",
@@ -100,7 +100,7 @@ describe("gate measurability", () => {
     expect(GATE_MEASURABILITY_COPY.structural).toMatch(/before a plan exists/);
   });
 
-  it("separates a measurable gate with no rejections yet from one collecting them", () => {
+  it("[INVARIANT] separates a measurable gate with no rejections yet from one collecting them", () => {
     expect(
       gateMeasurability({ gate: "headroom", confirmed: false, trainFailN: 0, holdoutFailN: 0 }),
     ).toBe("no_rejections");
@@ -114,7 +114,7 @@ describe("gate measurability", () => {
     ).toBe("accumulating");
   });
 
-  it("reports a confirmed gate as confirmed whatever its arm counts", () => {
+  it("[INVARIANT] reports a confirmed gate as confirmed whatever its arm counts", () => {
     expect(
       gateMeasurability({ gate: "reachable_r", confirmed: true, trainFailN: 48, holdoutFailN: 12 }),
     ).toBe("confirmed");
