@@ -139,47 +139,48 @@ describe("resolved-trade immutability", () => {
     "[INVARIANT] every member of the resolved payload/provenance set rejects a conflicting change",
     { timeout: 30_000 },
     () => {
-    guard();
-    const conflicts: Array<[string, string]> = [
-      ["outcome", "'loss'::trade_outcome"],
-      ["trade_state", "'open'"],
-      ["actual_entry_price", "1.2000"],
-      ["actual_exit_price", "1.3000"],
-      ["actual_initial_stop", "1.0900"],
-      ["r_vs_plan", "9.0000"],
-      ["r_vs_actual_risk", "9.0000"],
-      ["net_r", "1.5000"],
-      ["r_availability", "'plan_only'"],
-      ["stop_provenance", "'planned_stop_fallback'"],
-      ["r_math_version", "2"],
-      ["verification_level", "'plan_verified'"],
-      ["price_source", "'agent'"],
-      ["price_source_client", "'some-client'"],
-      ["price_recorded_at", "'2026-08-22T10:00:00Z'::timestamptz"],
-      ["actual_entry_at", "'2026-08-22T10:00:00Z'::timestamptz"],
-      ["actual_exit_at", "'2026-08-22T14:00:00Z'::timestamptz"],
-      ["commission", "9.9900"],
-      ["swap", "9.9900"],
-      ["cost_currency", "'EUR'"],
-      ["cost_unit", "'points'"],
-      ["broker_ticket", "'T-2'"],
-      ["partial_exits", `'[{"price":1.104}]'::jsonb`],
-      ["user_decision", "'skipped'::decision_kind"],
-    ];
+      guard();
+      const conflicts: Array<[string, string]> = [
+        ["outcome", "'loss'::trade_outcome"],
+        ["trade_state", "'open'"],
+        ["actual_entry_price", "1.2000"],
+        ["actual_exit_price", "1.3000"],
+        ["actual_initial_stop", "1.0900"],
+        ["r_vs_plan", "9.0000"],
+        ["r_vs_actual_risk", "9.0000"],
+        ["net_r", "1.5000"],
+        ["r_availability", "'plan_only'"],
+        ["stop_provenance", "'planned_stop_fallback'"],
+        ["r_math_version", "2"],
+        ["verification_level", "'plan_verified'"],
+        ["price_source", "'agent'"],
+        ["price_source_client", "'some-client'"],
+        ["price_recorded_at", "'2026-08-22T10:00:00Z'::timestamptz"],
+        ["actual_entry_at", "'2026-08-22T10:00:00Z'::timestamptz"],
+        ["actual_exit_at", "'2026-08-22T14:00:00Z'::timestamptz"],
+        ["commission", "9.9900"],
+        ["swap", "9.9900"],
+        ["cost_currency", "'EUR'"],
+        ["cost_unit", "'points'"],
+        ["broker_ticket", "'T-2'"],
+        ["partial_exits", `'[{"price":1.104}]'::jsonb`],
+        ["user_decision", "'skipped'::decision_kind"],
+      ];
 
-    for (const [column, value] of conflicts) {
-      const id = makeResolvedTrade();
-      let message = "";
-      try {
-        db.exec(`update public.executed_trades set ${column} = ${value} where id = '${id}'`);
-      } catch (err) {
-        message = err instanceof Error ? err.message : String(err);
+      for (const [column, value] of conflicts) {
+        const id = makeResolvedTrade();
+        let message = "";
+        try {
+          db.exec(`update public.executed_trades set ${column} = ${value} where id = '${id}'`);
+        } catch (err) {
+          message = err instanceof Error ? err.message : String(err);
+        }
+        expect(message, `${column} must be rejected on a resolved trade`).toContain(
+          "trade_already_resolved",
+        );
       }
-      expect(message, `${column} must be rejected on a resolved trade`).toContain(
-        "trade_already_resolved",
-      );
-    }
-  });
+    },
+  );
 
   it("[INVARIANT] the creation-time plan snapshot stays immutable", () => {
     guard();
