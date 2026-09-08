@@ -52,17 +52,23 @@ export async function fetchCandlesFor(
   startTime?: string | null,
 ): Promise<Candle[]> {
   // Gated: the provider allows only 5 concurrent historical reads per account.
-  const raw = await withMarketDataSlot(() =>
-    metaApiRequest<RawCandle[]>({
-      service: "market-data",
-      region,
-      label: startTime ? `${symbol} ${timeframe} @${startTime}` : `${symbol} ${timeframe}`,
-      path:
-        `/users/current/accounts/${accountId}` +
-        `/historical-market-data/symbols/${encodeURIComponent(symbol)}` +
-        `/timeframes/${TF_MAP[timeframe]}/candles?limit=${limit}` +
-        (startTime ? `&startTime=${encodeURIComponent(startTime)}` : ""),
-    }),
+  // The global (cross-invocation) budget lives in the database; the admin
+  // client is loaded lazily so a slot-store outage degrades to the
+  // per-instance gate instead of blocking candle reads.
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const raw = await withMarketDataSlot(
+    () =>
+      metaApiRequest<RawCandle[]>({
+        service: "market-data",
+        region,
+        label: startTime ? `${symbol} ${timeframe} @${startTime}` : `${symbol} ${timeframe}`,
+        path:
+          `/users/current/accounts/${accountId}` +
+          `/historical-market-data/symbols/${encodeURIComponent(symbol)}` +
+          `/timeframes/${TF_MAP[timeframe]}/candles?limit=${limit}` +
+          (startTime ? `&startTime=${encodeURIComponent(startTime)}` : ""),
+      }),
+    supabaseAdmin,
   );
 
   if (!Array.isArray(raw) || raw.length === 0) {
