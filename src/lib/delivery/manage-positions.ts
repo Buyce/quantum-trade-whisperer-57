@@ -31,11 +31,7 @@ import { EXIT_SHARE_PRESETS, type ExitSharePreset } from "./execution";
 export type PositionSide = "long" | "short";
 
 export type ManagedStep =
-  | "partial_1"
-  | "stop_to_entry"
-  | "partial_2"
-  | "stop_to_first_target"
-  | "trail";
+  "partial_1" | "stop_to_entry" | "partial_2" | "stop_to_first_target" | "trail";
 
 export interface ManagedPositionFacts {
   side: PositionSide;
@@ -178,7 +174,8 @@ function partialFor(
   }
 
   const part = roundDownToStep(original * share, stepSize);
-  if (part <= 0) return hold("This share of the position is smaller than the broker's volume step.");
+  if (part <= 0)
+    return hold("This share of the position is smaller than the broker's volume step.");
   if (part >= volume) {
     return hold("Closing this share would close the whole position, so it is left to run.");
   }

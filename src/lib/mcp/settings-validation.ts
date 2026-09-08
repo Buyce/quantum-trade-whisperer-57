@@ -12,7 +12,6 @@ import {
   isExitSharePreset,
 } from "@/lib/delivery/execution";
 
-
 export const INSTRUMENT_CHOICES = ["XAUUSD", "GBPAUD", "EURUSD"] as const;
 export const TIMEFRAME_CHOICES = ["H4", "H1", "M15"] as const;
 export const SESSION_CHOICES = [

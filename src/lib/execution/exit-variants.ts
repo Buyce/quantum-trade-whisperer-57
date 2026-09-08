@@ -238,8 +238,9 @@ function simulateLadder(
   // 0 = nothing closed yet, 1 = first third out, 2 = second third out.
   let stage = 0;
   const blend = (restR: number) =>
-    stage === 1 ? decided(share * tp1 + (1 - share) * restR)
-    : decided(share * tp1 + share * tp2 + share * restR);
+    stage === 1
+      ? decided(share * tp1 + (1 - share) * restR)
+      : decided(share * tp1 + share * tp2 + share * restR);
 
   for (const raw of path.bars) {
     const bar = usable(raw);

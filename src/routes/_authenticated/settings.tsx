@@ -567,8 +567,6 @@ function SettingsPage() {
 
           <IntelGateCohorts />
 
-
-
           <AutoOrderDecisions />
 
           <section className="space-y-5 rounded-md border border-border bg-card p-4">
@@ -974,7 +972,11 @@ function SettingsPage() {
                     <Label className="text-xs" htmlFor="auto-exit-trail">
                       Let the last part follow the price
                     </Label>
-                    <Switch id="auto-exit-trail" checked={exitTrail} onCheckedChange={setExitTrail} />
+                    <Switch
+                      id="auto-exit-trail"
+                      checked={exitTrail}
+                      onCheckedChange={setExitTrail}
+                    />
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
                     Off by default. When on, the final remainder&apos;s stop is kept one risk
@@ -1438,9 +1440,9 @@ function SettingsPage() {
                     </SelectContent>
                   </Select>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Measured from the moment the pause started, so the time shown in the hold
-                    notice is the real release time. Applies to the losing-run pause only — your
-                    daily, weekly and equity-drop limits keep their own timing.
+                    Measured from the moment the pause started, so the time shown in the hold notice
+                    is the real release time. Applies to the losing-run pause only — your daily,
+                    weekly and equity-drop limits keep their own timing.
                   </p>
                 </div>
 

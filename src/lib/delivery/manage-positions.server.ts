@@ -27,11 +27,7 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import {
-  DEFAULT_EXIT_SHARE_PRESET,
-  isExitSharePreset,
-  type ExitSharePreset,
-} from "./execution";
+import { DEFAULT_EXIT_SHARE_PRESET, isExitSharePreset, type ExitSharePreset } from "./execution";
 import {
   decideManagedStep,
   managedPlan,
@@ -168,8 +164,7 @@ export async function manageDemoPositions(
     // A laddered position stays open for management while a later step can still
     // act; a refused or unknown verdict settles that step for good.
     return (
-      s.partial_state !== "confirmed" ||
-      (done(s.second_partial_state) && done(s.runner_stop_state))
+      s.partial_state !== "confirmed" || (done(s.second_partial_state) && done(s.runner_stop_state))
     );
   };
 
@@ -178,9 +173,8 @@ export async function manageDemoPositions(
   if (pending.length === 0) return outcome;
 
   const { fetchPositions } = await import("@/lib/metaapi/accounts.server");
-  const { partialClosePosition, modifyPositionProtection } = await import(
-    "@/lib/metaapi/trade.server"
-  );
+  const { partialClosePosition, modifyPositionProtection } =
+    await import("@/lib/metaapi/trade.server");
 
   for (const delivery of pending.slice(0, maxPositions)) {
     const positionId = delivery.broker_position_id as string;
@@ -281,7 +275,8 @@ export async function manageDemoPositions(
     // broker reports only the remainder, so the confirmed part is added back.
     const openVolume = num(position.volume);
     const closedSoFar = state?.partial_state === "confirmed" ? (num(state.partial_volume) ?? 0) : 0;
-    const originalVolume = openVolume === null ? null : Number((openVolume + closedSoFar).toFixed(8));
+    const originalVolume =
+      openVolume === null ? null : Number((openVolume + closedSoFar).toFixed(8));
     const bestPrice =
       currentPrice === null
         ? bestSoFar
@@ -299,8 +294,7 @@ export async function manageDemoPositions(
       originalVolume: originalVolume,
       firstTarget: num(signal?.tp1),
       secondTarget: num(signal?.tp2),
-      riskDistance:
-        entry !== null && planStop !== null ? Math.abs(entry - planStop) : null,
+      riskDistance: entry !== null && planStop !== null ? Math.abs(entry - planStop) : null,
       bestPrice,
       volumeStep: num((specRow as { volume_step?: unknown } | null)?.volume_step),
       minVolume: num((specRow as { volume_min?: unknown } | null)?.volume_min),

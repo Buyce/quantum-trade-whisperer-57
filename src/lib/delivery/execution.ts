@@ -146,7 +146,6 @@ export const EXECUTION_POLICY_LABELS: Record<ExecutionPolicy, string> = {
     "Take profit in steps: part out at the first target with the stop to break-even, part out at the second target with the stop to the first target, the rest runs to the third target",
 };
 
-
 export interface ResolvedExitPolicy {
   policy: ExecutionPolicy;
   /** True when the customer's choice was reduced to the platform ceiling. */

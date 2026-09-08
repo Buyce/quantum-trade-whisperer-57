@@ -153,11 +153,7 @@ describe("decideManagedStep — laddered exits", () => {
     facts({ secondTarget: 102, originalVolume: 0.9, ...over });
 
   it("[INVARIANT] takes the configured share of the ORIGINAL fill at the first target", () => {
-    const d = decideManagedStep(
-      laddered({ currentPrice: 101, volume: 0.9 }),
-      progress(),
-      plan,
-    );
+    const d = decideManagedStep(laddered({ currentPrice: 101, volume: 0.9 }), progress(), plan);
     expect(d.step).toBe("partial_1");
     expect(d.closeVolume).toBe(0.3);
   });
@@ -216,7 +212,13 @@ describe("decideManagedStep — laddered exits", () => {
       runnerStopMoved: true,
     });
     const off = decideManagedStep(
-      laddered({ currentPrice: 103, volume: 0.3, currentStop: 101, bestPrice: 104, riskDistance: 1 }),
+      laddered({
+        currentPrice: 103,
+        volume: 0.3,
+        currentStop: 101,
+        bestPrice: 104,
+        riskDistance: 1,
+      }),
       settled,
       plan,
     );
