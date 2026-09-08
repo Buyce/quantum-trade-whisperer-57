@@ -282,10 +282,19 @@ export function classifyScanStarvation(input: ScanStarvationInput): ScanStarvati
  * Health of the database -> app scheduled-call link. `failed` counts non-2xx
  * responses and outright timeouts sampled from the platform's own HTTP log, so
  * a broken link is a measured fact rather than an inference from queue lag.
+ *
+ * The two named causes are counted apart because they need different answers: a
+ * name-lookup stall is upstream and outside our control, while a plain timeout
+ * points at our own handler outstaying the caller's patience. Neither is ever
+ * inferred — an unclassified failure stays unclassified.
  */
 export interface LinkHealthInput {
   ok: number;
   failed: number;
+  /** Failures that timed out with the time spent outside name resolution. */
+  failed_timeout?: number | null;
+  /** Failures whose elapsed time was spent in DNS: an upstream name-lookup stall. */
+  failed_dns?: number | null;
   last_sampled_at?: string | null;
 }
 
@@ -295,6 +304,13 @@ export interface LinkHealth {
   failShare: number;
   /** No samples yet: the sampler has not run, so nothing is known. */
   unmeasured: boolean;
+  /**
+   * The larger measured cause, or `null` when no failure was classified. Never a
+   * guess: a failure the sampler could not attribute leaves this null.
+   */
+  dominantCause: "timeout" | "dns" | null;
+  /** Plain-language cause, empty when nothing was classified. */
+  causeLabel: string;
 }
 
 export function classifyLinkHealth(input: LinkHealthInput | null | undefined): LinkHealth {
@@ -302,10 +318,37 @@ export function classifyLinkHealth(input: LinkHealthInput | null | undefined): L
   const failed = input?.failed ?? 0;
   const total = ok + failed;
   if (!input || total === 0) {
-    return { value: "NOT MEASURED YET", tone: "warn", failShare: 0, unmeasured: true };
+    return {
+      value: "NOT MEASURED YET",
+      tone: "warn",
+      failShare: 0,
+      unmeasured: true,
+      dominantCause: null,
+      causeLabel: "",
+    };
   }
+  const timeouts = input.failed_timeout ?? 0;
+  const dns = input.failed_dns ?? 0;
+  const dominantCause: LinkHealth["dominantCause"] =
+    timeouts === 0 && dns === 0 ? null : dns > timeouts ? "dns" : "timeout";
+  const causeLabel =
+    dominantCause === "dns"
+      ? "mostly upstream name-lookup stalls"
+      : dominantCause === "timeout"
+        ? "mostly no answer inside the caller's window"
+        : "";
+
   const share = failed / total;
-  if (share >= 0.2) return { value: "FAILING", tone: "bad", failShare: share, unmeasured: false };
-  if (failed > 0) return { value: "DEGRADED", tone: "warn", failShare: share, unmeasured: false };
-  return { value: "OK", tone: "good", failShare: 0, unmeasured: false };
+  const base = { failShare: share, unmeasured: false, dominantCause, causeLabel };
+  if (share >= 0.2) return { value: "FAILING", tone: "bad", ...base };
+  if (failed > 0) return { value: "DEGRADED", tone: "warn", ...base };
+  return {
+    value: "OK",
+    tone: "good",
+    failShare: 0,
+    unmeasured: false,
+    dominantCause: null,
+    causeLabel: "",
+  };
 }
+

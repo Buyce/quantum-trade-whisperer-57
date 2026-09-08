@@ -242,10 +242,15 @@ export interface AdminLinkHealth {
   window_minutes: number;
   ok: number;
   failed: number;
+  /** Failures that simply did not answer in time. */
+  failed_timeout: number;
+  /** Failures spent in upstream name resolution. */
+  failed_dns: number;
   last_failure_at: string | null;
   last_failure_detail: string | null;
   last_sampled_at: string | null;
 }
+
 
 export interface AdminEngineStatus {
   generated_at: string;
