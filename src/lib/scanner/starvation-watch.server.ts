@@ -25,7 +25,9 @@ export interface StarvationWatchOutcome {
 }
 
 const utcMinute = (iso: unknown): string =>
-  typeof iso === "string" ? `${new Date(iso).toISOString().replace("T", " ").slice(0, 16)} UTC` : "unknown";
+  typeof iso === "string"
+    ? `${new Date(iso).toISOString().replace("T", " ").slice(0, 16)} UTC`
+    : "unknown";
 
 /**
  * Best-effort by construction: a health-notification failure must never fail the

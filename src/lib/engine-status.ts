@@ -266,7 +266,13 @@ export function classifyScanStarvation(input: ScanStarvationInput): ScanStarvati
   }
 
   if (share > STALE_SHARE_FAULT) {
-    return { state: "partial", value: "WORK DISCARDED", tone: "warn", staleShare: share, isFault: true };
+    return {
+      state: "partial",
+      value: "WORK DISCARDED",
+      tone: "warn",
+      staleShare: share,
+      isFault: true,
+    };
   }
 
   return { state: "healthy", value: "ANALYSING", tone: "good", staleShare: share, isFault: false };

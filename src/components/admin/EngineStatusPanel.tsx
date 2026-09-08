@@ -153,7 +153,6 @@ export function EngineStatusPanel() {
         </p>
       )}
 
-
       {(scanClass.kind !== "none" || breakerClass.kind !== "none") && (
         <div className="mt-3 space-y-2 text-[11px]">
           {scanClass.kind !== "none" &&
