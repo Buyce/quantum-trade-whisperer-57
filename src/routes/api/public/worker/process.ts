@@ -10,18 +10,20 @@ import { authorizeCronRequest, unauthorizedResponse } from "@/lib/cron-auth";
 
 const MAX_JOBS_PER_REQUEST = 3;
 /**
- * Wall-clock budget. A job can spend up to 3 × 8s on candle fetches alone, so a
- * count-only bound could push one request past the platform timeout — which is
- * exactly how jobs used to get abandoned mid-write. We stop starting new jobs
- * once the budget is spent and let the next pass drain the rest.
+ * Wall-clock budget. Deliberately WELL BELOW the caller's own patience: the
+ * database's scheduled drain allows 25s, so a 20s budget meant every pass that
+ * actually had work ran to the caller's cut-off — recorded as a failed call, and
+ * (worse) aborted before it could hand the remaining queue on. 12s leaves room
+ * for one in-flight candle fetch to finish inside the caller's window.
  */
-const TIME_BUDGET_MS = 20_000;
+const TIME_BUDGET_MS = 12_000;
 /**
  * Self-chain hop ceiling. Without a cap, a queue that keeps refilling (or keeps
  * failing) would have every pass spawn another forever. Eight hops covers a
- * worst-case backlog; the 2-minute drain cron picks up anything beyond that.
+ * worst-case backlog; the 1-minute drain cron picks up anything beyond that.
  */
 const MAX_HOPS = 8;
+
 
 export const Route = createFileRoute("/api/public/worker/process")({
   server: {
@@ -53,6 +55,29 @@ export const Route = createFileRoute("/api/public/worker/process")({
         try {
           const db = adminClient();
           const startedAt = Date.now();
+
+          /**
+           * Hand off BEFORE doing the work, not after. A pass whose caller gives
+           * up mid-work is aborted, and an aborted pass never reached the old
+           * post-loop hand-off — which is precisely how a cycle's worth of jobs
+           * aged past its freshness limit while the queue crawled three jobs per
+           * minute. Claiming is atomic, so the successor cannot take our jobs
+           * twice; it simply works the tail of the queue alongside us.
+           */
+          const pendingBefore = await pendingScanJobs(db);
+          let chained = false;
+          if (pendingBefore > MAX_JOBS_PER_REQUEST && hop < MAX_HOPS) {
+            chained = true;
+            void fetch(new URL("/api/public/worker/process", request.url).toString(), {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "x-cron-secret": request.headers.get("x-cron-secret") ?? "",
+              },
+              body: JSON.stringify({ source: "worker_self_chain", hop: hop + 1 }),
+            }).catch(() => {});
+          }
+
           const processed = [];
           let budgetExhausted = false;
           for (let i = 0; i < MAX_JOBS_PER_REQUEST; i++) {
@@ -65,12 +90,11 @@ export const Route = createFileRoute("/api/public/worker/process")({
             processed.push(result);
           }
 
-          // The queue only progresses if someone kicks it again. The insert
-          // trigger fires once per cycle, so a pass that stops with work left
-          // must hand off itself or the remainder sits pending indefinitely.
-          let chained = false;
+          // Fallback hand-off: the queue may have refilled (or the pre-emptive
+          // hand-off was not warranted) while this pass ran. Without it a
+          // remainder would sit pending until the next drain tick.
           const remaining = processed.length ? await pendingScanJobs(db) : 0;
-          if (remaining > 0 && hop < MAX_HOPS) {
+          if (!chained && remaining > 0 && hop < MAX_HOPS) {
             chained = true;
             void fetch(new URL("/api/public/worker/process", request.url).toString(), {
               method: "POST",
@@ -87,10 +111,12 @@ export const Route = createFileRoute("/api/public/worker/process")({
             processed,
             drained: processed.length,
             budgetExhausted,
+            pendingBefore,
             remaining,
             hop,
             chained,
           });
+
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           console.error("[worker/process]", message);
