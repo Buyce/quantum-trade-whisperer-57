@@ -219,17 +219,41 @@ export interface AdminScanWindow {
   total: number;
   failed: number;
   succeeded: number;
+  /** Jobs closed WITHOUT any candle fetch because they aged past the freshness limit. */
+  stale: number;
+  /** Jobs that actually ran the strategy on fetched candles. */
+  analysed: number;
   last_finished_at: string | null;
   last_success_at: string | null;
   last_failure_at: string | null;
+  /** Newest job of any age that was actually analysed, not discarded. */
+  last_analysed_at: string | null;
+  /** Newest successful candle read from the broker data provider. */
+  last_candle_fetch_at: string | null;
   last_error: string | null;
+}
+
+/**
+ * Health of the database -> app HTTP link. The queue only advances when the
+ * database's scheduled calls reach the worker, so a failing link starves the
+ * scanner while every other counter still looks ordinary.
+ */
+export interface AdminLinkHealth {
+  window_minutes: number;
+  ok: number;
+  failed: number;
+  last_failure_at: string | null;
+  last_failure_detail: string | null;
+  last_sampled_at: string | null;
 }
 
 export interface AdminEngineStatus {
   generated_at: string;
   breaker: AdminBreaker | null;
   scan: AdminScanWindow;
+  link: AdminLinkHealth | null;
 }
+
 
 export const getAdminIntelligence = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
