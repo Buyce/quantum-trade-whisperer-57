@@ -321,11 +321,6 @@ export interface AdminExecutionSwitches {
   liveExecutionEnabled: boolean;
   liveAutoEnabled: boolean;
   executionPolicy: string;
-  /**
-   * How deep a customer's own take-profit choice may go. A managed (stepped)
-   * value here is what makes the stepped choices offerable in Settings at all.
-   */
-  maxCustomerExitPolicy: string;
   /** Hosts an outbound LIVE webhook POST may be sent to. Empty = nothing may go out. */
   allowedLiveHosts: string[];
   emergencyStopEnabled: boolean;
@@ -335,7 +330,7 @@ export interface AdminExecutionSwitches {
 }
 
 const SWITCH_COLUMNS =
-  "demo_auto_enabled, force_dry_run, live_execution_enabled, live_auto_enabled, execution_policy, max_customer_exit_policy, allowed_live_hosts, emergency_stop_enabled, emergency_stop_at, emergency_stop_reason, updated_at";
+  "demo_auto_enabled, force_dry_run, live_execution_enabled, live_auto_enabled, execution_policy, allowed_live_hosts, emergency_stop_enabled, emergency_stop_at, emergency_stop_reason, updated_at";
 
 interface SwitchRow {
   demo_auto_enabled?: boolean;
@@ -343,7 +338,6 @@ interface SwitchRow {
   live_execution_enabled?: boolean;
   live_auto_enabled?: boolean;
   execution_policy?: string;
-  max_customer_exit_policy?: string;
   allowed_live_hosts?: string[] | null;
   emergency_stop_enabled?: boolean;
   emergency_stop_at?: string | null;
@@ -362,9 +356,6 @@ function mapSwitches(row: SwitchRow | null): AdminExecutionSwitches {
     liveExecutionEnabled: row?.live_execution_enabled === true,
     liveAutoEnabled: row?.live_auto_enabled === true,
     executionPolicy: row?.execution_policy ?? "single_exit_first_target",
-    // The safe reading of an unknown ceiling is the shallowest exit, never a
-    // deeper or managed one.
-    maxCustomerExitPolicy: row?.max_customer_exit_policy ?? "single_exit_first_target",
     allowedLiveHosts: row?.allowed_live_hosts ?? [],
     emergencyStopEnabled: row?.emergency_stop_enabled === true,
     emergencyStopAt: row?.emergency_stop_at ?? null,
@@ -425,9 +416,6 @@ export const setAdminExecutionSwitches = createServerFn({ method: "POST" })
       allowedLiveHosts?: string[];
       emergencyStopEnabled?: boolean;
       emergencyStopReason?: string;
-      /** The customer take-profit depth ceiling; requires `reason`. */
-      maxCustomerExitPolicy?: string;
-      reason?: string;
     }) => input,
   )
   .middleware([requireSupabaseAuth])
@@ -444,31 +432,6 @@ export const setAdminExecutionSwitches = createServerFn({ method: "POST" })
     if (currentError) throw new Error(currentError.message);
     const current = mapSwitches(currentRow as SwitchRow | null);
 
-    // The exit-depth ceiling is not written directly: it goes through the audited
-    // control routine, which records who changed it and why, and refuses if the
-    // stored value moved since it was read.
-    let ceilingChanged = false;
-    if (data.maxCustomerExitPolicy !== undefined) {
-      const { isExecutionPolicy } = await import("@/lib/delivery/execution");
-      if (!isExecutionPolicy(data.maxCustomerExitPolicy))
-        throw new Error("That is not a known take-profit rule.");
-      const reason = (data.reason ?? "").trim();
-      if (reason.length < 4)
-        throw new Error("Give a reason for changing how deep customers may take profit.");
-      const rpc = supabaseAdmin.rpc.bind(supabaseAdmin) as unknown as (
-        name: string,
-        args: Record<string, unknown>,
-      ) => Promise<{ data: unknown; error: { message: string } | null }>;
-      const { error: rpcError } = await rpc("set_execution_control", {
-        _key: "max_customer_exit_policy",
-        _value: data.maxCustomerExitPolicy,
-        _changed_by: email,
-        _reason: reason,
-        _expected_old: current.maxCustomerExitPolicy,
-      });
-      if (rpcError) throw new Error(rpcError.message);
-      ceilingChanged = true;
-    }
 
     const patch: Record<string, unknown> = {};
 

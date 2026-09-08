@@ -336,8 +336,10 @@ export async function revalidateDelivery(
   // choice is clamped to. Both fail safe to the first target.
   const platformPolicy = (controls.execution_policy ?? DEFAULT_EXECUTION_POLICY) as ExecutionPolicy;
   if (!isExecutionPolicy(platformPolicy)) return reject("policy_unsupported", platformPolicy);
-  const policyCeiling = (controls.max_customer_exit_policy ??
-    DEFAULT_EXECUTION_POLICY) as ExecutionPolicy;
+  // The customer owns this choice: there is no platform depth ceiling. The one
+  // remaining restriction is enforced below — a stepped (managed) exit runs on
+  // DEMO accounts only.
+  const policyCeiling: ExecutionPolicy = "ladder_tp1_tp2_runner_tp3";
 
   // ---- 2. The user's own opt-in and bridge configuration --------------------
   const { data: settingsRow } = await db
@@ -409,7 +411,7 @@ export async function revalidateDelivery(
 
   // ---- 2a-bis. Which target this order exits at ----------------------------
   // A benchmark order follows the operator policy. A customer order follows the
-  // customer's own choice, never deeper than the platform ceiling. The managed
+  // customer's own choice. The managed
   // partial policy takes broker actions after the fill, so it is DEMO ONLY: on a
   // live account it is reduced to the equivalent unmanaged single exit rather
   // than half-managed.
