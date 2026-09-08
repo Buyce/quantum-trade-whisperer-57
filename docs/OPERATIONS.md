@@ -121,6 +121,27 @@ Not cycling ⇒ check the cron caller, the worker queue and the MetaApi budget.
 **Scan backlog.** Jobs accumulate when workers are not being dispatched. Verify
 `worker/dispatch` and `worker/process` are being called and returning 2xx.
 
+**"Work discarded" / queue-throughput fault.** A queued job that is not picked up
+within `JOB_STALE_AFTER_MS` (15 minutes) is closed without fetching candles, so no
+setup can be published from it. That is a throughput fault, never an absence of
+setups, and the freshness rule itself is not to be relaxed — analysing stale prices
+would fabricate a setup. Check three things in order:
+
+1. **Database → app calls** in Admin → Engine status. The card now names the cause:
+   an upstream name-lookup stall (outside our control, usually transient) or a plain
+   timeout (the handler outstayed the caller's window).
+2. **Timeout headroom.** `TIME_BUDGET_MS` in `worker/process` (12s) must stay well
+   below the drain crons' `timeout_milliseconds` (25s). When they are equal, every
+   busy pass is cut off, is recorded as a failed call, and — because the request is
+   aborted — cannot hand the remainder on.
+3. **Hand-off.** `worker/process` dispatches its successor *before* working its
+   batch, so an aborted pass still passes the baton. Both drain crons are guarded by
+   `WHERE EXISTS (... status = 'pending')`, so idle minutes make no call at all.
+
+`scanner_starvation_incidents` records an open incident and emails the owner while
+the fault persists, and clears itself once analysis resumes.
+
+
 **MetaApi timeout.** Every fetch is wrapped in an 8-second timeout; on expiry the
 pair is skipped, flagged temporarily unavailable, and the scanner advances. Shadow
 replay keeps the setup open and leaves its cursor unchanged until a real M15 candle
