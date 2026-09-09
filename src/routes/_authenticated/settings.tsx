@@ -149,6 +149,10 @@ function SettingsPage() {
   const [maxConcurrentOrders, setMaxConcurrentOrders] = useState(3);
   const [maxDailyOrders, setMaxDailyOrders] = useState(10);
   const [maxPerSymbolOrders, setMaxPerSymbolOrders] = useState(PER_SYMBOL_ORDER_CEILING_MAX);
+  // Correlated-cluster brake: how much of the SAME bet may be live, and the
+  // cool-off after a broker-confirmed loss on that bet.
+  const [maxSameBetOrders, setMaxSameBetOrders] = useState(SAME_BET_LIMIT_DEFAULT);
+  const [sameBetCooldown, setSameBetCooldown] = useState(SAME_BET_COOLDOWN_DEFAULT_MINUTES);
   const [adaptiveCeilings, setAdaptiveCeilings] = useState(false);
   const [adaptiveMax, setAdaptiveMax] = useState(DAILY_ORDER_CEILING_MAX);
   const [adaptiveFloor, setAdaptiveFloor] = useState(1);
@@ -293,6 +297,8 @@ function SettingsPage() {
     setIntelGate(s.auto_intel_gate_enabled === true);
     setAutoCGrade(s.auto_execute_c_grade === true);
     setMaxConcurrentOrders(clampConcurrentOrderCeiling(s.maximum_concurrent_signal_orders));
+    setMaxSameBetOrders(clampSameBetLimit(s.max_same_bet_orders));
+    setSameBetCooldown(clampSameBetCooldownMinutes(s.same_bet_cooldown_minutes));
     setMaxDailyOrders(clampDailyOrderCeiling(s.maximum_daily_signal_orders));
     setMaxPerSymbolOrders(clampPerSymbolOrderCeiling(s.maximum_daily_orders_per_symbol));
     setAdaptiveCeilings(s.adaptive_order_ceilings_enabled === true);
@@ -424,6 +430,8 @@ function SettingsPage() {
         // Ceiling on simultaneous automatic orders, never a quota: fewer
         // qualifying setups simply means fewer orders.
         maximum_concurrent_signal_orders: clampConcurrentOrderCeiling(maxConcurrentOrders),
+        max_same_bet_orders: clampSameBetLimit(maxSameBetOrders),
+        same_bet_cooldown_minutes: clampSameBetCooldownMinutes(sameBetCooldown),
         maximum_daily_signal_orders: clampDailyOrderCeiling(maxDailyOrders),
         maximum_daily_orders_per_symbol: clampPerSymbolOrderCeiling(maxPerSymbolOrders),
         // Freshness-adaptive ceilings can only ever move BETWEEN the owner's own
