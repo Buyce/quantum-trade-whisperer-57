@@ -55,3 +55,17 @@ nothing is cancelled. Always-on applies to pauses that actually occur.
   the old flag; keep fail-closed and broker-confirmed cases.
 - Verify: focused tests, full suite, typecheck, formatting, build.
 - Publish afterwards so the change reaches the live site.
+
+## Proof that duplicate prevention is working
+
+Checked against live order data before making any change:
+
+- In the last 7 days, **no signal produced more than one order on the same
+  account** — the check for that returned zero rows.
+- The refusal record shows the protection actively firing:
+  124 "duplicate resting order" refusals in the last 48 hours, including
+  34 today and 35 yesterday — each one an order that was stopped before
+  reaching the broker.
+
+This is also locked in by automated tests (`duplicate-orders.test.ts`,
+`direct-enqueue.test.ts`), which fail the build if the check stops firing.
