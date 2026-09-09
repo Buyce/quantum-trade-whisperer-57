@@ -201,6 +201,30 @@ export async function evaluateAccountBrakes(
 
   const upserts: Record<string, unknown>[] = [];
 
+  async function cancelMatchingUnfilledOrders(
+    accountId: string,
+    lossRefs: { instrument: string | null; direction: string | null }[],
+    unfilled: SweepableDelivery[],
+  ): Promise<{ cancelled: number; unconfirmed: number }> {
+    const matches = matchingUnfilledDeliveries(
+      lossRefs,
+      unfilled.map((d) => ({ id: d.id, instrument: d.broker_symbol ?? null, direction: d.direction ?? null })),
+    );
+    if (matches.length === 0) return { cancelled: 0, unconfirmed: 0 };
+
+    const rowById = new Map<number, SweepableDelivery>(unfilled.map((d) => [d.id, d]));
+    let cancelled = 0;
+    let unconfirmed = 0;
+    for (const id of matches) {
+      const row = rowById.get(id);
+      if (!row) continue;
+      const result = await cancelDeliveryById(db, row, "cancelled_by_losing_run", nowMs);
+      if (result.action === "expired") cancelled++;
+      else unconfirmed++;
+    }
+    return { cancelled, unconfirmed };
+  }
+
   for (const account of accounts) {
     const limits = limitsByAccount.get(account.id);
     if (!limits) continue;
