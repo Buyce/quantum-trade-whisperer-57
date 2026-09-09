@@ -38,22 +38,28 @@ customer-owned settings in the same Settings panel as the other automatic order 
 
 1. **Same-bet limit (live count).** Refuse a new automatic order when the account already
    has N unresolved automatic orders (resting or filled) on the **same instrument and the
-   same direction**. Default **2**, selectable 1–5, or off. Counted from the same
-   unresolved-delivery source the concurrent ceiling already uses, so no new notion of
-   "open" is invented.
+   same direction**. Default **1** — one live bet per instrument and direction, the
+   institutional/prop-style setting. The customer may raise it to **2 or 3**; 3 is the
+   maximum and there is no "off". Counted from the same unresolved-delivery source the
+   concurrent ceiling already uses, so no new notion of "open" is invented.
+   - Raising it shows an inline warning next to the control: choosing 2 or 3 means the
+     account can hold that many copies of the same bet at once, so a single adverse move
+     costs 2x or 3x the planned risk. Choosing 3 shows the stronger wording.
 2. **Cool-off after a loss on the same bet.** After a broker-confirmed loss on an
    instrument+direction, refuse new automatic orders on that same instrument+direction
    for a short window. Default **60 minutes**, selectable 30/60/120 minutes, or off. Only
    broker-confirmed closed losses count; a missing broker record never starts a cool-off
-   and never refuses.
+   and never refuses. Turning it off shows a warning that correlated losses can repeat
+   back-to-back.
 
 Both refusals are recorded in the decision trail with their own reasons, so the feed can
-say plainly "you already have 2 Gold shorts working" or "Gold shorts are cooling off after
+say plainly "you already have a Gold short working" or "Gold shorts are cooling off after
 a loss, resumes at HH:MM", instead of a generic refusal.
 
-Applied to the seven trades above, the same-bet limit at 2 would have allowed the first
-two and refused the other five: about **-2,400** instead of about **-8,600** on the
+Applied to the seven trades above, the default limit of 1 would have allowed the first
+trade and refused the other six: about **-1,200** instead of about **-8,600** on the
 account in your screenshot.
+
 
 ## What does not change
 
@@ -71,9 +77,12 @@ account in your screenshot.
 - `src/lib/delivery/direct-enqueue.server.ts`: evaluate after the existing ceilings and
   before dispatch; add `same_bet_limit_reached` and `same_bet_cooldown_active` to
   `enqueue-log.ts` copy.
-- Migration: two `scanner_settings` columns (`max_same_bet_orders`,
-  `same_bet_cooldown_minutes`) with defaults, plus grants unchanged.
-- Settings UI: two controls inside "Automatic order rules"; MCP settings schema updated.
-- Tests: cluster-limit unit tests, fail-open-on-unknown tests, and a replay of the
-  2026-09-09 XAUUSD sequence asserting five refusals.
+- Migration: two `scanner_settings` columns (`max_same_bet_orders` default 1, check
+  between 1 and 3; `same_bet_cooldown_minutes`), plus grants unchanged.
+- Settings UI: two controls inside "Automatic order rules", with the escalating warning
+  text for 2 and 3 and for turning the cool-off off; MCP settings schema updated with the
+  same 1–3 bound.
+- Tests: cluster-limit unit tests, bound-validation tests (reject 0 and 4+),
+  fail-open-on-unknown tests, and a replay of the 2026-09-09 XAUUSD sequence asserting six
+  refusals at the default.
 - Docs: `docs/RISK-GUARDIAN.md` and the Guide.
