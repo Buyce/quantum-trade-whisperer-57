@@ -38,6 +38,12 @@ export default defineTool({
           "User-entered balance, not broker-confirmed. equity_as_of is when the user last set it; treat an old date as stale and ask them to confirm.",
         risk_ack_high:
           "True when the user explicitly accepted risking more than 2% of equity per trade.",
+        automatic_order_rules:
+          "Ceilings and the order window cap THROUGHPUT; none of them causes an order. maximum_concurrent_signal_orders is how many automatic orders may be unresolved at once, maximum_daily_signal_orders and maximum_daily_orders_per_symbol are per UTC day, auto_order_window_minutes is how long after detection a setup may still be ordered (0 disables automatic orders on age grounds).",
+        gates:
+          "Each gate only ever REFUSES. The intelligence gate reads the pair-and-direction replay history, not the setup's grade, so an A or B setup on a pair with weak measured history is refused just the same. The auto_intel_* values are descriptive in-sample measurements, never forecasts.",
+        brakes:
+          "Every brake is measured from CLOSED broker trades and the broker's own equity reading. 0 disables an individual limit, and drawdown_brakes_enabled false disables all of them. Brakes stop NEW automatic orders only; anything already at the broker is untouched. max_same_bet_orders (1-3, default 1) caps how many unresolved automatic orders may be live on the same instrument in the same direction — several separate setups on the same pair and side are one bet. same_bet_cooldown_minutes (0, 30, 60, 120) is how long that bet is refused after a broker-confirmed loss there; 0 is off.",
       },
     };
     return {
