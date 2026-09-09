@@ -329,6 +329,12 @@ export async function evaluateAccountBrakes(
       resume_after:
         verdict.resumeAfterMs === null ? null : new Date(verdict.resumeAfterMs).toISOString(),
       resume_boundary: verdict.resumeBoundary,
+      cancelled_matching_orders: verdict.paused
+        ? priorCancelled + cancellationDelta.cancelled
+        : 0,
+      unconfirmed_matching_orders: verdict.paused
+        ? priorUnconfirmed + cancellationDelta.unconfirmed
+        : 0,
     });
   }
 
