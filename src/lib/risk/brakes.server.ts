@@ -95,7 +95,7 @@ export async function evaluateAccountBrakes(
   // Closed trades are read PER ACCOUNT. One shared row cap would let a busy
   // account crowd another one out of its own window, and a partially-read history
   // is not a measurement we may brake — or pass — on.
-  const [evidencePerAccount, accountRows, existingStates] = await Promise.all([
+  const [evidencePerAccount, accountRows, existingStates, unfilledRows] = await Promise.all([
     Promise.all(
       accountIds.map((accountId) =>
         db
@@ -117,9 +117,17 @@ export async function evaluateAccountBrakes(
       .in("id", accountIds),
     db
       .from("account_risk_state")
-      .select("account_id, peak_equity, peak_equity_at, paused, pause_reason, paused_at")
+      .select(
+        "account_id, peak_equity, peak_equity_at, paused, pause_reason, paused_at, cancelled_matching_orders, unconfirmed_matching_orders",
+      )
       .in("account_id", accountIds),
-
+    db
+      .from("execution_deliveries")
+      .select(
+        "id, state, broker_symbol, direction, dry_run, broker_order_id, destination_type, connected_account_id, submitted_at, sent_at, enqueued_at, user_id",
+      )
+      .in("connected_account_id", accountIds)
+      .in("state", ["pending", "claimed", "sent", "acknowledged", "unknown"]),
   ]);
 
   if (accountRows.error) console.error("brakes: accounts unreadable", accountRows.error.message);
