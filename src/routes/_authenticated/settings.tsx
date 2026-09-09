@@ -1435,6 +1435,26 @@ function SettingsPage() {
                   </p>
                 </div>
 
+                <div className="sm:col-span-2">
+                  <label className="flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      className="mt-1"
+                      checked={cancelMatchingOnPause}
+                      onChange={(e) => setCancelMatchingOnPause(e.target.checked)}
+                    />
+                    <span className="text-sm">
+                      <span className="font-medium">Cancel matching unfilled orders when the pause starts</span>
+                      <span className="mt-1 block text-xs text-muted-foreground">
+                        Off by default. When the losing-run pause fires, any of your orders that is
+                        still unfilled on the same instrument and direction as the losses that
+                        triggered it is cancelled at the broker. Anything already filled or partly
+                        filled stays open; only broker-confirmed cancellations count.
+                      </span>
+                    </span>
+                  </label>
+                </div>
+
                 <div>
                   <Label className="text-xs" htmlFor="max-drawdown">
                     Equity drop from peak (%)
