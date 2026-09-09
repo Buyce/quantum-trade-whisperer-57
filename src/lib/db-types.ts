@@ -297,12 +297,6 @@ export interface ScannerSettingsRow {
   /** Equity drop from the highest OBSERVED equity, in percent. 0 disables. */
   max_drawdown_percent: number;
   /**
-   * Owner opt-in: when a consecutive-loss pause starts, also cancel unfilled
-   * orders that match the instrument and direction of the triggering losses.
-   * Default false; filled or partially filled positions are never touched.
-   */
-  cancel_matching_on_pause: boolean;
-  /**
    * Fail-closed news protection for new automatic entries. When true, an incomplete
    * or active high-impact news window suppresses the order.
    */
