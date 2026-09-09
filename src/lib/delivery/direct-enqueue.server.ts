@@ -838,8 +838,6 @@ async function runDirectEnqueue(
     nowMs,
   );
 
-
-
   /**
    * Drawdown brakes. Reduce-only and measurement-bound: an account whose owner
    * configured no brake is not read at all, and a brake that cannot be measured
@@ -1191,8 +1189,6 @@ async function runDirectEnqueue(
         }
       }
     }
-
-
 
     // The owner's ceilings. Every one of them can only ever refuse.
 

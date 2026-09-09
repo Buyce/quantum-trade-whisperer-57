@@ -26,12 +26,12 @@ describe("same-bet limit", () => {
 
   it("[UNIT] one live order on the same pair and side reaches the default limit", () => {
     const held = [{ instrument: "XAUUSD", direction: "short" }];
-    expect(evaluateSameBetLimit({ instrument: "XAUUSD", direction: "short" }, held, 1).reached).toBe(
-      true,
-    );
-    expect(evaluateSameBetLimit({ instrument: "XAUUSD", direction: "short" }, held, 2).reached).toBe(
-      false,
-    );
+    expect(
+      evaluateSameBetLimit({ instrument: "XAUUSD", direction: "short" }, held, 1).reached,
+    ).toBe(true);
+    expect(
+      evaluateSameBetLimit({ instrument: "XAUUSD", direction: "short" }, held, 2).reached,
+    ).toBe(false);
   });
 
   it("[UNIT] the other side, or another instrument, is a different bet", () => {
@@ -39,22 +39,30 @@ describe("same-bet limit", () => {
     expect(evaluateSameBetLimit({ instrument: "XAUUSD", direction: "long" }, held, 1).reached).toBe(
       false,
     );
-    expect(evaluateSameBetLimit({ instrument: "EURUSD", direction: "short" }, held, 1).reached).toBe(
-      false,
-    );
+    expect(
+      evaluateSameBetLimit({ instrument: "EURUSD", direction: "short" }, held, 1).reached,
+    ).toBe(false);
   });
 
   it("[INVARIANT] an unreadable instrument or direction is never counted as the same bet", () => {
-    expect(isSameBet({ instrument: null, direction: "short" }, { instrument: "XAUUSD", direction: "short" })).toBe(
-      false,
-    );
     expect(
-      isSameBet({ instrument: "XAUUSD", direction: "flat" }, { instrument: "XAUUSD", direction: "short" }),
+      isSameBet(
+        { instrument: null, direction: "short" },
+        { instrument: "XAUUSD", direction: "short" },
+      ),
     ).toBe(false);
     expect(
-      evaluateSameBetLimit({ instrument: "XAUUSD", direction: "short" }, [
-        { instrument: null, direction: null },
-      ], 1).reached,
+      isSameBet(
+        { instrument: "XAUUSD", direction: "flat" },
+        { instrument: "XAUUSD", direction: "short" },
+      ),
+    ).toBe(false);
+    expect(
+      evaluateSameBetLimit(
+        { instrument: "XAUUSD", direction: "short" },
+        [{ instrument: null, direction: null }],
+        1,
+      ).reached,
     ).toBe(false);
   });
 
@@ -122,8 +130,8 @@ describe("same-bet cool-off after a broker-confirmed loss", () => {
     expect(evaluateSameBetCooldown(bet, [{ ...loss(5), instrument: null }], NOW, 60).active).toBe(
       false,
     );
-    expect(evaluateSameBetCooldown(bet, [{ ...loss(5), exitAtMs: Number.NaN }], NOW, 60).active).toBe(
-      false,
-    );
+    expect(
+      evaluateSameBetCooldown(bet, [{ ...loss(5), exitAtMs: Number.NaN }], NOW, 60).active,
+    ).toBe(false);
   });
 });
