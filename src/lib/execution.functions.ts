@@ -332,7 +332,7 @@ export const getRiskHolds = createServerFn({ method: "GET" })
     const { data, error } = await context.supabase
       .from("account_risk_state")
       .select(
-        "account_id, paused, pause_reason, pause_detail, paused_at, resume_after, resume_boundary, computed_at, consecutive_losses",
+        "account_id, paused, pause_reason, pause_detail, paused_at, resume_after, resume_boundary, computed_at, consecutive_losses, cancelled_matching_orders, unconfirmed_matching_orders",
       )
       .eq("paused", true);
     if (error) throw new Error(error.message);
@@ -346,6 +346,8 @@ export const getRiskHolds = createServerFn({ method: "GET" })
       computedAt: (row["computed_at"] as string | null) ?? null,
       consecutiveLosses:
         row["consecutive_losses"] === null ? null : Number(row["consecutive_losses"]),
+      cancelledMatchingOrders: Number(row["cancelled_matching_orders"] ?? 0),
+      unconfirmedMatchingOrders: Number(row["unconfirmed_matching_orders"] ?? 0),
     }));
   });
 
