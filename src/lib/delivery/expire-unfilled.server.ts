@@ -138,7 +138,7 @@ export function classifyBrokerPresence(
   return "resting";
 }
 
-async function settleExpired(db: Db, id: number, reason: string): Promise<void> {
+export async function settleExpired(db: Db, id: number, reason: string): Promise<void> {
   const { error } = await db
     .from("execution_deliveries")
     .update({
