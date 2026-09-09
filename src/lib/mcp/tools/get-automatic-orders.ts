@@ -48,10 +48,10 @@ export default defineTool({
       supabase
         .from("execution_deliveries")
         .select(
-          "id, created_at, state, reason, broker_symbol, direction, dry_run, submitted_at, broker_order_id, broker_order_state, broker_retcode_string",
+          "id, enqueued_at, state, reason, broker_symbol, dry_run, submitted_at, broker_order_id, broker_order_state, broker_retcode_string, entry_mode, execution_policy",
         )
-        .gte("created_at", since)
-        .order("created_at", { ascending: false })
+        .gte("enqueued_at", since)
+        .order("enqueued_at", { ascending: false })
         .limit(limit),
     ]);
 
@@ -81,9 +81,8 @@ export default defineTool({
 
     const deliveries = deliveryRows.map((row) => ({
       id: row["id"] ?? null,
-      at: String(row["created_at"]),
+      at: String(row["enqueued_at"]),
       instrument: (row["broker_symbol"] as string | null) ?? null,
-      direction: (row["direction"] as string | null) ?? null,
       state: (row["state"] as string | null) ?? null,
       reason: (row["reason"] as string | null) ?? null,
       dry_run: row["dry_run"] === true,
@@ -91,6 +90,8 @@ export default defineTool({
       broker_order_id: (row["broker_order_id"] as string | null) ?? null,
       broker_order_state: (row["broker_order_state"] as string | null) ?? null,
       broker_message: (row["broker_retcode_string"] as string | null) ?? null,
+      entry_mode: (row["entry_mode"] as string | null) ?? null,
+      exit_policy: (row["execution_policy"] as string | null) ?? null,
       provenance: row["submitted_at"] ? "broker-derived once submitted" : "engine-derived",
     }));
 
