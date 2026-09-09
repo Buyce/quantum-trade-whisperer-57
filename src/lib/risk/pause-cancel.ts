@@ -3,14 +3,14 @@
  *
  * When a consecutive-loss pause starts, the owner may choose to cancel any of
  * their still-unfilled automatic orders that are the same bet as the losses
- * that triggered the pause: same instrument and same direction.
+ * that triggered the pause: same instrument (broker symbol) and same direction.
  *
- * This module is deliberately pure: it sees only broker-derived closed-loss rows
- * and the current unfilled delivery ledger. No fetch, no clock, no database.
+ * This module is deliberately pure: it sees only closed-loss references and the
+ * current unfilled delivery ledger. No fetch, no clock, no database.
  */
 
 export interface ClosedLossRef {
-  /** Canonical signal instrument (e.g. "XAUUSD"). */
+  /** Broker symbol as recorded by the broker (e.g. "XAUUSD"). */
   instrument: string | null;
   /** "long" or "short". */
   direction: string | null;
@@ -19,12 +19,10 @@ export interface ClosedLossRef {
 export interface UnfilledDeliveryRef {
   /** Delivery primary key. */
   id: number;
-  /** Canonical signal instrument. */
+  /** Broker symbol the delivery was sent with, if already known. */
   instrument: string | null;
   /** "long" or "short". */
   direction: string | null;
-  /** True only when the broker positively filled some volume. */
-  partiallyFilled: boolean;
 }
 
 function normaliseInstrument(value: string | null | undefined): string | null {
@@ -44,9 +42,8 @@ function normaliseDirection(value: string | null | undefined): string | null {
  * direction of the triggering closed losses.
  *
  * Fail-closed:
- * - A delivery with unknown instrument or direction is never cancelled.
- * - A partially-filled delivery is never cancelled (it is already a position).
- * - Duplicate loss references do not cancel a delivery twice.
+ * - A delivery with unknown instrument or direction is never returned.
+ * - Duplicate loss references do not return a delivery twice.
  */
 export function matchingUnfilledDeliveries(
   losses: readonly ClosedLossRef[],
@@ -63,7 +60,6 @@ export function matchingUnfilledDeliveries(
 
   const matched = new Set<number>();
   for (const delivery of unfilled) {
-    if (delivery.partiallyFilled) continue;
     const instrument = normaliseInstrument(delivery.instrument);
     const direction = normaliseDirection(delivery.direction);
     if (!instrument || !direction) continue;
