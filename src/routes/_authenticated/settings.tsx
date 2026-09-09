@@ -711,6 +711,9 @@ function SettingsPage() {
                 {maxDailyOrders === 0
                   ? "no automatic orders"
                   : `up to ${maxDailyOrders} orders a day${adaptiveCeilings ? ` (${adaptiveFloor}–${adaptiveMax} with data freshness)` : ""}`}
+                , at most {maxSameBetOrders} live{" "}
+                {maxSameBetOrders === 1 ? "order" : "orders"} on the same pair and side
+                {sameBetCooldown > 0 ? ` with a ${sameBetCooldown}-minute cool-off after a loss there` : " with no cool-off after a loss there"}
                 , {marketEntry ? "entering at market" : "resting as planned limits"}, taking profit
                 at {EXECUTION_POLICY_LABELS[effectiveExitPolicy].toLowerCase()}, spread limit{" "}
                 {Number(maxSpreadPips) > 0 ? `${Number(maxSpreadPips)} pips` : "off"}, slippage
