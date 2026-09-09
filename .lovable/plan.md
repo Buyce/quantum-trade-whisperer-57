@@ -52,12 +52,14 @@ One new setting next to the losing-run limit, in Settings → Automatic order ru
 - **Cancel matching unfilled orders when the pause starts** — on or off.
   Default off for existing accounts, so nothing changes for anyone silently.
 
-## 4. Also worth fixing: the same setup queued twice
+## 4. Also fixing: the same setup queued twice
 
 The evidence shows single setups producing two orders that both filled and both
-lost. That doubles the loss for one idea. Alongside the above, the duplicate check
-will be applied to orders that are still queued (not just ones already resting),
-so one setup can only ever produce one order.
+lost. That doubles the loss for one idea. **This fix is independent of the pause** —
+it applies on every enqueue, not just when a losing run is hit. The existing duplicate
+check only looked at already-resting orders; the update also covers orders that are
+still `pending` or `claimed`, so one signal can only ever create one live order.
+
 
 ## What does not change
 
