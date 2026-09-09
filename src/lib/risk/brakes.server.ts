@@ -186,6 +186,17 @@ export async function evaluateAccountBrakes(
     ((existingStates.data ?? []) as StateRow[]).map((row) => [row.account_id, row]),
   );
 
+  const unfilledByAccount = new Map<string, SweepableDelivery[]>();
+  if (!unfilledRows.error) {
+    for (const row of (unfilledRows.data ?? []) as SweepableDelivery[]) {
+      const list = unfilledByAccount.get(row.connected_account_id ?? "") ?? [];
+      list.push(row);
+      unfilledByAccount.set(row.connected_account_id ?? "", list);
+    }
+  } else {
+    console.error("brakes: unfilled deliveries unreadable", unfilledRows.error.message);
+  }
+
   const upserts: Record<string, unknown>[] = [];
 
   for (const account of accounts) {
