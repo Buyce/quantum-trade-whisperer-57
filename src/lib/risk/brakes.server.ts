@@ -100,7 +100,9 @@ export async function evaluateAccountBrakes(
       accountIds.map((accountId) =>
         db
           .from("broker_trade_evidence")
-          .select("account_id, exit_at, gross_profit, commission, swap, profit_currency")
+          .select(
+            "account_id, exit_at, gross_profit, commission, swap, profit_currency, broker_symbol, direction",
+          )
           .eq("account_id", accountId)
           .eq("state", "closed")
           .not("exit_at", "is", null)
