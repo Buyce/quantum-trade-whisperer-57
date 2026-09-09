@@ -43,6 +43,8 @@ export interface SweepableDelivery {
   sent_at: string | null;
   submitted_at: string | null;
   broker_order_id: string | null;
+  broker_symbol: string | null;
+  direction: string | null;
   connected_account_id: string | null;
   destination_type: string | null;
 }
