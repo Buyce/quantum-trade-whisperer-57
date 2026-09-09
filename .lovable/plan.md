@@ -3,6 +3,13 @@
 Your choices: free official sources only, news never blocks an order, and event
 context feeds the learning engine.
 
+MetaApi does not answer this. Its API is prices, ticks, symbol specs, order
+execution and account management — there is no calendar or news endpoint in it,
+and its other products (CopyFactory, MetaStats) do not carry one either. So no,
+we cannot get news from the connection we already pay for; a calendar always
+comes from a separate source. Free official sources only have dates, which is
+why the plan below keeps news as a warning, never a blocker.
+
 That combination is coherent, and it fixes the real problem. Today the news layer
 is invisible and inert; nobody can see it, and five accounts have a blocking
 switch on that has never once refused anything. After this work news becomes a
