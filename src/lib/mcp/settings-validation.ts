@@ -13,8 +13,6 @@ import {
 } from "@/lib/delivery/execution";
 import { REGISTRY_SYMBOLS } from "@/lib/instruments/registry";
 import {
-  ADAPTIVE_CEILING_FLOOR_DEFAULT,
-  ADAPTIVE_CEILING_MAX_DEFAULT,
   AUTO_ORDER_WINDOW_MAX_MINUTES,
   CONCURRENT_ORDER_CEILING_MAX,
   DAILY_ORDER_CEILING_MAX,
