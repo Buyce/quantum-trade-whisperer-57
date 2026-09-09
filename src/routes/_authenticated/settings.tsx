@@ -850,6 +850,91 @@ function SettingsPage() {
             </div>
 
             <div className="border-t border-border pt-4">
+              <Label className="text-xs" htmlFor="max-same-bet">
+                Same bet at once (one instrument, one direction)
+              </Label>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {Array.from({ length: SAME_BET_LIMIT_MAX }, (_, i) => i + 1).map((choice) => (
+                  <Button
+                    key={choice}
+                    type="button"
+                    size="sm"
+                    variant={maxSameBetOrders === choice ? "default" : "outline"}
+                    onClick={() => {
+                      if (choice > SAME_BET_LIMIT_DEFAULT) {
+                        toast.warning(
+                          choice >= SAME_BET_LIMIT_MAX
+                            ? `Three orders on the same pair and the same side are one bet three times over: if it goes against you, all three lose together and the account takes about ${choice}× the risk you sized for a single trade.`
+                            : `Two orders on the same pair and the same side are the same bet twice: if it goes against you, both lose together and the account takes about ${choice}× the risk you sized for a single trade.`,
+                        );
+                      }
+                      setMaxSameBetOrders(clampSameBetLimit(choice));
+                    }}
+                  >
+                    {choice}
+                  </Button>
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                How many UNRESOLVED automatic orders may be live on the same instrument in the same
+                direction. The default is <span className="text-foreground">1</span> — one live bet
+                per pair and side — and 3 is the maximum. Separate setups on the same pair and side
+                are not independent trades: on 9 September seven Gold shorts from seven different
+                setups were live together and all of them lost. This rule refuses new orders only;
+                nothing already at your broker is touched.
+              </p>
+              {maxSameBetOrders > SAME_BET_LIMIT_DEFAULT ? (
+                <p className="mt-2 text-xs text-warning">
+                  You allow {maxSameBetOrders} live orders on the same pair and side, so one adverse
+                  move can cost about {maxSameBetOrders}× the risk you sized per trade.
+                </p>
+              ) : null}
+            </div>
+
+            <div className="border-t border-border pt-4">
+              <Label className="text-xs" htmlFor="same-bet-cooldown">
+                Cool-off after a loss on the same bet
+              </Label>
+              <Select
+                value={String(sameBetCooldown)}
+                onValueChange={(v) => {
+                  const next = clampSameBetCooldownMinutes(Number(v));
+                  if (next === 0) {
+                    toast.warning(
+                      "With the cool-off off, a fresh setup on a pair and side that just lost at your broker can be ordered again immediately, so correlated losses can repeat back to back.",
+                    );
+                  }
+                  setSameBetCooldown(next);
+                }}
+              >
+                <SelectTrigger id="same-bet-cooldown" className="mt-2 sm:max-w-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SAME_BET_COOLDOWN_CHOICES.map((choice) => (
+                    <SelectItem key={choice} value={String(choice)}>
+                      {choice === 0 ? "Off" : `${choice} minutes`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="mt-2 text-xs text-muted-foreground">
+                After a trade on an instrument and direction closes at a LOSS at your broker, new
+                automatic orders on that same pair and side are refused for this long. Default{" "}
+                {SAME_BET_COOLDOWN_DEFAULT_MINUTES} minutes. Only closed, broker-confirmed trades
+                start it — never an estimate — and it never closes or changes anything already at
+                your broker.
+              </p>
+              {sameBetCooldown === 0 ? (
+                <p className="mt-2 text-xs text-warning">
+                  The cool-off is off: a pair and side that just lost can be ordered again straight
+                  away.
+                </p>
+              ) : null}
+            </div>
+
+
+            <div className="border-t border-border pt-4">
               <Row
                 id="adaptive-ceilings"
                 title="Move the daily ceilings with broker data freshness"
