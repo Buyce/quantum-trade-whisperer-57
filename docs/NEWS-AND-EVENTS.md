@@ -1,29 +1,40 @@
-# Live economic events (news)
+# Economic events (news)
 
 P-Trades' news layer answers one question honestly: **can we see the scheduled
-risk for this instrument right now?** Everything below exists to stop a partial
-calendar from being mistaken for a clear one.
+risk for this instrument right now?** Today the honest answer is *no*, and the
+system says so rather than pretending otherwise.
 
-## Sources
+## Current state: no calendar provider, no enforcement
 
-| Provider                 | What it proves                                                                                                                                | What it cannot prove                                                                                                                                                     |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **FRED** (St. Louis Fed) | Which US statistical releases exist (stable numeric release ids) and which **calendar dates** they are scheduled for, including future dates. | The intraday release **time**. `/fred/releases/dates` returns a bare date, so no exact instant exists. Actual/forecast/previous values are not requested by the adapter. |
+FRED was **retired as a calendar provider** (2026-09-09). It published release
+*dates* with no intraday release time, covered almost nothing outside USD, and
+so could never authorise an intraday suppression: in its whole life it changed
+zero orders. Keeping it running only produced `timestamp_incomplete` coverage
+that looked like a feature.
 
-FRED is currently the **only** integrated provider. The interface stays
-provider-neutral so an authorized provider can be added without changing the
-ingestion contract.
+As a result:
 
-Deliberately absent:
+- `/api/public/cron/ingest-news` ingests **nothing** and claims **no coverage**.
+  It writes no events and no coverage rows, so an empty calendar can never be
+  read as a clear one. Its schedule is stopped.
+- News suppression is **pinned off** (`NEWS_ENFORCEMENT_PINNED_OFF` in
+  `src/lib/news/gate.server.ts`, gate version `news-gate-2`). The verdict is
+  still computed and written at both execution boundaries, so the effect of a
+  real calendar can be measured before it is ever allowed to refuse an order.
+- The provider-neutral contract in `src/lib/news/types.ts` and the ingestion
+  runtime are untouched, so a licensed exact-time calendar plugs straight in.
 
-- **Energy inventories.** No energy provider is integrated: the owner holds no
-  valid EIA credential, so `energy_inventory` coverage is honestly `unsupported`
-  and USOIL / UKOIL fail closed wherever energy coverage is required. No energy
-  event row exists, and none is ever inferred.
-- **OPEC** has no machine-readable announcement feed, so `opec_supply` is declared
-  `unsupported`. It is never silently treated as covered.
-- **Non-USD currencies** (EUR, GBP, JPY, AUD, CAD, CHF) are declared `unsupported`. GBPUSD's GBP-side risk is therefore visibly uncovered rather
-  than inherited from the USD side.
+Macro *context* — the dollar, US yields, volatility, futures positioning — is a
+different thing and is live: see [MARKET-CONTEXT.md](MARKET-CONTEXT.md).
+
+Deliberately absent, and never inferred:
+
+- **Energy inventories** (no valid EIA credential) — `energy_inventory` stays
+  `unsupported`, so USOIL / UKOIL fail closed wherever it is required.
+- **OPEC** has no machine-readable announcement feed — `opec_supply` is
+  `unsupported`.
+- **Non-USD currencies** (EUR, GBP, JPY, AUD, CAD, CHF) are `unsupported`, so
+  GBPUSD's GBP-side risk is visibly uncovered rather than inherited.
 - **Equity earnings calendars** for NAS100 are not sourced.
 - Commercial scrapers (Forex Factory, Investing.com and similar) are not used.
 
@@ -78,10 +89,13 @@ Refusal reasons are explicit: `no_news_profile`, `coverage_incomplete`,
 
 ## Ingestion
 
-`/api/public/cron/ingest-news` (cron-secret authorised) runs each provider over its
-own window and writes exactly one row per attempt to `news_ingestion_runs` — even
-when the provider fails, because "we tried and were refused" is the fact that keeps
-coverage honest. An absent run row must never look like an empty calendar.
+`/api/public/cron/ingest-news` (cron-secret authorised) is the ingestion entry
+point. With no provider configured it returns an empty provider list and writes
+nothing at all. The behaviour below describes the contract a future licensed
+provider will run under; every attempt writes exactly one row per attempt to
+`news_ingestion_runs` — even when the provider fails, because "we tried and were
+refused" is the fact that keeps coverage honest. An absent run row must never
+look like an empty calendar.
 
 Writes are idempotent on `(provider, provider_event_key)`:
 
@@ -100,12 +114,14 @@ failing never suppresses or substitutes another.
 
 ## Credentials
 
-`FRED_API_KEY` is a backend secret read inside handlers only, and it is rotated
-through secret management — never entered in the app or committed. FRED accepts the
-key **only as a query parameter**, which makes the request URL
-itself a secret — so every log line, error note and ledger row goes through
-`redactUrl` / `safeNote` first. No credential appears in the database, the admin
-panel, or any response.
+No calendar credential is in use. The ingestion runtime still routes every log
+line, error note and ledger row through `redactUrl` / `safeNote`, because some
+calendar providers accept the key only as a query parameter, which makes the
+request URL itself a secret. No credential ever appears in the database, the
+admin panel, or any response.
+
+`FRED_API_KEY` remains in use for **market context** series only (see
+[MARKET-CONTEXT.md](MARKET-CONTEXT.md)), not for events.
 
 ## Where to look
 
@@ -142,7 +158,10 @@ The pure policy is now consulted at two execution boundaries: automatic enqueue
 (`broker_submission`). Every consultation is written to
 `news_policy_evaluations`, whether or not it changed anything.
 
-Enforcement is deliberately narrow, and it can only ever REFUSE an order:
+Enforcement is currently **pinned off**: no news verdict can refuse an order,
+whatever the settings say. The conditions below are what enforcement will require
+when a real exact-time calendar exists, and they remain in force underneath the
+pin — enforcement can only ever REFUSE an order, never create or enlarge one:
 
 - The owner must have news blocking on (`scanner_settings.news_block_new_entries`),
   with their own window width (`news_suppression_minutes_before` / `_after`,
