@@ -12,7 +12,7 @@
   "mcp": {
     "server": {
       "name": "p-trades-hub",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "title": "P-Trades Hub"
     },
     "tools": [
@@ -84,6 +84,47 @@
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_automatic_orders",
+        "title": "Get my automatic orders",
+        "description": "Read the signed-in user's own recent automatic-order activity: the decisions the queue recorded (queued, or refused with the exact reason — your ceilings, order window, instruments, sessions, intelligence gate, news rule, duplicate guard, same-bet limit or cool-off, or a risk brake) and the resulting broker deliveries with their last known state (pending, sent, acknowledged, filled, rejected, expired, cancelled). Decisions and refusal reasons are engine-derived; delivery and order states are broker-derived once the order was submitted. An empty result means nothing matched this window for this user — it is not evidence about the scanner's cycle, the market, or whether a valid setup existed. Never invent an order, a fill or a reason.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "hours": {
+              "description": "How far back to look, in hours (1-168). Defaults to 24.",
+              "type": "number"
+            },
+            "limit": {
+              "description": "Maximum rows per section (1-100). Defaults to 25.",
+              "type": "number"
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_risk_holds",
+        "title": "Get my risk holds",
+        "description": "Read whether the signed-in user's automatic orders are currently held by one of their own risk brakes (daily or weekly closed loss, losing run, peak-equity drawdown), which rule caused it, when the hold started, when it lifts, and how many matching unfilled orders the pause cancelled at the broker (broker-confirmed versus unconfirmed). Every value is measured from closed broker trades and the broker's own equity reading — never estimated. A hold stops NEW automatic orders only; orders and positions already at the broker are untouched. If the state cannot be read, the answer is 'unknown', never 'not held'.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
           "openWorldHint": false
         },
         "inputSchema": {
