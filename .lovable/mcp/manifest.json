@@ -96,7 +96,7 @@
       {
         "name": "get_my_settings",
         "title": "Get my settings",
-        "description": "Read the signed-in user's feed filters (instruments, sessions, minimum grade — every setup covers H4, H1 and M15 together, so timeframes are not a filter), alert preferences, daily cap (0 = unlimited; the cap governs feed and alert eligibility, each channel using its own grade threshold) and risk profile (account equity, currency, risk per trade, leverage, max stop-loss percent, max position size). Webhook credentials are never returned.",
+        "description": "Read the signed-in user's complete customer-owned configuration: feed filters (instruments, sessions, minimum grade — every setup covers H4, H1 and M15 together, so timeframes are not a filter), alert preferences, daily cap (0 = unlimited; it governs feed and alert eligibility, each channel using its own grade threshold), risk profile (equity, currency, risk per trade, lot ceiling, leverage, max stop-loss percent), automatic-order rules (ceilings open-at-once / per day / per instrument, the order window, adaptive ceilings, market-entry mode), gates (C-Grade permission, intelligence-gate thresholds and sample floor, entry spread and slippage caps, exposure limit) and brakes (daily and weekly closed-loss limits, losing-run limit and pause length, peak-equity drawdown, same-bet limit and same-bet cool-off), plus the take-profit choice with its split and trailing setting. Webhook credentials are never returned.",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": true,
