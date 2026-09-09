@@ -11,8 +11,27 @@ import {
   isExecutionPolicy,
   isExitSharePreset,
 } from "@/lib/delivery/execution";
+import { REGISTRY_SYMBOLS } from "@/lib/instruments/registry";
+import {
+  AUTO_ORDER_WINDOW_MAX_MINUTES,
+  CONCURRENT_ORDER_CEILING_MAX,
+  DAILY_ORDER_CEILING_MAX,
+  PER_SYMBOL_ORDER_CEILING_MAX,
+} from "@/lib/db-types";
+import {
+  SAME_BET_COOLDOWN_CHOICES,
+  SAME_BET_LIMIT_MAX,
+  SAME_BET_LIMIT_MIN,
+} from "@/lib/delivery/correlated-cluster";
 
-export const INSTRUMENT_CHOICES = ["XAUUSD", "GBPAUD", "EURUSD"] as const;
+/**
+ * The instruments an agent may select, derived from THE instrument definition
+ * authority rather than restated here. The old hardcoded trio silently drifted
+ * behind the registry, so an agent was told a live pair was an unknown value.
+ * Selecting an instrument that has not been promoted yet is legal but simply
+ * never produces setups — lifecycle stage decides that, not this validator.
+ */
+export const INSTRUMENT_CHOICES: readonly string[] = REGISTRY_SYMBOLS;
 export const TIMEFRAME_CHOICES = ["H4", "H1", "M15"] as const;
 export const SESSION_CHOICES = [
   "sydney",
@@ -64,6 +83,39 @@ export interface SettingsInput {
    */
   auto_exit_shares?: string | undefined;
   auto_exit_trail_runner?: boolean | undefined;
+
+  // ---- Automatic-order rules (throughput, not permission) ----
+  maximum_concurrent_signal_orders?: number | undefined;
+  maximum_daily_signal_orders?: number | undefined;
+  maximum_daily_orders_per_symbol?: number | undefined;
+  auto_order_window_minutes?: number | undefined;
+  adaptive_order_ceilings_enabled?: boolean | undefined;
+  adaptive_order_ceiling_max?: number | undefined;
+  adaptive_order_ceiling_floor?: number | undefined;
+  auto_market_entry_enabled?: boolean | undefined;
+
+  // ---- Gates (each one refuses; none of them orders anything) ----
+  auto_execute_c_grade?: boolean | undefined;
+  auto_intel_gate_enabled?: boolean | undefined;
+  auto_intel_min_win_pct?: number | undefined;
+  auto_intel_min_sample?: number | undefined;
+  auto_intel_min_expected_r?: number | undefined;
+  allow_unmeasured_intel?: boolean | undefined;
+  max_entry_spread_pips?: number | undefined;
+  max_entry_slippage_pips?: number | undefined;
+  exposure_limit_enabled?: boolean | undefined;
+  max_total_exposure_percent?: number | undefined;
+
+  // ---- Brakes, all measured from CLOSED broker trades ----
+  drawdown_brakes_enabled?: boolean | undefined;
+  daily_loss_limit_percent?: number | undefined;
+  weekly_loss_limit_percent?: number | undefined;
+  consecutive_loss_limit?: number | undefined;
+  /** null = hold until the next UTC midnight; 3 or 5 = that many hours. */
+  consecutive_loss_pause_hours?: number | null | undefined;
+  max_drawdown_percent?: number | undefined;
+  max_same_bet_orders?: number | undefined;
+  same_bet_cooldown_minutes?: number | undefined;
 }
 
 /**
@@ -75,9 +127,15 @@ export const HIGH_RISK_THRESHOLD_PERCENT = 2;
 
 /**
  * Money-moving fields. Changing any of these changes how large a real position
- * the user will take, so an agent must carry the user's explicit approval
- * (`confirm_risk_change: true`) before it may write them. Clamping and validation
- * still apply on top of the confirmation — approval is not a bypass.
+ * the user will take, or how much unresolved risk may be live at once, so an
+ * agent must carry the user's explicit approval (`confirm_risk_change: true`)
+ * before it may write them. Clamping and validation still apply on top of the
+ * confirmation — approval is not a bypass.
+ *
+ * The automatic-order rules, gates and brakes are here for the same reason as
+ * the risk profile: widening a ceiling, loosening a gate or weakening a brake
+ * changes how much real money can be at risk, even though none of them places
+ * an order by itself.
  */
 export const SENSITIVE_RISK_FIELDS = [
   "account_equity",
@@ -87,6 +145,32 @@ export const SENSITIVE_RISK_FIELDS = [
   "leverage",
   "max_stop_loss_percent",
   "risk_ack_high",
+  "maximum_concurrent_signal_orders",
+  "maximum_daily_signal_orders",
+  "maximum_daily_orders_per_symbol",
+  "auto_order_window_minutes",
+  "adaptive_order_ceilings_enabled",
+  "adaptive_order_ceiling_max",
+  "adaptive_order_ceiling_floor",
+  "auto_market_entry_enabled",
+  "auto_execute_c_grade",
+  "auto_intel_gate_enabled",
+  "auto_intel_min_win_pct",
+  "auto_intel_min_sample",
+  "auto_intel_min_expected_r",
+  "allow_unmeasured_intel",
+  "max_entry_spread_pips",
+  "max_entry_slippage_pips",
+  "exposure_limit_enabled",
+  "max_total_exposure_percent",
+  "drawdown_brakes_enabled",
+  "daily_loss_limit_percent",
+  "weekly_loss_limit_percent",
+  "consecutive_loss_limit",
+  "consecutive_loss_pause_hours",
+  "max_drawdown_percent",
+  "max_same_bet_orders",
+  "same_bet_cooldown_minutes",
 ] as const;
 
 export type SensitiveRiskField = (typeof SENSITIVE_RISK_FIELDS)[number];
@@ -260,6 +344,140 @@ export function validateSettings(
       delete patch["risk_ack_high"];
       warnings.push(
         `risk_ack_high left unchanged: it cannot be cleared while risk_per_trade_percent is ${effectiveRisk}% (above ${HIGH_RISK_THRESHOLD_PERCENT}%). Lower the risk to ${HIGH_RISK_THRESHOLD_PERCENT}% or less in the same update to withdraw the acknowledgement.`,
+      );
+    }
+  }
+
+  // ---- Automatic-order rules, gates and brakes ----
+  // Same bounds as the Settings screen. Every one of these only ever REFUSES an
+  // order or caps throughput; none of them causes an order to be placed, and
+  // none of them touches an order or position already at the broker.
+  const boundedIntegers: Array<[keyof SettingsInput, string, number, number]> = [
+    [
+      "maximum_concurrent_signal_orders",
+      "maximum_concurrent_signal_orders",
+      0,
+      CONCURRENT_ORDER_CEILING_MAX,
+    ],
+    ["maximum_daily_signal_orders", "maximum_daily_signal_orders", 0, DAILY_ORDER_CEILING_MAX],
+    [
+      "maximum_daily_orders_per_symbol",
+      "maximum_daily_orders_per_symbol",
+      0,
+      PER_SYMBOL_ORDER_CEILING_MAX,
+    ],
+    ["auto_order_window_minutes", "auto_order_window_minutes", 0, AUTO_ORDER_WINDOW_MAX_MINUTES],
+    ["adaptive_order_ceiling_max", "adaptive_order_ceiling_max", 0, DAILY_ORDER_CEILING_MAX],
+    ["adaptive_order_ceiling_floor", "adaptive_order_ceiling_floor", 0, DAILY_ORDER_CEILING_MAX],
+    ["auto_intel_min_sample", "auto_intel_min_sample", 0, 10_000],
+    ["consecutive_loss_limit", "consecutive_loss_limit", 0, 20],
+  ];
+  for (const [key, column, min, max] of boundedIntegers) {
+    const value = input[key] as number | undefined;
+    if (value === undefined) continue;
+    if (!Number.isFinite(value)) {
+      warnings.push(`${column} left unchanged: not a finite number.`);
+      continue;
+    }
+    const clamped = Math.round(clamp(value, min, max));
+    if (clamped !== value) warnings.push(`${column} clamped to ${clamped}.`);
+    patch[column] = clamped;
+  }
+
+  const boundedDecimals: Array<[keyof SettingsInput, string, number, number]> = [
+    ["auto_intel_min_win_pct", "auto_intel_min_win_pct", 0, 100],
+    ["auto_intel_min_expected_r", "auto_intel_min_expected_r", -5, 5],
+    ["max_entry_spread_pips", "max_entry_spread_pips", 0, 1_000],
+    ["max_entry_slippage_pips", "max_entry_slippage_pips", 0, 1_000],
+    ["max_total_exposure_percent", "max_total_exposure_percent", 0, 100],
+    ["daily_loss_limit_percent", "daily_loss_limit_percent", 0, 100],
+    ["weekly_loss_limit_percent", "weekly_loss_limit_percent", 0, 100],
+    ["max_drawdown_percent", "max_drawdown_percent", 0, 100],
+  ];
+  for (const [key, column, min, max] of boundedDecimals) {
+    const value = input[key] as number | undefined;
+    if (value === undefined) continue;
+    if (!Number.isFinite(value)) {
+      warnings.push(`${column} left unchanged: not a finite number.`);
+      continue;
+    }
+    const clamped = clamp(value, min, max);
+    if (clamped !== value) warnings.push(`${column} clamped to ${clamped}.`);
+    patch[column] = clamped;
+  }
+
+  // The adaptive band cannot be inverted. When an agent sends both ends and gets
+  // them the wrong way round, the floor is left unchanged rather than written and
+  // rejected by the database.
+  const bandMax = patch["adaptive_order_ceiling_max"] as number | undefined;
+  const bandFloor = patch["adaptive_order_ceiling_floor"] as number | undefined;
+  if (bandMax !== undefined && bandFloor !== undefined && bandFloor > bandMax) {
+    delete patch["adaptive_order_ceiling_floor"];
+    warnings.push(
+      `adaptive_order_ceiling_floor left unchanged: it cannot exceed adaptive_order_ceiling_max (${bandMax}).`,
+    );
+  }
+
+  const booleans: Array<keyof SettingsInput> = [
+    "adaptive_order_ceilings_enabled",
+    "auto_market_entry_enabled",
+    "auto_execute_c_grade",
+    "auto_intel_gate_enabled",
+    "allow_unmeasured_intel",
+    "exposure_limit_enabled",
+    "drawdown_brakes_enabled",
+  ];
+  for (const key of booleans) {
+    const value = input[key];
+    if (value === undefined) continue;
+    patch[key as string] = value === true;
+  }
+
+  // The losing-run pause length is an enumeration, not a range: null means hold
+  // until the next UTC midnight, and only 3 or 5 hours are offered.
+  if (input.consecutive_loss_pause_hours !== undefined) {
+    const hours = input.consecutive_loss_pause_hours;
+    if (hours === null || hours === 3 || hours === 5) {
+      patch["consecutive_loss_pause_hours"] = hours;
+    } else {
+      warnings.push(
+        "consecutive_loss_pause_hours left unchanged: allowed values are 3, 5, or null (hold until the next UTC midnight).",
+      );
+    }
+  }
+
+  // Correlated-cluster brake. The limit is deliberately narrow: several separate
+  // setups on the same instrument and side are ONE bet, so the default of 1 is
+  // the conservative position and raising it is warned about every time.
+  if (input.max_same_bet_orders !== undefined) {
+    const requested = input.max_same_bet_orders;
+    const bounded = Math.round(clamp(Number(requested), SAME_BET_LIMIT_MIN, SAME_BET_LIMIT_MAX));
+    const safe = Number.isFinite(bounded) ? bounded : SAME_BET_LIMIT_MIN;
+    if (safe !== requested) {
+      warnings.push(
+        `max_same_bet_orders clamped to ${safe} (allowed ${SAME_BET_LIMIT_MIN}-${SAME_BET_LIMIT_MAX}).`,
+      );
+    }
+    if (safe > SAME_BET_LIMIT_MIN) {
+      warnings.push(
+        `max_same_bet_orders is now ${safe}: up to ${safe} automatic orders may be live on the same instrument in the same direction at once. If that bet goes against the account, all ${safe} lose together — the risk you sized per trade is multiplied by ${safe}.`,
+      );
+    }
+    patch["max_same_bet_orders"] = safe;
+  }
+
+  if (input.same_bet_cooldown_minutes !== undefined) {
+    const requested = input.same_bet_cooldown_minutes;
+    if ((SAME_BET_COOLDOWN_CHOICES as readonly number[]).includes(requested)) {
+      patch["same_bet_cooldown_minutes"] = requested;
+      if (requested === 0) {
+        warnings.push(
+          "same_bet_cooldown_minutes is now 0: the cool-off after a broker-confirmed loss on the same instrument and direction is off, so a new order on that same bet may be placed immediately after a loss there.",
+        );
+      }
+    } else {
+      warnings.push(
+        `same_bet_cooldown_minutes left unchanged: allowed values are ${SAME_BET_COOLDOWN_CHOICES.join(", ")} (0 = off).`,
       );
     }
   }

@@ -12,15 +12,17 @@ Endpoint: `/mcp`, OAuth-protected, tokens scoped to the signed-in account.
 Manifest: `.lovable/mcp/manifest.json`. Connection instructions for humans live at
 `/connect`.
 
-### Tools (12)
+### Tools (14)
 
 | Tool                      | Access | Notes                                                                                                                                                                                                                                                |
 | ------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `list_signals`            | read   | `scope=all_published` (default) or `my_scanner`. An empty result means nothing matched the requested filters and scope — it is **not** evidence about the scanner's cycle or that no valid setup exists. Grade filtering and paging happen SQL-side. |
 | `get_scanner_status`      | read   | scanner state; the correct tool for "is it running"                                                                                                                                                                                                  |
 | `get_market_status`       | read   | session open/closed/overlap                                                                                                                                                                                                                          |
-| `get_my_settings`         | read   | filters and risk profile                                                                                                                                                                                                                             |
-| `update_my_settings`      | write  | sensitive risk fields require `confirm_risk_change=true`                                                                                                                                                                                             |
+| `get_automatic_orders`    | read   | the user's own automatic-order decisions (queued or refused, in the engine's own words) and the resulting broker deliveries; a resting order is never reported as a fill                                                                             |
+| `get_risk_holds`          | read   | whether the user's own risk brakes are holding new automatic orders, why, and when the hold lifts; fails closed to `unknown`                                                                                                                         |
+| `get_my_settings`         | read   | filters, risk profile, automatic-order rules, gates and brakes                                                                                                                                                                                       |
+| `update_my_settings`      | write  | any field that changes how much money can be at risk — risk profile, ceiling, gate or brake — requires `confirm_risk_change=true`                                                                                                                    |
 | `calculate_position_size` | read   | uses the shared sizing service; FX lookups are demand-driven and allow-listed                                                                                                                                                                        |
 | `get_intelligence`        | read   | research-only, gated on maturity                                                                                                                                                                                                                     |
 | `get_shadow_comparison`   | read   | research-only replay comparison                                                                                                                                                                                                                      |
@@ -37,6 +39,14 @@ Manifest: `.lovable/mcp/manifest.json`. Connection instructions for humans live 
 - Risk changes above the high-risk threshold require the same acknowledgement as
   the UI.
 - Tool descriptions never claim that an empty result proves a market condition.
+- Instrument choices come from the instrument registry, so the assistant is never
+  told that a live pair is an unknown value.
+- Every setting the terminal offers a customer is readable and writable here, with
+  the same bounds and the same warnings — the assistant cannot set a value the
+  Settings screen would refuse.
+- Brakes and gates reported here stop new automatic orders only. Nothing already
+  at the broker is affected, and an unreadable risk state reads as `unknown`,
+  never as "not held".
 
 ## Inputs
 
