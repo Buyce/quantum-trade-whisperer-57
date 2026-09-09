@@ -66,7 +66,7 @@ describe("same-bet limit", () => {
     ).toBe(false);
   });
 
-  it("[BEHAVIOR] replays 2026-09-09: seven Gold shorts become one order at the default", () => {
+  it("[INVARIANT] replays 2026-09-09: seven Gold shorts become one order at the default", () => {
     const held: { instrument: string; direction: string }[] = [];
     let accepted = 0;
     let refused = 0;
