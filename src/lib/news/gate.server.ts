@@ -33,7 +33,17 @@ import {
 } from "./policy";
 import type { EventImportance, NewsFamily, TimestampPrecision } from "./types";
 
-export const NEWS_GATE_VERSION = "news-gate-1";
+export const NEWS_GATE_VERSION = "news-gate-2";
+
+/**
+ * News suppression cannot refuse an order.
+ *
+ * No authorised provider supplies exact release times, and a refusal built on a
+ * date-only or missing calendar would be a claim about the market made out of
+ * absent data. The verdict is still computed and recorded at both boundaries so
+ * the effect of a real calendar can be measured before it is ever enforced.
+ */
+export const NEWS_ENFORCEMENT_PINNED_OFF = true;
 
 /** Where the gate was consulted. Mirrors `news_policy_evaluations.boundary`. */
 export type NewsBoundary = "execution_enqueue" | "broker_submission";
@@ -202,8 +212,9 @@ export async function evaluateNewsGate(
   const verdict = evaluateNewsPolicy({
     symbol: args.symbol,
     nowMs: args.nowMs,
-    // Comparison unless the owner opted in; enforcement is narrowed again below.
-    mode: optedIn ? "enforcing" : "dark",
+    // Always comparison mode: no authorised provider supplies exact release times,
+    // so enforcement is pinned off (see NEWS_ENFORCEMENT_PINNED_OFF below).
+    mode: "dark",
     events,
     coverage,
     windowOverride: { beforeMinutes: before, afterMinutes: after },
@@ -212,15 +223,21 @@ export async function evaluateNewsGate(
   const namesAnEvent = verdict.blockingEventIds.length > 0;
   const enforceable =
     verdict.reason === "event_window" ? namesAnEvent : coverageProven && namesAnEvent;
-  const blocked = optedIn && verdict.wouldSuppressNewEntries && enforceable;
+  // Enforcement is pinned off while no calendar provider supplies exact release
+  // times. The verdict is still computed and recorded so the effect of a future
+  // calendar can be measured before it is ever allowed to refuse an order.
+  const wouldBlock = optedIn && verdict.wouldSuppressNewEntries && enforceable;
+  const blocked = NEWS_ENFORCEMENT_PINNED_OFF ? false : wouldBlock;
 
   const detail = blocked
     ? `news gate: ${verdict.detail}`
     : verdict.wouldSuppressNewEntries
       ? `news gate would suppress (${verdict.reason}: ${verdict.detail}) but is not enforced: ${
-          optedIn
-            ? "coverage is not proven for this instrument"
-            : "you have news blocking switched off"
+          NEWS_ENFORCEMENT_PINNED_OFF
+            ? "no calendar source with exact release times is connected, so news never refuses an order"
+            : optedIn
+              ? "coverage is not proven for this instrument"
+              : "you have news blocking switched off"
         }`
       : `news gate clear: ${verdict.detail}`;
 

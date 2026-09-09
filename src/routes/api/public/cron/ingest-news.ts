@@ -1,28 +1,24 @@
 /**
- * Scheduled economic-event ingestion (FRED only).
+ * Scheduled economic-event ingestion — currently NO authorized provider.
  *
- * FRED is the only currently authorized provider. There is deliberately no
- * energy provider: the owner holds no valid EIA credential and OPEC publishes no
- * machine-readable feed, so energy coverage stays honestly `unavailable` /
- * `unknown` and USOIL / UKOIL fail closed wherever energy news coverage is
- * required. The provider interface stays provider-neutral so a future authorized
- * provider plugs in without changing this route's contract.
+ * FRED was retired as a calendar provider: it publishes release dates without an
+ * exact intraday release time, covers almost nothing outside USD, and therefore
+ * could never authorise an intraday suppression. Rather than keep a feed running
+ * that can only ever produce `timestamp_incomplete` coverage, the provider is
+ * gone and this route ingests nothing.
  *
- * Bounded by construction: one provider, one window, one ledger row. The route
- * ingests and measures coverage. It never grades, publishes, alerts, enqueues or
- * submits anything to a broker, and it never enforces news suppression:
- * enforcement is a separate, per-instrument decision.
+ * The provider-neutral contract in `@/lib/news/types` and the ingestion runtime
+ * in `@/lib/news/ingest.server` are untouched, so a licensed calendar with exact
+ * times plugs in here without changing this route's shape.
+ *
+ * Honest by construction: an absent provider writes NO events and NO coverage
+ * rows. Missing data never becomes "clear".
  */
 import { createFileRoute } from "@tanstack/react-router";
 
 import { authorizeCronRequest, unauthorizedResponse } from "@/lib/cron-auth";
 
-/** Forward window for schedules. */
-const FORWARD_DAYS = 30;
-
-function isoDate(ms: number): string {
-  return new Date(ms).toISOString().slice(0, 10);
-}
+export const NEWS_PROVIDERS_CONFIGURED: readonly string[] = [];
 
 export const Route = createFileRoute("/api/public/cron/ingest-news")({
   server: {
@@ -30,36 +26,12 @@ export const Route = createFileRoute("/api/public/cron/ingest-news")({
       POST: async ({ request }) => {
         if (!authorizeCronRequest(request)) return unauthorizedResponse();
 
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        const { runNewsIngestion } = await import("@/lib/news/ingest.server");
-        const { createFredProvider } = await import("@/lib/news/providers/fred.server");
-        const { allRegistryScopes } = await import("@/lib/news/scopes");
-
-        const nowMs = Date.now();
-        const scopes = allRegistryScopes();
-
-        try {
-          const results = [
-            // FRED: forward release schedule, date-only precision.
-            await runNewsIngestion({
-              db: supabaseAdmin,
-              provider: createFredProvider(),
-              job: "fred_release_schedule",
-              from: isoDate(nowMs - 2 * 86_400_000),
-              to: isoDate(nowMs + FORWARD_DAYS * 86_400_000),
-              scopes,
-              nowMs,
-            }),
-          ];
-
-          return Response.json({ ok: true, results });
-        } catch (err) {
-          console.error("[cron/ingest-news]", err);
-          return Response.json(
-            { ok: false, error: err instanceof Error ? err.message : String(err) },
-            { status: 500 },
-          );
-        }
+        return Response.json({
+          ok: true,
+          providers: NEWS_PROVIDERS_CONFIGURED,
+          results: [],
+          note: "No authorized economic-calendar provider is configured. Nothing was ingested and no coverage was claimed.",
+        });
       },
     },
   },

@@ -23,7 +23,8 @@ and is never updated retroactively.
 7. [MULTI-ASSET.md](MULTI-ASSET.md) — asset classes, calendars, units and the Wave 2 disposition
 8. [SIGNALS-AND-GRADES.md](SIGNALS-AND-GRADES.md)
 9. [ALERTS-AND-ELIGIBILITY.md](ALERTS-AND-ELIGIBILITY.md)
-10. [NEWS-AND-EVENTS.md](NEWS-AND-EVENTS.md) — official event sources, coverage states and the dark news policy
+10. [NEWS-AND-EVENTS.md](NEWS-AND-EVENTS.md) — why no calendar provider is connected, coverage states and the pinned-off news policy
+11. [MARKET-CONTEXT.md](MARKET-CONTEXT.md) — dollar, yields, volatility and futures positioning: recorded, never enforced
 
 **Money and measurement**
 

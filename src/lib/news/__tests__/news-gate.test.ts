@@ -62,7 +62,7 @@ const CPI_NOW = {
 };
 
 describe("news gate", () => {
-  it("[UNIT] refuses a new order inside a high-impact window when the owner opted in", async () => {
+  it("[INVARIANT] never refuses an order, even inside a high-impact window the owner opted into", async () => {
     const db = fakeDb({ coverage: HEALTHY_USD, events: [CPI_NOW] });
     const result = await evaluateNewsGate(db as never, {
       symbol: "XAUUSD",
@@ -70,12 +70,14 @@ describe("news gate", () => {
       boundary: "execution_enqueue",
       settings: { news_block_new_entries: true },
     });
-    expect(result.blocked).toBe(true);
+    expect(result.blocked).toBe(false);
     expect(result.verdict.reason).toBe("event_window");
-    expect(db.inserted["news_policy_evaluations"]?.[0]?.["decision"]).toBe("suppressed");
+    expect(result.verdict.wouldSuppressNewEntries).toBe(true);
+    expect(result.detail).toContain("no calendar source with exact release times");
+    expect(db.inserted["news_policy_evaluations"]?.[0]?.["decision"]).toBe("would_suppress");
   });
 
-  it("[UNIT] records but does not enforce when the owner switched news blocking off", async () => {
+  it("[UNIT] records the verdict when the owner switched news blocking off", async () => {
     const db = fakeDb({ coverage: HEALTHY_USD, events: [CPI_NOW] });
     const result = await evaluateNewsGate(db as never, {
       symbol: "XAUUSD",

@@ -60,6 +60,8 @@ import { ExecutionQualityPanel } from "@/components/admin/ExecutionQualityPanel"
 import { WalkForwardPanel } from "@/components/admin/WalkForwardPanel";
 import { ExitVariantsPanel } from "@/components/admin/ExitVariantsPanel";
 import { PromotionPanel } from "@/components/admin/PromotionPanel";
+import { NewsPanel } from "@/components/admin/NewsPanel";
+import { MarketContextPanel } from "@/components/admin/MarketContextPanel";
 
 export const Route = createFileRoute("/_authenticated/admin/intelligence")({
   head: () => ({
@@ -208,6 +210,14 @@ function AdminIntelligencePage() {
 
       <PanelBoundary name="Promotion checkpoint">
         <PromotionPanel />
+      </PanelBoundary>
+
+      <PanelBoundary name="Market context">
+        <MarketContextPanel />
+      </PanelBoundary>
+
+      <PanelBoundary name="Economic events">
+        <NewsPanel />
       </PanelBoundary>
 
       <PanelBoundary name="Headline stats">

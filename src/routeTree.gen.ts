@@ -32,6 +32,7 @@ import { Route as ApiPublicQuotesRouteImport } from './routes/api/public/quotes'
 import { Route as ApiPublicAgentRegisterRouteImport } from './routes/api/public/agent/register'
 import { Route as ApiPublicCronCommissionReadinessRouteImport } from './routes/api/public/cron/commission-readiness'
 import { Route as ApiPublicCronExpireOrdersRouteImport } from './routes/api/public/cron/expire-orders'
+import { Route as ApiPublicCronIngestMarketContextRouteImport } from './routes/api/public/cron/ingest-market-context'
 import { Route as ApiPublicCronIngestNewsRouteImport } from './routes/api/public/cron/ingest-news'
 import { Route as ApiPublicCronInstrumentReadinessRouteImport } from './routes/api/public/cron/instrument-readiness'
 import { Route as ApiPublicCronPurgeAccountsRouteImport } from './routes/api/public/cron/purge-accounts'
@@ -174,6 +175,12 @@ const ApiPublicCronExpireOrdersRoute =
   ApiPublicCronExpireOrdersRouteImport.update({
     id: '/api/public/cron/expire-orders',
     path: '/api/public/cron/expire-orders',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicCronIngestMarketContextRoute =
+  ApiPublicCronIngestMarketContextRouteImport.update({
+    id: '/api/public/cron/ingest-market-context',
+    path: '/api/public/cron/ingest-market-context',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiPublicCronIngestNewsRoute = ApiPublicCronIngestNewsRouteImport.update({
@@ -325,6 +332,7 @@ export interface FileRoutesByFullPath {
   '/api/public/agent/register': typeof ApiPublicAgentRegisterRoute
   '/api/public/cron/commission-readiness': typeof ApiPublicCronCommissionReadinessRoute
   '/api/public/cron/expire-orders': typeof ApiPublicCronExpireOrdersRoute
+  '/api/public/cron/ingest-market-context': typeof ApiPublicCronIngestMarketContextRoute
   '/api/public/cron/ingest-news': typeof ApiPublicCronIngestNewsRoute
   '/api/public/cron/instrument-readiness': typeof ApiPublicCronInstrumentReadinessRoute
   '/api/public/cron/purge-accounts': typeof ApiPublicCronPurgeAccountsRoute
@@ -371,6 +379,7 @@ export interface FileRoutesByTo {
   '/api/public/agent/register': typeof ApiPublicAgentRegisterRoute
   '/api/public/cron/commission-readiness': typeof ApiPublicCronCommissionReadinessRoute
   '/api/public/cron/expire-orders': typeof ApiPublicCronExpireOrdersRoute
+  '/api/public/cron/ingest-market-context': typeof ApiPublicCronIngestMarketContextRoute
   '/api/public/cron/ingest-news': typeof ApiPublicCronIngestNewsRoute
   '/api/public/cron/instrument-readiness': typeof ApiPublicCronInstrumentReadinessRoute
   '/api/public/cron/purge-accounts': typeof ApiPublicCronPurgeAccountsRoute
@@ -419,6 +428,7 @@ export interface FileRoutesById {
   '/api/public/agent/register': typeof ApiPublicAgentRegisterRoute
   '/api/public/cron/commission-readiness': typeof ApiPublicCronCommissionReadinessRoute
   '/api/public/cron/expire-orders': typeof ApiPublicCronExpireOrdersRoute
+  '/api/public/cron/ingest-market-context': typeof ApiPublicCronIngestMarketContextRoute
   '/api/public/cron/ingest-news': typeof ApiPublicCronIngestNewsRoute
   '/api/public/cron/instrument-readiness': typeof ApiPublicCronInstrumentReadinessRoute
   '/api/public/cron/purge-accounts': typeof ApiPublicCronPurgeAccountsRoute
@@ -467,6 +477,7 @@ export interface FileRouteTypes {
     | '/api/public/agent/register'
     | '/api/public/cron/commission-readiness'
     | '/api/public/cron/expire-orders'
+    | '/api/public/cron/ingest-market-context'
     | '/api/public/cron/ingest-news'
     | '/api/public/cron/instrument-readiness'
     | '/api/public/cron/purge-accounts'
@@ -513,6 +524,7 @@ export interface FileRouteTypes {
     | '/api/public/agent/register'
     | '/api/public/cron/commission-readiness'
     | '/api/public/cron/expire-orders'
+    | '/api/public/cron/ingest-market-context'
     | '/api/public/cron/ingest-news'
     | '/api/public/cron/instrument-readiness'
     | '/api/public/cron/purge-accounts'
@@ -560,6 +572,7 @@ export interface FileRouteTypes {
     | '/api/public/agent/register'
     | '/api/public/cron/commission-readiness'
     | '/api/public/cron/expire-orders'
+    | '/api/public/cron/ingest-market-context'
     | '/api/public/cron/ingest-news'
     | '/api/public/cron/instrument-readiness'
     | '/api/public/cron/purge-accounts'
@@ -600,6 +613,7 @@ export interface RootRouteChildren {
   ApiPublicAgentRegisterRoute: typeof ApiPublicAgentRegisterRoute
   ApiPublicCronCommissionReadinessRoute: typeof ApiPublicCronCommissionReadinessRoute
   ApiPublicCronExpireOrdersRoute: typeof ApiPublicCronExpireOrdersRoute
+  ApiPublicCronIngestMarketContextRoute: typeof ApiPublicCronIngestMarketContextRoute
   ApiPublicCronIngestNewsRoute: typeof ApiPublicCronIngestNewsRoute
   ApiPublicCronInstrumentReadinessRoute: typeof ApiPublicCronInstrumentReadinessRoute
   ApiPublicCronPurgeAccountsRoute: typeof ApiPublicCronPurgeAccountsRoute
@@ -785,6 +799,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/cron/expire-orders'
       fullPath: '/api/public/cron/expire-orders'
       preLoaderRoute: typeof ApiPublicCronExpireOrdersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/cron/ingest-market-context': {
+      id: '/api/public/cron/ingest-market-context'
+      path: '/api/public/cron/ingest-market-context'
+      fullPath: '/api/public/cron/ingest-market-context'
+      preLoaderRoute: typeof ApiPublicCronIngestMarketContextRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/cron/ingest-news': {
@@ -998,6 +1019,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicAgentRegisterRoute: ApiPublicAgentRegisterRoute,
   ApiPublicCronCommissionReadinessRoute: ApiPublicCronCommissionReadinessRoute,
   ApiPublicCronExpireOrdersRoute: ApiPublicCronExpireOrdersRoute,
+  ApiPublicCronIngestMarketContextRoute: ApiPublicCronIngestMarketContextRoute,
   ApiPublicCronIngestNewsRoute: ApiPublicCronIngestNewsRoute,
   ApiPublicCronInstrumentReadinessRoute: ApiPublicCronInstrumentReadinessRoute,
   ApiPublicCronPurgeAccountsRoute: ApiPublicCronPurgeAccountsRoute,
