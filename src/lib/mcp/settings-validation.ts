@@ -11,8 +11,29 @@ import {
   isExecutionPolicy,
   isExitSharePreset,
 } from "@/lib/delivery/execution";
+import { REGISTRY_SYMBOLS } from "@/lib/instruments/registry";
+import {
+  ADAPTIVE_CEILING_FLOOR_DEFAULT,
+  ADAPTIVE_CEILING_MAX_DEFAULT,
+  AUTO_ORDER_WINDOW_MAX_MINUTES,
+  CONCURRENT_ORDER_CEILING_MAX,
+  DAILY_ORDER_CEILING_MAX,
+  PER_SYMBOL_ORDER_CEILING_MAX,
+} from "@/lib/db-types";
+import {
+  SAME_BET_COOLDOWN_CHOICES,
+  SAME_BET_LIMIT_MAX,
+  SAME_BET_LIMIT_MIN,
+} from "@/lib/delivery/correlated-cluster";
 
-export const INSTRUMENT_CHOICES = ["XAUUSD", "GBPAUD", "EURUSD"] as const;
+/**
+ * The instruments an agent may select, derived from THE instrument definition
+ * authority rather than restated here. The old hardcoded trio silently drifted
+ * behind the registry, so an agent was told a live pair was an unknown value.
+ * Selecting an instrument that has not been promoted yet is legal but simply
+ * never produces setups — lifecycle stage decides that, not this validator.
+ */
+export const INSTRUMENT_CHOICES: readonly string[] = REGISTRY_SYMBOLS;
 export const TIMEFRAME_CHOICES = ["H4", "H1", "M15"] as const;
 export const SESSION_CHOICES = [
   "sydney",
