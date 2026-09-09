@@ -119,6 +119,7 @@ export type Database = {
       account_risk_state: {
         Row: {
           account_id: string
+          cancelled_matching_orders: number
           closed_sample: number
           computed_at: string
           consecutive_losses: number | null
@@ -139,6 +140,7 @@ export type Database = {
           realized_currency: string | null
           resume_after: string | null
           resume_boundary: string | null
+          unconfirmed_matching_orders: number
           unmeasured_reason: string | null
           updated_at: string
           user_id: string
@@ -147,6 +149,7 @@ export type Database = {
         }
         Insert: {
           account_id: string
+          cancelled_matching_orders?: number
           closed_sample?: number
           computed_at?: string
           consecutive_losses?: number | null
@@ -167,6 +170,7 @@ export type Database = {
           realized_currency?: string | null
           resume_after?: string | null
           resume_boundary?: string | null
+          unconfirmed_matching_orders?: number
           unmeasured_reason?: string | null
           updated_at?: string
           user_id: string
@@ -175,6 +179,7 @@ export type Database = {
         }
         Update: {
           account_id?: string
+          cancelled_matching_orders?: number
           closed_sample?: number
           computed_at?: string
           consecutive_losses?: number | null
@@ -195,6 +200,7 @@ export type Database = {
           realized_currency?: string | null
           resume_after?: string | null
           resume_boundary?: string | null
+          unconfirmed_matching_orders?: number
           unmeasured_reason?: string | null
           updated_at?: string
           user_id?: string
@@ -4407,6 +4413,7 @@ export type Database = {
           auto_intel_min_win_pct: number | null
           auto_market_entry_enabled: boolean
           auto_order_window_minutes: number
+          cancel_matching_on_pause: boolean
           consecutive_loss_limit: number
           consecutive_loss_pause_hours: number | null
           created_at: string
@@ -4473,6 +4480,7 @@ export type Database = {
           auto_intel_min_win_pct?: number | null
           auto_market_entry_enabled?: boolean
           auto_order_window_minutes?: number
+          cancel_matching_on_pause?: boolean
           consecutive_loss_limit?: number
           consecutive_loss_pause_hours?: number | null
           created_at?: string
@@ -4539,6 +4547,7 @@ export type Database = {
           auto_intel_min_win_pct?: number | null
           auto_market_entry_enabled?: boolean
           auto_order_window_minutes?: number
+          cancel_matching_on_pause?: boolean
           consecutive_loss_limit?: number
           consecutive_loss_pause_hours?: number | null
           created_at?: string
