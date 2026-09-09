@@ -1,97 +1,102 @@
-# News awareness: make it honest, visible and measured
+# Replace FRED with a scraped, AI-read economic calendar
 
-Your choices: free official sources only, news never blocks an order, and event
-context feeds the learning engine.
+Answering your questions first:
 
-MetaApi does not answer this. Its API is prices, ticks, symbol specs, order
-execution and account management — there is no calendar or news endpoint in it,
-and its other products (CopyFactory, MetaStats) do not carry one either. So no,
-we cannot get news from the connection we already pay for; a calendar always
-comes from a separate source. Free official sources only have dates, which is
-why the plan below keeps news as a warning, never a blocker.
+- **MetaApi cannot help.** Its API is prices, ticks, symbol specifications, orders
+  and account management. There is no calendar or news endpoint anywhere in it, and
+  its other products (CopyFactory, MetaStats) do not carry one. A calendar always
+  comes from a separate source.
+- **FRED is being removed.** It only knows US release *dates* — no clock time — and
+  covers none of the EUR, GBP, JPY, AUD, CAD, CHF or energy risk your instruments
+  actually trade on. It has not refreshed since 25 August and has never changed a
+  single decision.
+- **Yes, we can scrape with AI, with tools we already have.** Firecrawl (a scraping
+  service available as a connector) fetches the public calendar page; Lovable AI
+  reads it into structured events. No new vendor contract, no licence fee beyond
+  Firecrawl's own usage.
 
-That combination is coherent, and it fixes the real problem. Today the news layer
-is invisible and inert; nobody can see it, and five accounts have a blocking
-switch on that has never once refused anything. After this work news becomes a
-labelled warning you can see everywhere, plus a fact recorded on every setup so
-the replay engine can eventually tell you whether event days actually trade worse
-— instead of a convention we assert.
+Your earlier choices still hold: news **warns, never blocks**, and the event context
+is recorded on every setup so the learning engine can measure it.
 
-## What the audit found (verified against live data)
+## 1. Remove FRED
 
-- The calendar last refreshed on 25 August. There is no scheduled news job at
-  all, and only 4 fetch attempts have ever happened.
-- 46 events held, **none with a release time** — dates only. Coverage for XAUUSD,
-  GBPAUD and EURUSD reads `unsupported`.
-- The news check runs on every automatic order (16,404 evaluations, the latest
-  minutes ago) and every one ends "would suppress, not enforced". Zero orders have
-  ever been refused for news.
-- Nothing about news appears on a signal card, in Settings, in Admin, or in the
-  assistant tools. The Admin reader `get_admin_news` exists but no screen uses it,
-  and `docs/NEWS-AND-EVENTS.md` still claims that panel is there.
+- Delete the FRED provider, its cron job branch and its release map. Retire the
+  `FRED_API_KEY` secret.
+- Keep every news table, the provider-neutral interface, the coverage model and the
+  ledger. Existing FRED rows are marked as coming from a retired provider rather
+  than deleted, so history stays honest.
 
-## 1. Repair the feed (it must actually refresh)
+## 2. New provider: scrape + AI read
 
-- Schedule `/api/public/cron/ingest-news` on pg_cron, twice daily, with the
-  existing cron secret. Every attempt keeps writing its ledger row, so "we tried
-  and were refused" stays visible.
-- Purge job `purge_news_data()` gets scheduled alongside it.
-- Nothing about precision changes: a date-only schedule stays date-only. No
-  conventional release time is ever invented.
+A single new provider behind the same interface, run on a schedule:
 
-## 2. Make news visible — warn only, never block
+1. **Fetch** the public economic-calendar page for a date range with Firecrawl, as
+   clean text.
+2. **Read** that text with Lovable AI into a strict list of events: date, time and
+   stated timezone, currency, impact, event name, forecast and previous where the
+   page shows them.
+3. **Verify before storing** — this is the part that keeps the zero-fabrication rule
+   intact:
+   - every event must be traceable to a line of the fetched page; anything the
+     model produces that is not found in the source text is discarded, not stored;
+   - dates and times must parse, be inside the requested window, and carry an
+     explicit timezone, or the event is stored as date-only;
+   - the run is rejected wholesale if the page did not load, the layout changed, or
+     the extraction returns implausibly few or many events. A failed run writes its
+     ledger row and produces no events — never a "clear calendar".
+4. **Store** with provenance stamped as scraped-and-model-read, per field. Coverage
+   per currency and family is computed from what actually arrived, so the currencies
+   the page really covers become covered and the rest stay visibly uncovered.
 
-- **Signal card and feed:** a plain marker on setups whose instrument has a
-  scheduled release **on that calendar day**, naming the event and stating the
-  time is unknown. Worded as "scheduled risk today", never as a forecast.
+Because these pages publish a clock time, events can finally carry an exact time —
+which is what makes the whole layer meaningful.
+
+Honest caveats stated in the app and the docs: a scraped page is a third-party,
+unlicensed source that can change layout or block us, so its events are labelled
+"scraped, not an official source", and a scrape failure never silently degrades into
+"nothing scheduled". You will need to approve the Firecrawl connection once.
+
+## 3. Make news visible — warn only
+
+- **Signal card and feed:** a marker on setups whose instrument has a release
+  inside a window around the setup, naming the event, its currency, impact and
+  time, and labelled as a scraped source.
 - **Alerts (push and email):** the same one-line marker when present.
-- **Settings:** the blocking control is retired from the screen and replaced by an
-  honest statement that news is informational because no free official source
-  publishes exact release times. The database columns stay for compatibility, and
-  the gate is pinned so it can never enforce.
+- **Settings:** the dead blocking control is replaced by an honest statement that
+  news is informational. The gate stays pinned so it can never refuse an order.
 - **Admin → Intelligence:** re-instate the economic-events panel on the existing
-  `get_admin_news` reader — provider runs, coverage per scope, stored events with
-  their precision inline, and last refresh time.
-- **Assistant (MCP):** a `get_news_context` read tool returning held events and
-  coverage for an instrument, explicitly stating that unknown coverage is not
-  clearance and that news never blocks.
+  `get_admin_news` reader — last scrape, what parsed, what was discarded and why,
+  coverage per currency, and the stored events with their precision inline.
+- **Assistant (MCP):** a `get_news_context` read tool, stating plainly that news
+  never blocks and that unknown coverage is not clearance.
 
-## 3. Feed the learning engine
+## 4. Feed the learning engine
 
-- At publication, stamp each setup with the event context we actually hold: was
-  there a release scheduled that day for its currencies and families, which event
-  families, and the coverage state at that moment. Mirrored onto research
-  candidates so rejected structures carry it too.
-- A new Admin comparison — resolved replay outcomes on event days versus other
-  days, per instrument, with sample sizes and the same statistical floors the
-  other panels use. Under the floor it says "not yet measurable" rather than
-  showing a number.
-- This is descriptive in-sample measurement, not a forecast, and it changes no
-  gate. If it ever shows a real effect, tightening a gate becomes a separate,
-  evidenced decision.
-
-## What this does not do
-
-- No commercial or scraped calendar, so **no timed blackout window is possible**
-  and news cannot hold an order. That is the direct consequence of the free-source
-  choice, and the copy says so plainly rather than implying protection.
-- Non-USD releases (EUR, GBP, JPY, AUD, CAD, CHF), energy inventories, OPEC and
-  index earnings remain uncovered and are labelled uncovered, never clear.
-- Nothing already at your broker is ever touched.
+- Stamp each published setup and research candidate with the event context held at
+  that moment: whether a release fell in its window, which currencies and families,
+  the minutes to the event, and the coverage state.
+- New Admin comparison: resolved replay outcomes with a news event nearby versus
+  without, per instrument, with the same sample floors as the other panels. Below
+  the floor it says "not yet measurable" instead of showing a number.
+- Descriptive in-sample measurement only. It changes no gate. If it ever shows a
+  real effect, turning news into a blocker becomes a separate, evidenced decision —
+  and by then the data will support it.
 
 ## Technical notes
 
-- Migration: pg_cron entries for news ingestion and purge; event-context columns
-  on `scanned_signals` and `research_candidates`; a stats function and reader for
-  the event-day comparison, service-role only with an admin RPC.
-- `src/lib/news/gate.server.ts` keeps evaluating and recording to
-  `news_policy_evaluations`, with enforcement pinned off; `news_blackout` stays in
-  the refusal vocabulary unused rather than being deleted.
-- New: a shared day-level context helper reused by the scanner stamp, the signal
-  card, alerts and the MCP tool, so one definition serves all four.
-- `[INVARIANT]` tests: a date-only event never opens a timed window; the gate never
-  enforces; an unreadable news table produces no marker and no "clear" claim; a
-  day marker never appears without a held event; the event-day comparison refuses
-  to report under its sample floor.
-- Docs: `docs/NEWS-AND-EVENTS.md` corrected (panel, schedule, warn-only status) and
-  `docs/MCP.md` gains the new tool.
+- Firecrawl connector linked to the project; scraping and AI extraction run
+  server-side only, inside a cron handler, keys never reaching the browser.
+- Extraction uses the AI SDK with a small flat schema and a source-line check on
+  every field; the model is a reader, never a source. Long calls stream.
+- Migration: pg_cron entries for the new ingestion and for `purge_news_data()`;
+  event-context columns on `scanned_signals` and `research_candidates`; the
+  event-day comparison function plus an admin RPC, service-role only.
+- Removal: `src/lib/news/providers/fred.server.ts` and its tests; the cron route
+  loses the FRED branch. `src/lib/news/gate.server.ts` keeps recording verdicts with
+  enforcement pinned off; `news_blackout` stays in the vocabulary unused.
+- `[INVARIANT]` tests: an event not present in the fetched source text is never
+  stored; a failed or blocked scrape yields no events and no healthy coverage; a
+  date-only event never claims a time; the gate never enforces; a marker never
+  appears without a held event; the comparison refuses to report under its floor.
+- Docs: `docs/NEWS-AND-EVENTS.md` rewritten for the scraped source, warn-only status
+  and its limits; `docs/MCP.md` gains the new tool.
