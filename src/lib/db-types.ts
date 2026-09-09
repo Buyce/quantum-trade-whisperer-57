@@ -297,6 +297,14 @@ export interface ScannerSettingsRow {
   /** Equity drop from the highest OBSERVED equity, in percent. 0 disables. */
   max_drawdown_percent: number;
   /**
+   * Correlated-cluster brake. `max_same_bet_orders` (1-3, default 1) is how many
+   * unresolved automatic orders may be live on the same instrument in the same
+   * direction; `same_bet_cooldown_minutes` (0, 30, 60 or 120) is how long new
+   * orders on that bet are refused after a broker-confirmed loss there.
+   */
+  max_same_bet_orders: number;
+  same_bet_cooldown_minutes: number;
+  /**
    * Fail-closed news protection for new automatic entries. When true, an incomplete
    * or active high-impact news window suppresses the order.
    */
