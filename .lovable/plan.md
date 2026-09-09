@@ -1,108 +1,103 @@
-# Replace FRED with a scraped, AI-read economic calendar
+# Market intelligence: what rivals feed their engines, and what we should
 
-Answering your questions first:
+Researched with sources. Answering your questions first:
 
-- **MetaApi cannot help.** Its API is prices, ticks, symbol specifications, orders
-  and account management. There is no calendar or news endpoint anywhere in it, and
-  its other products (CopyFactory, MetaStats) do not carry one. A calendar always
-  comes from a separate source.
-- **FRED is being removed.** It only knows US release *dates* — no clock time — and
-  covers none of the EUR, GBP, JPY, AUD, CAD, CHF or energy risk your instruments
-  actually trade on. It has not refreshed since 25 August and has never changed a
-  single decision.
-- **Yes, we can scrape with AI, with tools we already have.** Firecrawl (a scraping
-  service available as a connector) fetches the public calendar page; Lovable AI
-  reads it into structured events. No new vendor contract, no licence fee beyond
-  Firecrawl's own usage.
-- **On "just use ChatGPT":** Lovable AI already gives us OpenAI's strongest models —
-  the same vendor — so there is no better brain to rent elsewhere. But a model alone
-  answers from memory, and a confident wrong release date is worse than none. That
-  is why the design below is never "ask the AI what the calendar says"; it is
-  "fetch the real page, let the AI read it, and store only what is found
-  word-for-word in that page". The model is the reader, never the source.
+- **MetaApi has no news or calendar.** It serves prices, ticks, symbol specs, orders
+  and accounts — nothing else. But it *does* already give us tick-level bid/ask, so
+  spread, tick volume and session liquidity are ours for free
+  ([tick API](https://metaapi.cloud/docs/client/restApi/api/retrieveMarketData/readHistoricalTicks/)).
+- **"Just ask ChatGPT" is the one thing we must not do.** We already have OpenAI's
+  strongest models through Lovable AI, so there is no better brain to rent. But a
+  model asked for "next week's CPI" answers from memory, and a confident wrong
+  release time is worse than none. An AI may **read** a fetched source; it may never
+  **be** the source.
+- **FRED goes as a calendar, stays as a data feed.** It cannot give release times, so
+  it is useless for news. It *is* the best free source for yields, rates and macro
+  series ([FRED API](https://fred.stlouisfed.org/docs/api/fred/)) — which the
+  intermarket work below needs.
 
-Your earlier choices still hold: news **warns, never blocks**, and the event context
-is recorded on every setup so the learning engine can measure it.
+## What competitors actually use, and what it is worth
 
-## 1. Remove FRED
+| Data | What it costs us | Real edge for our scanner |
+| --- | --- | --- |
+| Economic calendar with exact times | Paid feed, ~subscription ([Trading Economics](https://tradingeconomics.com/api/calendar.aspx), [Finnhub](https://finnhub.io/pricing-economic-data-api)) | **High.** The only way news can ever gate an order. |
+| Intermarket: dollar index, US yields, gold, oil, indices | Free ([FRED](https://fred.stlouisfed.org/series/dgs10)) | **High.** Best-evidenced cheap directional filter in FX. |
+| Broker microstructure: spread, tick volume, session liquidity | Free, already in MetaApi | **High.** We already sample spread; extend it. |
+| Session and time-of-day statistics | Free, our own history ([JoF 2024](https://onlinelibrary.wiley.com/doi/10.1111/jofi.13306)) | **High.** Strongest evidence, zero cost. |
+| Positioning: CFTC Commitments of Traders | Free US government REST ([CFTC](https://publicreporting.cftc.gov/stories/s/Commitments-of-Traders/r4w3-av2u/)) | **Moderate.** Weekly and lagged — a slow bias filter, never a trigger. |
+| Retail long/short sentiment (IG, Myfxbook) | Account-tied or paid; Myfxbook says historical isn't available by API | **Low/awkward.** Popular in marketing, hard to automate honestly. |
+| Volatility regime (VIX) | Free CSV from CBOE | **Moderate.** Useful risk-on/off regime tag. |
+| FX implied vol / risk reversals | Paid only, no clean free source | **Speculative.** Vendor-marketed; no public evidence of intraday edge. |
+| News sentiment scoring | Free low tiers ([Marketaux](https://www.marketaux.com/pricing)) | **Unproven intraday.** Evidence sits at daily/macro horizons. |
+| Scraped calendars (Forex Factory, Investing.com) | "Free" but against their terms, fragile | **Avoid as the primary.** Fallback only. |
 
-- Delete the FRED provider, its cron job branch and its release map. Retire the
-  `FRED_API_KEY` secret.
-- Keep every news table, the provider-neutral interface, the coverage model and the
-  ledger. Existing FRED rows are marked as coming from a retired provider rather
-  than deleted, so history stays honest.
+Blunt conclusion: the biggest wins are cheap or free and we are not using them. The
+expensive, heavily-marketed feeds (options skew, sentiment scores) are the ones with
+the weakest evidence.
 
-## 2. New provider: scrape + AI read
+## The plan
 
-A single new provider behind the same interface, run on a schedule:
+### Phase 1 — Stop the dishonesty (no new vendor)
 
-1. **Fetch** the public economic-calendar page for a date range with Firecrawl, as
-   clean text.
-2. **Read** that text with Lovable AI into a strict list of events: date, time and
-   stated timezone, currency, impact, event name, forecast and previous where the
-   page shows them.
-3. **Verify before storing** — this is the part that keeps the zero-fabrication rule
-   intact:
-   - every event must be traceable to a line of the fetched page; anything the
-     model produces that is not found in the source text is discarded, not stored;
-   - dates and times must parse, be inside the requested window, and carry an
-     explicit timezone, or the event is stored as date-only;
-   - the run is rejected wholesale if the page did not load, the layout changed, or
-     the extraction returns implausibly few or many events. A failed run writes its
-     ledger row and produces no events — never a "clear calendar".
-4. **Store** with provenance stamped as scraped-and-model-read, per field. Coverage
-   per currency and family is computed from what actually arrived, so the currencies
-   the page really covers become covered and the rest stay visibly uncovered.
+- Remove FRED as a news provider: delete the provider and its cron branch, retire
+  `FRED_API_KEY`. Keep every news table, the ledger and the coverage model; existing
+  rows are marked as coming from a retired provider, not deleted.
+- Pin the news gate so it cannot refuse an order, and replace the dead blocking
+  control in Settings with an honest statement. Five accounts currently have a switch
+  on that does nothing.
+- Re-instate the **Economic events** panel in Admin on the existing `get_admin_news`
+  reader, showing last fetch, coverage per currency, and what was discarded and why.
 
-Because these pages publish a clock time, events can finally carry an exact time —
-which is what makes the whole layer meaningful.
+### Phase 2 — Intermarket context (free, highest value per hour)
 
-Honest caveats stated in the app and the docs: a scraped page is a third-party,
-unlicensed source that can change layout or block us, so its events are labelled
-"scraped, not an official source", and a scrape failure never silently degrades into
-"nothing scheduled". You will need to approve the Firecrawl connection once.
+- New `market_context_series`: daily dollar-index proxy, US 2y/10y yields, gold, oil,
+  a VIX regime tag — pulled from FRED and CBOE on a schedule, each value stamped with
+  its source and observation date. A failed pull writes its ledger row and stores
+  nothing; it never becomes a neutral reading.
+- Stamp every published setup and research candidate with the context held at that
+  moment: yield direction, dollar direction, whether the setup agrees with it, and the
+  volatility regime.
+- Admin comparison: resolved replay outcomes with the context aligned versus against,
+  per instrument, with the same sample floors as the other panels. Below the floor it
+  says "not yet measurable" instead of a number.
 
-## 3. Make news visible — warn only
+### Phase 3 — Positioning and session structure (free)
 
-- **Signal card and feed:** a marker on setups whose instrument has a release
-  inside a window around the setup, naming the event, its currency, impact and
-  time, and labelled as a scraped source.
-- **Alerts (push and email):** the same one-line marker when present.
-- **Settings:** the dead blocking control is replaced by an honest statement that
-  news is informational. The gate stays pinned so it can never refuse an order.
-- **Admin → Intelligence:** re-instate the economic-events panel on the existing
-  `get_admin_news` reader — last scrape, what parsed, what was discarded and why,
-  coverage per currency, and the stored events with their precision inline.
-- **Assistant (MCP):** a `get_news_context` read tool, stating plainly that news
-  never blocks and that unknown coverage is not clearance.
+- Weekly CFTC positioning per currency, stored with its report date so its staleness
+  is always visible, and stamped on setups as a slow bias tag.
+- Extend the spread sampler we already run into a session-liquidity profile per
+  instrument (spread and tick activity by hour), and stamp each setup with its
+  session bucket and the spread percentile at capture.
 
-## 4. Feed the learning engine
+### Phase 4 — A real calendar, once the above proves out
 
-- Stamp each published setup and research candidate with the event context held at
-  that moment: whether a release fell in its window, which currencies and families,
-  the minutes to the event, and the coverage state.
-- New Admin comparison: resolved replay outcomes with a news event nearby versus
-  without, per instrument, with the same sample floors as the other panels. Below
-  the floor it says "not yet measurable" instead of showing a number.
-- Descriptive in-sample measurement only. It changes no gate. If it ever shows a
-  real effect, turning news into a blocker becomes a separate, evidenced decision —
-  and by then the data will support it.
+- A licensed calendar with exact release times, forecasts and impact, behind the
+  existing provider-neutral interface. You approve the subscription; we keep the
+  adapter swappable.
+- Until then, an optional fetched-and-AI-read fallback: fetch a public calendar page,
+  let the AI extract events, and store only events found word-for-word in the fetched
+  text — anything else is discarded, a failed fetch stores nothing, and every event is
+  labelled as a scraped, unofficial source.
+- Only when exact times exist does news blocking become possible. Per your choice it
+  still stays **warn only** until our own comparison shows an effect worth blocking on.
+
+Across all phases: news and context **warn, never block**, and every new field is
+recorded on setups so the learning engine can measure it. No gate changes without
+evidence from our own resolved outcomes.
 
 ## Technical notes
 
-- Firecrawl connector linked to the project; scraping and AI extraction run
-  server-side only, inside a cron handler, keys never reaching the browser.
-- Extraction uses the AI SDK with a small flat schema and a source-line check on
-  every field; the model is a reader, never a source. Long calls stream.
-- Migration: pg_cron entries for the new ingestion and for `purge_news_data()`;
-  event-context columns on `scanned_signals` and `research_candidates`; the
-  event-day comparison function plus an admin RPC, service-role only.
-- Removal: `src/lib/news/providers/fred.server.ts` and its tests; the cron route
-  loses the FRED branch. `src/lib/news/gate.server.ts` keeps recording verdicts with
-  enforcement pinned off; `news_blackout` stays in the vocabulary unused.
-- `[INVARIANT]` tests: an event not present in the fetched source text is never
-  stored; a failed or blocked scrape yields no events and no healthy coverage; a
-  date-only event never claims a time; the gate never enforces; a marker never
-  appears without a held event; the comparison refuses to report under its floor.
-- Docs: `docs/NEWS-AND-EVENTS.md` rewritten for the scraped source, warn-only status
-  and its limits; `docs/MCP.md` gains the new tool.
+- Migration: `market_context_series` and `positioning_snapshots` (service-role only,
+  admin RPC reads); context columns on `scanned_signals` and `research_candidates`;
+  pg_cron entries for the new pulls and for `purge_news_data()`.
+- New providers live behind the existing `EconomicEventProvider`-style contract in
+  `src/lib/news/`, so coverage, ledger and revision handling are reused, not rebuilt.
+- Remove `src/lib/news/providers/fred.server.ts` and its FRED tests; `gate.server.ts`
+  keeps recording verdicts with enforcement pinned off, `news_blackout` stays unused.
+- `[INVARIANT]` tests: a failed pull stores no value and no healthy coverage; an
+  AI-extracted event absent from the fetched text is never stored; a date-only event
+  never claims a time; the gate never enforces; stale positioning always reports its
+  report date; every comparison refuses to report under its sample floor.
+- Docs: `docs/NEWS-AND-EVENTS.md` rewritten; a new `docs/MARKET-CONTEXT.md` for the
+  intermarket, positioning and session layers; `docs/MCP.md` gains a
+  `get_news_context` read tool.
