@@ -227,7 +227,8 @@ export async function evaluateAccountBrakes(
 
   for (const account of accounts) {
     const limits = limitsByAccount.get(account.id);
-    if (!limits) continue;
+    const settings = settingsByUser.get(account.user_id);
+    if (!limits || !settings) continue;
 
     const totals = unreadableAccounts.has(account.id)
       ? null
