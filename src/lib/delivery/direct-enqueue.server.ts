@@ -317,14 +317,16 @@ export async function occupiedOrderCounts(
 
 /**
  * Every automatic order this owner already holds that is NOT resolved: queued,
- * in flight, or accepted and resting at the broker. Terminal rows (refused,
- * failed, expired, filled and reconciled) are excluded, so a cleared setup never
- * blocks a fresh attempt.
+ * in flight, awaiting human confirmation, or accepted and resting at the broker.
+ * Terminal rows (refused, failed, expired, filled and reconciled) are excluded, so
+ * a cleared setup never blocks a fresh attempt.
  *
  * The plan behind each row comes from its own signal snapshot, with the submitted
  * (grid-snapped) entry preferred when dispatch already recorded one, because that
  * is the price actually resting at the broker.
  */
+const HELD_STATES = [...OCCUPYING_STATES, "awaiting_confirmation"] as const;
+
 export async function heldOrdersByUser(
   db: SupabaseClient,
   userIds: string[],
