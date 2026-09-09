@@ -5,6 +5,14 @@ the wider market doing when this setup was published?** It is recorded so its
 effect can be measured. It changes nothing today — no order is held, resized,
 reordered or refused because of it.
 
+## Provenance
+
+Every value here comes from the named official source below and is stored with
+that source, the observation date the source itself published, and the fetch
+attempt that retrieved it. Nothing is derived from an estimate, a proxy or a
+model. The derivation rules are pure and covered by tests in
+`src/lib/context/__tests__/derive.test.ts`.
+
 ## Sources
 
 | Source                    | Series                                                          | Cadence                      | Access                    |
