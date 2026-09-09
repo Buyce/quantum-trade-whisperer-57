@@ -341,7 +341,7 @@ export async function heldOrdersByUser(
       "id, user_id, signal_id, submitted_entry, published_entry, broker_order_state, submitted_at, client_id, broker_order_id, signal:scanned_signals(instrument, direction, entry_price)",
     )
     .in("user_id", userIds)
-    .in("state", OCCUPYING_STATES as unknown as string[])
+    .in("state", HELD_STATES as unknown as string[])
     .neq("dry_run", true)
     .gte("enqueued_at", since);
   if (error) {
