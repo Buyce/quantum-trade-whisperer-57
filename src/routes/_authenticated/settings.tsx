@@ -180,6 +180,7 @@ function SettingsPage() {
   // "day" = pause until the next UTC midnight (the default); "3"/"5" = a fixed window.
   const [consecutiveLossPauseHours, setConsecutiveLossPauseHours] = useState("day");
   const [maxDrawdownPercent, setMaxDrawdownPercent] = useState("0");
+  const [cancelMatchingOnPause, setCancelMatchingOnPause] = useState(false);
 
   const [saving, setSaving] = useState(false);
   const triggerScan = useServerFn(runScanNow);
