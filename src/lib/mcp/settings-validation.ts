@@ -83,6 +83,39 @@ export interface SettingsInput {
    */
   auto_exit_shares?: string | undefined;
   auto_exit_trail_runner?: boolean | undefined;
+
+  // ---- Automatic-order rules (throughput, not permission) ----
+  maximum_concurrent_signal_orders?: number | undefined;
+  maximum_daily_signal_orders?: number | undefined;
+  maximum_daily_orders_per_symbol?: number | undefined;
+  auto_order_window_minutes?: number | undefined;
+  adaptive_order_ceilings_enabled?: boolean | undefined;
+  adaptive_order_ceiling_max?: number | undefined;
+  adaptive_order_ceiling_floor?: number | undefined;
+  auto_market_entry_enabled?: boolean | undefined;
+
+  // ---- Gates (each one refuses; none of them orders anything) ----
+  auto_execute_c_grade?: boolean | undefined;
+  auto_intel_gate_enabled?: boolean | undefined;
+  auto_intel_min_win_pct?: number | undefined;
+  auto_intel_min_sample?: number | undefined;
+  auto_intel_min_expected_r?: number | undefined;
+  allow_unmeasured_intel?: boolean | undefined;
+  max_entry_spread_pips?: number | undefined;
+  max_entry_slippage_pips?: number | undefined;
+  exposure_limit_enabled?: boolean | undefined;
+  max_total_exposure_percent?: number | undefined;
+
+  // ---- Brakes, all measured from CLOSED broker trades ----
+  drawdown_brakes_enabled?: boolean | undefined;
+  daily_loss_limit_percent?: number | undefined;
+  weekly_loss_limit_percent?: number | undefined;
+  consecutive_loss_limit?: number | undefined;
+  /** null = hold until the next UTC midnight; 3 or 5 = that many hours. */
+  consecutive_loss_pause_hours?: number | null | undefined;
+  max_drawdown_percent?: number | undefined;
+  max_same_bet_orders?: number | undefined;
+  same_bet_cooldown_minutes?: number | undefined;
 }
 
 /**
@@ -94,9 +127,15 @@ export const HIGH_RISK_THRESHOLD_PERCENT = 2;
 
 /**
  * Money-moving fields. Changing any of these changes how large a real position
- * the user will take, so an agent must carry the user's explicit approval
- * (`confirm_risk_change: true`) before it may write them. Clamping and validation
- * still apply on top of the confirmation — approval is not a bypass.
+ * the user will take, or how much unresolved risk may be live at once, so an
+ * agent must carry the user's explicit approval (`confirm_risk_change: true`)
+ * before it may write them. Clamping and validation still apply on top of the
+ * confirmation — approval is not a bypass.
+ *
+ * The automatic-order rules, gates and brakes are here for the same reason as
+ * the risk profile: widening a ceiling, loosening a gate or weakening a brake
+ * changes how much real money can be at risk, even though none of them places
+ * an order by itself.
  */
 export const SENSITIVE_RISK_FIELDS = [
   "account_equity",
@@ -106,6 +145,32 @@ export const SENSITIVE_RISK_FIELDS = [
   "leverage",
   "max_stop_loss_percent",
   "risk_ack_high",
+  "maximum_concurrent_signal_orders",
+  "maximum_daily_signal_orders",
+  "maximum_daily_orders_per_symbol",
+  "auto_order_window_minutes",
+  "adaptive_order_ceilings_enabled",
+  "adaptive_order_ceiling_max",
+  "adaptive_order_ceiling_floor",
+  "auto_market_entry_enabled",
+  "auto_execute_c_grade",
+  "auto_intel_gate_enabled",
+  "auto_intel_min_win_pct",
+  "auto_intel_min_sample",
+  "auto_intel_min_expected_r",
+  "allow_unmeasured_intel",
+  "max_entry_spread_pips",
+  "max_entry_slippage_pips",
+  "exposure_limit_enabled",
+  "max_total_exposure_percent",
+  "drawdown_brakes_enabled",
+  "daily_loss_limit_percent",
+  "weekly_loss_limit_percent",
+  "consecutive_loss_limit",
+  "consecutive_loss_pause_hours",
+  "max_drawdown_percent",
+  "max_same_bet_orders",
+  "same_bet_cooldown_minutes",
 ] as const;
 
 export type SensitiveRiskField = (typeof SENSITIVE_RISK_FIELDS)[number];
