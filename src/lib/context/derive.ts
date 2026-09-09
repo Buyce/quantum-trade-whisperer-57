@@ -20,7 +20,6 @@ export const SERIES_KEYS = [
   "dollar_index",
   "us_2y_yield",
   "us_10y_yield",
-  "gold",
   "wti_oil",
   "vix",
 ] as const;

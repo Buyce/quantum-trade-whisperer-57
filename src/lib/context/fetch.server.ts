@@ -38,12 +38,15 @@ export interface ContextRunResult {
 }
 
 /** FRED series ids behind each of our keys. Fixed mapping, never inferred. */
+/**
+ * Gold is deliberately absent: FRED serves no daily USD gold series we are
+ * licensed to read, and the scanner already holds real gold prices from the
+ * broker feed. Nothing here substitutes a proxy for it.
+ */
 export const FRED_SERIES: Readonly<Record<string, { key: SeriesKey; units: string }>> = {
   DTWEXBGS: { key: "dollar_index", units: "index" },
   DGS2: { key: "us_2y_yield", units: "percent" },
   DGS10: { key: "us_10y_yield", units: "percent" },
-  // Gold: LBMA PM fix in USD, the only gold series FRED publishes daily.
-  IQ12260: { key: "gold", units: "usd" },
   DCOILWTICO: { key: "wti_oil", units: "usd" },
 };
 
