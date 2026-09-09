@@ -61,3 +61,34 @@ instrument and direction match the losses that triggered the pause:
   left alone rather than guessed at.
 - Only broker-confirmed cancellations are counted as cancelled; anything else is
   reported as unconfirmed. Both counts surface in the hold notice.
+
+## Correlated-cluster brake — how much of the same bet may be live
+
+Several separate setups on the same instrument in the same direction are not
+independent trades. On 2026-09-09 one account held seven distinct XAUUSD short
+setups at the same time; gold rose and every one of them closed at roughly -1R.
+Duplicate prevention was correct to stay silent — each order had its own planned
+entry — and the daily and per-instrument ceilings count orders per day, not
+concurrent exposure on one bet. Two customer-owned rules close that gap, both
+evaluated at enqueue and both refuse-only:
+
+- **Same bet at once** (`scanner_settings.max_same_bet_orders`) — how many
+  UNRESOLVED automatic orders may be live on the same instrument in the same
+  direction. Default `1`, raisable only to `2` or `3`; there is no "off". Raising
+  it shows an escalating warning, because N live same-bet orders risk about N×
+  the amount sized for a single trade. Counted from the same unresolved-delivery
+  ledger the concurrent ceiling already uses.
+- **Cool-off after a loss on the same bet**
+  (`scanner_settings.same_bet_cooldown_minutes`) — after a trade on that
+  instrument and direction closes at a loss at the broker, new automatic orders
+  on that bet are refused for 30, 60 (default) or 120 minutes, or never when the
+  owner switches it off (which warns). Only closed rows in
+  `broker_trade_evidence` with a readable close time and a negative net result
+  (`gross_profit + commission + swap`) start it — never an estimate, never an
+  open position.
+
+Both fail closed towards allowing the order: an unreadable instrument, direction
+or loss history is never counted and never refuses, because a refusal must rest
+on a fact actually held. Neither rule closes, moves or cancels anything already
+at the broker; refusals appear in the feed as `same_bet_limit_reached` and
+`same_bet_cooldown_active`.
