@@ -777,10 +777,22 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
       volatilityIndex,
     });
 
+    // Advisory intermarket context. Read-only and never branched on: the labels
+    // ride along on the row so outcomes with the dollar and against it can be
+    // compared later. A missing reading stays null.
+    const { readContextStamp } = await import("@/lib/context/stamp.server");
+    const contextStamp = await readContextStamp(db, {
+      instrument: profile.instrument,
+      direction: profile.direction,
+      nowMs: now.getTime(),
+    });
+
     // Signal first — market_context.signal_id is required and references it.
     const { data: inserted, error: sigError } = await db
       .from("scanned_signals")
       .insert({
+        ...contextStamp,
+
         instrument: profile.instrument,
         grade: profile.grade,
         direction: profile.direction,

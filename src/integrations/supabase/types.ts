@@ -2920,6 +2920,93 @@ export type Database = {
           },
         ]
       }
+      market_context_runs: {
+        Row: {
+          completed_at: string | null
+          error_class: string | null
+          error_note: string | null
+          id: number
+          job: string
+          request_count: number
+          response_status: number | null
+          series_requested: number
+          source: string
+          started_at: string
+          status: string
+          values_written: number
+          worker_version: string
+        }
+        Insert: {
+          completed_at?: string | null
+          error_class?: string | null
+          error_note?: string | null
+          id?: number
+          job: string
+          request_count?: number
+          response_status?: number | null
+          series_requested?: number
+          source: string
+          started_at?: string
+          status: string
+          values_written?: number
+          worker_version?: string
+        }
+        Update: {
+          completed_at?: string | null
+          error_class?: string | null
+          error_note?: string | null
+          id?: number
+          job?: string
+          request_count?: number
+          response_status?: number | null
+          series_requested?: number
+          source?: string
+          started_at?: string
+          status?: string
+          values_written?: number
+          worker_version?: string
+        }
+        Relationships: []
+      }
+      market_context_series: {
+        Row: {
+          created_at: string
+          fetched_at: string
+          id: number
+          note: string | null
+          observation_date: string
+          series_key: string
+          source: string
+          source_series_id: string | null
+          units: string | null
+          value: number
+        }
+        Insert: {
+          created_at?: string
+          fetched_at?: string
+          id?: number
+          note?: string | null
+          observation_date: string
+          series_key: string
+          source: string
+          source_series_id?: string | null
+          units?: string | null
+          value: number
+        }
+        Update: {
+          created_at?: string
+          fetched_at?: string
+          id?: number
+          note?: string | null
+          observation_date?: string
+          series_key?: string
+          source?: string
+          source_series_id?: string | null
+          units?: string | null
+          value?: number
+        }
+        Relationships: []
+      }
       market_data_slots: {
         Row: {
           acquired_at: string
@@ -3654,6 +3741,51 @@ export type Database = {
           },
         ]
       }
+      positioning_snapshots: {
+        Row: {
+          created_at: string
+          currency: string
+          fetched_at: string
+          id: number
+          long_contracts: number | null
+          net_contracts: number | null
+          net_percent: number | null
+          note: string | null
+          report_date: string
+          short_contracts: number | null
+          source: string
+          source_market_code: string | null
+        }
+        Insert: {
+          created_at?: string
+          currency: string
+          fetched_at?: string
+          id?: number
+          long_contracts?: number | null
+          net_contracts?: number | null
+          net_percent?: number | null
+          note?: string | null
+          report_date: string
+          short_contracts?: number | null
+          source: string
+          source_market_code?: string | null
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          fetched_at?: string
+          id?: number
+          long_contracts?: number | null
+          net_contracts?: number | null
+          net_percent?: number | null
+          note?: string | null
+          report_date?: string
+          short_contracts?: number | null
+          source?: string
+          source_market_code?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -3909,6 +4041,13 @@ export type Database = {
           counterfactual_class: string | null
           counterfactual_stage: string | null
           created_at: string
+          ctx_alignment: string | null
+          ctx_dollar_direction: string | null
+          ctx_observed_at: string | null
+          ctx_positioning_bias: string | null
+          ctx_positioning_report_date: string | null
+          ctx_vol_regime: string | null
+          ctx_yield_direction: string | null
           detected_at: string
           direction: string | null
           enrolled_at: string | null
@@ -3969,6 +4108,13 @@ export type Database = {
           counterfactual_class?: string | null
           counterfactual_stage?: string | null
           created_at?: string
+          ctx_alignment?: string | null
+          ctx_dollar_direction?: string | null
+          ctx_observed_at?: string | null
+          ctx_positioning_bias?: string | null
+          ctx_positioning_report_date?: string | null
+          ctx_vol_regime?: string | null
+          ctx_yield_direction?: string | null
           detected_at?: string
           direction?: string | null
           enrolled_at?: string | null
@@ -4029,6 +4175,13 @@ export type Database = {
           counterfactual_class?: string | null
           counterfactual_stage?: string | null
           created_at?: string
+          ctx_alignment?: string | null
+          ctx_dollar_direction?: string | null
+          ctx_observed_at?: string | null
+          ctx_positioning_bias?: string | null
+          ctx_positioning_report_date?: string | null
+          ctx_vol_regime?: string | null
+          ctx_yield_direction?: string | null
           detected_at?: string
           direction?: string | null
           enrolled_at?: string | null
@@ -4157,6 +4310,13 @@ export type Database = {
           c_volatility: number
           confidence_score: number
           created_at: string
+          ctx_alignment: string | null
+          ctx_dollar_direction: string | null
+          ctx_observed_at: string | null
+          ctx_positioning_bias: string | null
+          ctx_positioning_report_date: string | null
+          ctx_vol_regime: string | null
+          ctx_yield_direction: string | null
           detected_at: string
           direction: Database["public"]["Enums"]["trade_direction"]
           entry_price: number
@@ -4206,6 +4366,13 @@ export type Database = {
           c_volatility?: number
           confidence_score: number
           created_at?: string
+          ctx_alignment?: string | null
+          ctx_dollar_direction?: string | null
+          ctx_observed_at?: string | null
+          ctx_positioning_bias?: string | null
+          ctx_positioning_report_date?: string | null
+          ctx_vol_regime?: string | null
+          ctx_yield_direction?: string | null
           detected_at?: string
           direction: Database["public"]["Enums"]["trade_direction"]
           entry_price: number
@@ -4255,6 +4422,13 @@ export type Database = {
           c_volatility?: number
           confidence_score?: number
           created_at?: string
+          ctx_alignment?: string | null
+          ctx_dollar_direction?: string | null
+          ctx_observed_at?: string | null
+          ctx_positioning_bias?: string | null
+          ctx_positioning_report_date?: string | null
+          ctx_vol_regime?: string | null
+          ctx_yield_direction?: string | null
           detected_at?: string
           direction?: Database["public"]["Enums"]["trade_direction"]
           entry_price?: number
@@ -6014,6 +6188,7 @@ export type Database = {
       get_admin_instrument_diagnostics: { Args: never; Returns: Json }
       get_admin_intelligence: { Args: never; Returns: Json }
       get_admin_learning_evidence: { Args: never; Returns: Json }
+      get_admin_market_context: { Args: never; Returns: Json }
       get_admin_news: { Args: never; Returns: Json }
       get_admin_payoff_research: { Args: never; Returns: Json }
       get_admin_scan_results_recent: { Args: never; Returns: Json }

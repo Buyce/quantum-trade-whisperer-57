@@ -858,6 +858,65 @@ export const getAdminNews = createServerFn({ method: "GET" })
   });
 
 /**
+ * Market-context evidence: intermarket readings, weekly positioning, every
+ * fetch attempt, and how replay outcomes compare when a setup ran with the
+ * dollar rather than against it.
+ *
+ * Read-only and owner-gated. Context does not gate any order today; these
+ * numbers exist so its effect can be measured before it ever could.
+ */
+export interface AdminMarketContext {
+  latest: {
+    series_key: string;
+    observation_date: string;
+    value: number;
+    source: string;
+    units: string | null;
+    fetched_at: string;
+  }[];
+  positioning: {
+    currency: string;
+    report_date: string;
+    net_contracts: number | null;
+    net_percent: number | null;
+    source: string;
+    fetched_at: string;
+  }[];
+  runs: {
+    job: string;
+    source: string;
+    started_at: string;
+    completed_at: string | null;
+    status: string;
+    series_requested: number | null;
+    values_written: number | null;
+    response_status: number | null;
+    error_class: string | null;
+    error_note: string | null;
+  }[];
+  alignment: {
+    instrument: string;
+    alignment: string;
+    n: number;
+    mean_r: number | null;
+    win_pct: number | null;
+  }[];
+  generated_at: string;
+}
+
+export const getAdminMarketContext = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<AdminMarketContext> => {
+    const email = String(context.claims["email"] ?? "").toLowerCase();
+    if (email !== OWNER_EMAIL) throw new Error("Forbidden");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await supabaseAdmin.rpc("get_admin_market_context");
+    if (error) throw new Error(error.message);
+    return data as unknown as AdminMarketContext;
+  });
+
+/**
  * Owner-only promotion checkpoint (`data_validation -> shadow`).
  *
  * Reports, per registry instrument, whether the recorded evidence satisfies the
