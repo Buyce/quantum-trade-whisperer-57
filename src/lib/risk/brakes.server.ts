@@ -57,6 +57,8 @@ interface StateRow {
   paused: boolean | null;
   pause_reason: string | null;
   paused_at: string | null;
+  cancelled_matching_orders: number | null;
+  unconfirmed_matching_orders: number | null;
 }
 
 
