@@ -56,12 +56,6 @@ export default defineTool({
       .describe(
         "Set true ONLY when the user has explicitly approved changing their risk profile (equity, currency, risk percent, max position size, leverage, max stop-loss percent). Required for those fields; it represents explicit user approval, not agent judgement, and does not relax validation or clamping.",
       ),
-    cancel_matching_on_pause: z
-      .boolean()
-      .optional()
-      .describe(
-        "When true, a consecutive-loss pause also cancels unfilled orders that match the instrument and direction of the losses that triggered it. Filled or partially filled positions are never touched. Default false.",
-      ),
   },
   annotations: {
     readOnlyHint: false,
