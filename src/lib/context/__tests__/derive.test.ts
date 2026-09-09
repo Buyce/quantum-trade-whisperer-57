@@ -10,12 +10,12 @@ import {
 import { CFTC_MARKETS, FRED_SERIES, parseVixCsv } from "@/lib/context/fetch.server";
 
 describe("market-context derivation", () => {
-  it("reports no direction from a single observation instead of guessing flat", () => {
+  it("[UNIT] reports no direction from a single observation instead of guessing flat", () => {
     expect(directionOf([{ observationDate: "2026-01-02", value: 104.2 }])).toBeNull();
     expect(directionOf([])).toBeNull();
   });
 
-  it("reads direction from the two newest observations regardless of input order", () => {
+  it("[UNIT] reads direction from the two newest observations regardless of input order", () => {
     const rising = [
       { observationDate: "2026-01-02", value: 100 },
       { observationDate: "2026-01-05", value: 101 },
@@ -30,7 +30,7 @@ describe("market-context derivation", () => {
     ).toBe("down");
   });
 
-  it("calls a move inside the flat band flat", () => {
+  it("[UNIT] calls a move inside the flat band flat", () => {
     expect(
       directionOf([
         { observationDate: "2026-01-02", value: 100 },
@@ -39,18 +39,18 @@ describe("market-context derivation", () => {
     ).toBe("flat");
   });
 
-  it("returns no volatility regime when no VIX reading is held", () => {
+  it("[UNIT] returns no volatility regime when no VIX reading is held", () => {
     expect(volRegimeOf([])).toBeNull();
     expect(volRegimeOf([{ observationDate: "2026-01-05", value: Number.NaN }])).toBeNull();
   });
 
-  it("bands the volatility regime on the newest VIX level", () => {
+  it("[UNIT] bands the volatility regime on the newest VIX level", () => {
     expect(volRegimeOf([{ observationDate: "2026-01-05", value: 12 }])).toBe("calm");
     expect(volRegimeOf([{ observationDate: "2026-01-05", value: 19 }])).toBe("normal");
     expect(volRegimeOf([{ observationDate: "2026-01-05", value: 31 }])).toBe("stressed");
   });
 
-  it("knows which side of a pair the dollar sits on, and admits when it does not", () => {
+  it("[UNIT] knows which side of a pair the dollar sits on, and admits when it does not", () => {
     expect(dollarLeg("USDJPY")).toBe("base");
     expect(dollarLeg("EURUSD")).toBe("quote");
     expect(dollarLeg("XAUUSD")).toBe("quote");
@@ -58,7 +58,7 @@ describe("market-context derivation", () => {
     expect(dollarLeg("USTEC")).toBeNull();
   });
 
-  it("aligns direction against the dollar move", () => {
+  it("[UNIT] aligns direction against the dollar move", () => {
     // Dollar up: USDJPY long agrees, EURUSD long disagrees.
     expect(alignmentOf("USDJPY", "long", "up")).toBe("aligned");
     expect(alignmentOf("EURUSD", "long", "up")).toBe("against");
@@ -66,13 +66,13 @@ describe("market-context derivation", () => {
     expect(alignmentOf("XAUUSD", "long", "down")).toBe("aligned");
   });
 
-  it("never claims alignment when the dollar move or the pair's leg is unknown", () => {
+  it("[UNIT] never claims alignment when the dollar move or the pair's leg is unknown", () => {
     expect(alignmentOf("EURUSD", "long", null)).toBeNull();
     expect(alignmentOf("GBPAUD", "long", "up")).toBeNull();
     expect(alignmentOf("EURUSD", "long", "flat")).toBe("neutral");
   });
 
-  it("leaves positioning bias unknown when no net figure exists", () => {
+  it("[UNIT] leaves positioning bias unknown when no net figure exists", () => {
     expect(positioningBias(null)).toBeNull();
     expect(positioningBias(undefined)).toBeNull();
     expect(positioningBias(Number.NaN)).toBeNull();
@@ -83,7 +83,7 @@ describe("market-context derivation", () => {
 });
 
 describe("market-context sources", () => {
-  it("maps a fixed set of official series and futures markets", () => {
+  it("[UNIT] maps a fixed set of official series and futures markets", () => {
     expect(Object.keys(FRED_SERIES)).toContain("DTWEXBGS");
     expect(FRED_SERIES["DGS10"]?.key).toBe("us_10y_yield");
     expect(Object.values(CFTC_MARKETS)).toEqual(
@@ -91,7 +91,7 @@ describe("market-context sources", () => {
     );
   });
 
-  it("parses the CBOE VIX csv and drops rows it cannot read", () => {
+  it("[UNIT] parses the CBOE VIX csv and drops rows it cannot read", () => {
     const csv = [
       "DATE,OPEN,HIGH,LOW,CLOSE",
       "2026-01-05,17.1,18.0,16.8,17.55",
