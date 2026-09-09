@@ -14,6 +14,12 @@ Answering your questions first:
   service available as a connector) fetches the public calendar page; Lovable AI
   reads it into structured events. No new vendor contract, no licence fee beyond
   Firecrawl's own usage.
+- **On "just use ChatGPT":** Lovable AI already gives us OpenAI's strongest models —
+  the same vendor — so there is no better brain to rent elsewhere. But a model alone
+  answers from memory, and a confident wrong release date is worse than none. That
+  is why the design below is never "ask the AI what the calendar says"; it is
+  "fetch the real page, let the AI read it, and store only what is found
+  word-for-word in that page". The model is the reader, never the source.
 
 Your earlier choices still hold: news **warns, never blocks**, and the event context
 is recorded on every setup so the learning engine can measure it.
