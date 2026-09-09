@@ -1136,6 +1136,64 @@ async function runDirectEnqueue(
       }
     }
 
+    /**
+     * Correlated-cluster brake. Two reduce-only refusals about the SAME bet —
+     * same instrument, same direction — evaluated from facts already held: the
+     * unresolved delivery ledger, and broker-CONFIRMED closed losses. Neither
+     * touches an order or position that already exists at the broker.
+     */
+    {
+      const candidateBet = {
+        instrument: signal.instrument,
+        direction: candidatePlan?.direction ?? signal.direction ?? null,
+      };
+      if (heldReadable) {
+        const limitVerdict = evaluateSameBetLimit(
+          candidateBet,
+          held.get(account.user_id) ?? [],
+          row.max_same_bet_orders,
+        );
+        if (limitVerdict.reached) {
+          filtered += 1;
+          decisions.push({
+            user_id: account.user_id,
+            signal_id: signal.id,
+            instrument: signal.instrument,
+            grade: signal.grade,
+            decision: "same_bet_limit_reached",
+            detail: limitVerdict.detail,
+            enqueued: 0,
+            filtered: 1,
+          });
+          continue;
+        }
+      }
+      if (sameBetLossHistory.readable) {
+        const cooldown = evaluateSameBetCooldown(
+          candidateBet,
+          sameBetLossHistory.losses.get(account.id) ?? [],
+          nowMs,
+          row.same_bet_cooldown_minutes,
+        );
+        if (cooldown.active) {
+          filtered += 1;
+          decisions.push({
+            user_id: account.user_id,
+            signal_id: signal.id,
+            instrument: signal.instrument,
+            grade: signal.grade,
+            decision: "same_bet_cooldown_active",
+            detail: cooldown.detail,
+            enqueued: 0,
+            filtered: 1,
+          });
+          continue;
+        }
+      }
+    }
+
+
+
     // The owner's ceilings. Every one of them can only ever refuse.
 
     //
