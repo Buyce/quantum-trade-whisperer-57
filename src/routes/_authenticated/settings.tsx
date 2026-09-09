@@ -413,6 +413,7 @@ function SettingsPage() {
         consecutive_loss_pause_hours:
           consecutiveLossPauseHours === "3" ? 3 : consecutiveLossPauseHours === "5" ? 5 : null,
         max_drawdown_percent: maxDrawdownValue,
+        cancel_matching_on_pause: cancelMatchingOnPause,
 
         // Never fabricate the acknowledgement: above-2% saves are blocked above
         // unless the box is ticked, so this only persists the user's own choice.
