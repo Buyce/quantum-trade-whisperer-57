@@ -181,6 +181,13 @@ interface SettingsRow {
   consecutive_loss_limit: number | null;
   consecutive_loss_pause_hours: number | null;
   max_drawdown_percent: number | null;
+  /**
+   * Correlated-cluster brake. How many unresolved automatic orders may be live on
+   * the same instrument in the same direction (1-3), and how long new orders on a
+   * bet are refused after a broker-confirmed loss there (0 = off).
+   */
+  max_same_bet_orders: number | null;
+  same_bet_cooldown_minutes: number | null;
 }
 
 /**
