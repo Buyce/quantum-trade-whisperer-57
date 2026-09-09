@@ -262,6 +262,24 @@ export async function evaluateAccountBrakes(
       nowMs,
     );
 
+    const wasConsecutiveLossPause =
+      prior?.paused === true && prior.pause_reason === "consecutive_loss_limit";
+    const isConsecutiveLossPause =
+      verdict.paused === true && verdict.reason === "consecutive_loss_limit";
+    const cancelOnPause = settings.cancel_matching_on_pause === true;
+
+    let cancellationDelta = { cancelled: 0, unconfirmed: 0 };
+    if (cancelOnPause && !wasConsecutiveLossPause && isConsecutiveLossPause) {
+      cancellationDelta = await cancelMatchingUnfilledOrders(
+        account.id,
+        lossRefsByAccount.get(account.id) ?? [],
+        unfilledByAccount.get(account.id) ?? [],
+      );
+    }
+
+    const priorCancelled = Number(prior?.cancelled_matching_orders ?? 0);
+    const priorUnconfirmed = Number(prior?.unconfirmed_matching_orders ?? 0);
+
     out.set(account.id, {
       accountId: account.id,
       verdict,
