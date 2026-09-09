@@ -348,6 +348,128 @@ export function validateSettings(
     }
   }
 
+  // ---- Automatic-order rules, gates and brakes ----
+  // Same bounds as the Settings screen. Every one of these only ever REFUSES an
+  // order or caps throughput; none of them causes an order to be placed, and
+  // none of them touches an order or position already at the broker.
+  const boundedIntegers: Array<[keyof SettingsInput, string, number, number]> = [
+    [
+      "maximum_concurrent_signal_orders",
+      "maximum_concurrent_signal_orders",
+      0,
+      CONCURRENT_ORDER_CEILING_MAX,
+    ],
+    ["maximum_daily_signal_orders", "maximum_daily_signal_orders", 0, DAILY_ORDER_CEILING_MAX],
+    [
+      "maximum_daily_orders_per_symbol",
+      "maximum_daily_orders_per_symbol",
+      0,
+      PER_SYMBOL_ORDER_CEILING_MAX,
+    ],
+    ["auto_order_window_minutes", "auto_order_window_minutes", 0, AUTO_ORDER_WINDOW_MAX_MINUTES],
+    ["adaptive_order_ceiling_max", "adaptive_order_ceiling_max", 0, DAILY_ORDER_CEILING_MAX],
+    ["adaptive_order_ceiling_floor", "adaptive_order_ceiling_floor", 0, DAILY_ORDER_CEILING_MAX],
+    ["auto_intel_min_sample", "auto_intel_min_sample", 0, 10_000],
+    ["consecutive_loss_limit", "consecutive_loss_limit", 0, 20],
+  ];
+  for (const [key, column, min, max] of boundedIntegers) {
+    const value = input[key] as number | undefined;
+    if (value === undefined) continue;
+    if (!Number.isFinite(value)) {
+      warnings.push(`${column} left unchanged: not a finite number.`);
+      continue;
+    }
+    const clamped = Math.round(clamp(value, min, max));
+    if (clamped !== value) warnings.push(`${column} clamped to ${clamped}.`);
+    patch[column] = clamped;
+  }
+
+  const boundedDecimals: Array<[keyof SettingsInput, string, number, number]> = [
+    ["auto_intel_min_win_pct", "auto_intel_min_win_pct", 0, 100],
+    ["auto_intel_min_expected_r", "auto_intel_min_expected_r", -5, 5],
+    ["max_entry_spread_pips", "max_entry_spread_pips", 0, 1_000],
+    ["max_entry_slippage_pips", "max_entry_slippage_pips", 0, 1_000],
+    ["max_total_exposure_percent", "max_total_exposure_percent", 0, 100],
+    ["daily_loss_limit_percent", "daily_loss_limit_percent", 0, 100],
+    ["weekly_loss_limit_percent", "weekly_loss_limit_percent", 0, 100],
+    ["max_drawdown_percent", "max_drawdown_percent", 0, 100],
+  ];
+  for (const [key, column, min, max] of boundedDecimals) {
+    const value = input[key] as number | undefined;
+    if (value === undefined) continue;
+    if (!Number.isFinite(value)) {
+      warnings.push(`${column} left unchanged: not a finite number.`);
+      continue;
+    }
+    const clamped = clamp(value, min, max);
+    if (clamped !== value) warnings.push(`${column} clamped to ${clamped}.`);
+    patch[column] = clamped;
+  }
+
+  const booleans: Array<keyof SettingsInput> = [
+    "adaptive_order_ceilings_enabled",
+    "auto_market_entry_enabled",
+    "auto_execute_c_grade",
+    "auto_intel_gate_enabled",
+    "allow_unmeasured_intel",
+    "exposure_limit_enabled",
+    "drawdown_brakes_enabled",
+  ];
+  for (const key of booleans) {
+    const value = input[key];
+    if (value === undefined) continue;
+    patch[key as string] = value === true;
+  }
+
+  // The losing-run pause length is an enumeration, not a range: null means hold
+  // until the next UTC midnight, and only 3 or 5 hours are offered.
+  if (input.consecutive_loss_pause_hours !== undefined) {
+    const hours = input.consecutive_loss_pause_hours;
+    if (hours === null || hours === 3 || hours === 5) {
+      patch["consecutive_loss_pause_hours"] = hours;
+    } else {
+      warnings.push(
+        "consecutive_loss_pause_hours left unchanged: allowed values are 3, 5, or null (hold until the next UTC midnight).",
+      );
+    }
+  }
+
+  // Correlated-cluster brake. The limit is deliberately narrow: several separate
+  // setups on the same instrument and side are ONE bet, so the default of 1 is
+  // the conservative position and raising it is warned about every time.
+  if (input.max_same_bet_orders !== undefined) {
+    const requested = input.max_same_bet_orders;
+    const bounded = Math.round(clamp(Number(requested), SAME_BET_LIMIT_MIN, SAME_BET_LIMIT_MAX));
+    const safe = Number.isFinite(bounded) ? bounded : SAME_BET_LIMIT_MIN;
+    if (safe !== requested) {
+      warnings.push(
+        `max_same_bet_orders clamped to ${safe} (allowed ${SAME_BET_LIMIT_MIN}-${SAME_BET_LIMIT_MAX}).`,
+      );
+    }
+    if (safe > SAME_BET_LIMIT_MIN) {
+      warnings.push(
+        `max_same_bet_orders is now ${safe}: up to ${safe} automatic orders may be live on the same instrument in the same direction at once. If that bet goes against the account, all ${safe} lose together — the risk you sized per trade is multiplied by ${safe}.`,
+      );
+    }
+    patch["max_same_bet_orders"] = safe;
+  }
+
+  if (input.same_bet_cooldown_minutes !== undefined) {
+    const requested = input.same_bet_cooldown_minutes;
+    if ((SAME_BET_COOLDOWN_CHOICES as readonly number[]).includes(requested)) {
+      patch["same_bet_cooldown_minutes"] = requested;
+      if (requested === 0) {
+        warnings.push(
+          "same_bet_cooldown_minutes is now 0: the cool-off after a broker-confirmed loss on the same instrument and direction is off, so a new order on that same bet may be placed immediately after a loss there.",
+        );
+      }
+    } else {
+      warnings.push(
+        `same_bet_cooldown_minutes left unchanged: allowed values are ${SAME_BET_COOLDOWN_CHOICES.join(", ")} (0 = off).`,
+      );
+    }
+  }
+
   // Provenance: a new entered balance is timestamped so staleness is visible.
   // P-Trades never reads equity from the broker, so this is user-entered only.
   if (patch["account_equity"] !== undefined) {
