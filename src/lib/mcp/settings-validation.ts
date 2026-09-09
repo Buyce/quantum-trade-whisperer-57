@@ -162,7 +162,6 @@ export function validateSettings(
     patch["auto_exit_trail_runner"] = input.auto_exit_trail_runner === true;
   }
 
-
   if (input.instruments) {
     const v = filterList(input.instruments, INSTRUMENT_CHOICES, "instruments", warnings);
     if (v) patch["instruments"] = v;

@@ -48,7 +48,6 @@ export interface AccountBrakeState {
 
 type SettingsLike = Parameters<typeof readBrakeLimits>[0];
 
-
 interface StateRow {
   account_id: string;
   peak_equity: number | null;

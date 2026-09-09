@@ -1434,14 +1434,12 @@ function SettingsPage() {
 
                 <div className="sm:col-span-2">
                   <p className="text-xs text-muted-foreground">
-                    When the losing-run pause fires, any of your orders that is still unfilled on the
-                    same instrument and direction as the losses that triggered it is cancelled at the
-                    broker automatically. Anything already filled or partly filled stays open, and
-                    only broker-confirmed cancellations count.
+                    When the losing-run pause fires, any of your orders that is still unfilled on
+                    the same instrument and direction as the losses that triggered it is cancelled
+                    at the broker automatically. Anything already filled or partly filled stays
+                    open, and only broker-confirmed cancellations count.
                   </p>
                 </div>
-
-
 
                 <div>
                   <Label className="text-xs" htmlFor="max-drawdown">
