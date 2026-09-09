@@ -137,6 +137,7 @@ export async function evaluateAccountBrakes(
   // An unreadable history is NOT an empty history. Zero rows with no error means
   // "no closed trades in the window", which is a real measurement of zero loss.
   const tradesByAccount = new Map<string, ClosedTrade[]>();
+  const lossRefsByAccount = new Map<string, { instrument: string | null; direction: string | null }[]>();
   const unreadableAccounts = new Set<string>();
   evidencePerAccount.forEach((result, index) => {
     const accountId = accountIds[index] as string;
@@ -146,18 +147,24 @@ export async function evaluateAccountBrakes(
       return;
     }
     const list: ClosedTrade[] = [];
+    const lossRefs: { instrument: string | null; direction: string | null }[] = [];
     for (const row of (result.data ?? []) as {
       exit_at: string;
       gross_profit: number | null;
       commission: number | null;
       swap: number | null;
       profit_currency: string | null;
+      broker_symbol: string | null;
+      direction: string | null;
     }[]) {
       const exitAtMs = Date.parse(row.exit_at);
       if (!Number.isFinite(exitAtMs)) continue;
-      list.push({ exitAtMs, net: netOf(row), currency: row.profit_currency ?? null });
+      const net = netOf(row);
+      list.push({ exitAtMs, net, currency: row.profit_currency ?? null });
+      if (net < 0) lossRefs.push({ instrument: row.broker_symbol, direction: row.direction });
     }
     tradesByAccount.set(accountId, list);
+    if (lossRefs.length > 0) lossRefsByAccount.set(accountId, lossRefs);
   });
 
   const equityByAccount = new Map<string, { equity: number | null; observedAt: string | null }>();
