@@ -68,11 +68,40 @@ const netOf = (row: {
 }): number => Number(row.gross_profit ?? 0) + Number(row.commission ?? 0) + Number(row.swap ?? 0);
 
 /**
+ * Release any STORED hold for accounts whose owner currently configures no brake.
+ *
+ * Only the verdict fields are touched, and only where a hold is actually stored:
+ * measurements (peak equity, realised totals) are observations and stay as they
+ * are. Clearing a hold never places an order and never touches the broker; it
+ * only stops the app announcing a pause that nothing enforces any more.
+ */
+async function clearStoredHolds(db: SupabaseClient, accountIds: readonly string[]): Promise<void> {
+  if (accountIds.length === 0) return;
+  const { error } = await db
+    .from("account_risk_state")
+    .update({
+      paused: false,
+      pause_reason: null,
+      pause_detail: null,
+      paused_at: null,
+      resume_after: null,
+      resume_boundary: null,
+      cancelled_matching_orders: 0,
+      unconfirmed_matching_orders: 0,
+    })
+    .in("account_id", accountIds as string[])
+    .eq("paused", true);
+  if (error) console.error("brakes: stale hold not cleared", error.message);
+}
+
+/**
  * Evaluate the brakes for a set of armed accounts in one pass.
  *
  * Returns a map keyed by account id. An account whose owner configured no brake is
- * absent from the map — no read is paid for, and no state row is written.
+ * absent from the map — no evidence read is paid for it, and its stored hold, if
+ * any, is released.
  */
+
 export async function evaluateAccountBrakes(
   db: SupabaseClient,
   accounts: readonly BrakeAccount[],
