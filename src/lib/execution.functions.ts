@@ -325,17 +325,37 @@ export const getGateImpactReport = createServerFn({ method: "GET" })
  * and the broker's own equity reading. It records nothing and decides nothing:
  * a hold shown here is the same hold the queue already applied. An account with
  * no recorded hold is simply absent — silence is not proof that no risk exists.
+ *
+ * A stored hold is only reported while the caller's protection is still
+ * configured. Switching it off releases the queue immediately, so continuing to
+ * announce the old pause would be untrue; this read never loosens a live limit,
+ * it only stops reporting one that no longer exists.
  */
 export const getRiskHolds = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { data, error } = await context.supabase
-      .from("account_risk_state")
-      .select(
-        "account_id, paused, pause_reason, pause_detail, paused_at, resume_after, resume_boundary, computed_at, consecutive_losses, cancelled_matching_orders, unconfirmed_matching_orders",
-      )
-      .eq("paused", true);
+    const [{ data, error }, settingsRead] = await Promise.all([
+      context.supabase
+        .from("account_risk_state")
+        .select(
+          "account_id, paused, pause_reason, pause_detail, paused_at, resume_after, resume_boundary, computed_at, consecutive_losses, cancelled_matching_orders, unconfirmed_matching_orders",
+        )
+        .eq("paused", true),
+      context.supabase
+        .from("scanner_settings")
+        .select(
+          "drawdown_brakes_enabled, daily_loss_limit_percent, weekly_loss_limit_percent, consecutive_loss_limit, consecutive_loss_pause_hours, max_drawdown_percent",
+        )
+        .eq("user_id", context.userId)
+        .maybeSingle(),
+    ]);
     if (error) throw new Error(error.message);
+    if (settingsRead.error) throw new Error(settingsRead.error.message);
+    const configured =
+      settingsRead.data !== null &&
+      brakesConfigured(readBrakeLimits(settingsRead.data as Record<string, never>));
+    if (!configured) return [];
+
     return ((data ?? []) as Record<string, unknown>[]).map((row) => ({
       accountId: String(row["account_id"]),
       reason: (row["pause_reason"] as string | null) ?? null,
