@@ -220,8 +220,8 @@ export function AutomaticOrders({ userId }: { userId: string | undefined }) {
         <p className="rounded-md border border-warning/40 bg-warning/10 px-4 py-3 text-sm">
           Your broker refused {marginRejections} of the orders shown here for not enough free
           margin. That is the broker's own verdict on the loaded rows: the order was sent, and the
-          account did not have the free margin the broker required for that lot size at that
-          moment. Nothing was retried and nothing is open from those attempts.
+          account did not have the free margin the broker required for that lot size at that moment.
+          Nothing was retried and nothing is open from those attempts.
         </p>
       ) : null}
 

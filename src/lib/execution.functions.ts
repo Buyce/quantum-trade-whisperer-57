@@ -365,7 +365,9 @@ export const getIntelGateCohorts = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { data: settings, error: settingsError } = await context.supabase
       .from("scanner_settings")
-      .select("instruments, auto_intel_gate_enabled, auto_intel_min_expected_r, allow_unmeasured_intel")
+      .select(
+        "instruments, auto_intel_gate_enabled, auto_intel_min_expected_r, allow_unmeasured_intel",
+      )
       .eq("user_id", context.userId)
       .maybeSingle();
     if (settingsError) throw new Error(settingsError.message);

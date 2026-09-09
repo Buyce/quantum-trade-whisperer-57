@@ -51,7 +51,9 @@ export function IntelGateCohorts() {
         setup's tier, so an A- or B-Grade setup on a pair below your floor is refused, while a
         C-Grade setup on a pair above it can pass. Every figure below is a measured replay average
         over whole published plans, including plans that never traded, counted as 0R.
-        {data?.gateEnabled ? "" : " Your gate is currently switched off, so nothing here refuses an order."}
+        {data?.gateEnabled
+          ? ""
+          : " Your gate is currently switched off, so nothing here refuses an order."}
       </p>
 
       {cohorts.length === 0 ? (

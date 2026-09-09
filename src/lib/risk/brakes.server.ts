@@ -29,7 +29,6 @@ import { cancelDeliveryById } from "@/lib/delivery/cancel-delivery.server";
 import type { SweepableDelivery } from "@/lib/delivery/expire-unfilled.server";
 import { matchingUnfilledDeliveries } from "./pause-cancel";
 
-
 /** How far back closed trades are read. Bounded: this runs on a request path. */
 const LOOKBACK_DAYS = 21;
 const MAX_TRADES_PER_ACCOUNT = 500;
@@ -61,7 +60,6 @@ interface StateRow {
   cancelled_matching_orders: number | null;
   unconfirmed_matching_orders: number | null;
 }
-
 
 const netOf = (row: {
   gross_profit: number | null;
@@ -140,7 +138,10 @@ export async function evaluateAccountBrakes(
   // An unreadable history is NOT an empty history. Zero rows with no error means
   // "no closed trades in the window", which is a real measurement of zero loss.
   const tradesByAccount = new Map<string, ClosedTrade[]>();
-  const lossRefsByAccount = new Map<string, { instrument: string | null; direction: string | null }[]>();
+  const lossRefsByAccount = new Map<
+    string,
+    { instrument: string | null; direction: string | null }[]
+  >();
   const unreadableAccounts = new Set<string>();
   evidencePerAccount.forEach((result, index) => {
     const accountId = accountIds[index] as string;
@@ -209,7 +210,11 @@ export async function evaluateAccountBrakes(
   ): Promise<{ cancelled: number; unconfirmed: number }> {
     const matches = matchingUnfilledDeliveries(
       lossRefs,
-      unfilled.map((d) => ({ id: d.id, instrument: d.broker_symbol ?? null, direction: d.direction ?? null })),
+      unfilled.map((d) => ({
+        id: d.id,
+        instrument: d.broker_symbol ?? null,
+        direction: d.direction ?? null,
+      })),
     );
     if (matches.length === 0) return { cancelled: 0, unconfirmed: 0 };
 
@@ -256,7 +261,6 @@ export async function evaluateAccountBrakes(
     const pauseSince = Number.isFinite(priorPausedAtMs)
       ? { reason: (prior?.pause_reason ?? null) as BrakeReason | null, atMs: priorPausedAtMs }
       : null;
-
 
     const verdict = evaluateBrakes(
       limits,
@@ -327,13 +331,10 @@ export async function evaluateAccountBrakes(
           : new Date(nowMs).toISOString()
         : null,
 
-
       resume_after:
         verdict.resumeAfterMs === null ? null : new Date(verdict.resumeAfterMs).toISOString(),
       resume_boundary: verdict.resumeBoundary,
-      cancelled_matching_orders: verdict.paused
-        ? priorCancelled + cancellationDelta.cancelled
-        : 0,
+      cancelled_matching_orders: verdict.paused ? priorCancelled + cancellationDelta.cancelled : 0,
       unconfirmed_matching_orders: verdict.paused
         ? priorUnconfirmed + cancellationDelta.unconfirmed
         : 0,

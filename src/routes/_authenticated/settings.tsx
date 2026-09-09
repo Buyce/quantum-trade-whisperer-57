@@ -1444,7 +1444,9 @@ function SettingsPage() {
                       onChange={(e) => setCancelMatchingOnPause(e.target.checked)}
                     />
                     <span className="text-sm">
-                      <span className="font-medium">Cancel matching unfilled orders when the pause starts</span>
+                      <span className="font-medium">
+                        Cancel matching unfilled orders when the pause starts
+                      </span>
                       <span className="mt-1 block text-xs text-muted-foreground">
                         Off by default. When the losing-run pause fires, any of your orders that is
                         still unfilled on the same instrument and direction as the losses that

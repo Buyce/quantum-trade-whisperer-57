@@ -11,7 +11,6 @@ import { template as weeklyShadowReportTemplate } from "./weekly-shadow-report";
 import { template as verifyTradePricesTemplate } from "./verify-trade-prices";
 import { template as scannerStarvedTemplate } from "./scanner-starved";
 
-
 export interface TemplateEntry {
   component: ElementType;
   subject: string | ((data: Record<string, unknown>) => string);
@@ -41,5 +40,4 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   "weekly-shadow-report": weeklyShadowReportTemplate,
   "verify-trade-prices": verifyTradePricesTemplate,
   "scanner-starved": scannerStarvedTemplate,
-
 };
