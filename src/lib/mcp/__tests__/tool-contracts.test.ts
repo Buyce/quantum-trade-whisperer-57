@@ -39,8 +39,11 @@ describe("list_signals", () => {
 describe("update_my_settings risk confirmation", () => {
   const src = read("src/lib/mcp/tools/update-my-settings.ts");
 
-  it("[UNIT] the sensitive set is exactly the money-moving fields", () => {
-    expect([...SENSITIVE_RISK_FIELDS]).toEqual([
+  it("[UNIT] the sensitive set covers every money-moving field", () => {
+    // The risk profile is the original set. Ceilings, gates and brakes joined it
+    // because widening or loosening any of them changes how much real money can
+    // be at risk, even though none of them places an order by itself.
+    for (const field of [
       "account_equity",
       "account_currency",
       "risk_per_trade_percent",
@@ -48,7 +51,9 @@ describe("update_my_settings risk confirmation", () => {
       "leverage",
       "max_stop_loss_percent",
       "risk_ack_high",
-    ]);
+    ]) {
+      expect(SENSITIVE_RISK_FIELDS as readonly string[]).toContain(field);
+    }
     expect(sensitiveFieldsIn({ min_grade: "A" })).toEqual([]);
     expect(sensitiveFieldsIn({ leverage: 200, notify_push: true })).toEqual(["leverage"]);
   });
