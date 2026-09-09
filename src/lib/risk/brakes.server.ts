@@ -25,7 +25,8 @@ import {
   type ClosedTrade,
   type RealisedTotals,
 } from "./brakes";
-import { cancelDeliveryById, type SweepableDelivery } from "@/lib/delivery/cancel-delivery.server";
+import { cancelDeliveryById } from "@/lib/delivery/cancel-delivery.server";
+import type { SweepableDelivery } from "@/lib/delivery/expire-unfilled.server";
 import { matchingUnfilledDeliveries } from "./pause-cancel";
 
 
