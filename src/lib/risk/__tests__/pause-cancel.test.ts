@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { matchingUnfilledDeliveries } from "../pause-cancel";
 
 describe("matchingUnfilledDeliveries", () => {
-  it("returns ids that match instrument and direction of losses", () => {
+  it("[UNIT] returns ids that match instrument and direction of losses", () => {
     const losses = [
       { instrument: "XAUUSD", direction: "short" },
       { instrument: "EURUSD", direction: "long" },
@@ -20,13 +20,13 @@ describe("matchingUnfilledDeliveries", () => {
     expect(result).not.toContain(4);
   });
 
-  it("normalises case and whitespace", () => {
+  it("[UNIT] normalises case and whitespace", () => {
     const losses = [{ instrument: "xauusd ", direction: "Short" }];
     const unfilled = [{ id: 5, instrument: " XAUUSD", direction: "short" }];
     expect(matchingUnfilledDeliveries(losses, unfilled)).toEqual([5]);
   });
 
-  it("deduplicates multiple losses for the same pair/direction", () => {
+  it("[UNIT] deduplicates multiple losses for the same pair/direction", () => {
     const losses = [
       { instrument: "XAUUSD", direction: "short" },
       { instrument: "XAUUSD", direction: "short" },
@@ -35,13 +35,13 @@ describe("matchingUnfilledDeliveries", () => {
     expect(matchingUnfilledDeliveries(losses, unfilled)).toEqual([6]);
   });
 
-  it("returns nothing when losses have no instrument", () => {
+  it("[UNIT] returns nothing when losses have no instrument", () => {
     const losses = [{ instrument: null, direction: "short" }];
     const unfilled = [{ id: 7, instrument: "XAUUSD", direction: "short" }];
     expect(matchingUnfilledDeliveries(losses, unfilled)).toEqual([]);
   });
 
-  it("returns nothing when delivery direction is missing", () => {
+  it("[UNIT] returns nothing when delivery direction is missing", () => {
     const losses = [{ instrument: "XAUUSD", direction: "short" }];
     const unfilled = [{ id: 8, instrument: "XAUUSD", direction: null }];
     expect(matchingUnfilledDeliveries(losses, unfilled)).toEqual([]);
