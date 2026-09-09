@@ -406,6 +406,18 @@ export function validateSettings(
     patch[column] = clamped;
   }
 
+  // The adaptive band cannot be inverted. When an agent sends both ends and gets
+  // them the wrong way round, the floor is left unchanged rather than written and
+  // rejected by the database.
+  const bandMax = patch["adaptive_order_ceiling_max"] as number | undefined;
+  const bandFloor = patch["adaptive_order_ceiling_floor"] as number | undefined;
+  if (bandMax !== undefined && bandFloor !== undefined && bandFloor > bandMax) {
+    delete patch["adaptive_order_ceiling_floor"];
+    warnings.push(
+      `adaptive_order_ceiling_floor left unchanged: it cannot exceed adaptive_order_ceiling_max (${bandMax}).`,
+    );
+  }
+
   const booleans: Array<keyof SettingsInput> = [
     "adaptive_order_ceilings_enabled",
     "auto_market_entry_enabled",
