@@ -46,9 +46,8 @@ export interface AccountBrakeState {
   peakEquity: number | null;
 }
 
-type SettingsLike = Parameters<typeof readBrakeLimits>[0] & {
-  cancel_matching_on_pause?: boolean | null;
-};
+type SettingsLike = Parameters<typeof readBrakeLimits>[0];
+
 
 interface StateRow {
   account_id: string;
