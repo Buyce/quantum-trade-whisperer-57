@@ -1,13 +1,13 @@
 # Economic events (news)
 
 P-Trades' news layer answers one question honestly: **can we see the scheduled
-risk for this instrument right now?** Today the honest answer is *no*, and the
+risk for this instrument right now?** Today the honest answer is _no_, and the
 system says so rather than pretending otherwise.
 
 ## Current state: no calendar provider, no enforcement
 
 FRED was **retired as a calendar provider** (2026-09-09). It published release
-*dates* with no intraday release time, covered almost nothing outside USD, and
+_dates_ with no intraday release time, covered almost nothing outside USD, and
 so could never authorise an intraday suppression: in its whole life it changed
 zero orders. Keeping it running only produced `timestamp_incomplete` coverage
 that looked like a feature.
@@ -24,7 +24,7 @@ As a result:
 - The provider-neutral contract in `src/lib/news/types.ts` and the ingestion
   runtime are untouched, so a licensed exact-time calendar plugs straight in.
 
-Macro *context* — the dollar, US yields, volatility, futures positioning — is a
+Macro _context_ — the dollar, US yields, volatility, futures positioning — is a
 different thing and is live: see [MARKET-CONTEXT.md](MARKET-CONTEXT.md).
 
 Deliberately absent, and never inferred:

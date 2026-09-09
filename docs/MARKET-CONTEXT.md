@@ -7,11 +7,11 @@ reordered or refused because of it.
 
 ## Sources
 
-| Source                        | Series                                                            | Cadence                        | Access                     |
-| ----------------------------- | ----------------------------------------------------------------- | ------------------------------ | -------------------------- |
-| **FRED** (St. Louis Fed)      | Broad trade-weighted US dollar index, US 2y and 10y yields, WTI    | Daily, published with a lag    | Free REST, `FRED_API_KEY`  |
-| **CBOE**                      | VIX daily close                                                   | Daily                          | Free public CSV            |
-| **CFTC** public reporting     | Commitments of Traders, non-commercial long/short by currency      | Weekly (Tuesday, out Friday)   | Free public REST (SODA)    |
+| Source                    | Series                                                          | Cadence                      | Access                    |
+| ------------------------- | --------------------------------------------------------------- | ---------------------------- | ------------------------- |
+| **FRED** (St. Louis Fed)  | Broad trade-weighted US dollar index, US 2y and 10y yields, WTI | Daily, published with a lag  | Free REST, `FRED_API_KEY` |
+| **CBOE**                  | VIX daily close                                                 | Daily                        | Free public CSV           |
+| **CFTC** public reporting | Commitments of Traders, non-commercial long/short by currency   | Weekly (Tuesday, out Friday) | Free public REST (SODA)   |
 
 Deliberately absent:
 
@@ -27,13 +27,13 @@ specifications, and publishes no calendar or macro data.
 
 ## Labels derived (`src/lib/context/derive.ts`, pure)
 
-| Label                   | How it is decided                                                          |
-| ----------------------- | -------------------------------------------------------------------------- |
-| `ctx_dollar_direction`  | Dollar index over its two newest observations; inside ±0.15% it is `flat`   |
-| `ctx_yield_direction`   | Same rule on the US 10-year yield                                          |
-| `ctx_vol_regime`        | Latest VIX: `calm` < 15, `normal`, `stressed` ≥ 25                         |
-| `ctx_alignment`         | Whether the setup's direction agrees with the dollar move for that pair     |
-| `ctx_positioning_bias`  | Sign of non-commercial net contracts for the pair's non-dollar leg          |
+| Label                  | How it is decided                                                         |
+| ---------------------- | ------------------------------------------------------------------------- |
+| `ctx_dollar_direction` | Dollar index over its two newest observations; inside ±0.15% it is `flat` |
+| `ctx_yield_direction`  | Same rule on the US 10-year yield                                         |
+| `ctx_vol_regime`       | Latest VIX: `calm` < 15, `normal`, `stressed` ≥ 25                        |
+| `ctx_alignment`        | Whether the setup's direction agrees with the dollar move for that pair   |
+| `ctx_positioning_bias` | Sign of non-commercial net contracts for the pair's non-dollar leg        |
 
 The rule the whole module exists to enforce: **missing data is never neutral.**
 One observation cannot show a direction, so it yields `null`, not `flat`. No VIX
