@@ -90,7 +90,6 @@ describe("news gate", () => {
     expect(db.inserted["news_policy_evaluations"]?.[0]?.["decision"]).toBe("would_suppress");
   });
 
-
   it("[INVARIANT] never refuses on incomplete coverage alone", async () => {
     const db = fakeDb({ coverage: [], events: [] });
     const result = await evaluateNewsGate(db as never, {

@@ -45,7 +45,6 @@ export const NEWS_GATE_VERSION = "news-gate-2";
  */
 export const NEWS_ENFORCEMENT_PINNED_OFF = true;
 
-
 /** Where the gate was consulted. Mirrors `news_policy_evaluations.boundary`. */
 export type NewsBoundary = "execution_enqueue" | "broker_submission";
 
@@ -253,7 +252,6 @@ export async function evaluateNewsGate(
 
   return { verdict: { ...verdict, enforced: blocked }, blocked, detail };
 }
-
 
 async function recordEvaluation(
   db: SupabaseClient,
