@@ -828,6 +828,19 @@ async function runDirectEnqueue(
   );
 
   /**
+   * Broker-confirmed closed losses per account, for the same-bet cool-off. An
+   * unreadable history simply disables the cool-off: it may only ever refuse on a
+   * loss we actually hold.
+   */
+  const sameBetLossHistory = await recentSameBetLosses(
+    db,
+    armed.map((a) => a.id),
+    nowMs,
+  );
+
+
+
+  /**
    * Drawdown brakes. Reduce-only and measurement-bound: an account whose owner
    * configured no brake is not read at all, and a brake that cannot be measured
    * from the broker holds rather than passes. This stops NEW orders only —
