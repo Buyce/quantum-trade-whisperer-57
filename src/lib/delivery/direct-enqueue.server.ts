@@ -40,6 +40,12 @@ import {
   type OrderPlanIdentity,
   type RestingOrder,
 } from "./duplicate-orders";
+import {
+  SAME_BET_COOLDOWN_CHOICES,
+  evaluateSameBetCooldown,
+  evaluateSameBetLimit,
+  type ClosedLoss,
+} from "./correlated-cluster";
 import type { RegimeStatRow } from "@/lib/learning/regime";
 import { cohortRefused, cohortRankScore, type CohortEvidence } from "@/lib/learning/cohort";
 import { loadCohortEvidence } from "@/lib/learning/cohort.server";
