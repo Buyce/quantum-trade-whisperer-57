@@ -40,6 +40,12 @@ import {
   type OrderPlanIdentity,
   type RestingOrder,
 } from "./duplicate-orders";
+import {
+  SAME_BET_COOLDOWN_CHOICES,
+  evaluateSameBetCooldown,
+  evaluateSameBetLimit,
+  type ClosedLoss,
+} from "./correlated-cluster";
 import type { RegimeStatRow } from "@/lib/learning/regime";
 import { cohortRefused, cohortRankScore, type CohortEvidence } from "@/lib/learning/cohort";
 import { loadCohortEvidence } from "@/lib/learning/cohort.server";
@@ -175,6 +181,13 @@ interface SettingsRow {
   consecutive_loss_limit: number | null;
   consecutive_loss_pause_hours: number | null;
   max_drawdown_percent: number | null;
+  /**
+   * Correlated-cluster brake. How many unresolved automatic orders may be live on
+   * the same instrument in the same direction (1-3), and how long new orders on a
+   * bet are refused after a broker-confirmed loss there (0 = off).
+   */
+  max_same_bet_orders: number | null;
+  same_bet_cooldown_minutes: number | null;
 }
 
 /**
@@ -397,6 +410,61 @@ export async function heldOrdersByUser(
 }
 
 /**
+ * Broker-CONFIRMED closed losses per connected account inside the widest
+ * supported same-bet cool-off, keyed by account id.
+ *
+ * Only closed rows with a readable close time and a negative net result count.
+ * An unreadable read returns `readable: false` so the caller can skip the
+ * cool-off entirely rather than invent a loss history — the cool-off is a
+ * refusal, never a permission, so absence of evidence must not refuse.
+ */
+export async function recentSameBetLosses(
+  db: SupabaseClient,
+  accountIds: string[],
+  nowMs: number,
+): Promise<{ losses: Map<string, ClosedLoss[]>; readable: boolean }> {
+  const losses = new Map<string, ClosedLoss[]>();
+  if (accountIds.length === 0) return { losses, readable: true };
+  const widest = Math.max(...SAME_BET_COOLDOWN_CHOICES);
+  const since = new Date(nowMs - widest * 60_000).toISOString();
+  const { data, error } = await db
+    .from("broker_trade_evidence")
+    .select("account_id, exit_at, gross_profit, commission, swap, broker_symbol, direction")
+    .in("account_id", accountIds)
+    .eq("state", "closed")
+    .not("exit_at", "is", null)
+    .gte("exit_at", since)
+    .limit(500);
+  if (error) {
+    console.error("same-bet loss history unreadable", error.message);
+    return { losses, readable: false };
+  }
+  for (const row of (data ?? []) as {
+    account_id: string;
+    exit_at: string;
+    gross_profit: number | string | null;
+    commission: number | string | null;
+    swap: number | string | null;
+    broker_symbol: string | null;
+    direction: string | null;
+  }[]) {
+    const exitAtMs = Date.parse(row.exit_at);
+    if (!Number.isFinite(exitAtMs)) continue;
+    const part = (value: number | string | null): number => {
+      if (value === null || value === "") return 0;
+      const n = Number(value);
+      return Number.isFinite(n) ? n : 0;
+    };
+    const net = part(row.gross_profit) + part(row.commission) + part(row.swap);
+    if (!(net < 0)) continue;
+    const list = losses.get(row.account_id) ?? [];
+    list.push({ instrument: row.broker_symbol, direction: row.direction, exitAtMs });
+    losses.set(row.account_id, list);
+  }
+  return { losses, readable: true };
+}
+
+/**
  * The plan this signal would place, read from the authoritative signal row, plus
  * the broker tick that decides when two entries are "the same price". Both are
  * optional: when either cannot be read, the duplicate check simply does not fire
@@ -597,7 +665,7 @@ async function runDirectEnqueue(
   const { data: settingsRows, error: settingsError } = await db
     .from("scanner_settings")
     .select(
-      "user_id, instruments, sessions, alert_min_grade, daily_setup_cap, execution_config_version, auto_intel_gate_enabled, auto_intel_min_win_pct, auto_intel_min_sample, auto_intel_min_expected_r, auto_execute_c_grade, maximum_active_signal_orders, maximum_concurrent_signal_orders, maximum_daily_signal_orders, allow_unmeasured_intel, auto_order_window_minutes, maximum_daily_orders_per_symbol, adaptive_order_ceilings_enabled, adaptive_order_ceiling_max, adaptive_order_ceiling_floor, news_block_new_entries, news_suppression_minutes_before, news_suppression_minutes_after, max_entry_spread_pips, max_entry_slippage_pips, max_total_exposure_percent, exposure_limit_enabled, drawdown_brakes_enabled, daily_loss_limit_percent, weekly_loss_limit_percent, consecutive_loss_limit, consecutive_loss_pause_hours, max_drawdown_percent",
+      "user_id, instruments, sessions, alert_min_grade, daily_setup_cap, execution_config_version, auto_intel_gate_enabled, auto_intel_min_win_pct, auto_intel_min_sample, auto_intel_min_expected_r, auto_execute_c_grade, maximum_active_signal_orders, maximum_concurrent_signal_orders, maximum_daily_signal_orders, allow_unmeasured_intel, auto_order_window_minutes, maximum_daily_orders_per_symbol, adaptive_order_ceilings_enabled, adaptive_order_ceiling_max, adaptive_order_ceiling_floor, news_block_new_entries, news_suppression_minutes_before, news_suppression_minutes_after, max_entry_spread_pips, max_entry_slippage_pips, max_total_exposure_percent, exposure_limit_enabled, drawdown_brakes_enabled, daily_loss_limit_percent, weekly_loss_limit_percent, consecutive_loss_limit, consecutive_loss_pause_hours, max_drawdown_percent, max_same_bet_orders, same_bet_cooldown_minutes",
     )
     .in("user_id", userIds);
   if (settingsError) return await empty("settings_unreadable", settingsError.message);
@@ -757,6 +825,17 @@ async function runDirectEnqueue(
   const committedRisk = await committedRiskByAccount(
     db,
     armed.map((a) => a.id),
+  );
+
+  /**
+   * Broker-confirmed closed losses per account, for the same-bet cool-off. An
+   * unreadable history simply disables the cool-off: it may only ever refuse on a
+   * loss we actually hold.
+   */
+  const sameBetLossHistory = await recentSameBetLosses(
+    db,
+    armed.map((a) => a.id),
+    nowMs,
   );
 
   /**
@@ -1052,6 +1131,62 @@ async function runDirectEnqueue(
           filtered: 1,
         });
         continue;
+      }
+    }
+
+    /**
+     * Correlated-cluster brake. Two reduce-only refusals about the SAME bet —
+     * same instrument, same direction — evaluated from facts already held: the
+     * unresolved delivery ledger, and broker-CONFIRMED closed losses. Neither
+     * touches an order or position that already exists at the broker.
+     */
+    {
+      const candidateBet = {
+        instrument: signal.instrument,
+        direction: candidatePlan?.direction ?? signal.direction ?? null,
+      };
+      if (heldReadable) {
+        const limitVerdict = evaluateSameBetLimit(
+          candidateBet,
+          held.get(account.user_id) ?? [],
+          row.max_same_bet_orders,
+        );
+        if (limitVerdict.reached) {
+          filtered += 1;
+          decisions.push({
+            user_id: account.user_id,
+            signal_id: signal.id,
+            instrument: signal.instrument,
+            grade: signal.grade,
+            decision: "same_bet_limit_reached",
+            detail: limitVerdict.detail,
+            enqueued: 0,
+            filtered: 1,
+          });
+          continue;
+        }
+      }
+      if (sameBetLossHistory.readable) {
+        const cooldown = evaluateSameBetCooldown(
+          candidateBet,
+          sameBetLossHistory.losses.get(account.id) ?? [],
+          nowMs,
+          row.same_bet_cooldown_minutes,
+        );
+        if (cooldown.active) {
+          filtered += 1;
+          decisions.push({
+            user_id: account.user_id,
+            signal_id: signal.id,
+            instrument: signal.instrument,
+            grade: signal.grade,
+            decision: "same_bet_cooldown_active",
+            detail: cooldown.detail,
+            enqueued: 0,
+            filtered: 1,
+          });
+          continue;
+        }
       }
     }
 

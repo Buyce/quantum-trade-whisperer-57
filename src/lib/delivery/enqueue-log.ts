@@ -59,6 +59,10 @@ export const ENQUEUE_DECISION_COPY: Record<string, string> = {
     "This account, instrument and session is in an automatic cool-down: its recent broker execution (slippage or reject rate, measured from closed trades and the delivery ledger) was materially worse than its own earlier norm. New orders pause for a bounded window and the dimension is then re-tested live. Orders already at your broker are untouched.",
   duplicate_resting_order:
     "You already have an automatic order live at your broker for this same setup, so a second one was not placed. Stacking identical orders would multiply the risk you sized for.",
+  same_bet_limit_reached:
+    "You already hold your limit of automatic orders on this instrument in this direction, so another one was not placed. Several separate setups on the same pair and side are one bet: if it goes against you, every one of them loses together.",
+  same_bet_cooldown_active:
+    "A trade on this instrument and direction closed at a loss at your broker recently, so new automatic orders on that same bet pause for your cool-off window. It is measured from closed broker trades only, and anything already at your broker is untouched.",
 };
 
 export function describeEnqueueDecision(decision: string): string {

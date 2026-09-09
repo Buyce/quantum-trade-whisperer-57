@@ -46,6 +46,14 @@ import {
   type OrderStrategy,
   type WebhookFormat,
 } from "@/lib/db-types";
+import {
+  SAME_BET_COOLDOWN_CHOICES,
+  SAME_BET_COOLDOWN_DEFAULT_MINUTES,
+  SAME_BET_LIMIT_DEFAULT,
+  SAME_BET_LIMIT_MAX,
+  clampSameBetCooldownMinutes,
+  clampSameBetLimit,
+} from "@/lib/delivery/correlated-cluster";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -149,6 +157,10 @@ function SettingsPage() {
   const [maxConcurrentOrders, setMaxConcurrentOrders] = useState(3);
   const [maxDailyOrders, setMaxDailyOrders] = useState(10);
   const [maxPerSymbolOrders, setMaxPerSymbolOrders] = useState(PER_SYMBOL_ORDER_CEILING_MAX);
+  // Correlated-cluster brake: how much of the SAME bet may be live, and the
+  // cool-off after a broker-confirmed loss on that bet.
+  const [maxSameBetOrders, setMaxSameBetOrders] = useState(SAME_BET_LIMIT_DEFAULT);
+  const [sameBetCooldown, setSameBetCooldown] = useState(SAME_BET_COOLDOWN_DEFAULT_MINUTES);
   const [adaptiveCeilings, setAdaptiveCeilings] = useState(false);
   const [adaptiveMax, setAdaptiveMax] = useState(DAILY_ORDER_CEILING_MAX);
   const [adaptiveFloor, setAdaptiveFloor] = useState(1);
@@ -293,6 +305,8 @@ function SettingsPage() {
     setIntelGate(s.auto_intel_gate_enabled === true);
     setAutoCGrade(s.auto_execute_c_grade === true);
     setMaxConcurrentOrders(clampConcurrentOrderCeiling(s.maximum_concurrent_signal_orders));
+    setMaxSameBetOrders(clampSameBetLimit(s.max_same_bet_orders));
+    setSameBetCooldown(clampSameBetCooldownMinutes(s.same_bet_cooldown_minutes));
     setMaxDailyOrders(clampDailyOrderCeiling(s.maximum_daily_signal_orders));
     setMaxPerSymbolOrders(clampPerSymbolOrderCeiling(s.maximum_daily_orders_per_symbol));
     setAdaptiveCeilings(s.adaptive_order_ceilings_enabled === true);
@@ -424,6 +438,8 @@ function SettingsPage() {
         // Ceiling on simultaneous automatic orders, never a quota: fewer
         // qualifying setups simply means fewer orders.
         maximum_concurrent_signal_orders: clampConcurrentOrderCeiling(maxConcurrentOrders),
+        max_same_bet_orders: clampSameBetLimit(maxSameBetOrders),
+        same_bet_cooldown_minutes: clampSameBetCooldownMinutes(sameBetCooldown),
         maximum_daily_signal_orders: clampDailyOrderCeiling(maxDailyOrders),
         maximum_daily_orders_per_symbol: clampPerSymbolOrderCeiling(maxPerSymbolOrders),
         // Freshness-adaptive ceilings can only ever move BETWEEN the owner's own
@@ -695,6 +711,11 @@ function SettingsPage() {
                 {maxDailyOrders === 0
                   ? "no automatic orders"
                   : `up to ${maxDailyOrders} orders a day${adaptiveCeilings ? ` (${adaptiveFloor}–${adaptiveMax} with data freshness)` : ""}`}
+                , at most {maxSameBetOrders} live {maxSameBetOrders === 1 ? "order" : "orders"} on
+                the same pair and side
+                {sameBetCooldown > 0
+                  ? ` with a ${sameBetCooldown}-minute cool-off after a loss there`
+                  : " with no cool-off after a loss there"}
                 , {marketEntry ? "entering at market" : "resting as planned limits"}, taking profit
                 at {EXECUTION_POLICY_LABELS[effectiveExitPolicy].toLowerCase()}, spread limit{" "}
                 {Number(maxSpreadPips) > 0 ? `${Number(maxSpreadPips)} pips` : "off"}, slippage
@@ -831,6 +852,90 @@ function SettingsPage() {
                 {PER_SYMBOL_ORDER_CEILING_MAX}), so one busy instrument cannot consume the whole
                 day. It refuses only; it never adds orders on other instruments.
               </p>
+            </div>
+
+            <div className="border-t border-border pt-4">
+              <Label className="text-xs" htmlFor="max-same-bet">
+                Same bet at once (one instrument, one direction)
+              </Label>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {Array.from({ length: SAME_BET_LIMIT_MAX }, (_, i) => i + 1).map((choice) => (
+                  <Button
+                    key={choice}
+                    type="button"
+                    size="sm"
+                    variant={maxSameBetOrders === choice ? "default" : "outline"}
+                    onClick={() => {
+                      if (choice > SAME_BET_LIMIT_DEFAULT) {
+                        toast.warning(
+                          choice >= SAME_BET_LIMIT_MAX
+                            ? `Three orders on the same pair and the same side are one bet three times over: if it goes against you, all three lose together and the account takes about ${choice}× the risk you sized for a single trade.`
+                            : `Two orders on the same pair and the same side are the same bet twice: if it goes against you, both lose together and the account takes about ${choice}× the risk you sized for a single trade.`,
+                        );
+                      }
+                      setMaxSameBetOrders(clampSameBetLimit(choice));
+                    }}
+                  >
+                    {choice}
+                  </Button>
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                How many UNRESOLVED automatic orders may be live on the same instrument in the same
+                direction. The default is <span className="text-foreground">1</span> — one live bet
+                per pair and side — and 3 is the maximum. Separate setups on the same pair and side
+                are not independent trades: on 9 September seven Gold shorts from seven different
+                setups were live together and all of them lost. This rule refuses new orders only;
+                nothing already at your broker is touched.
+              </p>
+              {maxSameBetOrders > SAME_BET_LIMIT_DEFAULT ? (
+                <p className="mt-2 text-xs text-warning">
+                  You allow {maxSameBetOrders} live orders on the same pair and side, so one adverse
+                  move can cost about {maxSameBetOrders}× the risk you sized per trade.
+                </p>
+              ) : null}
+            </div>
+
+            <div className="border-t border-border pt-4">
+              <Label className="text-xs" htmlFor="same-bet-cooldown">
+                Cool-off after a loss on the same bet
+              </Label>
+              <Select
+                value={String(sameBetCooldown)}
+                onValueChange={(v) => {
+                  const next = clampSameBetCooldownMinutes(Number(v));
+                  if (next === 0) {
+                    toast.warning(
+                      "With the cool-off off, a fresh setup on a pair and side that just lost at your broker can be ordered again immediately, so correlated losses can repeat back to back.",
+                    );
+                  }
+                  setSameBetCooldown(next);
+                }}
+              >
+                <SelectTrigger id="same-bet-cooldown" className="mt-2 sm:max-w-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SAME_BET_COOLDOWN_CHOICES.map((choice) => (
+                    <SelectItem key={choice} value={String(choice)}>
+                      {choice === 0 ? "Off" : `${choice} minutes`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="mt-2 text-xs text-muted-foreground">
+                After a trade on an instrument and direction closes at a LOSS at your broker, new
+                automatic orders on that same pair and side are refused for this long. Default{" "}
+                {SAME_BET_COOLDOWN_DEFAULT_MINUTES} minutes. Only closed, broker-confirmed trades
+                start it — never an estimate — and it never closes or changes anything already at
+                your broker.
+              </p>
+              {sameBetCooldown === 0 ? (
+                <p className="mt-2 text-xs text-warning">
+                  The cool-off is off: a pair and side that just lost can be ordered again straight
+                  away.
+                </p>
+              ) : null}
             </div>
 
             <div className="border-t border-border pt-4">

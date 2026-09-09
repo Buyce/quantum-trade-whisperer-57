@@ -4435,6 +4435,7 @@ export type Database = {
           max_entry_slippage_pips: number
           max_entry_spread_pips: number
           max_position_size: number
+          max_same_bet_orders: number
           max_stop_loss_percent: number
           max_total_exposure_percent: number
           maximum_active_signal_orders: number
@@ -4450,6 +4451,7 @@ export type Database = {
           order_strategy: string
           risk_ack_high: boolean
           risk_per_trade_percent: number
+          same_bet_cooldown_minutes: number
           sessions: string[]
           timeframes: string[]
           updated_at: string
@@ -4502,6 +4504,7 @@ export type Database = {
           max_entry_slippage_pips?: number
           max_entry_spread_pips?: number
           max_position_size?: number
+          max_same_bet_orders?: number
           max_stop_loss_percent?: number
           max_total_exposure_percent?: number
           maximum_active_signal_orders?: number
@@ -4517,6 +4520,7 @@ export type Database = {
           order_strategy?: string
           risk_ack_high?: boolean
           risk_per_trade_percent?: number
+          same_bet_cooldown_minutes?: number
           sessions?: string[]
           timeframes?: string[]
           updated_at?: string
@@ -4569,6 +4573,7 @@ export type Database = {
           max_entry_slippage_pips?: number
           max_entry_spread_pips?: number
           max_position_size?: number
+          max_same_bet_orders?: number
           max_stop_loss_percent?: number
           max_total_exposure_percent?: number
           maximum_active_signal_orders?: number
@@ -4584,6 +4589,7 @@ export type Database = {
           order_strategy?: string
           risk_ack_high?: boolean
           risk_per_trade_percent?: number
+          same_bet_cooldown_minutes?: number
           sessions?: string[]
           timeframes?: string[]
           updated_at?: string
