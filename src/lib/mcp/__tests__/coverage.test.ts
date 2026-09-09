@@ -31,7 +31,7 @@ describe("instrument choices", () => {
     expect(warnings.join(" ")).not.toMatch(/USDJPY/);
   });
 
-  it("[BEHAVIOR] still drops values that are not instruments at all", () => {
+  it("[UNIT] still drops values that are not instruments at all", () => {
     const { warnings } = validateSettings({ instruments: ["NOTAPAIR"] });
     expect(warnings.join(" ")).toMatch(/NOTAPAIR/);
   });
