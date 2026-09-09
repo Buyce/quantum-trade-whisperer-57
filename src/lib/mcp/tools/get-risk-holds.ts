@@ -84,7 +84,11 @@ export default defineTool({
       : [];
 
     const payload = {
-      status: configured ? (holds.length > 0 ? ("held" as const) : ("not_held" as const)) : ("brakes_off" as const),
+      status: configured
+        ? holds.length > 0
+          ? ("held" as const)
+          : ("not_held" as const)
+        : ("brakes_off" as const),
       brakes_configured: configured,
       holds,
       notes: {

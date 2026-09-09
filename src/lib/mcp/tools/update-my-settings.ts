@@ -98,7 +98,10 @@ export default defineTool({
       .boolean()
       .optional()
       .describe("Allow C-Grade setups to become automatic orders. Every other gate still applies."),
-    auto_intel_gate_enabled: z.boolean().optional().describe("Switch the intelligence gate on/off."),
+    auto_intel_gate_enabled: z
+      .boolean()
+      .optional()
+      .describe("Switch the intelligence gate on/off."),
     auto_intel_min_win_pct: z
       .number()
       .optional()
