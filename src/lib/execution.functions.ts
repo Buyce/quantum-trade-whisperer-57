@@ -354,8 +354,8 @@ export const getRiskHolds = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
     if (settingsRead.error) throw new Error(settingsRead.error.message);
     const configured =
-      settingsRead.data !== null &&
-      brakesConfigured(readBrakeLimits(settingsRead.data as Record<string, never>));
+      settingsRead.data !== null && brakesConfigured(readBrakeLimits(settingsRead.data));
+
     if (!configured) return [];
 
     return ((data ?? []) as Record<string, unknown>[]).map((row) => ({
