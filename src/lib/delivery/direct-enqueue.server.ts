@@ -371,16 +371,10 @@ export async function heldOrdersByUser(
     return Number.isFinite(parsed) ? parsed : null;
   };
   for (const row of (data ?? []) as Row[]) {
-    // A broker-closed, cancelled or absent order rests nowhere, so it cannot be
-    // the duplicate of a fresh attempt.
-    if (
-      neverReachedBroker({
-        submittedAt: row.submitted_at ?? null,
-        clientId: row.client_id ?? null,
-        brokerOrderId: row.broker_order_id ?? null,
-      })
-    )
-      continue;
+    // Any delivery that is still queued, in flight or accepted rests here for
+    // duplicate-detection purposes, even if it has not reached the broker yet.
+    // The sweeper eventually expires stuck rows; until then the same setup must
+    // not be enqueued again.
     if (!occupiesSlot(row.broker_order_state as never)) continue;
     const embedded = Array.isArray(row.signal) ? row.signal[0] : row.signal;
     const instrument = embedded?.instrument ?? null;
