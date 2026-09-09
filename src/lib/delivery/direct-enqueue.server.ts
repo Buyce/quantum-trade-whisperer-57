@@ -397,6 +397,61 @@ export async function heldOrdersByUser(
 }
 
 /**
+ * Broker-CONFIRMED closed losses per connected account inside the widest
+ * supported same-bet cool-off, keyed by account id.
+ *
+ * Only closed rows with a readable close time and a negative net result count.
+ * An unreadable read returns `readable: false` so the caller can skip the
+ * cool-off entirely rather than invent a loss history — the cool-off is a
+ * refusal, never a permission, so absence of evidence must not refuse.
+ */
+export async function recentSameBetLosses(
+  db: SupabaseClient,
+  accountIds: string[],
+  nowMs: number,
+): Promise<{ losses: Map<string, ClosedLoss[]>; readable: boolean }> {
+  const losses = new Map<string, ClosedLoss[]>();
+  if (accountIds.length === 0) return { losses, readable: true };
+  const widest = Math.max(...SAME_BET_COOLDOWN_CHOICES);
+  const since = new Date(nowMs - widest * 60_000).toISOString();
+  const { data, error } = await db
+    .from("broker_trade_evidence")
+    .select("account_id, exit_at, gross_profit, commission, swap, broker_symbol, direction")
+    .in("account_id", accountIds)
+    .eq("state", "closed")
+    .not("exit_at", "is", null)
+    .gte("exit_at", since)
+    .limit(500);
+  if (error) {
+    console.error("same-bet loss history unreadable", error.message);
+    return { losses, readable: false };
+  }
+  for (const row of (data ?? []) as {
+    account_id: string;
+    exit_at: string;
+    gross_profit: number | string | null;
+    commission: number | string | null;
+    swap: number | string | null;
+    broker_symbol: string | null;
+    direction: string | null;
+  }[]) {
+    const exitAtMs = Date.parse(row.exit_at);
+    if (!Number.isFinite(exitAtMs)) continue;
+    const part = (value: number | string | null): number => {
+      if (value === null || value === "") return 0;
+      const n = Number(value);
+      return Number.isFinite(n) ? n : 0;
+    };
+    const net = part(row.gross_profit) + part(row.commission) + part(row.swap);
+    if (!(net < 0)) continue;
+    const list = losses.get(row.account_id) ?? [];
+    list.push({ instrument: row.broker_symbol, direction: row.direction, exitAtMs });
+    losses.set(row.account_id, list);
+  }
+  return { losses, readable: true };
+}
+
+/**
  * The plan this signal would place, read from the authoritative signal row, plus
  * the broker tick that decides when two entries are "the same price". Both are
  * optional: when either cannot be read, the duplicate check simply does not fire
