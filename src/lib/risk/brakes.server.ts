@@ -82,15 +82,25 @@ export async function evaluateAccountBrakes(
   const out = new Map<string, AccountBrakeState>();
 
   const limitsByAccount = new Map<string, BrakeLimits>();
+  const unconfiguredAccountIds: string[] = [];
   for (const account of accounts) {
     const settings = settingsByUser.get(account.user_id);
     if (!settings) continue;
     const limits = readBrakeLimits(settings);
     if (brakesConfigured(limits)) limitsByAccount.set(account.id, limits);
+    else unconfiguredAccountIds.push(account.id);
   }
+
+  // An owner who switched the protection off, or zeroed every limit, is no longer
+  // held. A stale stored hold would keep announcing a pause nobody enforces, so
+  // the record is cleared here. Peak-equity history is left untouched: it is an
+  // observation, not a verdict, and must survive the protection being re-armed.
+  await clearStoredHolds(db, unconfiguredAccountIds);
+
   if (limitsByAccount.size === 0) return out;
 
   const accountIds = [...limitsByAccount.keys()];
+
   const since = new Date(nowMs - LOOKBACK_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
   // Closed trades are read PER ACCOUNT. One shared row cap would let a busy
