@@ -167,6 +167,10 @@ export function validateSettings(
     patch["auto_exit_trail_runner"] = input.auto_exit_trail_runner === true;
   }
 
+  if (input.cancel_matching_on_pause !== undefined) {
+    patch["cancel_matching_on_pause"] = input.cancel_matching_on_pause === true;
+  }
+
   if (input.instruments) {
     const v = filterList(input.instruments, INSTRUMENT_CHOICES, "instruments", warnings);
     if (v) patch["instruments"] = v;
