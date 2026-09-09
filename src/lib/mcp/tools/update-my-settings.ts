@@ -7,9 +7,14 @@ export default defineTool({
   name: "update_my_settings",
   title: "Update my settings",
   description:
-    "Change the signed-in user's own feed filters, alert grade, daily cap (0 = unlimited; the cap governs feed and alert eligibility, each channel using its own grade threshold), notification preferences and risk profile. Only the fields you pass are changed; values outside safe bounds are clamped and reported back. Webhook URL and secret cannot be changed by an agent. Changing any risk field (account_equity, account_currency, risk_per_trade_percent, max_position_size, leverage, max_stop_loss_percent) additionally requires confirm_risk_change: true, which asserts the user explicitly approved that change in this conversation; never set it on your own initiative.",
+    "Change the signed-in user's own feed filters, alert grade, daily cap (0 = unlimited; the cap governs feed and alert eligibility, each channel using its own grade threshold), notification preferences and risk profile. Only the fields you pass are changed; values outside safe bounds are clamped and reported back. Webhook URL and secret cannot be changed by an agent. It also changes the automatic-order rules (ceilings, order window, adaptive ceilings, market-entry mode), the gates (C-Grade permission, intelligence gate, spread and slippage caps, exposure limit) and the risk brakes (daily and weekly closed-loss limits, losing-run limit and pause length, peak-equity drawdown, same-bet limit and same-bet cool-off). Any field that changes how much real money can be at risk — the risk profile, a ceiling, a gate or a brake — additionally requires confirm_risk_change: true, which asserts the user explicitly approved that exact change in this conversation; never set it on your own initiative. Warnings are returned verbatim and must be repeated to the user, especially when a same-bet limit is raised or a cool-off is switched off.",
   inputSchema: {
-    instruments: z.array(z.string()).optional().describe("Subset of XAUUSD, GBPAUD, EURUSD."),
+    instruments: z
+      .array(z.string())
+      .optional()
+      .describe(
+        "Subset of the instruments P-Trades defines. Unknown values are ignored and reported back; an instrument that has not been promoted yet is legal to select but simply never produces setups.",
+      ),
     // Kept in the schema only so an older agent gets an explanation instead of
     // a schema error; the validator refuses it and never writes the column.
     timeframes: z
@@ -50,6 +55,124 @@ export default defineTool({
       .describe(
         "Persisted acknowledgement that the user accepts risking more than 2% of equity per trade. Required (together with confirm_risk_change) before risk_per_trade_percent above 2 is applied; without it the percent is left unchanged.",
       ),
+    // ---- Automatic-order rules: throughput only, never permission ----
+    maximum_concurrent_signal_orders: z
+      .number()
+      .optional()
+      .describe("Ceiling on automatic orders unresolved at once (0-100). Never a quota."),
+    maximum_daily_signal_orders: z
+      .number()
+      .optional()
+      .describe("Ceiling on automatic orders created per UTC day (0-100)."),
+    maximum_daily_orders_per_symbol: z
+      .number()
+      .optional()
+      .describe("Ceiling on automatic orders for ONE instrument per UTC day (0-100)."),
+    auto_order_window_minutes: z
+      .number()
+      .optional()
+      .describe(
+        "How long after detection a published setup may still become an automatic order, in minutes (0-600). 0 disables automatic orders on age grounds.",
+      ),
+    adaptive_order_ceilings_enabled: z
+      .boolean()
+      .optional()
+      .describe("Move the effective daily and per-instrument ceilings with broker data freshness."),
+    adaptive_order_ceiling_max: z
+      .number()
+      .optional()
+      .describe("Upper bound adaptive mode may raise a ceiling to (0-100)."),
+    adaptive_order_ceiling_floor: z
+      .number()
+      .optional()
+      .describe("Lower bound adaptive mode reduces to when freshness is degraded or unknown."),
+    auto_market_entry_enabled: z
+      .boolean()
+      .optional()
+      .describe(
+        "Submit an eligible order immediately at market while the live price is still within the maximum acceptable entry. It never widens the slippage ceiling.",
+      ),
+
+    // ---- Gates: each one only ever refuses ----
+    auto_execute_c_grade: z
+      .boolean()
+      .optional()
+      .describe("Allow C-Grade setups to become automatic orders. Every other gate still applies."),
+    auto_intel_gate_enabled: z.boolean().optional().describe("Switch the intelligence gate on/off."),
+    auto_intel_min_win_pct: z
+      .number()
+      .optional()
+      .describe("Minimum measured win-if-filled rate for the regime, in percent (0-100)."),
+    auto_intel_min_sample: z
+      .number()
+      .optional()
+      .describe("Minimum resolved replay samples before the gate will judge a regime."),
+    auto_intel_min_expected_r: z
+      .number()
+      .optional()
+      .describe(
+        "Minimum measured expected return in R for the pair and direction (-5 to 5). Descriptive in-sample measurement, not a forecast.",
+      ),
+    allow_unmeasured_intel: z
+      .boolean()
+      .optional()
+      .describe("Let a regime with too few resolved samples through the gate."),
+    max_entry_spread_pips: z
+      .number()
+      .optional()
+      .describe("Hard pre-send cap on live spread at entry, in pips. 0 disables the check."),
+    max_entry_slippage_pips: z
+      .number()
+      .optional()
+      .describe("Maximum tolerated slippage versus the published entry, in pips. 0 disables."),
+    exposure_limit_enabled: z
+      .boolean()
+      .optional()
+      .describe("Enforce the total open-exposure ceiling."),
+    max_total_exposure_percent: z
+      .number()
+      .optional()
+      .describe("Ceiling on total open signal exposure as a percent of equity (0-100)."),
+
+    // ---- Brakes: measured from closed broker trades only ----
+    drawdown_brakes_enabled: z
+      .boolean()
+      .optional()
+      .describe("Master switch for the risk brakes. False disables all of them at once."),
+    daily_loss_limit_percent: z
+      .number()
+      .optional()
+      .describe("Closed loss since 00:00 UTC as a percent of broker equity. 0 disables."),
+    weekly_loss_limit_percent: z
+      .number()
+      .optional()
+      .describe("Closed loss since Monday 00:00 UTC as a percent of broker equity. 0 disables."),
+    consecutive_loss_limit: z
+      .number()
+      .optional()
+      .describe("Losing closed broker trades in a row that trigger a hold. 0 disables."),
+    consecutive_loss_pause_hours: z
+      .number()
+      .nullable()
+      .optional()
+      .describe("How long a losing-run hold lasts: 3, 5, or null for until the next UTC midnight."),
+    max_drawdown_percent: z
+      .number()
+      .optional()
+      .describe("Equity drop from the highest observed equity, in percent. 0 disables."),
+    max_same_bet_orders: z
+      .number()
+      .optional()
+      .describe(
+        "How many unresolved automatic orders may be live on the same instrument in the same direction (1-3, default 1). Several separate setups on the same pair and side are ONE bet: raising this multiplies the risk sized per trade, and the tool warns every time it is raised.",
+      ),
+    same_bet_cooldown_minutes: z
+      .number()
+      .optional()
+      .describe(
+        "How long new automatic orders on the same instrument and direction are refused after a broker-confirmed loss there: 0 (off), 30, 60 or 120 minutes.",
+      ),
+
     confirm_risk_change: z
       .boolean()
       .optional()
@@ -76,7 +199,7 @@ export default defineTool({
         content: [
           {
             type: "text",
-            text: `Refused: ${sensitive.join(", ")} affect position sizing on real money. Ask the user to confirm the exact change, then retry with confirm_risk_change: true. Sensitive fields: ${SENSITIVE_RISK_FIELDS.join(", ")}.`,
+            text: `Refused: ${sensitive.join(", ")} change how much real money can be at risk. Ask the user to confirm the exact change, then retry with confirm_risk_change: true. Sensitive fields: ${SENSITIVE_RISK_FIELDS.join(", ")}.`,
           },
         ],
         isError: true,
@@ -109,7 +232,7 @@ export default defineTool({
       .update(patch)
       .eq("user_id", userId)
       .select(
-        "instruments, sessions, min_grade, alert_min_grade, daily_setup_cap, notify_push, notify_email, account_equity, account_currency, risk_per_trade_percent, max_position_size, leverage, max_stop_loss_percent, equity_as_of, risk_ack_high",
+        "instruments, sessions, min_grade, alert_min_grade, daily_setup_cap, notify_push, notify_email, account_equity, account_currency, risk_per_trade_percent, max_position_size, leverage, max_stop_loss_percent, equity_as_of, risk_ack_high, maximum_concurrent_signal_orders, maximum_daily_signal_orders, maximum_daily_orders_per_symbol, auto_order_window_minutes, adaptive_order_ceilings_enabled, adaptive_order_ceiling_max, adaptive_order_ceiling_floor, auto_market_entry_enabled, auto_execute_c_grade, auto_intel_gate_enabled, auto_intel_min_win_pct, auto_intel_min_sample, auto_intel_min_expected_r, allow_unmeasured_intel, max_entry_spread_pips, max_entry_slippage_pips, exposure_limit_enabled, max_total_exposure_percent, drawdown_brakes_enabled, daily_loss_limit_percent, weekly_loss_limit_percent, consecutive_loss_limit, consecutive_loss_pause_hours, max_drawdown_percent, max_same_bet_orders, same_bet_cooldown_minutes",
       );
 
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
