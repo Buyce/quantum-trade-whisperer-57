@@ -25,7 +25,9 @@ import {
   type ClosedTrade,
   type RealisedTotals,
 } from "./brakes";
-
+import { cancelDeliveryById } from "@/lib/delivery/cancel-delivery.server";
+import type { SweepableDelivery } from "@/lib/delivery/expire-unfilled.server";
+import { matchingUnfilledDeliveries } from "./pause-cancel";
 
 /** How far back closed trades are read. Bounded: this runs on a request path. */
 const LOOKBACK_DAYS = 21;
@@ -44,7 +46,9 @@ export interface AccountBrakeState {
   peakEquity: number | null;
 }
 
-type SettingsLike = Parameters<typeof readBrakeLimits>[0];
+type SettingsLike = Parameters<typeof readBrakeLimits>[0] & {
+  cancel_matching_on_pause?: boolean | null;
+};
 
 interface StateRow {
   account_id: string;
@@ -53,8 +57,9 @@ interface StateRow {
   paused: boolean | null;
   pause_reason: string | null;
   paused_at: string | null;
+  cancelled_matching_orders: number | null;
+  unconfirmed_matching_orders: number | null;
 }
-
 
 const netOf = (row: {
   gross_profit: number | null;
@@ -91,12 +96,14 @@ export async function evaluateAccountBrakes(
   // Closed trades are read PER ACCOUNT. One shared row cap would let a busy
   // account crowd another one out of its own window, and a partially-read history
   // is not a measurement we may brake — or pass — on.
-  const [evidencePerAccount, accountRows, existingStates] = await Promise.all([
+  const [evidencePerAccount, accountRows, existingStates, unfilledRows] = await Promise.all([
     Promise.all(
       accountIds.map((accountId) =>
         db
           .from("broker_trade_evidence")
-          .select("account_id, exit_at, gross_profit, commission, swap, profit_currency")
+          .select(
+            "account_id, exit_at, gross_profit, commission, swap, profit_currency, broker_symbol, direction",
+          )
           .eq("account_id", accountId)
           .eq("state", "closed")
           .not("exit_at", "is", null)
@@ -111,9 +118,17 @@ export async function evaluateAccountBrakes(
       .in("id", accountIds),
     db
       .from("account_risk_state")
-      .select("account_id, peak_equity, peak_equity_at, paused, pause_reason, paused_at")
+      .select(
+        "account_id, peak_equity, peak_equity_at, paused, pause_reason, paused_at, cancelled_matching_orders, unconfirmed_matching_orders",
+      )
       .in("account_id", accountIds),
-
+    db
+      .from("execution_deliveries")
+      .select(
+        "id, state, broker_symbol, direction, dry_run, broker_order_id, destination_type, connected_account_id, submitted_at, sent_at, enqueued_at, user_id",
+      )
+      .in("connected_account_id", accountIds)
+      .in("state", ["pending", "claimed", "sent", "acknowledged", "unknown"]),
   ]);
 
   if (accountRows.error) console.error("brakes: accounts unreadable", accountRows.error.message);
@@ -123,6 +138,10 @@ export async function evaluateAccountBrakes(
   // An unreadable history is NOT an empty history. Zero rows with no error means
   // "no closed trades in the window", which is a real measurement of zero loss.
   const tradesByAccount = new Map<string, ClosedTrade[]>();
+  const lossRefsByAccount = new Map<
+    string,
+    { instrument: string | null; direction: string | null }[]
+  >();
   const unreadableAccounts = new Set<string>();
   evidencePerAccount.forEach((result, index) => {
     const accountId = accountIds[index] as string;
@@ -132,18 +151,24 @@ export async function evaluateAccountBrakes(
       return;
     }
     const list: ClosedTrade[] = [];
+    const lossRefs: { instrument: string | null; direction: string | null }[] = [];
     for (const row of (result.data ?? []) as {
       exit_at: string;
       gross_profit: number | null;
       commission: number | null;
       swap: number | null;
       profit_currency: string | null;
+      broker_symbol: string | null;
+      direction: string | null;
     }[]) {
       const exitAtMs = Date.parse(row.exit_at);
       if (!Number.isFinite(exitAtMs)) continue;
-      list.push({ exitAtMs, net: netOf(row), currency: row.profit_currency ?? null });
+      const net = netOf(row);
+      list.push({ exitAtMs, net, currency: row.profit_currency ?? null });
+      if (net < 0) lossRefs.push({ instrument: row.broker_symbol, direction: row.direction });
     }
     tradesByAccount.set(accountId, list);
+    if (lossRefs.length > 0) lossRefsByAccount.set(accountId, lossRefs);
   });
 
   const equityByAccount = new Map<string, { equity: number | null; observedAt: string | null }>();
@@ -165,11 +190,51 @@ export async function evaluateAccountBrakes(
     ((existingStates.data ?? []) as StateRow[]).map((row) => [row.account_id, row]),
   );
 
+  const unfilledByAccount = new Map<string, SweepableDelivery[]>();
+  if (!unfilledRows.error) {
+    for (const row of (unfilledRows.data ?? []) as SweepableDelivery[]) {
+      const list = unfilledByAccount.get(row.connected_account_id ?? "") ?? [];
+      list.push(row);
+      unfilledByAccount.set(row.connected_account_id ?? "", list);
+    }
+  } else {
+    console.error("brakes: unfilled deliveries unreadable", unfilledRows.error.message);
+  }
+
   const upserts: Record<string, unknown>[] = [];
+
+  async function cancelMatchingUnfilledOrders(
+    accountId: string,
+    lossRefs: { instrument: string | null; direction: string | null }[],
+    unfilled: SweepableDelivery[],
+  ): Promise<{ cancelled: number; unconfirmed: number }> {
+    const matches = matchingUnfilledDeliveries(
+      lossRefs,
+      unfilled.map((d) => ({
+        id: d.id,
+        instrument: d.broker_symbol ?? null,
+        direction: d.direction ?? null,
+      })),
+    );
+    if (matches.length === 0) return { cancelled: 0, unconfirmed: 0 };
+
+    const rowById = new Map<number, SweepableDelivery>(unfilled.map((d) => [d.id, d]));
+    let cancelled = 0;
+    let unconfirmed = 0;
+    for (const id of matches) {
+      const row = rowById.get(id);
+      if (!row) continue;
+      const result = await cancelDeliveryById(db, row, "cancelled_by_losing_run", nowMs);
+      if (result.action === "expired") cancelled++;
+      else unconfirmed++;
+    }
+    return { cancelled, unconfirmed };
+  }
 
   for (const account of accounts) {
     const limits = limitsByAccount.get(account.id);
-    if (!limits) continue;
+    const settings = settingsByUser.get(account.user_id);
+    if (!limits || !settings) continue;
 
     const totals = unreadableAccounts.has(account.id)
       ? null
@@ -197,12 +262,29 @@ export async function evaluateAccountBrakes(
       ? { reason: (prior?.pause_reason ?? null) as BrakeReason | null, atMs: priorPausedAtMs }
       : null;
 
-
     const verdict = evaluateBrakes(
       limits,
       { totals, equity: observed.equity, peakEquity, pauseSince },
       nowMs,
     );
+
+    const wasConsecutiveLossPause =
+      prior?.paused === true && prior.pause_reason === "consecutive_loss_limit";
+    const isConsecutiveLossPause =
+      verdict.paused === true && verdict.reason === "consecutive_loss_limit";
+    const cancelOnPause = settings.cancel_matching_on_pause === true;
+
+    let cancellationDelta = { cancelled: 0, unconfirmed: 0 };
+    if (cancelOnPause && !wasConsecutiveLossPause && isConsecutiveLossPause) {
+      cancellationDelta = await cancelMatchingUnfilledOrders(
+        account.id,
+        lossRefsByAccount.get(account.id) ?? [],
+        unfilledByAccount.get(account.id) ?? [],
+      );
+    }
+
+    const priorCancelled = Number(prior?.cancelled_matching_orders ?? 0);
+    const priorUnconfirmed = Number(prior?.unconfirmed_matching_orders ?? 0);
 
     out.set(account.id, {
       accountId: account.id,
@@ -249,10 +331,13 @@ export async function evaluateAccountBrakes(
           : new Date(nowMs).toISOString()
         : null,
 
-
       resume_after:
         verdict.resumeAfterMs === null ? null : new Date(verdict.resumeAfterMs).toISOString(),
       resume_boundary: verdict.resumeBoundary,
+      cancelled_matching_orders: verdict.paused ? priorCancelled + cancellationDelta.cancelled : 0,
+      unconfirmed_matching_orders: verdict.paused
+        ? priorUnconfirmed + cancellationDelta.unconfirmed
+        : 0,
     });
   }
 

@@ -180,6 +180,7 @@ function SettingsPage() {
   // "day" = pause until the next UTC midnight (the default); "3"/"5" = a fixed window.
   const [consecutiveLossPauseHours, setConsecutiveLossPauseHours] = useState("day");
   const [maxDrawdownPercent, setMaxDrawdownPercent] = useState("0");
+  const [cancelMatchingOnPause, setCancelMatchingOnPause] = useState(false);
 
   const [saving, setSaving] = useState(false);
   const triggerScan = useServerFn(runScanNow);
@@ -332,6 +333,7 @@ function SettingsPage() {
         : "day",
     );
     setMaxDrawdownPercent(String(Number(s.max_drawdown_percent ?? 0)));
+    setCancelMatchingOnPause(s.cancel_matching_on_pause === true);
   }, [settings.data]);
 
   function toggle(list: string[], value: string, set: (v: string[]) => void) {
@@ -411,6 +413,7 @@ function SettingsPage() {
         consecutive_loss_pause_hours:
           consecutiveLossPauseHours === "3" ? 3 : consecutiveLossPauseHours === "5" ? 5 : null,
         max_drawdown_percent: maxDrawdownValue,
+        cancel_matching_on_pause: cancelMatchingOnPause,
 
         // Never fabricate the acknowledgement: above-2% saves are blocked above
         // unless the box is ticked, so this only persists the user's own choice.
@@ -1430,6 +1433,28 @@ function SettingsPage() {
                     is the real release time. Applies to the losing-run pause only — your daily,
                     weekly and equity-drop limits keep their own timing.
                   </p>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      className="mt-1"
+                      checked={cancelMatchingOnPause}
+                      onChange={(e) => setCancelMatchingOnPause(e.target.checked)}
+                    />
+                    <span className="text-sm">
+                      <span className="font-medium">
+                        Cancel matching unfilled orders when the pause starts
+                      </span>
+                      <span className="mt-1 block text-xs text-muted-foreground">
+                        Off by default. When the losing-run pause fires, any of your orders that is
+                        still unfilled on the same instrument and direction as the losses that
+                        triggered it is cancelled at the broker. Anything already filled or partly
+                        filled stays open; only broker-confirmed cancellations count.
+                      </span>
+                    </span>
+                  </label>
                 </div>
 
                 <div>

@@ -72,7 +72,6 @@ export function readBrakeLimits(row: {
   };
 }
 
-
 /** Is any brake actually configured? Nobody pays for a feature they left off. */
 export function brakesConfigured(limits: BrakeLimits): boolean {
   return (
@@ -176,7 +175,6 @@ export interface BrakeVerdict {
   /** When the brake lifts by itself. null means it needs the owner. */
   resumeAfterMs: number | null;
   resumeBoundary: "next_utc_day" | "next_iso_week" | "duration" | "owner" | null;
-
 }
 
 const PASS: BrakeVerdict = {
@@ -208,7 +206,6 @@ export interface BrakeInputs {
    */
   pauseSince?: { reason: BrakeReason | null; atMs: number | null } | null;
 }
-
 
 /**
  * Does any configured brake hold right now?
@@ -339,8 +336,6 @@ export function evaluateBrakes(
       };
     }
   }
-
-
 
   return PASS;
 }

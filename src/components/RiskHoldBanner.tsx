@@ -84,6 +84,14 @@ export function RiskHoldBanner() {
                 ? `Orders resume ${countdown(resumeMs, nowMs)}, at ${new Date(resumeMs).toISOString().slice(11, 16)} UTC.`
                 : "No release time has been recorded yet, so none is shown."}
             </p>
+            {(hold.cancelledMatchingOrders > 0 || hold.unconfirmedMatchingOrders > 0) && (
+              <p className="mt-1 text-muted-foreground">
+                Because you opted to cancel matching unfilled orders when this pause started,{" "}
+                {hold.cancelledMatchingOrders} matching resting order
+                {hold.cancelledMatchingOrders === 1 ? "" : "s"} was cancelled and{" "}
+                {hold.unconfirmedMatchingOrders} could not be confirmed as cancelled.
+              </p>
+            )}
             <p className="mt-1 text-xs text-muted-foreground">
               You choose both the losing-run length and how long the pause lasts in Settings, under
               Automatic order rules.

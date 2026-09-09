@@ -317,14 +317,16 @@ export async function occupiedOrderCounts(
 
 /**
  * Every automatic order this owner already holds that is NOT resolved: queued,
- * in flight, or accepted and resting at the broker. Terminal rows (refused,
- * failed, expired, filled and reconciled) are excluded, so a cleared setup never
- * blocks a fresh attempt.
+ * in flight, awaiting human confirmation, or accepted and resting at the broker.
+ * Terminal rows (refused, failed, expired, filled and reconciled) are excluded, so
+ * a cleared setup never blocks a fresh attempt.
  *
  * The plan behind each row comes from its own signal snapshot, with the submitted
  * (grid-snapped) entry preferred when dispatch already recorded one, because that
  * is the price actually resting at the broker.
  */
+const HELD_STATES = [...OCCUPYING_STATES, "awaiting_confirmation"] as const;
+
 export async function heldOrdersByUser(
   db: SupabaseClient,
   userIds: string[],
@@ -339,7 +341,7 @@ export async function heldOrdersByUser(
       "id, user_id, signal_id, submitted_entry, published_entry, broker_order_state, submitted_at, client_id, broker_order_id, signal:scanned_signals(instrument, direction, entry_price)",
     )
     .in("user_id", userIds)
-    .in("state", OCCUPYING_STATES as unknown as string[])
+    .in("state", HELD_STATES as unknown as string[])
     .neq("dry_run", true)
     .gte("enqueued_at", since);
   if (error) {
@@ -371,16 +373,10 @@ export async function heldOrdersByUser(
     return Number.isFinite(parsed) ? parsed : null;
   };
   for (const row of (data ?? []) as Row[]) {
-    // A broker-closed, cancelled or absent order rests nowhere, so it cannot be
-    // the duplicate of a fresh attempt.
-    if (
-      neverReachedBroker({
-        submittedAt: row.submitted_at ?? null,
-        clientId: row.client_id ?? null,
-        brokerOrderId: row.broker_order_id ?? null,
-      })
-    )
-      continue;
+    // Any delivery that is still queued, in flight or accepted rests here for
+    // duplicate-detection purposes, even if it has not reached the broker yet.
+    // The sweeper eventually expires stuck rows; until then the same setup must
+    // not be enqueued again.
     if (!occupiesSlot(row.broker_order_state as never)) continue;
     const embedded = Array.isArray(row.signal) ? row.signal[0] : row.signal;
     const instrument = embedded?.instrument ?? null;

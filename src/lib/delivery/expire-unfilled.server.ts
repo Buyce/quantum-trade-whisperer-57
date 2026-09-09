@@ -43,6 +43,8 @@ export interface SweepableDelivery {
   sent_at: string | null;
   submitted_at: string | null;
   broker_order_id: string | null;
+  broker_symbol: string | null;
+  direction: string | null;
   connected_account_id: string | null;
   destination_type: string | null;
 }
@@ -138,7 +140,7 @@ export function classifyBrokerPresence(
   return "resting";
 }
 
-async function settleExpired(db: Db, id: number, reason: string): Promise<void> {
+export async function settleExpired(db: Db, id: number, reason: string): Promise<void> {
   const { error } = await db
     .from("execution_deliveries")
     .update({
