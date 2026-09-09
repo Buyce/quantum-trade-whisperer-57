@@ -10,6 +10,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveWriteOnlySecret } from "@/lib/delivery/write-only-secret";
+import { brakesConfigured, readBrakeLimits } from "@/lib/risk/brakes";
+
 import { z } from "zod";
 
 const bridgeInput = z.object({
