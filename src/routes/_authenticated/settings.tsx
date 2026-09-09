@@ -333,6 +333,7 @@ function SettingsPage() {
         : "day",
     );
     setMaxDrawdownPercent(String(Number(s.max_drawdown_percent ?? 0)));
+    setCancelMatchingOnPause(s.cancel_matching_on_pause === true);
   }, [settings.data]);
 
   function toggle(list: string[], value: string, set: (v: string[]) => void) {
