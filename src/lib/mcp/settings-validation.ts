@@ -64,11 +64,6 @@ export interface SettingsInput {
    */
   auto_exit_shares?: string | undefined;
   auto_exit_trail_runner?: boolean | undefined;
-  /**
-   * Owner opt-in: when a consecutive-loss pause starts, also cancel unfilled
-   * orders matching the instrument and direction of the triggering losses.
-   */
-  cancel_matching_on_pause?: boolean | undefined;
 }
 
 /**
@@ -165,10 +160,6 @@ export function validateSettings(
 
   if (input.auto_exit_trail_runner !== undefined) {
     patch["auto_exit_trail_runner"] = input.auto_exit_trail_runner === true;
-  }
-
-  if (input.cancel_matching_on_pause !== undefined) {
-    patch["cancel_matching_on_pause"] = input.cancel_matching_on_pause === true;
   }
 
   if (input.instruments) {

@@ -49,3 +49,15 @@ at zero:
 
 Clearing a hold never places, cancels or modifies anything at the broker, and never
 loosens a limit that is still configured.
+
+## Cancelling matching unfilled orders when a losing-run pause starts
+
+This is always on and has no setting. When a consecutive-loss pause transitions
+from off to on, the evaluator cancels the account's still-unfilled orders whose
+instrument and direction match the losses that triggered the pause:
+
+- Filled or partially filled orders and open positions are never touched.
+- Matching is fail-closed: a delivery with no readable instrument or direction is
+  left alone rather than guessed at.
+- Only broker-confirmed cancellations are counted as cancelled; anything else is
+  reported as unconfirmed. Both counts surface in the hold notice.

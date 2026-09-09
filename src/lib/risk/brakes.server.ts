@@ -46,9 +46,7 @@ export interface AccountBrakeState {
   peakEquity: number | null;
 }
 
-type SettingsLike = Parameters<typeof readBrakeLimits>[0] & {
-  cancel_matching_on_pause?: boolean | null;
-};
+type SettingsLike = Parameters<typeof readBrakeLimits>[0];
 
 interface StateRow {
   account_id: string;
@@ -311,10 +309,12 @@ export async function evaluateAccountBrakes(
       prior?.paused === true && prior.pause_reason === "consecutive_loss_limit";
     const isConsecutiveLossPause =
       verdict.paused === true && verdict.reason === "consecutive_loss_limit";
-    const cancelOnPause = settings.cancel_matching_on_pause === true;
 
+    // Always-on: a losing-run pause exists to stop adding exposure to the setup
+    // that is losing, so its own leftover unfilled orders on that instrument and
+    // direction are cancelled too. There is nothing to configure.
     let cancellationDelta = { cancelled: 0, unconfirmed: 0 };
-    if (cancelOnPause && !wasConsecutiveLossPause && isConsecutiveLossPause) {
+    if (!wasConsecutiveLossPause && isConsecutiveLossPause) {
       cancellationDelta = await cancelMatchingUnfilledOrders(
         account.id,
         lossRefsByAccount.get(account.id) ?? [],
