@@ -161,6 +161,15 @@ Intelligence as promotable/blocked with each unmet criterion and its measured
 value. It promotes nothing: `transition_instrument_stage` remains the only way a
 stage changes, taken per instrument by the operator with this output as evidence.
 
+Sample counts, distinct days, session coverage, observed provider symbols and
+missingness are computed **inside the database** by
+`get_promotion_sample_evidence` (service role only), one row per instrument.
+Reading raw sample rows through the data API truncated at its row ceiling, so a
+fortnight of collection was counted as roughly the newest three days and the
+5-day / 200-sample gate was unreachable by construction. Missingness is one
+window-wide percentage of sampler attempts that produced no usable tick. A failed
+aggregate read yields no evidence, which blocks — never a silent under-count.
+
 ## Provenance
 
 Every value here is broker-derived or operator-recorded. Contract sizes, lot
