@@ -310,6 +310,9 @@ export async function runSpreadSampler(
       market_state: classification.marketState,
       quality: classification.quality,
       quality_reasons: classification.reasons,
+      quote_attempts: attempts,
+      first_attempt_quality: firstQuality,
+      retry_recovered: firstQuality !== classification.quality && classification.quality === "valid",
       sampler_version: SAMPLER_VERSION,
       candle_policy_version: LIVE_CANDLE_POLICY_VERSION,
     });
