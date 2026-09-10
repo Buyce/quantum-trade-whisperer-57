@@ -202,7 +202,6 @@ export async function collectAdvancementEvidence(
     }
   }
 
-
   const lastAutoDay = new Map<string, string>();
   const publishedSince = new Map<string, string>();
   if (!transitions.error) {

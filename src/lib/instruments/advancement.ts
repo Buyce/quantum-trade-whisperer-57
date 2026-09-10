@@ -148,7 +148,6 @@ export function readinessReasons(r: ReadinessRecency | null, now: Date): string[
   return [];
 }
 
-
 export function utcDay(at: Date): string {
   return at.toISOString().slice(0, 10);
 }
@@ -229,7 +228,6 @@ function degradedEvidenceReasons(
   // Only a CURRENT readiness problem is degradation. An unreadable history is
   // handled by the per-rung gates, which fail closed on it.
   if (e.readiness) reasons.push(...readinessReasons(e.readiness, now));
-
 
   // Expectancy that has turned convincingly negative. A merely uncertain result
   // holds the instrument where it is; the interval has to sit BELOW zero.
