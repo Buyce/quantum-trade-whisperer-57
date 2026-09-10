@@ -21,30 +21,25 @@ interface InstrumentStageChangedProps {
 const mono = { ...text, fontFamily: MONO, fontSize: "13px", margin: "0 0 8px" };
 
 const InstrumentStageChangedEmail = ({ changes = [], ranAt }: InstrumentStageChangedProps) => {
-  const demoted = changes.filter((c) => c.action === "demote");
   return (
     <Html lang="en" dir="ltr">
       <Head />
-      <Preview>
-        {demoted.length > 0
-          ? "An instrument was moved back a stage automatically"
-          : "An instrument moved forward a stage automatically"}
-      </Preview>
+      <Preview>{"An instrument moved forward a stage automatically"}</Preview>
       <Body style={main}>
         <Container style={container}>
           <Text style={brandBar}>P-Trades Hub · Instrument lifecycle</Text>
           <Heading style={h1}>Instrument stage changed automatically</Heading>
           <Text style={text}>
             The daily lifecycle check found that the recorded evidence for the instruments below
-            either cleared every gate for the next stage, or fell below the standard required to
-            stay where they were. Each change was written to the audited transition log.
+            cleared every gate for the next stage. Stages only ever move forward automatically:
+            nothing is ever stepped back without a person deciding it. Each change was written to
+            the audited transition log.
           </Text>
           <Hr style={hr} />
           {changes.map((change, index) => (
             <React.Fragment key={`${change.instrument ?? "unknown"}-${index}`}>
               <Text style={mono}>
-                {change.action === "demote" ? "moved back" : "moved forward"}:{" "}
-                {change.instrument ?? "unknown"} {change.from ?? "unknown"} →{" "}
+                moved forward: {change.instrument ?? "unknown"} {change.from ?? "unknown"} →{" "}
                 {change.to ?? "unknown"}
               </Text>
               {(change.reasons ?? []).slice(0, 4).map((reason, i) => (

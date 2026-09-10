@@ -50,7 +50,7 @@ export interface AdvancementRun {
     instrument: string;
     from: InstrumentStage | null;
     to: InstrumentStage;
-    action: "promote" | "demote";
+    action: "promote";
     ok: boolean;
     error?: string;
   }>;
@@ -256,10 +256,7 @@ export async function runAdvancement(
       to: verdict.target,
       expectedFrom: verdict.stage,
       approver: AUTO_APPROVER,
-      reason:
-        verdict.action === "promote"
-          ? `Automatic advancement on ${utcDay(now)}: every gate for ${verdict.target} was met on recorded evidence.`
-          : `Automatic demotion on ${utcDay(now)}: ${verdict.reasons.join(" ")}`,
+      reason: `Automatic advancement on ${utcDay(now)}: every gate for ${verdict.target} was met on recorded evidence.`,
       evidence: {
         action: verdict.action,
         reasons: verdict.reasons,

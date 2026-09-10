@@ -92,11 +92,6 @@ export function StageLadderPanel() {
                       Move up to {STAGE_LABEL[v.target ?? ""] ?? v.target}
                     </span>
                   )}
-                  {v.action === "demote" && (
-                    <span className="text-warning">
-                      Move back to {STAGE_LABEL[v.target ?? ""] ?? v.target}
-                    </span>
-                  )}
                   {v.action === "hold" && <span className="text-muted-foreground">Stay</span>}
                 </td>
                 <td className="py-1.5 pr-3 whitespace-nowrap">
