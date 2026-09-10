@@ -30,6 +30,7 @@ cadence rather than asserting a crontab line.
 | `cron/sample-spreads`       | every 15 minutes | one broker quote per authorised instrument, classified and stored |
 | `cron/telemetry-rollup`     | hourly           | spread aggregation, telemetry retention, resolver health          |
 | `cron/instrument-readiness` | daily, 03:10 UTC | readiness snapshot with live conversion proof                     |
+| `cron/advance-instruments`  | daily, 05:40 UTC | one audited lifecycle step per instrument on recorded evidence     |
 
 ### Operational telemetry (in-service instruments only)
 
@@ -38,6 +39,16 @@ Spread sampling is bounded in four independent ways, in this order: the
 exactly one run per 15-minute UTC slot per sampler version, per-run instrument and
 request ceilings that the database may lower but never raise above the compiled
 values, and a fresh per-instrument stage and breaker check before any request.
+
+Each measurement re-asks the provider once when the first answer is unusable and
+the market is not closed. The provider's first answer after a cold price request
+is frequently degenerate — bid exactly equal to ask, with its own timestamp
+seconds old — and one such tick must not be recorded as "this instrument cannot
+be priced". The re-ask is bounded at two attempts (ceiling 16 requests per run for
+8 instruments), the attempt count and the first answer's classification are stored
+on every sample, and the classification after the last attempt is final: a zero or
+crossed spread is still rejected. Conversion legs, fetched cold once per snapshot,
+get four attempts 900ms apart for the same reason.
 
 Sampling scope is not the registry and not the stage table — it is exactly the
 `telemetry_controls.sampler_symbols` list, floored by the compiled
