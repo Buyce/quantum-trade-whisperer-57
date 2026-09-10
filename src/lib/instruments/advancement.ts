@@ -60,6 +60,25 @@ export interface HoldoutEvidence {
   ciLow: number | null;
 }
 
+/**
+ * Readiness judged by what is CURRENT.
+ *
+ * Only the newest few snapshots are consulted: the latest must pass, and at most
+ * one of them may have failed. Historical failures that have since been repaired
+ * no longer block, but a stale or missing latest snapshot still does — an
+ * unmeasured instrument is never assumed ready.
+ */
+export interface ReadinessRecency {
+  /** `ready` of the newest snapshot; null when there is none. */
+  latestReady: boolean | null;
+  /** When that snapshot was taken. */
+  latestCheckedAt: string | null;
+  /** Failures among the newest `READINESS_RECENT_SNAPSHOTS` snapshots. */
+  recentFailures: number;
+  /** How many snapshots were actually consulted. */
+  considered: number;
+}
+
 export interface AdvancementEvidence {
   instrument: string;
   /** Current stage, or null when the lifecycle row could not be read. */
