@@ -271,7 +271,7 @@ export function evaluateAdvancement(e: AdvancementEvidence, now: Date): Advancem
 
   // Degraded evidence holds the instrument exactly where it is. Only a human may
   // move an instrument to a lower stage.
-  const degraded = degradedEvidenceReasons(e, e.stage);
+  const degraded = degradedEvidenceReasons(e, e.stage, now);
   if (degraded.length > 0) return hold(degraded);
 
   const today = utcDay(now);
@@ -291,12 +291,12 @@ export function evaluateAdvancement(e: AdvancementEvidence, now: Date): Advancem
   }
 
   if (e.stage === "shadow") {
-    dataStillClean(e, reasons);
+    dataStillClean(e, reasons, now);
     positiveExpectancy(e.shadow, "Shadow outcomes", reasons);
   }
 
   if (e.stage === "signals_only") {
-    dataStillClean(e, reasons);
+    dataStillClean(e, reasons, now);
     positiveExpectancy(e.shadow, "Shadow outcomes", reasons);
     positiveExpectancy(e.published, "Published outcomes", reasons);
 
