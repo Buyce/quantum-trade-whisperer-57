@@ -41,7 +41,7 @@ const base = (over: Partial<AdvancementEvidence> = {}): AdvancementEvidence => (
 });
 
 describe("automatic stage advancement", () => {
-  it("promotes one rung at a time and never skips", () => {
+  it("[INVARIANT] promotes one rung at a time and never skips", () => {
     expect(evaluateAdvancement(base(), NOW)).toMatchObject({ action: "promote", target: "shadow" });
     expect(evaluateAdvancement(base({ stage: "shadow" }), NOW)).toMatchObject({
       action: "promote",
@@ -54,25 +54,25 @@ describe("automatic stage advancement", () => {
     expect(evaluateAdvancement(base({ stage: "execution_approved" }), NOW).action).toBe("hold");
   });
 
-  it("[SAFETY] holds when the stage cannot be read", () => {
+  it("[INVARIANT] holds when the stage cannot be read", () => {
     const verdict = evaluateAdvancement(base({ stage: null }), NOW);
     expect(verdict.action).toBe("hold");
     expect(verdict.reasons[0]).toContain("could not be read");
   });
 
-  it("[SAFETY] never moves suspended or disabled instruments", () => {
+  it("[INVARIANT] never moves suspended or disabled instruments", () => {
     for (const stage of ["suspended", "disabled"] as const) {
       expect(evaluateAdvancement(base({ stage }), NOW).action).toBe("hold");
     }
   });
 
-  it("allows at most one automatic step per UTC day", () => {
+  it("[INVARIANT] allows at most one automatic step per UTC day", () => {
     const verdict = evaluateAdvancement(base({ lastAutoTransitionDay: "2026-09-10" }), NOW);
     expect(verdict.action).toBe("hold");
     expect(verdict.reasons[0]).toContain("one step per day");
   });
 
-  it("[EVIDENCE] an unmeasured input blocks instead of passing", () => {
+  it("[INVARIANT] an unmeasured input blocks instead of passing", () => {
     for (const over of [
       { shadow: null },
       { missingnessPct: null },
@@ -82,7 +82,7 @@ describe("automatic stage advancement", () => {
     }
   });
 
-  it("[EVIDENCE] refuses when the interval reaches zero, even with positive mean", () => {
+  it("[INVARIANT] refuses when the interval reaches zero, even with positive mean", () => {
     const verdict = evaluateAdvancement(
       base({
         stage: "shadow",
@@ -94,7 +94,7 @@ describe("automatic stage advancement", () => {
     expect(verdict.reasons.join(" ")).toContain("not distinguishable from zero");
   });
 
-  it("requires a chronological holdout before execution is permitted", () => {
+  it("[INVARIANT] requires a chronological holdout before execution is permitted", () => {
     expect(evaluateAdvancement(base({ stage: "signals_only", holdout: null }), NOW).action).toBe(
       "hold",
     );
@@ -109,13 +109,13 @@ describe("automatic stage advancement", () => {
     ).toBe("hold");
   });
 
-  it("carries the checkpoint's own blockers on the first rung", () => {
+  it("[UNIT] carries the checkpoint's own blockers on the first rung", () => {
     const verdict = evaluateAdvancement(base({ promotion: promotable(false) }), NOW);
     expect(verdict.action).toBe("hold");
     expect(verdict.reasons[0]).toContain("trading days");
   });
 
-  it("demotes on degraded data quality, before any promotion is considered", () => {
+  it("[INVARIANT] demotes on degraded data quality, before any promotion is considered", () => {
     const verdict = evaluateAdvancement(
       base({ stage: "execution_approved", missingnessPct: MAX_MISSINGNESS_PCT + 15 }),
       NOW,
@@ -123,7 +123,7 @@ describe("automatic stage advancement", () => {
     expect(verdict).toMatchObject({ action: "demote", target: "signals_only" });
   });
 
-  it("demotes on repeated readiness failures even on the same day as a move", () => {
+  it("[INVARIANT] demotes on repeated readiness failures even on the same day as a move", () => {
     const verdict = evaluateAdvancement(
       base({ stage: "shadow", readinessFailures: 4, lastAutoTransitionDay: "2026-09-10" }),
       NOW,
@@ -131,7 +131,7 @@ describe("automatic stage advancement", () => {
     expect(verdict).toMatchObject({ action: "demote", target: "data_validation" });
   });
 
-  it("demotes only when expectancy is negative across the whole interval", () => {
+  it("[INVARIANT] demotes only when expectancy is negative across the whole interval", () => {
     const uncertain = { samples: 120, clusters: 14, expectedR: -0.1, ciLow: -0.4, ciHigh: 0.2 };
     expect(evaluateAdvancement(base({ stage: "shadow", shadow: uncertain }), NOW).action).toBe(
       "hold",

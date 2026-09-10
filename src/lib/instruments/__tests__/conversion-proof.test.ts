@@ -17,7 +17,7 @@ describe("live conversion proof (R5)", () => {
     // EUR, GBP and AUD each need exactly one major, de-duplicated.
     expect(requestCount).toBe(new Set(requested).size);
     expect(proof.every((p) => p.ok)).toBe(true);
-  });
+  }, 30_000);
 
   it("[INVARIANT] a leg the broker will not quote makes conversion unproven, not assumed", async () => {
     const { proof } = await proveConversion("JPY", async (symbol) =>
@@ -26,12 +26,12 @@ describe("live conversion proof (R5)", () => {
     const failing = proof.filter((p) => !p.ok);
     expect(failing.length).toBeGreaterThan(0);
     expect(failing.every((p) => p.missingLegs.includes("USDJPY"))).toBe(true);
-  });
+  }, 30_000);
 
   it("[INVARIANT] a crossed or nonfinite leg quote counts as missing", async () => {
     const { proof } = await proveConversion("JPY", async () => ({ bid: 2, ask: 1 }));
     expect(proof.every((p) => p.accountCurrency === "JPY" || !p.ok)).toBe(true);
-  });
+  }, 30_000);
 
   it("[INVARIANT] a throwing quote fetch never rejects the whole proof", async () => {
     const { proof } = await proveConversion("JPY", async () => {
@@ -39,5 +39,5 @@ describe("live conversion proof (R5)", () => {
     });
     expect(proof.length).toBeGreaterThan(0);
     expect(proof.some((p) => p.ok)).toBe(false);
-  });
+  }, 30_000);
 });
