@@ -158,8 +158,9 @@ pure evidence gate for that, and every criterion is arithmetic over recorded row
 
 Absent evidence is a blocker, never a pass. The checkpoint renders in Admin
 Intelligence as promotable/blocked with each unmet criterion and its measured
-value. It promotes nothing: `transition_instrument_stage` remains the only way a
-stage changes, taken per instrument by the operator with this output as evidence.
+value. It changes no stage itself: `transition_instrument_stage` remains the only
+way a stage changes, and both the operator and the automatic ladder below go
+through it.
 
 Sample counts, distinct days, session coverage, observed provider symbols and
 missingness are computed **inside the database** by
@@ -169,6 +170,41 @@ fortnight of collection was counted as roughly the newest three days and the
 5-day / 200-sample gate was unreachable by construction. Missingness is one
 window-wide percentage of sampler attempts that produced no usable tick. A failed
 aggregate read yields no evidence, which blocks — never a silent under-count.
+
+## Automatic stage advancement
+
+`advancement.ts` (pure rules) and `advancement.server.ts` (evidence + apply) climb
+the ladder without an operator, once a day at 05:40 UTC via
+`/api/public/cron/advance-instruments`. Four invariants:
+
+1. **Evidence or nothing.** Every input is nullable and `null` blocks. Nothing is
+   inferred, defaulted, or carried over from a previous day.
+2. **One rung per instrument per UTC day, never skipped** — `data_validation` ->
+   `shadow` -> `signals_only` -> `execution_approved`. Every rung is therefore
+   observed live for a full day before the next is considered.
+3. **Demotion is checked first, and on cheaper evidence than promotion.**
+4. **`execution_approved` is permission, not an instruction.** The global
+   execution switch, per-account settings, risk brakes and the intelligence gate
+   are untouched by this job.
+
+Gates per rung:
+
+| Rung | Requires |
+| --- | --- |
+| `data_validation` -> `shadow` | the promotion checkpoint above, verbatim |
+| `shadow` -> `signals_only` | 30+ resolved replay outcomes over 10+ UTC days, positive full-payoff expected R whose cluster-bootstrap interval stays above zero, missingness at or below 20%, at most one failed readiness check in the window |
+| `signals_only` -> `execution_approved` | all of the above, the same standard on post-publication outcomes, and a chronological holdout (later 30% of observed days, 30+ outcomes over 5+ instrument-days) whose interval also stays above zero |
+
+Demotion fires one rung down when missingness breaches 20%, more than one
+readiness check failed in the window, or expectancy is negative across the whole
+confidence interval. `suspended` and `disabled` are never touched automatically.
+
+The kill switch is `execution_controls.auto_stage_advance_enabled` and it **fails
+closed**: unreadable means nothing moves. Every applied change is written through
+`transition_instrument_stage` with approver `auto-advance`, the reasons and the
+window attached, and it is emailed to the owner and shown in Admin Intelligence
+under "Automatic stage ladder", which also renders the next decision and its
+blockers as a dry run.
 
 ## Provenance
 
