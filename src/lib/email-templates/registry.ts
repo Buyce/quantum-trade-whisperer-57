@@ -10,6 +10,7 @@ import { template as gateChangeAppliedTemplate } from "./gate-change-applied";
 import { template as weeklyShadowReportTemplate } from "./weekly-shadow-report";
 import { template as verifyTradePricesTemplate } from "./verify-trade-prices";
 import { template as scannerStarvedTemplate } from "./scanner-starved";
+import { template as instrumentStageChangedTemplate } from "./instrument-stage-changed";
 
 export interface TemplateEntry {
   component: ElementType;
@@ -40,4 +41,5 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   "weekly-shadow-report": weeklyShadowReportTemplate,
   "verify-trade-prices": verifyTradePricesTemplate,
   "scanner-starved": scannerStarvedTemplate,
+  "instrument-stage-changed": instrumentStageChangedTemplate,
 };
