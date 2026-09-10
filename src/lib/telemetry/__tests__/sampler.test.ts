@@ -109,7 +109,17 @@ describe("sampler budget", () => {
 
   it("[INVARIANT] compiled ceilings stay at the reviewed in-service values", () => {
     expect(MAX_INSTRUMENTS_PER_RUN).toBe(8);
-    expect(MAX_REQUESTS_PER_RUN).toBe(10);
+    // One re-ask per instrument, never more: 8 x 2.
+    expect(MAX_REQUESTS_PER_RUN).toBe(16);
+    expect(MAX_REQUESTS_PER_RUN).toBe(MAX_INSTRUMENTS_PER_RUN * SAMPLE_QUOTE_ATTEMPTS);
     expect(SAMPLER_VERSION).toBe(1);
+  });
+
+  it("[INVARIANT] a closed market is never re-asked; every bad-tick class is", () => {
+    expect(worthReAsking("closed_market")).toBe(false);
+    expect(worthReAsking("valid")).toBe(false);
+    for (const quality of ["malformed", "inverted", "stale", "future_dated"] as const) {
+      expect(worthReAsking(quality)).toBe(true);
+    }
   });
 });
