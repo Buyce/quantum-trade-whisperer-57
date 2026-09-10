@@ -30,7 +30,7 @@ cadence rather than asserting a crontab line.
 | `cron/sample-spreads`       | every 15 minutes | one broker quote per authorised instrument, classified and stored |
 | `cron/telemetry-rollup`     | hourly           | spread aggregation, telemetry retention, resolver health          |
 | `cron/instrument-readiness` | daily, 03:10 UTC | readiness snapshot with live conversion proof                     |
-| `cron/advance-instruments`  | daily, 05:40 UTC | one audited lifecycle step per instrument on recorded evidence     |
+| `cron/advance-instruments`  | daily, 05:40 UTC | one audited lifecycle step per instrument on recorded evidence    |
 
 ### Operational telemetry (in-service instruments only)
 

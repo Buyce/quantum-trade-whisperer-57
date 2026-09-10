@@ -152,7 +152,8 @@ export async function collectAdvancementEvidence(
   if (stages.error) warnings.push(`lifecycle stages unreadable: ${stages.error.message}`);
   if (replay.error) warnings.push(`replay outcomes unreadable: ${replay.error.message}`);
   if (readiness.error) warnings.push(`readiness history unreadable: ${readiness.error.message}`);
-  if (transitions.error) warnings.push(`transition history unreadable: ${transitions.error.message}`);
+  if (transitions.error)
+    warnings.push(`transition history unreadable: ${transitions.error.message}`);
   warnings.push(...checkpoint.warnings);
 
   const stageOf = new Map<string, InstrumentStage | null>();
@@ -229,7 +230,10 @@ export async function collectAdvancementEvidence(
  * one transition each, through the audited RPC with a compare-and-set on the
  * stage the evidence was read at.
  */
-export async function runAdvancement(db: SupabaseClient, now = new Date()): Promise<AdvancementRun> {
+export async function runAdvancement(
+  db: SupabaseClient,
+  now = new Date(),
+): Promise<AdvancementRun> {
   const enabled = await readAutoAdvanceEnabled(db);
   if (!enabled) {
     return {

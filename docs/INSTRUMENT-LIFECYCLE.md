@@ -189,11 +189,11 @@ the ladder without an operator, once a day at 05:40 UTC via
 
 Gates per rung:
 
-| Rung | Requires |
-| --- | --- |
-| `data_validation` -> `shadow` | the promotion checkpoint above, verbatim |
-| `shadow` -> `signals_only` | 30+ resolved replay outcomes over 10+ UTC days, positive full-payoff expected R whose cluster-bootstrap interval stays above zero, missingness at or below 20%, at most one failed readiness check in the window |
-| `signals_only` -> `execution_approved` | all of the above, the same standard on post-publication outcomes, and a chronological holdout (later 30% of observed days, 30+ outcomes over 5+ instrument-days) whose interval also stays above zero |
+| Rung                                   | Requires                                                                                                                                                                                                         |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `data_validation` -> `shadow`          | the promotion checkpoint above, verbatim                                                                                                                                                                         |
+| `shadow` -> `signals_only`             | 30+ resolved replay outcomes over 10+ UTC days, positive full-payoff expected R whose cluster-bootstrap interval stays above zero, missingness at or below 20%, at most one failed readiness check in the window |
+| `signals_only` -> `execution_approved` | all of the above, the same standard on post-publication outcomes, and a chronological holdout (later 30% of observed days, 30+ outcomes over 5+ instrument-days) whose interval also stays above zero            |
 
 Demotion fires one rung down when missingness breaches 20%, more than one
 readiness check failed in the window, or expectancy is negative across the whole

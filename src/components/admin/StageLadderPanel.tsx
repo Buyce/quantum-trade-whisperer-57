@@ -101,7 +101,9 @@ export function StageLadderPanel() {
                 </td>
                 <td className="py-1.5 pr-3 whitespace-nowrap">
                   {v.shadowSamples ?? 0} outcomes · {r(v.shadowExpectedR)} (low {r(v.shadowCiLow)})
-                  {v.missingnessPct === null ? " · gaps unmeasured" : ` · gaps ${v.missingnessPct.toFixed(1)}%`}
+                  {v.missingnessPct === null
+                    ? " · gaps unmeasured"
+                    : ` · gaps ${v.missingnessPct.toFixed(1)}%`}
                 </td>
                 <td className="py-1.5">
                   {v.reasons.length === 0 ? (

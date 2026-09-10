@@ -121,9 +121,7 @@ function positiveExpectancy(e: OutcomeEvidence | null, label: string, reasons: s
   }
   let ok = true;
   if (e.samples < MIN_OUTCOME_SAMPLES) {
-    reasons.push(
-      `${label}: ${e.samples} resolved outcomes (needs ${MIN_OUTCOME_SAMPLES}).`,
-    );
+    reasons.push(`${label}: ${e.samples} resolved outcomes (needs ${MIN_OUTCOME_SAMPLES}).`);
     ok = false;
   }
   if (e.clusters < MIN_OUTCOME_CLUSTERS) {
@@ -225,7 +223,13 @@ export function evaluateAdvancement(e: AdvancementEvidence, now: Date): Advancem
   const down = demotionReasons(e, e.stage);
   const downTarget = stepDown(e.stage);
   if (down.length > 0 && downTarget) {
-    return { instrument: e.instrument, stage: e.stage, action: "demote", target: downTarget, reasons: down };
+    return {
+      instrument: e.instrument,
+      stage: e.stage,
+      action: "demote",
+      target: downTarget,
+      reasons: down,
+    };
   }
   if (down.length > 0) return hold(down);
 
@@ -257,7 +261,10 @@ export function evaluateAdvancement(e: AdvancementEvidence, now: Date): Advancem
 
     if (!e.holdout) {
       reasons.push("No chronological holdout could be formed.");
-    } else if (e.holdout.samples < MIN_HOLDOUT_SAMPLES || e.holdout.clusters < MIN_HOLDOUT_CLUSTERS) {
+    } else if (
+      e.holdout.samples < MIN_HOLDOUT_SAMPLES ||
+      e.holdout.clusters < MIN_HOLDOUT_CLUSTERS
+    ) {
       reasons.push(
         `Holdout period has ${e.holdout.samples} outcomes over ${e.holdout.clusters} days (needs ${MIN_HOLDOUT_SAMPLES} over ${MIN_HOLDOUT_CLUSTERS}).`,
       );

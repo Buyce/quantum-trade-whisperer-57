@@ -25,11 +25,7 @@ import { instrumentDefinition } from "./registry";
 import { checkInstrumentReadiness, SUPPORTED_ACCOUNT_CURRENCIES } from "./readiness.server";
 import { resolveFetchSymbol } from "./fetch-authority.server";
 import { LIVE_CANDLE_POLICY_VERSION } from "./candle-policy";
-import {
-  LEG_QUOTE_ATTEMPTS,
-  LEG_QUOTE_RETRY_DELAY_MS,
-  fetchUsableQuote,
-} from "./quote-retry";
+import { LEG_QUOTE_ATTEMPTS, LEG_QUOTE_RETRY_DELAY_MS, fetchUsableQuote } from "./quote-retry";
 
 export interface ConversionProof {
   accountCurrency: string;

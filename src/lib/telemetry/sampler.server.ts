@@ -273,7 +273,6 @@ export async function runSpreadSampler(
     // A provider error is a failed request, not a classified measurement.
     if (fetchFailed || !classification) continue;
 
-
     const metrics =
       classification.quality === "valid" && quote
         ? spreadMetrics({
@@ -315,7 +314,8 @@ export async function runSpreadSampler(
       quality_reasons: classification.reasons,
       quote_attempts: attempts,
       first_attempt_quality: firstQuality,
-      retry_recovered: firstQuality !== classification.quality && classification.quality === "valid",
+      retry_recovered:
+        firstQuality !== classification.quality && classification.quality === "valid",
       sampler_version: SAMPLER_VERSION,
       candle_policy_version: LIVE_CANDLE_POLICY_VERSION,
     });
