@@ -119,8 +119,35 @@ export const MIN_HOLDOUT_SAMPLES = 30;
 export const MIN_HOLDOUT_CLUSTERS = 5;
 /** Same ceiling the manual promotion gate uses. */
 export const MAX_MISSINGNESS_PCT = 20;
-/** Two not-ready snapshots in the window is a data problem, not a blip. */
+/** How many of the newest readiness snapshots are consulted. */
+export const READINESS_RECENT_SNAPSHOTS = 3;
+/** Two failures among those newest snapshots is a data problem, not a blip. */
 export const MAX_READINESS_FAILURES = 1;
+/** The newest snapshot must be at most this old; readiness runs daily. */
+export const MAX_READINESS_AGE_HOURS = 48;
+
+/**
+ * Readiness reasons, in the order a reader should see them. Empty means current
+ * readiness is clean. FAILS CLOSED on missing, stale or unreadable history.
+ */
+export function readinessReasons(r: ReadinessRecency | null, now: Date): string[] {
+  if (!r) return ["Readiness history is not readable."];
+  if (r.latestReady === null || r.latestCheckedAt === null) {
+    return ["No readiness check has been recorded for this instrument."];
+  }
+  const ageHours = (now.getTime() - new Date(r.latestCheckedAt).getTime()) / 3_600_000;
+  if (!Number.isFinite(ageHours) || ageHours > MAX_READINESS_AGE_HOURS) {
+    return [`The newest readiness check is older than ${MAX_READINESS_AGE_HOURS} hours.`];
+  }
+  if (r.latestReady === false) return ["The newest readiness check did not pass."];
+  if (r.recentFailures > MAX_READINESS_FAILURES) {
+    return [
+      `${r.recentFailures} of the last ${r.considered} readiness checks failed (allowed ${MAX_READINESS_FAILURES}).`,
+    ];
+  }
+  return [];
+}
+
 
 export function utcDay(at: Date): string {
   return at.toISOString().slice(0, 10);
