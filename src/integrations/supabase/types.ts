@@ -1482,6 +1482,7 @@ export type Database = {
       execution_controls: {
         Row: {
           allowed_live_hosts: string[]
+          auto_stage_advance_enabled: boolean
           benchmark_auto_enabled: boolean
           customer_live_auto_enabled: boolean
           customer_live_confirm_enabled: boolean
@@ -1505,6 +1506,7 @@ export type Database = {
         }
         Insert: {
           allowed_live_hosts?: string[]
+          auto_stage_advance_enabled?: boolean
           benchmark_auto_enabled?: boolean
           customer_live_auto_enabled?: boolean
           customer_live_confirm_enabled?: boolean
@@ -1528,6 +1530,7 @@ export type Database = {
         }
         Update: {
           allowed_live_hosts?: string[]
+          auto_stage_advance_enabled?: boolean
           benchmark_auto_enabled?: boolean
           customer_live_auto_enabled?: boolean
           customer_live_confirm_enabled?: boolean
@@ -2651,6 +2654,7 @@ export type Database = {
           candle_policy_version: number | null
           created_at: string
           digits: number | null
+          first_attempt_quality: string | null
           id: number
           instrument: string
           mapping_verified_at: string | null
@@ -2660,7 +2664,9 @@ export type Database = {
           provider_symbol: string
           quality: string
           quality_reasons: string[]
+          quote_attempts: number | null
           received_at: string
+          retry_recovered: boolean | null
           run_id: string
           sampler_version: number
           scope: string
@@ -2683,6 +2689,7 @@ export type Database = {
           candle_policy_version?: number | null
           created_at?: string
           digits?: number | null
+          first_attempt_quality?: string | null
           id?: number
           instrument: string
           mapping_verified_at?: string | null
@@ -2692,7 +2699,9 @@ export type Database = {
           provider_symbol: string
           quality: string
           quality_reasons?: string[]
+          quote_attempts?: number | null
           received_at?: string
+          retry_recovered?: boolean | null
           run_id: string
           sampler_version: number
           scope?: string
@@ -2715,6 +2724,7 @@ export type Database = {
           candle_policy_version?: number | null
           created_at?: string
           digits?: number | null
+          first_attempt_quality?: string | null
           id?: number
           instrument?: string
           mapping_verified_at?: string | null
@@ -2724,7 +2734,9 @@ export type Database = {
           provider_symbol?: string
           quality?: string
           quality_reasons?: string[]
+          quote_attempts?: number | null
           received_at?: string
+          retry_recovered?: boolean | null
           run_id?: string
           sampler_version?: number
           scope?: string

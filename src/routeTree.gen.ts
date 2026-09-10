@@ -30,6 +30,7 @@ import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[
 import { Route as AuthenticatedAdminIntelligenceRouteImport } from './routes/_authenticated/admin/intelligence'
 import { Route as ApiPublicQuotesRouteImport } from './routes/api/public/quotes'
 import { Route as ApiPublicAgentRegisterRouteImport } from './routes/api/public/agent/register'
+import { Route as ApiPublicCronAdvanceInstrumentsRouteImport } from './routes/api/public/cron/advance-instruments'
 import { Route as ApiPublicCronCommissionReadinessRouteImport } from './routes/api/public/cron/commission-readiness'
 import { Route as ApiPublicCronExpireOrdersRouteImport } from './routes/api/public/cron/expire-orders'
 import { Route as ApiPublicCronIngestMarketContextRouteImport } from './routes/api/public/cron/ingest-market-context'
@@ -165,6 +166,12 @@ const ApiPublicAgentRegisterRoute = ApiPublicAgentRegisterRouteImport.update({
   path: '/api/public/agent/register',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicCronAdvanceInstrumentsRoute =
+  ApiPublicCronAdvanceInstrumentsRouteImport.update({
+    id: '/api/public/cron/advance-instruments',
+    path: '/api/public/cron/advance-instruments',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicCronCommissionReadinessRoute =
   ApiPublicCronCommissionReadinessRouteImport.update({
     id: '/api/public/cron/commission-readiness',
@@ -330,6 +337,7 @@ export interface FileRoutesByFullPath {
   '/admin/intelligence': typeof AuthenticatedAdminIntelligenceRoute
   '/api/public/quotes': typeof ApiPublicQuotesRoute
   '/api/public/agent/register': typeof ApiPublicAgentRegisterRoute
+  '/api/public/cron/advance-instruments': typeof ApiPublicCronAdvanceInstrumentsRoute
   '/api/public/cron/commission-readiness': typeof ApiPublicCronCommissionReadinessRoute
   '/api/public/cron/expire-orders': typeof ApiPublicCronExpireOrdersRoute
   '/api/public/cron/ingest-market-context': typeof ApiPublicCronIngestMarketContextRoute
@@ -377,6 +385,7 @@ export interface FileRoutesByTo {
   '/admin/intelligence': typeof AuthenticatedAdminIntelligenceRoute
   '/api/public/quotes': typeof ApiPublicQuotesRoute
   '/api/public/agent/register': typeof ApiPublicAgentRegisterRoute
+  '/api/public/cron/advance-instruments': typeof ApiPublicCronAdvanceInstrumentsRoute
   '/api/public/cron/commission-readiness': typeof ApiPublicCronCommissionReadinessRoute
   '/api/public/cron/expire-orders': typeof ApiPublicCronExpireOrdersRoute
   '/api/public/cron/ingest-market-context': typeof ApiPublicCronIngestMarketContextRoute
@@ -426,6 +435,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/intelligence': typeof AuthenticatedAdminIntelligenceRoute
   '/api/public/quotes': typeof ApiPublicQuotesRoute
   '/api/public/agent/register': typeof ApiPublicAgentRegisterRoute
+  '/api/public/cron/advance-instruments': typeof ApiPublicCronAdvanceInstrumentsRoute
   '/api/public/cron/commission-readiness': typeof ApiPublicCronCommissionReadinessRoute
   '/api/public/cron/expire-orders': typeof ApiPublicCronExpireOrdersRoute
   '/api/public/cron/ingest-market-context': typeof ApiPublicCronIngestMarketContextRoute
@@ -475,6 +485,7 @@ export interface FileRouteTypes {
     | '/admin/intelligence'
     | '/api/public/quotes'
     | '/api/public/agent/register'
+    | '/api/public/cron/advance-instruments'
     | '/api/public/cron/commission-readiness'
     | '/api/public/cron/expire-orders'
     | '/api/public/cron/ingest-market-context'
@@ -522,6 +533,7 @@ export interface FileRouteTypes {
     | '/admin/intelligence'
     | '/api/public/quotes'
     | '/api/public/agent/register'
+    | '/api/public/cron/advance-instruments'
     | '/api/public/cron/commission-readiness'
     | '/api/public/cron/expire-orders'
     | '/api/public/cron/ingest-market-context'
@@ -570,6 +582,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/intelligence'
     | '/api/public/quotes'
     | '/api/public/agent/register'
+    | '/api/public/cron/advance-instruments'
     | '/api/public/cron/commission-readiness'
     | '/api/public/cron/expire-orders'
     | '/api/public/cron/ingest-market-context'
@@ -611,6 +624,7 @@ export interface RootRouteChildren {
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
   ApiPublicQuotesRoute: typeof ApiPublicQuotesRoute
   ApiPublicAgentRegisterRoute: typeof ApiPublicAgentRegisterRoute
+  ApiPublicCronAdvanceInstrumentsRoute: typeof ApiPublicCronAdvanceInstrumentsRoute
   ApiPublicCronCommissionReadinessRoute: typeof ApiPublicCronCommissionReadinessRoute
   ApiPublicCronExpireOrdersRoute: typeof ApiPublicCronExpireOrdersRoute
   ApiPublicCronIngestMarketContextRoute: typeof ApiPublicCronIngestMarketContextRoute
@@ -785,6 +799,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/agent/register'
       fullPath: '/api/public/agent/register'
       preLoaderRoute: typeof ApiPublicAgentRegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/cron/advance-instruments': {
+      id: '/api/public/cron/advance-instruments'
+      path: '/api/public/cron/advance-instruments'
+      fullPath: '/api/public/cron/advance-instruments'
+      preLoaderRoute: typeof ApiPublicCronAdvanceInstrumentsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/cron/commission-readiness': {
@@ -1017,6 +1038,7 @@ const rootRouteChildren: RootRouteChildren = {
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
   ApiPublicQuotesRoute: ApiPublicQuotesRoute,
   ApiPublicAgentRegisterRoute: ApiPublicAgentRegisterRoute,
+  ApiPublicCronAdvanceInstrumentsRoute: ApiPublicCronAdvanceInstrumentsRoute,
   ApiPublicCronCommissionReadinessRoute: ApiPublicCronCommissionReadinessRoute,
   ApiPublicCronExpireOrdersRoute: ApiPublicCronExpireOrdersRoute,
   ApiPublicCronIngestMarketContextRoute: ApiPublicCronIngestMarketContextRoute,

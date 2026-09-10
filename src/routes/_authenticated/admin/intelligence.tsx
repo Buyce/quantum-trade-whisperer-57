@@ -60,6 +60,7 @@ import { ExecutionQualityPanel } from "@/components/admin/ExecutionQualityPanel"
 import { WalkForwardPanel } from "@/components/admin/WalkForwardPanel";
 import { ExitVariantsPanel } from "@/components/admin/ExitVariantsPanel";
 import { PromotionPanel } from "@/components/admin/PromotionPanel";
+import { StageLadderPanel } from "@/components/admin/StageLadderPanel";
 import { NewsPanel } from "@/components/admin/NewsPanel";
 import { MarketContextPanel } from "@/components/admin/MarketContextPanel";
 
@@ -210,6 +211,7 @@ function AdminIntelligencePage() {
 
       <PanelBoundary name="Promotion checkpoint">
         <PromotionPanel />
+        <StageLadderPanel />
       </PanelBoundary>
 
       <PanelBoundary name="Market context">

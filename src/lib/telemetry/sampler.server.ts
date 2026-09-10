@@ -39,8 +39,11 @@ import {
   ATR_SNAPSHOT_MAX_AGE_MS,
   SAMPLER_VERSION,
   alignSlot,
+  SAMPLE_QUOTE_ATTEMPTS,
+  SAMPLE_QUOTE_RETRY_DELAY_MS,
   classifyQuote,
   spreadMetrics,
+  worthReAsking,
 } from "./sampler";
 
 /** Stages a side-effect-free measurement may be taken in. */
@@ -221,26 +224,54 @@ export async function runSpreadSampler(
     const atr = await recentAtr(db, instrument, now);
 
     attempted.push(instrument);
+
+    /**
+     * Bounded RE-ASK. The provider's first answer to a cold price request is
+     * often degenerate (bid exactly equal to ask) even though its own timestamp
+     * is seconds old, and one such tick must not be recorded as "the broker
+     * cannot price this instrument". Nothing is inferred or carried over: a
+     * usable tick must actually arrive inside this loop, the attempt count and
+     * the FIRST answer's classification are stored, and the verdict after the
+     * last attempt is final.
+     */
     let quote: Awaited<ReturnType<typeof fetchQuoteFor>> = null;
-    try {
-      requestCount += 1;
-      quote = await withBenchmarkAccount(({ accountId, region }) =>
-        fetchQuoteFor(accountId, region, authority.providerSymbol as string),
-      );
-    } catch (err) {
-      failedRequests += 1;
-      providerOutage = true;
-      errorClass = err instanceof Error ? err.name : "provider_error";
-      continue;
+    let classification: ReturnType<typeof classifyQuote> | null = null;
+    let firstQuality: string | null = null;
+    let attempts = 0;
+    let fetchFailed = false;
+
+    while (attempts < SAMPLE_QUOTE_ATTEMPTS && requestCount < controls.maxRequestsPerRun) {
+      attempts += 1;
+      try {
+        requestCount += 1;
+        quote = await withBenchmarkAccount(({ accountId, region }) =>
+          fetchQuoteFor(accountId, region, authority.providerSymbol as string),
+        );
+      } catch (err) {
+        failedRequests += 1;
+        providerOutage = true;
+        errorClass = err instanceof Error ? err.name : "provider_error";
+        fetchFailed = true;
+        break;
+      }
+
+      classification = classifyQuote({
+        bid: quote?.bid ?? null,
+        ask: quote?.ask ?? null,
+        sourceTime: quote?.sourceTime ?? null,
+        now: new Date(),
+        marketClosed,
+      });
+      firstQuality = firstQuality ?? classification.quality;
+
+      if (!worthReAsking(classification.quality)) break;
+      if (attempts < SAMPLE_QUOTE_ATTEMPTS && requestCount < controls.maxRequestsPerRun) {
+        await new Promise((resolve) => setTimeout(resolve, SAMPLE_QUOTE_RETRY_DELAY_MS));
+      }
     }
 
-    const classification = classifyQuote({
-      bid: quote?.bid ?? null,
-      ask: quote?.ask ?? null,
-      sourceTime: quote?.sourceTime ?? null,
-      now,
-      marketClosed,
-    });
+    // A provider error is a failed request, not a classified measurement.
+    if (fetchFailed || !classification) continue;
 
     const metrics =
       classification.quality === "valid" && quote
@@ -281,6 +312,10 @@ export async function runSpreadSampler(
       market_state: classification.marketState,
       quality: classification.quality,
       quality_reasons: classification.reasons,
+      quote_attempts: attempts,
+      first_attempt_quality: firstQuality,
+      retry_recovered:
+        firstQuality !== classification.quality && classification.quality === "valid",
       sampler_version: SAMPLER_VERSION,
       candle_policy_version: LIVE_CANDLE_POLICY_VERSION,
     });

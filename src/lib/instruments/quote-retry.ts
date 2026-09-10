@@ -51,6 +51,18 @@ export const QUOTE_ATTEMPTS = 3;
 /** Gap between attempts — long enough for a new tick, short enough for the budget. */
 export const QUOTE_RETRY_DELAY_MS = 400;
 
+/**
+ * Conversion legs get more room than the instrument itself.
+ *
+ * A leg (EURUSD, GBPUSD) is fetched cold, once per snapshot, and the provider's
+ * first cold answer is measurably the one most likely to come back with bid equal
+ * to ask. Three 400ms retries were not enough on USDCHF and USDCAD, whose legs
+ * quoted fine minutes either side. So legs get four attempts with a longer gap —
+ * still bounded, still recorded, still a refusal at the end.
+ */
+export const LEG_QUOTE_ATTEMPTS = 4;
+export const LEG_QUOTE_RETRY_DELAY_MS = 900;
+
 const FAILURE_TEXT: Record<QuoteFailure, string> = {
   no_quote: "the provider returned no quote",
   malformed_tick: "the quote geometry was invalid (bid/ask not usable)",
