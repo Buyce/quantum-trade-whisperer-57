@@ -238,7 +238,7 @@ export async function collectAdvancementEvidence(
       shadow: replay.error ? null : outcomeEvidence(rows),
       published: replay.error ? null : outcomeEvidence(publishedRows),
       holdout: replay.error ? null : chronologicalHoldout(rows),
-      readinessFailures: readiness.error ? null : (readinessFailures.get(instrument) ?? 0),
+      readiness: readiness.error ? null : (readinessOf.get(instrument) ?? null),
       missingnessPct: promotion ? promotion.evidence.missingnessPct : null,
       lastAutoTransitionDay: lastAutoDay.get(instrument) ?? null,
     };
