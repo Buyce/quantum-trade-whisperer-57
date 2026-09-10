@@ -35,7 +35,38 @@ export const SAMPLER_INTERVAL_MS = 15 * 60_000;
  * daily budget, with two spare requests per run for a single retry.
  */
 export const MAX_INSTRUMENTS_PER_RUN = 8;
-export const MAX_REQUESTS_PER_RUN = 10;
+/**
+ * Raised from 10 to 16 for the bounded RE-ASK (see `SAMPLE_QUOTE_ATTEMPTS`).
+ * Production evidence: the provider's first answer after a cold price request is
+ * frequently degenerate (bid exactly equal to ask) on thin Asian hours — 368 such
+ * answers on GBPUSD in a fortnight, all with a source timestamp under 4 seconds
+ * old. A single unusable first answer must not be recorded as "the broker cannot
+ * price this instrument", so an unusable answer is re-asked once. Worst case
+ * 8 instruments x 2 attempts = 16 requests/run; typical case is close to 8.
+ */
+export const MAX_REQUESTS_PER_RUN = 16;
+
+/**
+ * Attempts per measurement. TWO: enough to discard one cold/degenerate answer,
+ * small enough that a genuinely unpriceable instrument still fails fast and the
+ * daily budget stays bounded. The attempt count and the FIRST answer's
+ * classification are stored on every sample, so the retry can be audited.
+ */
+export const SAMPLE_QUOTE_ATTEMPTS = 2;
+
+/** Delay before the re-ask — long enough for a fresh tick to arrive. */
+export const SAMPLE_QUOTE_RETRY_DELAY_MS = 600;
+
+/**
+ * Whether an unusable answer is worth re-asking.
+ *
+ * A closed market is a calendar fact, not a bad tick: re-asking cannot change it
+ * and would only spend budget. Everything else observed in production is
+ * transient at the tick level.
+ */
+export function worthReAsking(quality: SampleQuality): boolean {
+  return quality !== "valid" && quality !== "closed_market";
+}
 
 /**
  * Freshness bound for a MEASUREMENT.
