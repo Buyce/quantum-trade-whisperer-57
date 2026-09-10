@@ -115,31 +115,37 @@ describe("automatic stage advancement", () => {
     expect(verdict.reasons[0]).toContain("trading days");
   });
 
-  it("[INVARIANT] demotes on degraded data quality, before any promotion is considered", () => {
+  it("[INVARIANT] never moves an instrument DOWN a stage on degraded data quality", () => {
     const verdict = evaluateAdvancement(
       base({ stage: "execution_approved", missingnessPct: MAX_MISSINGNESS_PCT + 15 }),
       NOW,
     );
-    expect(verdict).toMatchObject({ action: "demote", target: "signals_only" });
+    expect(verdict).toMatchObject({ action: "hold", target: null });
+    expect(verdict.reasons.join(" ")).toContain("missingness");
   });
 
-  it("[INVARIANT] demotes on repeated readiness failures even on the same day as a move", () => {
+  it("[INVARIANT] holds, never demotes, on repeated readiness failures", () => {
     const verdict = evaluateAdvancement(
       base({ stage: "shadow", readinessFailures: 4, lastAutoTransitionDay: "2026-09-10" }),
       NOW,
     );
-    expect(verdict).toMatchObject({ action: "demote", target: "data_validation" });
+    expect(verdict).toMatchObject({ action: "hold", target: null });
   });
 
-  it("[INVARIANT] demotes only when expectancy is negative across the whole interval", () => {
-    const uncertain = { samples: 120, clusters: 14, expectedR: -0.1, ciLow: -0.4, ciHigh: 0.2 };
-    expect(evaluateAdvancement(base({ stage: "shadow", shadow: uncertain }), NOW).action).toBe(
-      "hold",
-    );
+  it("[INVARIANT] negative expectancy holds the instrument rather than stepping it back", () => {
     const negative = { samples: 120, clusters: 14, expectedR: -0.4, ciLow: -0.7, ciHigh: -0.1 };
     expect(evaluateAdvancement(base({ stage: "shadow", shadow: negative }), NOW)).toMatchObject({
-      action: "demote",
-      target: "data_validation",
+      action: "hold",
+      target: null,
     });
+  });
+
+  it("[INVARIANT] no verdict this module can produce is a demotion", () => {
+    const cases = [
+      base({ stage: "execution_approved", missingnessPct: 90 }),
+      base({ stage: "signals_only", readinessFailures: 9 }),
+      base({ stage: "shadow", shadow: null }),
+    ];
+    for (const e of cases) expect(evaluateAdvancement(e, NOW).action).not.toBe("demote");
   });
 });

@@ -15,9 +15,10 @@
  *     data_validation -> shadow -> signals_only -> execution_approved one rung
  *     at a time, at most once per UTC day, so every rung is observed live for a
  *     full day before the next is considered.
- *  3. DEMOTION IS CHECKED FIRST AND IS CHEAPER THAN PROMOTION. Degrading
- *     evidence pulls an instrument DOWN on the same evidence that was not strong
- *     enough to have pushed it up.
+ *  3. THIS MODULE ONLY EVER MOVES AN INSTRUMENT FORWARD. Degrading evidence
+ *     holds an instrument exactly where it is, with the reasons recorded; it
+ *     never steps it back down. Moving an instrument to a lower stage is a
+ *     human decision, taken through the audited transition path.
  *  4. `execution_approved` IS PERMISSION, NOT AN ORDER. It only means the
  *     lifecycle no longer blocks execution. The global live switch, each
  *     account's own settings, the risk brakes and the intelligence gate all still
@@ -82,10 +83,10 @@ export interface AdvancementEvidence {
 export interface AdvancementVerdict {
   instrument: string;
   stage: InstrumentStage | null;
-  action: "promote" | "demote" | "hold";
-  /** Destination for a promote/demote; null on hold. */
+  action: "promote" | "hold";
+  /** Destination for a promotion; null on hold. */
   target: InstrumentStage | null;
-  /** Why the action is not a promotion, or why a demotion fired. Renderable. */
+  /** Why the instrument is not being promoted. Renderable. */
   reasons: string[];
 }
 
@@ -106,11 +107,6 @@ export function utcDay(at: Date): string {
 function stepUp(stage: InstrumentStage): InstrumentStage | null {
   const i = LADDER.indexOf(stage);
   return i >= 0 && i < LADDER.length - 1 ? (LADDER[i + 1] as InstrumentStage) : null;
-}
-
-function stepDown(stage: InstrumentStage): InstrumentStage | null {
-  const i = LADDER.indexOf(stage);
-  return i > 0 ? (LADDER[i - 1] as InstrumentStage) : null;
 }
 
 /** Positive expectancy that a dependence-aware interval agrees with. */
@@ -169,8 +165,11 @@ function dataStillClean(e: AdvancementEvidence, reasons: string[]): boolean {
   return ok;
 }
 
-/** Demotion evidence. Returns the reasons; empty means no demotion. */
-function demotionReasons(e: AdvancementEvidence, stage: InstrumentStage): string[] {
+/**
+ * Evidence that has degraded. These reasons BLOCK a promotion and are recorded
+ * so a human can act on them; they never move the instrument down a stage.
+ */
+function degradedEvidenceReasons(e: AdvancementEvidence, stage: InstrumentStage): string[] {
   const reasons: string[] = [];
 
   if (e.missingnessPct !== null && e.missingnessPct > MAX_MISSINGNESS_PCT) {
@@ -220,18 +219,10 @@ export function evaluateAdvancement(e: AdvancementEvidence, now: Date): Advancem
     return hold([`Stage ${e.stage} is not on the automatic ladder.`]);
   }
 
-  const down = demotionReasons(e, e.stage);
-  const downTarget = stepDown(e.stage);
-  if (down.length > 0 && downTarget) {
-    return {
-      instrument: e.instrument,
-      stage: e.stage,
-      action: "demote",
-      target: downTarget,
-      reasons: down,
-    };
-  }
-  if (down.length > 0) return hold(down);
+  // Degraded evidence holds the instrument exactly where it is. Only a human may
+  // move an instrument to a lower stage.
+  const degraded = degradedEvidenceReasons(e, e.stage);
+  if (degraded.length > 0) return hold(degraded);
 
   const today = utcDay(now);
   if (e.lastAutoTransitionDay === today) {

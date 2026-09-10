@@ -182,7 +182,9 @@ the ladder without an operator, once a day at 05:40 UTC via
 2. **One rung per instrument per UTC day, never skipped** — `data_validation` ->
    `shadow` -> `signals_only` -> `execution_approved`. Every rung is therefore
    observed live for a full day before the next is considered.
-3. **Demotion is checked first, and on cheaper evidence than promotion.**
+3. **It only ever moves an instrument forward.** Degraded evidence blocks a
+   promotion and is recorded; a move to a LOWER stage is a human decision, taken
+   through the audited transition path.
 4. **`execution_approved` is permission, not an instruction.** The global
    execution switch, per-account settings, risk brakes and the intelligence gate
    are untouched by this job.
@@ -195,9 +197,10 @@ Gates per rung:
 | `shadow` -> `signals_only`             | 30+ resolved replay outcomes over 10+ UTC days, positive full-payoff expected R whose cluster-bootstrap interval stays above zero, missingness at or below 20%, at most one failed readiness check in the window |
 | `signals_only` -> `execution_approved` | all of the above, the same standard on post-publication outcomes, and a chronological holdout (later 30% of observed days, 30+ outcomes over 5+ instrument-days) whose interval also stays above zero            |
 
-Demotion fires one rung down when missingness breaches 20%, more than one
-readiness check failed in the window, or expectancy is negative across the whole
-confidence interval. `suspended` and `disabled` are never touched automatically.
+Degraded evidence — missingness above 20%, more than one failed readiness check in
+the window, or expectancy negative across the whole confidence interval — holds the
+instrument exactly where it is and is shown as the blocking reason. The job never
+demotes. `suspended` and `disabled` are never touched automatically.
 
 The kill switch is `execution_controls.auto_stage_advance_enabled` and it **fails
 closed**: unreadable means nothing moves. Every applied change is written through
