@@ -936,6 +936,55 @@ export const getAdminPromotionCheckpoint = createServerFn({ method: "GET" })
   });
 
 /**
+ * Owner-only view of the automatic stage ladder.
+ *
+ * A DRY RUN: it collects the same evidence the daily advancement job uses and
+ * reports what that job would decide, without applying anything. Applying is the
+ * cron job's business, through the audited transition RPC.
+ */
+export const getAdminStageLadder = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const email = String(context.claims["email"] ?? "").toLowerCase();
+    if (email !== OWNER_EMAIL) throw new Error("Forbidden");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { collectAdvancementEvidence, readAutoAdvanceEnabled, ADVANCEMENT_WINDOW_DAYS } =
+      await import("@/lib/instruments/advancement.server");
+    const { evaluateAdvancement } = await import("@/lib/instruments/advancement");
+
+    const now = new Date();
+    const [enabled, collected] = await Promise.all([
+      readAutoAdvanceEnabled(supabaseAdmin),
+      collectAdvancementEvidence(supabaseAdmin, now),
+    ]);
+
+    return {
+      generatedAt: now.toISOString(),
+      windowDays: ADVANCEMENT_WINDOW_DAYS,
+      enabled,
+      warnings: collected.warnings,
+      verdicts: collected.evidence.map((e) => {
+        const verdict = evaluateAdvancement(e, now);
+        return {
+          instrument: verdict.instrument,
+          stage: verdict.stage,
+          action: verdict.action,
+          target: verdict.target,
+          reasons: verdict.reasons,
+          shadowSamples: e.shadow?.samples ?? null,
+          shadowExpectedR: e.shadow?.expectedR ?? null,
+          shadowCiLow: e.shadow?.ciLow ?? null,
+          holdoutCiLow: e.holdout?.ciLow ?? null,
+          missingnessPct: e.missingnessPct,
+          readinessFailures: e.readinessFailures,
+          lastAutoTransitionDay: e.lastAutoTransitionDay,
+        };
+      }),
+    };
+  });
+
+/**
  * Broker-verified outcomes of the automatic trader (owner only).
  *
  * Reads CLOSED customer broker-trade evidence only: real fills, real exits and
