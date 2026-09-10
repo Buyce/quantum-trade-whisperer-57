@@ -191,7 +191,7 @@ function positiveExpectancy(e: OutcomeEvidence | null, label: string, reasons: s
 }
 
 /** Data-quality facts every rung above the first also depends on. */
-function dataStillClean(e: AdvancementEvidence, reasons: string[]): boolean {
+function dataStillClean(e: AdvancementEvidence, reasons: string[], now: Date): boolean {
   let ok = true;
   if (e.missingnessPct === null) {
     reasons.push("Sample missingness is not measured.");
@@ -202,13 +202,9 @@ function dataStillClean(e: AdvancementEvidence, reasons: string[]): boolean {
     );
     ok = false;
   }
-  if (e.readinessFailures === null) {
-    reasons.push("Readiness history is not readable.");
-    ok = false;
-  } else if (e.readinessFailures > MAX_READINESS_FAILURES) {
-    reasons.push(
-      `${e.readinessFailures} readiness checks failed in the window (allowed ${MAX_READINESS_FAILURES}).`,
-    );
+  const readiness = readinessReasons(e.readiness, now);
+  if (readiness.length > 0) {
+    reasons.push(...readiness);
     ok = false;
   }
   return ok;
@@ -218,7 +214,11 @@ function dataStillClean(e: AdvancementEvidence, reasons: string[]): boolean {
  * Evidence that has degraded. These reasons BLOCK a promotion and are recorded
  * so a human can act on them; they never move the instrument down a stage.
  */
-function degradedEvidenceReasons(e: AdvancementEvidence, stage: InstrumentStage): string[] {
+function degradedEvidenceReasons(
+  e: AdvancementEvidence,
+  stage: InstrumentStage,
+  now: Date,
+): string[] {
   const reasons: string[] = [];
 
   if (e.missingnessPct !== null && e.missingnessPct > MAX_MISSINGNESS_PCT) {
@@ -226,9 +226,10 @@ function degradedEvidenceReasons(e: AdvancementEvidence, stage: InstrumentStage)
       `Sample missingness rose to ${e.missingnessPct.toFixed(1)}% (ceiling ${MAX_MISSINGNESS_PCT}%).`,
     );
   }
-  if (e.readinessFailures !== null && e.readinessFailures > MAX_READINESS_FAILURES) {
-    reasons.push(`${e.readinessFailures} readiness checks failed in the window.`);
-  }
+  // Only a CURRENT readiness problem is degradation. An unreadable history is
+  // handled by the per-rung gates, which fail closed on it.
+  if (e.readiness) reasons.push(...readinessReasons(e.readiness, now));
+
 
   // Expectancy that has turned convincingly negative. A merely uncertain result
   // holds the instrument where it is; the interval has to sit BELOW zero.
