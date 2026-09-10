@@ -39,8 +39,11 @@ import {
   ATR_SNAPSHOT_MAX_AGE_MS,
   SAMPLER_VERSION,
   alignSlot,
+  SAMPLE_QUOTE_ATTEMPTS,
+  SAMPLE_QUOTE_RETRY_DELAY_MS,
   classifyQuote,
   spreadMetrics,
+  worthReAsking,
 } from "./sampler";
 
 /** Stages a side-effect-free measurement may be taken in. */
