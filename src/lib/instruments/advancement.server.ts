@@ -27,6 +27,8 @@ import {
   type AdvancementVerdict,
   type HoldoutEvidence,
   type OutcomeEvidence,
+  type ReadinessRecency,
+  READINESS_RECENT_SNAPSHOTS,
 } from "./advancement";
 import { isStage, type InstrumentStage } from "./lifecycle";
 import { transitionStage } from "./lifecycle.server";
