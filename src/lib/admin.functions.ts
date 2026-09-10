@@ -977,7 +977,8 @@ export const getAdminStageLadder = createServerFn({ method: "GET" })
           shadowCiLow: e.shadow?.ciLow ?? null,
           holdoutCiLow: e.holdout?.ciLow ?? null,
           missingnessPct: e.missingnessPct,
-          readinessFailures: e.readinessFailures,
+          readinessFailures: e.readiness?.recentFailures ?? null,
+          readinessLatestReady: e.readiness?.latestReady ?? null,
           lastAutoTransitionDay: e.lastAutoTransitionDay,
         };
       }),

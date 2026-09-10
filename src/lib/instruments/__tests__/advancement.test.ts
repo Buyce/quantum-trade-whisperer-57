@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   MAX_MISSINGNESS_PCT,
+  MAX_READINESS_AGE_HOURS,
   evaluateAdvancement,
   type AdvancementEvidence,
   type OutcomeEvidence,
@@ -34,7 +35,12 @@ const base = (over: Partial<AdvancementEvidence> = {}): AdvancementEvidence => (
   shadow: strong(),
   published: strong(),
   holdout: { splitDay: "2026-09-05", samples: 60, clusters: 6, meanR: 0.35, ciLow: 0.1 },
-  readinessFailures: 0,
+  readiness: {
+    latestReady: true,
+    latestCheckedAt: "2026-09-10T03:10:00.000Z",
+    recentFailures: 0,
+    considered: 3,
+  },
   missingnessPct: 5,
   lastAutoTransitionDay: null,
   ...over,
@@ -76,7 +82,7 @@ describe("automatic stage advancement", () => {
     for (const over of [
       { shadow: null },
       { missingnessPct: null },
-      { readinessFailures: null },
+      { readiness: null },
     ] as Partial<AdvancementEvidence>[]) {
       expect(evaluateAdvancement(base({ stage: "shadow", ...over }), NOW).action).toBe("hold");
     }
@@ -126,7 +132,16 @@ describe("automatic stage advancement", () => {
 
   it("[INVARIANT] holds, never demotes, on repeated readiness failures", () => {
     const verdict = evaluateAdvancement(
-      base({ stage: "shadow", readinessFailures: 4, lastAutoTransitionDay: "2026-09-10" }),
+      base({
+        stage: "shadow",
+        readiness: {
+          latestReady: false,
+          latestCheckedAt: "2026-09-10T03:10:00.000Z",
+          recentFailures: 3,
+          considered: 3,
+        },
+        lastAutoTransitionDay: "2026-09-10",
+      }),
       NOW,
     );
     expect(verdict).toMatchObject({ action: "hold", target: null });
@@ -143,9 +158,74 @@ describe("automatic stage advancement", () => {
   it("[INVARIANT] no verdict this module can produce is a demotion", () => {
     const cases = [
       base({ stage: "execution_approved", missingnessPct: 90 }),
-      base({ stage: "signals_only", readinessFailures: 9 }),
+      base({
+        stage: "signals_only",
+        readiness: {
+          latestReady: false,
+          latestCheckedAt: "2026-09-10T03:10:00.000Z",
+          recentFailures: 3,
+          considered: 3,
+        },
+      }),
       base({ stage: "shadow", shadow: null }),
     ];
     for (const e of cases) expect(evaluateAdvancement(e, NOW).action).not.toBe("demote");
+  });
+
+  it("[UNIT] repaired readiness history no longer blocks, but a current failure does", () => {
+    // 7 old failures, latest three clean: this is the AUDUSD/USDJPY case.
+    expect(
+      evaluateAdvancement(
+        base({
+          readiness: {
+            latestReady: true,
+            latestCheckedAt: "2026-09-10T03:10:00.000Z",
+            recentFailures: 0,
+            considered: 3,
+          },
+        }),
+        NOW,
+      ),
+    ).toMatchObject({ action: "promote", target: "shadow" });
+
+    const failingNow = evaluateAdvancement(
+      base({
+        readiness: {
+          latestReady: false,
+          latestCheckedAt: "2026-09-10T03:10:00.000Z",
+          recentFailures: 1,
+          considered: 3,
+        },
+      }),
+      NOW,
+    );
+    expect(failingNow.action).toBe("hold");
+    expect(failingNow.reasons.join(" ")).toContain("newest readiness check did not pass");
+  });
+
+  it("[INVARIANT] a missing or stale readiness snapshot blocks", () => {
+    const none = evaluateAdvancement(
+      base({
+        readiness: { latestReady: null, latestCheckedAt: null, recentFailures: 0, considered: 0 },
+      }),
+      NOW,
+    );
+    expect(none.action).toBe("hold");
+
+    const stale = evaluateAdvancement(
+      base({
+        readiness: {
+          latestReady: true,
+          latestCheckedAt: new Date(
+            NOW.getTime() - (MAX_READINESS_AGE_HOURS + 5) * 3_600_000,
+          ).toISOString(),
+          recentFailures: 0,
+          considered: 3,
+        },
+      }),
+      NOW,
+    );
+    expect(stale.action).toBe("hold");
+    expect(stale.reasons.join(" ")).toContain("older than");
   });
 });

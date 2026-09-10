@@ -60,6 +60,25 @@ export interface HoldoutEvidence {
   ciLow: number | null;
 }
 
+/**
+ * Readiness judged by what is CURRENT.
+ *
+ * Only the newest few snapshots are consulted: the latest must pass, and at most
+ * one of them may have failed. Historical failures that have since been repaired
+ * no longer block, but a stale or missing latest snapshot still does — an
+ * unmeasured instrument is never assumed ready.
+ */
+export interface ReadinessRecency {
+  /** `ready` of the newest snapshot; null when there is none. */
+  latestReady: boolean | null;
+  /** When that snapshot was taken. */
+  latestCheckedAt: string | null;
+  /** Failures among the newest `READINESS_RECENT_SNAPSHOTS` snapshots. */
+  recentFailures: number;
+  /** How many snapshots were actually consulted. */
+  considered: number;
+}
+
 export interface AdvancementEvidence {
   instrument: string;
   /** Current stage, or null when the lifecycle row could not be read. */
@@ -72,8 +91,11 @@ export interface AdvancementEvidence {
   published: OutcomeEvidence | null;
   /** Chronological holdout on shadow outcomes. */
   holdout: HoldoutEvidence | null;
-  /** Readiness snapshots in the trailing window that came back not-ready. */
-  readinessFailures: number | null;
+  /**
+   * CURRENT readiness standing, not the whole month. A failure that has since
+   * been repaired must not hold an instrument back for weeks.
+   */
+  readiness: ReadinessRecency | null;
   /** Latest measured sample missingness, percent. */
   missingnessPct: number | null;
   /** UTC day of this instrument's most recent automatic transition. */
@@ -97,8 +119,34 @@ export const MIN_HOLDOUT_SAMPLES = 30;
 export const MIN_HOLDOUT_CLUSTERS = 5;
 /** Same ceiling the manual promotion gate uses. */
 export const MAX_MISSINGNESS_PCT = 20;
-/** Two not-ready snapshots in the window is a data problem, not a blip. */
+/** How many of the newest readiness snapshots are consulted. */
+export const READINESS_RECENT_SNAPSHOTS = 3;
+/** Two failures among those newest snapshots is a data problem, not a blip. */
 export const MAX_READINESS_FAILURES = 1;
+/** The newest snapshot must be at most this old; readiness runs daily. */
+export const MAX_READINESS_AGE_HOURS = 48;
+
+/**
+ * Readiness reasons, in the order a reader should see them. Empty means current
+ * readiness is clean. FAILS CLOSED on missing, stale or unreadable history.
+ */
+export function readinessReasons(r: ReadinessRecency | null, now: Date): string[] {
+  if (!r) return ["Readiness history is not readable."];
+  if (r.latestReady === null || r.latestCheckedAt === null) {
+    return ["No readiness check has been recorded for this instrument."];
+  }
+  const ageHours = (now.getTime() - new Date(r.latestCheckedAt).getTime()) / 3_600_000;
+  if (!Number.isFinite(ageHours) || ageHours > MAX_READINESS_AGE_HOURS) {
+    return [`The newest readiness check is older than ${MAX_READINESS_AGE_HOURS} hours.`];
+  }
+  if (r.latestReady === false) return ["The newest readiness check did not pass."];
+  if (r.recentFailures > MAX_READINESS_FAILURES) {
+    return [
+      `${r.recentFailures} of the last ${r.considered} readiness checks failed (allowed ${MAX_READINESS_FAILURES}).`,
+    ];
+  }
+  return [];
+}
 
 export function utcDay(at: Date): string {
   return at.toISOString().slice(0, 10);
@@ -142,7 +190,7 @@ function positiveExpectancy(e: OutcomeEvidence | null, label: string, reasons: s
 }
 
 /** Data-quality facts every rung above the first also depends on. */
-function dataStillClean(e: AdvancementEvidence, reasons: string[]): boolean {
+function dataStillClean(e: AdvancementEvidence, reasons: string[], now: Date): boolean {
   let ok = true;
   if (e.missingnessPct === null) {
     reasons.push("Sample missingness is not measured.");
@@ -153,13 +201,9 @@ function dataStillClean(e: AdvancementEvidence, reasons: string[]): boolean {
     );
     ok = false;
   }
-  if (e.readinessFailures === null) {
-    reasons.push("Readiness history is not readable.");
-    ok = false;
-  } else if (e.readinessFailures > MAX_READINESS_FAILURES) {
-    reasons.push(
-      `${e.readinessFailures} readiness checks failed in the window (allowed ${MAX_READINESS_FAILURES}).`,
-    );
+  const readiness = readinessReasons(e.readiness, now);
+  if (readiness.length > 0) {
+    reasons.push(...readiness);
     ok = false;
   }
   return ok;
@@ -169,7 +213,11 @@ function dataStillClean(e: AdvancementEvidence, reasons: string[]): boolean {
  * Evidence that has degraded. These reasons BLOCK a promotion and are recorded
  * so a human can act on them; they never move the instrument down a stage.
  */
-function degradedEvidenceReasons(e: AdvancementEvidence, stage: InstrumentStage): string[] {
+function degradedEvidenceReasons(
+  e: AdvancementEvidence,
+  stage: InstrumentStage,
+  now: Date,
+): string[] {
   const reasons: string[] = [];
 
   if (e.missingnessPct !== null && e.missingnessPct > MAX_MISSINGNESS_PCT) {
@@ -177,9 +225,9 @@ function degradedEvidenceReasons(e: AdvancementEvidence, stage: InstrumentStage)
       `Sample missingness rose to ${e.missingnessPct.toFixed(1)}% (ceiling ${MAX_MISSINGNESS_PCT}%).`,
     );
   }
-  if (e.readinessFailures !== null && e.readinessFailures > MAX_READINESS_FAILURES) {
-    reasons.push(`${e.readinessFailures} readiness checks failed in the window.`);
-  }
+  // Only a CURRENT readiness problem is degradation. An unreadable history is
+  // handled by the per-rung gates, which fail closed on it.
+  if (e.readiness) reasons.push(...readinessReasons(e.readiness, now));
 
   // Expectancy that has turned convincingly negative. A merely uncertain result
   // holds the instrument where it is; the interval has to sit BELOW zero.
@@ -221,7 +269,7 @@ export function evaluateAdvancement(e: AdvancementEvidence, now: Date): Advancem
 
   // Degraded evidence holds the instrument exactly where it is. Only a human may
   // move an instrument to a lower stage.
-  const degraded = degradedEvidenceReasons(e, e.stage);
+  const degraded = degradedEvidenceReasons(e, e.stage, now);
   if (degraded.length > 0) return hold(degraded);
 
   const today = utcDay(now);
@@ -241,12 +289,12 @@ export function evaluateAdvancement(e: AdvancementEvidence, now: Date): Advancem
   }
 
   if (e.stage === "shadow") {
-    dataStillClean(e, reasons);
+    dataStillClean(e, reasons, now);
     positiveExpectancy(e.shadow, "Shadow outcomes", reasons);
   }
 
   if (e.stage === "signals_only") {
-    dataStillClean(e, reasons);
+    dataStillClean(e, reasons, now);
     positiveExpectancy(e.shadow, "Shadow outcomes", reasons);
     positiveExpectancy(e.published, "Published outcomes", reasons);
 

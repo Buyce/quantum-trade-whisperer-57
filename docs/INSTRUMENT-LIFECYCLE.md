@@ -191,14 +191,19 @@ the ladder without an operator, once a day at 05:40 UTC via
 
 Gates per rung:
 
-| Rung                                   | Requires                                                                                                                                                                                                         |
-| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `data_validation` -> `shadow`          | the promotion checkpoint above, verbatim                                                                                                                                                                         |
-| `shadow` -> `signals_only`             | 30+ resolved replay outcomes over 10+ UTC days, positive full-payoff expected R whose cluster-bootstrap interval stays above zero, missingness at or below 20%, at most one failed readiness check in the window |
-| `signals_only` -> `execution_approved` | all of the above, the same standard on post-publication outcomes, and a chronological holdout (later 30% of observed days, 30+ outcomes over 5+ instrument-days) whose interval also stays above zero            |
+| Rung                                   | Requires                                                                                                                                                                                                                                                                                           |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `data_validation` -> `shadow`          | the promotion checkpoint above, verbatim                                                                                                                                                                                                                                                           |
+| `shadow` -> `signals_only`             | 30+ resolved replay outcomes over 10+ UTC days, positive full-payoff expected R whose cluster-bootstrap interval stays above zero, missingness at or below 20%, and current readiness clean (newest snapshot passed, no older than 48 hours, at most one failure among the newest three snapshots) |
+| `signals_only` -> `execution_approved` | all of the above, the same standard on post-publication outcomes, and a chronological holdout (later 30% of observed days, 30+ outcomes over 5+ instrument-days) whose interval also stays above zero                                                                                              |
 
-Degraded evidence — missingness above 20%, more than one failed readiness check in
-the window, or expectancy negative across the whole confidence interval — holds the
+Readiness is judged by what is CURRENT, not by the whole window: only the newest
+three snapshots are consulted, so a failure that has since been repaired stops
+blocking as soon as the newer checks pass. A missing, stale or unreadable newest
+snapshot still blocks — readiness is never assumed.
+
+Degraded evidence — missingness above 20%, a current readiness failure, or
+expectancy negative across the whole confidence interval — holds the
 instrument exactly where it is and is shown as the blocking reason. The job never
 demotes. `suspended` and `disabled` are never touched automatically.
 
