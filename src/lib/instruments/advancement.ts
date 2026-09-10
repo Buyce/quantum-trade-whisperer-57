@@ -72,8 +72,11 @@ export interface AdvancementEvidence {
   published: OutcomeEvidence | null;
   /** Chronological holdout on shadow outcomes. */
   holdout: HoldoutEvidence | null;
-  /** Readiness snapshots in the trailing window that came back not-ready. */
-  readinessFailures: number | null;
+  /**
+   * CURRENT readiness standing, not the whole month. A failure that has since
+   * been repaired must not hold an instrument back for weeks.
+   */
+  readiness: ReadinessRecency | null;
   /** Latest measured sample missingness, percent. */
   missingnessPct: number | null;
   /** UTC day of this instrument's most recent automatic transition. */
