@@ -172,14 +172,34 @@ export async function collectAdvancementEvidence(
     rowsByInstrument.set(instrument, list);
   }
 
-  const readinessFailures = new Map<string, number>();
+  // CURRENT readiness standing: newest snapshots only, newest first. A failure that
+  // has since been repaired must not hold an instrument back for the whole window.
+  const readinessOf = new Map<string, ReadinessRecency>();
   if (!readiness.error) {
-    for (const row of (readiness.data ?? []) as { instrument: string; ready: boolean }[]) {
-      if (row.ready === false) {
-        readinessFailures.set(row.instrument, (readinessFailures.get(row.instrument) ?? 0) + 1);
-      }
+    const byInstrument = new Map<string, { ready: boolean; checked_at: string }[]>();
+    for (const row of (readiness.data ?? []) as {
+      instrument: string;
+      ready: boolean;
+      checked_at: string;
+    }[]) {
+      const list = byInstrument.get(row.instrument) ?? [];
+      list.push(row);
+      byInstrument.set(row.instrument, list);
+    }
+    for (const [instrument, rows] of byInstrument) {
+      const newest = [...rows]
+        .sort((a, b) => (a.checked_at < b.checked_at ? 1 : -1))
+        .slice(0, READINESS_RECENT_SNAPSHOTS);
+      const latest = newest[0];
+      readinessOf.set(instrument, {
+        latestReady: latest ? latest.ready === true : null,
+        latestCheckedAt: latest?.checked_at ?? null,
+        recentFailures: newest.filter((r) => r.ready === false).length,
+        considered: newest.length,
+      });
     }
   }
+
 
   const lastAutoDay = new Map<string, string>();
   const publishedSince = new Map<string, string>();
