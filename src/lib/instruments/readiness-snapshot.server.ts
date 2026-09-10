@@ -25,7 +25,11 @@ import { instrumentDefinition } from "./registry";
 import { checkInstrumentReadiness, SUPPORTED_ACCOUNT_CURRENCIES } from "./readiness.server";
 import { resolveFetchSymbol } from "./fetch-authority.server";
 import { LIVE_CANDLE_POLICY_VERSION } from "./candle-policy";
-import { fetchUsableQuote } from "./quote-retry";
+import {
+  LEG_QUOTE_ATTEMPTS,
+  LEG_QUOTE_RETRY_DELAY_MS,
+  fetchUsableQuote,
+} from "./quote-retry";
 
 export interface ConversionProof {
   accountCurrency: string;
@@ -73,7 +77,10 @@ export async function proveConversion(
     // Bounded re-quote: one failed or malformed leg fetch must not be recorded as
     // "the broker will not quote this leg" (production saw exactly that on
     // USDCHF, whose neighbouring snapshots quoted the same leg fine).
-    const outcome = await fetchUsableQuote(leg, fetchQuote);
+    const outcome = await fetchUsableQuote(leg, fetchQuote, {
+      attempts: LEG_QUOTE_ATTEMPTS,
+      delayMs: LEG_QUOTE_RETRY_DELAY_MS,
+    });
     requestCount += outcome.attempts;
     obtained.set(leg, outcome.quote !== null);
   }

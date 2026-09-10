@@ -33,7 +33,11 @@ import { loadBrokerSpec } from "@/lib/broker/specs.server";
 import { fetchCandles, fetchQuote } from "@/lib/scanner/metaapi.server";
 import { planConversion } from "@/lib/mcp/fx";
 import { REVALIDATION_QUOTE_MAX_AGE_MS } from "@/lib/delivery/execution";
-import { fetchUsableQuote } from "./quote-retry";
+import {
+  LEG_QUOTE_ATTEMPTS,
+  LEG_QUOTE_RETRY_DELAY_MS,
+  fetchUsableQuote,
+} from "./quote-retry";
 import { CANDLE_LIMITS, TIMEFRAMES } from "@/lib/scanner/types";
 import { writeDataHealth } from "./lifecycle.server";
 import { resolveMapping, type MappingResolution } from "./mapping.server";
@@ -274,6 +278,8 @@ export async function checkInstrumentReadiness(
       };
     } else {
       const outcome = await fetchUsableQuote(legAuthority.providerSymbol, fetchQuote, {
+        attempts: LEG_QUOTE_ATTEMPTS,
+        delayMs: LEG_QUOTE_RETRY_DELAY_MS,
         requireFreshness: true,
         maxAgeMs: REVALIDATION_QUOTE_MAX_AGE_MS,
         now: () => now.getTime(),
