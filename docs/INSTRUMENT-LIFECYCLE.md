@@ -170,7 +170,6 @@ fortnight of collection was counted as roughly the newest three days and the
 window-wide percentage of sampler attempts that produced no usable tick. A failed
 aggregate read yields no evidence, which blocks — never a silent under-count.
 
-
 ## Provenance
 
 Every value here is broker-derived or operator-recorded. Contract sizes, lot
