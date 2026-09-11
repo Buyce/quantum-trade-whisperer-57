@@ -134,10 +134,10 @@ export function EngineStatusPanel() {
           sub={
             link.unmeasured
               ? "No samples in the last hour — the sampler has not reported yet"
-              : `${data.link?.ok ?? 0} ok · ${data.link?.failed ?? 0} failed in the last ${data.link?.window_minutes ?? 60}m${link.causeLabel ? ` (${link.causeLabel})` : ""} · scanner calls ${data.link?.scanner_ok ?? 0} ok / ${data.link?.scanner_failed ?? 0} failed · last failure ${timeAgo(data.link?.last_failure_at ?? null)}`
+              : `${data.link?.ok ?? 0} ok · ${data.link?.failed ?? 0} failed in the last ${data.link?.window_minutes ?? 60}m${link.causeLabel ? ` (${link.causeLabel})` : ""} · scanner passes ${data.link?.scanner_ok ?? 0} ok / ${data.link?.scanner_failed ?? 0} failed or cancelled · last failure ${timeAgo(data.link?.last_failure_at ?? null)}`
           }
           tone={link.tone}
-          hint="The queue only advances when the database's scheduled calls reach the app. Sampled from the platform's own HTTP response log, split by cause: a name-lookup stall is upstream, a plain timeout means the app did not answer inside the caller's window, and a 5xx means the app itself errored or hung. Scanner calls are counted separately from dispatch/reconcile traffic. Failures here starve the scanner while every other counter still looks ordinary."
+          hint="The queue only advances when the database's scheduled calls reach the app. Sampled from the platform's own HTTP response log, split by cause: a name-lookup stall is upstream, a plain timeout means the app did not answer inside the caller's window, and a 5xx means the app itself errored or hung. Scanner passes are scored on what each pass reported doing, so a call the platform cancelled counts as a failure. Failures here starve the scanner while every other counter still looks ordinary."
         />
       </div>
 
