@@ -5713,6 +5713,39 @@ export type Database = {
         }
         Relationships: []
       }
+      worker_pass_log: {
+        Row: {
+          at: string
+          detail: string | null
+          drained: number
+          duration_ms: number | null
+          hop: number
+          id: number
+          outcome: string
+          source: string
+        }
+        Insert: {
+          at?: string
+          detail?: string | null
+          drained?: number
+          duration_ms?: number | null
+          hop?: number
+          id?: never
+          outcome: string
+          source: string
+        }
+        Update: {
+          at?: string
+          detail?: string | null
+          drained?: number
+          duration_ms?: number | null
+          hop?: number
+          id?: never
+          outcome?: string
+          source?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       instrument_spread_samples_valid: {
@@ -6274,6 +6307,10 @@ export type Database = {
         Returns: undefined
       }
       release_weekly_report: { Args: { _week: string }; Returns: undefined }
+      renew_scan_worker_lease: {
+        Args: { p_holder: string; p_ttl_seconds: number }
+        Returns: boolean
+      }
       run_gate_change_automation: { Args: never; Returns: Json }
       sample_worker_call_health: { Args: never; Returns: Json }
       session_of_v1: { Args: { _at: string }; Returns: string }
