@@ -141,19 +141,35 @@ would fabricate a setup. Check three things in order:
 1. **Database → app calls** in Admin → Engine status. The card names the cause:
    an upstream name-lookup stall (DNS consumed ~all the elapsed time), a plain
    timeout (the handler outstayed the caller's window), or a 5xx (the app errored
-   or the platform cancelled a hung request). Scanner calls are counted separately
-   from dispatch/reconcile traffic.
+   or the platform cancelled a hung request). Scanner-path health is scored from
+   `worker_pass_log` — the row each pass writes about itself — against the number
+   of drain calls the database made, so a call the platform cancelled counts as a
+   scanner failure. It previously read `cron.job_run_details`, which only proves
+   the timer's SQL ran and therefore reported zero scanner failures throughout a
+   cancellation storm.
 2. **Single-flight lease.** `worker/process` takes a TTL lease row
    (`scan_worker_lease`) before working; a second concurrent pass answers "busy"
    and exits. This replaced the pre-work hand-off, which used to fan one timer
    tick into a burst of 10–16 simultaneous passes that strangled each other on
-   the provider's 5-request concurrency cap and were cancelled as hung. If the
-   queue stalls with no failures, check for a stuck lease row older than its TTL.
-3. **Hand-off and guards.** The chain fires only AFTER a pass finishes
+   the provider's 5-request concurrency cap and were cancelled as hung. The TTL
+   is 25s and a working pass renews it after every job
+   (`renew_scan_worker_lease`), so a cancelled pass — whose cleanup never runs —
+   blocks the queue for one timer tick instead of the 90s that produced whole
+   hours of discarded work.
+3. **Guaranteed response.** The handler races its batch against
+   `RESPONSE_DEADLINE_MS` (20s) and always answers, releasing the lease. Nothing
+   in the market-data path waits without a deadline: the local slot gate times
+   out after `MARKET_DATA_WAIT_TIMEOUT_MS` (12s) and reclaims slots whose holder
+   is older than any possible read, because a leaked counter used to make an
+   instance's gate permanently full and its next pass unanswerable.
+4. **Hand-off and guards.** The chain fires only AFTER a pass finishes
    (`MAX_HOPS` 3). Both drain crons run every minute, guarded by
    `EXISTS (pending) OR EXISTS (processing older than 2 minutes)` so expired
    claims also wake the worker, and allow 30s per call. `maintain_scan_queue`
-   runs every minute and returns claims older than 2 minutes to pending.
+   runs every minute and returns claims older than 2 minutes to pending; a lease
+   expiry hands the job its attempt back (a cancellation is not the job's fault)
+   and only a job reaching 5 attempts is failed outright.
+
 4. **Market-data concurrency.** Historical reads pass a global TTL slot budget
    (`market_data_slots`, cap 5, mirroring the provider limit) inside the
    per-instance gate. If the slot store is unreachable the gate degrades to
