@@ -170,7 +170,7 @@ would fabricate a setup. Check three things in order:
    expiry hands the job its attempt back (a cancellation is not the job's fault)
    and only a job reaching 5 attempts is failed outright.
 
-4. **Market-data concurrency.** Historical reads pass a global TTL slot budget
+5. **Market-data concurrency.** Historical reads pass a global TTL slot budget
    (`market_data_slots`, cap 5, mirroring the provider limit) inside the
    per-instance gate. If the slot store is unreachable the gate degrades to
    per-instance only rather than blocking candle reads.
