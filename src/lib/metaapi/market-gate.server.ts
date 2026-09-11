@@ -12,8 +12,8 @@
  *  2. A GLOBAL slot budget backed by TTL-expiring database rows, because a
  *     per-instance gate cannot see simultaneous invocations — the failure that
  *     produced the worker-hang incident. A crashed invocation leaks a slot for
- *     at most its TTL, never forever. If the slot store itself is unreachable
- *     the gate degrades to per-instance only rather than blocking all reads.
+ *     at most its TTL, never forever. If the slot store itself is unreachable,
+ *     reads fail closed rather than risking a cross-instance provider overload.
  *
  * NOTHING HERE MAY WAIT FOREVER. A cancelled request never runs its cleanup, so
  * an unbounded waiter queue plus a bare in-flight counter used to leak capacity
@@ -115,9 +115,8 @@ async function acquireGlobalSlot(db: SupabaseClient): Promise<number | null> {
     p_ttl_seconds: GLOBAL_SLOT_TTL_SECONDS,
   });
   if (error) {
-    // Degrade to the per-instance gate; never fabricate a slot id.
     console.error("[market-gate] global slot acquire failed:", error.message);
-    return -1;
+    throw new MetaApiCapacityError("Shared market-data capacity could not be confirmed");
   }
   return (data as number | null) ?? null;
 }

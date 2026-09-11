@@ -19,17 +19,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import { authorizeCronRequest, unauthorizedResponse } from "@/lib/cron-auth";
 
 /**
- * Wall-clock window in which NEW jobs may be claimed. A job already in flight
- * always runs to completion (its broker reads are individually abort-guarded),
- * so a pass can exceed this by one job's duration — measured p95 is ~16s,
- * comfortably inside the caller's 30s patience.
+ * Wall-clock window in which NEW jobs may be claimed. A separate pass-wide
+ * abort deadline also stops an in-flight broker read, so no operation survives
+ * after the lease is released.
  */
 const CLAIM_WINDOW_MS = 10_000;
-/**
- * Self-chain hop ceiling. The chain is post-work only, and the lease makes
- * overlapping passes harmless (they exit immediately as busy), so three hops
- * plus the two per-minute drain timers give ample drain throughput.
- */
 /**
  * Lease TTL. Deliberately short: a pass the platform cancels never runs its
  * cleanup, and a long TTL turned one cancellation into 90 seconds of a locked
