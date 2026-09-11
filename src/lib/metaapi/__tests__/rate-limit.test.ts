@@ -6,6 +6,7 @@ import {
 } from "@/lib/metaapi/request.server";
 import {
   MARKET_DATA_MAX_CONCURRENCY,
+  MARKET_DATA_WAIT_TIMEOUT_MS,
   marketDataInFlight,
   withMarketDataSlot,
 } from "@/lib/metaapi/market-gate.server";
@@ -44,6 +45,26 @@ describe("market-data concurrency gate", () => {
         throw new Error("provider refused");
       }),
     ).rejects.toThrow("provider refused");
+    expect(marketDataInFlight()).toBe(0);
+  });
+
+  it("[UNIT] never waits for a slot without a deadline", async () => {
+    // A cancelled pass leaves its cleanup unrun; an unbounded waiter then hangs
+    // the whole invocation and the platform cancels it as never responding.
+    expect(MARKET_DATA_WAIT_TIMEOUT_MS).toBeGreaterThan(0);
+    expect(MARKET_DATA_WAIT_TIMEOUT_MS).toBeLessThanOrEqual(15_000);
+  });
+
+  it("[UNIT] gives the slot back to a waiter as soon as a holder finishes", async () => {
+    const order: string[] = [];
+    const hold = (name: string, ms: number) =>
+      withMarketDataSlot(async () => {
+        await new Promise((r) => setTimeout(r, ms));
+        order.push(name);
+      });
+    await Promise.all([hold("a", 5), hold("b", 5), hold("c", 5), hold("d", 5), hold("e", 1)]);
+    expect(order).toHaveLength(5);
+    expect(order[4]).toBe("e");
     expect(marketDataInFlight()).toBe(0);
   });
 });
