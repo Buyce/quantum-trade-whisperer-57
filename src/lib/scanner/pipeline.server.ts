@@ -30,7 +30,7 @@ import {
 import { atr } from "./indicators";
 import { presentSignalBreakdown } from "./copy";
 import { ACTIVE_MODEL_VERSION, observationKey } from "@/lib/versioning";
-import { isTransientMetaApiReadFailure } from "@/lib/metaapi/errors";
+import { isTransientMetaApiReadFailure, MetaApiRequestAbortedError } from "@/lib/metaapi/errors";
 import { fetchCandles, MetaApiNotConfiguredError } from "./metaapi.server";
 import { isWeekendClosed } from "@/lib/market-hours";
 import {
