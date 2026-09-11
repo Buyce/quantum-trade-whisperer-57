@@ -174,7 +174,11 @@ export const Route = createFileRoute("/api/public/worker/process")({
           // left in flight is returned by the queue maintainer without
           // consuming one of its attempts.
           void releaseLease();
-          await logPass("deadline", processed.length, `no response within ${RESPONSE_DEADLINE_MS}ms`);
+          await logPass(
+            "deadline",
+            processed.length,
+            `no response within ${RESPONSE_DEADLINE_MS}ms`,
+          );
           return Response.json({
             ok: true,
             timedOut: true,
@@ -227,4 +231,3 @@ export const Route = createFileRoute("/api/public/worker/process")({
     },
   },
 });
-

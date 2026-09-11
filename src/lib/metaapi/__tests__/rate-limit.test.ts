@@ -11,7 +11,6 @@ import {
   withMarketDataSlot,
 } from "@/lib/metaapi/market-gate.server";
 
-
 describe("rateLimitDelayMs", () => {
   it("[UNIT] honours the provider retry-after when it is longer than our backoff", () => {
     expect(rateLimitDelayMs(2, 0)).toBe(2_000);
@@ -63,16 +62,9 @@ describe("market-data concurrency gate", () => {
         await new Promise((r) => setTimeout(r, ms));
         order.push(name);
       });
-    await Promise.all([
-      hold("a", 5),
-      hold("b", 5),
-      hold("c", 5),
-      hold("d", 5),
-      hold("e", 1),
-    ]);
+    await Promise.all([hold("a", 5), hold("b", 5), hold("c", 5), hold("d", 5), hold("e", 1)]);
     expect(order).toHaveLength(5);
     expect(order[4]).toBe("e");
     expect(marketDataInFlight()).toBe(0);
   });
 });
-
