@@ -156,30 +156,31 @@ would fabricate a setup. Check three things in order:
    (`renew_scan_worker_lease`), so a cancelled pass — whose cleanup never runs —
    blocks the queue for one timer tick instead of the 90s that produced whole
    hours of discarded work.
-3. **Guaranteed response.** The handler races its batch against
-   `RESPONSE_DEADLINE_MS` (20s) and always answers, releasing the lease. Nothing
-   in the market-data path waits without a deadline: the local slot gate times
-   out after `MARKET_DATA_WAIT_TIMEOUT_MS` (12s) and reclaims slots whose holder
-   is older than any possible read, because a leaked counter used to make an
-   instance's gate permanently full and its next pass unanswerable.
-4. **Hand-off and guards.** The chain fires only AFTER a pass finishes
-   (`MAX_HOPS` 3). Both drain crons run every minute, guarded by
+3. **Guaranteed response.** One abort signal ends the batch at
+   `RESPONSE_DEADLINE_MS` (18s) and propagates through slot waits, retry delays
+   and broker fetches. Cleanup settles before the worker releases its lease, so
+   no successor overlaps detached work. The local slot gate also has its own
+   `MARKET_DATA_WAIT_TIMEOUT_MS` (12s) bound and reclaims expired holders.
+4. **Hand-off and guards.** There is no fire-and-forget self-chain. Both drain
+   crons run every minute, guarded by
    `EXISTS (pending) OR EXISTS (processing older than 2 minutes)` so expired
    claims also wake the worker, and allow 30s per call. `maintain_scan_queue`
    runs every minute and returns claims older than 2 minutes to pending; a lease
    expiry hands the job its attempt back (a cancellation is not the job's fault)
    and only a job reaching 5 attempts is failed outright.
 
-5. **Market-data concurrency.** Historical reads pass a global TTL slot budget
-   (`market_data_slots`, cap 5, mirroring the provider limit) inside the
-   per-instance gate. If the slot store is unreachable the gate degrades to
-   per-instance only rather than blocking candle reads.
+5. **Market-data concurrency.** Historical reads pass an atomically allocated
+   global TTL slot budget (`market_data_slots`, cap 5, mirroring the provider
+   limit) inside the per-instance gate. Capacity pressure and provider 429s are
+   transient deferrals, never evidence that an instrument is unhealthy. If the
+   coordination store is unreadable, the worker fails closed instead of risking
+   an overlapping request burst.
 
 `scanner_starvation_incidents` records an open incident and emails the owner while
 the fault persists, and clears itself once analysis resumes.
 
 **MetaApi timeout.** Every fetch is wrapped in an 8-second timeout; on expiry the
-pair is skipped, flagged temporarily unavailable, and the scanner advances. Shadow
+pair is skipped without changing instrument health, and the scanner advances. Shadow
 replay keeps the setup open and leaves its cursor unchanged until a real M15 candle
 batch is available. Repeated timeouts on one instrument point at the upstream data
 bug, not at the scanner or replay maths.
