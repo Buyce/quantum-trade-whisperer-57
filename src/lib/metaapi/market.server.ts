@@ -50,6 +50,7 @@ export async function fetchCandlesFor(
   timeframe: Timeframe,
   limit = 200,
   startTime?: string | null,
+  signal?: AbortSignal,
 ): Promise<Candle[]> {
   // Gated: the provider allows only 5 concurrent historical reads per account.
   // The global (cross-invocation) budget lives in the database; the admin
@@ -67,8 +68,10 @@ export async function fetchCandlesFor(
           `/historical-market-data/symbols/${encodeURIComponent(symbol)}` +
           `/timeframes/${TF_MAP[timeframe]}/candles?limit=${limit}` +
           (startTime ? `&startTime=${encodeURIComponent(startTime)}` : ""),
+        signal,
       }),
     supabaseAdmin,
+    signal,
   );
 
   if (!Array.isArray(raw) || raw.length === 0) {
@@ -94,9 +97,10 @@ export async function fetchCandles(
   timeframe: Timeframe,
   limit = 200,
   startTime?: string | null,
+  signal?: AbortSignal,
 ): Promise<Candle[]> {
   return await withBenchmarkAccount(({ accountId, region }) =>
-    fetchCandlesFor(accountId, region, symbol, timeframe, limit, startTime),
+    fetchCandlesFor(accountId, region, symbol, timeframe, limit, startTime, signal),
   );
 }
 
