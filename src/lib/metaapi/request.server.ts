@@ -16,6 +16,7 @@ import {
 } from "./config.server";
 import {
   MetaApiHttpError,
+  MetaApiRequestAbortedError,
   MetaApiNotConfiguredError,
   MetaApiTimeoutError,
   MetaApiUnreachableError,
@@ -34,6 +35,7 @@ export interface MetaApiRequestOptions {
   /** Extra headers (e.g. `transaction-id` for idempotent provisioning). */
   headers?: Record<string, string>;
   timeoutMs?: number;
+  signal?: AbortSignal;
   /** Treat a 202 (MetaStats still processing) as an error the caller handles. */
   throwOn202?: boolean;
 }
@@ -116,6 +118,8 @@ async function requestOnce<T>(
   token: string,
 ): Promise<T | null> {
   const controller = new AbortController();
+  const onOuterAbort = () => controller.abort();
+  options.signal?.addEventListener("abort", onOuterAbort, { once: true });
   const timeout = options.timeoutMs ?? REQUEST_TIMEOUT_MS;
   const timer = setTimeout(() => controller.abort(), timeout);
   try {
@@ -163,6 +167,7 @@ async function requestOnce<T>(
     }
   } catch (err) {
     if (err instanceof Error && err.name === "AbortError") {
+      if (options.signal?.aborted) throw new MetaApiRequestAbortedError();
       throw new MetaApiTimeoutError(options.label);
     }
     // A DNS/TLS/socket failure surfaces as a TypeError from fetch. Nothing was
@@ -173,7 +178,23 @@ async function requestOnce<T>(
     throw err;
   } finally {
     clearTimeout(timer);
+    options.signal?.removeEventListener("abort", onOuterAbort);
   }
+}
+
+function abortableDelay(ms: number, signal?: AbortSignal): Promise<void> {
+  if (signal?.aborted) return Promise.reject(new MetaApiRequestAbortedError());
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(new MetaApiRequestAbortedError());
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
 }
 
 /**
@@ -227,15 +248,16 @@ export async function metaApiRequest<T = unknown>(
           err instanceof MetaApiHttpError &&
           TRANSIENT_READ_STATUSES.has(err.status);
         if (transientRead && attempt + 1 < attempts) {
-          await new Promise((resolve) => setTimeout(resolve, SAFE_GET_RETRY_DELAY_MS));
+          await abortableDelay(SAFE_GET_RETRY_DELAY_MS, options.signal);
           continue;
         }
 
         const rateLimitedRead =
           method === "GET" && err instanceof MetaApiHttpError && err.status === 429;
         if (rateLimitedRead && attempt + 1 < attempts) {
-          await new Promise((resolve) =>
-            setTimeout(resolve, rateLimitDelayMs(err.retryAfterSeconds ?? null, attempt)),
+          await abortableDelay(
+            rateLimitDelayMs(err.retryAfterSeconds ?? null, attempt),
+            options.signal,
           );
           continue;
         }

@@ -99,3 +99,12 @@
 - [x] Repository-wide Prettier pass.
 - Verified: tsgo clean, build OK, 1,606 checks pass (2 expected failures; the slow
   resolved-immutability DB check passes at a 30s timeout).
+
+## 2026-09-11 — Scanner reliability repair
+
+- [x] Propagate one abort signal through worker, queue pipeline, slot waits, broker reads, and retry delays.
+- [x] Remove detached self-chaining and release the worker lease only after aborted work has settled.
+- [x] Treat local/global capacity and broker 429 responses as transient skips, never instrument faults.
+- [x] Apply atomic market-slot, short-lease, queue-index, trigger-timeout, and health-attribution migration.
+- [x] Verify focused failure-injection tests, full test suite, and build.
+- [ ] Publish and verify four consecutive live market hours without cancellation, stale work, or capacity-induced breakers.

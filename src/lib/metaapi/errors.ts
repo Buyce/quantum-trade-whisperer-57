@@ -21,6 +21,24 @@ export class MetaApiTimeoutError extends Error {
   }
 }
 
+/** Shared market-data capacity is temporarily exhausted; never a symbol fault. */
+export class MetaApiCapacityError extends Error {
+  readonly retryAfterSeconds: number | null;
+  constructor(message: string, retryAfterSeconds: number | null = null) {
+    super(message);
+    this.name = "MetaApiCapacityError";
+    this.retryAfterSeconds = retryAfterSeconds;
+  }
+}
+
+/** The enclosing scanner pass ended; this is operational cancellation, not bad data. */
+export class MetaApiRequestAbortedError extends Error {
+  constructor() {
+    super("Scanner pass deadline reached; market-data work was aborted safely");
+    this.name = "MetaApiRequestAbortedError";
+  }
+}
+
 /** Server-side configuration is missing. Never a transient condition. */
 export class MetaApiNotConfiguredError extends Error {
   constructor(what = "METAAPI_TOKEN") {
@@ -115,6 +133,24 @@ export interface MetaApiFailure {
  * broker check produced a negative answer.
  */
 export function classifyMetaApiFailure(err: unknown): MetaApiFailure {
+  if (err instanceof MetaApiCapacityError) {
+    return {
+      kind: "rate_limited",
+      message: err.message,
+      status: 429,
+      retryAfterSeconds: err.retryAfterSeconds,
+      retryable: true,
+    };
+  }
+  if (err instanceof MetaApiRequestAbortedError) {
+    return {
+      kind: "timeout",
+      message: err.message,
+      status: null,
+      retryAfterSeconds: null,
+      retryable: true,
+    };
+  }
   if (err instanceof MetaApiTimeoutError) {
     return {
       kind: "timeout",
@@ -268,7 +304,9 @@ export function classifyMetaApiFailure(err: unknown): MetaApiFailure {
 export function isTransientMetaApiReadFailure(err: unknown): boolean {
   return (
     err instanceof MetaApiTimeoutError ||
+    err instanceof MetaApiCapacityError ||
+    err instanceof MetaApiRequestAbortedError ||
     err instanceof MetaApiUnreachableError ||
-    (err instanceof MetaApiHttpError && [502, 503, 504].includes(err.status))
+    (err instanceof MetaApiHttpError && [429, 502, 503, 504].includes(err.status))
   );
 }

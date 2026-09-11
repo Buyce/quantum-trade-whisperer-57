@@ -12,8 +12,8 @@
  *  2. A GLOBAL slot budget backed by TTL-expiring database rows, because a
  *     per-instance gate cannot see simultaneous invocations — the failure that
  *     produced the worker-hang incident. A crashed invocation leaks a slot for
- *     at most its TTL, never forever. If the slot store itself is unreachable
- *     the gate degrades to per-instance only rather than blocking all reads.
+ *     at most its TTL, never forever. If the slot store itself is unreachable,
+ *     reads fail closed rather than risking a cross-instance provider overload.
  *
  * NOTHING HERE MAY WAIT FOREVER. A cancelled request never runs its cleanup, so
  * an unbounded waiter queue plus a bare in-flight counter used to leak capacity
@@ -23,6 +23,7 @@
  * an incrementing number, so a leak cannot outlive its own deadline.
  */
 import { SupabaseClient } from "@supabase/supabase-js";
+import { MetaApiCapacityError, MetaApiRequestAbortedError } from "./errors";
 
 export const MARKET_DATA_MAX_CONCURRENCY = 4;
 /** Provider cap is 5 per account; the global budget mirrors it. */
@@ -57,7 +58,8 @@ function pump(): void {
   }
 }
 
-function acquireLocal(token: symbol): Promise<void> {
+function acquireLocal(token: symbol, signal?: AbortSignal): Promise<void> {
+  if (signal?.aborted) return Promise.reject(new MetaApiRequestAbortedError());
   const now = Date.now();
   reapExpiredHolders(now);
   if (holders.size < MARKET_DATA_MAX_CONCURRENCY) {
@@ -66,28 +68,37 @@ function acquireLocal(token: symbol): Promise<void> {
   }
   return new Promise<void>((resolve, reject) => {
     const waiter: Waiter = { settled: false, resolve: () => {}, reject: () => {} };
+    const remove = () => {
+      const idx = waiters.indexOf(waiter);
+      if (idx >= 0) waiters.splice(idx, 1);
+    };
+    const onAbort = () => {
+      if (waiter.settled) return;
+      waiter.settled = true;
+      clearTimeout(timer);
+      remove();
+      reject(new MetaApiRequestAbortedError());
+    };
     const timer = setTimeout(() => {
       if (waiter.settled) return;
       waiter.settled = true;
-      const idx = waiters.indexOf(waiter);
-      if (idx >= 0) waiters.splice(idx, 1);
-      reject(
-        new Error(
-          "TooManyRequestsError: waited " +
-            `${MARKET_DATA_WAIT_TIMEOUT_MS}ms for a market-data slot (local concurrency gate)`,
-        ),
-      );
+      remove();
+      signal?.removeEventListener("abort", onAbort);
+      reject(new MetaApiCapacityError(`Market-data capacity was unavailable for ${MARKET_DATA_WAIT_TIMEOUT_MS}ms`));
     }, MARKET_DATA_WAIT_TIMEOUT_MS);
     waiter.resolve = () => {
       clearTimeout(timer);
+      signal?.removeEventListener("abort", onAbort);
       holders.set(token, Date.now());
       resolve();
     };
     waiter.reject = (err: Error) => {
       clearTimeout(timer);
+      signal?.removeEventListener("abort", onAbort);
       reject(err);
     };
     waiters.push(waiter);
+    signal?.addEventListener("abort", onAbort, { once: true });
     // A holder may have expired while this waiter was being registered.
     reapExpiredHolders(Date.now());
     pump();
@@ -104,9 +115,8 @@ async function acquireGlobalSlot(db: SupabaseClient): Promise<number | null> {
     p_ttl_seconds: GLOBAL_SLOT_TTL_SECONDS,
   });
   if (error) {
-    // Degrade to the per-instance gate; never fabricate a slot id.
     console.error("[market-gate] global slot acquire failed:", error.message);
-    return -1;
+    throw new MetaApiCapacityError("Shared market-data capacity could not be confirmed");
   }
   return (data as number | null) ?? null;
 }
@@ -117,18 +127,21 @@ async function acquireGlobalSlot(db: SupabaseClient): Promise<number | null> {
  * exhausted this throws a rate-limit-shaped error so the caller records a
  * throttle, not a fetch failure.
  */
-export async function withMarketDataSlot<T>(fn: () => Promise<T>, db?: SupabaseClient): Promise<T> {
+export async function withMarketDataSlot<T>(
+  fn: () => Promise<T>,
+  db?: SupabaseClient,
+  signal?: AbortSignal,
+): Promise<T> {
   const token = Symbol("market-data-slot");
-  await acquireLocal(token);
+  await acquireLocal(token, signal);
 
   let globalSlot: number | null = null;
   try {
     if (db) {
       globalSlot = await acquireGlobalSlot(db);
+      if (signal?.aborted) throw new MetaApiRequestAbortedError();
       if (globalSlot === null) {
-        throw new Error(
-          "TooManyRequestsError: broker market-data concurrency budget exhausted (global slot cap)",
-        );
+        throw new MetaApiCapacityError("Broker market-data capacity is temporarily full");
       }
     }
     return await fn();

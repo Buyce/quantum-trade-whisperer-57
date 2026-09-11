@@ -30,7 +30,7 @@ import {
 import { atr } from "./indicators";
 import { presentSignalBreakdown } from "./copy";
 import { ACTIVE_MODEL_VERSION, observationKey } from "@/lib/versioning";
-import { isTransientMetaApiReadFailure } from "@/lib/metaapi/errors";
+import { isTransientMetaApiReadFailure, MetaApiRequestAbortedError } from "@/lib/metaapi/errors";
 import { fetchCandles, MetaApiNotConfiguredError } from "./metaapi.server";
 import { isWeekendClosed } from "@/lib/market-hours";
 import {
@@ -281,7 +281,11 @@ export async function pendingScanJobs(db: SupabaseClient): Promise<number> {
 const JOB_STALE_AFTER_MS = 15 * 60_000;
 
 /** Claim and process a single pending job. Returns null when the queue is empty. */
-export async function processNextJob(db: SupabaseClient): Promise<JobResult | null> {
+export async function processNextJob(
+  db: SupabaseClient,
+  signal?: AbortSignal,
+): Promise<JobResult | null> {
+  if (signal?.aborted) return null;
   const { data: claimed, error: claimError } = await db.rpc("claim_scan_job");
   if (claimError) throw claimError;
   const job = (Array.isArray(claimed) ? claimed[0] : claimed) as
@@ -523,7 +527,8 @@ export async function processNextJob(db: SupabaseClient): Promise<JobResult | nu
     // Sequential per-timeframe fetch keeps peak memory to one candle series.
     const candles = {} as Record<Timeframe, Candle[]>;
     for (const tf of TIMEFRAMES) {
-      candles[tf] = await fetchCandles(providerSymbol, tf, CANDLE_LIMITS[tf]);
+      if (signal?.aborted) throw new MetaApiRequestAbortedError();
+      candles[tf] = await fetchCandles(providerSymbol, tf, CANDLE_LIMITS[tf], undefined, signal);
     }
 
     /**

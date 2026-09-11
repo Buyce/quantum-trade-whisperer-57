@@ -1,6 +1,6 @@
 /**
  * Queue worker. Processes jobs one pass at a time across ALL invocations
- * (single-flight), and chains to itself AFTER its batch while work remains.
+ * (single-flight). Guarded database wakes drain remaining work.
  *
  * Why single-flight: a pre-work hand-off used to turn one timer tick into a
  * burst of 10-16 simultaneous passes. They strangled each other on the price
@@ -19,18 +19,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import { authorizeCronRequest, unauthorizedResponse } from "@/lib/cron-auth";
 
 /**
- * Wall-clock window in which NEW jobs may be claimed. A job already in flight
- * always runs to completion (its broker reads are individually abort-guarded),
- * so a pass can exceed this by one job's duration — measured p95 is ~16s,
- * comfortably inside the caller's 30s patience.
+ * Wall-clock window in which NEW jobs may be claimed. A separate pass-wide
+ * abort deadline also stops an in-flight broker read, so no operation survives
+ * after the lease is released.
  */
 const CLAIM_WINDOW_MS = 10_000;
-/**
- * Self-chain hop ceiling. The chain is post-work only, and the lease makes
- * overlapping passes harmless (they exit immediately as busy), so three hops
- * plus the two per-minute drain timers give ample drain throughput.
- */
-const MAX_HOPS = 3;
 /**
  * Lease TTL. Deliberately short: a pass the platform cancels never runs its
  * cleanup, and a long TTL turned one cancellation into 90 seconds of a locked
@@ -45,7 +38,7 @@ const LEASE_TTL_SECONDS = 25;
  * response is returned by this point: the platform cancels a request that never
  * answers, and a cancelled pass strands its claimed jobs and its lease.
  */
-const RESPONSE_DEADLINE_MS = 20_000;
+const RESPONSE_DEADLINE_MS = 18_000;
 
 export const Route = createFileRoute("/api/public/worker/process")({
   server: {
@@ -54,10 +47,12 @@ export const Route = createFileRoute("/api/public/worker/process")({
         if (!authorizeCronRequest(request)) return unauthorizedResponse();
 
         let hop = 0;
+        let source = "unknown";
         try {
-          const body = (await request.clone().json()) as { hop?: unknown } | null;
+          const body = (await request.clone().json()) as { hop?: unknown; source?: unknown } | null;
           const raw = Number(body?.hop ?? 0);
           hop = Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 0;
+          source = typeof body?.source === "string" ? body.source.slice(0, 80) : "unknown";
         } catch {
           hop = 0;
         }
@@ -85,7 +80,7 @@ export const Route = createFileRoute("/api/public/worker/process")({
           await db
             .from("worker_pass_log")
             .insert({
-              source: "worker_process",
+              source,
               hop,
               outcome,
               drained,
@@ -110,9 +105,14 @@ export const Route = createFileRoute("/api/public/worker/process")({
           { p_holder: holder, p_ttl_seconds: LEASE_TTL_SECONDS },
         );
         if (leaseError) {
-          // The lease store failing must not silently stall the queue: proceed
-          // without it (pre-fix behaviour) rather than refuse all work.
+          // Coordination failure must fail closed. Running without the shared
+          // lease recreates the overlapping worker burst this gate prevents.
           console.error("[worker/process] lease acquire failed:", leaseError.message);
+          await logPass("coordination_error", 0, leaseError.message);
+          return Response.json(
+            { ok: false, error: "Scanner coordination is temporarily unavailable" },
+            { status: 503 },
+          );
         } else if (!acquired) {
           await logPass("busy", 0);
           return Response.json({ ok: true, busy: true, processed: [], hop });
@@ -126,17 +126,18 @@ export const Route = createFileRoute("/api/public/worker/process")({
 
         const processed: Awaited<ReturnType<typeof processNextJob>>[] = [];
         let budgetExhausted = false;
-        let deadlineHit = false;
+        const passController = new AbortController();
+        const deadlineTimer = setTimeout(() => passController.abort(), RESPONSE_DEADLINE_MS);
 
         const runBatch = async (): Promise<{ failed?: string }> => {
           try {
             for (;;) {
-              if (deadlineHit) break;
+              if (passController.signal.aborted) break;
               if (Date.now() - startedAt > CLAIM_WINDOW_MS) {
                 budgetExhausted = true;
                 break;
               }
-              const result = await processNextJob(db);
+              const result = await processNextJob(db, passController.signal);
               if (!result) break;
               processed.push(result);
               // Keep the short lease alive while real work is happening.
@@ -158,26 +159,18 @@ export const Route = createFileRoute("/api/public/worker/process")({
           }
         };
 
-        const deadline = new Promise<{ timedOut: true }>((resolve) => {
-          setTimeout(() => {
-            deadlineHit = true;
-            resolve({ timedOut: true });
-          }, RESPONSE_DEADLINE_MS);
-        });
+        const outcome = await runBatch();
+        clearTimeout(deadlineTimer);
 
-        const outcome = await Promise.race([runBatch(), deadline]);
-
-        if ("timedOut" in outcome) {
-          // The batch is still running somewhere; answering now is what keeps
-          // the platform from cancelling this request as hung. The lease is
-          // released so the next timer tick can pick the queue up, and any job
-          // left in flight is returned by the queue maintainer without
-          // consuming one of its attempts.
-          void releaseLease();
+        if (passController.signal.aborted) {
+          // The abort propagates through slot waits, retry sleeps and broker
+          // fetches. Cleanup therefore finishes before the lease is released;
+          // no successor can overlap a detached pass.
+          await releaseLease();
           await logPass(
             "deadline",
             processed.length,
-            `no response within ${RESPONSE_DEADLINE_MS}ms`,
+            `work aborted at ${RESPONSE_DEADLINE_MS}ms`,
           );
           return Response.json({
             ok: true,
@@ -197,24 +190,10 @@ export const Route = createFileRoute("/api/public/worker/process")({
           return Response.json({ ok: false, error: outcome.failed }, { status: 500 });
         }
 
-        // Post-work hand-off only: the successor starts after THIS pass has
-        // finished and released the lease, so passes run back-to-back instead
-        // of fanning out. If the platform drops the fire-and-forget call, the
-        // every-minute drain timers (which also fire on expired claims) pick
-        // the remainder up within a minute.
+        // The two guarded database wakes (at :00 and :30) own continuation.
+        // Detached self-fetches are deliberately avoided because returning a
+        // response does not guarantee background work survives in this runtime.
         const remaining = processed.length ? await pendingScanJobs(db) : 0;
-        let chained = false;
-        if (remaining > 0 && hop < MAX_HOPS) {
-          chained = true;
-          void fetch(new URL("/api/public/worker/process", request.url).toString(), {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "x-cron-secret": request.headers.get("x-cron-secret") ?? "",
-            },
-            body: JSON.stringify({ source: "worker_self_chain", hop: hop + 1 }),
-          }).catch(() => {});
-        }
 
         await logPass(processed.length ? "processed" : "idle", processed.length);
 
@@ -225,7 +204,7 @@ export const Route = createFileRoute("/api/public/worker/process")({
           budgetExhausted,
           remaining,
           hop,
-          chained,
+          chained: false,
         });
       },
     },
