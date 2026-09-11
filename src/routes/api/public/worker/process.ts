@@ -86,12 +86,12 @@ export const Route = createFileRoute("/api/public/worker/process")({
           await db
             .from("worker_pass_log")
             .insert({
-              source: "worker_process",
+              source,
               hop,
               outcome,
               drained,
               duration_ms: Date.now() - startedAt,
-              detail: detail ? `[${source}] ${detail}` : `[${source}]`,
+              detail: detail ?? null,
             })
             .then(
               () => {},
