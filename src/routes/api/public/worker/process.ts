@@ -111,9 +111,14 @@ export const Route = createFileRoute("/api/public/worker/process")({
           { p_holder: holder, p_ttl_seconds: LEASE_TTL_SECONDS },
         );
         if (leaseError) {
-          // The lease store failing must not silently stall the queue: proceed
-          // without it (pre-fix behaviour) rather than refuse all work.
+          // Coordination failure must fail closed. Running without the shared
+          // lease recreates the overlapping worker burst this gate prevents.
           console.error("[worker/process] lease acquire failed:", leaseError.message);
+          await logPass("coordination_error", 0, leaseError.message);
+          return Response.json(
+            { ok: false, error: "Scanner coordination is temporarily unavailable" },
+            { status: 503 },
+          );
         } else if (!acquired) {
           await logPass("busy", 0);
           return Response.json({ ok: true, busy: true, processed: [], hop });

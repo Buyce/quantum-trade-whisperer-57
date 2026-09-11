@@ -68,7 +68,7 @@ export async function fetchCandlesFor(
           `/historical-market-data/symbols/${encodeURIComponent(symbol)}` +
           `/timeframes/${TF_MAP[timeframe]}/candles?limit=${limit}` +
           (startTime ? `&startTime=${encodeURIComponent(startTime)}` : ""),
-        signal,
+        ...(signal ? { signal } : {}),
       }),
     supabaseAdmin,
     signal,

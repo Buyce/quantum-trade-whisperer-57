@@ -10,6 +10,11 @@ import {
   marketDataInFlight,
   withMarketDataSlot,
 } from "@/lib/metaapi/market-gate.server";
+import {
+  isTransientMetaApiReadFailure,
+  MetaApiCapacityError,
+  MetaApiHttpError,
+} from "@/lib/metaapi/errors";
 
 describe("rateLimitDelayMs", () => {
   it("[UNIT] honours the provider retry-after when it is longer than our backoff", () => {
@@ -66,5 +71,32 @@ describe("market-data concurrency gate", () => {
     expect(order).toHaveLength(5);
     expect(order[4]).toBe("e");
     expect(marketDataInFlight()).toBe(0);
+  });
+
+  it("[INVARIANT] releases a queued waiter immediately when its pass is aborted", async () => {
+    let releaseHolders = () => {};
+    const blocked = new Promise<void>((resolve) => {
+      releaseHolders = resolve;
+    });
+    const holders = Array.from({ length: MARKET_DATA_MAX_CONCURRENCY }, () =>
+      withMarketDataSlot(() => blocked),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const controller = new AbortController();
+    const waiter = withMarketDataSlot(async () => {}, undefined, controller.signal);
+    controller.abort();
+    await expect(waiter).rejects.toThrow("aborted safely");
+    releaseHolders();
+    await Promise.all(holders);
+    expect(marketDataInFlight()).toBe(0);
+  });
+});
+
+describe("scanner transient market-data failures", () => {
+  it("[INVARIANT] treats local capacity and provider 429 as deferrals, not symbol faults", () => {
+    expect(isTransientMetaApiReadFailure(new MetaApiCapacityError("full"))).toBe(true);
+    expect(isTransientMetaApiReadFailure(new MetaApiHttpError(429, "candles", "limited"))).toBe(
+      true,
+    );
   });
 });
