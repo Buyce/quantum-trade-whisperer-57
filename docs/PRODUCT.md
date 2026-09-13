@@ -30,9 +30,23 @@ A user's loop:
    `ok`, `processing` or `unavailable`. Both are read-only monitoring.
 8. **Settings** — instruments, sessions, feed and alert grade thresholds, daily
    cap, risk profile, notifications, assistant access, automatic orders and the
-   intelligence gate, execution bridge. There is no timeframe filter: a setup is
-   one multi-timeframe structure, graded across H4, H1 and M15 together, so
-   selecting timeframes was never a meaningful choice and the control is gone.
+   intelligence gate, exit rules, risk brakes and same-bet limits, execution
+   bridge. There is no timeframe filter: a setup is one multi-timeframe structure,
+   graded across H4, H1 and M15 together, so selecting timeframes was never a
+   meaningful choice and the control is gone. Where a saved choice is deeper than
+   the current platform limit — exit depth is the live example — Settings states
+   what will actually happen instead of showing the saved value as if it were in
+   force.
+
+## Public surfaces
+
+Anyone, signed in or not, can reach the landing page, the sign-in page, the
+AI-assistant connection instructions and `/calculator`, a broker-independent
+position-size calculator that computes lot size from account currency, balance,
+risk percentage, instrument and stop distance. The calculator is deliberately
+self-contained: it never reads a signal, an account or a broker specification, so
+it makes no claim about what P-Trades would actually send. Sizing for a real order
+comes from fresh broker equity and the account's own symbol specification.
 
 ## Inputs
 
