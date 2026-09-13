@@ -299,9 +299,14 @@ Resolution of those states is manual or dry-run.
 
 ### Safety locks
 
-- **Globally disabled by default.** `live_execution_enabled = false` prohibits
-  outbound live POSTs but does **not** stop the dry-run validation pipeline, so a
-  user can prove their configuration end-to-end with zero outbound requests.
+- **Live money needs every switch, not one.** `live_execution_enabled = false`
+  prohibits outbound live POSTs but does **not** stop the dry-run validation
+  pipeline, so a user can prove their configuration end-to-end with zero outbound
+  requests. The global switch on its own grants nothing: a customer account also
+  needs `customer_live_confirm_enabled` or `customer_live_auto_enabled`, and both
+  are currently `false`, so no customer account can be armed on real money today.
+  Demo auto (`demo_auto_enabled`) is the enabled path. Read the live values from
+  `execution_controls` before making any claim about what the platform will send.
 - **Unreadable controls fail closed.**
 - **Observe first.** Connected accounts begin in `observe`. Demo auto requires a
   broker-confirmed demo account, explicit account arming and the global demo gate.
