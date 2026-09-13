@@ -66,12 +66,21 @@ export async function runListBrokerTrades(supabase: unknown, args: BrokerTradesA
     count: rows.length,
     window: window.label,
     state_filter: state ?? "any",
+    account_type_filter: accountType ?? "all (demo and live)",
+    account_id_filter: args.account_id ?? null,
+    accounts_in_result: Array.from(
+      new Set(
+        (rows as Record<string, unknown>[]).map(
+          (row) => String(row["broker_account_type"] ?? "unknown"),
+        ),
+      ),
+    ),
     ordered_by: orderBy,
     provenance: "broker-derived: prices, volumes, costs and times as reported by the broker.",
     note:
       rows.length === 0
-        ? `No broker-confirmed trades matched this query (${window.label}${state ? `, state=${state}` : ""}${args.instrument ? `, instrument=${args.instrument}` : ""}). That is a statement about THIS query only — widen the window or drop the filters before concluding anything.`
-        : "R multiples are broker-derived where r_availability says so; money amounts are the user's own account and must never be compared against another account's money.",
+        ? `No broker-confirmed trades matched this query (${window.label}${state ? `, state=${state}` : ""}${accountType ? `, account_type=${accountType}` : ""}${args.instrument ? `, instrument=${args.instrument}` : ""}). That is a statement about THIS query only — widen the window or drop the filters before concluding anything.`
+        : "Demo and live trades are both returned unless account_type narrows them — say which mode each figure came from, and never present demo results as a live track record. R multiples are broker-derived where r_availability says so; money amounts are the user's own account and must never be compared against another account's money.",
     trades: rows,
   };
   return {
