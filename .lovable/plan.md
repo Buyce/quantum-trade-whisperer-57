@@ -68,12 +68,43 @@ documentation the team maintains.
   are engineering rules — the assistant explains them, it does not improvise
   new ones from web content.
 
+### 4. Platform-wide knowledge, with money kept private
+
+The assistant gets access to the whole platform's learning and performance
+record, not just the asking user's own rows, so it can compare and analyse
+properly:
+
+- **Platform-wide, for everyone:** engine and learning evidence — scanner
+  health, published setups, grade and instrument outcome rates, replay and
+  shadow results, research-candidate funnel, execution quality, fill rates,
+  expected-R by cohort, instrument lifecycle stages. This is the material that
+  answers "does this setup type actually work" and "how do my results compare
+  to the platform".
+- **Aggregated only, never itemised:** any platform-wide figure is returned as
+  totals and rates across accounts, with a minimum group size so a single
+  account cannot be singled out.
+- **Never disclosed to another user:** account equity, balance, profit or loss
+  in money, deposits, position sizes in lots or currency, broker account names
+  or numbers, emails, user ids, individual trades or orders belonging to
+  someone else. Comparisons are expressed in R-multiples and percentages —
+  never another person's money.
+- **Own account, in full:** each user keeps complete detail of their own
+  setups, orders, trades, settings, holds and equity, exactly as today.
+- **Owner:** the owner keeps the existing platform-wide detail available in
+  Admin Intelligence, unchanged.
+
+This is enforced in the database, not just in the prompt: platform-wide reads
+go through dedicated aggregate-only functions that never return per-user money
+columns or identifiers, so no wording in a conversation can talk the assistant
+into leaking another account.
+
 ## Rules kept intact
 
 - No fabricated prices, fills, counts or rates; every number keeps the
   provenance label its source gave it.
 - Read-only against the broker: no placing, cancelling or changing orders.
-- Only the signed-in user's own data, under existing access rules.
+- Own-account detail stays scoped to the signed-in user; platform-wide figures
+  are aggregate-only and never carry another account's money or identity.
 - Settings changes still need explicit confirmation, and risk-money changes
   still need the extra confirmation step with warnings repeated verbatim.
 
@@ -83,6 +114,13 @@ documentation the team maintains.
   (`runGetPerformanceSummary` + MCP/assistant schemas): optional `days` or
   `from`/`to`, filtered on `actual_exit_at` in UTC; the result echoes the
   window applied. Shared body, so MCP and assistant stay identical.
+- New migration adding `SECURITY DEFINER` aggregate functions (e.g.
+  `get_platform_learning_overview()`, `get_platform_grade_outcomes()`,
+  `get_platform_instrument_outcomes()`) callable by `authenticated`, returning
+  counts, rates and R-multiples only — no `user_id`, account identifiers,
+  equity, balance, money P&L or lot sizes — with a minimum group size before a
+  cohort row is emitted, plus `GRANT EXECUTE` to `authenticated`/`service_role`.
+  Exposed as a `get_platform_benchmarks` assistant tool and mirrored in MCP.
 - New `src/lib/assistant/knowledge.ts` embedding curated excerpts from `docs/*`
   at build time (no filesystem reads at runtime — the server runs on the edge),
   exposed as a `search_platform_docs` tool in `src/lib/assistant/tools.ts`.
