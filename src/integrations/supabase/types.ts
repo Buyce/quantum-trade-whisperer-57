@@ -6195,6 +6195,10 @@ export type Database = {
       }
       claim_weekly_report: { Args: { _week: string }; Returns: boolean }
       clear_starvation_incident: { Args: never; Returns: boolean }
+      count_training_dataset: {
+        Args: { _dataset: string; _since: string; _until: string }
+        Returns: number
+      }
       decide_gate_change: {
         Args: {
           _actor: string
@@ -6268,6 +6272,16 @@ export type Database = {
       purge_expired_signals: { Args: never; Returns: number }
       purge_news_data: { Args: never; Returns: Json }
       purge_telemetry: { Args: never; Returns: Json }
+      read_training_dataset: {
+        Args: {
+          _dataset: string
+          _limit?: number
+          _offset?: number
+          _since: string
+          _until: string
+        }
+        Returns: Json
+      }
       recompute_filter_lift: {
         Args: { _horizon_hours?: number }
         Returns: Json
