@@ -325,18 +325,24 @@ Resolution of those states is manual or dry-run.
   or writing URL-validation, dry/live, configuration-version and live-confirmation
   fields directly. Those fields are changed only by the authenticated server
   function after its validation and confirmation checks.
-- **Named policy (customer-chosen).** One order with ONE exit,
-  at the target the policy names. `single_exit_first_target` is the default and
-  the only policy the live statistics currently describe;
+- **Named policy (customer-chosen, platform-capped).** One order with ONE exit,
+  at the target the policy names. `single_exit_first_target` is the default;
   `single_exit_second_target` and `single_exit_third_target` hold the whole
   position to the deeper published target. Each customer chooses their own target
-  in Settings (`scanner_settings.auto_exit_policy`), and every policy is offered
-  there — there is no platform depth ceiling in front of it, and an unreadable or
-  unknown stored value falls back to the first target. Benchmark
-  deliveries continue to follow `execution_controls.execution_policy`. A setup
-  that publishes no such target is rejected as `policy_target_missing` rather
-  than exiting at a nearer target; an unknown policy is rejected as
-  `policy_unsupported`.
+  in Settings (`scanner_settings.auto_exit_policy`), every policy is offered
+  there, and an unreadable or unknown stored value falls back to the first target.
+  **A platform ceiling still applies.** `execution_controls.max_customer_exit_policy`
+  is read at dispatch by `resolveExitPolicy` in `src/lib/delivery/execution.ts`: a
+  customer choice deeper than the ceiling is reduced to the ceiling and marked
+  `clamped`, which is the owner's emergency way to pull every account back to a
+  nearer target without editing any customer's settings. Settings shows the
+  reduction in plain words rather than presenting the saved choice as the one in
+  force. Its current value is `partial_tp1_runner_tp2`, so single-exit choices up
+  to the second target and the two-step managed exit are all reachable; the
+  three-step ladder is not until the ceiling names it. Benchmark deliveries
+  continue to follow `execution_controls.execution_policy`. A setup that publishes
+  no such target is rejected as `policy_target_missing` rather than exiting at a
+  nearer target; an unknown policy is rejected as `policy_unsupported`.
 - **Managed exits (`partial_tp1_runner_tp2`, `ladder_tp1_tp2_runner_tp3`), DEMO
   ONLY.** The only policies that act after the fill.
   `partial_tp1_runner_tp2` closes part of the position at the first target and
