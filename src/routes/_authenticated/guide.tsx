@@ -566,6 +566,21 @@ const SECTIONS: Section[] = [
           "A pause never touches anything already resting or filled at your broker — closing a live position stays your decision. A brake that has not fired is not evidence that risk is absent; an account that cannot be measured is held, not approved.",
       },
       {
+        id: "same-bet-limit",
+        q: "Can the same bet be placed more than once?",
+        a: [
+          "Only if you raise the limit. By default one live order per instrument and direction is allowed, and a second matching setup is refused while the first is unresolved. You may raise it to two or three; each step shows a warning, because three live orders on the same instrument and direction risk about three times what one does, and they tend to win or lose together.",
+          "Separately, after a broker-confirmed loss on an instrument and direction, a cool-off holds new matching orders for the period you choose — none, 30, 60 or 120 minutes. Duplicate prevention is always on and is not a setting: two orders for the same account and the same signal can never both be sent.",
+          "When a consecutive-loss pause begins, still-unfilled matching orders at your broker are cancelled. Anything already filled, in part or in full, is left exactly as it is.",
+        ],
+        means: "A cap on how much of one identical bet may be live at once.",
+        matters:
+          "Losing runs are usually one idea repeated, not several independent ideas failing.",
+        todo: "Leave the limit at one unless you have a specific reason to scale into a bet.",
+        assume:
+          "This cannot stop two genuinely different setups on the same instrument from both losing. It limits repetition of the same bet, not correlation in the market.",
+      },
+      {
         id: "quality-cooldowns",
         q: "What is an execution cooldown?",
         a: [
