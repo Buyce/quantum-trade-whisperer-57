@@ -239,12 +239,23 @@ function ConnectPage() {
           <div className="mt-3 overflow-hidden rounded-md border border-border">
             <table className="w-full text-sm">
               <tbody className="divide-y divide-border">
-                {TOOL_ROWS.map(([tool, what]) => (
+                {TOOL_ROWS.map(([tool, what, access]) => (
                   <tr key={tool} className="bg-card align-top">
                     <td className="num w-[42%] px-3 py-2 text-xs text-foreground sm:w-[34%] sm:text-sm">
                       {tool}
                     </td>
-                    <td className="px-3 py-2 text-xs text-muted-foreground sm:text-sm">{what}</td>
+                    <td className="px-3 py-2 text-xs text-muted-foreground sm:text-sm">
+                      <span
+                        className={
+                          access === "read"
+                            ? "mr-2 inline-block rounded-sm border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground"
+                            : "mr-2 inline-block rounded-sm border border-border bg-accent px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-accent-foreground"
+                        }
+                      >
+                        {access === "read" ? "Read-only" : "Writes"}
+                      </span>
+                      {what}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -252,7 +263,9 @@ function ConnectPage() {
           </div>
           <p className="mt-3 text-xs text-muted-foreground">
             Off-limits to assistants by design: webhook credentials, other users' data, admin
-            intelligence, and deleting your account or journal.
+            intelligence, and deleting your account or journal. Data-set reads are gated to the
+            account owner's own sign-in and strip account-identifying columns in the database
+            itself — there is no write path through them.
           </p>
         </section>
 
