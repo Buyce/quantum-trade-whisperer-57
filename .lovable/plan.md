@@ -14,8 +14,9 @@ So nothing is missing from the data or the database: the card is simply knocking
 
 1. Have the export card's counts and row reads run as the signed-in owner instead of the system account, so the existing owner check passes. The owner-only rule stays enforced in two places (in the app and again inside the database).
 2. Keep every other guarantee unchanged: account identifiers stay withheld in the database, only real recorded rows are returned, and an empty date range still downloads an empty file with a row count of zero.
-3. Show a clearer message if a read ever fails again, naming the reason instead of a generic line.
-4. Verify by loading Admin → Intelligence and confirming real row counts appear for each of the eight datasets, then downloading one set in both formats.
+3. Make the download buttons dependable: the eight datasets are listed with a CSV and a JSONL download button each, always visible (count shown as "…" while it loads, "—" if a count fails), so you can download on demand as admin instead of the buttons disappearing when a count call fails.
+4. Show a clearer message if a read ever fails again, naming the reason instead of a generic line.
+5. Verify by loading Admin → Intelligence and confirming real row counts appear for each of the eight datasets, then downloading one set in both formats.
 
 ## Technical notes
 
