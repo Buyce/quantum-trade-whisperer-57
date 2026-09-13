@@ -1032,7 +1032,6 @@ function SettingsPage() {
                     </SelectItem>
                   ))}
                 </SelectContent>
-                </SelectContent>
               </Select>
 
               {exitPolicyReduced ? (
