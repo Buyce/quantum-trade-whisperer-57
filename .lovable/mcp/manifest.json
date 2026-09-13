@@ -12,7 +12,7 @@
   "mcp": {
     "server": {
       "name": "p-trades-hub",
-      "version": "0.4.0",
+      "version": "0.5.0",
       "title": "P-Trades Hub"
     },
     "tools": [
@@ -122,6 +122,22 @@
         "name": "get_risk_holds",
         "title": "Get my risk holds",
         "description": "Read whether the signed-in user's automatic orders are currently held by one of their own risk brakes (daily or weekly closed loss, losing run, peak-equity drawdown), which rule caused it, when the hold started, when it lifts, and how many matching unfilled orders the pause cancelled at the broker (broker-confirmed versus unconfirmed). Every value is measured from closed broker trades and the broker's own equity reading — never estimated. A hold stops NEW automatic orders only; orders and positions already at the broker are untouched. If the state cannot be read, the answer is 'unknown', never 'not held'.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_platform_benchmarks",
+        "title": "Get platform-wide benchmarks",
+        "description": "Platform-wide learning and outcome evidence aggregated across all connected accounts: broker-verified trade counts, win rates and average R overall and per grade and instrument, published setup counts, shadow-replay coverage and instrument lifecycle stages. Aggregate-only by construction: no account identity, no money amounts, no lot sizes, and cohorts below the minimum group size are withheld. Comparisons against a user's own results are expressed in R-multiples and percentages only. Descriptive, never a forecast.",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": true,
@@ -555,7 +571,7 @@
       {
         "name": "get_performance_summary",
         "title": "Get performance summary",
-        "description": "Compute the signed-in user's trading performance from their logged trades: sample size, win rate, average win and loss in R, and expectancy in R. Choose the R basis explicitly: 'actual_risk' (return against the risk actually taken) or 'plan' (return against the published plan risk). The two bases are never averaged together. Frozen legacy trades are reported separately.",
+        "description": "Compute the signed-in user's trading performance from their logged trades: sample size, win rate, average win and loss in R, and expectancy in R, optionally restricted to a UTC date window. Choose the R basis explicitly: 'actual_risk' (return against the risk actually taken) or 'plan' (return against the published plan risk). The two bases are never averaged together. Frozen legacy trades are reported separately.",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": true,
@@ -573,6 +589,20 @@
                 "actual_risk",
                 "plan"
               ]
+            },
+            "days": {
+              "description": "Look-back window in days from now (UTC). Use for 'last 2 weeks' style questions.",
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            "from": {
+              "description": "ISO UTC start of the window, inclusive. Overrides 'days'.",
+              "type": "string"
+            },
+            "to": {
+              "description": "ISO UTC end of the window, inclusive. Defaults to now.",
+              "type": "string"
             }
           }
         },

@@ -19,6 +19,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { GuideModeToggle } from "@/components/GuideMode";
+import { AssistantWidget } from "@/components/assistant/AssistantWidget";
+
 import ptradesMark from "@/assets/ptrades-mark.png.asset.json";
 
 /**
@@ -184,6 +186,11 @@ export function AppShell({ children }: { children: ReactNode }) {
       <main className="mx-auto max-w-[1600px] px-3 py-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:px-4 sm:py-6 sm:pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
         {children}
       </main>
+
+      {/* Ask-anywhere launcher. Hidden on the Assistant page itself, which already
+          renders the same conversation surface full-screen. */}
+      {!pathname.startsWith("/assistant") && <AssistantWidget />}
+
     </div>
   );
 }
