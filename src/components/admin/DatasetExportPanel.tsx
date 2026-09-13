@@ -16,7 +16,12 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { downloadCsv, downloadJson, toCsv } from "@/lib/export";
 import { MAX_DATASET_PAGE, datasetById } from "@/lib/datasets/catalog";
-import { getDatasetInventory, readDataset } from "@/lib/datasets/datasets.functions";
+import {
+  getDatasetInventory,
+  readDataset,
+  type DatasetPage,
+  type DatasetRow,
+} from "@/lib/datasets/datasets.functions";
 
 function isoDay(offsetDays: number): string {
   return new Date(Date.now() + offsetDays * 86_400_000).toISOString().slice(0, 10);
@@ -42,12 +47,12 @@ export function DatasetExportPanel() {
   });
 
   async function fetchAll(dataset: string) {
-    const rows: Array<Record<string, unknown>> = [];
+    const rows: DatasetRow[] = [];
     let offset = 0;
     for (;;) {
-      const page = await readFn({
+      const page = (await readFn({
         data: { dataset, ...windowArgs, limit: MAX_DATASET_PAGE, offset },
-      });
+      })) as DatasetPage;
       rows.push(...page.rows);
       if (page.rowCount < MAX_DATASET_PAGE) return { rows, page };
       offset += page.rowCount;

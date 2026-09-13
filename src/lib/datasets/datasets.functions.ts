@@ -17,6 +17,9 @@ import {
 
 const OWNER_EMAIL = "boatengampomah@gmail.com";
 
+export type JsonValue = string | number | boolean | null | JsonValue[] | { [k: string]: JsonValue };
+export type DatasetRow = { [k: string]: JsonValue };
+
 export interface DatasetPage {
   dataset: string;
   table: string;
@@ -30,7 +33,7 @@ export interface DatasetPage {
   totalInWindow: number;
   provenance: string;
   nonGuarantee: string;
-  rows: Array<Record<string, unknown>>;
+  rows: DatasetRow[];
 }
 
 export interface DatasetInventoryEntry {
@@ -123,7 +126,7 @@ export const readDataset = createServerFn({ method: "GET" })
     if (total.error) throw new Error(total.error.message);
 
     const payload = (page.data ?? {}) as {
-      rows?: Array<Record<string, unknown>>;
+      rows?: DatasetRow[];
       withheld_columns?: string[];
       row_count?: number;
     };
