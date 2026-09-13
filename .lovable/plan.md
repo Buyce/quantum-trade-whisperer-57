@@ -62,28 +62,13 @@ AI and says plainly it cannot check outside news — nothing is silently downgra
 - Claim "No Trade" or anything about the scanner's cycle from an empty filtered
   result — only the scanner heartbeat speaks for the engine.
 
+## Before it can go live
 
-**First, please replace the key you pasted in chat.** Anything sent as chat text
-has to be treated as exposed, so delete that key in the Google Cloud console and
-create a new one. I will then open a secure form where you enter it — the value
-goes straight into encrypted storage and never appears in our conversation.
+One value needed, via the secure form only: your **Gemini API key** from
+aistudio.google.com (starts with `AIza…`), with billing linked. Do not reuse or
+repost the key you sent in chat — it is treated as exposed, and it is also a
+short-lived token, not an API key.
 
-For the live-web side I need two values, not one:
-
-1. The **Google Cloud API key** (the replacement one), with the "Custom Search
-   API" enabled on that project.
-2. A **search engine ID** — at programmablesearchengine.google.com, create an
-   engine set to search the entire web and copy its ID. The key on its own cannot
-   search; Google requires both.
-
-Note on the screenshot: that key is bound to a service account. Custom Search
-takes a plain API key, so if it refuses the request I will tell you exactly which
-restriction to lift.
-
-The chat itself does not need a key — the platform's built-in AI access powers it,
-billed with your Lovable credits. Until the two search values are in place the
-assistant works fully on your account data and platform help, and says plainly it
-cannot check outside news yet.
 
 
 ## Technical notes
