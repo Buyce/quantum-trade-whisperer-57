@@ -40,30 +40,59 @@ export async function runListBrokerTrades(supabase: unknown, args: BrokerTradesA
   }
   const orderBy = args.order_by === "r_vs_actual_risk" ? "r_vs_actual_risk" : "exit_at";
 
-  let query = db.from("broker_trade_evidence").select(COLUMNS);
   const state = args.state && args.state !== "all" ? args.state : undefined;
-  if (state) query = query.eq("state", state);
   // Demo and live are BOTH included by default; the filters only narrow.
   const accountType =
     args.account_type && args.account_type !== "all" ? args.account_type : undefined;
-  if (accountType) query = query.eq("broker_account_type", accountType);
-  if (args.account_id) query = query.eq("account_id", args.account_id);
-  if (args.instrument) {
-    const symbol = args.instrument.toUpperCase();
-    query = query.or(`broker_symbol.eq.${symbol},signal_instrument.eq.${symbol}`);
-  }
-  // The window is applied to the broker's own exit time — never to a record time.
-  if (window.fromMs !== null) query = query.gte("exit_at", new Date(window.fromMs).toISOString());
-  if (window.toMs !== null) query = query.lte("exit_at", new Date(window.toMs).toISOString());
 
-  const { data, error } = await query
+  /** Same filters for the page and for the total, so a count can never drift. */
+  const applyFilters = <Q extends Record<string, (...a: never[]) => unknown>>(q: Q): Q => {
+    let out = q as unknown as {
+      eq: (c: string, v: unknown) => typeof out;
+      or: (e: string) => typeof out;
+      gte: (c: string, v: string) => typeof out;
+      lte: (c: string, v: string) => typeof out;
+    };
+    if (state) out = out.eq("state", state);
+    if (accountType) out = out.eq("broker_account_type", accountType);
+    if (args.account_id) out = out.eq("account_id", args.account_id);
+    if (args.instrument) {
+      const symbol = args.instrument.toUpperCase();
+      out = out.or(`broker_symbol.eq.${symbol},signal_instrument.eq.${symbol}`);
+    }
+    // The window is applied to the broker's own exit time — never a record time.
+    if (window.fromMs !== null) out = out.gte("exit_at", new Date(window.fromMs).toISOString());
+    if (window.toMs !== null) out = out.lte("exit_at", new Date(window.toMs).toISOString());
+    return out as unknown as Q;
+  };
+
+  const query = applyFilters(db.from("broker_trade_evidence").select(COLUMNS) as never);
+  const { data, error } = await (
+    query as unknown as {
+      order: (c: string, o: { ascending: boolean; nullsFirst: boolean }) => {
+        limit: (n: number) => Promise<{ data: unknown[] | null; error: { message: string } | null }>;
+      };
+    }
+  )
     .order(orderBy, { ascending: false, nullsFirst: false })
     .limit(cap);
 
   if (error) return { content: [{ type: "text" as const, text: error.message }], isError: true };
-  const rows = data ?? [];
+  const rows = (data ?? []) as Record<string, unknown>[];
+
+  // [INVARIANT] `count` is the page size and must never be read as "how many
+  // trades I have". `total_matching` is the real total for this exact query, so
+  // a capped page can never be reported as the whole record.
+  let totalMatching: number | null = null;
+  const countRead = (await applyFilters(
+    db.from("broker_trade_evidence").select("id", { count: "exact", head: true }) as never,
+  )) as unknown as { count: number | null; error: { message: string } | null };
+  if (!countRead?.error) totalMatching = countRead?.count ?? null;
+
   const payload = {
     count: rows.length,
+    total_matching: totalMatching,
+    page_truncated: totalMatching !== null && totalMatching > rows.length,
     window: window.label,
     state_filter: state ?? "any",
     account_type_filter: accountType ?? "all (demo and live)",
