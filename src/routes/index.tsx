@@ -85,7 +85,7 @@ const METHOD = [
   },
   {
     k: "Built for AI assistants",
-    v: "Fourteen MCP tools let ChatGPT, Claude or Claude Code read your setups, automatic orders and risk holds, size a position and maintain your journal as you — using the same eligibility rules, sizing service and R mathematics as the screen.",
+    v: "Sixteen MCP tools let ChatGPT, Claude or Claude Code read your setups, automatic orders and risk holds, size a position and maintain your journal as you — using the same eligibility rules, sizing service and R mathematics as the screen.",
   },
 ] as const;
 

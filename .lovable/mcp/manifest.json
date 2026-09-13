@@ -12,7 +12,7 @@
   "mcp": {
     "server": {
       "name": "p-trades-hub",
-      "version": "0.3.0",
+      "version": "0.4.0",
       "title": "P-Trades Hub"
     },
     "tools": [
@@ -575,6 +575,70 @@
               ]
             }
           }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "describe_datasets",
+        "title": "Describe training datasets",
+        "description": "List the read-only datasets available for analysis and model training: id, what one row means, which table it comes from, the provenance class of its numbers, the account-identifying columns that are always withheld, and what the dataset must not be read as. Read this before calling `read_dataset`. No rows are returned.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": null,
+        "outputSchema": null
+      },
+      {
+        "name": "read_dataset",
+        "title": "Read a training dataset",
+        "description": "Read one page of real recorded rows from a named dataset over an explicit UTC time window, ordered oldest first. Call `describe_datasets` first for the ids and what each row means. Read-only: this tool cannot write, change or delete anything. Account-identifying columns are always withheld. An empty page means nothing was recorded in that window — never infer a scanner state from it, and never fabricate rows to fill a gap.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "dataset": {
+              "type": "string",
+              "enum": [
+                "signals",
+                "shadow_replay",
+                "research_candidates",
+                "broker_trades",
+                "payoff_stats",
+                "regime_stats",
+                "filter_lift_stats",
+                "spread_stats"
+              ],
+              "description": "Dataset id from describe_datasets."
+            },
+            "since": {
+              "type": "string",
+              "description": "Window start, ISO-8601 UTC, inclusive."
+            },
+            "until": {
+              "type": "string",
+              "description": "Window end, ISO-8601 UTC, exclusive."
+            },
+            "limit": {
+              "description": "Rows per page, up to 5000.",
+              "type": "number"
+            },
+            "offset": {
+              "description": "Rows to skip, for paging through the window.",
+              "type": "number"
+            }
+          },
+          "required": [
+            "dataset",
+            "since",
+            "until"
+          ]
         },
         "outputSchema": null
       }
