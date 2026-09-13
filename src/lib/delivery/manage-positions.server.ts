@@ -432,7 +432,9 @@ async function settleState(
       account_id: delivery.connected_account_id,
       broker_position_id: positionId,
       execution_policy: delivery.execution_policy ?? "partial_tp1_runner_tp2",
-      account_mode: "demo",
+      // The delivery's own recorded demo mode, so the row states which armed mode
+      // produced it rather than a flattened word.
+      account_mode: delivery.account_mode ?? "demo",
       ...patch,
     } as never,
     { onConflict: "account_id,broker_position_id" },
