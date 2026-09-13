@@ -27,7 +27,7 @@ export type PerformanceWindowArgs = {
  * closure time when known, falling back to its record time — the fallback is
  * reported so the caller can never mistake it for a broker-confirmed close.
  */
-function resolveWindow(args: PerformanceWindowArgs): {
+export function resolveWindow(args: PerformanceWindowArgs): {
   fromMs: number | null;
   toMs: number | null;
   label: string;
