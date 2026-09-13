@@ -71,18 +71,19 @@ export const getDatasetInventory = createServerFn({ method: "GET" })
     }): Promise<{ since: string; until: string; datasets: DatasetInventoryEntry[] }> => {
       ownerOnly(context.claims);
       const { since, until } = window(data);
-      const { adminClient } = await import("@/lib/scanner/pipeline.server");
-      const admin = adminClient();
+      // Read as the signed-in owner (RLS + is_admin() resolve from their JWT);
+      // the SECURITY DEFINER RPCs re-apply the owner gate in the database.
+      const supabase = context.supabase;
 
-      const datasets: DatasetInventoryEntry[] = [];
-      for (const spec of DATASETS) {
-        const { data: count, error } = await admin.rpc("count_training_dataset", {
-          _dataset: spec.id,
-          _since: since,
-          _until: until,
-        });
-        if (error) throw new Error(`${spec.id}: ${error.message}`);
-        datasets.push({
+      const datasets = await Promise.all(
+        DATASETS.map(async (spec) => {
+          const { data: count, error } = await supabase.rpc("count_training_dataset", {
+            _dataset: spec.id,
+            _since: since,
+            _until: until,
+          });
+          if (error) throw new Error(`${spec.id}: ${error.message}`);
+          return {
           id: spec.id,
           label: spec.label,
           table: spec.table,
