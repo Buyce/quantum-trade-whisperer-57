@@ -102,9 +102,10 @@ news yet.
   `assistant.$threadId.tsx`; thread id comes from the route param and is the chat
   `id`. AI Elements (`conversation`, `message`, `prompt-input`, `tool`, `shimmer`)
   for the surface; assistant messages render markdown with no bubble background.
-- **Web search**: a `search_web` tool behind a server-side search API key, results
-  returned with url + published date; the system prompt forbids restating a web
-  result as broker-, engine- or replay-derived.
+- **Web search**: a `search_web` tool calling the Google Programmable Search JSON
+  API with the user's `GOOGLE_SEARCH_API_KEY` + `GOOGLE_SEARCH_CX` secrets,
+  server-side only, results returned with url + published date; the system prompt
+  forbids restating a web result as broker-, engine- or replay-derived.
 - **Gateway errors** surfaced to the UI per status (402 credits, 429 backoff);
   never hidden behind a friendly reply.
 - **Tests**: `[INVARIANT]` coverage that the chat tools call the shared services
