@@ -114,6 +114,13 @@ into leaking another account.
   (`runGetPerformanceSummary` + MCP/assistant schemas): optional `days` or
   `from`/`to`, filtered on `actual_exit_at` in UTC; the result echoes the
   window applied. Shared body, so MCP and assistant stay identical.
+- New migration adding `SECURITY DEFINER` aggregate functions (e.g.
+  `get_platform_learning_overview()`, `get_platform_grade_outcomes()`,
+  `get_platform_instrument_outcomes()`) callable by `authenticated`, returning
+  counts, rates and R-multiples only — no `user_id`, account identifiers,
+  equity, balance, money P&L or lot sizes — with a minimum group size before a
+  cohort row is emitted, plus `GRANT EXECUTE` to `authenticated`/`service_role`.
+  Exposed as a `get_platform_benchmarks` assistant tool and mirrored in MCP.
 - New `src/lib/assistant/knowledge.ts` embedding curated excerpts from `docs/*`
   at build time (no filesystem reads at runtime — the server runs on the edge),
   exposed as a `search_platform_docs` tool in `src/lib/assistant/tools.ts`.
