@@ -19,6 +19,7 @@ import { runCalculatePositionSize } from "@/lib/mcp/tools/calculate-position-siz
 import { runGetIntelligence } from "@/lib/mcp/tools/get-intelligence";
 import { runGetShadowComparison } from "@/lib/mcp/tools/get-shadow-comparison";
 import { runListMyTrades } from "@/lib/mcp/tools/list-my-trades";
+import { runListBrokerTrades } from "@/lib/mcp/tools/list-broker-trades";
 import { runGetPerformanceSummary } from "@/lib/mcp/tools/get-performance-summary";
 import { runGetPlatformBenchmarks } from "@/lib/mcp/tools/get-platform-benchmarks";
 import { searchPlatformDocs } from "@/lib/assistant/knowledge";
