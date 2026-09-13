@@ -136,6 +136,18 @@ export function isManagedPolicy(policy: ExecutionPolicy): boolean {
   return policy === "partial_tp1_runner_tp2" || policy === "ladder_tp1_tp2_runner_tp3";
 }
 
+/**
+ * Account modes that are DEMO money. A delivery records the account's ARMED mode
+ * (`demo_auto`), not the bare word `demo`, so the managed policies — which are
+ * demo-only — must test both spellings. Testing only `demo` silently downgraded
+ * every managed order and left the management pass with nothing to act on.
+ */
+export const DEMO_ACCOUNT_MODES = ["demo", "demo_auto"] as const;
+
+export function isDemoAccountMode(mode: unknown): boolean {
+  return (DEMO_ACCOUNT_MODES as readonly string[]).includes(String(mode));
+}
+
 export const EXECUTION_POLICY_LABELS: Record<ExecutionPolicy, string> = {
   single_exit_first_target: "Take profit at the first target",
   single_exit_second_target: "Hold the whole position to the second target",
