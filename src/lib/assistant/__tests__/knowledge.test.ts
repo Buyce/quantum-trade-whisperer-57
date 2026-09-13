@@ -10,7 +10,7 @@ describe("platform documentation search", () => {
     }
   });
 
-  it("returns passages with their source file so answers can be attributed", () => {
+  it("[INVARIANT] returns passages with their source file so answers can be attributed", () => {
     const result = searchPlatformDocs("grade");
     expect(result.passages.length).toBeGreaterThan(0);
     for (const passage of result.passages) {
