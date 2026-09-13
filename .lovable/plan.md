@@ -54,10 +54,6 @@ key later is a small change — say the word and I will ask for the key securely
 - Claim "No Trade" or anything about the scanner's cycle from an empty filtered
   result — only the scanner heartbeat speaks for the engine.
 
-## Before it can go live
-
-
-## Before it can go live
 
 **First, please replace the key you pasted in chat.** Anything sent as chat text
 has to be treated as exposed, so delete that key in the Google Cloud console and
