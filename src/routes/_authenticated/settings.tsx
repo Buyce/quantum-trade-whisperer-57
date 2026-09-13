@@ -19,6 +19,7 @@ import {
   type ExitSharePreset,
   isExecutionPolicy,
   isManagedPolicy,
+  resolveExitPolicy,
   type ExecutionPolicy,
 } from "@/lib/delivery/execution";
 
