@@ -38,7 +38,7 @@ export async function runGetAutomaticOrders(supabase: unknown, args: GetAutomati
     db
       .from("execution_deliveries")
       .select(
-        "id, enqueued_at, state, reason, broker_symbol, dry_run, submitted_at, broker_order_id, broker_order_state, broker_retcode_string, entry_mode, execution_policy",
+        "id, enqueued_at, state, reason, broker_symbol, dry_run, submitted_at, broker_order_id, broker_order_state, broker_retcode_string, entry_mode, execution_policy, account_mode, connected_account_id, destination_type",
       )
       .gte("enqueued_at", since)
       .order("enqueued_at", { ascending: false })
