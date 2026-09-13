@@ -29,6 +29,7 @@ underscore layout segment, and must match the generated route id exactly.
 | `index.tsx`                            | public landing                       | yes (in `sitemap.xml`)                            |
 | `auth.tsx`                             | public sign-in                       | yes (in `sitemap.xml`)                            |
 | `connect.tsx`                          | public AI-connection instructions    | yes                                               |
+| `calculator.tsx`                       | public position-size calculator      | yes (in `sitemap.xml`)                            |
 | `_authenticated/feed.tsx`              | signed-in terminal                   | no                                                |
 | `_authenticated/history.tsx`           | signed-in terminal                   | no                                                |
 | `_authenticated/performance.tsx`       | signed-in terminal                   | no                                                |
