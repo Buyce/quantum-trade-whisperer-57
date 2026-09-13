@@ -10,21 +10,29 @@ it, and explain how the platform works.
 
 ## Which brain powers it
 
-Your ChatGPT Plus subscription cannot be used here — it is a consumer account for
-the chatgpt.com website and carries no key an app can call. Developer access is a
-separate, pay-per-use OpenAI account with its own API key.
+Your choice, applied: the chat is powered by **your Google (Gemini) key**, not the
+platform's built-in AI. That one key covers both halves you asked about:
 
-So there are two ways to power the chat box, and both use the same OpenAI models:
+1. **The chat itself** — Gemini's developer API answers your users' questions.
+2. **Live world research** — Gemini's built-in "Google Search grounding" fetches
+   current web results *inside* the reply and attaches its sources. No separate
+   search engine ID needed; this replaces the Custom Search setup from the
+   previous draft.
 
-1. **Built in (recommended to start).** The platform's own AI access, already
-   available, no key for you to obtain, usage billed with your Lovable credits.
-2. **Your own OpenAI key.** You create a developer account at OpenAI, add a
-   payment card, generate a key, and I store it securely on the server. OpenAI then
-   bills you directly per message. Same model quality; you carry the bill and the
-   rate limits.
+Two things to know:
 
-I will build option 1 first so the assistant works today. Switching to your own
-key later is a small change — say the word and I will ask for the key securely.
+- **The key must be a Gemini API key.** The key you pasted (starting `AQ.Ab…`) is
+  a short-lived service-account token — it expires and cannot be stored usefully.
+  The right one is created at aistudio.google.com → "Get API key" (it starts with
+  `AIza…`), and it works because you said billing is already linked.
+- **Never paste it in chat again.** When the build reaches that point I will open
+  a secure form; you paste it there, it goes into encrypted storage, and it never
+  appears in conversation or code. Grounded searches are billed to your Google
+  account per search, on top of normal chat usage.
+
+Fallback: if no key is stored yet, the assistant runs on the platform's built-in
+AI and says plainly it cannot check outside news — nothing is silently downgraded.
+
 
 ## What the user gets
 
