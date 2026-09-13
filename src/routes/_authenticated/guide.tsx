@@ -528,14 +528,15 @@ const SECTIONS: Section[] = [
         id: "exit-target",
         q: "Where does an automatic order take profit, and can I change it?",
         a: [
-          "Yes. In Settings, under the automatic order rules, you choose which of the setup's published targets your automatic orders exit at: the first, the second or the third. The order still goes out once, with its stop and that single target attached, so nothing has to be watched afterwards.",
-          "The first target is the default and the only choice our published statistics currently describe. A deeper target is reached less often; losses stay the same size, so fewer trades win and the wins that do land are bigger. If a setup does not publish the target you chose, the order is refused rather than sent to a nearer one.",
-          "The platform can cap how deep the choice may go. If it does, your setting is reduced to that cap and Settings says so. Results are reported per target in our own records, so a deeper-target trade is never counted as a first-target result.",
+          "Yes. In Settings, under the automatic order rules, you choose which of the setup's published targets your automatic orders exit at: the first, the second or the third. The order goes out once, with its stop and that single target attached, so nothing has to be watched afterwards.",
+          "The first target is the default and the choice our published statistics describe in full. A deeper target is reached less often; losses stay the same size, so fewer trades win and the wins that do land are bigger. If a setup does not publish the target you chose, the order is refused rather than sent to a nearer one.",
+          "On a demo account you can also choose a managed exit: close half at the first target, move the stop to your entry price, and let the rest run to the second target. That one is worked after the fill, one step at a time, and each step is recorded. It is demo-only on purpose — it is still being measured. If your broker minimum size cannot split the position, the order is refused rather than half-managed.",
+          "The platform can cap how deep any choice may go, and today that cap is the managed half-at-first-target exit. If your saved choice is deeper than the cap, it is reduced and Settings tells you in plain words what will actually happen. Results are recorded per exit rule, so a deeper-target trade is never counted as a first-target result.",
         ],
-        means: "You pick the profit target; the order carries it from the moment it is placed.",
+        means: "You pick how the order takes profit; the order carries that from the moment it is placed.",
         matters:
-          "The reward figure on a signal card describes the whole ladder. What your order actually takes is the target you chose here.",
-        todo: "Leave it on the first target unless you deliberately want fewer, larger wins.",
+          "The reward figure on a signal card describes the whole ladder. What your order actually takes is the rule you chose here — or the platform cap, if that is nearer.",
+        todo: "Leave it on the first target unless you deliberately want fewer, larger wins, or you are testing the managed exit on demo money.",
         assume:
           "A deeper target is not a better trade. It is a different trade-off, and it is not predicted by anything on this page.",
       },
