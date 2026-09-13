@@ -54,12 +54,22 @@ key later is a small change — say the word and I will ask for the key securely
 - Claim "No Trade" or anything about the scanner's cycle from an empty filtered
   result — only the scanner heartbeat speaks for the engine.
 
+# In-app AI assistant for P-Trades Hub
+
 ## Before it can go live
 
-Live web search needs one paid search provider account (a search API key). Until
-that key is in place the assistant works fully on our own data and platform help,
-and says plainly that it cannot check outside news yet. I will ask for the key at
-the point it is needed.
+The live-web search side needs one free Google key pair you can create yourself:
+
+1. A **Google Cloud API key** — in the Google Cloud console, enable the
+   "Custom Search API" on a project and create a key.
+2. A **search engine ID** — at programmablesearchengine.google.com, create an
+   engine set to search the whole web, and copy its ID.
+
+The free allowance is 100 searches a day, then it is pay-per-search. Send me
+both values through the secure form when I ask and the assistant can quote real
+news with sources and dates. Until they are in place, the assistant works fully
+on your account data and platform help and says plainly it cannot check outside
+news yet.
 
 ## Technical notes
 
@@ -92,9 +102,10 @@ the point it is needed.
   `assistant.$threadId.tsx`; thread id comes from the route param and is the chat
   `id`. AI Elements (`conversation`, `message`, `prompt-input`, `tool`, `shimmer`)
   for the surface; assistant messages render markdown with no bubble background.
-- **Web search**: a `search_web` tool behind a server-side search API key, results
-  returned with url + published date; the system prompt forbids restating a web
-  result as broker-, engine- or replay-derived.
+- **Web search**: a `search_web` tool calling the Google Programmable Search JSON
+  API with the user's `GOOGLE_SEARCH_API_KEY` + `GOOGLE_SEARCH_CX` secrets,
+  server-side only, results returned with url + published date; the system prompt
+  forbids restating a web result as broker-, engine- or replay-derived.
 - **Gateway errors** surfaced to the UI per status (402 credits, 429 backoff);
   never hidden behind a friendly reply.
 - **Tests**: `[INVARIANT]` coverage that the chat tools call the shared services
