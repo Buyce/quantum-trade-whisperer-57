@@ -8,6 +8,45 @@ import { ACTIVE_MODEL_LABEL, ACTIVE_MODEL_VERSION } from "@/lib/versioning";
  * returns aggregates exclusively: no per-user rows, no PII, nothing that a
  * signed-in user could not already see on the performance page.
  */
+/**
+ * Shared body — the MCP handler and the in-app assistant call this same code.
+ * The caller must already be verified; this function probes under RLS before
+ * any admin-client read, and returns aggregates only.
+ */
+export async function runGetShadowComparison(supabase: unknown) {
+  // Confirms the caller really resolves to a user under row security before
+  // any admin-client read runs.
+  const db = supabase as ReturnType<typeof supabaseForUser>;
+  const probe = await db.from("regime_stats").select("tier").limit(1);
+  if (probe.error)
+    return { content: [{ type: "text" as const, text: probe.error.message }], isError: true };
+
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { loadWeeklyReport } = await import("@/lib/reports/weekly.server");
+  const report = await loadWeeklyReport(supabaseAdmin);
+
+  const payload = {
+    model_version: ACTIVE_MODEL_VERSION,
+    model_label: ACTIVE_MODEL_LABEL,
+    iso_week: report.isoWeek,
+    window_start: report.windowStart,
+    window_end: report.windowEnd,
+    total_resolved: report.totalResolved,
+    high_grade: report.high,
+    low_grade: report.low,
+    comparisons: report.comparisons,
+    note:
+      report.totalResolved === 0
+        ? "No shadow samples resolved in this window — the comparison is genuinely empty."
+        : "Shadow replay outcomes are deterministic in-sample barrier replays, not user-reported results, broker performance, causal evidence or a forecast.",
+  };
+
+  return {
+    content: [{ type: "text" as const, text: JSON.stringify(payload) }],
+    structuredContent: payload,
+  };
+}
+
 export default defineTool({
   name: "get_shadow_comparison",
   title: "Get shadow engine comparison",
@@ -19,35 +58,6 @@ export default defineTool({
     if (!ctx.isAuthenticated()) {
       return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
     }
-    // Confirms the token really resolves to a user under row security before
-    // any admin-client read runs.
-    const probe = await supabaseForUser(ctx).from("regime_stats").select("tier").limit(1);
-    if (probe.error)
-      return { content: [{ type: "text", text: probe.error.message }], isError: true };
-
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { loadWeeklyReport } = await import("@/lib/reports/weekly.server");
-    const report = await loadWeeklyReport(supabaseAdmin);
-
-    const payload = {
-      model_version: ACTIVE_MODEL_VERSION,
-      model_label: ACTIVE_MODEL_LABEL,
-      iso_week: report.isoWeek,
-      window_start: report.windowStart,
-      window_end: report.windowEnd,
-      total_resolved: report.totalResolved,
-      high_grade: report.high,
-      low_grade: report.low,
-      comparisons: report.comparisons,
-      note:
-        report.totalResolved === 0
-          ? "No shadow samples resolved in this window — the comparison is genuinely empty."
-          : "Shadow replay outcomes are deterministic in-sample barrier replays, not user-reported results, broker performance, causal evidence or a forecast.",
-    };
-
-    return {
-      content: [{ type: "text", text: JSON.stringify(payload) }],
-      structuredContent: payload,
-    };
+    return runGetShadowComparison(supabaseForUser(ctx));
   },
 });

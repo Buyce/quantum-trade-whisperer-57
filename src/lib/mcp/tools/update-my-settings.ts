@@ -3,6 +3,87 @@ import { z } from "zod";
 import { supabaseForUser } from "../supabase";
 import { SENSITIVE_RISK_FIELDS, sensitiveFieldsIn, validateSettings } from "../settings-validation";
 
+export type UpdateMySettingsInput = Parameters<typeof sensitiveFieldsIn>[0] & {
+  confirm_risk_change?: boolean | undefined;
+};
+
+/**
+ * Shared body — the MCP handler and the in-app assistant call this same code.
+ * Fails closed on unconfirmed sensitive risk changes; the in-app assistant adds
+ * its own approval gate on top, never instead of this check.
+ */
+export async function runUpdateMySettings(
+  supabase: unknown,
+  userId: string,
+  input: UpdateMySettingsInput,
+) {
+  const { confirm_risk_change, ...settingsInput } = input;
+  const sensitive = sensitiveFieldsIn(settingsInput);
+  if (sensitive.length > 0 && confirm_risk_change !== true) {
+    // Fail closed and write nothing: an unconfirmed risk change is refused in
+    // full, including any non-sensitive fields sent alongside it.
+    return {
+      content: [
+        {
+          type: "text" as const,
+          text: `Refused: ${sensitive.join(", ")} change how much real money can be at risk. Ask the user to confirm the exact change, then retry with confirm_risk_change: true. Sensitive fields: ${SENSITIVE_RISK_FIELDS.join(", ")}.`,
+        },
+      ],
+      isError: true,
+    };
+  }
+  const db = supabase as ReturnType<typeof supabaseForUser>;
+  // Existing acknowledgement counts: a user who already accepted high risk
+  // does not have to re-acknowledge on every subsequent change.
+  const { data: current } = await db
+    .from("scanner_settings")
+    .select("risk_ack_high, risk_per_trade_percent")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  const { patch, warnings } = validateSettings(settingsInput, {
+    currentAckHigh: (current as { risk_ack_high?: boolean } | null)?.risk_ack_high === true,
+    currentRiskPercent:
+      (current as { risk_per_trade_percent?: number } | null)?.risk_per_trade_percent ?? null,
+  });
+  if (Object.keys(patch).length === 0) {
+    const text = warnings.length
+      ? `Nothing changed. ${warnings.join(" ")}`
+      : "Nothing changed: no recognised settings were supplied.";
+    return { content: [{ type: "text" as const, text }], isError: true };
+  }
+
+  const { data, error } = await db
+    .from("scanner_settings")
+    .update(patch)
+    .eq("user_id", userId)
+    .select(
+      "instruments, sessions, min_grade, alert_min_grade, daily_setup_cap, notify_push, notify_email, account_equity, account_currency, risk_per_trade_percent, max_position_size, leverage, max_stop_loss_percent, equity_as_of, risk_ack_high, maximum_concurrent_signal_orders, maximum_daily_signal_orders, maximum_daily_orders_per_symbol, auto_order_window_minutes, adaptive_order_ceilings_enabled, adaptive_order_ceiling_max, adaptive_order_ceiling_floor, auto_market_entry_enabled, auto_execute_c_grade, auto_intel_gate_enabled, auto_intel_min_win_pct, auto_intel_min_sample, auto_intel_min_expected_r, allow_unmeasured_intel, max_entry_spread_pips, max_entry_slippage_pips, exposure_limit_enabled, max_total_exposure_percent, drawdown_brakes_enabled, daily_loss_limit_percent, weekly_loss_limit_percent, consecutive_loss_limit, consecutive_loss_pause_hours, max_drawdown_percent, max_same_bet_orders, same_bet_cooldown_minutes",
+    );
+
+  if (error) return { content: [{ type: "text" as const, text: error.message }], isError: true };
+  if (!data || data.length === 0) {
+    return {
+      content: [{ type: "text" as const, text: "No settings row found for this user." }],
+      isError: true,
+    };
+  }
+
+  const payload = {
+    updated: Object.keys(patch),
+    settings: data[0],
+    warnings,
+    notes: {
+      account_equity:
+        "User-entered balance, never read from the broker. equity_as_of records when the user last set it.",
+    },
+  };
+  return {
+    content: [{ type: "text" as const, text: JSON.stringify(payload) }],
+    structuredContent: payload,
+  };
+}
+
 export default defineTool({
   name: "update_my_settings",
   title: "Update my settings",
@@ -193,71 +274,6 @@ export default defineTool({
     if (!ctx.isAuthenticated()) {
       return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
     }
-    const { confirm_risk_change, ...settingsInput } = input;
-    const sensitive = sensitiveFieldsIn(settingsInput);
-    if (sensitive.length > 0 && confirm_risk_change !== true) {
-      // Fail closed and write nothing: an unconfirmed risk change is refused in
-      // full, including any non-sensitive fields sent alongside it.
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Refused: ${sensitive.join(", ")} change how much real money can be at risk. Ask the user to confirm the exact change, then retry with confirm_risk_change: true. Sensitive fields: ${SENSITIVE_RISK_FIELDS.join(", ")}.`,
-          },
-        ],
-        isError: true,
-      };
-    }
-    const supabase = supabaseForUser(ctx);
-    const userId = ctx.getUserId() as string;
-    // Existing acknowledgement counts: a user who already accepted high risk
-    // does not have to re-acknowledge on every subsequent change.
-    const { data: current } = await supabase
-      .from("scanner_settings")
-      .select("risk_ack_high, risk_per_trade_percent")
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    const { patch, warnings } = validateSettings(settingsInput, {
-      currentAckHigh: (current as { risk_ack_high?: boolean } | null)?.risk_ack_high === true,
-      currentRiskPercent:
-        (current as { risk_per_trade_percent?: number } | null)?.risk_per_trade_percent ?? null,
-    });
-    if (Object.keys(patch).length === 0) {
-      const text = warnings.length
-        ? `Nothing changed. ${warnings.join(" ")}`
-        : "Nothing changed: no recognised settings were supplied.";
-      return { content: [{ type: "text", text }], isError: true };
-    }
-
-    const { data, error } = await supabase
-      .from("scanner_settings")
-      .update(patch)
-      .eq("user_id", userId)
-      .select(
-        "instruments, sessions, min_grade, alert_min_grade, daily_setup_cap, notify_push, notify_email, account_equity, account_currency, risk_per_trade_percent, max_position_size, leverage, max_stop_loss_percent, equity_as_of, risk_ack_high, maximum_concurrent_signal_orders, maximum_daily_signal_orders, maximum_daily_orders_per_symbol, auto_order_window_minutes, adaptive_order_ceilings_enabled, adaptive_order_ceiling_max, adaptive_order_ceiling_floor, auto_market_entry_enabled, auto_execute_c_grade, auto_intel_gate_enabled, auto_intel_min_win_pct, auto_intel_min_sample, auto_intel_min_expected_r, allow_unmeasured_intel, max_entry_spread_pips, max_entry_slippage_pips, exposure_limit_enabled, max_total_exposure_percent, drawdown_brakes_enabled, daily_loss_limit_percent, weekly_loss_limit_percent, consecutive_loss_limit, consecutive_loss_pause_hours, max_drawdown_percent, max_same_bet_orders, same_bet_cooldown_minutes",
-      );
-
-    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
-    if (!data || data.length === 0) {
-      return {
-        content: [{ type: "text", text: "No settings row found for this user." }],
-        isError: true,
-      };
-    }
-
-    const payload = {
-      updated: Object.keys(patch),
-      settings: data[0],
-      warnings,
-      notes: {
-        account_equity:
-          "User-entered balance, never read from the broker. equity_as_of records when the user last set it.",
-      },
-    };
-    return {
-      content: [{ type: "text", text: JSON.stringify(payload) }],
-      structuredContent: payload,
-    };
+    return runUpdateMySettings(supabaseForUser(ctx), ctx.getUserId() as string, input);
   },
 });

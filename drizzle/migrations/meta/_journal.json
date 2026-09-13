@@ -22,6 +22,13 @@
       "when": 1789290339228,
       "tag": "0002_archived_signals_dataset",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1789294497289,
+      "tag": "0003_assistant_threads",
+      "breakpoints": true
     }
   ]
 }

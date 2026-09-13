@@ -3,6 +3,7 @@ import {
   Activity,
   BarChart3,
   BookOpen,
+  Bot,
   Building2,
   History,
   LogOut,
@@ -30,9 +31,9 @@ const MOBILE_NAV = [
   { to: "/feed", label: "Signal Feed", short: "Feed", icon: Activity },
   { to: "/history", label: "Trade History", short: "History", icon: History },
   { to: "/performance", label: "Performance", short: "Performance", icon: BarChart3 },
-  // Public route, but it belongs in the terminal nav: signed-in users never see
-  // the landing footer that used to be its only entry point.
-  { to: "/connect", label: "Connect AI", short: "Connect", icon: Plug },
+  // The in-app assistant takes the mobile slot that "Connect AI" (an
+  // external-client page) held; Connect stays in the desktop nav and Settings.
+  { to: "/assistant", label: "Assistant", short: "Assistant", icon: Bot },
   { to: "/settings", label: "Settings", short: "Settings", icon: SettingsIcon },
 ] as const;
 
@@ -46,6 +47,7 @@ const DESKTOP_NAV = [
   { to: "/history", label: "Trade History", short: "History", icon: History },
   { to: "/performance", label: "Performance", short: "Performance", icon: BarChart3 },
   { to: "/accounts", label: "Broker Accounts", short: "Accounts", icon: Building2 },
+  { to: "/assistant", label: "Assistant", short: "Assistant", icon: Bot },
   { to: "/connect", label: "Connect AI", short: "Connect", icon: Plug },
   { to: "/settings", label: "Settings", short: "Settings", icon: SettingsIcon },
   { to: "/guide", label: "Guide", short: "Guide", icon: BookOpen },
