@@ -103,7 +103,8 @@ into leaking another account.
 - No fabricated prices, fills, counts or rates; every number keeps the
   provenance label its source gave it.
 - Read-only against the broker: no placing, cancelling or changing orders.
-- Only the signed-in user's own data, under existing access rules.
+- Own-account detail stays scoped to the signed-in user; platform-wide figures
+  are aggregate-only and never carry another account's money or identity.
 - Settings changes still need explicit confirmation, and risk-money changes
   still need the extra confirmation step with warnings repeated verbatim.
 
