@@ -54,7 +54,8 @@ key later is a small change — say the word and I will ask for the key securely
 - Claim "No Trade" or anything about the scanner's cycle from an empty filtered
   result — only the scanner heartbeat speaks for the engine.
 
-# In-app AI assistant for P-Trades Hub
+## Before it can go live
+
 
 ## Before it can go live
 
