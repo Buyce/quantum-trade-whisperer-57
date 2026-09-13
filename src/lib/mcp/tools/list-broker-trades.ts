@@ -93,13 +93,21 @@ export default defineTool({
   name: "list_broker_trades",
   title: "List my broker-confirmed trades",
   description:
-    "The signed-in user's BROKER-CONFIRMED trades (from broker evidence, not the self-reported journal): instrument, direction, volume, entry and exit price and time, commission, swap, gross profit, R against plan and against actual risk, stop provenance, slippage and the setup grade the trade came from. This is the authority on what actually happened; the journal can be empty even when the user traded. Filterable by state and instrument, windowed on the broker exit time, and sortable by exit time or by R so 'my best trade' is answered directly.",
+    "The signed-in user's BROKER-CONFIRMED trades (from broker evidence, not the self-reported journal), across ALL of their accounts — demo and live: instrument, direction, volume, entry and exit price and time, commission, swap, gross profit, R against plan and against actual risk, stop provenance, slippage, account id, account type and the setup grade the trade came from. This is the authority on what actually happened; the journal can be empty even when the user traded. Filterable by state, instrument, account type (demo/live) or a single account, windowed on the broker exit time, and sortable by exit time or by R so 'my best trade' is answered directly. Always say which mode a figure came from; a demo result is not a live track record.",
   inputSchema: {
     state: z
       .enum(["closed", "open", "all"])
       .optional()
       .describe("Trade state at the broker. Default: any state."),
     instrument: z.string().optional().describe("Instrument filter, e.g. XAUUSD."),
+    account_type: z
+      .enum(["demo", "live", "all"])
+      .optional()
+      .describe("Account mode filter. Default: all — demo and live together."),
+    account_id: z
+      .string()
+      .optional()
+      .describe("Restrict to one connected account id from list_my_accounts."),
     days: z.number().int().positive().optional().describe("Look-back in days on the exit time."),
     from: z.string().optional().describe("ISO UTC start of the window. Overrides days."),
     to: z.string().optional().describe("ISO UTC end of the window. Defaults to now."),

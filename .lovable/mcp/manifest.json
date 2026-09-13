@@ -571,7 +571,7 @@
       {
         "name": "list_broker_trades",
         "title": "List my broker-confirmed trades",
-        "description": "The signed-in user's BROKER-CONFIRMED trades (from broker evidence, not the self-reported journal): instrument, direction, volume, entry and exit price and time, commission, swap, gross profit, R against plan and against actual risk, stop provenance, slippage and the setup grade the trade came from. This is the authority on what actually happened; the journal can be empty even when the user traded. Filterable by state and instrument, windowed on the broker exit time, and sortable by exit time or by R so 'my best trade' is answered directly.",
+        "description": "The signed-in user's BROKER-CONFIRMED trades (from broker evidence, not the self-reported journal), across ALL of their accounts — demo and live: instrument, direction, volume, entry and exit price and time, commission, swap, gross profit, R against plan and against actual risk, stop provenance, slippage, account id, account type and the setup grade the trade came from. This is the authority on what actually happened; the journal can be empty even when the user traded. Filterable by state, instrument, account type (demo/live) or a single account, windowed on the broker exit time, and sortable by exit time or by R so 'my best trade' is answered directly. Always say which mode a figure came from; a demo result is not a live track record.",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": true,
@@ -592,6 +592,19 @@
             },
             "instrument": {
               "description": "Instrument filter, e.g. XAUUSD.",
+              "type": "string"
+            },
+            "account_type": {
+              "description": "Account mode filter. Default: all — demo and live together.",
+              "type": "string",
+              "enum": [
+                "demo",
+                "live",
+                "all"
+              ]
+            },
+            "account_id": {
+              "description": "Restrict to one connected account id from list_my_accounts.",
               "type": "string"
             },
             "days": {
