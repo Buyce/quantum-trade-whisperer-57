@@ -54,12 +54,22 @@ key later is a small change — say the word and I will ask for the key securely
 - Claim "No Trade" or anything about the scanner's cycle from an empty filtered
   result — only the scanner heartbeat speaks for the engine.
 
+# In-app AI assistant for P-Trades Hub
+
 ## Before it can go live
 
-Live web search needs one paid search provider account (a search API key). Until
-that key is in place the assistant works fully on our own data and platform help,
-and says plainly that it cannot check outside news yet. I will ask for the key at
-the point it is needed.
+The live-web search side needs one free Google key pair you can create yourself:
+
+1. A **Google Cloud API key** — in the Google Cloud console, enable the
+   "Custom Search API" on a project and create a key.
+2. A **search engine ID** — at programmablesearchengine.google.com, create an
+   engine set to search the whole web, and copy its ID.
+
+The free allowance is 100 searches a day, then it is pay-per-search. Send me
+both values through the secure form when I ask and the assistant can quote real
+news with sources and dates. Until they are in place, the assistant works fully
+on your account data and platform help and says plainly it cannot check outside
+news yet.
 
 ## Technical notes
 
