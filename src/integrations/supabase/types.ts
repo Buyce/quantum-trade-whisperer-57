@@ -6358,6 +6358,7 @@ export type Database = {
       get_admin_news: { Args: never; Returns: Json }
       get_admin_payoff_research: { Args: never; Returns: Json }
       get_admin_scan_results_recent: { Args: never; Returns: Json }
+      get_platform_benchmarks: { Args: never; Returns: Json }
       get_promotion_sample_evidence: { Args: { _since: string }; Returns: Json }
       instrument_capability_allowed: {
         Args: { _capability: string; _instrument: string }

@@ -94,7 +94,17 @@ const TOOL_ROWS: [string, string, "read" | "write"][] = [
     "Your journal entries, price-backed and price-missing, including who entered each self-reported price.",
     "read",
   ],
-  ["get_performance_summary", "Your expectancy and R-multiple performance.", "read"],
+  [
+    "get_performance_summary",
+    "Your expectancy and R-multiple performance, over all time or a chosen date window.",
+    "read",
+  ],
+  [
+    "get_platform_benchmarks",
+    "How the platform as a whole is performing across every connected account: outcome rates and average R by grade and instrument, published setup counts, replay coverage and instrument stages. Aggregated only — no other account's balance, profit, position sizes or identity is ever included.",
+    "read",
+  ],
+
   [
     "describe_datasets",
     "The catalogue of data sets available for analysis and model training: what one row means, where its numbers come from, which columns are always withheld and what the data must not be read as. No rows are returned.",
@@ -106,7 +116,6 @@ const TOOL_ROWS: [string, string, "read" | "write"][] = [
     "read",
   ],
 ];
-
 
 function useMcpUrl() {
   const [url, setUrl] = useState("");
@@ -264,8 +273,8 @@ function ConnectPage() {
           <p className="mt-3 text-xs text-muted-foreground">
             Off-limits to assistants by design: webhook credentials, other users' data, admin
             intelligence, and deleting your account or journal. Data-set reads are gated to the
-            account owner's own sign-in and strip account-identifying columns in the database
-            itself — there is no write path through them.
+            account owner's own sign-in and strip account-identifying columns in the database itself
+            — there is no write path through them.
           </p>
         </section>
 

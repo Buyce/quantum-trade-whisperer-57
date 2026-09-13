@@ -17,7 +17,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
-import { convertToModelMessages, stepCountIs, streamText, type UIMessage } from "ai";
+import {
+  convertToModelMessages,
+  generateText,
+  stepCountIs,
+  streamText,
+  tool,
+  type UIMessage,
+} from "ai";
+import { z } from "zod";
 import { ASSISTANT_SYSTEM_PROMPT } from "@/lib/assistant/system-prompt";
 import { buildAssistantTools } from "@/lib/assistant/tools";
 import { requireAssistantUser } from "@/lib/assistant/auth.server";
@@ -79,12 +87,38 @@ export const Route = createFileRoute("/api/chat")({
         if (geminiKey) {
           const google = createGoogleGenerativeAI({ apiKey: geminiKey });
           model = google("gemini-2.5-flash");
-          // Google Search grounding: live worldwide news/data lookups at
-          // answer time. Grounding metadata (sources) streams back with the
-          // response parts and is rendered in the UI.
+          // [INVARIANT] Google Search grounding is a provider-defined tool and
+          // Gemini refuses to combine it with our own function tools in one
+          // request. So web research runs as its OWN grounded sub-request,
+          // exposed to the assistant as an ordinary `search_web` function. Both
+          // capabilities stay available and the platform tools keep working.
           modelTools = {
             ...tools,
-            google_search: google.tools.googleSearch({}),
+            search_web: tool({
+              description:
+                "Search the live web (Google) for current worldwide news, prices, releases or events. Returns a grounded summary with its sources. Use for anything outside P-Trades' own data; always report the source and date. Never use it for the user's own account numbers.",
+              inputSchema: z.object({
+                query: z.string().describe("What to look up on the web, in plain words."),
+              }),
+              execute: async ({ query }) => {
+                const research = await generateText({
+                  model: google("gemini-2.5-flash"),
+                  system:
+                    "You are a research fetcher. Answer only from the search results. State each fact with its source name and publication date. If the results do not answer the question, say so plainly. Never invent numbers.",
+                  prompt: query,
+                  tools: { google_search: google.tools.googleSearch({}) },
+                });
+                return {
+                  answer: research.text,
+                  sources: research.sources.map((source) =>
+                    "url" in source
+                      ? { title: source.title ?? source.url, url: source.url }
+                      : { title: source.title ?? "source", url: null },
+                  ),
+                  retrieved_at: new Date().toISOString(),
+                };
+              },
+            }),
           } as Record<string, unknown>;
         } else {
           const lovableKey = process.env["LOVABLE_API_KEY"];
@@ -101,8 +135,9 @@ export const Route = createFileRoute("/api/chat")({
 
         const system =
           ASSISTANT_SYSTEM_PROMPT +
+          `\n\nThe current date and time is ${new Date().toISOString()} (UTC). Use it to work out relative windows such as "the past 2 weeks" — prefer passing days to a tool over computing dates yourself.` +
           (grounded
-            ? "\n\nYou have a google_search tool for live worldwide news and data. Use it when the user asks about current events; always name the source and date."
+            ? "\n\nYou have a search_web tool for live worldwide news and data. Use it when the user asks about current events; always name the source and date it returns."
             : "\n\nLive web search is NOT available in this deployment. If the user asks about current news, say plainly that you cannot check outside news right now.");
 
         const lastUser = [...body.messages].reverse().find((m) => m.role === "user");
