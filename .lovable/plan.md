@@ -8,7 +8,26 @@ risk holds and journal, change their own settings with the same confirmations th
 Settings screen asks for, search the web for current news when the question needs
 it, and explain how the platform works.
 
+## Which brain powers it
+
+Your ChatGPT Plus subscription cannot be used here — it is a consumer account for
+the chatgpt.com website and carries no key an app can call. Developer access is a
+separate, pay-per-use OpenAI account with its own API key.
+
+So there are two ways to power the chat box, and both use the same OpenAI models:
+
+1. **Built in (recommended to start).** The platform's own AI access, already
+   available, no key for you to obtain, usage billed with your Lovable credits.
+2. **Your own OpenAI key.** You create a developer account at OpenAI, add a
+   payment card, generate a key, and I store it securely on the server. OpenAI then
+   bills you directly per message. Same model quality; you carry the bill and the
+   rate limits.
+
+I will build option 1 first so the assistant works today. Switching to your own
+key later is a small change — say the word and I will ask for the key securely.
+
 ## What the user gets
+
 
 - A chat panel reachable from the terminal, available to every signed-in customer.
 - It answers about **their** account only, using the same numbers the screens show —
