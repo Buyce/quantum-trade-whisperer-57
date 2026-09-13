@@ -12,7 +12,7 @@
   "mcp": {
     "server": {
       "name": "p-trades-hub",
-      "version": "0.6.0",
+      "version": "0.7.0",
       "title": "P-Trades Hub"
     },
     "tools": [
@@ -634,6 +634,36 @@
               "type": "integer",
               "minimum": -9007199254740991,
               "maximum": 9007199254740991
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_my_accounts",
+        "title": "List my connected broker accounts",
+        "description": "The signed-in user's own connected broker accounts — DEMO and LIVE — with mode, phase, intent, broker and server, masked login, currency, broker-reported balance, equity, free margin, margin level, leverage, trade permission, connection and provisioning state, benchmark flag, emergency stop or stand-down reason, and when the broker figures were last observed. Use it to resolve which account a trade or automatic order belongs to and to answer questions about demo accounts. Broker-derived; always name the mode, and never mix a demo result into a live track record.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "mode": {
+              "description": "Filter by account mode. Defaults to all.",
+              "type": "string",
+              "enum": [
+                "demo",
+                "live",
+                "all"
+              ]
+            },
+            "include_disconnected": {
+              "description": "Include accounts the user has disconnected. Defaults to false.",
+              "type": "boolean"
             }
           }
         },
