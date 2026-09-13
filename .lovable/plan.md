@@ -54,22 +54,29 @@ key later is a small change — say the word and I will ask for the key securely
 - Claim "No Trade" or anything about the scanner's cycle from an empty filtered
   result — only the scanner heartbeat speaks for the engine.
 
-# In-app AI assistant for P-Trades Hub
 
-## Before it can go live
+**First, please replace the key you pasted in chat.** Anything sent as chat text
+has to be treated as exposed, so delete that key in the Google Cloud console and
+create a new one. I will then open a secure form where you enter it — the value
+goes straight into encrypted storage and never appears in our conversation.
 
-The live-web search side needs one free Google key pair you can create yourself:
+For the live-web side I need two values, not one:
 
-1. A **Google Cloud API key** — in the Google Cloud console, enable the
-   "Custom Search API" on a project and create a key.
+1. The **Google Cloud API key** (the replacement one), with the "Custom Search
+   API" enabled on that project.
 2. A **search engine ID** — at programmablesearchengine.google.com, create an
-   engine set to search the whole web, and copy its ID.
+   engine set to search the entire web and copy its ID. The key on its own cannot
+   search; Google requires both.
 
-The free allowance is 100 searches a day, then it is pay-per-search. Send me
-both values through the secure form when I ask and the assistant can quote real
-news with sources and dates. Until they are in place, the assistant works fully
-on your account data and platform help and says plainly it cannot check outside
-news yet.
+Note on the screenshot: that key is bound to a service account. Custom Search
+takes a plain API key, so if it refuses the request I will tell you exactly which
+restriction to lift.
+
+The chat itself does not need a key — the platform's built-in AI access powers it,
+billed with your Lovable credits. Until the two search values are in place the
+assistant works fully on your account data and platform help, and says plainly it
+cannot check outside news yet.
+
 
 ## Technical notes
 
