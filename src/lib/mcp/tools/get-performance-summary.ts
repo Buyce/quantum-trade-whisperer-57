@@ -42,10 +42,20 @@ export function resolveWindow(args: PerformanceWindowArgs): {
   const explicitFrom = parse(args.from);
   const explicitTo = parse(args.to);
   if (args.from && explicitFrom === null) {
-    return { fromMs: null, toMs: null, label: "all time", invalid: `Unreadable 'from' date: ${args.from}` };
+    return {
+      fromMs: null,
+      toMs: null,
+      label: "all time",
+      invalid: `Unreadable 'from' date: ${args.from}`,
+    };
   }
   if (args.to && explicitTo === null) {
-    return { fromMs: null, toMs: null, label: "all time", invalid: `Unreadable 'to' date: ${args.to}` };
+    return {
+      fromMs: null,
+      toMs: null,
+      label: "all time",
+      invalid: `Unreadable 'to' date: ${args.to}`,
+    };
   }
 
   if (explicitFrom !== null || explicitTo !== null) {
@@ -62,7 +72,12 @@ export function resolveWindow(args: PerformanceWindowArgs): {
 
   if (args.days != null) {
     if (!Number.isFinite(args.days) || args.days <= 0) {
-      return { fromMs: null, toMs: null, label: "all time", invalid: "'days' must be a positive number." };
+      return {
+        fromMs: null,
+        toMs: null,
+        label: "all time",
+        invalid: "'days' must be a positive number.",
+      };
     }
     const days = Math.min(Math.floor(args.days), 3650);
     const toMs = Date.now();
@@ -82,10 +97,7 @@ export function resolveWindow(args: PerformanceWindowArgs): {
  * are counted separately and never pooled with canonical R.
  */
 /** Shared body — the MCP handler and the in-app assistant call this same code. */
-export async function runGetPerformanceSummary(
-  supabase: unknown,
-  args: PerformanceWindowArgs,
-) {
+export async function runGetPerformanceSummary(supabase: unknown, args: PerformanceWindowArgs) {
   const basis = (args.r_basis ?? "actual_risk") as RBasis;
   const window = resolveWindow(args);
   if (window.invalid) {
@@ -94,9 +106,7 @@ export async function runGetPerformanceSummary(
   const db = supabase as ReturnType<typeof supabaseForUser>;
   const { data, error } = await db
     .from("executed_trades")
-    .select(
-      "outcome, r_vs_plan, r_vs_actual_risk, realized_r_multiple, actual_exit_at, created_at",
-    )
+    .select("outcome, r_vs_plan, r_vs_actual_risk, realized_r_multiple, actual_exit_at, created_at")
     .in("outcome", ["win", "loss", "breakeven"]);
 
   if (error) return { content: [{ type: "text" as const, text: error.message }], isError: true };
@@ -175,16 +185,14 @@ export async function runGetPerformanceSummary(
         continue;
       }
     }
-    const r = selectR(
-      { r_vs_plan: row.r_vs_plan, r_vs_actual_risk: row.r_vs_actual_risk },
-      basis,
-    );
+    const r = selectR({ r_vs_plan: row.r_vs_plan, r_vs_actual_risk: row.r_vs_actual_risk }, basis);
     if (r === null) {
       brokerUnavailableR += 1;
       continue;
     }
     const net = (row.gross_profit ?? 0) + (row.commission ?? 0) + (row.swap ?? 0);
-    const outcome = r > 0 ? "win" : r < 0 ? "loss" : net === 0 ? "breakeven" : net > 0 ? "win" : "loss";
+    const outcome =
+      r > 0 ? "win" : r < 0 ? "loss" : net === 0 ? "breakeven" : net > 0 ? "win" : "loss";
     brokerRows.push({ outcome, r });
   }
 
