@@ -1,4 +1,16 @@
-# Assistant everywhere: strategy knowledge + chat widget on Home and Feed
+# Assistant everywhere: fix performance answers, strategy knowledge, chat widget
+
+## Bug fix first: performance questions fail
+
+The screenshot shows the assistant answering "I was unable to retrieve your
+performance summary." Root cause is confirmed in code: `get_performance_summary`
+has no time input (only an R-basis option), so a question like "how has my
+performance been for the past 2 weeks" gives the model no way to filter by
+date and the tool call fails. Fix: add an explicit date window — a number of
+days, or a from/to pair, applied to the trade closure time (`actual_exit_at`,
+UTC) — in the shared body used by both the MCP tool and the assistant, so both
+surfaces accept the same question and report the window they used. Time-window
+questions then return real numbers instead of an apology.
 
 ## Where things already stand
 
@@ -44,11 +56,17 @@ documentation the team maintains.
 - The public marketing home stays as it is; the widget requires a signed-in
   session, so visitors there get a link to sign in instead.
 
-### 3. Live feed awareness
+### 3. Live feed awareness and honest web use
 
-The assistant is told, in its standing instructions, to check scanner and market
-status before any statement about what the engine is doing, and to keep the
-existing rule that a filtered empty result is never a "No Trade" claim.
+- The assistant is told, in its standing instructions, to check scanner and
+  market status before any statement about what the engine is doing, and to
+  keep the rule that a filtered empty result is never a "No Trade" claim.
+- Web search stays on: it can read worldwide news and any strategy material on
+  the public web, but everything from the web is labelled outside information
+  with source and date, never mixed into P-Trades numbers and never presented
+  as if P-Trades itself adopted it. The terminal's grading, sizing and brakes
+  are engineering rules — the assistant explains them, it does not improvise
+  new ones from web content.
 
 ## Rules kept intact
 
@@ -61,6 +79,10 @@ existing rule that a filtered empty result is never a "No Trade" claim.
 
 ## Technical notes
 
+- Date window in `src/lib/mcp/tools/get-performance-summary.ts`
+  (`runGetPerformanceSummary` + MCP/assistant schemas): optional `days` or
+  `from`/`to`, filtered on `actual_exit_at` in UTC; the result echoes the
+  window applied. Shared body, so MCP and assistant stay identical.
 - New `src/lib/assistant/knowledge.ts` embedding curated excerpts from `docs/*`
   at build time (no filesystem reads at runtime — the server runs on the edge),
   exposed as a `search_platform_docs` tool in `src/lib/assistant/tools.ts`.
