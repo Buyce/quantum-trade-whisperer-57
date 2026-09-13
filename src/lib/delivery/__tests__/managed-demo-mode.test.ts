@@ -13,7 +13,7 @@ import { manageDemoPositions } from "../manage-positions.server";
 import { createFakeSupabase } from "@/test/fakes/supabase";
 
 describe("isDemoAccountMode", () => {
-  it("[REGRESSION] accepts the armed demo mode a delivery actually records", () => {
+  it("[INVARIANT] accepts the armed demo mode a delivery actually records", () => {
     expect(isDemoAccountMode("demo_auto")).toBe(true);
     expect(isDemoAccountMode("demo")).toBe(true);
   });
@@ -26,7 +26,7 @@ describe("isDemoAccountMode", () => {
 });
 
 describe("manageDemoPositions selection", () => {
-  it("[REGRESSION] asks for deliveries in every demo mode, not only 'demo'", async () => {
+  it("[INVARIANT] asks for deliveries in every demo mode, not only 'demo'", async () => {
     const fake = createFakeSupabase(() => ({ data: [], error: null }));
     await manageDemoPositions(fake.client as never);
 
