@@ -2,13 +2,14 @@ import { describe, expect, it } from "vitest";
 import { KNOWLEDGE_DOCS, searchPlatformDocs } from "../knowledge";
 
 describe("platform documentation search", () => {
-  it("[INVARIANT] every embedded document carries real content and a source name", () => {
+  it("[INVARIANT] every embedded document carries real content and a source file", () => {
     expect(KNOWLEDGE_DOCS.length).toBeGreaterThan(5);
     for (const doc of KNOWLEDGE_DOCS) {
-      expect(doc.source).toMatch(/\.md$/);
-      expect(doc.sections.length).toBeGreaterThan(0);
+      expect(doc.file).toMatch(/\.md$/);
+      expect(doc.body.length).toBeGreaterThan(200);
     }
   });
+
 
   it("returns passages with their source file so answers can be attributed", () => {
     const result = searchPlatformDocs("grade");
