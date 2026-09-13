@@ -54,6 +54,7 @@ import { ExecutionSwitchPanel } from "@/components/admin/ExecutionSwitchPanel";
 import { EnqueueDecisionPanel } from "@/components/admin/EnqueueDecisionPanel";
 import { AutoTraderPanel } from "@/components/admin/AutoTraderPanel";
 import { TradeTotalsPanel } from "@/components/admin/TradeTotalsPanel";
+import { DatasetExportPanel } from "@/components/admin/DatasetExportPanel";
 import { GateEvidencePanel } from "@/components/admin/GateEvidencePanel";
 
 import { ExecutionQualityPanel } from "@/components/admin/ExecutionQualityPanel";
@@ -312,6 +313,7 @@ function AdminIntelligencePage() {
 
       <PanelBoundary name="Platform totals">
         <TradeTotalsPanel />
+        <DatasetExportPanel />
       </PanelBoundary>
 
       <PanelBoundary name="Intelligence gate evidence">
