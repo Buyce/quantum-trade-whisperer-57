@@ -86,9 +86,7 @@ describe("[UNIT] read-only assistant surface", () => {
       ["read_dataset", readTool],
     ] as const) {
       expect(src, `${name} must be read-only`).toContain("readOnlyHint: true");
-      expect(src, `${name} must not write`).not.toMatch(
-        /\.(insert|update|upsert|delete)\s*\(/,
-      );
+      expect(src, `${name} must not write`).not.toMatch(/\.(insert|update|upsert|delete)\s*\(/);
     }
   });
 

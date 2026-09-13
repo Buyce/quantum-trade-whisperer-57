@@ -12,10 +12,7 @@
  */
 
 export type ProvenanceClass =
-  | "broker-derived"
-  | "engine-derived"
-  | "broker evidence"
-  | "replay-derived";
+  "broker-derived" | "engine-derived" | "broker evidence" | "replay-derived";
 
 export interface DatasetSpec {
   /** Stable identifier used by the export UI, the server function and MCP. */

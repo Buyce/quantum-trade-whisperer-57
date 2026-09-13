@@ -61,42 +61,42 @@ function window(input: { since?: string; until?: string }) {
 export const getDatasetInventory = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { since?: string; until?: string } | undefined) => data ?? {})
-  .handler(async ({ context, data }): Promise<{ since: string; until: string; datasets: DatasetInventoryEntry[] }> => {
-    ownerOnly(context.claims);
-    const { since, until } = window(data);
-    const { adminClient } = await import("@/lib/scanner/pipeline.server");
-    const admin = adminClient();
+  .handler(
+    async ({
+      context,
+      data,
+    }): Promise<{ since: string; until: string; datasets: DatasetInventoryEntry[] }> => {
+      ownerOnly(context.claims);
+      const { since, until } = window(data);
+      const { adminClient } = await import("@/lib/scanner/pipeline.server");
+      const admin = adminClient();
 
-    const datasets: DatasetInventoryEntry[] = [];
-    for (const spec of DATASETS) {
-      const { data: count, error } = await admin.rpc("count_training_dataset", {
-        _dataset: spec.id,
-        _since: since,
-        _until: until,
-      });
-      if (error) throw new Error(`${spec.id}: ${error.message}`);
-      datasets.push({
-        id: spec.id,
-        label: spec.label,
-        table: spec.table,
-        provenance: spec.provenance,
-        rowsInWindow: Number(count ?? 0),
-      });
-    }
-    return { since, until, datasets };
-  });
+      const datasets: DatasetInventoryEntry[] = [];
+      for (const spec of DATASETS) {
+        const { data: count, error } = await admin.rpc("count_training_dataset", {
+          _dataset: spec.id,
+          _since: since,
+          _until: until,
+        });
+        if (error) throw new Error(`${spec.id}: ${error.message}`);
+        datasets.push({
+          id: spec.id,
+          label: spec.label,
+          table: spec.table,
+          provenance: spec.provenance,
+          rowsInWindow: Number(count ?? 0),
+        });
+      }
+      return { since, until, datasets };
+    },
+  );
 
 /** One page of real recorded rows from a whitelisted dataset. */
 export const readDataset = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator(
-    (data: {
-      dataset: string;
-      since?: string;
-      until?: string;
-      limit?: number;
-      offset?: number;
-    }) => data,
+    (data: { dataset: string; since?: string; until?: string; limit?: number; offset?: number }) =>
+      data,
   )
   .handler(async ({ context, data }): Promise<DatasetPage> => {
     ownerOnly(context.claims);

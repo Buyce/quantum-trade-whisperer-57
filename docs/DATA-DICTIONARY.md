@@ -7,12 +7,12 @@ or an AI assistant reads it, and what it must not be read as.
 
 ## What lives where
 
-| Where              | What is there                                                                             |
-| ------------------ | ----------------------------------------------------------------------------------------- |
-| GitHub             | schema migrations, every server function, the scanner and replay engines, docs, tests      |
-| Lovable Cloud (DB) | every recorded row: setups, replay outcomes, research candidates, broker evidence, stats   |
-| The app            | owner-only downloads of those rows, in Admin → Intelligence → **Training data export**     |
-| MCP                | `describe_datasets` and `read_dataset`, owner-gated and strictly read-only                 |
+| Where              | What is there                                                                            |
+| ------------------ | ---------------------------------------------------------------------------------------- |
+| GitHub             | schema migrations, every server function, the scanner and replay engines, docs, tests    |
+| Lovable Cloud (DB) | every recorded row: setups, replay outcomes, research candidates, broker evidence, stats |
+| The app            | owner-only downloads of those rows, in Admin → Intelligence → **Training data export**   |
+| MCP                | `describe_datasets` and `read_dataset`, owner-gated and strictly read-only               |
 
 Rows are **not** in GitHub. A teammate clones the repo for schema and logic, then
 receives data as an export from the app, or reads it through the MCP tools with an
@@ -20,16 +20,16 @@ authorised account. There is no other data path, and none of the paths can write
 
 ## Datasets
 
-| Id                    | Table                      | Window column      | Provenance       | One row is                                                              |
-| --------------------- | -------------------------- | ------------------ | ---------------- | ----------------------------------------------------------------------- |
-| `signals`             | `scanned_signals`          | `detected_at`      | engine-derived   | a published setup, with geometry, grade and its prior at publication     |
-| `shadow_replay`       | `shadow_executions`        | `detected_at`      | replay-derived   | one deterministic replay of a setup over stored candles                 |
-| `research_candidates` | `research_candidates`      | `detected_at`      | engine-derived   | a structure captured before publication, with its full gate record      |
-| `broker_trades`       | `broker_trade_evidence`    | `first_observed_at`| broker evidence  | a broker-reported trade associated with an account or delivery          |
-| `payoff_stats`        | `payoff_stats`             | `computed_as_of`   | replay-derived   | a cohort's expected R over the full payoff distribution                 |
-| `regime_stats`        | `regime_stats`             | `computed_at`      | replay-derived   | a regime bucket's shrunk fill and TP1-if-filled rates                   |
-| `filter_lift_stats`   | `filter_lift_stats`        | `computed_as_of`   | replay-derived   | a gate's counterfactual mean R over the setups it rejected              |
-| `spread_stats`        | `instrument_spread_stats`  | `calculated_at`    | broker-derived   | an instrument/session spread distribution with coverage and missingness |
+| Id                    | Table                     | Window column       | Provenance      | One row is                                                              |
+| --------------------- | ------------------------- | ------------------- | --------------- | ----------------------------------------------------------------------- |
+| `signals`             | `scanned_signals`         | `detected_at`       | engine-derived  | a published setup, with geometry, grade and its prior at publication    |
+| `shadow_replay`       | `shadow_executions`       | `detected_at`       | replay-derived  | one deterministic replay of a setup over stored candles                 |
+| `research_candidates` | `research_candidates`     | `detected_at`       | engine-derived  | a structure captured before publication, with its full gate record      |
+| `broker_trades`       | `broker_trade_evidence`   | `first_observed_at` | broker evidence | a broker-reported trade associated with an account or delivery          |
+| `payoff_stats`        | `payoff_stats`            | `computed_as_of`    | replay-derived  | a cohort's expected R over the full payoff distribution                 |
+| `regime_stats`        | `regime_stats`            | `computed_at`       | replay-derived  | a regime bucket's shrunk fill and TP1-if-filled rates                   |
+| `filter_lift_stats`   | `filter_lift_stats`       | `computed_as_of`    | replay-derived  | a gate's counterfactual mean R over the setups it rejected              |
+| `spread_stats`        | `instrument_spread_stats` | `calculated_at`     | broker-derived  | an instrument/session spread distribution with coverage and missingness |
 
 The catalogue in code is `src/lib/datasets/catalog.ts`; it is the single source of
 truth and is kept in step with the SQL reads by test.

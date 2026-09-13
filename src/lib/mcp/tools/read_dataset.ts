@@ -19,7 +19,9 @@ export default defineTool({
   description:
     "Read one page of real recorded rows from a named dataset over an explicit UTC time window, ordered oldest first. Call `describe_datasets` first for the ids and what each row means. Read-only: this tool cannot write, change or delete anything. Account-identifying columns are always withheld. An empty page means nothing was recorded in that window — never infer a scanner state from it, and never fabricate rows to fill a gap.",
   inputSchema: {
-    dataset: z.enum(DATASET_IDS as [string, ...string[]]).describe("Dataset id from describe_datasets."),
+    dataset: z
+      .enum(DATASET_IDS as [string, ...string[]])
+      .describe("Dataset id from describe_datasets."),
     since: z.string().describe("Window start, ISO-8601 UTC, inclusive."),
     until: z.string().describe("Window end, ISO-8601 UTC, exclusive."),
     limit: z.number().optional().describe(`Rows per page, up to ${MAX_DATASET_PAGE}.`),
@@ -32,13 +34,18 @@ export default defineTool({
     }
     const spec = datasetById(input.dataset);
     if (!spec) {
-      return { content: [{ type: "text", text: `Unknown dataset ${input.dataset}` }], isError: true };
+      return {
+        content: [{ type: "text", text: `Unknown dataset ${input.dataset}` }],
+        isError: true,
+      };
     }
     const since = new Date(input.since);
     const until = new Date(input.until);
     if (Number.isNaN(since.getTime()) || Number.isNaN(until.getTime()) || since >= until) {
       return {
-        content: [{ type: "text", text: "since and until must be ISO-8601 UTC with since < until" }],
+        content: [
+          { type: "text", text: "since and until must be ISO-8601 UTC with since < until" },
+        ],
         isError: true,
       };
     }
