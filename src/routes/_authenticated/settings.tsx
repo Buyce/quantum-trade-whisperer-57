@@ -207,11 +207,19 @@ function SettingsPage() {
     queryFn: () => getExecutionStatus(),
     staleTime: 60_000,
   });
-  // This choice belongs to the customer: every policy is offered, and the only
-  // restriction left is that a stepped (managed) exit runs on demo accounts only.
-  const effectiveExitPolicy: ExecutionPolicy = isExecutionPolicy(exitPolicy)
+  // The choice belongs to the customer, but the platform keeps a ceiling as its
+  // emergency way to pull everyone back to the first target. What is shown here is
+  // what an order would ACTUALLY be sent under, so a reduced choice is never
+  // displayed as if it were in force.
+  const requestedExitPolicy: ExecutionPolicy = isExecutionPolicy(exitPolicy)
     ? exitPolicy
     : DEFAULT_EXECUTION_POLICY;
+  const resolvedExit = resolveExitPolicy(
+    requestedExitPolicy,
+    executionStatus.data?.maxCustomerExitPolicy ?? DEFAULT_EXECUTION_POLICY,
+  );
+  const effectiveExitPolicy: ExecutionPolicy = resolvedExit.policy;
+  const exitPolicyReduced = resolvedExit.clamped;
   const savedWebhookUrl = settings.data?.webhook_url?.trim() ?? "";
   const hasSavedWebhookSecret = executionStatus.data?.webhookSecretConfigured === true;
   const canTestWebhook = /^https:\/\//i.test(savedWebhookUrl) && hasSavedWebhookSecret;
