@@ -83,6 +83,12 @@ the new training exports. The guide will spell this out with the exact steps.
   so nothing is truncated by row caps.
 - New Admin panel renders dataset choice, window, row counts and download
   buttons, reusing the existing CSV helpers in `src/lib/export.ts`.
+- Read-only assistant tools are added under `src/lib/mcp/tools/` as new
+  `defineTool` files with `readOnlyHint: true`, registered in
+  `src/lib/mcp/index.ts` (version bump, updated instructions), reusing the same
+  owner-gated SQL functions as the exports so numbers cannot diverge; the MCP
+  manifest is re-extracted and `docs/MCP.md` updated.
+
 - New tests cover column-projection safety (no secret columns), provenance
   labelling and empty-window behaviour; `docs/DATA-PROVENANCE.md`,
   `docs/OPERATIONS.md` and the README index are updated, and the docs-contract
