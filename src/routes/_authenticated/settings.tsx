@@ -1032,7 +1032,17 @@ function SettingsPage() {
                     </SelectItem>
                   ))}
                 </SelectContent>
+                </SelectContent>
               </Select>
+
+              {exitPolicyReduced ? (
+                <p className="mt-2 text-xs text-warning">
+                  P-Trades is currently limiting every account to{" "}
+                  {EXECUTION_POLICY_LABELS[effectiveExitPolicy].toLowerCase()}, so your saved choice
+                  is not the one your orders are sent under. Your choice is kept and takes effect as
+                  soon as that limit is lifted.
+                </p>
+              ) : null}
 
               {isManagedPolicy(effectiveExitPolicy) ? (
                 <>
