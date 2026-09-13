@@ -238,6 +238,11 @@ commits pushed to `main` sync both ways.
 | [docs/PRODUCT.md](docs/PRODUCT.md)                                       | What the product does, for whom                                 |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)                             | Planes, data flow, isolation rules                              |
 | [docs/SCANNER.md](docs/SCANNER.md)                                       | Cron, queue, workers, MetaApi budget                            |
+| [docs/INSTRUMENT-LIFECYCLE.md](docs/INSTRUMENT-LIFECYCLE.md)             | Stages, promotion evidence, promote-or-hold advancement         |
+| [docs/MULTI-ASSET.md](docs/MULTI-ASSET.md)                               | Asset classes, calendars, price units                           |
+| [docs/NEWS-AND-EVENTS.md](docs/NEWS-AND-EVENTS.md)                       | Coverage states and the pinned-off news policy                  |
+| [docs/MARKET-CONTEXT.md](docs/MARKET-CONTEXT.md)                         | Dollar, yields, volatility, positioning — recorded only         |
+| [docs/LINK-AUDIT.md](docs/LINK-AUDIT.md)                                 | Canonical URLs and internal link results                        |
 | [docs/SIGNALS-AND-GRADES.md](docs/SIGNALS-AND-GRADES.md)                 | Grading, profile, lifecycle                                     |
 | [docs/RISK-SIZING.md](docs/RISK-SIZING.md)                               | Lots, cash risk, margin estimate                                |
 | [docs/JOURNAL-AND-R.md](docs/JOURNAL-AND-R.md)                           | Canonical R and provenance                                      |
