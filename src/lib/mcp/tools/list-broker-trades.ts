@@ -18,6 +18,8 @@ import { resolveWindow } from "./get-performance-summary";
 export type BrokerTradesArgs = {
   state?: string | undefined;
   instrument?: string | undefined;
+  account_type?: string | undefined;
+  account_id?: string | undefined;
   days?: number | undefined;
   from?: string | undefined;
   to?: string | undefined;
@@ -26,7 +28,7 @@ export type BrokerTradesArgs = {
 };
 
 const COLUMNS =
-  "id, state, broker_symbol, signal_instrument, signal_grade, direction, volume, entry_price, exit_price, entry_at, exit_at, planned_entry, planned_stop, planned_target, actual_initial_stop, commission, swap, gross_profit, profit_currency, r_vs_plan, r_vs_actual_risk, r_availability, stop_provenance, stop_source, slippage_price, slippage_availability, execution_policy, managed_exit, broker_account_type, signal_trading_session, signal_detected_at, resolved_at";
+  "id, state, account_id, broker_symbol, signal_instrument, signal_grade, direction, volume, entry_price, exit_price, entry_at, exit_at, planned_entry, planned_stop, planned_target, actual_initial_stop, commission, swap, gross_profit, profit_currency, r_vs_plan, r_vs_actual_risk, r_availability, stop_provenance, stop_source, slippage_price, slippage_availability, execution_policy, managed_exit, broker_account_type, signal_trading_session, signal_detected_at, resolved_at";
 
 /** Shared body — the MCP handler and the in-app assistant call this same code. */
 export async function runListBrokerTrades(supabase: unknown, args: BrokerTradesArgs) {
