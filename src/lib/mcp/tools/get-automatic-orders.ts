@@ -46,10 +46,16 @@ export async function runGetAutomaticOrders(supabase: unknown, args: GetAutomati
   ]);
 
   if (decisionsRead.error) {
-    return { content: [{ type: "text" as const, text: decisionsRead.error.message }], isError: true };
+    return {
+      content: [{ type: "text" as const, text: decisionsRead.error.message }],
+      isError: true,
+    };
   }
   if (deliveriesRead.error) {
-    return { content: [{ type: "text" as const, text: deliveriesRead.error.message }], isError: true };
+    return {
+      content: [{ type: "text" as const, text: deliveriesRead.error.message }],
+      isError: true,
+    };
   }
 
   const decisionRows = (decisionsRead.data ?? []) as Record<string, unknown>[];

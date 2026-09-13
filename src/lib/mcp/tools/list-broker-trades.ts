@@ -70,8 +70,8 @@ export async function runListBrokerTrades(supabase: unknown, args: BrokerTradesA
     account_id_filter: args.account_id ?? null,
     accounts_in_result: Array.from(
       new Set(
-        (rows as Record<string, unknown>[]).map(
-          (row) => String(row["broker_account_type"] ?? "unknown"),
+        (rows as Record<string, unknown>[]).map((row) =>
+          String(row["broker_account_type"] ?? "unknown"),
         ),
       ),
     ),
