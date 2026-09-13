@@ -20,16 +20,17 @@ authorised account. There is no other data path, and none of the paths can write
 
 ## Datasets
 
-| Id                    | Table                     | Window column       | Provenance      | One row is                                                              |
-| --------------------- | ------------------------- | ------------------- | --------------- | ----------------------------------------------------------------------- |
-| `signals`             | `scanned_signals`         | `detected_at`       | engine-derived  | a published setup, with geometry, grade and its prior at publication    |
-| `shadow_replay`       | `shadow_executions`       | `detected_at`       | replay-derived  | one deterministic replay of a setup over stored candles                 |
-| `research_candidates` | `research_candidates`     | `detected_at`       | engine-derived  | a structure captured before publication, with its full gate record      |
-| `broker_trades`       | `broker_trade_evidence`   | `first_observed_at` | broker evidence | a broker-reported trade associated with an account or delivery          |
-| `payoff_stats`        | `payoff_stats`            | `computed_as_of`    | replay-derived  | a cohort's expected R over the full payoff distribution                 |
-| `regime_stats`        | `regime_stats`            | `computed_at`       | replay-derived  | a regime bucket's shrunk fill and TP1-if-filled rates                   |
-| `filter_lift_stats`   | `filter_lift_stats`       | `computed_as_of`    | replay-derived  | a gate's counterfactual mean R over the setups it rejected              |
-| `spread_stats`        | `instrument_spread_stats` | `calculated_at`     | broker-derived  | an instrument/session spread distribution with coverage and missingness |
+| Id                    | Table                      | Window column       | Provenance      | One row is                                                              |
+| --------------------- | -------------------------- | ------------------- | --------------- | ----------------------------------------------------------------------- |
+| `signals`             | `scanned_signals`          | `detected_at`       | engine-derived  | a published setup, with geometry, grade and its prior at publication    |
+| `archived_signals`    | `signal_retention_archive` | `detected_at`       | engine-derived  | a published setup removed from the feed by retention, kept in full      |
+| `shadow_replay`       | `shadow_executions`        | `detected_at`       | replay-derived  | one deterministic replay of a setup over stored candles                 |
+| `research_candidates` | `research_candidates`      | `detected_at`       | engine-derived  | a structure captured before publication, with its full gate record      |
+| `broker_trades`       | `broker_trade_evidence`    | `first_observed_at` | broker evidence | a broker-reported trade associated with an account or delivery          |
+| `payoff_stats`        | `payoff_stats`             | `computed_as_of`    | replay-derived  | a cohort's expected R over the full payoff distribution                 |
+| `regime_stats`        | `regime_stats`             | `computed_at`       | replay-derived  | a regime bucket's shrunk fill and TP1-if-filled rates                   |
+| `filter_lift_stats`   | `filter_lift_stats`        | `computed_as_of`    | replay-derived  | a gate's counterfactual mean R over the setups it rejected              |
+| `spread_stats`        | `instrument_spread_stats`  | `calculated_at`     | broker-derived  | an instrument/session spread distribution with coverage and missingness |
 
 The catalogue in code is `src/lib/datasets/catalog.ts`; it is the single source of
 truth and is kept in step with the SQL reads by test.
@@ -91,6 +92,8 @@ than a recomputation.
 - `public.read_training_dataset` / `public.count_training_dataset` — SECURITY DEFINER
   SQL reads that re-apply the owner gate and withhold identifying columns.
 - `src/components/admin/DatasetExportPanel.tsx` — the owner-only download surface.
+- `src/components/admin/CleanupHealthPanel.tsx` — retention/clean-up job health, so a
+  failing clean-up cannot go unnoticed.
 - `src/lib/mcp/tools/describe_datasets.ts`, `src/lib/mcp/tools/read_dataset.ts` — the
   read-only assistant surface.
 
@@ -99,3 +102,27 @@ than a recomputation.
 `src/lib/datasets/__tests__/catalog.test.ts` asserts the catalogue matches the SQL
 whitelist, that account-identifying columns are withheld from broker evidence, and
 that both MCP tools are registered read-only with no write path.
+
+## Retention and lineage
+
+Retention only ever removes rows from the **interactive feed**, never from learning:
+
+- `public.purge_expired_signals()` archives the setup, its market context and its
+  cascade-deleted children (journal rows, interaction telemetry, deliveries) into
+  `public.signal_retention_archive` before the setup row is deleted. Nothing is
+  deleted unless the archive row exists.
+- Replay outcomes, research candidates, model observations and sizing-divergence rows
+  are **never** deleted. Before the setup goes, each keeps its thread through
+  `archived_signal_id`, which resolves in `signal_retention_archive`.
+- Measurement history is trimmed on schedules held in `telemetry_controls`: spread
+  samples and volatility snapshots 120 days, capacity samples 60 days, MetaApi call
+  observations 30 days (diagnostic metering, not a learning input). News events are
+  kept 400 days; regime and payoff snapshots 180 days. Derived statistics tables are
+  rebuilt in full on each recompute.
+- Known lineage gap, recorded rather than invented: 670 replay rows created between
+  2026-08-18 and 2026-08-27 (before research-candidate capture was enabled) carry
+  neither a setup nor a candidate link. They keep their own instrument, direction,
+  grade and detected time, so they remain usable; they are not back-linked because
+  only 126 could be matched by observation key and a wrong link is worse than none.
+  All `model_observations.signal_id` values are empty by design — observations are
+  keyed by `observation_key`, not by a published setup.

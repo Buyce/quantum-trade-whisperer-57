@@ -45,6 +45,18 @@ export const DATASETS: readonly DatasetSpec[] = [
     nonGuarantee: "A published setup is not a trade and not a forecast.",
   },
   {
+    id: "archived_signals",
+    label: "Archived setups (retention)",
+    table: "signal_retention_archive",
+    timeColumn: "detected_at",
+    provenance: "engine-derived",
+    rowMeaning:
+      "One published setup removed from the interactive feed by retention clean-up, kept in full with its market context.",
+    withheldColumns: ["related_snapshots"],
+    nonGuarantee:
+      "An archived setup left the feed on a retention schedule; it is not an outcome and not a trade.",
+  },
+  {
     id: "shadow_replay",
     label: "Shadow replay outcomes",
     table: "shadow_executions",
