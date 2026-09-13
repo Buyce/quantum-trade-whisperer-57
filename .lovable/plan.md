@@ -73,9 +73,12 @@ short-lived token, not an API key.
 
 ## Technical notes
 
-- **Model**: `openai/gpt-6-astra` through the Lovable AI Gateway Responses API,
-  streaming, reasoning at `medium`, `store: false`, reasoning content round-tripped
-  inline. Key stays server-side.
+- **Model**: a current Gemini chat model via `@ai-sdk/google`, streaming, with the
+  Google Search grounding tool enabled; the exact model id is confirmed against
+  the live Gemini model listing at build time (no deprecated models). The user's
+  `GEMINI_API_KEY` secret is read server-side inside the route handler; when the
+  secret is absent the route falls back to `openai/gpt-6-astra` through the
+  Lovable AI Gateway Responses API, without grounding.
 - **Packages**: `ai`, `@ai-sdk/openai`, `@ai-sdk/react` (zod already present).
 - **Server boundary**: `src/routes/api/chat.ts` (TanStack server route) for the
   stream; thread/message persistence via `createServerFn` in
