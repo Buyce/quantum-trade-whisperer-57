@@ -79,6 +79,10 @@ documentation the team maintains.
 
 ## Technical notes
 
+- Date window in `src/lib/mcp/tools/get-performance-summary.ts`
+  (`runGetPerformanceSummary` + MCP/assistant schemas): optional `days` or
+  `from`/`to`, filtered on `actual_exit_at` in UTC; the result echoes the
+  window applied. Shared body, so MCP and assistant stay identical.
 - New `src/lib/assistant/knowledge.ts` embedding curated excerpts from `docs/*`
   at build time (no filesystem reads at runtime — the server runs on the edge),
   exposed as a `search_platform_docs` tool in `src/lib/assistant/tools.ts`.
