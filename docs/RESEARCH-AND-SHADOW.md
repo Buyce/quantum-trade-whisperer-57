@@ -44,8 +44,11 @@ baseline and that variant. A candle in which a favourable and an adverse barrier
 are both crossed, or whose internal event order is unknowable, is counted as
 undecidable and excluded — never resolved favourably, never unfavourably. A path
 that ends with the position open is undecidable too: no closing price is invented.
-Live execution stays `single_exit_first_target`; nothing in this surface can
-promote a variant.
+The replay baseline stays `single_exit_first_target` so variants are compared
+like-for-like, and nothing in this surface can promote a variant. Which exit rule
+real orders are sent under is a separate, customer-chosen and platform-capped
+decision described in [EXECUTION.md](EXECUTION.md); replay evidence informs it but
+never changes it.
 
 ### Research candidates
 
