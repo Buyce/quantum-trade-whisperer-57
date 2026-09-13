@@ -53,9 +53,40 @@ Everything below is derived from the implementation at HEAD.
 | Broker evidence      | Positive association by P-Trades client reference (and magic where reported); journal, customer and benchmark populations stay separate                                                                                                                                    | `src/lib/evidence/*`                                                                        |
 | Execution delivery   | Queue → claim → revalidate → quantity → single dispatch attempt to an approved bridge or connected MetaApi account. **Globally disabled by default; dry-run first; live requires separate gates.**                                                                         | `src/lib/delivery/*`, `src/lib/execution/*`                                                 |
 
-Not enabled: live execution by default, any multi-exit order policy, holdout /
-out-of-sample statistical validation, and any claim that an advisory margin
-estimate is the broker's exact margin requirement.
+Not enabled: any customer live-money mode (`customer_live_confirm_enabled` and
+`customer_live_auto_enabled` are both `false`, so no customer account can be armed
+on real money whatever the global switch says), holdout / out-of-sample
+statistical validation, and any claim that an advisory margin estimate is the
+broker's exact margin requirement.
+
+Multi-step exits DO now exist, on demo money only: `partial_tp1_runner_tp2` closes
+part at the first target and moves the remaining stop to the fill price, and it is
+the current value of the platform ceiling `max_customer_exit_policy`, so the
+three-step ladder is reachable in code but not yet permitted.
+
+## 1a. State of play — 2026-09-13
+
+Read this before trusting any single number elsewhere in the repository.
+
+- **Live money.** `demo_auto_enabled` is on; both customer live modes are off.
+  Real broker orders for customers therefore cannot be armed. Do not describe the
+  product as live-trading.
+- **Exit depth.** The platform ceiling is `partial_tp1_runner_tp2`. A saved
+  customer choice deeper than the ceiling is reduced at dispatch and Settings says
+  so in plain words. Managed exits run only where the delivery's armed mode is
+  demo (`demo` or `demo_auto`, via `isDemoAccountMode()`) AND the account's
+  broker-reported type is `demo`.
+- **Instrument ladder.** Automatic advancement (`auto_stage_advance_enabled`) is
+  on and can only promote or hold. It never demotes; only an audited human
+  transition moves a stage down.
+- **Scanner reliability.** Waits are bounded, the worker pass is abortable with an
+  18-second deadline, market-data slots are allocated atomically (five global),
+  leases are 25 seconds with renewal, and health is attributed from actual pass
+  logs rather than from cron SQL success. Four consecutive clean market hours are
+  the acceptance bar and are not yet recorded — treat throughput as "repaired,
+  under observation".
+- **Market context and news.** Recorded with provenance and shown to the owner
+  only. Neither can gate, resize, reorder or refuse an order.
 
 ## 2. Architecture
 
@@ -103,9 +134,10 @@ Four planes, deliberately isolated:
 - **Self-reported vs broker-derived is always distinguished.** Fill prices are
   user- or assistant-entered unless a broker source proves otherwise, and every
   price write records who wrote it.
-- **Execution is off by default.** Live execution is globally disabled; the
-  pipeline runs in dry-run, and arming live requires a fresh explicit
-  confirmation pinned to the current configuration version.
+- **Live money needs several independent switches.** Demo auto is enabled; the
+  customer live modes are not, so no customer account can be armed on real money.
+  Arming live additionally requires a fresh explicit confirmation pinned to the
+  current configuration version, and the global switch alone never grants it.
 - **One attempt.** A `sent` or `unknown` delivery is never automatically
   re-claimed, because retrying an ambiguous POST is how a bridge double-fires.
 - **Egress is constrained.** Outbound URLs are validated server-side immediately
