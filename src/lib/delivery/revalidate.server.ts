@@ -421,7 +421,9 @@ export async function revalidateDelivery(
     isBenchmark ? platformPolicy : policyCeiling,
   );
   let policy = resolvedPolicy.policy;
-  if (isManagedPolicy(policy) && delivery.account_mode !== "demo") {
+  // A delivery records the account's ARMED mode, so demo money reads as
+  // `demo_auto`. Anything that is not demo money loses the managed steps.
+  if (isManagedPolicy(policy) && !isDemoAccountMode(delivery.account_mode)) {
     policy = "single_exit_second_target";
   }
   if (!isExecutionPolicy(policy)) return reject("policy_unsupported", policy);
