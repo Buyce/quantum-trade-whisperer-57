@@ -94,6 +94,21 @@ const SECTIONS: Section[] = [
           "An empty Feed is not a statement about Performance. Performance sources never fall back to one another, and replay/research rows never masquerade as broker evidence.",
       },
       {
+        id: "password",
+        q: "How do I change or recover my password?",
+        a: [
+          "Settings → Account holds Change password: enter your current password, then the new one twice. If you forgot your password, use “Forgot your password?” on the sign-in screen — a single-use reset link arrives by email and opens a page where you choose a new password.",
+          "Accounts that sign in with Google have no separate P-Trades password; that sign-in is managed by Google.",
+        ],
+        means: "Passwords are changed with the current password, or reset by email.",
+        matters:
+          "Requiring the current password means a borrowed session alone cannot lock you out of your own account.",
+        todo: "Reset links can be used once and expire; request a fresh one if it no longer works.",
+        assume:
+          "The reset screen never confirms whether an email address has an account, so a blank result is not proof either way.",
+      },
+
+      {
         id: "guide-mode",
         q: "What is Guide Mode?",
         a: [

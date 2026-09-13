@@ -15,6 +15,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as CalculatorRouteImport } from './routes/calculator'
 import { Route as ConnectRouteImport } from './routes/connect'
 import { Route as McpRouteImport } from './routes/mcp'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
@@ -84,6 +85,11 @@ const ConnectRoute = ConnectRouteImport.update({
 const McpRoute = McpRouteImport.update({
   id: '/mcp',
   path: '/mcp',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
@@ -322,6 +328,7 @@ export interface FileRoutesByFullPath {
   '/calculator': typeof CalculatorRoute
   '/connect': typeof ConnectRoute
   '/mcp': typeof McpRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin': typeof AuthenticatedAdminRouteRouteWithChildren
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
@@ -370,6 +377,7 @@ export interface FileRoutesByTo {
   '/calculator': typeof CalculatorRoute
   '/connect': typeof ConnectRoute
   '/mcp': typeof McpRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin': typeof AuthenticatedAdminRouteRouteWithChildren
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
@@ -420,6 +428,7 @@ export interface FileRoutesById {
   '/calculator': typeof CalculatorRoute
   '/connect': typeof ConnectRoute
   '/mcp': typeof McpRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRouteRouteWithChildren
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
@@ -470,6 +479,7 @@ export interface FileRouteTypes {
     | '/calculator'
     | '/connect'
     | '/mcp'
+    | '/reset-password'
     | '/sitemap.xml'
     | '/admin'
     | '/.mcp/list-tools'
@@ -518,6 +528,7 @@ export interface FileRouteTypes {
     | '/calculator'
     | '/connect'
     | '/mcp'
+    | '/reset-password'
     | '/sitemap.xml'
     | '/admin'
     | '/.mcp/list-tools'
@@ -567,6 +578,7 @@ export interface FileRouteTypes {
     | '/calculator'
     | '/connect'
     | '/mcp'
+    | '/reset-password'
     | '/sitemap.xml'
     | '/_authenticated/admin'
     | '/.mcp/list-tools'
@@ -617,6 +629,7 @@ export interface RootRouteChildren {
   CalculatorRoute: typeof CalculatorRoute
   ConnectRoute: typeof ConnectRoute
   McpRoute: typeof McpRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   Char91DotmcpChar93ListToolsRoute: typeof Char91DotmcpChar93ListToolsRoute
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
@@ -694,6 +707,13 @@ declare module '@tanstack/react-router' {
       path: '/mcp'
       fullPath: '/mcp'
       preLoaderRoute: typeof McpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sitemap.xml': {
@@ -1030,6 +1050,7 @@ const rootRouteChildren: RootRouteChildren = {
   CalculatorRoute: CalculatorRoute,
   ConnectRoute: ConnectRoute,
   McpRoute: McpRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   Char91DotmcpChar93ListToolsRoute: Char91DotmcpChar93ListToolsRoute,
   Char91DotwellKnownChar93OauthProtectedResourceRoute:

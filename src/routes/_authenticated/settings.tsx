@@ -70,6 +70,8 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { FeedbackSection } from "@/components/FeedbackSection";
+import { ChangePasswordSection } from "@/components/ChangePasswordSection";
+
 import { DangerZoneSection } from "@/components/DangerZoneSection";
 import { GuideDetail } from "@/components/GuideMode";
 import { PushSection } from "@/components/PushSection";
@@ -2022,7 +2024,9 @@ function SettingsPage() {
               <Link to="/accounts">Manage broker accounts</Link>
             </Button>
           </section>
+          <ChangePasswordSection />
           <FeedbackSection defaultEmail={user?.email ?? ""} />
+
           <DangerZoneSection />
         </TabsContent>
       </Tabs>
