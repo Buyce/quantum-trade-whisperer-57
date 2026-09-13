@@ -56,11 +56,17 @@ documentation the team maintains.
 - The public marketing home stays as it is; the widget requires a signed-in
   session, so visitors there get a link to sign in instead.
 
-### 3. Live feed awareness
+### 3. Live feed awareness and honest web use
 
-The assistant is told, in its standing instructions, to check scanner and market
-status before any statement about what the engine is doing, and to keep the
-existing rule that a filtered empty result is never a "No Trade" claim.
+- The assistant is told, in its standing instructions, to check scanner and
+  market status before any statement about what the engine is doing, and to
+  keep the rule that a filtered empty result is never a "No Trade" claim.
+- Web search stays on: it can read worldwide news and any strategy material on
+  the public web, but everything from the web is labelled outside information
+  with source and date, never mixed into P-Trades numbers and never presented
+  as if P-Trades itself adopted it. The terminal's grading, sizing and brakes
+  are engineering rules — the assistant explains them, it does not improvise
+  new ones from web content.
 
 ## Rules kept intact
 
