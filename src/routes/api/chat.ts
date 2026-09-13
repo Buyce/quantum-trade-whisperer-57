@@ -133,7 +133,7 @@ export const Route = createFileRoute("/api/chat")({
                     user_id: userId,
                     message_id: m.id,
                     role: m.role,
-                    parts: m.parts as unknown as Record<string, unknown>[],
+                    parts: m.parts as never,
                   }));
                 if (rows.length > 0) {
                   await supabase.from("assistant_messages").upsert(rows, {

@@ -31,6 +31,7 @@ import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
 import { Route as AuthenticatedAdminIntelligenceRouteImport } from './routes/_authenticated/admin/intelligence'
+import { Route as AuthenticatedAssistantIndexRouteImport } from './routes/_authenticated/assistant.index'
 import { Route as AuthenticatedAssistantThreadIdRouteImport } from './routes/_authenticated/assistant.$threadId'
 import { Route as ApiPublicQuotesRouteImport } from './routes/api/public/quotes'
 import { Route as ApiPublicAgentRegisterRouteImport } from './routes/api/public/agent/register'
@@ -174,6 +175,12 @@ const AuthenticatedAdminIntelligenceRoute =
     id: '/intelligence',
     path: '/intelligence',
     getParentRoute: () => AuthenticatedAdminRouteRoute,
+  } as any)
+const AuthenticatedAssistantIndexRoute =
+  AuthenticatedAssistantIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedAssistantRoute,
   } as any)
 const AuthenticatedAssistantThreadIdRoute =
   AuthenticatedAssistantThreadIdRouteImport.update({
@@ -365,6 +372,7 @@ export interface FileRoutesByFullPath {
   '/admin/intelligence': typeof AuthenticatedAdminIntelligenceRoute
   '/assistant/$threadId': typeof AuthenticatedAssistantThreadIdRoute
   '/api/public/quotes': typeof ApiPublicQuotesRoute
+  '/assistant/': typeof AuthenticatedAssistantIndexRoute
   '/api/public/agent/register': typeof ApiPublicAgentRegisterRoute
   '/api/public/cron/advance-instruments': typeof ApiPublicCronAdvanceInstrumentsRoute
   '/api/public/cron/commission-readiness': typeof ApiPublicCronCommissionReadinessRoute
@@ -405,7 +413,6 @@ export interface FileRoutesByTo {
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/accounts': typeof AuthenticatedAccountsRoute
-  '/assistant': typeof AuthenticatedAssistantRouteWithChildren
   '/feed': typeof AuthenticatedFeedRoute
   '/guide': typeof AuthenticatedGuideRoute
   '/history': typeof AuthenticatedHistoryRoute
@@ -417,6 +424,7 @@ export interface FileRoutesByTo {
   '/admin/intelligence': typeof AuthenticatedAdminIntelligenceRoute
   '/assistant/$threadId': typeof AuthenticatedAssistantThreadIdRoute
   '/api/public/quotes': typeof ApiPublicQuotesRoute
+  '/assistant': typeof AuthenticatedAssistantIndexRoute
   '/api/public/agent/register': typeof ApiPublicAgentRegisterRoute
   '/api/public/cron/advance-instruments': typeof ApiPublicCronAdvanceInstrumentsRoute
   '/api/public/cron/commission-readiness': typeof ApiPublicCronCommissionReadinessRoute
@@ -471,6 +479,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/intelligence': typeof AuthenticatedAdminIntelligenceRoute
   '/_authenticated/assistant/$threadId': typeof AuthenticatedAssistantThreadIdRoute
   '/api/public/quotes': typeof ApiPublicQuotesRoute
+  '/_authenticated/assistant/': typeof AuthenticatedAssistantIndexRoute
   '/api/public/agent/register': typeof ApiPublicAgentRegisterRoute
   '/api/public/cron/advance-instruments': typeof ApiPublicCronAdvanceInstrumentsRoute
   '/api/public/cron/commission-readiness': typeof ApiPublicCronCommissionReadinessRoute
@@ -525,6 +534,7 @@ export interface FileRouteTypes {
     | '/admin/intelligence'
     | '/assistant/$threadId'
     | '/api/public/quotes'
+    | '/assistant/'
     | '/api/public/agent/register'
     | '/api/public/cron/advance-instruments'
     | '/api/public/cron/commission-readiness'
@@ -565,7 +575,6 @@ export interface FileRouteTypes {
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
     | '/accounts'
-    | '/assistant'
     | '/feed'
     | '/guide'
     | '/history'
@@ -577,6 +586,7 @@ export interface FileRouteTypes {
     | '/admin/intelligence'
     | '/assistant/$threadId'
     | '/api/public/quotes'
+    | '/assistant'
     | '/api/public/agent/register'
     | '/api/public/cron/advance-instruments'
     | '/api/public/cron/commission-readiness'
@@ -630,6 +640,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/intelligence'
     | '/_authenticated/assistant/$threadId'
     | '/api/public/quotes'
+    | '/_authenticated/assistant/'
     | '/api/public/agent/register'
     | '/api/public/cron/advance-instruments'
     | '/api/public/cron/commission-readiness'
@@ -859,6 +870,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminIntelligenceRouteImport
       parentRoute: typeof AuthenticatedAdminRouteRoute
     }
+    '/_authenticated/assistant/': {
+      id: '/_authenticated/assistant/'
+      path: '/'
+      fullPath: '/assistant/'
+      preLoaderRoute: typeof AuthenticatedAssistantIndexRouteImport
+      parentRoute: typeof AuthenticatedAssistantRoute
+    }
     '/_authenticated/assistant/$threadId': {
       id: '/_authenticated/assistant/$threadId'
       path: '/$threadId'
@@ -1081,11 +1099,13 @@ const AuthenticatedAdminRouteRouteWithChildren =
 
 interface AuthenticatedAssistantRouteChildren {
   AuthenticatedAssistantThreadIdRoute: typeof AuthenticatedAssistantThreadIdRoute
+  AuthenticatedAssistantIndexRoute: typeof AuthenticatedAssistantIndexRoute
 }
 
 const AuthenticatedAssistantRouteChildren: AuthenticatedAssistantRouteChildren =
   {
     AuthenticatedAssistantThreadIdRoute: AuthenticatedAssistantThreadIdRoute,
+    AuthenticatedAssistantIndexRoute: AuthenticatedAssistantIndexRoute,
   }
 
 const AuthenticatedAssistantRouteWithChildren =
