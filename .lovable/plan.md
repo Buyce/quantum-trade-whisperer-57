@@ -10,21 +10,29 @@ it, and explain how the platform works.
 
 ## Which brain powers it
 
-Your ChatGPT Plus subscription cannot be used here — it is a consumer account for
-the chatgpt.com website and carries no key an app can call. Developer access is a
-separate, pay-per-use OpenAI account with its own API key.
+Your choice, applied: the chat is powered by **your Google (Gemini) key**, not the
+platform's built-in AI. That one key covers both halves you asked about:
 
-So there are two ways to power the chat box, and both use the same OpenAI models:
+1. **The chat itself** — Gemini's developer API answers your users' questions.
+2. **Live world research** — Gemini's built-in "Google Search grounding" fetches
+   current web results *inside* the reply and attaches its sources. No separate
+   search engine ID needed; this replaces the Custom Search setup from the
+   previous draft.
 
-1. **Built in (recommended to start).** The platform's own AI access, already
-   available, no key for you to obtain, usage billed with your Lovable credits.
-2. **Your own OpenAI key.** You create a developer account at OpenAI, add a
-   payment card, generate a key, and I store it securely on the server. OpenAI then
-   bills you directly per message. Same model quality; you carry the bill and the
-   rate limits.
+Two things to know:
 
-I will build option 1 first so the assistant works today. Switching to your own
-key later is a small change — say the word and I will ask for the key securely.
+- **The key must be a Gemini API key.** The key you pasted (starting `AQ.Ab…`) is
+  a short-lived service-account token — it expires and cannot be stored usefully.
+  The right one is created at aistudio.google.com → "Get API key" (it starts with
+  `AIza…`), and it works because you said billing is already linked.
+- **Never paste it in chat again.** When the build reaches that point I will open
+  a secure form; you paste it there, it goes into encrypted storage, and it never
+  appears in conversation or code. Grounded searches are billed to your Google
+  account per search, on top of normal chat usage.
+
+Fallback: if no key is stored yet, the assistant runs on the platform's built-in
+AI and says plainly it cannot check outside news — nothing is silently downgraded.
+
 
 ## What the user gets
 
@@ -54,35 +62,23 @@ key later is a small change — say the word and I will ask for the key securely
 - Claim "No Trade" or anything about the scanner's cycle from an empty filtered
   result — only the scanner heartbeat speaks for the engine.
 
+## Before it can go live
 
-**First, please replace the key you pasted in chat.** Anything sent as chat text
-has to be treated as exposed, so delete that key in the Google Cloud console and
-create a new one. I will then open a secure form where you enter it — the value
-goes straight into encrypted storage and never appears in our conversation.
+One value needed, via the secure form only: your **Gemini API key** from
+aistudio.google.com (starts with `AIza…`), with billing linked. Do not reuse or
+repost the key you sent in chat — it is treated as exposed, and it is also a
+short-lived token, not an API key.
 
-For the live-web side I need two values, not one:
-
-1. The **Google Cloud API key** (the replacement one), with the "Custom Search
-   API" enabled on that project.
-2. A **search engine ID** — at programmablesearchengine.google.com, create an
-   engine set to search the entire web and copy its ID. The key on its own cannot
-   search; Google requires both.
-
-Note on the screenshot: that key is bound to a service account. Custom Search
-takes a plain API key, so if it refuses the request I will tell you exactly which
-restriction to lift.
-
-The chat itself does not need a key — the platform's built-in AI access powers it,
-billed with your Lovable credits. Until the two search values are in place the
-assistant works fully on your account data and platform help, and says plainly it
-cannot check outside news yet.
 
 
 ## Technical notes
 
-- **Model**: `openai/gpt-6-astra` through the Lovable AI Gateway Responses API,
-  streaming, reasoning at `medium`, `store: false`, reasoning content round-tripped
-  inline. Key stays server-side.
+- **Model**: a current Gemini chat model via `@ai-sdk/google`, streaming, with the
+  Google Search grounding tool enabled; the exact model id is confirmed against
+  the live Gemini model listing at build time (no deprecated models). The user's
+  `GEMINI_API_KEY` secret is read server-side inside the route handler; when the
+  secret is absent the route falls back to `openai/gpt-6-astra` through the
+  Lovable AI Gateway Responses API, without grounding.
 - **Packages**: `ai`, `@ai-sdk/openai`, `@ai-sdk/react` (zod already present).
 - **Server boundary**: `src/routes/api/chat.ts` (TanStack server route) for the
   stream; thread/message persistence via `createServerFn` in
@@ -109,10 +105,9 @@ cannot check outside news yet.
   `assistant.$threadId.tsx`; thread id comes from the route param and is the chat
   `id`. AI Elements (`conversation`, `message`, `prompt-input`, `tool`, `shimmer`)
   for the surface; assistant messages render markdown with no bubble background.
-- **Web search**: a `search_web` tool calling the Google Programmable Search JSON
-  API with the user's `GOOGLE_SEARCH_API_KEY` + `GOOGLE_SEARCH_CX` secrets,
-  server-side only, results returned with url + published date; the system prompt
-  forbids restating a web result as broker-, engine- or replay-derived.
+- **Web search**: Gemini Google Search grounding (the same `GEMINI_API_KEY`),
+  with sources and dates rendered from the grounding metadata; the system prompt
+  forbids restating a grounded result as broker-, engine- or replay-derived.
 - **Gateway errors** surfaced to the UI per status (402 credits, 429 backoff);
   never hidden behind a friendly reply.
 - **Tests**: `[INVARIANT]` coverage that the chat tools call the shared services
