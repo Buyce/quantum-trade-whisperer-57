@@ -19,6 +19,17 @@ read-only, not-ready, trade-disabled or investor-mode accounts cannot be armed.
 | Live on confirmation | Broker-confirmed real account                           | Also requires the independent global live gate and per-order confirmation |
 | Live auto            | Broker-confirmed real account                           | Also requires global live and live-auto gates                             |
 
+The mode is stored on `connected_trading_accounts.mode` as `observe`,
+`demo_auto`, `live_confirm` or `live_auto`, and the broker's own verdict is kept
+separately on `broker_account_type`. Every order copies the armed mode onto
+`execution_deliveries.account_mode`, so a demo delivery reads `demo_auto` rather
+than the bare word `demo`. Anything that must ask "is this demo money?" — the
+pre-send check and the managed-exit pass — uses `isDemoAccountMode()` in
+`src/lib/delivery/execution.ts`, which accepts `demo` and `demo_auto` and nothing
+else. The managed-exit pass also re-reads the account and requires
+`broker_account_type = 'demo'`: the delivery filter is convenience, the
+broker-confirmed type is the authority.
+
 Every direct delivery is sized from fresh broker equity and the account's symbol
 specification. Broker minimum/maximum/step volume, stop distance, quote freshness,
 account readiness and the owner-configured exposure boundary all fail closed.

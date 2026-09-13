@@ -1,5 +1,31 @@
 # Roadmap
 
+## Open items — as of 2026-09-13
+
+Everything below this section is dated history, kept as written. These are the only
+items still open.
+
+- [ ] Publish, then verify four consecutive live market hours with no cancelled
+      pass, no stale abandoned work and no capacity-induced breaker. This is the
+      acceptance bar for calling scanner throughput fixed.
+- [ ] Restore `shadow_engine_state.candidate_rows_per_run` to 30 once the enrolable
+      research backlog reaches 0.
+- [ ] Bind the operator-chosen tickers still unbound (`USOIL`, `XAGUSD`) and confirm
+      evidence before any stage change. `UKOIL` has no Brent-like broker symbol and
+      stays disabled until an operator supplies one.
+- [ ] Raise `execution_controls.max_customer_exit_policy` to
+      `ladder_tp1_tp2_runner_tp3` only when demo evidence for the two-step managed
+      exit justifies it. The three-step ladder is implemented but not permitted.
+- [ ] Decide on customer live money. Both `customer_live_confirm_enabled` and
+      `customer_live_auto_enabled` are `false`; no customer account can be armed on
+      real money until an owner decision plus holdout evidence supports it.
+- [ ] Clear the outstanding backend security-linter findings.
+
+Current stage ladder: `EURUSD`, `GBPAUD`, `XAUUSD` execution-approved; `AUDUSD`,
+`USDJPY` in shadow; `GBPUSD`, `USDCAD`, `USDCHF`, `NAS100` in data validation;
+`XAGUSD`, `USOIL`, `UKOIL` disabled. Automatic advancement is on and can only
+promote or hold — it never demotes.
+
 ## Part A — Grade recovery for orphaned broker trades
 
 - [x] Migration: `signal_grade_source`, `signal_first_decision_at`, `signal_ref`, one-time-fill trigger
