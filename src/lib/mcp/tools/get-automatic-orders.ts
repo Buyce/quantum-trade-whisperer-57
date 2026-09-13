@@ -82,6 +82,10 @@ export async function runGetAutomaticOrders(supabase: unknown, args: GetAutomati
     broker_message: (row["broker_retcode_string"] as string | null) ?? null,
     entry_mode: (row["entry_mode"] as string | null) ?? null,
     exit_policy: (row["execution_policy"] as string | null) ?? null,
+    // Which of the user's own accounts the order went to — demo included.
+    account_mode: (row["account_mode"] as string | null) ?? null,
+    connected_account_id: (row["connected_account_id"] as string | null) ?? null,
+    destination: (row["destination_type"] as string | null) ?? null,
     provenance: row["submitted_at"] ? "broker-derived once submitted" : "engine-derived",
   }));
 

@@ -4,6 +4,7 @@ import logTradeDecision from "./tools/log-trade-decision";
 import updateTradeOutcome from "./tools/update-trade-outcome";
 import listMyTrades from "./tools/list-my-trades";
 import listBrokerTrades from "./tools/list-broker-trades";
+import listMyAccounts from "./tools/list-my-accounts";
 import getPerformanceSummary from "./tools/get-performance-summary";
 import getScannerStatus from "./tools/get-scanner-status";
 import getMySettings from "./tools/get-my-settings";
