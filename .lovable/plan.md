@@ -31,10 +31,29 @@ there is no way to pull a clean training dataset out of the app.
    Each dataset downloads as CSV and as JSON lines, and every export carries a
    companion description file naming the columns, the row count, the time window
    and the provenance class of each field.
-4. **A team access guide** — how your team reaches everything: the repository
+4. **Read-only data access for your team's AI** — the app already publishes an
+   assistant connection (14 tools, sign-in required, some of which can write
+   settings and journal entries). This adds a separate read-only research
+   surface for team AI tools:
+   - New read-only tools that return the same datasets as the exports:
+     signals, shadow replay outcomes, research candidates, learning statistics
+     and platform-wide broker-verified results, with filters for instrument,
+     grade, model version and date window, and paging so a chatbot can walk
+     large sets.
+   - Owner-restricted: platform-wide research reads are refused unless the
+     signed-in account is an owner, so a customer's assistant still sees only
+     its own account.
+   - Read-only by construction: these tools contain no write path at all, and
+     the existing write tools stay untouched and out of this surface.
+   - Any AI tool that speaks the standard assistant protocol (ChatGPT, Claude,
+     Cursor, your own chatbot) can connect with a sign-in, and each returned
+     field carries its provenance label so a model cannot mistake a replay
+     result for a broker fill.
+5. **A team access guide** — how your team reaches everything: the repository
    for schema, functions and application code; the Cloud data export for a full
-   database copy; the exports above for training data; and the assistant tools
-   for live reads.
+   database copy; the exports above for training files; and the read-only
+   assistant connection for live reads.
+
 
 ## Rules the exports follow
 
