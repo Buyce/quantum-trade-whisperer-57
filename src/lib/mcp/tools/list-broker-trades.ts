@@ -43,6 +43,11 @@ export async function runListBrokerTrades(supabase: unknown, args: BrokerTradesA
   let query = db.from("broker_trade_evidence").select(COLUMNS);
   const state = args.state && args.state !== "all" ? args.state : undefined;
   if (state) query = query.eq("state", state);
+  // Demo and live are BOTH included by default; the filters only narrow.
+  const accountType =
+    args.account_type && args.account_type !== "all" ? args.account_type : undefined;
+  if (accountType) query = query.eq("broker_account_type", accountType);
+  if (args.account_id) query = query.eq("account_id", args.account_id);
   if (args.instrument) {
     const symbol = args.instrument.toUpperCase();
     query = query.or(`broker_symbol.eq.${symbol},signal_instrument.eq.${symbol}`);
