@@ -168,26 +168,26 @@ export function DatasetExportPanel() {
                         size="sm"
                         variant="outline"
                         disabled={busy !== null}
-                        onClick={() => download(d.id, "csv")}
+                        onClick={() => download(spec.id, "csv")}
                       >
-                        {busy === `${d.id}:csv` ? "…" : "CSV"}
+                        {busy === `${spec.id}:csv` ? "…" : "CSV"}
                       </Button>
                       <Button
                         size="sm"
                         variant="outline"
                         disabled={busy !== null}
-                        onClick={() => download(d.id, "jsonl")}
+                        onClick={() => download(spec.id, "jsonl")}
                       >
-                        {busy === `${d.id}:jsonl` ? "…" : "JSONL"}
+                        {busy === `${spec.id}:jsonl` ? "…" : "JSONL"}
                       </Button>
                     </div>
                   </td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
       <p className="text-[10px] text-muted-foreground">
         Zero rows means nothing was recorded in this window. Replay figures are in-sample
         measurements; demo broker evidence is not a live-money track record.
