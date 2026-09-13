@@ -12,7 +12,7 @@ Endpoint: `/mcp`, OAuth-protected, tokens scoped to the signed-in account.
 Manifest: `.lovable/mcp/manifest.json`. Connection instructions for humans live at
 `/connect`.
 
-### Tools (14)
+### Tools (16)
 
 | Tool                      | Access | Notes                                                                                                                                                                                                                                                |
 | ------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -30,6 +30,8 @@ Manifest: `.lovable/mcp/manifest.json`. Connection instructions for humans live 
 | `update_trade_outcome`    | write  | outcome and actual prices; stamped as agent-entered                                                                                                                                                                                                  |
 | `list_my_trades`          | read   | the user's journal                                                                                                                                                                                                                                   |
 | `get_performance_summary` | read   | personal performance on one explicit R basis                                                                                                                                                                                                         |
+| `describe_datasets`       | read   | the training-dataset catalogue: ids, what one row means, provenance, withheld columns and non-guarantees. No rows.                                                                                                                                   |
+| `read_dataset`            | read   | owner-gated paged read of one dataset over an explicit UTC window. Read-only; account-identifying columns are withheld. See [DATA-DICTIONARY.md](DATA-DICTIONARY.md).                                                                                 |
 
 ### Guarantees the tools uphold
 
