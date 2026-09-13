@@ -27,7 +27,13 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { DEFAULT_EXIT_SHARE_PRESET, isExitSharePreset, type ExitSharePreset } from "./execution";
+import {
+  DEFAULT_EXIT_SHARE_PRESET,
+  DEMO_ACCOUNT_MODES,
+  isDemoAccountMode,
+  isExitSharePreset,
+  type ExitSharePreset,
+} from "./execution";
 import {
   decideManagedStep,
   managedPlan,
