@@ -359,8 +359,17 @@ Resolution of those states is manual or dry-run.
   single-exit choices, is reduced to `single_exit_second_target` on any non-demo
   account at dispatch rather than run half-managed, and is driven by
   `src/lib/delivery/manage-positions.server.ts` from the reconcile-active worker.
-  There is no owner control over exit depth: `execution_controls.max_customer_exit_policy`
-  is retained in the schema but no longer read by dispatch or shown in Admin.
+  It is additionally subject to the platform ceiling described above.
+
+  **Demo money is recognised by ARMED mode.** A delivery records the connected
+  account's armed mode, so demo money reads as `demo_auto`, not the bare word
+  `demo`. Both spellings are demo money; the single list is
+  `DEMO_ACCOUNT_MODES` / `isDemoAccountMode()` in `src/lib/delivery/execution.ts`,
+  used by the pre-send check and by the management pass. Comparing against `demo`
+  alone silently downgraded every managed order and left the management pass with
+  nothing to act on, which is why the test is centralised. The management pass
+  additionally requires the account's own broker-reported type to be demo: the
+  delivery filter is convenience, the account row is the authority.
 
   Each position has one durable `position_management_state` row, one step per
   pass, in order: a step is marked `attempted` before the broker call and
