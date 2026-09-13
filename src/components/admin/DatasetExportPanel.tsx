@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { downloadCsv, downloadJson, toCsv } from "@/lib/export";
-import { MAX_DATASET_PAGE, datasetById } from "@/lib/datasets/catalog";
+import { DATASETS, MAX_DATASET_PAGE } from "@/lib/datasets/catalog";
 import {
   getDatasetInventory,
   readDataset,
@@ -125,58 +125,69 @@ export function DatasetExportPanel() {
 
       {error ? <p className="text-xs text-destructive">{error}</p> : null}
 
-      {inventory.isLoading ? (
-        <Skeleton className="h-24 w-full" />
-      ) : inventory.isError ? (
-        <p className="text-xs text-destructive">Could not read the dataset inventory.</p>
-      ) : (
-        <div className="-mx-2 overflow-x-auto px-2">
-          <table className="w-full min-w-[560px] text-xs">
-            <thead>
-              <tr className="text-left text-muted-foreground">
-                <th className="py-1 pr-2">Dataset</th>
-                <th className="py-1 pr-2">Provenance</th>
-                <th className="py-1 pr-2 text-right">Rows</th>
-                <th className="py-1 pr-2">Download</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(inventory.data?.datasets ?? []).map((d) => (
-                <tr key={d.id} className="border-t border-border align-middle">
+      {inventory.isError ? (
+        <p className="text-xs text-destructive">
+          Row counts unavailable:{" "}
+          {inventory.error instanceof Error ? inventory.error.message : String(inventory.error)}
+        </p>
+      ) : null}
+      <div className="-mx-2 overflow-x-auto px-2">
+        <table className="w-full min-w-[560px] text-xs">
+          <thead>
+            <tr className="text-left text-muted-foreground">
+              <th className="py-1 pr-2">Dataset</th>
+              <th className="py-1 pr-2">Provenance</th>
+              <th className="py-1 pr-2 text-right">Rows</th>
+              <th className="py-1 pr-2">Download</th>
+            </tr>
+          </thead>
+          <tbody>
+            {DATASETS.map((spec) => {
+              const d = inventory.data?.datasets.find((e) => e.id === spec.id);
+              return (
+                <tr key={spec.id} className="border-t border-border align-middle">
                   <td className="py-1 pr-2">
-                    <span className="font-medium">{d.label}</span>
+                    <span className="font-medium">{spec.label}</span>
                     <span className="block text-[10px] text-muted-foreground">
-                      {datasetById(d.id)?.rowMeaning}
+                      {spec.rowMeaning}
                     </span>
                   </td>
-                  <td className="py-1 pr-2 text-muted-foreground">{d.provenance}</td>
-                  <td className="py-1 pr-2 text-right font-mono">{d.rowsInWindow}</td>
+                  <td className="py-1 pr-2 text-muted-foreground">{spec.provenance}</td>
+                  <td className="py-1 pr-2 text-right font-mono">
+                    {inventory.isLoading ? (
+                      <Skeleton className="ml-auto h-3 w-10" />
+                    ) : d ? (
+                      d.rowsInWindow
+                    ) : (
+                      "—"
+                    )}
+                  </td>
                   <td className="py-1 pr-2">
                     <div className="flex gap-1">
                       <Button
                         size="sm"
                         variant="outline"
                         disabled={busy !== null}
-                        onClick={() => download(d.id, "csv")}
+                        onClick={() => download(spec.id, "csv")}
                       >
-                        {busy === `${d.id}:csv` ? "…" : "CSV"}
+                        {busy === `${spec.id}:csv` ? "…" : "CSV"}
                       </Button>
                       <Button
                         size="sm"
                         variant="outline"
                         disabled={busy !== null}
-                        onClick={() => download(d.id, "jsonl")}
+                        onClick={() => download(spec.id, "jsonl")}
                       >
-                        {busy === `${d.id}:jsonl` ? "…" : "JSONL"}
+                        {busy === `${spec.id}:jsonl` ? "…" : "JSONL"}
                       </Button>
                     </div>
                   </td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
       <p className="text-[10px] text-muted-foreground">
         Zero rows means nothing was recorded in this window. Replay figures are in-sample
         measurements; demo broker evidence is not a live-money track record.

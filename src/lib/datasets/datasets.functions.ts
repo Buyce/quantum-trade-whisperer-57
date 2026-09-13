@@ -71,25 +71,27 @@ export const getDatasetInventory = createServerFn({ method: "GET" })
     }): Promise<{ since: string; until: string; datasets: DatasetInventoryEntry[] }> => {
       ownerOnly(context.claims);
       const { since, until } = window(data);
-      const { adminClient } = await import("@/lib/scanner/pipeline.server");
-      const admin = adminClient();
+      // Read as the signed-in owner (RLS + is_admin() resolve from their JWT);
+      // the SECURITY DEFINER RPCs re-apply the owner gate in the database.
+      const supabase = context.supabase;
 
-      const datasets: DatasetInventoryEntry[] = [];
-      for (const spec of DATASETS) {
-        const { data: count, error } = await admin.rpc("count_training_dataset", {
-          _dataset: spec.id,
-          _since: since,
-          _until: until,
-        });
-        if (error) throw new Error(`${spec.id}: ${error.message}`);
-        datasets.push({
-          id: spec.id,
-          label: spec.label,
-          table: spec.table,
-          provenance: spec.provenance,
-          rowsInWindow: Number(count ?? 0),
-        });
-      }
+      const datasets = await Promise.all(
+        DATASETS.map(async (spec) => {
+          const { data: count, error } = await supabase.rpc("count_training_dataset", {
+            _dataset: spec.id,
+            _since: since,
+            _until: until,
+          });
+          if (error) throw new Error(`${spec.id}: ${error.message}`);
+          return {
+            id: spec.id,
+            label: spec.label,
+            table: spec.table,
+            provenance: spec.provenance,
+            rowsInWindow: Number(count ?? 0),
+          };
+        }),
+      );
       return { since, until, datasets };
     },
   );
@@ -109,18 +111,18 @@ export const readDataset = createServerFn({ method: "GET" })
     const limit = Math.min(Math.max(data.limit ?? DEFAULT_DATASET_PAGE, 1), MAX_DATASET_PAGE);
     const offset = Math.max(data.offset ?? 0, 0);
 
-    const { adminClient } = await import("@/lib/scanner/pipeline.server");
-    const admin = adminClient();
+    // Read as the signed-in owner; the RPCs re-apply the owner gate via is_admin().
+    const supabase = context.supabase;
 
     const [page, total] = await Promise.all([
-      admin.rpc("read_training_dataset", {
+      supabase.rpc("read_training_dataset", {
         _dataset: spec.id,
         _since: since,
         _until: until,
         _limit: limit,
         _offset: offset,
       }),
-      admin.rpc("count_training_dataset", { _dataset: spec.id, _since: since, _until: until }),
+      supabase.rpc("count_training_dataset", { _dataset: spec.id, _since: since, _until: until }),
     ]);
     if (page.error) throw new Error(page.error.message);
     if (total.error) throw new Error(total.error.message);
