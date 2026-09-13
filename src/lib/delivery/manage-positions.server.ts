@@ -27,7 +27,13 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { DEFAULT_EXIT_SHARE_PRESET, isExitSharePreset, type ExitSharePreset } from "./execution";
+import {
+  DEFAULT_EXIT_SHARE_PRESET,
+  DEMO_ACCOUNT_MODES,
+  isDemoAccountMode,
+  isExitSharePreset,
+  type ExitSharePreset,
+} from "./execution";
 import {
   decideManagedStep,
   managedPlan,
@@ -126,7 +132,9 @@ export async function manageDemoPositions(
       "id, user_id, signal_id, connected_account_id, account_mode, execution_policy, broker_position_id, broker_symbol",
     )
     .in("execution_policy", MANAGED_POLICIES)
-    .eq("account_mode", "demo")
+    // Demo money is recorded as the account's ARMED mode (`demo_auto`), so both
+    // spellings are accepted; nothing outside demo money is ever selected.
+    .in("account_mode", DEMO_ACCOUNT_MODES as unknown as string[])
     .not("broker_position_id", "is", null)
     .order("id", { ascending: false })
     .limit(maxPositions * 4);
@@ -183,17 +191,23 @@ export async function manageDemoPositions(
 
     const { data: accountRow } = await db
       .from("connected_trading_accounts")
-      .select("id, metaapi_account_id, region, account_mode")
+      .select("id, metaapi_account_id, region, mode, broker_account_type")
       .eq("id", accountId)
       .maybeSingle();
     const account = accountRow as {
       metaapi_account_id: string | null;
       region: string | null;
-      account_mode: string | null;
+      mode: string | null;
+      broker_account_type: string | null;
     } | null;
-    // Demo is asserted twice on purpose: the query filter is convenience, the
-    // account's own recorded mode is the authority.
-    if (!account?.metaapi_account_id || !account.region || account.account_mode !== "demo") {
+    // Demo is asserted twice on purpose: the delivery filter is convenience, the
+    // account's own broker-reported type and armed mode are the authority.
+    if (
+      !account?.metaapi_account_id ||
+      !account.region ||
+      account.broker_account_type !== "demo" ||
+      !isDemoAccountMode(account.mode)
+    ) {
       outcome.skipped += 1;
       outcome.results.push({
         positionId,
@@ -418,7 +432,9 @@ async function settleState(
       account_id: delivery.connected_account_id,
       broker_position_id: positionId,
       execution_policy: delivery.execution_policy ?? "partial_tp1_runner_tp2",
-      account_mode: "demo",
+      // The delivery's own recorded demo mode, so the row states which armed mode
+      // produced it rather than a flattened word.
+      account_mode: delivery.account_mode ?? "demo",
       ...patch,
     } as never,
     { onConflict: "account_id,broker_position_id" },
