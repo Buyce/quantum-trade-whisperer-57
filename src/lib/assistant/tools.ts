@@ -20,6 +20,7 @@ import { runGetIntelligence } from "@/lib/mcp/tools/get-intelligence";
 import { runGetShadowComparison } from "@/lib/mcp/tools/get-shadow-comparison";
 import { runListMyTrades } from "@/lib/mcp/tools/list-my-trades";
 import { runListBrokerTrades } from "@/lib/mcp/tools/list-broker-trades";
+import { runListMyAccounts } from "@/lib/mcp/tools/list-my-accounts";
 import { runGetPerformanceSummary } from "@/lib/mcp/tools/get-performance-summary";
 import { runGetPlatformBenchmarks } from "@/lib/mcp/tools/get-platform-benchmarks";
 import { searchPlatformDocs } from "@/lib/assistant/knowledge";
@@ -214,12 +215,37 @@ export function buildAssistantTools(supabase: unknown, userId: string) {
       inputSchema: z.object({}),
       execute: async () => unwrap(await runGetShadowComparison(supabase)),
     }),
+    list_my_accounts: tool({
+      description:
+        "The user's own connected broker accounts — DEMO and LIVE — with mode, phase, intent, broker and server, masked login, currency, broker-reported balance, equity, free margin, margin level, leverage, trade permission, connection/provisioning state, emergency stop or stand-down reason and when the broker figures were observed. Use it to attribute a trade, order or log line to an account, and to answer anything about demo accounts. Always name the account mode; a demo result is not a live track record.",
+      inputSchema: z.object({
+        mode: z.enum(["demo", "live", "all"]).nullable().optional(),
+        include_disconnected: z.boolean().nullable().optional(),
+      }),
+      execute: async (args) =>
+        unwrap(
+          await runListMyAccounts(supabase, {
+            mode: args.mode ?? undefined,
+            include_disconnected: args.include_disconnected ?? undefined,
+          }),
+        ),
+    }),
     list_broker_trades: tool({
       description:
-        "The user's BROKER-CONFIRMED trades from broker evidence — the authority on what actually happened: instrument, direction, volume, entry/exit price and time, commission, swap, gross profit, R against plan and against actual risk, stop provenance, slippage and the setup grade. Use this FIRST for any question about the user's trades, results or best/worst trade. Set order_by: 'r_vs_actual_risk' for best trades. An empty result means nothing matched THIS query, never that the user has no trades.",
+        "The user's BROKER-CONFIRMED trades from broker evidence across ALL their accounts, demo and live — the authority on what actually happened: instrument, direction, volume, entry/exit price and time, commission, swap, gross profit, R against plan and against actual risk, stop provenance, slippage and the setup grade. Use this FIRST for any question about the user's trades, results or best/worst trade. Set order_by: 'r_vs_actual_risk' for best trades. An empty result means nothing matched THIS query, never that the user has no trades.",
       inputSchema: z.object({
         state: z.enum(["closed", "open", "all"]).nullable().optional(),
         instrument: z.string().nullable().optional(),
+        account_type: z
+          .enum(["demo", "live", "all"])
+          .nullable()
+          .optional()
+          .describe("Account mode. Default: all — demo and live together."),
+        account_id: z
+          .string()
+          .nullable()
+          .optional()
+          .describe("One connected account id from list_my_accounts."),
         days: z.number().int().nullable().optional().describe("Look-back on the broker exit time."),
         from: z.string().nullable().optional(),
         to: z.string().nullable().optional(),
@@ -231,6 +257,8 @@ export function buildAssistantTools(supabase: unknown, userId: string) {
           await runListBrokerTrades(supabase, {
             state: args.state ?? undefined,
             instrument: args.instrument ?? undefined,
+            account_type: args.account_type ?? undefined,
+            account_id: args.account_id ?? undefined,
             days: args.days ?? undefined,
             from: args.from ?? undefined,
             to: args.to ?? undefined,

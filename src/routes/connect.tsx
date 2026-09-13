@@ -95,6 +95,11 @@ const TOOL_ROWS: [string, string, "read" | "write"][] = [
     "read",
   ],
   [
+    "list_my_accounts",
+    "Your connected broker accounts, demo and live: mode, broker, currency, broker-reported balance, equity and margin, trade permission and connection state.",
+    "read",
+  ],
+  [
     "list_broker_trades",
     "Your broker-confirmed trades: entry and exit prices and times, volume, costs and R against plan and actual risk. The authority on what actually happened, sortable by R for your best and worst trades.",
     "read",

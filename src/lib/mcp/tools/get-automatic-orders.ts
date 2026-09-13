@@ -38,7 +38,7 @@ export async function runGetAutomaticOrders(supabase: unknown, args: GetAutomati
     db
       .from("execution_deliveries")
       .select(
-        "id, enqueued_at, state, reason, broker_symbol, dry_run, submitted_at, broker_order_id, broker_order_state, broker_retcode_string, entry_mode, execution_policy",
+        "id, enqueued_at, state, reason, broker_symbol, dry_run, submitted_at, broker_order_id, broker_order_state, broker_retcode_string, entry_mode, execution_policy, account_mode, connected_account_id, destination_type",
       )
       .gte("enqueued_at", since)
       .order("enqueued_at", { ascending: false })
@@ -46,10 +46,16 @@ export async function runGetAutomaticOrders(supabase: unknown, args: GetAutomati
   ]);
 
   if (decisionsRead.error) {
-    return { content: [{ type: "text" as const, text: decisionsRead.error.message }], isError: true };
+    return {
+      content: [{ type: "text" as const, text: decisionsRead.error.message }],
+      isError: true,
+    };
   }
   if (deliveriesRead.error) {
-    return { content: [{ type: "text" as const, text: deliveriesRead.error.message }], isError: true };
+    return {
+      content: [{ type: "text" as const, text: deliveriesRead.error.message }],
+      isError: true,
+    };
   }
 
   const decisionRows = (decisionsRead.data ?? []) as Record<string, unknown>[];
@@ -82,6 +88,10 @@ export async function runGetAutomaticOrders(supabase: unknown, args: GetAutomati
     broker_message: (row["broker_retcode_string"] as string | null) ?? null,
     entry_mode: (row["entry_mode"] as string | null) ?? null,
     exit_policy: (row["execution_policy"] as string | null) ?? null,
+    // Which of the user's own accounts the order went to — demo included.
+    account_mode: (row["account_mode"] as string | null) ?? null,
+    connected_account_id: (row["connected_account_id"] as string | null) ?? null,
+    destination: (row["destination_type"] as string | null) ?? null,
     provenance: row["submitted_at"] ? "broker-derived once submitted" : "engine-derived",
   }));
 
