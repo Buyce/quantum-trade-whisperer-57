@@ -90,7 +90,7 @@ function AssistantChat({
   initialMessages: UIMessage[];
   token: string;
 }) {
-  const { messages, sendMessage, status, error } = useChat({
+  const { messages, sendMessage, status, error, addToolApprovalResponse } = useChat({
     id: threadId,
     messages: initialMessages,
     transport: new DefaultChatTransport({
@@ -136,6 +136,54 @@ function AssistantChat({
                   if (part.type.startsWith("tool-") && part.type !== "tool-google_search") {
                     const state = "state" in part ? String(part.state) : "";
                     const name = part.type.replace("tool-", "").replaceAll("_", " ");
+                    if (
+                      part.type === "tool-update_my_settings" &&
+                      state === "approval-requested" &&
+                      "approval" in part
+                    ) {
+                      const approvalId = (part as { approval: { id: string } }).approval.id;
+                      return (
+                        <div
+                          key={index}
+                          className="rounded-md border border-border bg-muted/40 p-3 space-y-2"
+                        >
+                          <p className="text-sm font-medium">
+                            The assistant wants to change your settings:
+                          </p>
+                          <pre className="text-xs overflow-x-auto whitespace-pre-wrap">
+                            {JSON.stringify(
+                              (part as { input?: unknown }).input ?? {},
+                              null,
+                              2,
+                            )}
+                          </pre>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              className="rounded bg-primary px-3 py-1 text-xs text-primary-foreground"
+                              onClick={() =>
+                                void addToolApprovalResponse({ id: approvalId, approved: true })
+                              }
+                            >
+                              Approve change
+                            </button>
+                            <button
+                              type="button"
+                              className="rounded border border-border px-3 py-1 text-xs"
+                              onClick={() =>
+                                void addToolApprovalResponse({
+                                  id: approvalId,
+                                  approved: false,
+                                  reason: "The user declined the settings change.",
+                                })
+                              }
+                            >
+                              Decline
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    }
                     return (
                       <p key={index} className="text-xs text-muted-foreground italic">
                         {state === "output-available" ? "Checked" : "Checking"} {name}…
