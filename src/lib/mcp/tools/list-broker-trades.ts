@@ -109,7 +109,7 @@ export async function runListBrokerTrades(supabase: unknown, args: BrokerTradesA
     note:
       rows.length === 0
         ? `No broker-confirmed trades matched this query (${window.label}${state ? `, state=${state}` : ""}${accountType ? `, account_type=${accountType}` : ""}${args.instrument ? `, instrument=${args.instrument}` : ""}). That is a statement about THIS query only — widen the window or drop the filters before concluding anything.`
-        : "Demo and live trades are both returned unless account_type narrows them — say which mode each figure came from, and never present demo results as a live track record. R multiples are broker-derived where r_availability says so; money amounts are the user's own account and must never be compared against another account's money.",
+        : `Returned ${rows.length} of ${totalMatching ?? "an unknown number of"} matching trades — for "how many" use total_matching, never the page size. Demo and live trades are both returned unless account_type narrows them: say which mode each figure came from, and never present demo results as a live track record. R multiples are broker-derived where r_availability says so; money amounts are the user's own account and must never be compared against another account's money.`,
     trades: rows,
   };
   return {
