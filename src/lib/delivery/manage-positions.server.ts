@@ -191,17 +191,23 @@ export async function manageDemoPositions(
 
     const { data: accountRow } = await db
       .from("connected_trading_accounts")
-      .select("id, metaapi_account_id, region, account_mode")
+      .select("id, metaapi_account_id, region, mode, broker_account_type")
       .eq("id", accountId)
       .maybeSingle();
     const account = accountRow as {
       metaapi_account_id: string | null;
       region: string | null;
-      account_mode: string | null;
+      mode: string | null;
+      broker_account_type: string | null;
     } | null;
-    // Demo is asserted twice on purpose: the query filter is convenience, the
-    // account's own recorded mode is the authority.
-    if (!account?.metaapi_account_id || !account.region || account.account_mode !== "demo") {
+    // Demo is asserted twice on purpose: the delivery filter is convenience, the
+    // account's own broker-reported type and armed mode are the authority.
+    if (
+      !account?.metaapi_account_id ||
+      !account.region ||
+      account.broker_account_type !== "demo" ||
+      !isDemoAccountMode(account.mode)
+    ) {
       outcome.skipped += 1;
       outcome.results.push({
         positionId,
