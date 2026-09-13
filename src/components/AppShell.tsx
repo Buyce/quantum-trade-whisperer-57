@@ -190,7 +190,6 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Ask-anywhere launcher. Hidden on the Assistant page itself, which already
           renders the same conversation surface full-screen. */}
       {!pathname.startsWith("/assistant") && <AssistantWidget />}
-
     </div>
   );
 }

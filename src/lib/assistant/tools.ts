@@ -40,10 +40,15 @@ export function buildAssistantTools(supabase: unknown, userId: string) {
       description:
         "List trade setups published by the live scanner. scope='all_published' (default) returns retained published rows; scope='my_scanner' returns rows currently eligible under this user's feed settings, retention window and daily cap. An empty result means nothing matched the filters — it is NOT evidence about the scanner's cycle.",
       inputSchema: z.object({
-        instrument: z.string().nullable().optional().describe("Optional instrument filter, e.g. XAUUSD."),
+        instrument: z
+          .string()
+          .nullable()
+          .optional()
+          .describe("Optional instrument filter, e.g. XAUUSD."),
         min_grade: z
           .enum(["A+", "A", "B", "C"])
-          .nullable().optional()
+          .nullable()
+          .optional()
           .describe("Only setups at or above this grade tier."),
         scope: z.enum(["all_published", "my_scanner"]).nullable().optional(),
         limit: z.number().nullable().optional().describe("Max rows (1-50, default 10)."),
@@ -75,7 +80,11 @@ export function buildAssistantTools(supabase: unknown, userId: string) {
         "The user's recent automatic-order decisions (queued or refused with the exact reason) and broker deliveries with their last known state. Resting is not filled. Empty means nothing matched this window.",
       inputSchema: z.object({
         hours: z.number().nullable().optional().describe("Look-back in hours (1-168, default 24)."),
-        limit: z.number().nullable().optional().describe("Max rows per section (1-100, default 25)."),
+        limit: z
+          .number()
+          .nullable()
+          .optional()
+          .describe("Max rows per section (1-100, default 25)."),
       }),
       execute: async (args) =>
         unwrap(
@@ -144,7 +153,8 @@ export function buildAssistantTools(supabase: unknown, userId: string) {
         same_bet_cooldown_minutes: z.number().nullable().optional(),
         confirm_risk_change: z
           .boolean()
-          .nullable().optional()
+          .nullable()
+          .optional()
           .describe(
             "True ONLY when the user explicitly approved this exact risk change in this conversation.",
           ),
@@ -204,8 +214,7 @@ export function buildAssistantTools(supabase: unknown, userId: string) {
       execute: async () => unwrap(await runGetShadowComparison(supabase)),
     }),
     list_my_trades: tool({
-      description:
-        "The user's logged trade decisions and outcomes with fill-price provenance.",
+      description: "The user's logged trade decisions and outcomes with fill-price provenance.",
       inputSchema: z.object({
         limit: z.number().nullable().optional().describe("Max rows (1-100, default 20)."),
       }),
@@ -220,10 +229,19 @@ export function buildAssistantTools(supabase: unknown, userId: string) {
         days: z
           .number()
           .int()
-          .nullable().optional()
+          .nullable()
+          .optional()
           .describe("Look-back in days from now (UTC). Use for 'last N days/weeks/months'."),
-        from: z.string().nullable().optional().describe("ISO UTC start of the window. Overrides days."),
-        to: z.string().nullable().optional().describe("ISO UTC end of the window. Defaults to now."),
+        from: z
+          .string()
+          .nullable()
+          .optional()
+          .describe("ISO UTC start of the window. Overrides days."),
+        to: z
+          .string()
+          .nullable()
+          .optional()
+          .describe("ISO UTC end of the window. Defaults to now."),
       }),
       execute: async (args) =>
         unwrap(
@@ -245,7 +263,9 @@ export function buildAssistantTools(supabase: unknown, userId: string) {
       description:
         "Search P-Trades' own written specification (grading, eligibility and caps, risk sizing, R and journal maths, brakes and gates, execution semantics, instrument lifecycle, market context, research and shadow replay, glossary). Use this before explaining HOW the platform works — quote the document instead of improvising. Outside web material is never a substitute for these rules.",
       inputSchema: z.object({
-        query: z.string().describe("What to look up, e.g. 'A+ grade', 'resting order', 'expected R'."),
+        query: z
+          .string()
+          .describe("What to look up, e.g. 'A+ grade', 'resting order', 'expected R'."),
         limit: z.number().int().nullable().optional().describe("Max passages (1-6, default 3)."),
       }),
       execute: async (args) => searchPlatformDocs(args.query, args.limit ?? undefined),

@@ -57,10 +57,7 @@ export const deleteAssistantThread = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => z.object({ id: z.string().uuid() }).parse(data))
   .handler(async ({ context, data }) => {
-    const { error } = await context.supabase
-      .from("assistant_threads")
-      .delete()
-      .eq("id", data.id);
+    const { error } = await context.supabase.from("assistant_threads").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
   });

@@ -12,10 +12,7 @@ import { MessageCircle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { AssistantPanel } from "@/components/assistant/AssistantPanel";
-import {
-  createAssistantThread,
-  listAssistantThreads,
-} from "@/lib/assistant/threads.functions";
+import { createAssistantThread, listAssistantThreads } from "@/lib/assistant/threads.functions";
 
 const STORAGE_KEY = "ptrades.assistant.widget.thread";
 
@@ -30,9 +27,7 @@ export function AssistantWidget() {
       const remembered =
         typeof window === "undefined" ? null : window.localStorage.getItem(STORAGE_KEY);
       const threads = await listAssistantThreads();
-      const existing = remembered
-        ? threads.find((thread) => thread.id === remembered)
-        : threads[0];
+      const existing = remembered ? threads.find((thread) => thread.id === remembered) : threads[0];
       if (existing) {
         setThreadId(existing.id);
         window.localStorage.setItem(STORAGE_KEY, existing.id);
@@ -67,10 +62,7 @@ export function AssistantWidget() {
         <span className="hidden sm:inline">Ask</span>
       </Button>
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent
-          side="right"
-          className="flex w-full flex-col gap-0 p-0 sm:max-w-md"
-        >
+        <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-md">
           <SheetHeader className="flex-row items-center justify-between border-b border-border p-4">
             <SheetTitle className="text-base">P-Trades Assistant</SheetTitle>
             <div className="flex items-center gap-2">

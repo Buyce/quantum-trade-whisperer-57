@@ -140,7 +140,6 @@ export const Route = createFileRoute("/api/chat")({
             ? "\n\nYou have a search_web tool for live worldwide news and data. Use it when the user asks about current events; always name the source and date it returns."
             : "\n\nLive web search is NOT available in this deployment. If the user asks about current news, say plainly that you cannot check outside news right now.");
 
-
         const lastUser = [...body.messages].reverse().find((m) => m.role === "user");
 
         try {

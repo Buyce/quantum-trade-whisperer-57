@@ -25,7 +25,11 @@ export type KnowledgeDoc = { file: string; title: string; body: string };
 
 export const KNOWLEDGE_DOCS: KnowledgeDoc[] = [
   { file: "docs/SIGNALS-AND-GRADES.md", title: "Setups and grading", body: signalsDoc },
-  { file: "docs/ALERTS-AND-ELIGIBILITY.md", title: "Alerts, eligibility and caps", body: alertsDoc },
+  {
+    file: "docs/ALERTS-AND-ELIGIBILITY.md",
+    title: "Alerts, eligibility and caps",
+    body: alertsDoc,
+  },
   { file: "docs/RISK-SIZING.md", title: "Risk and position sizing", body: sizingDoc },
   { file: "docs/JOURNAL-AND-R.md", title: "Journal and R mathematics", body: journalDoc },
   { file: "docs/RISK-GUARDIAN.md", title: "Risk brakes and gates", body: guardianDoc },
@@ -33,8 +37,16 @@ export const KNOWLEDGE_DOCS: KnowledgeDoc[] = [
   { file: "docs/EXECUTION-QUALITY.md", title: "Execution quality", body: executionQualityDoc },
   { file: "docs/INSTRUMENT-LIFECYCLE.md", title: "Instrument lifecycle", body: lifecycleDoc },
   { file: "docs/MARKET-CONTEXT.md", title: "Market context (measurement only)", body: contextDoc },
-  { file: "docs/RESEARCH-AND-SHADOW.md", title: "Research candidates and shadow replay", body: researchDoc },
-  { file: "docs/PERFORMANCE-AND-STATISTICS.md", title: "Performance and statistics", body: statsDoc },
+  {
+    file: "docs/RESEARCH-AND-SHADOW.md",
+    title: "Research candidates and shadow replay",
+    body: researchDoc,
+  },
+  {
+    file: "docs/PERFORMANCE-AND-STATISTICS.md",
+    title: "Performance and statistics",
+    body: statsDoc,
+  },
   { file: "docs/SCANNER.md", title: "Scanner pipeline", body: scannerDoc },
   { file: "docs/GLOSSARY.md", title: "Glossary", body: glossaryDoc },
 ];
@@ -68,8 +80,32 @@ function buildSections(): Section[] {
 const SECTIONS = buildSections();
 
 const STOP_WORDS = new Set([
-  "the", "a", "an", "of", "and", "or", "to", "in", "is", "are", "on", "for", "how", "does",
-  "do", "what", "why", "my", "me", "it", "that", "this", "with", "when", "you", "your",
+  "the",
+  "a",
+  "an",
+  "of",
+  "and",
+  "or",
+  "to",
+  "in",
+  "is",
+  "are",
+  "on",
+  "for",
+  "how",
+  "does",
+  "do",
+  "what",
+  "why",
+  "my",
+  "me",
+  "it",
+  "that",
+  "this",
+  "with",
+  "when",
+  "you",
+  "your",
 ]);
 
 function tokenize(value: string): string[] {

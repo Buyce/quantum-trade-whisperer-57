@@ -117,7 +117,6 @@ const TOOL_ROWS: [string, string, "read" | "write"][] = [
   ],
 ];
 
-
 function useMcpUrl() {
   const [url, setUrl] = useState("");
   useEffect(() => {
@@ -274,8 +273,8 @@ function ConnectPage() {
           <p className="mt-3 text-xs text-muted-foreground">
             Off-limits to assistants by design: webhook credentials, other users' data, admin
             intelligence, and deleting your account or journal. Data-set reads are gated to the
-            account owner's own sign-in and strip account-identifying columns in the database
-            itself — there is no write path through them.
+            account owner's own sign-in and strip account-identifying columns in the database itself
+            — there is no write path through them.
           </p>
         </section>
 
