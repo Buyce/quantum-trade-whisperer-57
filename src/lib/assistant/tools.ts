@@ -213,8 +213,34 @@ export function buildAssistantTools(supabase: unknown, userId: string) {
       inputSchema: z.object({}),
       execute: async () => unwrap(await runGetShadowComparison(supabase)),
     }),
+    list_broker_trades: tool({
+      description:
+        "The user's BROKER-CONFIRMED trades from broker evidence — the authority on what actually happened: instrument, direction, volume, entry/exit price and time, commission, swap, gross profit, R against plan and against actual risk, stop provenance, slippage and the setup grade. Use this FIRST for any question about the user's trades, results or best/worst trade. Set order_by: 'r_vs_actual_risk' for best trades. An empty result means nothing matched THIS query, never that the user has no trades.",
+      inputSchema: z.object({
+        state: z.enum(["closed", "open", "all"]).nullable().optional(),
+        instrument: z.string().nullable().optional(),
+        days: z.number().int().nullable().optional().describe("Look-back on the broker exit time."),
+        from: z.string().nullable().optional(),
+        to: z.string().nullable().optional(),
+        order_by: z.enum(["exit_at", "r_vs_actual_risk"]).nullable().optional(),
+        limit: z.number().int().nullable().optional().describe("Max rows (1-100, default 20)."),
+      }),
+      execute: async (args) =>
+        unwrap(
+          await runListBrokerTrades(supabase, {
+            state: args.state ?? undefined,
+            instrument: args.instrument ?? undefined,
+            days: args.days ?? undefined,
+            from: args.from ?? undefined,
+            to: args.to ?? undefined,
+            order_by: args.order_by ?? undefined,
+            limit: args.limit ?? undefined,
+          }),
+        ),
+    }),
     list_my_trades: tool({
-      description: "The user's logged trade decisions and outcomes with fill-price provenance.",
+      description:
+        "The user's SELF-REPORTED journal entries (hand-logged decisions and outcomes) with fill-price provenance. This is notes, not the broker record — it can be empty even when the user traded, so never report an empty journal as 'no trades'. Use list_broker_trades for what actually happened.",
       inputSchema: z.object({
         limit: z.number().nullable().optional().describe("Max rows (1-100, default 20)."),
       }),
