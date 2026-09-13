@@ -42,6 +42,7 @@ and is never updated retroactively.
 19. [EXECUTION.md](EXECUTION.md)
 20. [EXECUTION-QUALITY.md](EXECUTION-QUALITY.md) — drawdown brakes, execution-quality cooldowns and evidence-ranked cap ordering
 21. [MCP.md](MCP.md)
+22. [DATA-DICTIONARY.md](DATA-DICTIONARY.md) — the exportable datasets, what each row is, and how the team and an AI assistant read them (read-only)
 22. [SECURITY.md](SECURITY.md)
 23. [OPERATIONS.md](OPERATIONS.md)
 24. [TESTING.md](TESTING.md)
