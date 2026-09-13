@@ -91,7 +91,12 @@ const TOOL_ROWS: [string, string, "read" | "write"][] = [
   ],
   [
     "list_my_trades",
-    "Your journal entries, price-backed and price-missing, including who entered each self-reported price.",
+    "Your self-reported journal entries, price-backed and price-missing, including who entered each price. Notes only — it can be empty even when you traded.",
+    "read",
+  ],
+  [
+    "list_broker_trades",
+    "Your broker-confirmed trades: entry and exit prices and times, volume, costs and R against plan and actual risk. The authority on what actually happened, sortable by R for your best and worst trades.",
     "read",
   ],
   [

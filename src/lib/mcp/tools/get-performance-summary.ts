@@ -27,7 +27,7 @@ export type PerformanceWindowArgs = {
  * closure time when known, falling back to its record time — the fallback is
  * reported so the caller can never mistake it for a broker-confirmed close.
  */
-function resolveWindow(args: PerformanceWindowArgs): {
+export function resolveWindow(args: PerformanceWindowArgs): {
   fromMs: number | null;
   toMs: number | null;
   label: string;
@@ -42,10 +42,20 @@ function resolveWindow(args: PerformanceWindowArgs): {
   const explicitFrom = parse(args.from);
   const explicitTo = parse(args.to);
   if (args.from && explicitFrom === null) {
-    return { fromMs: null, toMs: null, label: "all time", invalid: `Unreadable 'from' date: ${args.from}` };
+    return {
+      fromMs: null,
+      toMs: null,
+      label: "all time",
+      invalid: `Unreadable 'from' date: ${args.from}`,
+    };
   }
   if (args.to && explicitTo === null) {
-    return { fromMs: null, toMs: null, label: "all time", invalid: `Unreadable 'to' date: ${args.to}` };
+    return {
+      fromMs: null,
+      toMs: null,
+      label: "all time",
+      invalid: `Unreadable 'to' date: ${args.to}`,
+    };
   }
 
   if (explicitFrom !== null || explicitTo !== null) {
@@ -62,7 +72,12 @@ function resolveWindow(args: PerformanceWindowArgs): {
 
   if (args.days != null) {
     if (!Number.isFinite(args.days) || args.days <= 0) {
-      return { fromMs: null, toMs: null, label: "all time", invalid: "'days' must be a positive number." };
+      return {
+        fromMs: null,
+        toMs: null,
+        label: "all time",
+        invalid: "'days' must be a positive number.",
+      };
     }
     const days = Math.min(Math.floor(args.days), 3650);
     const toMs = Date.now();
@@ -82,10 +97,7 @@ function resolveWindow(args: PerformanceWindowArgs): {
  * are counted separately and never pooled with canonical R.
  */
 /** Shared body — the MCP handler and the in-app assistant call this same code. */
-export async function runGetPerformanceSummary(
-  supabase: unknown,
-  args: PerformanceWindowArgs,
-) {
+export async function runGetPerformanceSummary(supabase: unknown, args: PerformanceWindowArgs) {
   const basis = (args.r_basis ?? "actual_risk") as RBasis;
   const window = resolveWindow(args);
   if (window.invalid) {
@@ -94,9 +106,7 @@ export async function runGetPerformanceSummary(
   const db = supabase as ReturnType<typeof supabaseForUser>;
   const { data, error } = await db
     .from("executed_trades")
-    .select(
-      "outcome, r_vs_plan, r_vs_actual_risk, realized_r_multiple, actual_exit_at, created_at",
-    )
+    .select("outcome, r_vs_plan, r_vs_actual_risk, realized_r_multiple, actual_exit_at, created_at")
     .in("outcome", ["win", "loss", "breakeven"]);
 
   if (error) return { content: [{ type: "text" as const, text: error.message }], isError: true };
@@ -137,54 +147,104 @@ export async function runGetPerformanceSummary(
     }
   }
 
-  const windowFacts = {
-    window: window.label,
-    trades_outside_window: outsideWindow,
-    trades_dated_by_record_time: datedByRecordTime,
-  };
-
-  if (rows.length === 0) {
-    const payload = {
-      sample_size: 0,
-      r_basis: basis,
-      legacy_only_trades: legacyOnly,
-      ...windowFacts,
-      note:
-        legacyOnly > 0
-          ? `No trades in ${window.label} carry a canonical ${basis} R. ${legacyOnly} trade(s) hold frozen legacy R of mixed basis, which is never pooled with canonical R. An empty result means nothing matched THIS window — it is not a statement about the scanner.`
-          : `No resolved trades with a canonical R in ${window.label}. An empty result means nothing matched THIS window — it is not a statement about the scanner.`,
-    };
-    return {
-      content: [{ type: "text" as const, text: JSON.stringify(payload) }],
-      structuredContent: payload,
-    };
+  // [INVARIANT] Broker-confirmed closed trades are the AUTHORITY on what
+  // actually happened. The journal above is self-reported and can be empty even
+  // when the user traded, so an empty journal must never be reported as "no
+  // trades" — the broker cohort is always read as well, and the two cohorts are
+  // reported separately so their provenance can never be confused.
+  const brokerRows: Array<{ outcome: string; r: number }> = [];
+  let brokerOutsideWindow = 0;
+  let brokerUnavailableR = 0;
+  const { data: brokerData, error: brokerError } = await db
+    .from("broker_trade_evidence")
+    .select("state, exit_at, r_vs_plan, r_vs_actual_risk, gross_profit, commission, swap")
+    .eq("state", "closed");
+  if (brokerError) {
+    return { content: [{ type: "text" as const, text: brokerError.message }], isError: true };
+  }
+  for (const row of (brokerData ?? []) as Array<{
+    exit_at: string | null;
+    r_vs_plan: number | null;
+    r_vs_actual_risk: number | null;
+    gross_profit: number | null;
+    commission: number | null;
+    swap: number | null;
+  }>) {
+    const exitMs = row.exit_at ? Date.parse(row.exit_at) : NaN;
+    if (window.fromMs !== null || window.toMs !== null) {
+      if (!Number.isFinite(exitMs)) {
+        brokerOutsideWindow += 1;
+        continue;
+      }
+      if (window.fromMs !== null && exitMs < window.fromMs) {
+        brokerOutsideWindow += 1;
+        continue;
+      }
+      if (window.toMs !== null && exitMs > window.toMs) {
+        brokerOutsideWindow += 1;
+        continue;
+      }
+    }
+    const r = selectR({ r_vs_plan: row.r_vs_plan, r_vs_actual_risk: row.r_vs_actual_risk }, basis);
+    if (r === null) {
+      brokerUnavailableR += 1;
+      continue;
+    }
+    const net = (row.gross_profit ?? 0) + (row.commission ?? 0) + (row.swap ?? 0);
+    const outcome =
+      r > 0 ? "win" : r < 0 ? "loss" : net === 0 ? "breakeven" : net > 0 ? "win" : "loss";
+    brokerRows.push({ outcome, r });
   }
 
-  const wins = rows.filter((r) => r.outcome === "win");
-  const losses = rows.filter((r) => r.outcome === "loss");
   const avg = (list: Array<{ r: number }>) =>
     list.length === 0 ? 0 : list.reduce((s, r) => s + r.r, 0) / list.length;
 
-  const winRate = wins.length / rows.length;
-  const avgWin = avg(wins);
-  const avgLoss = Math.abs(avg(losses));
-  const expectancy = winRate * avgWin - (1 - winRate) * avgLoss;
+  const summarize = (list: Array<{ outcome: string; r: number }>) => {
+    if (list.length === 0) return { sample_size: 0 };
+    const wins = list.filter((r) => r.outcome === "win");
+    const losses = list.filter((r) => r.outcome === "loss");
+    const winRate = wins.length / list.length;
+    const avgWin = avg(wins);
+    const avgLoss = Math.abs(avg(losses));
+    return {
+      sample_size: list.length,
+      wins: wins.length,
+      losses: losses.length,
+      win_rate: Number((winRate * 100).toFixed(1)),
+      average_win_r: Number(avgWin.toFixed(2)),
+      average_loss_r: Number(avgLoss.toFixed(2)),
+      expectancy_r: Number((winRate * avgWin - (1 - winRate) * avgLoss).toFixed(2)),
+      total_r: Number(list.reduce((s, r) => s + r.r, 0).toFixed(2)),
+    };
+  };
 
-  const summary = {
-    sample_size: rows.length,
+  const combined = [...brokerRows, ...rows];
+  const payload = {
     r_basis: basis,
-    legacy_only_trades: legacyOnly,
-    ...windowFacts,
-    win_rate: Number((winRate * 100).toFixed(1)),
-    average_win_r: Number(avgWin.toFixed(2)),
-    average_loss_r: Number(avgLoss.toFixed(2)),
-    expectancy_r: Number(expectancy.toFixed(2)),
-    note: `All R figures are on the '${basis}' basis, covering ${window.label}. Descriptive only: this is a small dependent sample, not a validated edge estimate.`,
+    window: window.label,
+    broker_confirmed: {
+      ...summarize(brokerRows),
+      provenance: "broker-derived (broker evidence: broker-reported fills and closes)",
+      trades_outside_window: brokerOutsideWindow,
+      trades_without_canonical_r: brokerUnavailableR,
+    },
+    journal_self_reported: {
+      ...summarize(rows),
+      provenance: "user-entered (self-reported journal; not broker verified)",
+      legacy_only_trades: legacyOnly,
+      trades_outside_window: outsideWindow,
+      trades_dated_by_record_time: datedByRecordTime,
+    },
+    combined: summarize(combined),
+    note:
+      combined.length === 0
+        ? `No broker-confirmed closed trades and no canonical-R journal trades in ${window.label}. That is a statement about THIS window only — never about the scanner, and never a claim that the user has never traded. Try a wider window, or list_broker_trades without a window, before concluding anything.`
+        : `All R figures are on the '${basis}' basis, covering ${window.label}. Broker-confirmed and self-reported cohorts are reported separately and must keep their provenance labels when quoted. Descriptive only: a small dependent sample, not a validated edge estimate.`,
   };
 
   return {
-    content: [{ type: "text" as const, text: JSON.stringify(summary) }],
-    structuredContent: summary,
+    content: [{ type: "text" as const, text: JSON.stringify(payload) }],
+    structuredContent: payload,
   };
 }
 
@@ -192,7 +252,7 @@ export default defineTool({
   name: "get_performance_summary",
   title: "Get performance summary",
   description:
-    "Compute the signed-in user's trading performance from their logged trades: sample size, win rate, average win and loss in R, and expectancy in R, optionally restricted to a UTC date window. Choose the R basis explicitly: 'actual_risk' (return against the risk actually taken) or 'plan' (return against the published plan risk). The two bases are never averaged together. Frozen legacy trades are reported separately.",
+    "Compute the signed-in user's trading performance from BOTH their broker-confirmed closed trades (the authority) and their self-reported journal, reported as separate cohorts plus a combined view: sample size, win rate, average win and loss in R, and expectancy in R, optionally restricted to a UTC date window. Choose the R basis explicitly: 'actual_risk' (return against the risk actually taken) or 'plan' (return against the published plan risk). The two bases are never averaged together. Frozen legacy trades are reported separately.",
   inputSchema: {
     r_basis: z
       .enum(["actual_risk", "plan"])
