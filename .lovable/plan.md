@@ -1,4 +1,16 @@
-# Assistant everywhere: strategy knowledge + chat widget on Home and Feed
+# Assistant everywhere: fix performance answers, strategy knowledge, chat widget
+
+## Bug fix first: performance questions fail
+
+The screenshot shows the assistant answering "I was unable to retrieve your
+performance summary." Root cause is confirmed in code: `get_performance_summary`
+has no time input (only an R-basis option), so a question like "how has my
+performance been for the past 2 weeks" gives the model no way to filter by
+date and the tool call fails. Fix: add an explicit date window — a number of
+days, or a from/to pair, applied to the trade closure time (`actual_exit_at`,
+UTC) — in the shared body used by both the MCP tool and the assistant, so both
+surfaces accept the same question and report the window they used. Time-window
+questions then return real numbers instead of an apology.
 
 ## Where things already stand
 
