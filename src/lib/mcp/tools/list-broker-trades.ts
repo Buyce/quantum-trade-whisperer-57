@@ -69,8 +69,13 @@ export async function runListBrokerTrades(supabase: unknown, args: BrokerTradesA
   const query = applyFilters(db.from("broker_trade_evidence").select(COLUMNS) as never);
   const { data, error } = await (
     query as unknown as {
-      order: (c: string, o: { ascending: boolean; nullsFirst: boolean }) => {
-        limit: (n: number) => Promise<{ data: unknown[] | null; error: { message: string } | null }>;
+      order: (
+        c: string,
+        o: { ascending: boolean; nullsFirst: boolean },
+      ) => {
+        limit: (
+          n: number,
+        ) => Promise<{ data: unknown[] | null; error: { message: string } | null }>;
       };
     }
   )

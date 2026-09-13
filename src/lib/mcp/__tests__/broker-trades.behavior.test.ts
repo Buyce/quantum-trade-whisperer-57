@@ -57,8 +57,12 @@ const BROKER: Row[] = [
 function fakeClient(tables: Record<string, Row[]>) {
   function build(table: string) {
     let rows = (tables[table] ?? []).map((r) => ({ ...r }));
+    let countHead = false;
     const api = {
-      select: () => api,
+      select: (_cols?: string, opts?: { count?: string; head?: boolean }) => {
+        if (opts?.head) countHead = true;
+        return api;
+      },
       eq(column: string, value: unknown) {
         rows = rows.filter((r) => r[column] === value);
         return api;
@@ -99,8 +103,12 @@ function fakeClient(tables: Record<string, Row[]>) {
       limit(n: number) {
         return Promise.resolve({ data: rows.slice(0, n), error: null });
       },
-      then(resolve: (v: { data: Row[]; error: null }) => unknown) {
-        return Promise.resolve({ data: rows, error: null }).then(resolve);
+      then(resolve: (v: { data: Row[] | null; count: number | null; error: null }) => unknown) {
+        return Promise.resolve(
+          countHead
+            ? { data: null, count: rows.length, error: null }
+            : { data: rows, count: rows.length, error: null },
+        ).then(resolve);
       },
     };
     return api;
@@ -120,8 +128,13 @@ describe("list_broker_trades", () => {
 
   it("[UNIT] windows on the broker exit time", async () => {
     const result = await runListBrokerTrades(client(), { days: 14, state: "closed" });
-    const payload = result.structuredContent as { count: number; window: string };
+    const payload = result.structuredContent as {
+      count: number;
+      total_matching: number | null;
+      window: string;
+    };
     expect(payload.count).toBe(2);
+    expect(payload.total_matching).toBe(2);
     expect(payload.window).toMatch(/last 14 day/);
   });
 
