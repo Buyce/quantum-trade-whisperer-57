@@ -110,8 +110,14 @@ copied the signal geometry and while any delivery is pending, claimed, sent or
 ambiguous. The system-generated signal and market-context row is then copied in
 the same transaction to the immutable, service-only `signal_retention_archive`.
 The archive contains no user identifiers and is evidence storage, not automatic
-permission to train or promote a model. User decisions and interaction telemetry
-are deliberately not copied into it.
+permission to train or promote a model.
+
+Nothing is deleted unless its archive row exists, and learning rows are never
+deleted: replay outcomes, research candidates, model observations and
+sizing-divergence rows keep an `archived_signal_id` that resolves in the archive.
+Archived setups stay exportable as the `archived_signals` training dataset.
+Admin → Intelligence → **Data retention health** shows the last run of each
+clean-up job with the database's own outcome, so a failing clean-up is visible.
 
 ### Health signals
 

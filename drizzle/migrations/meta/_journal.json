@@ -8,6 +8,20 @@
       "when": 1789286953998,
       "tag": "0000_training_dataset_reads_and_comments",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1789290260110,
+      "tag": "0001_signal_retention_archive_and_lineage",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789290339228,
+      "tag": "0002_archived_signals_dataset",
+      "breakpoints": true
     }
   ]
 }

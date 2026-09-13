@@ -3075,6 +3075,7 @@ export type Database = {
       }
       model_observations: {
         Row: {
+          archived_signal_id: string | null
           candle_as_of: string | null
           candle_policy_version: number | null
           candle_source: string | null
@@ -3105,6 +3106,7 @@ export type Database = {
           suppression_reason: string | null
         }
         Insert: {
+          archived_signal_id?: string | null
           candle_as_of?: string | null
           candle_policy_version?: number | null
           candle_source?: string | null
@@ -3135,6 +3137,7 @@ export type Database = {
           suppression_reason?: string | null
         }
         Update: {
+          archived_signal_id?: string | null
           candle_as_of?: string | null
           candle_policy_version?: number | null
           candle_source?: string | null
@@ -4034,6 +4037,7 @@ export type Database = {
       }
       research_candidates: {
         Row: {
+          archived_signal_id: string | null
           atr: number | null
           candle_as_of: string | null
           candle_policy_version: number | null
@@ -4101,6 +4105,7 @@ export type Database = {
           volatility_index: number | null
         }
         Insert: {
+          archived_signal_id?: string | null
           atr?: number | null
           candle_as_of?: string | null
           candle_policy_version?: number | null
@@ -4168,6 +4173,7 @@ export type Database = {
           volatility_index?: number | null
         }
         Update: {
+          archived_signal_id?: string | null
           atr?: number | null
           candle_as_of?: string | null
           candle_policy_version?: number | null
@@ -4933,6 +4939,7 @@ export type Database = {
           adjudication: string | null
           ambiguous_bar_target_touch: number | null
           ambiguous_bars: number
+          archived_signal_id: string | null
           atr: number | null
           bars_replayed: number
           bars_to_outcome: number | null
@@ -5005,6 +5012,7 @@ export type Database = {
           adjudication?: string | null
           ambiguous_bar_target_touch?: number | null
           ambiguous_bars?: number
+          archived_signal_id?: string | null
           atr?: number | null
           bars_replayed?: number
           bars_to_outcome?: number | null
@@ -5077,6 +5085,7 @@ export type Database = {
           adjudication?: string | null
           ambiguous_bar_target_touch?: number | null
           ambiguous_bars?: number
+          archived_signal_id?: string | null
           atr?: number | null
           bars_replayed?: number
           bars_to_outcome?: number | null
@@ -5206,6 +5215,48 @@ export type Database = {
           },
         ]
       }
+      signal_retention_archive: {
+        Row: {
+          archived_at: string
+          detected_at: string | null
+          direction: string | null
+          grade: string | null
+          instrument: string | null
+          market_context_snapshot: Json | null
+          model_version: number | null
+          related_snapshots: Json | null
+          shadow_execution_id: string | null
+          signal_id: string
+          signal_snapshot: Json
+        }
+        Insert: {
+          archived_at?: string
+          detected_at?: string | null
+          direction?: string | null
+          grade?: string | null
+          instrument?: string | null
+          market_context_snapshot?: Json | null
+          model_version?: number | null
+          related_snapshots?: Json | null
+          shadow_execution_id?: string | null
+          signal_id: string
+          signal_snapshot: Json
+        }
+        Update: {
+          archived_at?: string
+          detected_at?: string | null
+          direction?: string | null
+          grade?: string | null
+          instrument?: string | null
+          market_context_snapshot?: Json | null
+          model_version?: number | null
+          related_snapshots?: Json | null
+          shadow_execution_id?: string | null
+          signal_id?: string
+          signal_snapshot?: Json
+        }
+        Relationships: []
+      }
       signal_user_telemetry: {
         Row: {
           created_at: string
@@ -5240,6 +5291,7 @@ export type Database = {
       }
       sizing_divergence_log: {
         Row: {
+          archived_signal_id: string | null
           authoritative_model: number
           created_at: string
           id: string
@@ -5256,6 +5308,7 @@ export type Database = {
           v2_reason: string | null
         }
         Insert: {
+          archived_signal_id?: string | null
           authoritative_model: number
           created_at?: string
           id?: string
@@ -5272,6 +5325,7 @@ export type Database = {
           v2_reason?: string | null
         }
         Update: {
+          archived_signal_id?: string | null
           authoritative_model?: number
           created_at?: string
           id?: string
@@ -6230,6 +6284,7 @@ export type Database = {
         Args: { _limit?: number; _offset?: number }
         Returns: Json
       }
+      get_admin_cleanup_health: { Args: never; Returns: Json }
       get_admin_commissioning: { Args: never; Returns: Json }
       get_admin_engine_status: { Args: never; Returns: Json }
       get_admin_experiments: { Args: never; Returns: Json }

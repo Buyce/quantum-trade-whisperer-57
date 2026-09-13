@@ -607,6 +607,7 @@
               "type": "string",
               "enum": [
                 "signals",
+                "archived_signals",
                 "shadow_replay",
                 "research_candidates",
                 "broker_trades",
