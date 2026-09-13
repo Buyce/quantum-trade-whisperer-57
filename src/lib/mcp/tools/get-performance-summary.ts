@@ -176,11 +176,7 @@ export async function runGetPerformanceSummary(
       }
     }
     const r = selectR(
-      {
-        r_vs_plan: row.r_vs_plan,
-        r_vs_actual_risk: row.r_vs_actual_risk,
-        realized_r_multiple: null,
-      },
+      { r_vs_plan: row.r_vs_plan, r_vs_actual_risk: row.r_vs_actual_risk },
       basis,
     );
     if (r === null) {
@@ -248,7 +244,7 @@ export default defineTool({
   name: "get_performance_summary",
   title: "Get performance summary",
   description:
-    "Compute the signed-in user's trading performance from their logged trades: sample size, win rate, average win and loss in R, and expectancy in R, optionally restricted to a UTC date window. Choose the R basis explicitly: 'actual_risk' (return against the risk actually taken) or 'plan' (return against the published plan risk). The two bases are never averaged together. Frozen legacy trades are reported separately.",
+    "Compute the signed-in user's trading performance from BOTH their broker-confirmed closed trades (the authority) and their self-reported journal, reported as separate cohorts plus a combined view: sample size, win rate, average win and loss in R, and expectancy in R, optionally restricted to a UTC date window. Choose the R basis explicitly: 'actual_risk' (return against the risk actually taken) or 'plan' (return against the published plan risk). The two bases are never averaged together. Frozen legacy trades are reported separately.",
   inputSchema: {
     r_basis: z
       .enum(["actual_risk", "plan"])

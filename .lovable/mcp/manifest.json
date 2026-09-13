@@ -12,7 +12,7 @@
   "mcp": {
     "server": {
       "name": "p-trades-hub",
-      "version": "0.5.0",
+      "version": "0.6.0",
       "title": "P-Trades Hub"
     },
     "tools": [
@@ -569,9 +569,67 @@
         "outputSchema": null
       },
       {
+        "name": "list_broker_trades",
+        "title": "List my broker-confirmed trades",
+        "description": "The signed-in user's BROKER-CONFIRMED trades (from broker evidence, not the self-reported journal): instrument, direction, volume, entry and exit price and time, commission, swap, gross profit, R against plan and against actual risk, stop provenance, slippage and the setup grade the trade came from. This is the authority on what actually happened; the journal can be empty even when the user traded. Filterable by state and instrument, windowed on the broker exit time, and sortable by exit time or by R so 'my best trade' is answered directly.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "state": {
+              "description": "Trade state at the broker. Default: any state.",
+              "type": "string",
+              "enum": [
+                "closed",
+                "open",
+                "all"
+              ]
+            },
+            "instrument": {
+              "description": "Instrument filter, e.g. XAUUSD.",
+              "type": "string"
+            },
+            "days": {
+              "description": "Look-back in days on the exit time.",
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            "from": {
+              "description": "ISO UTC start of the window. Overrides days.",
+              "type": "string"
+            },
+            "to": {
+              "description": "ISO UTC end of the window. Defaults to now.",
+              "type": "string"
+            },
+            "order_by": {
+              "description": "Sort key, descending. Use r_vs_actual_risk for best/worst trades.",
+              "type": "string",
+              "enum": [
+                "exit_at",
+                "r_vs_actual_risk"
+              ]
+            },
+            "limit": {
+              "description": "Max rows (1-100, default 20).",
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
         "name": "get_performance_summary",
         "title": "Get performance summary",
-        "description": "Compute the signed-in user's trading performance from their logged trades: sample size, win rate, average win and loss in R, and expectancy in R, optionally restricted to a UTC date window. Choose the R basis explicitly: 'actual_risk' (return against the risk actually taken) or 'plan' (return against the published plan risk). The two bases are never averaged together. Frozen legacy trades are reported separately.",
+        "description": "Compute the signed-in user's trading performance from BOTH their broker-confirmed closed trades (the authority) and their self-reported journal, reported as separate cohorts plus a combined view: sample size, win rate, average win and loss in R, and expectancy in R, optionally restricted to a UTC date window. Choose the R basis explicitly: 'actual_risk' (return against the risk actually taken) or 'plan' (return against the published plan risk). The two bases are never averaged together. Frozen legacy trades are reported separately.",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": true,
