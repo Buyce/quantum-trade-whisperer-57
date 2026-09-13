@@ -112,7 +112,7 @@ export const Route = createFileRoute("/api/chat")({
             model,
             system,
             messages: await convertToModelMessages(body.messages),
-            tools,
+            tools: modelTools as typeof tools,
             stopWhen: stepCountIs(10),
             abortSignal: request.signal,
           });

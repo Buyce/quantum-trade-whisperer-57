@@ -21,6 +21,7 @@
   "dependencies": {
     "@ai-sdk/google": "^4.0.69",
     "@ai-sdk/openai": "^4.0.66",
+    "@ai-sdk/openai-compatible": "^3.0.48",
     "@ai-sdk/react": "^4.0.102",
     "@block65/webcrypto-web-push": "^1.0.2",
     "@hookform/resolvers": "^5.2.2",
