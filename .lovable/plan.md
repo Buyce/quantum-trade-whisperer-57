@@ -1,0 +1,78 @@
+# Assistant everywhere: strategy knowledge + chat widget on Home and Feed
+
+## Where things already stand
+
+The assistant is live and already reads real P-Trades data through the same shared
+bodies the MCP tools use, under the signed-in user's own permissions: setups,
+scanner and market status, automatic-order decisions, risk holds, settings,
+sizing, replay intelligence, shadow comparison, trades and performance. Live
+worldwide research runs on your Google key with sources and dates.
+
+Two things are missing for what you asked:
+
+1. It has no grounded knowledge of **how P-Trades strategies work** — grading,
+   eligibility, R-maths, brakes, gates, lifecycle. Today it can only describe
+   numbers, not explain the method, so those answers would be improvised.
+2. It only exists on its own page. There is no way to ask a question while
+   looking at the feed.
+
+## What gets built
+
+### 1. Strategy knowledge the assistant can quote
+
+Add a read-only knowledge tool that serves the project's own written
+documentation (grading, eligibility and caps, risk sizing, R and journal
+maths, brakes and gates, execution semantics, instrument lifecycle, market
+context, research and shadow replay, glossary). The assistant searches and
+quotes those documents by name instead of inventing an explanation, so
+"how does your A+ grade work?" or "what does resting mean?" is answered from
+the actual specification. Nothing new is written or generated — it is the same
+documentation the team maintains.
+
+### 2. Chat widget on Home and the Signal Feed
+
+- Extract the existing conversation into one shared chat panel so the widget and
+  the full Assistant page always behave identically (same streaming, same tools,
+  same settings-approval prompt).
+- Add a floating "Ask" button, bottom-right, that opens the chat in a panel over
+  the current page — a sheet on phones, a docked panel on desktop.
+- Mount it on the signed-in landing page and on the Signal Feed. It keeps one
+  conversation so context carries across pages, with a link to open the full
+  Assistant page.
+- When a setup is on screen, opening the widget from a setup card seeds the
+  question with that setup so the assistant can pull its real record.
+- The public marketing home stays as it is; the widget requires a signed-in
+  session, so visitors there get a link to sign in instead.
+
+### 3. Live feed awareness
+
+The assistant is told, in its standing instructions, to check scanner and market
+status before any statement about what the engine is doing, and to keep the
+existing rule that a filtered empty result is never a "No Trade" claim.
+
+## Rules kept intact
+
+- No fabricated prices, fills, counts or rates; every number keeps the
+  provenance label its source gave it.
+- Read-only against the broker: no placing, cancelling or changing orders.
+- Only the signed-in user's own data, under existing access rules.
+- Settings changes still need explicit confirmation, and risk-money changes
+  still need the extra confirmation step with warnings repeated verbatim.
+
+## Technical notes
+
+- New `src/lib/assistant/knowledge.ts` embedding curated excerpts from `docs/*`
+  at build time (no filesystem reads at runtime — the server runs on the edge),
+  exposed as a `search_platform_docs` tool in `src/lib/assistant/tools.ts`.
+- New `src/components/assistant/AssistantPanel.tsx` (shared transcript +
+  composer, extracted from `assistant.$threadId.tsx`) and
+  `AssistantWidget.tsx` (floating trigger + `Sheet`), reusing the installed AI
+  Elements primitives. `assistant.$threadId.tsx` re-renders the same panel.
+- Widget resolves or creates a thread via the existing
+  `threads.functions.ts` server functions and remembers the active thread id per
+  browser, keyed so messages cannot bleed between threads.
+- Mounted in `src/routes/_authenticated/feed.tsx` and the signed-in landing
+  route; not in `AppShell`, so it stays off Settings/Admin screens.
+- Prompt additions in `src/lib/assistant/system-prompt.ts`.
+- Tests: knowledge-tool retrieval, widget thread resolution, and a docs-contract
+  check that the referenced documents exist. Then typecheck, Vitest, build.
