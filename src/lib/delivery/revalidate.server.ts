@@ -15,6 +15,7 @@ import {
   REVALIDATION_QUOTE_MAX_AGE_MS,
   bridgeSupportsVerifiedQuantity,
   buildBridgeOrder,
+  isDemoAccountMode,
   isExecutionPolicy,
   isManagedPolicy,
   resolveExitPolicy,
