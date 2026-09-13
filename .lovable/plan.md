@@ -68,6 +68,36 @@ documentation the team maintains.
   are engineering rules — the assistant explains them, it does not improvise
   new ones from web content.
 
+### 4. Platform-wide knowledge, with money kept private
+
+The assistant gets access to the whole platform's learning and performance
+record, not just the asking user's own rows, so it can compare and analyse
+properly:
+
+- **Platform-wide, for everyone:** engine and learning evidence — scanner
+  health, published setups, grade and instrument outcome rates, replay and
+  shadow results, research-candidate funnel, execution quality, fill rates,
+  expected-R by cohort, instrument lifecycle stages. This is the material that
+  answers "does this setup type actually work" and "how do my results compare
+  to the platform".
+- **Aggregated only, never itemised:** any platform-wide figure is returned as
+  totals and rates across accounts, with a minimum group size so a single
+  account cannot be singled out.
+- **Never disclosed to another user:** account equity, balance, profit or loss
+  in money, deposits, position sizes in lots or currency, broker account names
+  or numbers, emails, user ids, individual trades or orders belonging to
+  someone else. Comparisons are expressed in R-multiples and percentages —
+  never another person's money.
+- **Own account, in full:** each user keeps complete detail of their own
+  setups, orders, trades, settings, holds and equity, exactly as today.
+- **Owner:** the owner keeps the existing platform-wide detail available in
+  Admin Intelligence, unchanged.
+
+This is enforced in the database, not just in the prompt: platform-wide reads
+go through dedicated aggregate-only functions that never return per-user money
+columns or identifiers, so no wording in a conversation can talk the assistant
+into leaking another account.
+
 ## Rules kept intact
 
 - No fabricated prices, fills, counts or rates; every number keeps the
