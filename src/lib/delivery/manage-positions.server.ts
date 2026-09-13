@@ -132,7 +132,9 @@ export async function manageDemoPositions(
       "id, user_id, signal_id, connected_account_id, account_mode, execution_policy, broker_position_id, broker_symbol",
     )
     .in("execution_policy", MANAGED_POLICIES)
-    .eq("account_mode", "demo")
+    // Demo money is recorded as the account's ARMED mode (`demo_auto`), so both
+    // spellings are accepted; nothing outside demo money is ever selected.
+    .in("account_mode", DEMO_ACCOUNT_MODES as unknown as string[])
     .not("broker_position_id", "is", null)
     .order("id", { ascending: false })
     .limit(maxPositions * 4);
