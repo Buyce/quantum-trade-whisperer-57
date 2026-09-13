@@ -11,8 +11,8 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ptradesMark from "@/assets/ptrades-mark.png.asset.json";
 
-/** The two panes of this route. `signup` is the only alternative mode. */
-type AuthMode = "signin" | "signup";
+/** The panes of this route. */
+type AuthMode = "signin" | "signup" | "forgot";
 
 const COPY: Record<AuthMode, { title: string; heading: string; description: string }> = {
   signin: {
@@ -26,11 +26,17 @@ const COPY: Record<AuthMode, { title: string; heading: string; description: stri
     description:
       "Create a free P-Trades Hub account to open the quantitative forex scanner terminal.",
   },
+  forgot: {
+    title: "Reset your password — P-Trades Hub",
+    heading: "Reset your password",
+    description: "Request a password reset link for your P-Trades Hub terminal account.",
+  },
 };
 
 export const Route = createFileRoute("/auth")({
   head: ({ match }) => {
-    const mode: AuthMode = match.search.mode === "signup" ? "signup" : "signin";
+    const raw = match.search.mode;
+    const mode: AuthMode = raw === "signup" || raw === "forgot" ? raw : "signin";
     const copy = COPY[mode];
     return {
       meta: [
@@ -48,13 +54,16 @@ export const Route = createFileRoute("/auth")({
   },
   /**
    * `next` is a post-login redirect; `mode` selects which pane opens. Anything
-   * other than the literal `signup` collapses to sign-in, so a hand-edited or
+   * other than a known pane name collapses to sign-in, so a hand-edited or
    * stale URL can never land the user on an unexpected pane.
    */
-  validateSearch: (s: Record<string, unknown>): { next?: string; mode?: "signup" } => ({
+  validateSearch: (s: Record<string, unknown>): { next?: string; mode?: "signup" | "forgot" } => ({
     ...(typeof s["next"] === "string" ? { next: s["next"] } : {}),
-    ...(s["mode"] === "signup" ? { mode: "signup" as const } : {}),
+    ...(s["mode"] === "signup" || s["mode"] === "forgot"
+      ? { mode: s["mode"] as "signup" | "forgot" }
+      : {}),
   }),
+
   component: AuthPage,
 });
 
@@ -73,7 +82,9 @@ function AuthPage() {
   const navigate = useNavigate();
   const { next, mode } = Route.useSearch();
   const nextPath = safeNext(next);
-  const initialMode: AuthMode = mode === "signup" ? "signup" : "signin";
+  const initialMode: AuthMode =
+    mode === "signup" || mode === "forgot" ? (mode as AuthMode) : "signin";
+
   // Controlled so a direct link, a refresh and an in-page tab click all agree,
   // while the URL keeps carrying the chosen pane for the confirmation return.
   const [pane, setPane] = useState<AuthMode>(initialMode);
@@ -90,6 +101,7 @@ function AuthPage() {
   const [displayName, setDisplayName] = useState("");
   const [busy, setBusy] = useState(false);
   const [awaitingConfirm, setAwaitingConfirm] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
 
   useEffect(() => {
     void supabase.auth.getSession().then(({ data }) => {
@@ -111,6 +123,22 @@ function AuthPage() {
       return;
     }
     afterAuth();
+  }
+
+  async function sendReset() {
+    const parsed = z.string().trim().email().safeParse(email);
+    if (!parsed.success) {
+      toast.error("Enter a valid email address");
+      return;
+    }
+    setBusy(true);
+    // The outcome is deliberately not reported back: whether an address has an
+    // account is not something this screen may reveal.
+    await supabase.auth.resetPasswordForEmail(parsed.data, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    setBusy(false);
+    setResetSent(true);
   }
 
   async function signUp() {
@@ -182,7 +210,47 @@ function AuthPage() {
             </h1>
           </CardHeader>
           <CardContent>
-            {awaitingConfirm ? (
+            {pane === "forgot" ? (
+              <div className="space-y-4">
+                {resetSent ? (
+                  <div className="space-y-3 text-sm">
+                    <p className="text-foreground">Check your email.</p>
+                    <p className="text-muted-foreground">
+                      If <span className="num">{email}</span> has an account, a reset link is on its
+                      way. The link can be used once and expires after a short time.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-xs text-muted-foreground">
+                      Enter the email address on your account and we&apos;ll send you a link to
+                      choose a new password.
+                    </p>
+                    <Field
+                      label="Email"
+                      value={email}
+                      onChange={setEmail}
+                      type="email"
+                      autoComplete="email"
+                    />
+                    <Button className="w-full" disabled={busy} onClick={() => void sendReset()}>
+                      Send reset link
+                    </Button>
+                  </>
+                )}
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => {
+                    setResetSent(false);
+                    setPane("signin");
+                    void navigate({ to: "/auth", search: {}, replace: true });
+                  }}
+                >
+                  Back to sign in
+                </Button>
+              </div>
+            ) : awaitingConfirm ? (
               <div className="space-y-3 text-sm">
                 <p className="text-foreground">Check your email to confirm your account.</p>
                 <p className="text-muted-foreground">
@@ -228,6 +296,16 @@ function AuthPage() {
                   <Button className="w-full" disabled={busy} onClick={() => void signIn()}>
                     Sign in
                   </Button>
+                  <button
+                    type="button"
+                    className="w-full text-center text-xs text-muted-foreground underline-offset-4 hover:underline"
+                    onClick={() => {
+                      setResetSent(false);
+                      setPane("forgot");
+                    }}
+                  >
+                    Forgot your password?
+                  </button>
                 </TabsContent>
 
                 <TabsContent value="signup" className="mt-4 space-y-4">
