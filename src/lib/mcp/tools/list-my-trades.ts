@@ -2,6 +2,31 @@ import { defineTool } from "@lovable.dev/mcp-js";
 import { z } from "zod";
 import { supabaseForUser } from "../supabase";
 
+/** Shared body — the MCP handler and the in-app assistant call this same code. */
+export async function runListMyTrades(supabase: unknown, args: { limit?: number | undefined }) {
+  const db = supabase as ReturnType<typeof supabaseForUser>;
+  const cap = Math.min(Math.max(args.limit ?? 20, 1), 100);
+  const { data, error } = await db
+    .from("executed_trades")
+    .select(
+      "id, signal_id, user_decision, outcome, realized_r_multiple, derived_r, r_vs_plan, r_vs_actual_risk, r_availability, stop_provenance, r_math_version, net_r, verification_level, trade_state, planned_entry, planned_stop, planned_direction, signal_instrument, signal_grade, signal_detected_at, actual_entry_price, actual_exit_price, actual_initial_stop, commission, swap, cost_currency, cost_unit, price_source, price_source_client, price_recorded_at, notes, created_at",
+    )
+    .order("created_at", { ascending: false })
+    .limit(cap);
+
+  if (error) return { content: [{ type: "text" as const, text: error.message }], isError: true };
+  const rows = data ?? [];
+  return {
+    content: [
+      {
+        type: "text" as const,
+        text: rows.length === 0 ? "No logged trades yet." : JSON.stringify(rows),
+      },
+    ],
+    structuredContent: { count: rows.length, trades: rows },
+  };
+}
+
 export default defineTool({
   name: "list_my_trades",
   title: "List my trades",
@@ -15,23 +40,6 @@ export default defineTool({
     if (!ctx.isAuthenticated()) {
       return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
     }
-    const supabase = supabaseForUser(ctx);
-    const cap = Math.min(Math.max(limit ?? 20, 1), 100);
-    const { data, error } = await supabase
-      .from("executed_trades")
-      .select(
-        "id, signal_id, user_decision, outcome, realized_r_multiple, derived_r, r_vs_plan, r_vs_actual_risk, r_availability, stop_provenance, r_math_version, net_r, verification_level, trade_state, planned_entry, planned_stop, planned_direction, signal_instrument, signal_grade, signal_detected_at, actual_entry_price, actual_exit_price, actual_initial_stop, commission, swap, cost_currency, cost_unit, price_source, price_source_client, price_recorded_at, notes, created_at",
-      )
-      .order("created_at", { ascending: false })
-      .limit(cap);
-
-    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
-    const rows = data ?? [];
-    return {
-      content: [
-        { type: "text", text: rows.length === 0 ? "No logged trades yet." : JSON.stringify(rows) },
-      ],
-      structuredContent: { count: rows.length, trades: rows },
-    };
+    return runListMyTrades(supabaseForUser(ctx), { limit });
   },
 });

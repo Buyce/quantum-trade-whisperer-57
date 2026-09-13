@@ -16,6 +16,102 @@ import { describeEnqueueDecision } from "@/lib/delivery/enqueue-log";
  * is inferred, and an empty result only means no row matched this window — it is
  * never evidence about the scanner's cycle or about the market.
  */
+export interface GetAutomaticOrdersArgs {
+  hours?: number | undefined;
+  limit?: number | undefined;
+}
+
+/** Shared body — the MCP handler and the in-app assistant call this same code. */
+export async function runGetAutomaticOrders(supabase: unknown, args: GetAutomaticOrdersArgs) {
+  const hours = Math.min(Math.max(Math.round(Number(args.hours ?? 24)) || 24, 1), 168);
+  const limit = Math.min(Math.max(Math.round(Number(args.limit ?? 25)) || 25, 1), 100);
+  const since = new Date(Date.now() - hours * 3_600_000).toISOString();
+
+  const db = supabase as ReturnType<typeof supabaseForUser>;
+  const [decisionsRead, deliveriesRead] = await Promise.all([
+    db
+      .from("execution_enqueue_decisions")
+      .select("created_at, instrument, grade, decision, detail, enqueued, filtered")
+      .gte("created_at", since)
+      .order("created_at", { ascending: false })
+      .limit(limit),
+    db
+      .from("execution_deliveries")
+      .select(
+        "id, enqueued_at, state, reason, broker_symbol, dry_run, submitted_at, broker_order_id, broker_order_state, broker_retcode_string, entry_mode, execution_policy",
+      )
+      .gte("enqueued_at", since)
+      .order("enqueued_at", { ascending: false })
+      .limit(limit),
+  ]);
+
+  if (decisionsRead.error) {
+    return { content: [{ type: "text" as const, text: decisionsRead.error.message }], isError: true };
+  }
+  if (deliveriesRead.error) {
+    return { content: [{ type: "text" as const, text: deliveriesRead.error.message }], isError: true };
+  }
+
+  const decisionRows = (decisionsRead.data ?? []) as Record<string, unknown>[];
+  const deliveryRows = (deliveriesRead.data ?? []) as Record<string, unknown>[];
+
+  const decisions = decisionRows.map((row) => ({
+    at: String(row["created_at"]),
+    instrument: (row["instrument"] as string | null) ?? null,
+    grade: (row["grade"] as string | null) ?? null,
+    decision: String(row["decision"]),
+    // Same sentence the terminal shows, so an assistant cannot paraphrase a
+    // refusal into a claim about the market.
+    explanation: describeEnqueueDecision(String(row["decision"])),
+    detail: (row["detail"] as string | null) ?? null,
+    enqueued: Number(row["enqueued"] ?? 0),
+    filtered: Number(row["filtered"] ?? 0),
+    provenance: "engine-derived",
+  }));
+
+  const deliveries = deliveryRows.map((row) => ({
+    id: row["id"] ?? null,
+    at: String(row["enqueued_at"]),
+    instrument: (row["broker_symbol"] as string | null) ?? null,
+    state: (row["state"] as string | null) ?? null,
+    reason: (row["reason"] as string | null) ?? null,
+    dry_run: row["dry_run"] === true,
+    submitted_at: (row["submitted_at"] as string | null) ?? null,
+    broker_order_id: (row["broker_order_id"] as string | null) ?? null,
+    broker_order_state: (row["broker_order_state"] as string | null) ?? null,
+    broker_message: (row["broker_retcode_string"] as string | null) ?? null,
+    entry_mode: (row["entry_mode"] as string | null) ?? null,
+    exit_policy: (row["execution_policy"] as string | null) ?? null,
+    provenance: row["submitted_at"] ? "broker-derived once submitted" : "engine-derived",
+  }));
+
+  const counts = decisions.reduce<Record<string, number>>((acc, row) => {
+    acc[row.decision] = (acc[row.decision] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  const payload = {
+    window: { since, hours },
+    truncated: decisions.length >= limit || deliveries.length >= limit,
+    decisions,
+    deliveries,
+    decision_counts: counts,
+    notes: {
+      empty_result:
+        "No rows in this window means nothing matched this user's window — not that the scanner is idle and not that no valid setup existed. Use get_scanner_status for engine state.",
+      refusals:
+        "A refusal is a rule doing its job. It says nothing about whether the refused setup would have won or lost.",
+      broker_states:
+        "A pending or acknowledged order is resting at the broker and is NOT a fill. Only a broker-confirmed fill is a trade.",
+      dry_run: "dry_run rows were never sent to a broker.",
+    },
+  };
+  return {
+    content: [{ type: "text" as const, text: JSON.stringify(payload) }],
+    structuredContent: payload,
+  };
+}
+
 export default defineTool({
   name: "get_automatic_orders",
   title: "Get my automatic orders",
@@ -33,92 +129,6 @@ export default defineTool({
     if (!ctx.isAuthenticated()) {
       return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
     }
-    const hours = Math.min(Math.max(Math.round(Number(input.hours ?? 24)) || 24, 1), 168);
-    const limit = Math.min(Math.max(Math.round(Number(input.limit ?? 25)) || 25, 1), 100);
-    const since = new Date(Date.now() - hours * 3_600_000).toISOString();
-
-    const supabase = supabaseForUser(ctx);
-    const [decisionsRead, deliveriesRead] = await Promise.all([
-      supabase
-        .from("execution_enqueue_decisions")
-        .select("created_at, instrument, grade, decision, detail, enqueued, filtered")
-        .gte("created_at", since)
-        .order("created_at", { ascending: false })
-        .limit(limit),
-      supabase
-        .from("execution_deliveries")
-        .select(
-          "id, enqueued_at, state, reason, broker_symbol, dry_run, submitted_at, broker_order_id, broker_order_state, broker_retcode_string, entry_mode, execution_policy",
-        )
-        .gte("enqueued_at", since)
-        .order("enqueued_at", { ascending: false })
-        .limit(limit),
-    ]);
-
-    if (decisionsRead.error) {
-      return { content: [{ type: "text", text: decisionsRead.error.message }], isError: true };
-    }
-    if (deliveriesRead.error) {
-      return { content: [{ type: "text", text: deliveriesRead.error.message }], isError: true };
-    }
-
-    const decisionRows = (decisionsRead.data ?? []) as Record<string, unknown>[];
-    const deliveryRows = (deliveriesRead.data ?? []) as Record<string, unknown>[];
-
-    const decisions = decisionRows.map((row) => ({
-      at: String(row["created_at"]),
-      instrument: (row["instrument"] as string | null) ?? null,
-      grade: (row["grade"] as string | null) ?? null,
-      decision: String(row["decision"]),
-      // Same sentence the terminal shows, so an assistant cannot paraphrase a
-      // refusal into a claim about the market.
-      explanation: describeEnqueueDecision(String(row["decision"])),
-      detail: (row["detail"] as string | null) ?? null,
-      enqueued: Number(row["enqueued"] ?? 0),
-      filtered: Number(row["filtered"] ?? 0),
-      provenance: "engine-derived",
-    }));
-
-    const deliveries = deliveryRows.map((row) => ({
-      id: row["id"] ?? null,
-      at: String(row["enqueued_at"]),
-      instrument: (row["broker_symbol"] as string | null) ?? null,
-      state: (row["state"] as string | null) ?? null,
-      reason: (row["reason"] as string | null) ?? null,
-      dry_run: row["dry_run"] === true,
-      submitted_at: (row["submitted_at"] as string | null) ?? null,
-      broker_order_id: (row["broker_order_id"] as string | null) ?? null,
-      broker_order_state: (row["broker_order_state"] as string | null) ?? null,
-      broker_message: (row["broker_retcode_string"] as string | null) ?? null,
-      entry_mode: (row["entry_mode"] as string | null) ?? null,
-      exit_policy: (row["execution_policy"] as string | null) ?? null,
-      provenance: row["submitted_at"] ? "broker-derived once submitted" : "engine-derived",
-    }));
-
-    const counts = decisions.reduce<Record<string, number>>((acc, row) => {
-      acc[row.decision] = (acc[row.decision] ?? 0) + 1;
-      return acc;
-    }, {});
-
-    const payload = {
-      window: { since, hours },
-      truncated: decisions.length >= limit || deliveries.length >= limit,
-      decisions,
-      deliveries,
-      decision_counts: counts,
-      notes: {
-        empty_result:
-          "No rows in this window means nothing matched this user's window — not that the scanner is idle and not that no valid setup existed. Use get_scanner_status for engine state.",
-        refusals:
-          "A refusal is a rule doing its job. It says nothing about whether the refused setup would have won or lost.",
-        broker_states:
-          "A pending or acknowledged order is resting at the broker and is NOT a fill. Only a broker-confirmed fill is a trade.",
-        dry_run: "dry_run rows were never sent to a broker.",
-      },
-    };
-    return {
-      content: [{ type: "text", text: JSON.stringify(payload) }],
-      structuredContent: payload,
-    };
+    return runGetAutomaticOrders(supabaseForUser(ctx), input);
   },
 });
