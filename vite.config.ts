@@ -23,19 +23,30 @@ export default defineConfig({
   vite: {
     plugins: [mcpPlugin()],
     resolve: {
-      alias: {
-        // React Email's htmlparser2 path needs entities v4.5.0; pin every import
-        // to the hoisted copy so a nested v5+ install cannot break SSR.
-        "entities/lib/decode.js": path.resolve(
-          import.meta.dirname,
-          "node_modules/entities/lib/decode.js",
-        ),
-        "entities/lib/encode.js": path.resolve(
-          import.meta.dirname,
-          "node_modules/entities/lib/encode.js",
-        ),
-        entities: path.resolve(import.meta.dirname, "node_modules/entities"),
-      },
+      alias: [
+        // React Email's htmlparser2 path needs entities v4.5.0; pin those imports
+        // to the hoisted copy. Match exactly so packages depending on entities v6
+        // (e.g. parse5 importing "entities/escape") still resolve their own copy.
+        {
+          find: "entities/lib/decode.js",
+          replacement: path.resolve(
+            import.meta.dirname,
+            "node_modules/entities/lib/decode.js",
+          ),
+        },
+        {
+          find: "entities/lib/encode.js",
+          replacement: path.resolve(
+            import.meta.dirname,
+            "node_modules/entities/lib/encode.js",
+          ),
+        },
+        {
+          find: /^entities$/,
+          replacement: path.resolve(import.meta.dirname, "node_modules/entities"),
+        },
+      ],
     },
+
   },
 });
