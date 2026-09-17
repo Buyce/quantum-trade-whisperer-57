@@ -79,6 +79,7 @@ import { AgentConnectCard } from "@/components/AgentConnectCard";
 import { AutoTradingSummary } from "@/components/AutoTradingSummary";
 import { AutoIntelGate } from "@/components/AutoIntelGate";
 import { IntelGateCohorts } from "@/components/IntelGateCohorts";
+import { CohortPolicyControls } from "@/components/CohortPolicyControls";
 import { AutoOrderDecisions } from "@/components/AutoOrderDecisions";
 
 export const Route = createFileRoute("/_authenticated/settings")({
@@ -587,6 +588,8 @@ function SettingsPage() {
           />
 
           <IntelGateCohorts />
+
+          <CohortPolicyControls instruments={selectableInstruments.filter((i) => instruments.includes(i))} />
 
           <AutoOrderDecisions />
 
