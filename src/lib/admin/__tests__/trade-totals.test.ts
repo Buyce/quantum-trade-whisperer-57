@@ -4,6 +4,7 @@ import {
   aggregateBrokerTotals,
   aggregateBrokerTotalsByAttribution,
   aggregateJournalTotals,
+  aggregateJournalPerformance,
   type BrokerEvidenceRow,
 } from "@/lib/admin/trade-totals";
 
@@ -97,5 +98,63 @@ describe("aggregateBrokerTotalsByAttribution", () => {
     const t = aggregateBrokerTotalsByAttribution([row({ attribution: "auto" })]);
     expect(t.unlinked).toMatchObject({ closed: 0, wins: 0, losses: 0, accounts: 0 });
     expect(t.external.grossProfit).toBe(0);
+  });
+});
+
+describe("aggregateJournalPerformance", () => {
+  const j = (outcome: string | null, r: number | null, createdAt: string | null) => ({
+    outcome,
+    r,
+    createdAt,
+  });
+
+  it("[UNIT] reports the self-reported win rate over resolved rows only", () => {
+    const p = aggregateJournalPerformance([
+      j("win", 2, "2026-01-02T00:00:00Z"),
+      j("loss", -1, "2026-01-03T00:00:00Z"),
+      j("open", null, "2026-01-04T00:00:00Z"),
+      j(null, null, "2026-01-05T00:00:00Z"),
+    ]);
+    expect(p.resolved).toBe(2);
+    expect(p.winRatePercent).toBe(50);
+    expect(p.totalR).toBe(1);
+    expect(p.meanR).toBe(0.5);
+  });
+
+  it("[INVARIANT] excludes a resolved row with no R value instead of counting it as flat", () => {
+    const p = aggregateJournalPerformance([
+      j("win", 3, "2026-01-02T00:00:00Z"),
+      j("loss", null, "2026-01-03T00:00:00Z"),
+    ]);
+    expect(p.rSamples).toBe(1);
+    expect(p.missingR).toBe(1);
+    expect(p.totalR).toBe(3);
+    expect(p.meanR).toBe(3);
+  });
+
+  it("[UNIT] spans the first and last entry and refuses a total when no R exists", () => {
+    const p = aggregateJournalPerformance([
+      j("win", null, "2026-03-09T10:00:00Z"),
+      j("loss", null, "2026-01-01T10:00:00Z"),
+      j("open", null, null),
+    ]);
+    expect(p.firstLoggedAt).toBe("2026-01-01T10:00:00Z");
+    expect(p.lastLoggedAt).toBe("2026-03-09T10:00:00Z");
+    expect(p.totalR).toBeNull();
+    expect(p.meanR).toBeNull();
+  });
+
+  it("[UNIT] claims no rate and no total for an empty journal", () => {
+    const p = aggregateJournalPerformance([]);
+    expect(p).toEqual({
+      resolved: 0,
+      winRatePercent: null,
+      totalR: null,
+      meanR: null,
+      rSamples: 0,
+      missingR: 0,
+      firstLoggedAt: null,
+      lastLoggedAt: null,
+    });
   });
 });
