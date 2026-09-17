@@ -222,6 +222,11 @@ export async function resolveSizingForUser(
   request: SizingRequest,
   now = Date.now(),
   override?: AccountSizingOverride,
+  /**
+   * Per-cohort reduce-only scale for callers that pass no account override (the
+   * customer bridge path). Ignored when the override already carries one.
+   */
+  riskScale?: number | null,
 ): Promise<SizingResponse> {
   const { data: settings } = await db
     .from("scanner_settings")
@@ -231,9 +236,10 @@ export async function resolveSizingForUser(
     .eq("user_id", userId)
     .maybeSingle();
   const baseProfile = riskProfileFromSettings(settings as Record<string, unknown> | null);
+  const rawScale = override?.riskScale ?? riskScale ?? null;
   const scale =
-    override && typeof override.riskScale === "number" && Number.isFinite(override.riskScale)
-      ? Math.min(1, Math.max(0, override.riskScale))
+    typeof rawScale === "number" && Number.isFinite(rawScale)
+      ? Math.min(1, Math.max(0, rawScale))
       : 1;
   const profileBeforeScale: RiskProfile = override
     ? {

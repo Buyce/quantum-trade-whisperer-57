@@ -976,7 +976,14 @@ export async function revalidateDelivery(
         now,
         { riskPercent: benchmarkRiskPercent, riskScale: cohortRiskScale },
       )
-    : await resolveSizingForUser(db, delivery.user_id, sizingRequest, now);
+    : await resolveSizingForUser(
+        db,
+        delivery.user_id,
+        sizingRequest,
+        now,
+        undefined,
+        cohortRiskScale,
+      );
   // Fail-closed broker inputs surface as themselves, never as a generic
   // guardrail: a missing account currency is not a risk decision.
   if (isAccountSizingRefusal(sizing)) {
