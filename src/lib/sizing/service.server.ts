@@ -231,7 +231,11 @@ export async function resolveSizingForUser(
     .eq("user_id", userId)
     .maybeSingle();
   const baseProfile = riskProfileFromSettings(settings as Record<string, unknown> | null);
-  const profile: RiskProfile = override
+  const scale =
+    override && typeof override.riskScale === "number" && Number.isFinite(override.riskScale)
+      ? Math.min(1, Math.max(0, override.riskScale))
+      : 1;
+  const profileBeforeScale: RiskProfile = override
     ? {
         ...baseProfile,
         accountEquity: override.equity,
@@ -241,6 +245,15 @@ export async function resolveSizingForUser(
           : {}),
       }
     : baseProfile;
+  // Reduce-only: the owner's per-cohort rule may only ever shrink the percentage.
+  const profile: RiskProfile =
+    scale > 0 && scale < 1
+      ? {
+          ...profileBeforeScale,
+          riskPerTradePercent: profileBeforeScale.riskPerTradePercent * scale,
+        }
+      : profileBeforeScale;
+
   const equityAsOf = override
     ? override.equityAsOf
     : (((settings as { equity_as_of?: string | null } | null)?.equity_as_of ?? null) as
