@@ -204,6 +204,12 @@ export interface AccountSizingOverride {
    * benchmark policy, which never borrows a customer's risk profile.
    */
   riskPercent?: number | null;
+  /**
+   * Multiplier in (0, 1] on whichever risk percentage owns this order, from the
+   * owner's per-cohort automatic-order rule. Reduce-only: anything at or above 1,
+   * absent or unusable leaves the percentage untouched, and it can never raise it.
+   */
+  riskScale?: number | null;
 }
 
 /**
@@ -436,7 +442,7 @@ export async function resolveSizingForAccount(
   },
   request: SizingRequest,
   now = Date.now(),
-  options?: { riskPercent?: number | null },
+  options?: { riskPercent?: number | null; riskScale?: number | null },
 ): Promise<AccountSizingResponse> {
   const equity =
     account.equity !== null &&
@@ -501,5 +507,6 @@ export async function resolveSizingForAccount(
     equityAsOf: account.equityAsOf,
     spec,
     riskPercent: options?.riskPercent ?? null,
+    riskScale: options?.riskScale ?? null,
   });
 }
