@@ -12,7 +12,7 @@
   "mcp": {
     "server": {
       "name": "p-trades-hub",
-      "version": "0.7.0",
+      "version": "0.8.0",
       "title": "P-Trades Hub"
     },
     "tools": [
@@ -357,6 +357,42 @@
             "same_bet_cooldown_minutes": {
               "description": "How long new automatic orders on the same instrument and direction are refused after a broker-confirmed loss there: 0 (off), 30, 60 or 120 minutes.",
               "type": "number"
+            },
+            "auto_cohort_policies": {
+              "description": "Per-instrument AND direction automatic-order rules, for example EURUSD short. block refuses automatic orders on that pair and side; reduce places them with risk_share_percent of the user's normal per-trade risk; allow clears the rule. Reduce-only: it never causes an order, never enlarges one, and never changes the feed, alerts, publication, grading, replay or any statistic. Requires confirm_risk_change: true, and any loosening is reported back as a warning that must be repeated to the user.",
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "instrument": {
+                    "type": "string"
+                  },
+                  "direction": {
+                    "type": "string",
+                    "enum": [
+                      "long",
+                      "short"
+                    ]
+                  },
+                  "policy": {
+                    "type": "string",
+                    "enum": [
+                      "allow",
+                      "reduce",
+                      "block"
+                    ]
+                  },
+                  "risk_share_percent": {
+                    "description": "Share of the user's normal per-trade risk when policy = reduce (1-100).",
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "instrument",
+                  "direction",
+                  "policy"
+                ]
+              }
             },
             "confirm_risk_change": {
               "description": "Set true ONLY when the user has explicitly approved changing their risk profile (equity, currency, risk percent, max position size, leverage, max stop-loss percent). Required for those fields; it represents explicit user approval, not agent judgement, and does not relax validation or clamping.",

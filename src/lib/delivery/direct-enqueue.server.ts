@@ -861,8 +861,6 @@ async function runDirectEnqueue(
     }
   }
 
-
-
   /**
    * Drawdown brakes. Reduce-only and measurement-bound: an account whose owner
    * configured no brake is not read at all, and a brake that cannot be measured
@@ -1001,8 +999,6 @@ async function runDirectEnqueue(
       });
       continue;
     }
-
-
 
     // Owner's own automatic-order window. It can only ever REFUSE: a setup older
     // than the window the owner chose is not placed, whatever the feed still says
@@ -1405,9 +1401,7 @@ async function runDirectEnqueue(
           ? "c_grade_allowed_by_user_setting"
           : "enqueued",
       detail:
-        cohortRule.policy === "reduce"
-          ? `${account.mode} — ${cohortRule.detail}`
-          : account.mode,
+        cohortRule.policy === "reduce" ? `${account.mode} — ${cohortRule.detail}` : account.mode,
 
       enqueued: 1,
       filtered: 0,

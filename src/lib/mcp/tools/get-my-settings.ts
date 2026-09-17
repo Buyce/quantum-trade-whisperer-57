@@ -13,6 +13,12 @@ export async function runGetMySettings(supabase: unknown) {
     .maybeSingle();
 
   if (error) return { content: [{ type: "text" as const, text: error.message }], isError: true };
+
+  // Per-cohort automatic-order rules live in their own owner-scoped table.
+  const { data: cohortRows, error: cohortError } = await db
+    .from("auto_cohort_policies")
+    .select("instrument, direction, policy, risk_share_percent, updated_at");
+  const cohortPolicies = cohortError ? null : (cohortRows ?? []);
   if (!data) {
     return {
       content: [{ type: "text" as const, text: "No settings row for this user yet." }],
@@ -22,9 +28,13 @@ export async function runGetMySettings(supabase: unknown) {
 
   const payload = {
     settings: data,
+    auto_cohort_policies: cohortPolicies,
     notes: {
-      daily_setup_cap:
-        data.daily_setup_cap === 0 ? "unlimited" : `${data.daily_setup_cap} per day`,
+      auto_cohort_policies:
+        cohortPolicies === null
+          ? "Per-pair-and-direction automatic-order rules could not be read, so make no claim about them."
+          : "The user's own rule per instrument AND direction. Only cohorts they changed appear here; any cohort absent from this list is allowed at their normal risk. policy=block refuses automatic orders on that pair and side; policy=reduce places them with risk_share_percent of their normal per-trade risk. Reduce-only: it never causes an order, never enlarges one, and never affects the feed, alerts, publication, grading or any measurement.",
+      daily_setup_cap: data.daily_setup_cap === 0 ? "unlimited" : `${data.daily_setup_cap} per day`,
       webhook_config: "Webhook URL and secret are intentionally not exposed to agents.",
       account_equity:
         "User-entered balance, not broker-confirmed. equity_as_of is when the user last set it; treat an old date as stale and ask them to confirm.",

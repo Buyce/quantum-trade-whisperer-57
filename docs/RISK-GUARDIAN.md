@@ -92,3 +92,37 @@ or loss history is never counted and never refuses, because a refusal must rest
 on a fact actually held. Neither rule closes, moves or cancels anything already
 at the broker; refusals appear in the feed as `same_bet_limit_reached` and
 `same_bet_cooldown_active`.
+
+## Per-cohort automatic-trading rule — which pair and side may trade
+
+A customer may decide, for each instrument AND direction separately, whether
+automatic orders are placed at their normal risk, placed with a smaller share of
+it, or not placed at all. Rows live in `public.auto_cohort_policies`
+(`user_id, instrument, direction, policy, risk_share_percent`), one row per
+cohort the owner actually changed, owner-scoped by RLS.
+
+- `block` refuses the order at enqueue (`cohort_blocked_by_user` in the decision
+  ledger) and again at send time as the reject reason of the same name, so a rule
+  saved after a delivery was queued is still honoured.
+- `reduce` multiplies the owner's normal per-trade risk percentage by
+  `risk_share_percent / 100` (25%, 50% or 75% in the UI, clamped to 1–100
+  everywhere) inside the same broker-derived sizing service the terminal uses.
+- No row, an unreadable row, an unrecognised value, or a setup whose direction is
+  unknown all mean **allow**: a preference we do not hold can never refuse an
+  order and can never resize one.
+
+Reduce-only by construction: the rule may refuse or shrink and can do nothing
+else. It never causes an order, never raises a risk percentage, and never touches
+the feed, alerts, publication, grading, replay, shadow enrolment or any
+statistic. Benchmark deliveries read the operator benchmark policy only and are
+never governed by a customer's cohort rules.
+
+The Settings table shows the measured expected return per cohort next to each
+control. That figure is a record of whole published plans already measured —
+including plans that never traded, counted as 0R — and is never a forecast.
+
+Helper: `src/lib/delivery/cohort-policy.ts` (pure).
+Enqueue: `src/lib/delivery/direct-enqueue.server.ts`.
+Pre-send: `src/lib/delivery/revalidate.server.ts`, `src/lib/sizing/service.server.ts`.
+UI: `src/components/CohortPolicyControls.tsx`, `src/lib/execution.functions.ts`.
+Tests: `src/lib/delivery/__tests__/cohort-policy.test.ts`.

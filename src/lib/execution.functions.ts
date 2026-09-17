@@ -459,3 +459,72 @@ export const getIntelGateCohorts = createServerFn({ method: "GET" })
       cohorts,
     };
   });
+
+/**
+ * The owner's per-cohort automatic-order rules (pair + direction), read with the
+ * caller's own client so RLS is the enforcement, not this code.
+ */
+export const getCohortPolicies = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data, error } = await context.supabase
+      .from("auto_cohort_policies")
+      .select("instrument, direction, policy, risk_share_percent, updated_at")
+      .eq("user_id", context.userId);
+    if (error) throw new Error(error.message);
+    return {
+      policies: (data ?? []) as Array<{
+        instrument: string;
+        direction: string;
+        policy: string | null;
+        risk_share_percent: number | null;
+        updated_at: string | null;
+      }>,
+    };
+  });
+
+const cohortPolicyInput = z.object({
+  instrument: z.string().trim().min(1).max(20),
+  direction: z.enum(["long", "short"]),
+  policy: z.enum(["allow", "reduce", "block"]),
+  riskSharePercent: z.number().optional(),
+});
+
+/**
+ * Save ONE cohort rule. Reduce-only by construction: the stored share is clamped
+ * to 1–100, so no value written here can ever enlarge an order. `allow` deletes
+ * the row, which is the same thing as having expressed no preference.
+ */
+export const saveCohortPolicy = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: unknown) => cohortPolicyInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const { clampCohortRiskShare } = await import("@/lib/delivery/cohort-policy");
+    const instrument = data.instrument.toUpperCase();
+
+    if (data.policy === "allow") {
+      const { error } = await context.supabase
+        .from("auto_cohort_policies")
+        .delete()
+        .eq("user_id", context.userId)
+        .eq("instrument", instrument)
+        .eq("direction", data.direction);
+      if (error) return { ok: false as const, error: error.message };
+      return { ok: true as const, policy: "allow" as const, riskSharePercent: 100 };
+    }
+
+    const share =
+      data.policy === "reduce" ? clampCohortRiskShare(data.riskSharePercent ?? 50) : 100;
+    const { error } = await context.supabase.from("auto_cohort_policies").upsert(
+      {
+        user_id: context.userId,
+        instrument,
+        direction: data.direction,
+        policy: data.policy,
+        risk_share_percent: share,
+      },
+      { onConflict: "user_id,instrument,direction" },
+    );
+    if (error) return { ok: false as const, error: error.message };
+    return { ok: true as const, policy: data.policy, riskSharePercent: share };
+  });
