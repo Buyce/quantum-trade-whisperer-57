@@ -111,8 +111,9 @@ function JournalGrowth({
       </div>
       {journal.missingR > 0 ? (
         <p className="text-[10px] text-muted-foreground">
-          {journal.missingR} resolved entr(ies) carry no R value, so they are excluded from the
-          total rather than counted as flat.
+          {journal.missingR} resolved {journal.missingR === 1 ? "entry carries" : "entries carry"} no
+          R value, so {journal.missingR === 1 ? "it is" : "they are"} excluded from the total rather
+          than counted as flat.
         </p>
       ) : null}
       <p className="text-[10px] leading-relaxed text-muted-foreground">
