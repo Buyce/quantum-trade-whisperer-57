@@ -23,6 +23,7 @@ import {
 import { INSTRUMENT_LABELS } from "@/lib/db-types";
 import {
   COHORT_RISK_SHARES,
+  COHORT_RISK_SHARE_DEFAULT,
   isCohortPolicyKind,
   type CohortPolicyKind,
 } from "@/lib/delivery/cohort-policy";
