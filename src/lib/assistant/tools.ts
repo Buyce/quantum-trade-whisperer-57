@@ -153,6 +153,20 @@ export function buildAssistantTools(supabase: unknown, userId: string) {
         max_drawdown_percent: z.number().nullable().optional(),
         max_same_bet_orders: z.number().nullable().optional(),
         same_bet_cooldown_minutes: z.number().nullable().optional(),
+        auto_cohort_policies: z
+          .array(
+            z.object({
+              instrument: z.string(),
+              direction: z.enum(["long", "short"]),
+              policy: z.enum(["allow", "reduce", "block"]),
+              risk_share_percent: z.number().nullable().optional(),
+            }),
+          )
+          .nullable()
+          .optional()
+          .describe(
+            "Per-pair AND direction automatic-order rules, e.g. EURUSD short. block refuses automatic orders on that cohort; reduce places them with risk_share_percent of normal per-trade risk; allow clears the rule. Reduce-only and requires confirm_risk_change: true.",
+          ),
         confirm_risk_change: z
           .boolean()
           .nullable()
@@ -164,7 +178,21 @@ export function buildAssistantTools(supabase: unknown, userId: string) {
       execute: async (args) => {
         const input: Record<string, unknown> = {};
         for (const [key, value] of Object.entries(args)) {
-          if (value !== null && value !== undefined) input[key] = value;
+          if (value === null || value === undefined) continue;
+          if (key === "auto_cohort_policies" && Array.isArray(value)) {
+            input[key] = value.map((entry) => {
+              const row = entry as Record<string, unknown>;
+              const share = row["risk_share_percent"];
+              return {
+                instrument: row["instrument"],
+                direction: row["direction"],
+                policy: row["policy"],
+                ...(typeof share === "number" ? { risk_share_percent: share } : {}),
+              };
+            });
+            continue;
+          }
+          input[key] = value;
         }
         return unwrap(await runUpdateMySettings(supabase, userId, input));
       },
