@@ -20,6 +20,7 @@ import {
   aggregateBrokerTotalsByAttribution,
   aggregateBrokerTotalsByTarget,
   aggregateJournalTotals,
+  aggregateJournalPerformance,
   type BrokerAttribution,
   type TradeTotals,
 } from "@/lib/admin/trade-totals";
@@ -1059,7 +1060,9 @@ export const getAdminTradeTotals = createServerFn({ method: "GET" })
         )
         .eq("evidence_class", "customer")
         .eq("state", "closed"),
-      supabaseAdmin.from("executed_trades").select("outcome"),
+      supabaseAdmin
+        .from("executed_trades")
+        .select("outcome, realized_r_multiple, net_r, created_at"),
     ]);
     if (evidence.error) throw new Error(evidence.error.message);
     if (journal.error) throw new Error(journal.error.message);
@@ -1108,6 +1111,16 @@ export const getAdminTradeTotals = createServerFn({ method: "GET" })
       broker: aggregateBrokerTotalsByAttribution(rows),
       byTarget: aggregateBrokerTotalsByTarget(rows),
       journal: aggregateJournalTotals((journal.data ?? []).map((row) => row.outcome ?? null)),
+      // Self-reported R only: the canonical value when the row has one, otherwise
+      // the legacy figure the person entered. A row with neither is reported as
+      // missing rather than counted as a flat 0R.
+      journalPerformance: aggregateJournalPerformance(
+        (journal.data ?? []).map((row) => ({
+          outcome: row.outcome ?? null,
+          r: numeric((row as { net_r?: unknown }).net_r) ?? numeric(row.realized_r_multiple),
+          createdAt: row.created_at ?? null,
+        })),
+      ),
     };
   });
 

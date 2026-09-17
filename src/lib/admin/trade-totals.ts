@@ -90,10 +90,46 @@ export interface BrokerTotalsByTarget {
   notRecorded: BrokerTotals;
 }
 
+/**
+ * What the users' OWN journal says, on top of the raw outcome counts.
+ *
+ * The journal carries no broker money: an in-app row records an R multiple the
+ * person entered themselves, so growth here is expressed in R and is never
+ * presented as an account balance. Rows that carry no R value are counted in
+ * `missingR` and left out of the sum rather than treated as 0R, so the total can
+ * never look more complete than the record actually is.
+ */
+export interface JournalPerformance {
+  /** Rows with a decided outcome: win, loss or breakeven. */
+  resolved: number;
+  /** Wins / resolved, as a percentage. Null when nothing is resolved yet. */
+  winRatePercent: number | null;
+  /** Sum of the self-reported R multiples that exist. Null when none do. */
+  totalR: number | null;
+  /** Mean R across the rows that carry one. Null when none do. */
+  meanR: number | null;
+  /** Resolved rows that carry an R value. */
+  rSamples: number;
+  /** Resolved rows with no R value, so absent from `totalR`. */
+  missingR: number;
+  /** ISO timestamp of the first journal row, i.e. when logging began. */
+  firstLoggedAt: string | null;
+  /** ISO timestamp of the most recent journal row. */
+  lastLoggedAt: string | null;
+}
+
+export interface JournalRow {
+  outcome: string | null;
+  /** Self-reported R multiple, when the person recorded one. */
+  r: number | null;
+  createdAt: string | null;
+}
+
 export interface TradeTotals {
   broker: BrokerTotalsByAttribution;
   byTarget: BrokerTotalsByTarget;
   journal: JournalTotals;
+  journalPerformance: JournalPerformance;
 }
 
 const finite = (v: number | null | undefined): number | null =>
@@ -193,4 +229,60 @@ export function aggregateJournalTotals(outcomes: (string | null)[]): JournalTota
     else totals.other += 1;
   }
   return totals;
+}
+
+/**
+ * Self-reported win rate and R growth since the person's first journal entry.
+ *
+ * Self-reported throughout: these are the numbers users typed, not the broker's.
+ * They are reported next to the broker ledger for comparison and are never merged
+ * with it.
+ */
+export function aggregateJournalPerformance(rows: JournalRow[]): JournalPerformance {
+  let resolved = 0;
+  let wins = 0;
+  let rSamples = 0;
+  let missingR = 0;
+  let sumR = 0;
+  let first: number | null = null;
+  let last: number | null = null;
+  let firstIso: string | null = null;
+  let lastIso: string | null = null;
+
+  for (const row of rows) {
+    if (row.createdAt) {
+      const t = new Date(row.createdAt).getTime();
+      if (Number.isFinite(t)) {
+        if (first === null || t < first) {
+          first = t;
+          firstIso = row.createdAt;
+        }
+        if (last === null || t > last) {
+          last = t;
+          lastIso = row.createdAt;
+        }
+      }
+    }
+    const decided = row.outcome === "win" || row.outcome === "loss" || row.outcome === "breakeven";
+    if (!decided) continue;
+    resolved += 1;
+    if (row.outcome === "win") wins += 1;
+    const r = finite(row.r);
+    if (r === null) missingR += 1;
+    else {
+      rSamples += 1;
+      sumR += r;
+    }
+  }
+
+  return {
+    resolved,
+    winRatePercent: resolved > 0 ? (wins / resolved) * 100 : null,
+    totalR: rSamples > 0 ? sumR : null,
+    meanR: rSamples > 0 ? sumR / rSamples : null,
+    rSamples,
+    missingR,
+    firstLoggedAt: firstIso,
+    lastLoggedAt: lastIso,
+  };
 }

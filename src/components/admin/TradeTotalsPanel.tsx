@@ -12,7 +12,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { getAdminTradeTotals } from "@/lib/admin.functions";
 import { PanelShell, num } from "@/components/admin/AdminPanels";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { BrokerTotals } from "@/lib/admin/trade-totals";
+import type { BrokerTotals, JournalPerformance } from "@/lib/admin/trade-totals";
 
 function Line({ label, value, emphasis }: { label: string; value: string; emphasis?: boolean }) {
   return (
@@ -35,6 +35,20 @@ function money(t: BrokerTotals): string {
   return `${t.grossProfit > 0 ? "+" : ""}${num(t.grossProfit, 2)}${
     t.currency ? ` ${t.currency}` : ""
   }`;
+}
+
+function pct(v: number | null): string {
+  return v === null ? "—" : `${num(v, 1)}%`;
+}
+
+function day(iso: string | null): string {
+  if (!iso) return "—";
+  const t = new Date(iso);
+  return Number.isFinite(t.getTime()) ? t.toISOString().slice(0, 10) : "—";
+}
+
+function signedR(v: number | null): string {
+  return v === null ? "not recorded" : `${v > 0 ? "+" : ""}${num(v, 2)}R`;
 }
 
 function BrokerBlock({
@@ -66,6 +80,52 @@ function BrokerBlock({
   );
 }
 
+/**
+ * Growth of the users' own journal since they started logging, and the same win
+ * rate next to the broker's. Deliberately in R: the journal records no money, so
+ * an account value is never implied here.
+ */
+function JournalGrowth({
+  journal,
+  brokerWinRate,
+}: {
+  journal: JournalPerformance;
+  brokerWinRate: number | null;
+}) {
+  return (
+    <div className="space-y-1 border-t border-border pt-2 text-[11px]">
+      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+        User-reported growth since logging began (self-reported)
+      </p>
+      <div className="grid gap-x-6 gap-y-1 sm:grid-cols-2">
+        <Line label="First trade logged" value={day(journal.firstLoggedAt)} />
+        <Line label="Most recent entry" value={day(journal.lastLoggedAt)} />
+        <Line label="Resolved trades logged" value={String(journal.resolved)} />
+        <Line label="Trades carrying an R value" value={String(journal.rSamples)} />
+        <Line label="Average per trade" value={signedR(journal.meanR)} />
+        <Line label="Total change since first entry" value={signedR(journal.totalR)} emphasis />
+      </div>
+      <div className="grid gap-x-6 gap-y-1 sm:grid-cols-2">
+        <Line label="Win rate — user-reported" value={pct(journal.winRatePercent)} />
+        <Line label="Win rate — broker-verified" value={pct(brokerWinRate)} />
+      </div>
+      {journal.missingR > 0 ? (
+        <p className="text-[10px] text-muted-foreground">
+          {journal.missingR} resolved {journal.missingR === 1 ? "entry carries" : "entries carry"} no
+          R value, so {journal.missingR === 1 ? "it is" : "they are"} excluded from the total rather
+          than counted as flat.
+        </p>
+      ) : null}
+      <p className="text-[10px] leading-relaxed text-muted-foreground">
+        Growth is measured in R — how many multiples of the risk taken the users say they gained or
+        lost — because the journal holds no money figure. Money is only ever reported from the
+        broker blocks above. Both win rates count resolved trades only, on two different ledgers, so
+        they are not expected to agree.
+      </p>
+    </div>
+  );
+}
+
 export function TradeTotalsPanel() {
   const load = useServerFn(getAdminTradeTotals);
   const { data, isLoading, isError } = useQuery({
@@ -77,6 +137,14 @@ export function TradeTotalsPanel() {
   });
 
   if (isLoading) return <Skeleton className="h-32" />;
+
+  // Broker win rate over decided rows only: rows the broker reported no money for
+  // sit in neither bucket and must not dilute the rate.
+  const brokerDecided = data
+    ? data.broker.all.wins + data.broker.all.losses + data.broker.all.breakeven
+    : 0;
+  const brokerWinRate =
+    data && brokerDecided > 0 ? (data.broker.all.wins / brokerDecided) * 100 : null;
 
   return (
     <PanelShell
@@ -119,6 +187,15 @@ export function TradeTotalsPanel() {
               <Line label="Breakeven" value={String(data.journal.breakeven)} />
               <Line label="Open" value={String(data.journal.open)} />
               <Line label="Total journal rows" value={String(data.journal.rows)} emphasis />
+              <Line
+                label="User-reported win rate"
+                value={`${pct(data.journalPerformance.winRatePercent)}${
+                  data.journalPerformance.resolved > 0
+                    ? ` (n=${data.journalPerformance.resolved})`
+                    : ""
+                }`}
+                emphasis
+              />
               {data.journal.other > 0 ? (
                 <p className="text-[10px] text-muted-foreground">
                   {data.journal.other} row(s) carry no recognised outcome and are counted only in
@@ -127,6 +204,7 @@ export function TradeTotalsPanel() {
               ) : null}
             </div>
           </div>
+          <JournalGrowth journal={data.journalPerformance} brokerWinRate={brokerWinRate} />
           <div className="space-y-2 border-t border-border pt-2 text-[11px]">
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
               Automatic trader by exit target (broker-verified)
