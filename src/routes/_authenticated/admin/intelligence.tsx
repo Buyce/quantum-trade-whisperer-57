@@ -51,7 +51,6 @@ import { LearningEvidencePanel } from "@/components/admin/LearningEvidencePanel"
 import { EngineStatusPanel } from "@/components/admin/EngineStatusPanel";
 import { RecentScanResults } from "@/components/admin/RecentScanResults";
 import { ExecutionSwitchPanel } from "@/components/admin/ExecutionSwitchPanel";
-import { EnqueueDecisionPanel } from "@/components/admin/EnqueueDecisionPanel";
 import { AutoTraderPanel } from "@/components/admin/AutoTraderPanel";
 import { TradeTotalsPanel } from "@/components/admin/TradeTotalsPanel";
 import { DatasetExportPanel } from "@/components/admin/DatasetExportPanel";
@@ -59,8 +58,6 @@ import { CleanupHealthPanel } from "@/components/admin/CleanupHealthPanel";
 
 import { GateEvidencePanel } from "@/components/admin/GateEvidencePanel";
 
-import { ExecutionQualityPanel } from "@/components/admin/ExecutionQualityPanel";
-import { WalkForwardPanel } from "@/components/admin/WalkForwardPanel";
 import { ExitVariantsPanel } from "@/components/admin/ExitVariantsPanel";
 import { PromotionPanel } from "@/components/admin/PromotionPanel";
 import { StageLadderPanel } from "@/components/admin/StageLadderPanel";
@@ -199,16 +196,7 @@ function AdminIntelligencePage() {
         <ExecutionSwitchPanel />
       </PanelBoundary>
 
-      <PanelBoundary name="Enqueue decisions">
-        <EnqueueDecisionPanel />
-      </PanelBoundary>
-
-      <PanelBoundary name="Execution quality">
-        <ExecutionQualityPanel />
-      </PanelBoundary>
-
-      <PanelBoundary name="Out-of-sample confirmation">
-        <WalkForwardPanel />
+      <PanelBoundary name="Exit variants">
         <ExitVariantsPanel />
       </PanelBoundary>
 
