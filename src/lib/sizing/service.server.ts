@@ -204,6 +204,12 @@ export interface AccountSizingOverride {
    * benchmark policy, which never borrows a customer's risk profile.
    */
   riskPercent?: number | null;
+  /**
+   * Multiplier in (0, 1] on whichever risk percentage owns this order, from the
+   * owner's per-cohort automatic-order rule. Reduce-only: anything at or above 1,
+   * absent or unusable leaves the percentage untouched, and it can never raise it.
+   */
+  riskScale?: number | null;
 }
 
 /**
@@ -216,6 +222,11 @@ export async function resolveSizingForUser(
   request: SizingRequest,
   now = Date.now(),
   override?: AccountSizingOverride,
+  /**
+   * Per-cohort reduce-only scale for callers that pass no account override (the
+   * customer bridge path). Ignored when the override already carries one.
+   */
+  riskScale?: number | null,
 ): Promise<SizingResponse> {
   const { data: settings } = await db
     .from("scanner_settings")
@@ -225,7 +236,12 @@ export async function resolveSizingForUser(
     .eq("user_id", userId)
     .maybeSingle();
   const baseProfile = riskProfileFromSettings(settings as Record<string, unknown> | null);
-  const profile: RiskProfile = override
+  const rawScale = override?.riskScale ?? riskScale ?? null;
+  const scale =
+    typeof rawScale === "number" && Number.isFinite(rawScale)
+      ? Math.min(1, Math.max(0, rawScale))
+      : 1;
+  const profileBeforeScale: RiskProfile = override
     ? {
         ...baseProfile,
         accountEquity: override.equity,
@@ -235,6 +251,15 @@ export async function resolveSizingForUser(
           : {}),
       }
     : baseProfile;
+  // Reduce-only: the owner's per-cohort rule may only ever shrink the percentage.
+  const profile: RiskProfile =
+    scale > 0 && scale < 1
+      ? {
+          ...profileBeforeScale,
+          riskPerTradePercent: profileBeforeScale.riskPerTradePercent * scale,
+        }
+      : profileBeforeScale;
+
   const equityAsOf = override
     ? override.equityAsOf
     : (((settings as { equity_as_of?: string | null } | null)?.equity_as_of ?? null) as
@@ -436,7 +461,7 @@ export async function resolveSizingForAccount(
   },
   request: SizingRequest,
   now = Date.now(),
-  options?: { riskPercent?: number | null },
+  options?: { riskPercent?: number | null; riskScale?: number | null },
 ): Promise<AccountSizingResponse> {
   const equity =
     account.equity !== null &&
@@ -501,5 +526,6 @@ export async function resolveSizingForAccount(
     equityAsOf: account.equityAsOf,
     spec,
     riskPercent: options?.riskPercent ?? null,
+    riskScale: options?.riskScale ?? null,
   });
 }

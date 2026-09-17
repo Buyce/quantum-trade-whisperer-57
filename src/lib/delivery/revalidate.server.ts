@@ -32,6 +32,7 @@ import {
   type RejectReason,
 } from "./execution";
 import { evaluateExposure, type ExposureVerdict } from "./exposure";
+import { evaluateCohortPolicy, type CohortPolicyRow } from "./cohort-policy";
 import { effectiveSpreadCeiling } from "./spread-norms";
 import { loadSpreadNorm } from "./spread-norms.server";
 import {
@@ -929,6 +930,32 @@ export async function revalidateDelivery(
     );
   }
 
+  /**
+   * The owner's per-cohort automatic-order rule, re-read at send time so a rule
+   * saved after the delivery was queued is still honoured. Reduce-only: a blocked
+   * cohort refuses, a reduced cohort shrinks the risk percentage, and an
+   * unreadable rule changes nothing. Benchmark deliveries read the operator
+   * policy only and are never governed by a customer's preferences.
+   */
+  let cohortRiskScale: number | null = null;
+  if (!isBenchmark) {
+    const { data: cohortRows, error: cohortError } = await db
+      .from("auto_cohort_policies")
+      .select("instrument, direction, policy, risk_share_percent")
+      .eq("user_id", delivery.user_id)
+      .eq("instrument", signal.instrument);
+    if (cohortError) {
+      console.error("cohort policy unreadable at send time", cohortError.message);
+    } else {
+      const verdict = evaluateCohortPolicy((cohortRows ?? []) as CohortPolicyRow[], {
+        instrument: signal.instrument,
+        direction: signal.direction ?? null,
+      });
+      if (!verdict.allowed) return reject("cohort_blocked_by_user", verdict.detail);
+      if (verdict.policy === "reduce") cohortRiskScale = verdict.riskScale;
+    }
+  }
+
   const sizingRequest = {
     instrument: signal.instrument,
     entryPrice: execPlan.entryPrice,
@@ -947,9 +974,16 @@ export async function revalidateDelivery(
         },
         sizingRequest,
         now,
-        { riskPercent: benchmarkRiskPercent },
+        { riskPercent: benchmarkRiskPercent, riskScale: cohortRiskScale },
       )
-    : await resolveSizingForUser(db, delivery.user_id, sizingRequest, now);
+    : await resolveSizingForUser(
+        db,
+        delivery.user_id,
+        sizingRequest,
+        now,
+        undefined,
+        cohortRiskScale,
+      );
   // Fail-closed broker inputs surface as themselves, never as a generic
   // guardrail: a missing account currency is not a risk decision.
   if (isAccountSizingRefusal(sizing)) {

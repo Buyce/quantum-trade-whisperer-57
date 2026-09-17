@@ -36,6 +36,13 @@
       "when": 1789297985659,
       "tag": "0004_platform_benchmarks_aggregate",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1789621269364,
+      "tag": "0005_create_auto_cohort_policies",
+      "breakpoints": true
     }
   ]
 }
