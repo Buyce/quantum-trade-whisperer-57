@@ -135,7 +135,13 @@ export function CohortPolicyControls({ instruments }: { instruments: string[] })
                   const policy: CohortPolicyKind = isCohortPolicyKind(row?.policy)
                     ? row.policy
                     : "allow";
-                  const share = row?.risk_share_percent ?? 50;
+                  // Only the offered shares can be shown; a stored value outside
+                  // them (e.g. the 100 a blocked row carries) falls back to the
+                  // default rather than silently selecting the smallest option.
+                  const stored = row?.risk_share_percent ?? null;
+                  const share = COHORT_RISK_SHARES.some((s) => s === stored)
+                    ? (stored as number)
+                    : COHORT_RISK_SHARE_DEFAULT;
                   const ev = findEvidence(instrument, direction);
                   const busy = pending === key && mutation.isPending;
                   return (
