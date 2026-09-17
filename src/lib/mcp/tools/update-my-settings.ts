@@ -3,8 +3,17 @@ import { z } from "zod";
 import { supabaseForUser } from "../supabase";
 import { SENSITIVE_RISK_FIELDS, sensitiveFieldsIn, validateSettings } from "../settings-validation";
 
+export interface CohortPolicyInput {
+  instrument: string;
+  direction: string;
+  policy: string;
+  risk_share_percent?: number | undefined;
+}
+
 export type UpdateMySettingsInput = Parameters<typeof sensitiveFieldsIn>[0] & {
   confirm_risk_change?: boolean | undefined;
+  /** Per-instrument-and-direction automatic-order rules. Reduce-only. */
+  auto_cohort_policies?: CohortPolicyInput[] | undefined;
 };
 
 /**
@@ -17,8 +26,10 @@ export async function runUpdateMySettings(
   userId: string,
   input: UpdateMySettingsInput,
 ) {
-  const { confirm_risk_change, ...settingsInput } = input;
+  const { confirm_risk_change, auto_cohort_policies, ...settingsInput } = input;
   const sensitive = sensitiveFieldsIn(settingsInput);
+  const cohortRequested = Array.isArray(auto_cohort_policies) && auto_cohort_policies.length > 0;
+  if (cohortRequested) sensitive.push("auto_cohort_policies" as never);
   if (sensitive.length > 0 && confirm_risk_change !== true) {
     // Fail closed and write nothing: an unconfirmed risk change is refused in
     // full, including any non-sensitive fields sent alongside it.
@@ -41,11 +52,107 @@ export async function runUpdateMySettings(
     .eq("user_id", userId)
     .maybeSingle();
 
+  // ---- Per-cohort automatic-order rules ------------------------------------
+  const cohortWarnings: string[] = [];
+  const cohortApplied: string[] = [];
+  if (cohortRequested) {
+    const { clampCohortRiskShare, isCohortPolicyKind } = await import(
+      "@/lib/delivery/cohort-policy"
+    );
+    const { data: existing } = await db
+      .from("auto_cohort_policies")
+      .select("instrument, direction, policy, risk_share_percent")
+      .eq("user_id", userId);
+    const before = ((existing ?? []) as CohortPolicyInput[]).map((r) => ({
+      key: `${(r.instrument ?? "").toUpperCase()}:${(r.direction ?? "").toLowerCase()}`,
+      policy: r.policy,
+      share: r.risk_share_percent ?? 100,
+    }));
+
+    for (const raw of auto_cohort_policies ?? []) {
+      const instrument = String(raw.instrument ?? "").trim().toUpperCase();
+      const direction = String(raw.direction ?? "").trim().toLowerCase();
+      if (!instrument || (direction !== "long" && direction !== "short")) {
+        cohortWarnings.push(
+          `Ignored a rule with an unusable instrument or direction: ${JSON.stringify(raw)}.`,
+        );
+        continue;
+      }
+      if (!isCohortPolicyKind(raw.policy)) {
+        cohortWarnings.push(`Ignored ${instrument} ${direction}: policy must be allow, reduce or block.`);
+        continue;
+      }
+      const key = `${instrument}:${direction}`;
+      const prior = before.find((b) => b.key === key) ?? null;
+      const label = `${instrument} ${direction}`;
+
+      if (raw.policy === "allow") {
+        const { error: delError } = await db
+          .from("auto_cohort_policies")
+          .delete()
+          .eq("user_id", userId)
+          .eq("instrument", instrument)
+          .eq("direction", direction);
+        if (delError) {
+          cohortWarnings.push(`${label} was not changed: ${delError.message}`);
+          continue;
+        }
+        cohortApplied.push(`${label}: allowed at normal risk`);
+        if (prior) {
+          cohortWarnings.push(
+            `You removed a restriction: ${label} was ${prior.policy === "block" ? "switched off" : `limited to ${prior.share}% of normal risk`} and will now use your full per-trade risk.`,
+          );
+        }
+        continue;
+      }
+
+      const share =
+        raw.policy === "reduce" ? clampCohortRiskShare(raw.risk_share_percent ?? 50) : 100;
+      const { error: upError } = await db.from("auto_cohort_policies").upsert(
+        {
+          user_id: userId,
+          instrument,
+          direction,
+          policy: raw.policy,
+          risk_share_percent: share,
+        },
+        { onConflict: "user_id,instrument,direction" },
+      );
+      if (upError) {
+        cohortWarnings.push(`${label} was not changed: ${upError.message}`);
+        continue;
+      }
+      cohortApplied.push(
+        raw.policy === "block" ? `${label}: automatic orders off` : `${label}: ${share}% of normal risk`,
+      );
+      if (raw.policy === "reduce" && prior && prior.policy === "block") {
+        cohortWarnings.push(
+          `You loosened a restriction: ${label} was switched off and will now trade at ${share}% of your normal risk.`,
+        );
+      } else if (raw.policy === "reduce" && prior?.policy === "reduce" && share > prior.share) {
+        cohortWarnings.push(
+          `You raised the risk share on ${label} from ${prior.share}% to ${share}% of normal.`,
+        );
+      }
+    }
+  }
+
   const { patch, warnings } = validateSettings(settingsInput, {
     currentAckHigh: (current as { risk_ack_high?: boolean } | null)?.risk_ack_high === true,
     currentRiskPercent:
       (current as { risk_per_trade_percent?: number } | null)?.risk_per_trade_percent ?? null,
   });
+  if (Object.keys(patch).length === 0 && cohortApplied.length > 0) {
+    const payload = {
+      updated: ["auto_cohort_policies"],
+      auto_cohort_policies: cohortApplied,
+      warnings: [...warnings, ...cohortWarnings],
+    };
+    return {
+      content: [{ type: "text" as const, text: JSON.stringify(payload) }],
+      structuredContent: payload,
+    };
+  }
   if (Object.keys(patch).length === 0) {
     const text = warnings.length
       ? `Nothing changed. ${warnings.join(" ")}`
@@ -70,9 +177,10 @@ export async function runUpdateMySettings(
   }
 
   const payload = {
-    updated: Object.keys(patch),
+    updated: [...Object.keys(patch), ...(cohortApplied.length ? ["auto_cohort_policies"] : [])],
     settings: data[0],
-    warnings,
+    auto_cohort_policies: cohortApplied,
+    warnings: [...warnings, ...cohortWarnings],
     notes: {
       account_equity:
         "User-entered balance, never read from the broker. equity_as_of records when the user last set it.",
@@ -255,6 +363,23 @@ export default defineTool({
       .optional()
       .describe(
         "How long new automatic orders on the same instrument and direction are refused after a broker-confirmed loss there: 0 (off), 30, 60 or 120 minutes.",
+      ),
+
+    auto_cohort_policies: z
+      .array(
+        z.object({
+          instrument: z.string(),
+          direction: z.enum(["long", "short"]),
+          policy: z.enum(["allow", "reduce", "block"]),
+          risk_share_percent: z
+            .number()
+            .optional()
+            .describe("Share of the user's normal per-trade risk when policy = reduce (1-100)."),
+        }),
+      )
+      .optional()
+      .describe(
+        "Per-instrument AND direction automatic-order rules, for example EURUSD short. block refuses automatic orders on that pair and side; reduce places them with risk_share_percent of the user's normal per-trade risk; allow clears the rule. Reduce-only: it never causes an order, never enlarges one, and never changes the feed, alerts, publication, grading, replay or any statistic. Requires confirm_risk_change: true, and any loosening is reported back as a warning that must be repeated to the user.",
       ),
 
     confirm_risk_change: z
