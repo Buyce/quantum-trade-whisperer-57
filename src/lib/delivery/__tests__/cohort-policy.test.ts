@@ -45,7 +45,14 @@ describe("per-cohort automatic-order rule", () => {
     expect(evaluateCohortPolicy(rows, { instrument: "GBPAUD", direction: null }).riskScale).toBe(1);
     expect(
       evaluateCohortPolicy(
-        [{ instrument: "GBPAUD", direction: "short", policy: "nonsense", risk_share_percent: null }],
+        [
+          {
+            instrument: "GBPAUD",
+            direction: "short",
+            policy: "nonsense",
+            risk_share_percent: null,
+          },
+        ],
         { instrument: "GBPAUD", direction: "short" },
       ).allowed,
     ).toBe(true);

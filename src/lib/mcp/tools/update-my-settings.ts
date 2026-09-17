@@ -56,9 +56,8 @@ export async function runUpdateMySettings(
   const cohortWarnings: string[] = [];
   const cohortApplied: string[] = [];
   if (cohortRequested) {
-    const { clampCohortRiskShare, isCohortPolicyKind } = await import(
-      "@/lib/delivery/cohort-policy"
-    );
+    const { clampCohortRiskShare, isCohortPolicyKind } =
+      await import("@/lib/delivery/cohort-policy");
     const { data: existing } = await db
       .from("auto_cohort_policies")
       .select("instrument, direction, policy, risk_share_percent")
@@ -70,8 +69,12 @@ export async function runUpdateMySettings(
     }));
 
     for (const raw of auto_cohort_policies ?? []) {
-      const instrument = String(raw.instrument ?? "").trim().toUpperCase();
-      const direction = String(raw.direction ?? "").trim().toLowerCase();
+      const instrument = String(raw.instrument ?? "")
+        .trim()
+        .toUpperCase();
+      const direction = String(raw.direction ?? "")
+        .trim()
+        .toLowerCase();
       if (!instrument || (direction !== "long" && direction !== "short")) {
         cohortWarnings.push(
           `Ignored a rule with an unusable instrument or direction: ${JSON.stringify(raw)}.`,
@@ -79,7 +82,9 @@ export async function runUpdateMySettings(
         continue;
       }
       if (!isCohortPolicyKind(raw.policy)) {
-        cohortWarnings.push(`Ignored ${instrument} ${direction}: policy must be allow, reduce or block.`);
+        cohortWarnings.push(
+          `Ignored ${instrument} ${direction}: policy must be allow, reduce or block.`,
+        );
         continue;
       }
       const key = `${instrument}:${direction}`;
@@ -123,7 +128,9 @@ export async function runUpdateMySettings(
         continue;
       }
       cohortApplied.push(
-        raw.policy === "block" ? `${label}: automatic orders off` : `${label}: ${share}% of normal risk`,
+        raw.policy === "block"
+          ? `${label}: automatic orders off`
+          : `${label}: ${share}% of normal risk`,
       );
       if (raw.policy === "reduce" && prior && prior.policy === "block") {
         cohortWarnings.push(

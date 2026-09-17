@@ -34,8 +34,7 @@ export async function runGetMySettings(supabase: unknown) {
         cohortPolicies === null
           ? "Per-pair-and-direction automatic-order rules could not be read, so make no claim about them."
           : "The user's own rule per instrument AND direction. Only cohorts they changed appear here; any cohort absent from this list is allowed at their normal risk. policy=block refuses automatic orders on that pair and side; policy=reduce places them with risk_share_percent of their normal per-trade risk. Reduce-only: it never causes an order, never enlarges one, and never affects the feed, alerts, publication, grading or any measurement.",
-      daily_setup_cap:
-        data.daily_setup_cap === 0 ? "unlimited" : `${data.daily_setup_cap} per day`,
+      daily_setup_cap: data.daily_setup_cap === 0 ? "unlimited" : `${data.daily_setup_cap} per day`,
       webhook_config: "Webhook URL and secret are intentionally not exposed to agents.",
       account_equity:
         "User-entered balance, not broker-confirmed. equity_as_of is when the user last set it; treat an old date as stale and ask them to confirm.",

@@ -589,7 +589,9 @@ function SettingsPage() {
 
           <IntelGateCohorts />
 
-          <CohortPolicyControls instruments={selectableInstruments.filter((i) => instruments.includes(i))} />
+          <CohortPolicyControls
+            instruments={selectableInstruments.filter((i) => instruments.includes(i))}
+          />
 
           <AutoOrderDecisions />
 

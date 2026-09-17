@@ -15,7 +15,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 
-import { getCohortPolicies, getIntelGateCohorts, saveCohortPolicy } from "@/lib/execution.functions";
+import {
+  getCohortPolicies,
+  getIntelGateCohorts,
+  saveCohortPolicy,
+} from "@/lib/execution.functions";
 import { INSTRUMENT_LABELS } from "@/lib/db-types";
 import {
   COHORT_RISK_SHARES,
