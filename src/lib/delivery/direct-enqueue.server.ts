@@ -1404,7 +1404,11 @@ async function runDirectEnqueue(
         : signal.grade === "C"
           ? "c_grade_allowed_by_user_setting"
           : "enqueued",
-      detail: account.mode,
+      detail:
+        cohortRule.policy === "reduce"
+          ? `${account.mode} — ${cohortRule.detail}`
+          : account.mode,
+
       enqueued: 1,
       filtered: 0,
     });
