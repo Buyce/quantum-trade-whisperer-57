@@ -13,7 +13,7 @@ const rows: CohortPolicyRow[] = [
 ];
 
 describe("per-cohort automatic-order rule", () => {
-  it("blocks only the exact instrument and direction the owner blocked", () => {
+  it("[UNIT] blocks only the exact instrument and direction the owner blocked", () => {
     expect(evaluateCohortPolicy(rows, { instrument: "GBPAUD", direction: "short" }).allowed).toBe(
       false,
     );
@@ -22,7 +22,7 @@ describe("per-cohort automatic-order rule", () => {
     );
   });
 
-  it("scales risk for a reduced cohort and never above normal", () => {
+  it("[UNIT] scales risk for a reduced cohort and never above normal", () => {
     const verdict = evaluateCohortPolicy(rows, { instrument: "EURUSD", direction: "short" });
     expect(verdict.allowed).toBe(true);
     expect(verdict.policy).toBe("reduce");
@@ -35,7 +35,7 @@ describe("per-cohort automatic-order rule", () => {
     ).toBe(1);
   });
 
-  it("treats a missing, unknown or directionless case as allow", () => {
+  it("[UNIT] treats a missing, unknown or directionless case as allow", () => {
     expect(evaluateCohortPolicy(rows, { instrument: "USDJPY", direction: "short" }).allowed).toBe(
       true,
     );
@@ -51,19 +51,19 @@ describe("per-cohort automatic-order rule", () => {
     ).toBe(true);
   });
 
-  it("matches case-insensitively", () => {
+  it("[UNIT] matches case-insensitively", () => {
     expect(evaluateCohortPolicy(rows, { instrument: "gbpaud", direction: "SHORT" }).allowed).toBe(
       false,
     );
   });
 
-  it("clamps shares into the supported band", () => {
+  it("[UNIT] clamps shares into the supported band", () => {
     expect(clampCohortRiskShare(0)).toBe(1);
     expect(clampCohortRiskShare(999)).toBe(100);
     expect(clampCohortRiskShare("abc")).toBe(50);
   });
 
-  it("describes a saved rule for the owner", () => {
+  it("[UNIT] describes a saved rule for the owner", () => {
     expect(describeCohortPolicy(rows[0]!)).toContain("automatic orders off");
     expect(describeCohortPolicy(rows[1]!)).toContain("25% of normal risk");
   });
