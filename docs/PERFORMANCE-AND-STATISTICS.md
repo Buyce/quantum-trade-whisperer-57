@@ -128,6 +128,41 @@ never renders a synthesised row or an example trade.
 - A wide interval = few observations, or few distinct days.
 - "Not enough evidence" = a gate was not met.
 
+## Comparing grades (why a blended per-grade row is not a grade comparison)
+
+A per-grade row over executed trades is a **mix measurement**, not a grade
+measurement. In the broker-evidence ledger the grades did not trade the same
+instruments or the same directions, so a blended row mostly reports which
+instrument/direction mix that grade happened to receive in the window. Summed
+broker money is worse still: lot sizes and instruments differ across cohorts, so
+a money total ranks position size.
+
+Rules, enforced in `src/lib/admin/grade-comparison.ts` and rendered by
+`src/components/admin/AutoTraderPanel.tsx`:
+
+- Grades are compared **only within one stratum**, `broker_symbol x direction`.
+- Repeated fills of one setup collapse to **one cluster mean** first
+  (`signal_id`, else `signal_ref`, else the row itself).
+- A stratum needs `MIN_CLUSTERS_PER_STRATUM = 5` setups on **both** sides and at
+  least two clusters per side for variance; otherwise it is excluded and the
+  exclusion is reported.
+- A verdict requires `MIN_CLUSTERS_TOTAL = 20` usable setups per grade. Below
+  that the verdict is `insufficient_evidence` and **no ordering is printed**.
+- Strata are combined with the harmonic precision weight
+  `(nHigher x nLower) / (nHigher + nLower)`; the standard error comes from
+  cluster-level variance inside each stratum, and the 95% interval decides
+  between `higher_grade_better`, `lower_grade_better` and `no_separation`.
+- Trades with broker money but no plan geometry (grades recovered from the
+  enqueue decision log) carry no R and are never pooled with R samples. The
+  money column and the R column therefore describe different sets of trades, and
+  both counts are shown.
+- The comparison is descriptive of recorded, mostly demo evidence. It never
+  changes grade thresholds: a mis-calibration finding becomes its own proposal
+  with chronological holdout confirmation, per `gate_change_proposals`.
+
+The assistant is bound by the same rule (`src/lib/assistant/system-prompt.ts`):
+it may not rank grades from a blended row or from money.
+
 ## What the statistics do not guarantee
 
 - No predictive claim, no statement about future performance.

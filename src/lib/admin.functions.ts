@@ -1005,7 +1005,7 @@ export const getAdminAutoTraderOutcomes = createServerFn({ method: "GET" })
     const { data, error } = await supabaseAdmin
       .from("broker_trade_evidence")
       .select(
-        "signal_grade, signal_grade_source, gross_profit, swap, commission, profit_currency, r_vs_plan",
+        "signal_grade, signal_grade_source, gross_profit, swap, commission, profit_currency, r_vs_plan, broker_symbol, direction, signal_id, signal_ref, broker_account_type, entry_at",
       )
       .eq("evidence_class", "customer")
       .eq("state", "closed");
@@ -1031,6 +1031,12 @@ export const getAdminAutoTraderOutcomes = createServerFn({ method: "GET" })
             gross === null ? null : gross + (finite(row.swap) ?? 0) + (finite(row.commission) ?? 0),
           rVsPlan: finite(row.r_vs_plan),
           currency: row.profit_currency ?? null,
+          symbol: row.broker_symbol ?? null,
+          direction: row.direction ?? null,
+          // One setup can fill more than once; those fills are one cluster.
+          setupKey: row.signal_id ?? row.signal_ref ?? null,
+          accountType: row.broker_account_type ?? null,
+          entryAt: row.entry_at ?? null,
         };
       }),
     );
