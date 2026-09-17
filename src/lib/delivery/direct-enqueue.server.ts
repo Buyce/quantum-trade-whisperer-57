@@ -953,6 +953,32 @@ async function runDirectEnqueue(
       continue;
     }
 
+    /**
+     * The owner's own rule for this pair AND direction. Reduce-only: a blocked
+     * cohort is refused here, and a reduced cohort is noted so the pre-send
+     * sizing step can shrink it. It never authorises anything.
+     */
+    const cohortRule = evaluateCohortPolicy(cohortPolicies.get(account.user_id) ?? [], {
+      instrument: signal.instrument,
+      direction: candidatePlan?.direction ?? signal.direction ?? null,
+    });
+    if (!cohortRule.allowed) {
+      filtered += 1;
+      decisions.push({
+        user_id: account.user_id,
+        signal_id: signal.id,
+        instrument: signal.instrument,
+        grade: signal.grade,
+        decision: "cohort_blocked_by_user",
+        detail: cohortRule.detail,
+        enqueued: 0,
+        filtered: 1,
+      });
+      continue;
+    }
+
+
+
     // Owner's own automatic-order window. It can only ever REFUSE: a setup older
     // than the window the owner chose is not placed, whatever the feed still says
     // about the structure being entryable by hand.
