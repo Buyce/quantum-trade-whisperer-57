@@ -252,9 +252,12 @@ export type RejectReason =
   | "total_exposure_limit"
   | "news_blackout"
   | "account_risk_brake"
-  | "execution_cooldown";
+  | "execution_cooldown"
+  | "cohort_blocked_by_user";
 
 export const REJECT_COPY: Record<RejectReason, string> = {
+  cohort_blocked_by_user:
+    "You switched automatic orders off for this pair and direction, so no order was sent.",
   live_execution_globally_disabled: "Live execution is disabled system-wide.",
   user_execution_disabled: "You have not enabled execution for your account.",
   bridge_disabled: "This bridge profile is temporarily disabled.",
