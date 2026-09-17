@@ -403,6 +403,36 @@ export type Database = {
         }
         Relationships: []
       }
+      auto_cohort_policies: {
+        Row: {
+          direction: string
+          id: string
+          instrument: string
+          policy: string
+          risk_share_percent: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          direction: string
+          id?: string
+          instrument: string
+          policy?: string
+          risk_share_percent?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          direction?: string
+          id?: string
+          instrument?: string
+          policy?: string
+          risk_share_percent?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       baseline_snapshots: {
         Row: {
           captured_at: string
