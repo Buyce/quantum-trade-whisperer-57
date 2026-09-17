@@ -65,6 +65,7 @@ import {
   type IntelGateSettings,
   type PayoffGateRow,
 } from "./intel-gate";
+import { evaluateCohortPolicy, type CohortPolicyRow } from "./cohort-policy";
 import { recordEnqueueDecisions, type EnqueueDecisionRow } from "./enqueue-log.server";
 import {
   INSTRUMENT_NOT_APPROVED,
