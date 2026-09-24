@@ -39,6 +39,36 @@ describe("metaApiRequest", () => {
     expect(headers["application"]).toBe("MetaApi");
   });
 
+  it("[UNIT] exposes only safe response metadata to an observation hook", async () => {
+    globalThis.fetch = (async () =>
+      jsonResponse({ margin: 257.98 }, 200, {
+        "content-type": "application/json; charset=utf-8",
+      })) as unknown as typeof fetch;
+    const observations: unknown[] = [];
+
+    await metaApiRequest({
+      service: "client",
+      region: "london",
+      method: "POST",
+      path: "/users/current/accounts/account-id/calculate-margin",
+      label: "EURUSD.c margin",
+      body: { symbol: "EURUSD.c", type: "ORDER_TYPE_SELL", volume: 0.16, openPrice: 1.14488 },
+      onObservation: (value) => observations.push(value),
+    });
+
+    expect(observations).toEqual([
+      expect.objectContaining({
+        httpStatus: 200,
+        contentType: "application/json; charset=utf-8",
+        responseShape: "json_object",
+        timedOut: false,
+        errorType: null,
+      }),
+    ]);
+    expect(JSON.stringify(observations)).not.toContain("257.98");
+    expect(JSON.stringify(observations)).not.toContain("test-token");
+  });
+
   it("[INVARIANT] refuses to send anything when the region cannot be trusted", async () => {
     const fetchMock = vi.fn(async () => jsonResponse({}));
     globalThis.fetch = fetchMock as unknown as typeof fetch;

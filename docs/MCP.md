@@ -12,7 +12,7 @@ Endpoint: `/mcp`, OAuth-protected, tokens scoped to the signed-in account.
 Manifest: `.lovable/mcp/manifest.json`. Connection instructions for humans live at
 `/connect`.
 
-### Tools (16)
+### Tools (20)
 
 | Tool                      | Access | Notes                                                                                                                                                                                                                                                                                                                  |
 | ------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -30,6 +30,7 @@ Manifest: `.lovable/mcp/manifest.json`. Connection instructions for humans live 
 | `update_trade_outcome`    | write  | outcome and actual prices; stamped as agent-entered                                                                                                                                                                                                                                                                    |
 | `list_my_trades`          | read   | the user's SELF-REPORTED journal. It can be empty for an active trader; an empty journal is never evidence that the user has no trades                                                                                                                                                                                 |
 | `list_my_accounts`        | read   | the user's own connected broker accounts, DEMO and LIVE: mode, phase, broker-reported balance, equity, margin and trade permission, connection state and when the broker figures were observed. Own accounts only                                                                                                      |
+| `diagnose_broker_margin`  | read   | one non-trading MetaApi `calculate-margin` request for an owned account; resolves the broker symbol and validates volume server-side, records only sanitized transport/response diagnostics, and has no route to `/trade`                                                                                              |
 | `list_broker_trades`      | read   | the user's BROKER-CONFIRMED trades from broker evidence — the authority on what actually happened. Covers every one of the user's accounts, demo and live. Windowed on the broker exit time, filterable by state, instrument, account type or a single account, sortable by exit time or by R (best/worst trade)       |
 | `get_performance_summary` | read   | personal performance on one explicit R basis, optionally over a UTC window (`days`, or `from`/`to`), reported as two separate cohorts — broker-confirmed and self-reported — plus a combined view                                                                                                                      |
 | `get_platform_benchmarks` | read   | platform-wide aggregates across all connected accounts: per-grade and per-instrument broker-verified outcome rates and average R, published setup counts, shadow coverage, instrument stages. Aggregate-only — no account identity, no money amounts, no lot sizes; cohorts under the minimum group size are withheld. |
@@ -86,7 +87,8 @@ entries.
 
 ## What assistants cannot do
 
-- Read or place anything at the broker.
+- Place anything at the broker. The diagnostic tool may read account readiness and
+  request a margin calculation, but it has no route to `/trade`.
 - See other users' data.
 - Enable live execution, or bypass the live-execution confirmation.
 - Alter grading, published signals, replay outcomes or statistics.

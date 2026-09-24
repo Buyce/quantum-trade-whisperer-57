@@ -15,6 +15,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { createFakeSupabase, type FakeCall } from "@/test/fakes/supabase";
+import { MetaApiTimeoutError } from "@/lib/metaapi/errors";
 import { BROKER_EQUITY_MAX_AGE_MS, equityFresh, materialEquityChange } from "../equity-freshness";
 import { evaluateAccountExposure } from "../exposure-account";
 
@@ -266,6 +267,27 @@ describe("material equity movement without a resizer", () => {
     );
     expect(result.state).toBe("acknowledged");
     expect(submitPendingOrder).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("margin failure evidence", () => {
+  it("[INVARIANT] preserves a sanitized timeout reason and remains fail-closed", async () => {
+    vi.clearAllMocks();
+    healthyBroker(20_000);
+    estimateMargin.mockRejectedValue(new MetaApiTimeoutError("XAUUSD margin"));
+
+    const result = await submitDirectOrder(
+      db().client as never,
+      { id: 56, dry_run: false },
+      plan,
+      quantity,
+      target({ equity: 20_000 }),
+    );
+
+    expect(result.state).toBe("rejected");
+    expect(result.reason).toContain("timeout");
+    expect(result.reason).toContain("MetaApi request for XAUUSD margin");
+    expect(submitPendingOrder).not.toHaveBeenCalled();
   });
 });
 

@@ -169,6 +169,24 @@ describe("get_automatic_orders", () => {
   });
 });
 
+describe("diagnose_broker_margin", () => {
+  const src = read("src/lib/mcp/tools/diagnose-broker-margin.ts");
+
+  it("[INVARIANT] is non-trading and never imports a trade submission function", () => {
+    expect(src).not.toMatch(/metaapi\/trade\.server/);
+    expect(src).not.toMatch(/metaapi\/(accounts|provision|market)\.server/);
+    expect(src).not.toMatch(/submitMarketOrder|submitPendingOrder/);
+    expect(src).toContain("trade_endpoint_called: false");
+    expect(src).toContain("calls no other MetaApi endpoint");
+  });
+
+  it("[INVARIANT] resolves the provider account id under the signed-in user's RLS scope", () => {
+    expect(src).toMatch(/supabaseForUser/);
+    expect(src).not.toMatch(/supabaseAdmin|service_role/);
+    expect(src).not.toMatch(/metaapi_account_id.*payload/);
+  });
+});
+
 describe("get_risk_holds", () => {
   const src = read("src/lib/mcp/tools/get-risk-holds.ts");
 
