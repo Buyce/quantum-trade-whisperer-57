@@ -80,6 +80,18 @@ export class MetaApiTokenScopeError extends Error {
   }
 }
 
+/** MetaApi answered, but the payload did not satisfy the documented response contract. */
+export class MetaApiInvalidResponseError extends Error {
+  readonly label: string;
+  readonly reason: string;
+  constructor(label: string, reason: string) {
+    super(`MetaApi returned an invalid response for ${label}: ${reason}`);
+    this.name = "MetaApiInvalidResponseError";
+    this.label = label;
+    this.reason = reason;
+  }
+}
+
 /** A non-2xx MetaApi response. `body` is truncated and never logged wholesale. */
 export class MetaApiHttpError extends Error {
   readonly status: number;
@@ -114,6 +126,7 @@ export type MetaApiFailureKind =
   | "rate_limited"
   | "processing"
   | "validation"
+  | "invalid_response"
   | "server"
   | "unknown";
 
@@ -165,6 +178,15 @@ export function classifyMetaApiFailure(err: unknown): MetaApiFailure {
       kind: "permission",
       message: err.message,
       status: null,
+      retryAfterSeconds: null,
+      retryable: false,
+    };
+  }
+  if (err instanceof MetaApiInvalidResponseError) {
+    return {
+      kind: "invalid_response",
+      message: err.message,
+      status: 200,
       retryAfterSeconds: null,
       retryable: false,
     };

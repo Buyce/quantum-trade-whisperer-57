@@ -706,6 +706,55 @@
         "outputSchema": null
       },
       {
+        "name": "diagnose_broker_margin",
+        "title": "Diagnose broker margin calculation",
+        "description": "Run one authenticated, non-trading MetaApi calculate-margin diagnostic for one of the signed-in user's connected accounts. Resolves the broker symbol server-side, validates the supplied volume against the stored broker specification, snapshots stored broker readiness immediately before the request, calls no other MetaApi endpoint, never calls /trade, never submits an order and never returns credentials or the MetaApi account id.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": true
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "account_id": {
+              "description": "Connected account id from list_my_accounts.",
+              "type": "string",
+              "format": "uuid"
+            },
+            "logical_symbol": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 20
+            },
+            "action_type": {
+              "type": "string",
+              "enum": [
+                "ORDER_TYPE_BUY",
+                "ORDER_TYPE_SELL"
+              ]
+            },
+            "volume": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "open_price": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          },
+          "required": [
+            "account_id",
+            "logical_symbol",
+            "action_type",
+            "volume",
+            "open_price"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
         "name": "get_performance_summary",
         "title": "Get performance summary",
         "description": "Compute the signed-in user's trading performance from BOTH their broker-confirmed closed trades (the authority) and their self-reported journal, reported as separate cohorts plus a combined view: sample size, win rate, average win and loss in R, and expectancy in R, optionally restricted to a UTC date window. Choose the R basis explicitly: 'actual_risk' (return against the risk actually taken) or 'plan' (return against the published plan risk). The two bases are never averaged together. Frozen legacy trades are reported separately.",

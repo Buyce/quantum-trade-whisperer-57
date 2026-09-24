@@ -21,6 +21,7 @@ import { assertCapability } from "@/lib/instruments/lifecycle.server";
 import { fetchAccountFacts, fetchOrders, fetchPositions } from "@/lib/metaapi/accounts.server";
 import { fetchQuoteFor, type BrokerQuote } from "@/lib/metaapi/market.server";
 import { estimateMargin } from "@/lib/metaapi/margin.server";
+import { classifyMetaApiFailure, type MetaApiFailure } from "@/lib/metaapi/errors";
 import { submitMarketOrder, submitPendingOrder } from "@/lib/metaapi/trade.server";
 import type { AccountMode } from "@/lib/accounts/types";
 import type { AccountType } from "@/lib/metaapi/classify";
@@ -330,6 +331,7 @@ export async function submitDirectOrder(
 
   // ---- Broker-authoritative margin gate ------------------------------------
   let brokerMargin: number | null = null;
+  let marginFailure: MetaApiFailure | null = null;
   try {
     brokerMargin = await estimateMargin(target.metaapiAccountId, target.region, {
       symbol: order.symbol,
@@ -343,19 +345,23 @@ export async function submitDirectOrder(
       volume: order.volume,
       openPrice: "openPrice" in order ? order.openPrice : plan.entryPrice,
     });
-  } catch {
+  } catch (err) {
+    marginFailure = classifyMetaApiFailure(err);
     brokerMargin = null;
   }
   const marginGate = marginAcceptable(brokerMargin, freeMargin);
   if (!marginGate.ok) {
+    const detail = marginFailure
+      ? `${marginFailure.kind}: ${marginFailure.message}`
+      : marginGate.detail;
     await settle(db, delivery.id, {
       ...common,
       state: "rejected",
-      reason: `margin_gate: ${marginGate.detail}`,
+      reason: `margin_gate: ${detail}`,
       margin_estimate: brokerMargin,
       settled_at: new Date().toISOString(),
     });
-    return { state: "rejected", reason: marginGate.detail, brokerOrderId: null };
+    return { state: "rejected", reason: detail, brokerOrderId: null };
   }
 
   if (delivery.dry_run) {

@@ -38,6 +38,48 @@ export interface MetaApiRequestOptions {
   signal?: AbortSignal;
   /** Treat a 202 (MetaStats still processing) as an error the caller handles. */
   throwOn202?: boolean;
+  /** Optional safe response metadata. Never contains headers, tokens or response values. */
+  onObservation?: (observation: MetaApiRequestObservation) => void;
+}
+
+export interface MetaApiRequestObservation {
+  httpStatus: number | null;
+  elapsedMs: number;
+  contentType: string | null;
+  responseShape:
+    "none" | "empty" | "json_object" | "json_array" | "json_null" | "json_scalar" | "text";
+  timedOut: boolean;
+  errorType: string | null;
+}
+
+function responseShape(
+  text: string,
+  contentType: string | null,
+): MetaApiRequestObservation["responseShape"] {
+  if (!text) return "empty";
+  if (contentType?.toLowerCase().includes("json")) {
+    try {
+      const parsed: unknown = JSON.parse(text);
+      if (parsed === null) return "json_null";
+      if (Array.isArray(parsed)) return "json_array";
+      if (typeof parsed === "object") return "json_object";
+      return "json_scalar";
+    } catch {
+      return "text";
+    }
+  }
+  return "text";
+}
+
+function observeSafely(
+  options: MetaApiRequestOptions,
+  observation: MetaApiRequestObservation,
+): void {
+  try {
+    options.onObservation?.(observation);
+  } catch {
+    // Diagnostic collection must never change the provider request outcome.
+  }
 }
 
 /** One bounded retry for idempotent reads after a transient vendor gateway response. */
@@ -117,6 +159,7 @@ async function requestOnce<T>(
   host: string,
   token: string,
 ): Promise<T | null> {
+  const startedAt = Date.now();
   const controller = new AbortController();
   const onOuterAbort = () => controller.abort();
   options.signal?.addEventListener("abort", onOuterAbort, { once: true });
@@ -135,6 +178,8 @@ async function requestOnce<T>(
       signal: controller.signal,
     });
 
+    const contentType = res.headers.get("content-type");
+
     if (res.status === 202 && options.throwOn202) {
       throw new MetaApiHttpError(
         202,
@@ -145,6 +190,14 @@ async function requestOnce<T>(
     }
     if (!res.ok) {
       const body = await res.text().catch(() => "");
+      observeSafely(options, {
+        httpStatus: res.status,
+        elapsedMs: Date.now() - startedAt,
+        contentType,
+        responseShape: responseShape(body, contentType),
+        timedOut: false,
+        errorType: "MetaApiHttpError",
+      });
       // 520-530 come from the vendor's edge rather than a normal API response.
       // The edge did not confirm application-level processing. Callers must
       // preserve their idempotency key because an ambiguous failure must never
@@ -159,20 +212,73 @@ async function requestOnce<T>(
     }
 
     const text = await res.text();
-    if (!text) return null;
+    if (!text) {
+      observeSafely(options, {
+        httpStatus: res.status,
+        elapsedMs: Date.now() - startedAt,
+        contentType,
+        responseShape: "empty",
+        timedOut: false,
+        errorType: null,
+      });
+      return null;
+    }
     try {
-      return JSON.parse(text) as T;
+      const parsed = JSON.parse(text) as T;
+      observeSafely(options, {
+        httpStatus: res.status,
+        elapsedMs: Date.now() - startedAt,
+        contentType,
+        responseShape: responseShape(text, contentType),
+        timedOut: false,
+        errorType: null,
+      });
+      return parsed;
     } catch {
+      observeSafely(options, {
+        httpStatus: res.status,
+        elapsedMs: Date.now() - startedAt,
+        contentType,
+        responseShape: responseShape(text, contentType),
+        timedOut: false,
+        errorType: "MetaApiHttpError",
+      });
       throw new MetaApiHttpError(res.status, options.label, "response body was not valid JSON");
     }
   } catch (err) {
     if (err instanceof Error && err.name === "AbortError") {
-      if (options.signal?.aborted) throw new MetaApiRequestAbortedError();
+      if (options.signal?.aborted) {
+        observeSafely(options, {
+          httpStatus: null,
+          elapsedMs: Date.now() - startedAt,
+          contentType: null,
+          responseShape: "none",
+          timedOut: true,
+          errorType: "MetaApiRequestAbortedError",
+        });
+        throw new MetaApiRequestAbortedError();
+      }
+      observeSafely(options, {
+        httpStatus: null,
+        elapsedMs: Date.now() - startedAt,
+        contentType: null,
+        responseShape: "none",
+        timedOut: true,
+        errorType: "MetaApiTimeoutError",
+      });
       throw new MetaApiTimeoutError(options.label);
     }
     // A DNS/TLS/socket failure surfaces as a TypeError from fetch. Nothing was
     // sent, so it is reported as unreachable rather than as vendor prose.
     if (err instanceof TypeError) {
+      observeSafely(options, {
+        httpStatus: null,
+        elapsedMs: Date.now() - startedAt,
+        contentType: null,
+        responseShape: "none",
+        timedOut: false,
+        errorType: "MetaApiUnreachableError",
+      });
       throw new MetaApiUnreachableError(options.label, err.message);
     }
     throw err;
