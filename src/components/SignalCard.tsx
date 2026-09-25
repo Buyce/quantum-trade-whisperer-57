@@ -1,3 +1,4 @@
+import { ExplainSetupSheet } from "@/components/explain/ExplainSetupSheet";
 import { useState } from "react";
 import { ArrowDownRight, ArrowUpRight, Check, ChevronDown, Copy, X } from "lucide-react";
 import { toast } from "sonner";
@@ -1106,6 +1107,14 @@ export function SignalCard({
             >
               <Copy className="size-4" /> Copy order details
             </Button>
+            <ExplainSetupSheet
+              signalId={signal.id}
+              trigger={
+                <Button size="sm" variant="outline" className="h-10 w-full sm:h-8 sm:w-auto">
+                  <Sparkles className="size-4" /> Explain
+                </Button>
+              }
+            />
             {open ? (
               <span className="block text-xs leading-snug text-muted-foreground sm:ml-auto sm:min-w-0">
                 {guide
