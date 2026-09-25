@@ -1,6 +1,6 @@
 import { ExplainSetupSheet } from "@/components/explain/ExplainSetupSheet";
 import { useState } from "react";
-import { ArrowDownRight, ArrowUpRight, Check, ChevronDown, Copy, X } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Check, ChevronDown, Copy, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   clampAutoOrderWindowMinutes,
