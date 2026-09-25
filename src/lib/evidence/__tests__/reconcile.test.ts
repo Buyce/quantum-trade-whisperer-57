@@ -26,6 +26,9 @@ interface QueryCall {
 }
 
 interface FakeQuery extends PromiseLike<{ data: unknown[]; error: null }> {
+  upsert: (...args: unknown[]) => FakeQuery;
+  neq: (...args: unknown[]) => FakeQuery;
+  lt: (...args: unknown[]) => FakeQuery;
   select: (...args: unknown[]) => FakeQuery;
   eq: (...args: unknown[]) => FakeQuery;
   in: (...args: unknown[]) => FakeQuery;
