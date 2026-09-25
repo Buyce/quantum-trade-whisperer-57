@@ -31,6 +31,7 @@ import {
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { ControlCenter } from "@/components/accounts/ControlCenter";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -293,6 +294,8 @@ function AccountsPage() {
             broker-connection provider&rsquo;s own secure page.
           </p>
         </div>
+
+        {list.length > 0 ? <ControlCenter accounts={list} /> : null}
 
         {list.length > 0 ? <EmergencyStopPanel accounts={list} onChanged={invalidate} /> : null}
 
@@ -765,7 +768,10 @@ function AccountCard({
   });
 
   return (
-    <article className="rounded-sm border border-border bg-surface">
+    <article
+      id={`account-${account.id}`}
+      className="scroll-mt-20 rounded-sm border border-border bg-surface"
+    >
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border p-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
