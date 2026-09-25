@@ -512,9 +512,7 @@ async function flagDiscrepancies(
       storedAt,
       broker: brokerBalance,
       currency: account.broker_currency,
-      dealsSince: dealsSince as DiscrepancyInput["balance"] extends infer B
-        ? B extends { dealsSince: infer D } ? D : never
-        : never,
+      dealsSince: dealsSince as NonNullable<DiscrepancyInput["balance"]>["dealsSince"],
       historyCovers: Number.isFinite(storedMs) && storedMs >= input.historyStart.getTime(),
     },
   });
