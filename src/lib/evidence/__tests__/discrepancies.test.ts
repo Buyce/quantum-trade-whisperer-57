@@ -11,14 +11,14 @@ const base = {
 };
 
 describe("[UNIT] reconciliation discrepancies", () => {
-  it("flags nothing when both sides agree", () => {
+  it("[UNIT] flags nothing when both sides agree", () => {
     expect(findDiscrepancies(base)).toEqual([]);
   });
-  it("flags an order the broker has no trace of, critical on live", () => {
+  it("[UNIT] flags an order the broker has no trace of, critical on live", () => {
     const r = findDiscrepancies({ ...base, brokerStateByDelivery: new Map([[1, "absent"]]) });
     expect(r[0]).toMatchObject({ kind: "order_missing_at_broker", severity: "critical" });
   });
-  it("flags unmatched fills and untracked positions, ignores manual trades", () => {
+  it("[UNIT] flags unmatched fills and untracked positions, ignores manual trades", () => {
     const r = findDiscrepancies({
       ...base,
       ownedDealClientIds: ["PT_a_1", "PT_b_2"],
@@ -26,7 +26,7 @@ describe("[UNIT] reconciliation discrepancies", () => {
     });
     expect(r.map((d) => d.kind).sort()).toEqual(["broker_fill_unmatched", "position_untracked"]);
   });
-  it("flags balance drift beyond tolerance only when history covers the gap", () => {
+  it("[UNIT] flags balance drift beyond tolerance only when history covers the gap", () => {
     const balance = {
       stored: 1000, storedAt: "2026-09-01T00:00:00Z", broker: 1100, currency: "USD",
       dealsSince: [{ profit: 50 }], historyCovers: true,

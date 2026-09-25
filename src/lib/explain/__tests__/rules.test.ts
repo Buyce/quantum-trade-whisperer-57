@@ -3,7 +3,7 @@ import { checkRules } from "../rules";
 
 describe("[UNIT] explain rule checks", () => {
   const settings = { instruments: ["EURUSD"], min_grade: "B", max_stop_loss_percent: 1, risk_per_trade_percent: 1 };
-  it("detects wrong-side stop, blocked cohort, grade and instrument conflicts", () => {
+  it("[UNIT] detects wrong-side stop, blocked cohort, grade and instrument conflicts", () => {
     const r = checkRules(
       { instrument: "GBPAUD", direction: "long", grade: "C", entry: 1, stop: 1.1, target: 1.2 },
       settings,
@@ -11,7 +11,7 @@ describe("[UNIT] explain rule checks", () => {
     );
     expect(r.filter((c) => c.status === "conflict").length).toBeGreaterThanOrEqual(4);
   });
-  it("reports unknown when geometry is missing", () => {
+  it("[UNIT] reports unknown when geometry is missing", () => {
     const r = checkRules({ instrument: null, direction: null, grade: null, entry: null, stop: null, target: null }, null, null);
     expect(r.every((c) => c.status === "unknown")).toBe(true);
   });
