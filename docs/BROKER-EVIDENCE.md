@@ -137,3 +137,14 @@ approximated.
 
 `src/lib/evidence/__tests__/*`, `src/lib/__tests__/performance*.test.ts`,
 `src/test/__tests__/docs-contract.test.ts`.
+
+## Reconciliation discrepancies (flag-only)
+
+Each scheduled reconcile pass also compares broker vs platform per account and
+writes mismatches to `reconciliation_discrepancies` (`src/lib/evidence/discrepancies.ts`):
+`order_missing_at_broker`, `broker_fill_unmatched`, `position_untracked`, and
+`balance_drift` (broker balance vs last stored balance + broker deals, tolerance
+max(1, 0.1%), only when fetched history covers the gap). Nothing is corrected
+automatically. Re-seen items update in place; items no longer seen resolve.
+Checks are skipped when the broker could not be read. Owners review and
+acknowledge them in the Accounts page control center.

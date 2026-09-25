@@ -11,7 +11,13 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { fetchOrders, fetchPositions } from "@/lib/metaapi/accounts.server";
+import {
+  fetchAccountInformation,
+  fetchOrders,
+  fetchPositions,
+} from "@/lib/metaapi/accounts.server";
+import { isPTradesClientId } from "@/lib/metaapi/client-id";
+import { findDiscrepancies, type DiscrepancyInput } from "./discrepancies";
 import { fetchDeals, fetchHistoryOrders } from "@/lib/metaapi/history.server";
 import { computeR, R_MATH_VERSION } from "@/lib/journal/r-math";
 import { isSafeResearchRef, newsContextFor, pooledInclusionAllowed } from "@/lib/research/consent";
@@ -105,6 +111,9 @@ interface AccountRow {
   research_consent_version: number | null;
   research_consent_at: string | null;
   research_account_ref: string | null;
+  broker_balance: number | null;
+  broker_currency: string | null;
+  broker_observed_at: string | null;
 }
 
 export interface ReconcileResult {
@@ -113,6 +122,8 @@ export interface ReconcileResult {
   evidenceWritten: number;
   /** Deliveries whose broker-confirmed order state was recorded this pass. */
   orderStatesRecorded: number;
+  /** Open broker-vs-platform mismatches flagged this pass. */
+  discrepanciesFlagged: number;
   errors: string[];
 }
 
@@ -155,6 +166,7 @@ export async function reconcileBrokerEvidence(
   const now = options.now ?? Date.now();
   const result: ReconcileResult = {
     accountsChecked: 0,
+    discrepanciesFlagged: 0,
     dealsAssociated: 0,
     evidenceWritten: 0,
     orderStatesRecorded: 0,
@@ -261,7 +273,7 @@ export async function reconcileBrokerEvidence(
   const { data: accountRows } = await db
     .from("connected_trading_accounts")
     .select(
-      "id, user_id, metaapi_account_id, region, magic, broker_account_type, research_consent, research_consent_version, research_consent_at, research_account_ref",
+      "id, user_id, metaapi_account_id, region, magic, broker_account_type, research_consent, research_consent_version, research_consent_at, research_account_ref, broker_balance, broker_currency, broker_observed_at",
     )
     .in("id", [...accountIds]);
   const accounts = (accountRows ?? []) as unknown as AccountRow[];
@@ -401,6 +413,7 @@ export async function reconcileBrokerEvidence(
       if (row.clientId) brokerClientIds.add(String(row.clientId));
     }
 
+    const brokerStateByDelivery = new Map<number, string>();
     for (const delivery of accountDeliveries) {
       const brokerState = resolveBrokerOrderState({
         brokerOrderId: delivery.broker_order_id ?? null,
@@ -413,6 +426,7 @@ export async function reconcileBrokerEvidence(
           ? brokerClientIds.has(String(delivery.client_id))
           : true,
       });
+      brokerStateByDelivery.set(delivery.id, brokerState);
       const { error } = await db
         .from("execution_deliveries")
         .update({
@@ -422,6 +436,21 @@ export async function reconcileBrokerEvidence(
         .eq("id", delivery.id);
       if (error) pushError(`${account.id}: order state not recorded — ${error.message}`);
       else result.orderStatesRecorded += 1;
+    }
+
+    if (brokerReadable) {
+      const flagged = await flagDiscrepancies(db, {
+        account,
+        deliveries: accountDeliveries,
+        brokerStateByDelivery,
+        ownedDealClientIds: groups.map((g) => g.clientId),
+        positions,
+        deals,
+        historyStart,
+        now,
+      });
+      if (typeof flagged === "number") result.discrepanciesFlagged += flagged;
+      else pushError(`${account.id}: discrepancies not recorded — ${flagged.error}`);
     }
 
     const healthWriteError = await recordReconciliationHealth(
@@ -440,6 +469,86 @@ export async function reconcileBrokerEvidence(
   }
 
   return result;
+}
+
+/**
+ * Compare broker vs platform for one account and persist the findings. Flag
+ * only — never corrects either side. Mismatches no longer seen auto-resolve.
+ */
+async function flagDiscrepancies(
+  db: Db,
+  input: {
+    account: AccountRow;
+    deliveries: DeliveryRow[];
+    brokerStateByDelivery: Map<number, string>;
+    ownedDealClientIds: string[];
+    positions: readonly unknown[];
+    deals: readonly unknown[];
+    historyStart: Date;
+    now: number;
+  },
+): Promise<number | { error: string }> {
+  const { account } = input;
+  let brokerBalance: number | null = null;
+  try {
+    const info = await fetchAccountInformation(account.metaapi_account_id!, account.region);
+    brokerBalance = typeof info?.balance === "number" ? info.balance : null;
+  } catch {
+    brokerBalance = null;
+  }
+  const storedAt = account.broker_observed_at;
+  const storedMs = storedAt ? Date.parse(storedAt) : Number.NaN;
+  const dealsSince = (input.deals as { time?: string | null }[]).filter(
+    (d) => d.time && Number.isFinite(storedMs) && Date.parse(d.time) > storedMs,
+  );
+  const found = findDiscrepancies({
+    deliveries: input.deliveries,
+    brokerStateByDelivery: input.brokerStateByDelivery,
+    ownedDealClientIds: input.ownedDealClientIds,
+    positions: input.positions as DiscrepancyInput["positions"],
+    isPTradesClientId,
+    balance: {
+      stored: account.broker_balance,
+      storedAt,
+      broker: brokerBalance,
+      currency: account.broker_currency,
+      dealsSince: dealsSince as NonNullable<DiscrepancyInput["balance"]>["dealsSince"],
+      historyCovers: Number.isFinite(storedMs) && storedMs >= input.historyStart.getTime(),
+    },
+  });
+  const seenAt = new Date(input.now).toISOString();
+  if (found.length > 0) {
+    const { error } = await db.from("reconciliation_discrepancies").upsert(
+      found.map((f) => ({
+        user_id: account.user_id,
+        connected_account_id: account.id,
+        kind: f.kind,
+        ref: f.ref,
+        severity: f.severity,
+        summary: f.summary,
+        platform_value: f.platformValue,
+        broker_value: f.brokerValue,
+        last_seen_at: seenAt,
+      })) as never,
+      { onConflict: "connected_account_id,kind,ref" },
+    );
+    if (error) return { error: error.message };
+    // A resolved mismatch that reappears is open again.
+    await db
+      .from("reconciliation_discrepancies")
+      .update({ status: "open", resolved_at: null } as never)
+      .eq("connected_account_id", account.id)
+      .eq("status", "resolved")
+      .eq("last_seen_at", seenAt);
+  }
+  const { error: resolveError } = await db
+    .from("reconciliation_discrepancies")
+    .update({ status: "resolved", resolved_at: seenAt } as never)
+    .eq("connected_account_id", account.id)
+    .neq("status", "resolved")
+    .lt("last_seen_at", seenAt);
+  if (resolveError) return { error: resolveError.message };
+  return found.length;
 }
 
 async function writeEvidence(

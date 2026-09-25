@@ -15,6 +15,7 @@ vi.mock("@/lib/metaapi/history.server", () => ({
 vi.mock("@/lib/metaapi/accounts.server", () => ({
   fetchPositions: broker.fetchPositions,
   fetchOrders: broker.fetchOrders,
+  fetchAccountInformation: async () => null,
 }));
 
 import { reconcileBrokerEvidence } from "../reconcile.server";
@@ -25,6 +26,9 @@ interface QueryCall {
 }
 
 interface FakeQuery extends PromiseLike<{ data: unknown[]; error: null }> {
+  upsert: (...args: unknown[]) => FakeQuery;
+  neq: (...args: unknown[]) => FakeQuery;
+  lt: (...args: unknown[]) => FakeQuery;
   select: (...args: unknown[]) => FakeQuery;
   eq: (...args: unknown[]) => FakeQuery;
   in: (...args: unknown[]) => FakeQuery;
@@ -108,6 +112,9 @@ function queryFor(table: string): FakeQuery {
     "order",
     "range",
     "update",
+    "upsert",
+    "neq",
+    "lt",
   ] as const) {
     query[method] = (...args: unknown[]) => {
       calls.push({ method, args });

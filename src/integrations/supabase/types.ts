@@ -3968,6 +3968,65 @@ export type Database = {
         }
         Relationships: []
       }
+      reconciliation_discrepancies: {
+        Row: {
+          acknowledged_at: string | null
+          broker_value: Json
+          connected_account_id: string
+          first_seen_at: string
+          id: string
+          kind: string
+          last_seen_at: string
+          platform_value: Json
+          ref: string
+          resolved_at: string | null
+          severity: string
+          status: string
+          summary: string
+          user_id: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          broker_value?: Json
+          connected_account_id: string
+          first_seen_at?: string
+          id?: string
+          kind: string
+          last_seen_at?: string
+          platform_value?: Json
+          ref: string
+          resolved_at?: string | null
+          severity: string
+          status?: string
+          summary: string
+          user_id: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          broker_value?: Json
+          connected_account_id?: string
+          first_seen_at?: string
+          id?: string
+          kind?: string
+          last_seen_at?: string
+          platform_value?: Json
+          ref?: string
+          resolved_at?: string | null
+          severity?: string
+          status?: string
+          summary?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reconciliation_discrepancies_connected_account_id_fkey"
+            columns: ["connected_account_id"]
+            isOneToOne: false
+            referencedRelation: "connected_trading_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       regime_snapshots: {
         Row: {
           computed_at: string

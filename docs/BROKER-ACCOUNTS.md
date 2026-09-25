@@ -116,3 +116,19 @@ names the reason. A refusal is never downgraded into a default value.
 
 `src/lib/accounts/__tests__/*`, `src/lib/telemetry/__tests__/*`,
 `src/test/__tests__/docs-contract.test.ts`.
+
+## Control center
+
+The top of the Accounts page shows one card per account: connection, mode,
+broker trading permission, P-Trades open/waiting orders (broker-confirmed
+states) vs the account limit, emergency-stop state, and reconciliation items
+to review. Tapping a card jumps to its detail.
+
+## Explain this setup
+
+Signal cards and the assistant have an "Explain" action (Lovable AI). Rule
+checks (stop/target side, stop distance limit, instrument selection, minimum
+grade, automatic-trading block/reduce) are computed in code
+(`src/lib/explain/rules.ts`) from the trader's own settings; the model only
+explains them, lists risk factors and missing data, and never places orders.
+Pasted notes are labelled self-reported and are not rule-checked.
