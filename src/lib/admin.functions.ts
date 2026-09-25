@@ -499,6 +499,18 @@ export const setAdminExecutionSwitches = createServerFn({ method: "POST" })
           throw new Error("Enable live execution before arming automatic live orders.");
         if (emergencyStopAfter)
           throw new Error("Disable the emergency stop before arming automatic live orders.");
+        // Staged opening: per-trade live confirmation must be running before
+        // fully automatic live orders can be armed. Live auto never comes first.
+        const { data: stage, error: stageError } = await supabaseAdmin
+          .from("execution_controls")
+          .select("live_confirm_enabled")
+          .eq("id", true)
+          .maybeSingle();
+        if (stageError) throw new Error(stageError.message);
+        if ((stage as { live_confirm_enabled?: boolean } | null)?.live_confirm_enabled !== true)
+          throw new Error(
+            "Run live confirm-each-trade first. Automatic live orders cannot be armed before live confirmation is on.",
+          );
       }
       patch["live_auto_enabled"] = data.liveAutoEnabled;
     }

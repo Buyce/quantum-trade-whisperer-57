@@ -19,6 +19,8 @@ items still open.
 - [ ] Decide on customer live money. Both `customer_live_confirm_enabled` and
       `customer_live_auto_enabled` are `false`; no customer account can be armed on
       real money until an owner decision plus holdout evidence supports it.
+- [ ] Live go-live (2026-09-25 audit): run one minimum-lot live confirm-each-trade order on the owner's real account end to end — blocked on owner connecting a real account.
+- [ ] Choose the first invited live customer group — blocked on owner decision.
 - [ ] Clear the outstanding backend security-linter findings.
 
 Current stage ladder: `EURUSD`, `GBPAUD`, `XAUUSD` execution-approved; `AUDUSD`,
