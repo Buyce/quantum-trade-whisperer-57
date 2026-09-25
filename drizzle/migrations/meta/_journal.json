@@ -43,6 +43,13 @@
       "when": 1789621269364,
       "tag": "0005_create_auto_cohort_policies",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790313454621,
+      "tag": "0006_enable_live_trading",
+      "breakpoints": true
     }
   ]
 }

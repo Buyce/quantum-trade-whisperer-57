@@ -11,13 +11,13 @@ const base = {
 };
 
 describe("brokerProvedAbsent", () => {
-  it("settles only a broker-confirmed absence a day after submission", () => {
+  it("[UNIT] settles only a broker-confirmed absence a day after submission", () => {
     expect(brokerProvedAbsent(base)).toBe(true);
   });
-  it("refuses an early reading", () => {
+  it("[UNIT] refuses an early reading", () => {
     expect(brokerProvedAbsent({ ...base, broker_state_at: "2026-09-03T20:00:00Z" })).toBe(false);
   });
-  it("refuses without a client id or with a non-absent state", () => {
+  it("[UNIT] refuses without a client id or with a non-absent state", () => {
     expect(brokerProvedAbsent({ ...base, client_id: null })).toBe(false);
     expect(brokerProvedAbsent({ ...base, broker_order_state: "closed" })).toBe(false);
     expect(brokerProvedAbsent({ ...base, broker_order_state: null })).toBe(false);
