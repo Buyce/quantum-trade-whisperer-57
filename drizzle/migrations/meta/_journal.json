@@ -50,6 +50,13 @@
       "when": 1790313454621,
       "tag": "0006_enable_live_trading",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790314247630,
+      "tag": "0007_reconciliation_discrepancies",
+      "breakpoints": true
     }
   ]
 }
