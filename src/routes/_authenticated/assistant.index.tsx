@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { ExplainSetupSheet } from "@/components/explain/ExplainSetupSheet";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { MessageSquarePlus, Trash2 } from "lucide-react";
@@ -43,9 +44,15 @@ function AssistantHome() {
     <div className="mx-auto max-w-2xl p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">P-Trades Assistant</h1>
-        <Button onClick={startThread} disabled={creating}>
-          <MessageSquarePlus className="mr-2 h-4 w-4" /> New conversation
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <ExplainSetupSheet
+            signalId={null}
+            trigger={<Button variant="outline">Explain a setup</Button>}
+          />
+          <Button onClick={startThread} disabled={creating}>
+            <MessageSquarePlus className="mr-2 h-4 w-4" /> New conversation
+          </Button>
+        </div>
       </div>
       <p className="text-sm text-muted-foreground">
         Ask about your setups, orders, risk holds, settings and performance — or what's
