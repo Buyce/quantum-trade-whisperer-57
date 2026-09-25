@@ -47,6 +47,9 @@ export interface SweepableDelivery {
   direction: string | null;
   connected_account_id: string | null;
   destination_type: string | null;
+  client_id?: string | null;
+  broker_order_state?: string | null;
+  broker_state_at?: string | null;
 }
 
 /**
@@ -140,6 +143,24 @@ export function classifyBrokerPresence(
   return "resting";
 }
 
+/** How long after submission a broker "absent" reading must be before it is trusted. */
+export const ABSENT_PROOF_DELAY_MS = 24 * 3_600_000;
+
+/**
+ * True only when the broker reconciler searched for this order's clientId and
+ * found nothing, at least {@link ABSENT_PROOF_DELAY_MS} after submission.
+ * Fails closed: no clientId, no reading, or an early reading proves nothing.
+ */
+export function brokerProvedAbsent(
+  row: Pick<SweepableDelivery, "sent_at" | "submitted_at" | "client_id" | "broker_order_state" | "broker_state_at">,
+): boolean {
+  if (!row.client_id || row.broker_order_state !== "absent" || !row.broker_state_at) return false;
+  const submitted = Date.parse(row.submitted_at ?? row.sent_at ?? "");
+  const observed = Date.parse(row.broker_state_at);
+  if (!Number.isFinite(submitted) || !Number.isFinite(observed)) return false;
+  return observed - submitted >= ABSENT_PROOF_DELAY_MS;
+}
+
 export async function settleExpired(db: Db, id: number, reason: string): Promise<void> {
   const { error } = await db
     .from("execution_deliveries")
@@ -170,7 +191,7 @@ export async function expireUnfilledOrders(
   const { data, error } = await db
     .from("execution_deliveries")
     .select(
-      "id, user_id, state, dry_run, enqueued_at, sent_at, submitted_at, broker_order_id, connected_account_id, destination_type",
+      "id, user_id, state, dry_run, enqueued_at, sent_at, submitted_at, broker_order_id, connected_account_id, destination_type, client_id, broker_order_state, broker_state_at",
     )
     .in("state", SWEEPABLE_STATES as unknown as string[])
     .lte("enqueued_at", cutoff)
@@ -240,6 +261,17 @@ export async function expireUnfilledOrders(
       continue;
     }
     if (!row.broker_order_id) {
+      // A transport failure after submit leaves no order id. The evidence
+      // reconciler searches the broker by clientId; once it has reported the
+      // clientId absent from every broker list a full day after submission,
+      // the broker provably never placed it, so the row is settled `expired`.
+      if (brokerProvedAbsent(row)) {
+        const reason =
+          "expired: submission outcome was unknown, and the broker has no order, position or deal for this order's client id a day after submission";
+        await settleExpired(db, row.id, reason);
+        outcomes.push({ deliveryId: row.id, action: "expired", reason });
+        continue;
+      }
       outcomes.push({
         deliveryId: row.id,
         action: "kept",
