@@ -13,6 +13,7 @@ import {
   claimV2Structure,
   claimV3Structure,
   recordObservations,
+  qCoreObservationRow,
   v1ObservationRow,
   v2ErrorObservationRow,
   v2ObservationRow,
@@ -28,6 +29,7 @@ import {
 } from "@/lib/research/enrol.server";
 
 import { atr } from "./indicators";
+import { qCoreFromV1Evaluation } from "@/lib/qcore/observation";
 import { presentSignalBreakdown } from "./copy";
 import { ACTIVE_MODEL_VERSION, observationKey } from "@/lib/versioning";
 import { isTransientMetaApiReadFailure, MetaApiRequestAbortedError } from "@/lib/metaapi/errors";
@@ -411,6 +413,25 @@ export async function processNextJob(
           provenance,
         }),
       ];
+
+      // Q-Core consumes only the already-derived V1 profile. It is appended to
+      // the research ledger after the production result is fixed and cannot
+      // affect publication, alerts, risk or broker execution.
+      if (v1Evaluation && v1Direction) {
+        const qCore = qCoreFromV1Evaluation(v1Evaluation);
+        if (qCore) {
+          rows.push(
+            qCoreObservationRow({
+              runId: job.run_id ?? null,
+              observationKey: key,
+              instrument: job.instrument,
+              direction: v1Direction,
+              decision: qCore,
+              provenance,
+            }),
+          );
+        }
+      }
 
       if (v2) {
         rows.push(
