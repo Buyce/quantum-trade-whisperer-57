@@ -86,6 +86,7 @@ import { accountBrakeVerdict } from "@/lib/risk/brakes.server";
 import { activeCooldown } from "@/lib/execution/quality.server";
 import { readLifecycleView } from "@/lib/instruments/lifecycle.server";
 import { normalizeOrderGeometry } from "@/lib/instruments/precision";
+import { accountExecutionPolicy } from "@/lib/accounts/policy.server";
 
 type Db = Pick<SupabaseClient, "from" | "rpc">;
 
@@ -962,6 +963,24 @@ export async function revalidateDelivery(
     stopLoss: execPlan.stopLoss,
     signalId: signal.id,
   };
+
+  // Destination-account policy is a separate authority from the user's global
+  // scanner settings. For ordinary direct accounts it sets the maximum risk
+  // percentage used by sizing; another connected account can neither enlarge nor
+  // rescue this one. Benchmark policy remains operator-owned and unchanged.
+  let accountRiskPercent: number | null = benchmarkRiskPercent;
+  if (directTarget && !isBenchmark) {
+    const accountPolicy = await accountExecutionPolicy(db, {
+      accountId: directTarget.accountId,
+      userId: delivery.user_id,
+      equity: directTarget.equity,
+      balance: directTarget.balance,
+      now,
+    });
+    if (!accountPolicy.ok) return reject(accountPolicy.reason, accountPolicy.detail);
+    accountRiskPercent = accountPolicy.riskPercent;
+  }
+
   const sizing = directTarget
     ? await resolveSizingForAccount(
         db,
@@ -974,7 +993,7 @@ export async function revalidateDelivery(
         },
         sizingRequest,
         now,
-        { riskPercent: benchmarkRiskPercent, riskScale: cohortRiskScale },
+        { riskPercent: accountRiskPercent, riskScale: cohortRiskScale },
       )
     : await resolveSizingForUser(
         db,
@@ -1109,7 +1128,7 @@ export async function revalidateDelivery(
       quantity,
       plan: approvedPlan,
       exposure,
-      riskPercentOverride: benchmarkRiskPercent,
+      riskPercentOverride: accountRiskPercent,
     };
   }
 
