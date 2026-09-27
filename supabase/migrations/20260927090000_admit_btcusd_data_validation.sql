@@ -3,8 +3,8 @@
 -- Broker symbol mapping, contract geometry, sessions/maintenance windows and
 -- costs remain broker-authoritative readiness evidence.
 
-insert into public.instrument_lifecycle (symbol, wave, stage, data_health)
-values ('BTCUSD', 2, 'data_validation', 'unvalidated')
+insert into public.instrument_lifecycle (symbol, wave, stage)
+values ('BTCUSD', 2, 'data_validation')
 on conflict (symbol) do nothing;
 
 insert into public.instrument_calendar_bindings (
