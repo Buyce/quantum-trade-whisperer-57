@@ -167,11 +167,7 @@ export const Route = createFileRoute("/api/public/worker/process")({
           // fetches. Cleanup therefore finishes before the lease is released;
           // no successor can overlap a detached pass.
           await releaseLease();
-          await logPass(
-            "deadline",
-            processed.length,
-            `work aborted at ${RESPONSE_DEADLINE_MS}ms`,
-          );
+          await logPass("deadline", processed.length, `work aborted at ${RESPONSE_DEADLINE_MS}ms`);
           return Response.json({
             ok: true,
             timedOut: true,

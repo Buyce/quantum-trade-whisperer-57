@@ -29,17 +29,11 @@ export default defineConfig({
         // (e.g. parse5 importing "entities/escape") still resolve their own copy.
         {
           find: "entities/lib/decode.js",
-          replacement: path.resolve(
-            import.meta.dirname,
-            "node_modules/entities/lib/decode.js",
-          ),
+          replacement: path.resolve(import.meta.dirname, "node_modules/entities/lib/decode.js"),
         },
         {
           find: "entities/lib/encode.js",
-          replacement: path.resolve(
-            import.meta.dirname,
-            "node_modules/entities/lib/encode.js",
-          ),
+          replacement: path.resolve(import.meta.dirname, "node_modules/entities/lib/encode.js"),
         },
         {
           find: /^entities$/,
@@ -47,6 +41,5 @@ export default defineConfig({
         },
       ],
     },
-
   },
 });

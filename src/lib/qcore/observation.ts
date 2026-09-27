@@ -9,7 +9,7 @@ import type { SetupEvaluation } from "@/lib/scanner/profile";
  */
 export function qCoreInputFromV1Evaluation(evaluation: SetupEvaluation): QCoreInput | null {
   const profile = evaluation.proposedProfile;
-  if (!profile || !evaluation.direction) return null;
+  if (!profile || !evaluation.direction || !profile.pillars) return null;
 
   return {
     direction: evaluation.direction,

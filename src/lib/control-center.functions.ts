@@ -40,7 +40,9 @@ export const getControlCenterExtras = createServerFn({ method: "GET" })
         .limit(1000),
       db
         .from("reconciliation_discrepancies")
-        .select("id, connected_account_id, kind, severity, summary, status, first_seen_at, last_seen_at")
+        .select(
+          "id, connected_account_id, kind, severity, summary, status, first_seen_at, last_seen_at",
+        )
         .eq("user_id", context.userId)
         .neq("status", "resolved")
         .order("last_seen_at", { ascending: false })

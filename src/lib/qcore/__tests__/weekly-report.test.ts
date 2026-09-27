@@ -15,7 +15,7 @@ const input = {
 };
 
 describe("Q-Core weekly research report", () => {
-  it("limits weekly metrics to the requested window", () => {
+  it("[UNIT] limits weekly metrics to the requested window", () => {
     const rows = [
       {
         id: "old",

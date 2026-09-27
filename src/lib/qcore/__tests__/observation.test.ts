@@ -30,24 +30,24 @@ function evaluation(stage: SetupEvaluation["stage"]): SetupEvaluation {
             },
             rrRatio: 2.2,
             maxR: 2.8,
-          } as SetupEvaluation["proposedProfile"])
+          } as unknown as SetupEvaluation["proposedProfile"])
         : null,
   };
 }
 
 describe("Q-Core observation adapter", () => {
-  it("records a shadow decision only when V1 produced a real profile", () => {
+  it("[UNIT] records a shadow decision only when V1 produced a real profile", () => {
     const q = qCoreFromV1Evaluation(evaluation("published"));
     expect(q).not.toBeNull();
     expect(q?.executionEligible).toBe(false);
     expect(q?.mode).toBe("shadow");
   });
 
-  it("does not invent a quant observation for structurally rejected scans", () => {
+  it("[UNIT] does not invent a quant observation for structurally rejected scans", () => {
     expect(qCoreFromV1Evaluation(evaluation("no_abc"))).toBeNull();
   });
 
-  it("does not inject unaligned regime or execution aggregates", () => {
+  it("[UNIT] does not inject unaligned regime or execution aggregates", () => {
     const q = qCoreFromV1Evaluation(evaluation("published"));
     expect(q?.reasons).toContain("regime_reporting_gate=inactive");
     expect(q?.reasons).toContain("execution_quality=unmeasured");

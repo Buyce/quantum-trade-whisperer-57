@@ -208,21 +208,32 @@ const WeeklyShadowReportEmail = ({
               has no execution authority.
             </Text>
             <Text style={mono}>policy: {qcore.policyId ?? "n/a"}</Text>
-            <Text style={mono}>observations / resolved: {qcore.observations ?? 0} / {qcore.resolved ?? 0}</Text>
-            <Text style={mono}>mean R / cumulative R: {qcore.meanR ?? "n/a"} / {qcore.cumulativeR ?? "n/a"}</Text>
+            <Text style={mono}>
+              observations / resolved: {qcore.observations ?? 0} / {qcore.resolved ?? 0}
+            </Text>
+            <Text style={mono}>
+              mean R / cumulative R: {qcore.meanR ?? "n/a"} / {qcore.cumulativeR ?? "n/a"}
+            </Text>
             <Text style={mono}>win rate: {qcore.winRate ?? "n/a"}</Text>
             <Text style={mono}>max drawdown: {qcore.maxDrawdownR ?? "n/a"}</Text>
             <Text style={mono}>
-              states L/N/S: {qcore.stateCounts?.long ?? 0} / {qcore.stateCounts?.neutral ?? 0} / {qcore.stateCounts?.short ?? 0}
+              states L/N/S: {qcore.stateCounts?.long ?? 0} / {qcore.stateCounts?.neutral ?? 0} /{" "}
+              {qcore.stateCounts?.short ?? 0}
             </Text>
             <Text style={mono}>
-              walk-forward folds / OOS n: {qcore.walkForward?.folds ?? 0} / {qcore.walkForward?.outOfSampleN ?? 0}
+              walk-forward folds / OOS n: {qcore.walkForward?.folds ?? 0} /{" "}
+              {qcore.walkForward?.outOfSampleN ?? 0}
             </Text>
             <Text style={mono}>
-              OOS mean R / cumulative R / max drawdown: {qcore.walkForward?.outOfSampleMeanR ?? "n/a"} / {qcore.walkForward?.outOfSampleCumulativeR ?? "n/a"} / {qcore.walkForward?.outOfSampleMaxDrawdownR ?? "n/a"}
+              OOS mean R / cumulative R / max drawdown:{" "}
+              {qcore.walkForward?.outOfSampleMeanR ?? "n/a"} /{" "}
+              {qcore.walkForward?.outOfSampleCumulativeR ?? "n/a"} /{" "}
+              {qcore.walkForward?.outOfSampleMaxDrawdownR ?? "n/a"}
             </Text>
             {(qcore.walkForward?.blockers ?? []).length > 0 ? (
-              <Text style={mono}>evidence blockers: {(qcore.walkForward?.blockers ?? []).join(" ")}</Text>
+              <Text style={mono}>
+                evidence blockers: {(qcore.walkForward?.blockers ?? []).join(" ")}
+              </Text>
             ) : null}
           </>
         ) : (

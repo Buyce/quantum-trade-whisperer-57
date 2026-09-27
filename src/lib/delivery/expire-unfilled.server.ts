@@ -152,7 +152,10 @@ export const ABSENT_PROOF_DELAY_MS = 24 * 3_600_000;
  * Fails closed: no clientId, no reading, or an early reading proves nothing.
  */
 export function brokerProvedAbsent(
-  row: Pick<SweepableDelivery, "sent_at" | "submitted_at" | "client_id" | "broker_order_state" | "broker_state_at">,
+  row: Pick<
+    SweepableDelivery,
+    "sent_at" | "submitted_at" | "client_id" | "broker_order_state" | "broker_state_at"
+  >,
 ): boolean {
   if (!row.client_id || row.broker_order_state !== "absent" || !row.broker_state_at) return false;
   const submitted = Date.parse(row.submitted_at ?? row.sent_at ?? "");

@@ -16,10 +16,7 @@
  */
 
 export type DiscrepancyKind =
-  | "order_missing_at_broker"
-  | "broker_fill_unmatched"
-  | "position_untracked"
-  | "balance_drift";
+  "order_missing_at_broker" | "broker_fill_unmatched" | "position_untracked" | "balance_drift";
 
 export type DiscrepancySeverity = "warning" | "critical";
 
@@ -116,7 +113,12 @@ export function findDiscrepancies(input: DiscrepancyInput): Discrepancy[] {
       severity: "critical",
       summary: `An open ${p.symbol ?? ""} position tagged by P-Trades is at the broker but not in P-Trades' records.`,
       platformValue: { found: false },
-      brokerValue: { positionId: p.id ?? null, clientId, symbol: p.symbol ?? null, volume: p.volume ?? null },
+      brokerValue: {
+        positionId: p.id ?? null,
+        clientId,
+        symbol: p.symbol ?? null,
+        volume: p.volume ?? null,
+      },
     });
   }
 
@@ -124,11 +126,7 @@ export function findDiscrepancies(input: DiscrepancyInput): Discrepancy[] {
   if (b && b.stored !== null && b.broker !== null && b.storedAt && b.historyCovers) {
     const dealTotal = b.dealsSince.reduce(
       (sum, deal) =>
-        sum +
-        (deal.profit ?? 0) +
-        (deal.swap ?? 0) +
-        (deal.commission ?? 0) +
-        (deal.fee ?? 0),
+        sum + (deal.profit ?? 0) + (deal.swap ?? 0) + (deal.commission ?? 0) + (deal.fee ?? 0),
       0,
     );
     const expected = b.stored + dealTotal;
@@ -138,7 +136,8 @@ export function findDiscrepancies(input: DiscrepancyInput): Discrepancy[] {
         kind: "balance_drift",
         ref: "balance",
         severity: "warning",
-        summary: `Broker balance differs from the last recorded balance plus broker deals by ${diff.toFixed(2)} ${b.currency ?? ""}.`.trim(),
+        summary:
+          `Broker balance differs from the last recorded balance plus broker deals by ${diff.toFixed(2)} ${b.currency ?? ""}.`.trim(),
         platformValue: {
           storedBalance: b.stored,
           storedAt: b.storedAt,

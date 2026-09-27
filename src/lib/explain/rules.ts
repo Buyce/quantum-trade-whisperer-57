@@ -71,7 +71,8 @@ export function checkRules(
     out.push({
       rule: "Stop geometry",
       status: "unknown",
-      detail: "Rule checks run on P-Trades signals. Pasted notes are explained by the AI but not checked against your settings.",
+      detail:
+        "Rule checks run on P-Trades signals. Pasted notes are explained by the AI but not checked against your settings.",
     });
   }
 

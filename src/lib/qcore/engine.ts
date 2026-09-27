@@ -93,20 +93,31 @@ export function evaluateQCore(
   const evidenceCoverage = clamp(measuredWeight, 0, 1);
   const coverageSufficient = evidenceCoverage >= policy.minCoverage;
 
-  // Execution quality cannot create a direction. Poor measured execution only
-  // reduces certainty; missing quality remains neutral and visibly unmeasured.
+  // Evidence is scoped to the scanner's supplied hypothesis. Contradictory or
+  // weak evidence may reject that hypothesis into neutral, but cannot manufacture
+  // the opposite market state; that direction must be evaluated independently.
+  const hypothesisSupport = directionalScore * sign;
+  const supported = Math.max(0, hypothesisSupport) * evidenceCoverage;
+  const hypothesisLogit = supported * policy.stateTemperature;
+  const neutralLogit = (1 - supported) * policy.neutralStrength;
+  const oppositeLogit = -policy.neutralStrength;
+  const rawStateWeights =
+    input.direction === "long"
+      ? softmax3(hypothesisLogit, neutralLogit, oppositeLogit)
+      : softmax3(oppositeLogit, neutralLogit, hypothesisLogit);
+
+  // Execution quality is a confidence-only dampener. Mix the ensemble toward a
+  // uniform distribution so poorer quality can never increase the winning
+  // confidence or create direction. Missing quality remains visibly unmeasured.
   const executionDampener = finite(input.executionQuality)
     ? 0.5 + (0.5 * clamp(input.executionQuality, 0, 100)) / 100
     : 1;
-  const effective = directionalScore * executionDampener * evidenceCoverage;
-
-  // Neutral grows as directional evidence weakens. These are ensemble weights,
-  // explicitly not calibrated market probabilities.
-  const stateWeights = softmax3(
-    effective * policy.stateTemperature,
-    (1 - Math.abs(effective)) * policy.neutralStrength,
-    -effective * policy.stateTemperature,
-  );
+  const uniform = 1 / 3;
+  const stateWeights = {
+    long: uniform + executionDampener * (rawStateWeights.long - uniform),
+    neutral: uniform + executionDampener * (rawStateWeights.neutral - uniform),
+    short: uniform + executionDampener * (rawStateWeights.short - uniform),
+  };
   const entries = Object.entries(stateWeights) as Array<[QState, number]>;
   entries.sort((a, b) => b[1] - a[1]);
   const state = entries[0]![0];

@@ -55,8 +55,8 @@ function AssistantHome() {
         </div>
       </div>
       <p className="text-sm text-muted-foreground">
-        Ask about your setups, orders, risk holds, settings and performance — or what's
-        happening in the markets right now.
+        Ask about your setups, orders, risk holds, settings and performance — or what's happening in
+        the markets right now.
       </p>
       <ul className="divide-y divide-border rounded-md border border-border">
         {threads.map((thread) => (

@@ -49,7 +49,8 @@ export function ControlCenter({ accounts }: { accounts: ConnectedAccountView[] }
 
   const discrepancies = extras.data?.discrepancies ?? [];
   const byAccount = new Map<string, DiscrepancyView[]>();
-  for (const d of discrepancies) byAccount.set(d.accountId, [...(byAccount.get(d.accountId) ?? []), d]);
+  for (const d of discrepancies)
+    byAccount.set(d.accountId, [...(byAccount.get(d.accountId) ?? []), d]);
 
   return (
     <section className="mb-4" aria-label="Account control center">
@@ -121,9 +122,15 @@ export function ControlCenter({ accounts }: { accounts: ConnectedAccountView[] }
           </p>
           <ul className="mt-2 space-y-2">
             {discrepancies.map((d) => (
-              <li key={d.id} className="flex flex-col gap-2 border-t border-border pt-2 sm:flex-row sm:items-start sm:justify-between">
+              <li
+                key={d.id}
+                className="flex flex-col gap-2 border-t border-border pt-2 sm:flex-row sm:items-start sm:justify-between"
+              >
                 <div className="min-w-0 text-xs">
-                  <Badge variant={d.severity === "critical" ? "destructive" : "secondary"} className="mr-1">
+                  <Badge
+                    variant={d.severity === "critical" ? "destructive" : "secondary"}
+                    className="mr-1"
+                  >
                     {d.severity}
                   </Badge>
                   {d.summary}

@@ -31,15 +31,31 @@ function finite(v: unknown): v is number {
 export function parseQCoreInput(profile: unknown): QCoreInput | null {
   if (!profile || typeof profile !== "object") return null;
   const p = profile as Record<string, unknown>;
-  if (p["policyId"] !== QCORE_POLICY_V2.id || p["featureSchemaVersion"] !== QCORE_POLICY_V2.featureSchemaVersion) return null;
+  if (
+    p["policyId"] !== QCORE_POLICY_V2.id ||
+    p["featureSchemaVersion"] !== QCORE_POLICY_V2.featureSchemaVersion
+  )
+    return null;
   const raw = p["input"];
   if (!raw || typeof raw !== "object") return null;
   const x = raw as Record<string, unknown>;
   const direction = x["direction"];
   if (direction !== "long" && direction !== "short") return null;
-  if (!finite(x["trend"]) || !finite(x["orderBlock"]) || !finite(x["momentum"]) || !finite(x["volatilityExpansion"])) return null;
+  if (
+    !finite(x["trend"]) ||
+    !finite(x["orderBlock"]) ||
+    !finite(x["momentum"]) ||
+    !finite(x["volatilityExpansion"])
+  )
+    return null;
   const nullableNumber = (v: unknown) => v === null || finite(v);
-  if (!nullableNumber(x["rr"]) || !nullableNumber(x["maxR"]) || !nullableNumber(x["regimeWinRate"]) || !nullableNumber(x["executionQuality"])) return null;
+  if (
+    !nullableNumber(x["rr"]) ||
+    !nullableNumber(x["maxR"]) ||
+    !nullableNumber(x["regimeWinRate"]) ||
+    !nullableNumber(x["executionQuality"])
+  )
+    return null;
   if (typeof x["regimeActive"] !== "boolean") return null;
   return {
     direction,
@@ -57,7 +73,10 @@ export function parseQCoreInput(profile: unknown): QCoreInput | null {
 
 function effectiveOutcome(row: OutcomeDbRow): { realizedR: number | null; filled: boolean | null } {
   if (row.status !== "resolved") return { realizedR: null, filled: null };
-  if (row.data_quality_outcome === "invalid_plan" || row.data_quality_outcome === "gap_beyond_stop") {
+  if (
+    row.data_quality_outcome === "invalid_plan" ||
+    row.data_quality_outcome === "gap_beyond_stop"
+  ) {
     return { realizedR: null, filled: null };
   }
   if (row.resolved_outcome === "never_filled") return { realizedR: 0, filled: false };
@@ -103,7 +122,9 @@ export function joinQCoreOutcomes(
  * snapshot and joins them to corrected Replay-V2 research outcomes.
  * Missing/mismatched provenance is excluded rather than inferred.
  */
-export async function loadQCoreBacktestDataset(db: SupabaseClient): Promise<QCoreBacktestObservation[]> {
+export async function loadQCoreBacktestDataset(
+  db: SupabaseClient,
+): Promise<QCoreBacktestObservation[]> {
   const [{ data: observations, error: observationError }, { data: outcomes, error: outcomeError }] =
     await Promise.all([
       db
@@ -114,15 +135,19 @@ export async function loadQCoreBacktestDataset(db: SupabaseClient): Promise<QCor
         .limit(ROW_LIMIT),
       db
         .from("shadow_executions")
-        .select("observation_key, instrument, detected_at, status, resolved_outcome, data_quality_outcome, realized_r, filled_at")
+        .select(
+          "observation_key, instrument, detected_at, status, resolved_outcome, data_quality_outcome, realized_r, filled_at",
+        )
         .eq("cohort", "research_candidate")
         .eq("plan_origin", "production")
         .eq("replay_version", REPLAY_V2_VERSION)
         .eq("execution_policy", EXECUTION_POLICY_V2)
         .limit(ROW_LIMIT),
     ]);
-  if (observationError) throw new Error(`Q-Core observation read failed: ${observationError.message}`);
-  if (outcomeError) throw new Error(`Q-Core Replay-V2 outcome read failed: ${outcomeError.message}`);
+  if (observationError)
+    throw new Error(`Q-Core observation read failed: ${observationError.message}`);
+  if (outcomeError)
+    throw new Error(`Q-Core Replay-V2 outcome read failed: ${outcomeError.message}`);
   return joinQCoreOutcomes(
     (observations ?? []) as unknown as ObservationDbRow[],
     (outcomes ?? []) as unknown as OutcomeDbRow[],
