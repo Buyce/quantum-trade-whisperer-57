@@ -175,7 +175,7 @@ export interface RevalidationApproved {
    */
   riskPercentOverride: number | null;
   /** Cohort reduction must survive the final broker-snapshot resize. */
-  riskScaleOverride: number;
+  riskScaleOverride: number | null;
 }
 
 export type Revalidation = RevalidationApproved | RevalidationRejected;
@@ -1211,5 +1211,6 @@ export async function revalidateDelivery(
     plan: approvedPlan,
     exposure,
     riskPercentOverride: null,
+    riskScaleOverride: cohortRiskScale,
   };
 }
