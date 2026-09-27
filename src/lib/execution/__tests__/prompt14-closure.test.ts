@@ -182,6 +182,7 @@ function target(overrides: Partial<DirectTarget> = {}): DirectTarget {
     mode: "demo_auto",
     brokerSymbol: "XAUUSD",
     freeMargin: 100_000,
+    balance: 20_000,
     accountType: "demo",
     equity: 20_000,
     currency: "USD",
