@@ -31,24 +31,10 @@ on public.connected_account_risk_policies
 for select
 using (auth.uid() = user_id);
 
-drop policy if exists "account owners manage risk policy" on public.connected_account_risk_policies;
-create policy "account owners manage risk policy"
-on public.connected_account_risk_policies
-for all
-using (
-  auth.uid() = user_id
-  and exists (
-    select 1 from public.connected_trading_accounts a
-    where a.id = account_id and a.user_id = auth.uid()
-  )
-)
-with check (
-  auth.uid() = user_id
-  and exists (
-    select 1 from public.connected_trading_accounts a
-    where a.id = account_id and a.user_id = auth.uid()
-  )
-);
+-- Prop/risk constraints are execution authority, not user preferences.
+-- Authenticated clients may read their own policy but may not insert/update/delete it.
+-- Trusted server/service-role code bypasses RLS when a validated mutation is required.
+revoke insert, update, delete on public.connected_account_risk_policies from authenticated;
 
 create index if not exists connected_account_risk_policies_user_idx
   on public.connected_account_risk_policies(user_id);
