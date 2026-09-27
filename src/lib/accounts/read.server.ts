@@ -162,18 +162,41 @@ export async function toAccountView(
     isBenchmark: row.is_benchmark === true,
     riskPolicy: riskPolicy.data
       ? {
-          kind: (riskPolicy.data as { policy_kind: "standard" | "equity_edge_instant_50k" }).policy_kind,
-          startingBalance: num((riskPolicy.data as { starting_balance: unknown }).starting_balance)!,
-          operatingRiskPerTradePercent: num((riskPolicy.data as { operating_risk_per_trade_percent: unknown }).operating_risk_per_trade_percent)!,
-          hardRiskPerTradePercent: num((riskPolicy.data as { hard_risk_per_trade_percent: unknown }).hard_risk_per_trade_percent)!,
-          maxDailyLossPercent: num((riskPolicy.data as { max_daily_loss_percent: unknown }).max_daily_loss_percent),
-          maxTotalLossPercent: num((riskPolicy.data as { max_total_loss_percent: unknown }).max_total_loss_percent),
-          trailingDrawdown: (riskPolicy.data as { trailing_drawdown: boolean }).trailing_drawdown === true,
-          consistencyPercent: num((riskPolicy.data as { consistency_percent: unknown }).consistency_percent),
-          safetyBufferPercent: num((riskPolicy.data as { safety_buffer_percent: unknown }).safety_buffer_percent),
+          kind: (
+            riskPolicy.data as { policy_kind: "standard" | "equity_edge_instant_50k" }
+          ).policy_kind,
+          startingBalance: num(
+            (riskPolicy.data as { starting_balance: unknown }).starting_balance,
+          )!,
+          operatingRiskPerTradePercent: num(
+            (riskPolicy.data as { operating_risk_per_trade_percent: unknown })
+              .operating_risk_per_trade_percent,
+          )!,
+          hardRiskPerTradePercent: num(
+            (riskPolicy.data as { hard_risk_per_trade_percent: unknown })
+              .hard_risk_per_trade_percent,
+          )!,
+          maxDailyLossPercent: num(
+            (riskPolicy.data as { max_daily_loss_percent: unknown }).max_daily_loss_percent,
+          ),
+          maxTotalLossPercent: num(
+            (riskPolicy.data as { max_total_loss_percent: unknown }).max_total_loss_percent,
+          ),
+          trailingDrawdown:
+            (riskPolicy.data as { trailing_drawdown: boolean }).trailing_drawdown === true,
+          consistencyPercent: num(
+            (riskPolicy.data as { consistency_percent: unknown }).consistency_percent,
+          ),
+          safetyBufferPercent: num(
+            (riskPolicy.data as { safety_buffer_percent: unknown }).safety_buffer_percent,
+          ),
           minTradingDays: num((riskPolicy.data as { min_trading_days: unknown }).min_trading_days),
-          maxTradesPerDay: num((riskPolicy.data as { max_trades_per_day: unknown }).max_trades_per_day),
-          newsTradingAllowed: (riskPolicy.data as { news_trading_allowed: boolean | null }).news_trading_allowed,
+          maxTradesPerDay: num(
+            (riskPolicy.data as { max_trades_per_day: unknown }).max_trades_per_day,
+          ),
+          newsTradingAllowed: (
+            riskPolicy.data as { news_trading_allowed: boolean | null }
+          ).news_trading_allowed,
           highWatermark: num((riskPolicy.data as { high_watermark: unknown }).high_watermark),
         }
       : null,
