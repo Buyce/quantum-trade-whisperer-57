@@ -130,6 +130,22 @@ export interface ConnectedAccountView {
   maxAccountOpenPositions: number | null;
   /** Operator-owned benchmark account: executes under the benchmark policy. */
   isBenchmark: boolean;
+  /** Account-scoped prop/risk policy. Missing means execution policy is unconfigured. */
+  riskPolicy: {
+    kind: "standard" | "equity_edge_instant_50k";
+    startingBalance: number;
+    operatingRiskPerTradePercent: number;
+    hardRiskPerTradePercent: number;
+    maxDailyLossPercent: number | null;
+    maxTotalLossPercent: number | null;
+    trailingDrawdown: boolean;
+    consistencyPercent: number | null;
+    safetyBufferPercent: number | null;
+    minTradingDays: number | null;
+    maxTradesPerDay: number | null;
+    newsTradingAllowed: boolean | null;
+    highWatermark: number | null;
+  } | null;
   /**
    * Optional pooled-research permission. The opaque research account reference
    * deliberately never leaves the server.
