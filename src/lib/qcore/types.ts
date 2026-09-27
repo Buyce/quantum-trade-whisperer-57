@@ -42,7 +42,9 @@ export interface QCoreFactor {
 }
 
 export interface QCoreDecision {
-  version: 1;
+  version: number;
+  policyId: string;
+  featureSchemaVersion: number;
   mode: "shadow";
   state: QState;
   /** 0..1 ensemble certainty. Research score, not a forecast probability. */
@@ -51,6 +53,8 @@ export interface QCoreDecision {
   stateWeights: Record<QState, number>;
   directionalScore: number;
   evidenceCoverage: number;
+  /** True only when enough independent evidence is measured for research use. */
+  coverageSufficient: boolean;
   executionDampener: number;
   factors: QCoreFactor[];
   reasons: string[];
