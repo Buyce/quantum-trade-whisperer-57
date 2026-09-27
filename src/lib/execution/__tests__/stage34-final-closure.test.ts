@@ -362,6 +362,7 @@ describe("connected-account sizing fails closed", () => {
       {
         id: "acct-1",
         equity: 10_000,
+        balance: 10_000,
         currency: "USD",
         equityAsOf: new Date(NOW).toISOString(),
       },
