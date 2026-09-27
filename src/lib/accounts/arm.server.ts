@@ -71,8 +71,7 @@ export async function setAccountMode(
           ? facts.type !== "real"
           : facts.type !== "demo";
     row.trade_allowed = info.tradeAllowed ?? null;
-    row.investor_mode =
-      typeof info.investorMode === "boolean" ? info.investorMode : null;
+    row.investor_mode = typeof info.investorMode === "boolean" ? info.investorMode : null;
 
     await supabaseAdmin
       .from(TABLE)
