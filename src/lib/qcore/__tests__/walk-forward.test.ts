@@ -15,7 +15,7 @@ const input = {
 };
 
 describe("Q-Core walk-forward", () => {
-  it("keeps test folds strictly later than their training period", () => {
+  it("[UNIT] keeps test folds strictly later than their training period", () => {
     const rows = Array.from({ length: 8 }, (_, i) => ({
       id: String(i),
       detectedAt: `2026-01-${String(i + 1).padStart(2, "0")}T12:00:00Z`,
@@ -30,7 +30,7 @@ describe("Q-Core walk-forward", () => {
     expect(result.outOfSampleN).toBe(4);
   });
 
-  it("fails closed when there is no unseen period", () => {
+  it("[UNIT] fails closed when there is no unseen period", () => {
     const result = walkForwardQCore([], { minTrainDays: 4, testDays: 2 });
     expect(result.folds).toHaveLength(0);
     expect(result.blockers.length).toBeGreaterThan(0);
