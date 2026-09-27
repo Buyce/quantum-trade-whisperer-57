@@ -46,7 +46,11 @@ export function evaluateQCore(input: QCoreInput): QCoreDecision {
     ["trend", finite(input.trend) ? centered(input.trend) : null, 0.26],
     ["structure", finite(input.orderBlock) ? centered(input.orderBlock) : null, 0.2],
     ["momentum", finite(input.momentum) ? centered(input.momentum) : null, 0.16],
-    ["volatility", finite(input.volatilityExpansion) ? centered(input.volatilityExpansion) : null, 0.12],
+    [
+      "volatility",
+      finite(input.volatilityExpansion) ? centered(input.volatilityExpansion) : null,
+      0.12,
+    ],
     ["payoff", payoffEvidence(input.rr, input.maxR), 0.16],
     ["regime", regimeEvidence(input.regimeWinRate, input.regimeActive), 0.1],
   ];
@@ -75,13 +79,17 @@ export function evaluateQCore(input: QCoreInput): QCoreDecision {
   // Execution quality cannot create a direction. Poor measured execution only
   // reduces certainty; missing quality remains neutral and visibly unmeasured.
   const executionDampener = finite(input.executionQuality)
-    ? 0.5 + 0.5 * clamp(input.executionQuality, 0, 100) / 100
+    ? 0.5 + (0.5 * clamp(input.executionQuality, 0, 100)) / 100
     : 1;
   const effective = directionalScore * executionDampener * evidenceCoverage;
 
   // Neutral grows as directional evidence weakens. These are ensemble weights,
   // explicitly not calibrated market probabilities.
-  const stateWeights = softmax3(effective * 2.4, (1 - Math.abs(effective)) * 1.25, -effective * 2.4);
+  const stateWeights = softmax3(
+    effective * 2.4,
+    (1 - Math.abs(effective)) * 1.25,
+    -effective * 2.4,
+  );
   const entries = Object.entries(stateWeights) as Array<[QState, number]>;
   entries.sort((a, b) => b[1] - a[1]);
   const state = entries[0]![0];
@@ -92,7 +100,9 @@ export function evaluateQCore(input: QCoreInput): QCoreDecision {
     `coverage=${round(evidenceCoverage)}`,
     `directional_score=${round(directionalScore)}`,
     input.regimeActive ? "regime_reporting_gate=active" : "regime_reporting_gate=inactive",
-    finite(input.executionQuality) ? `execution_quality=${round(input.executionQuality, 1)}` : "execution_quality=unmeasured",
+    finite(input.executionQuality)
+      ? `execution_quality=${round(input.executionQuality, 1)}`
+      : "execution_quality=unmeasured",
   ];
 
   return {
