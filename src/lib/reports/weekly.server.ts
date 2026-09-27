@@ -158,12 +158,18 @@ export async function sendWeeklyReport(
   now: Date = new Date(),
 ): Promise<WeeklyReportSendResult> {
   const report = await loadWeeklyReport(db, now);
-  const qcoreDataset = await loadQCoreBacktestDataset(db);
-  const qcore = buildQCoreWeeklyResearchReport(
-    qcoreDataset,
-    report.windowStart,
-    report.windowEnd,
-  );
+  let qcore: QCoreWeeklyResearchReport | undefined;
+  try {
+    const qcoreDataset = await loadQCoreBacktestDataset(db);
+    qcore = buildQCoreWeeklyResearchReport(qcoreDataset, report.windowStart, report.windowEnd);
+  } catch (err) {
+    // Q-Core is research-only: its telemetry must never suppress the established
+    // weekly production shadow report.
+    console.error(
+      "[weekly-report] Q-Core evidence unavailable:",
+      err instanceof Error ? err.message : String(err),
+    );
+  }
   const week = isoWeekKey(now);
 
   const { data: claimed, error: claimError } = await db.rpc("claim_weekly_report", { _week: week });
