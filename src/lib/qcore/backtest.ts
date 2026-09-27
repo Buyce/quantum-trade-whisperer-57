@@ -75,6 +75,7 @@ export function backtestQCore(
   const resolved = rows.filter(
     (r): r is QCoreBacktestRow & { realizedR: number } => r.realizedR !== null,
   );
+  const filledResolved = resolved.filter((r) => r.filled === true);
   let equity = 0;
   let peak = 0;
   let maxDrawdownR = 0;
@@ -97,8 +98,10 @@ export function backtestQCore(
       meanR: resolved.length
         ? round(resolved.reduce((s, r) => s + r.realizedR, 0) / resolved.length)
         : null,
-      winRate: resolved.length
-        ? round(resolved.filter((r) => r.realizedR > 0).length / resolved.length)
+      // Trade win rate is conditional on a fill. Mature never-filled plans remain
+      // 0R in opportunity expectancy/cumulative R but are not losing trades.
+      winRate: filledResolved.length
+        ? round(filledResolved.filter((r) => r.realizedR > 0).length / filledResolved.length)
         : null,
       cumulativeR: round(equity),
       maxDrawdownR: round(maxDrawdownR),
