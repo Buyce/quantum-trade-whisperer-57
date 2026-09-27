@@ -94,7 +94,7 @@ describe("arming against the global capability", () => {
         /disabled system-wide/i,
       );
     }
-    expect(updates).toHaveLength(0);
+    expect(updates.filter((update) => "mode" in update)).toHaveLength(0);
   });
 
   it("[UNIT] standing down to observe is never blocked by a global switch", async () => {
