@@ -256,6 +256,7 @@ export async function submitDirectOrder(
   };
   if (resize) {
     const resized = await resize({
+      balance: refreshed.balance,
       equity: refreshed.equity,
       currency: refreshed.currency,
       observedAt: refreshed.observedAt,
