@@ -356,7 +356,9 @@ export async function processNextDelivery(
             stopLoss: approved.plan.stopLoss,
             signalId: approved.plan.signalId,
             deliveryId: delivery.id,
-            riskScale: approved.riskScaleOverride,
+            ...(approved.riskScaleOverride === null
+              ? {}
+              : { riskScale: approved.riskScaleOverride }),
             riskPercent: approved.riskPercentOverride ?? null,
           },
           snapshot,
