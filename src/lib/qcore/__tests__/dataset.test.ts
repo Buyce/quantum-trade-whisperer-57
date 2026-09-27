@@ -27,13 +27,13 @@ const observation = {
 };
 
 describe("Q-Core research dataset", () => {
-  it("requires the exact persisted decision-time input snapshot", () => {
+  it("[UNIT] requires the exact persisted decision-time input snapshot", () => {
     expect(parseQCoreInput(observation.profile)).toEqual(input);
     expect(parseQCoreInput({ ...observation.profile, input: undefined })).toBeNull();
     expect(parseQCoreInput({ ...observation.profile, policyId: "old-policy" })).toBeNull();
   });
 
-  it("joins a resolved Replay-V2 outcome by observation identity", () => {
+  it("[UNIT] joins a resolved Replay-V2 outcome by observation identity", () => {
     const rows = joinQCoreOutcomes(
       [observation],
       [
@@ -54,7 +54,7 @@ describe("Q-Core research dataset", () => {
     expect(rows[0]?.filled).toBe(true);
   });
 
-  it("uses 0R for a matured never-filled plan and excludes invalid labels", () => {
+  it("[UNIT] uses 0R for a matured never-filled plan and excludes invalid labels", () => {
     const base = {
       observation_key: "run|XAUUSD",
       instrument: "XAUUSD",
@@ -91,7 +91,7 @@ describe("Q-Core research dataset", () => {
     expect(invalid[0]?.filled).toBeNull();
   });
 
-  it("fails closed on policy mismatch instead of mixing evidence", () => {
+  it("[UNIT] fails closed on policy mismatch instead of mixing evidence", () => {
     expect(joinQCoreOutcomes([{ ...observation, code_hash: "other-policy" }], [])).toEqual([]);
   });
 });
