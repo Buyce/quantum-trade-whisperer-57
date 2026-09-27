@@ -59,7 +59,10 @@ export async function setAccountMode(
     if (row.phase !== "ready") {
       throw new Error("The broker connection is not READY, so live execution cannot be armed.");
     }
-    const info = facts.info as { tradeAllowed?: boolean | null; investorMode?: boolean | null };
+    const info = facts.info as {
+      tradeAllowed?: boolean | null;
+      investorMode?: boolean | null;
+    };
     row.broker_account_type = facts.type;
     row.intent_conflict =
       facts.type === "unknown" || facts.type === "contest"
