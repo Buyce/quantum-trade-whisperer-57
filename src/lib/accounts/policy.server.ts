@@ -7,6 +7,7 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { evaluateAccountPolicy, type AccountRiskPolicy } from "./policy";
+import { fetchDeals } from "@/lib/metaapi/history.server";
 
 type Db = Pick<SupabaseClient, "from">;
 
@@ -89,6 +90,55 @@ export async function accountExecutionPolicy(
   const dayStart = new Date(now);
   dayStart.setUTCHours(0, 0, 0, 0);
 
+  // Hard daily-loss policy must see the WHOLE broker account, including manual
+  // trades. P-Trades evidence intentionally contains only positively-associated
+  // P-Trades orders, so it is not authoritative for a prop-account daily limit.
+  const { data: accountRow, error: accountError } = await db
+    .from("connected_trading_accounts")
+    .select("metaapi_account_id, region")
+    .eq("id", input.accountId)
+    .eq("user_id", input.userId)
+    .maybeSingle();
+  if (accountError || !accountRow) {
+    return { ok: false, reason: "account_risk_policy", detail: "broker account identity unreadable" };
+  }
+  const brokerAccount = accountRow as { metaapi_account_id: string | null; region: string | null };
+  if (!brokerAccount.metaapi_account_id || !brokerAccount.region) {
+    return { ok: false, reason: "account_risk_policy", detail: "broker account identity incomplete" };
+  }
+
+  let todayDeals;
+  try {
+    todayDeals = await fetchDeals(
+      brokerAccount.metaapi_account_id,
+      brokerAccount.region,
+      dayStart,
+      new Date(now),
+    );
+  } catch {
+    return { ok: false, reason: "account_risk_policy", detail: "account-wide broker history unreadable" };
+  }
+  let todayNetPnl = 0;
+  for (const deal of todayDeals) {
+    // Missing money fields are unknown, never zero. A hard daily-loss limit must
+    // not authorize from a partial broker outcome.
+    if (
+      typeof deal.profit !== "number" ||
+      !Number.isFinite(deal.profit) ||
+      typeof deal.commission !== "number" ||
+      !Number.isFinite(deal.commission) ||
+      typeof deal.swap !== "number" ||
+      !Number.isFinite(deal.swap)
+    ) {
+      return {
+        ok: false,
+        reason: "account_risk_policy",
+        detail: "account-wide broker history contains incomplete money fields",
+      };
+    }
+    todayNetPnl += deal.profit + deal.commission + deal.swap;
+  }
+
   // Only broker-confirmed closed outcomes and this account's delivery ledger are
   // allowed to influence the policy. Unknown metrics remain null and fail closed
   // where they are required by a hard limit.
@@ -99,14 +149,14 @@ export async function accountExecutionPolicy(
       .eq("account_id", input.accountId)
       .eq("state", "closed")
       .not("exit_at", "is", null)
-      .order("exit_at", { ascending: true })
+      .order("exit_at", { ascending: false })
       .limit(5000),
     db
       .from("execution_deliveries")
       .select("id, enqueued_at, state")
       .eq("connected_account_id", input.accountId)
       .eq("user_id", input.userId)
-      .in("state", ["sent", "acknowledged", "unknown"])
+      .in("state", ["claimed", "sent", "acknowledged", "unknown"])
       .gte("enqueued_at", dayStart.toISOString())
       .limit(500),
   ]);
@@ -128,9 +178,16 @@ export async function accountExecutionPolicy(
       swap: number | string | null;
     };
     if (!r.exit_at) continue;
-    const gross = num(r.gross_profit) ?? 0;
-    const commission = num(r.commission) ?? 0;
-    const swap = num(r.swap) ?? 0;
+    const gross = num(r.gross_profit);
+    const commission = num(r.commission);
+    const swap = num(r.swap);
+    if (gross === null || commission === null || swap === null) {
+      return {
+        ok: false,
+        reason: "account_risk_policy",
+        detail: "stored broker outcome contains incomplete money fields",
+      };
+    }
     const profit = gross + commission + swap;
     const day = r.exit_at.slice(0, 10);
     byDay.set(day, (byDay.get(day) ?? 0) + profit);
@@ -144,7 +201,7 @@ export async function accountExecutionPolicy(
     equity: input.equity,
     balance: input.balance,
     trailingHighWatermark: num(row["high_watermark"]),
-    todayNetPnl: byDay.get(todayKey) ?? 0,
+    todayNetPnl,
     totalNetProfit,
     largestWinningDay,
     tradingDays: byDay.size,
