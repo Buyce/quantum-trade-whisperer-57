@@ -522,6 +522,7 @@ export async function refreshDirectPreflight(
     target: {
       ...target,
       freeMargin: accountResult.value.freeMargin,
+      balance: accountResult.value.balance,
       equity: accountResult.value.equity,
       currency: accountResult.value.currency,
       observedAt: accountResult.value.observedAt,
@@ -535,6 +536,7 @@ export async function refreshDirectPreflight(
  * by the dispatcher; absent only in tests that assert the gates themselves.
  */
 export type DirectResizer = (snapshot: {
+  balance: number | null;
   equity: number | null;
   currency: string | null;
   observedAt: string | null;
@@ -590,6 +592,7 @@ export async function refreshAccountSafety(
       trade_allowed: info.tradeAllowed ?? null,
       investor_mode: typeof info.investorMode === "boolean" ? info.investorMode : null,
       broker_free_margin: freeMargin,
+      broker_balance: typeof info.balance === "number" ? info.balance : null,
       broker_equity: typeof info.equity === "number" ? info.equity : null,
       ...(typeof info.currency === "string" && info.currency.trim()
         ? { account_currency: info.currency.trim() }
@@ -623,6 +626,8 @@ export async function refreshAccountSafety(
     return { ok: false, detail: "your broker did not report free margin for this account" };
   }
 
+  const balance =
+    typeof info.balance === "number" && Number.isFinite(info.balance) ? info.balance : null;
   const equity =
     typeof info.equity === "number" && Number.isFinite(info.equity) ? info.equity : null;
   const observedAt = facts.observedAt ?? null;
@@ -642,6 +647,7 @@ export async function refreshAccountSafety(
   return {
     ok: true,
     freeMargin,
+    balance,
     equity,
     currency:
       typeof info.currency === "string" && info.currency.trim() ? info.currency.trim() : null,
