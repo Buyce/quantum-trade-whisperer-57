@@ -47,7 +47,7 @@ export async function toAccountView(
   row: ConnectedAccountRow,
 ): Promise<ConnectedAccountView> {
   const db = supabase as Client;
-  const [symbols, specs, features, telemetry, breaches] = await Promise.all([
+  const [symbols, specs, features, telemetry, breaches, riskPolicy] = await Promise.all([
     db
       .from("connected_account_symbols" as never)
       .select("canonical_symbol, broker_symbol, mapping_kind, candidates, resolved_at")
@@ -83,6 +83,13 @@ export async function toAccountView(
       .eq("account_id", row.id)
       .order("event_at", { ascending: false })
       .limit(5),
+    db
+      .from("connected_account_risk_policies" as never)
+      .select(
+        "policy_kind, starting_balance, operating_risk_per_trade_percent, hard_risk_per_trade_percent, max_daily_loss_percent, max_total_loss_percent, trailing_drawdown, consistency_percent, safety_buffer_percent, min_trading_days, max_trades_per_day, news_trading_allowed, high_watermark",
+      )
+      .eq("account_id", row.id)
+      .maybeSingle(),
   ]);
 
   const modeContext: ModeContext = {
@@ -153,6 +160,23 @@ export async function toAccountView(
     features: (features.data as AccountFeatureRow | null) ?? null,
     maxAccountOpenPositions: num(row.max_account_open_positions),
     isBenchmark: row.is_benchmark === true,
+    riskPolicy: riskPolicy.data
+      ? {
+          kind: (riskPolicy.data as { policy_kind: "standard" | "equity_edge_instant_50k" }).policy_kind,
+          startingBalance: num((riskPolicy.data as { starting_balance: unknown }).starting_balance)!,
+          operatingRiskPerTradePercent: num((riskPolicy.data as { operating_risk_per_trade_percent: unknown }).operating_risk_per_trade_percent)!,
+          hardRiskPerTradePercent: num((riskPolicy.data as { hard_risk_per_trade_percent: unknown }).hard_risk_per_trade_percent)!,
+          maxDailyLossPercent: num((riskPolicy.data as { max_daily_loss_percent: unknown }).max_daily_loss_percent),
+          maxTotalLossPercent: num((riskPolicy.data as { max_total_loss_percent: unknown }).max_total_loss_percent),
+          trailingDrawdown: (riskPolicy.data as { trailing_drawdown: boolean }).trailing_drawdown === true,
+          consistencyPercent: num((riskPolicy.data as { consistency_percent: unknown }).consistency_percent),
+          safetyBufferPercent: num((riskPolicy.data as { safety_buffer_percent: unknown }).safety_buffer_percent),
+          minTradingDays: num((riskPolicy.data as { min_trading_days: unknown }).min_trading_days),
+          maxTradesPerDay: num((riskPolicy.data as { max_trades_per_day: unknown }).max_trades_per_day),
+          newsTradingAllowed: (riskPolicy.data as { news_trading_allowed: boolean | null }).news_trading_allowed,
+          highWatermark: num((riskPolicy.data as { high_watermark: unknown }).high_watermark),
+        }
+      : null,
     researchConsent: {
       enabled: row.research_consent === true,
       version: row.research_consent_version,
