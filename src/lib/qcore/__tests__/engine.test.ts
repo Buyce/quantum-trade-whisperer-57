@@ -62,6 +62,42 @@ describe("Q-Core v1 shadow ensemble", () => {
     expect(perfect.state).toBe("neutral");
   });
 
+  it("rejects weak short-hypothesis evidence into neutral instead of inventing long", () => {
+    const q = evaluateQCore({
+      direction: "short",
+      trend: 0,
+      orderBlock: 0,
+      momentum: 0,
+      volatilityExpansion: 0,
+      rr: 1,
+      maxR: 1,
+      regimeWinRate: null,
+      regimeActive: false,
+      executionQuality: 100,
+    });
+    expect(q.state).toBe("neutral");
+    expect(q.stateWeights.long).toBeLessThan(q.stateWeights.neutral);
+    expect(q.executionEligible).toBe(false);
+  });
+
+  it("never increases winning confidence when execution quality deteriorates", () => {
+    const base = {
+      direction: "long" as const,
+      trend: 60,
+      orderBlock: 50,
+      momentum: 50,
+      volatilityExpansion: 50,
+      rr: 1,
+      maxR: 1,
+      regimeWinRate: null,
+      regimeActive: false,
+    };
+    const perfect = evaluateQCore({ ...base, executionQuality: 100 });
+    const poor = evaluateQCore({ ...base, executionQuality: 0 });
+    expect(poor.confidence).toBeLessThanOrEqual(perfect.confidence);
+    expect(poor.executionEligible).toBe(false);
+  });
+
   it("keeps state weights bounded and approximately normalized", () => {
     const q = evaluateQCore(strong);
     const sum = q.stateWeights.long + q.stateWeights.neutral + q.stateWeights.short;
