@@ -97,10 +97,7 @@ export function evaluateAccountPolicy(
     };
   }
 
-  const riskPercent = Math.min(
-    policy.operatingRiskPerTradePercent,
-    policy.hardRiskPerTradePercent,
-  );
+  const riskPercent = Math.min(policy.operatingRiskPerTradePercent, policy.hardRiskPerTradePercent);
   const riskAmount = state.equity * (riskPercent / 100);
 
   const dailyLimit =
@@ -121,9 +118,7 @@ export function evaluateAccountPolicy(
   let totalLossRemaining: number | null = null;
   if (policy.maxTotalLossPercent !== null) {
     const distance = policy.startingBalance * (policy.maxTotalLossPercent / 100);
-    const high = policy.trailingDrawdown
-      ? state.trailingHighWatermark
-      : policy.startingBalance;
+    const high = policy.trailingDrawdown ? state.trailingHighWatermark : policy.startingBalance;
     if (!finite(high)) reasons.push("trailing_high_watermark_unavailable");
     else {
       const floor = high - distance;
@@ -164,7 +159,11 @@ export function evaluateAccountPolicy(
     }
   }
 
-  if (policy.minTradingDays !== null && finite(state.tradingDays) && state.tradingDays < policy.minTradingDays) {
+  if (
+    policy.minTradingDays !== null &&
+    finite(state.tradingDays) &&
+    state.tradingDays < policy.minTradingDays
+  ) {
     reasons.push("minimum_trading_days_not_met_for_payout");
   }
 
