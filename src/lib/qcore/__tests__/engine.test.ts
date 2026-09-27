@@ -18,6 +18,9 @@ describe("Q-Core v1 shadow ensemble", () => {
   it("supports a strong long hypothesis without becoming execution authority", () => {
     const q = evaluateQCore(strong);
     expect(q.mode).toBe("shadow");
+    expect(q.version).toBeGreaterThanOrEqual(2);
+    expect(q.policyId).toMatch(/^qcore_/);
+    expect(q.featureSchemaVersion).toBe(1);
     expect(q.executionEligible).toBe(false);
     expect(q.state).toBe("long");
     expect(q.directionalScore).toBeGreaterThan(0);
@@ -74,6 +77,41 @@ describe("Q-Core v1 shadow ensemble", () => {
     const payoff = q.factors.find((f) => f.name === "payoff");
     expect(payoff?.measured).toBe(false);
     expect(q.evidenceCoverage).toBeLessThan(1);
+    expect(q.executionEligible).toBe(false);
+  });
+
+  it("exposes an explicit evidence-coverage gate", () => {
+    const q = evaluateQCore({
+      ...strong,
+      rr: null,
+      maxR: null,
+      regimeActive: false,
+      regimeWinRate: null,
+    });
+    expect(typeof q.coverageSufficient).toBe("boolean");
+    expect(q.reasons.some((r) => r.startsWith("coverage_gate="))).toBe(true);
+  });
+
+  it("supports future policy upgrades without changing the engine API", () => {
+    const q = evaluateQCore(strong, {
+      id: "test_policy",
+      engineVersion: 99,
+      featureSchemaVersion: 7,
+      factorWeights: {
+        trend: 0.2,
+        structure: 0.2,
+        momentum: 0.2,
+        volatility: 0.1,
+        payoff: 0.2,
+        regime: 0.1,
+      },
+      stateTemperature: 2,
+      neutralStrength: 1,
+      minCoverage: 0.5,
+    });
+    expect(q.version).toBe(99);
+    expect(q.policyId).toBe("test_policy");
+    expect(q.featureSchemaVersion).toBe(7);
     expect(q.executionEligible).toBe(false);
   });
 });
