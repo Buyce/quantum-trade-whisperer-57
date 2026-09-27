@@ -489,8 +489,8 @@ describe("final quantity comes from the pre-submit broker snapshot", () => {
     // Quantity authorised earlier, from 20,000 equity.
     const authorised = await resizeFromBrokerSnapshot(
       client,
-      { userId: "user-1", accountId: "acct-1", ...request },
-      { equity: 20_000, currency: "USD", observedAt: new Date(NOW).toISOString() },
+      { userId: "user-1", accountId: "acct-1", deliveryId: 42, ...request, riskPercent: 0.25 },
+      { balance: 20_000, equity: 20_000, currency: "USD", observedAt: new Date(NOW).toISOString() },
       NOW,
     );
     expect(authorised.ok).toBe(true);
@@ -528,7 +528,7 @@ describe("final quantity comes from the pre-submit broker snapshot", () => {
       async (snapshot) =>
         await resizeFromBrokerSnapshot(
           client,
-          { userId: "user-1", accountId: "acct-1", ...request },
+          { userId: "user-1", accountId: "acct-1", deliveryId: 42, ...request, riskPercent: 0.25 },
           snapshot,
           NOW,
         ),
@@ -539,8 +539,8 @@ describe("final quantity comes from the pre-submit broker snapshot", () => {
     const submitted = submitPendingOrder.mock.calls[0]?.[2] as { volume: number };
     const expected = await resizeFromBrokerSnapshot(
       client,
-      { userId: "user-1", accountId: "acct-1", ...request },
-      { equity: 10_000, currency: "USD", observedAt: new Date(NOW).toISOString() },
+      { userId: "user-1", accountId: "acct-1", deliveryId: 42, ...request, riskPercent: 0.25 },
+      { balance: 10_000, equity: 10_000, currency: "USD", observedAt: new Date(NOW).toISOString() },
       NOW,
     );
     expect(expected.ok).toBe(true);
@@ -574,7 +574,7 @@ describe("final quantity comes from the pre-submit broker snapshot", () => {
       async (snapshot) =>
         await resizeFromBrokerSnapshot(
           client,
-          { userId: "user-1", accountId: "acct-1", ...request },
+          { userId: "user-1", accountId: "acct-1", deliveryId: 42, ...request },
           snapshot,
           NOW,
         ),

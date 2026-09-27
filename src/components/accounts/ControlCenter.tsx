@@ -83,6 +83,11 @@ export function ControlCenter({ accounts }: { accounts: ConnectedAccountView[] }
                 </Badge>
                 <Badge variant={a.mode === "observe" ? "outline" : "default"}>{MODE[a.mode]}</Badge>
                 <Badge variant={perm.ok === false ? "destructive" : "outline"}>{perm.label}</Badge>
+                <Badge variant={a.riskPolicy ? "secondary" : "destructive"}>
+                  {a.riskPolicy
+                    ? `${(a.riskPolicy.startingBalance / 1000).toFixed(0)}K · ${a.riskPolicy.operatingRiskPerTradePercent}% risk`
+                    : "Risk policy missing"}
+                </Badge>
                 {a.emergencyStopAt ? (
                   <Badge variant="destructive" className="gap-1">
                     <OctagonX className="size-3" /> Stopped
@@ -102,6 +107,21 @@ export function ControlCenter({ accounts }: { accounts: ConnectedAccountView[] }
                     : "No P-Trades positions open"}
                 {a.maxAccountOpenPositions !== null ? ` · limit ${a.maxAccountOpenPositions}` : ""}
               </p>
+              {a.riskPolicy ? (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Equity{" "}
+                  {a.broker.equity === null
+                    ? "unavailable"
+                    : `${a.broker.equity.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${a.broker.currency ?? ""}`}
+                  {" · "}hard cap {a.riskPolicy.hardRiskPerTradePercent}%
+                  {a.riskPolicy.maxDailyLossPercent !== null
+                    ? ` · daily DD ${a.riskPolicy.maxDailyLossPercent}%`
+                    : ""}
+                  {a.riskPolicy.maxTotalLossPercent !== null
+                    ? ` · total DD ${a.riskPolicy.maxTotalLossPercent}%`
+                    : ""}
+                </p>
+              ) : null}
             </button>
           );
         })}

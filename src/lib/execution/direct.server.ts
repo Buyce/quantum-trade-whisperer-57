@@ -49,9 +49,9 @@ export interface DirectTarget {
   mode: AccountMode;
   brokerSymbol: string;
   freeMargin: number | null;
-  /** Broker-reported balance from the same account snapshot. */
-  balance: number | null;
   accountType: AccountType;
+  /** Broker-reported balance/equity, used only for this destination account. */
+  balance: number | null;
   /** Broker-reported equity, used as the AUTHORITATIVE sizing equity. */
   equity: number | null;
   /** Broker-reported deposit currency of this account. */
@@ -463,13 +463,13 @@ export async function submitDirectOrder(
 export interface SafetyRefresh {
   ok: true;
   freeMargin: number | null;
-  /** Broker balance from the same final pre-submit refresh. */
+  /** The balance the broker reports RIGHT NOW. */
   balance: number | null;
-  /** Broker-reported equity, used as the AUTHORITATIVE sizing equity. */
+  /** The equity the broker reports RIGHT NOW; the only basis for the volume. */
   equity: number | null;
-  /** The deposit currency the broker reports RIGHT NOW. */
+  /** The deposit currency the broker reports right now. Never assumed. */
   currency: string | null;
-  /** When the broker observed these facts. */
+  /** When the broker observed the figures above. */
   observedAt: string | null;
 }
 
