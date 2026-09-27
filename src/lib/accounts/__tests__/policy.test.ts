@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  EQUITY_EDGE_INSTANT_50K,
-  evaluateAccountPolicy,
-  type AccountPolicyState,
-} from "../policy";
+import { EQUITY_EDGE_INSTANT_50K, evaluateAccountPolicy, type AccountPolicyState } from "../policy";
 
 const healthy: AccountPolicyState = {
   equity: 52_000,
