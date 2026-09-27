@@ -1,0 +1,31 @@
+name: weekly research report
+
+on:
+  schedule:
+    # Saturday 22:30 UTC: after the Friday FX/XAU close and beyond the report's
+    # 24h maturity horizon for the final Friday session.
+    - cron: "30 22 * * 6"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weekly-research-report
+  cancel-in-progress: false
+
+jobs:
+  send:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Trigger authenticated weekly report
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          test -n "$CRON_SECRET" || { echo "::error::CRON_SECRET repository secret is not configured"; exit 1; }
+          curl --fail-with-body --silent --show-error \
+            --retry 2 --retry-all-errors --max-time 60 \
+            -X POST \
+            -H "x-cron-secret: $CRON_SECRET" \
+            "https://getptrades.com/api/public/cron/weekly-report"
