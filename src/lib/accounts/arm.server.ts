@@ -10,6 +10,7 @@
  */
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import type { AccountType } from "@/lib/metaapi/classify";
+import { fetchAccountFacts } from "@/lib/metaapi/accounts.server";
 import { canArm, isAccountMode } from "./mode";
 import type { AccountMode } from "./types";
 
@@ -29,7 +30,7 @@ export async function setAccountMode(
   const { data, error } = await supabaseAdmin
     .from(TABLE)
     .select(
-      "id, phase, mode, magic, metaapi_account_id, intent_conflict, trade_allowed, investor_mode, broker_account_type",
+      "id, phase, mode, magic, metaapi_account_id, region, intent_conflict, trade_allowed, investor_mode, broker_account_type",
     )
     .eq("id", accountId)
     .eq("user_id", userId)
@@ -41,11 +42,36 @@ export async function setAccountMode(
     phase: string;
     magic: number | null;
     metaapi_account_id: string | null;
+    region: string;
     intent_conflict: boolean | null;
     trade_allowed: boolean | null;
     investor_mode: boolean | null;
     broker_account_type: AccountType | null;
   };
+
+  // Arming a real account must use broker facts from NOW, not a stale
+  // reconciliation snapshot. This refresh does not submit an order.
+  if (mode === "live_auto" || mode === "live_confirm") {
+    if (!row.metaapi_account_id) throw new Error("This account has no broker connection.");
+    const facts = await fetchAccountFacts(row.metaapi_account_id, row.region);
+    if (!facts) throw new Error("The broker returned no account information.");
+    const info = facts.info as { tradeAllowed?: boolean | null; investorMode?: boolean | null };
+    row.broker_account_type = facts.type;
+    row.trade_allowed = info.tradeAllowed ?? null;
+    row.investor_mode =
+      typeof info.investorMode === "boolean" ? info.investorMode : null;
+
+    await supabaseAdmin
+      .from(TABLE)
+      .update({
+        broker_account_type: facts.type,
+        trade_allowed: row.trade_allowed,
+        investor_mode: row.investor_mode,
+        broker_observed_at: facts.observedAt,
+      } as never)
+      .eq("id", accountId)
+      .eq("user_id", userId);
+  }
 
   const { isReservedRemoteAccount } = await import("./provision.server");
   if (isReservedRemoteAccount(row.metaapi_account_id)) {
