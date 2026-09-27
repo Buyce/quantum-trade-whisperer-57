@@ -19,12 +19,15 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { validateQuantity, type OrderQuantity } from "@/lib/delivery/execution";
 import { isAccountSizingRefusal, resolveSizingForAccount } from "@/lib/sizing/service.server";
+import { accountExecutionPolicy } from "@/lib/accounts/policy.server";
 
 type Db = Pick<SupabaseClient, "from" | "rpc">;
 
 /** The broker snapshot the final quantity must be derived from. */
 export interface BrokerSnapshot {
   equity: number | null;
+  /** Broker balance from the same pre-submit refresh. */
+  balance?: number | null;
   currency: string | null;
   observedAt: string | null;
 }
@@ -63,6 +66,19 @@ export async function resizeFromBrokerSnapshot(
   snapshot: BrokerSnapshot,
   now = Date.now(),
 ): Promise<ResizeResult> {
+  let riskPercent = request.riskPercent ?? null;
+  if (riskPercent === null) {
+    const policy = await accountExecutionPolicy(db, {
+      accountId: request.accountId,
+      userId: request.userId,
+      equity: snapshot.equity,
+      balance: snapshot.balance ?? null,
+      now,
+    });
+    if (!policy.ok) return { ok: false, reason: policy.reason, detail: policy.detail };
+    riskPercent = policy.riskPercent;
+  }
+
   const sizing = await resolveSizingForAccount(
     db,
     request.userId,
@@ -79,7 +95,7 @@ export async function resizeFromBrokerSnapshot(
       signalId: request.signalId,
     },
     now,
-    { riskPercent: request.riskPercent ?? null },
+    { riskPercent },
   );
 
   if (isAccountSizingRefusal(sizing)) {
