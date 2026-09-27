@@ -558,10 +558,61 @@ export async function revalidateDelivery(
   if (market.weekendClosed || market.openCount === 0) return reject("market_closed");
 
   // ---- 5a. News gate, re-asked immediately before the order is assembled ----
-  // The enqueue-time gate cannot know about an event window that opens while the
-  // delivery waits in the queue, so the same fail-closed policy is asked again
-  // here. It can only refuse; a clear verdict authorises nothing on its own.
-  {
+  // Account policy is authoritative here. A prop/account-level prohibition may
+  // tighten the owner's scanner preference but can never be loosened by it.
+  let accountPolicyForNews: Awaited<ReturnType<typeof accountExecutionPolicy>> | null = null;
+  if (!isBenchmark && destination === "metaapi_direct" && delivery.connected_account_id) {
+    accountPolicyForNews = await accountExecutionPolicy(db, {
+      accountId: delivery.connected_account_id,
+      userId: delivery.user_id,
+      equity: null,
+      balance: null,
+      now,
+      excludeDeliveryId: delivery.id,
+    });
+    // The evaluator needs broker balance/equity for sizing, which is refreshed
+    // later. At this early news boundary we only need the immutable policy flag,
+    // so read it directly if the full verdict cannot yet be evaluated.
+    if (!accountPolicyForNews.ok) {
+      const { data: policyNews, error: policyNewsError } = await db
+        .from("connected_account_risk_policies")
+        .select("news_trading_allowed")
+        .eq("account_id", delivery.connected_account_id)
+        .eq("user_id", delivery.user_id)
+        .maybeSingle();
+      if (policyNewsError || !policyNews) {
+        return reject("account_risk_policy", "account news policy is unavailable");
+      }
+      const disallowsNews =
+        (policyNews as { news_trading_allowed: boolean | null }).news_trading_allowed === false;
+      const newsSettings = disallowsNews
+        ? { ...(settings ?? {}), news_block_new_entries: true }
+        : settings;
+      const newsGate = await evaluateNewsGate(db as unknown as SupabaseClient, {
+        symbol: signal.instrument,
+        nowMs: now,
+        boundary: "broker_submission",
+        settings: newsSettings ?? null,
+        signalId: signal.id,
+        deliveryId: delivery.id,
+      });
+      if (newsGate.blocked) return reject("news_blackout", newsGate.detail);
+    } else {
+      const newsSettings =
+        accountPolicyForNews.newsTradingAllowed === false
+          ? { ...(settings ?? {}), news_block_new_entries: true }
+          : settings;
+      const newsGate = await evaluateNewsGate(db as unknown as SupabaseClient, {
+        symbol: signal.instrument,
+        nowMs: now,
+        boundary: "broker_submission",
+        settings: newsSettings ?? null,
+        signalId: signal.id,
+        deliveryId: delivery.id,
+      });
+      if (newsGate.blocked) return reject("news_blackout", newsGate.detail);
+    }
+  } else {
     const newsGate = await evaluateNewsGate(db as unknown as SupabaseClient, {
       symbol: signal.instrument,
       nowMs: now,
