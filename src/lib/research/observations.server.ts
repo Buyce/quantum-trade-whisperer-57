@@ -23,7 +23,7 @@ import { MODEL_V2_CODE_HASH, MODEL_V2_VERSION } from "@/lib/scanner/v2/manifest"
 import type { V2Evaluation } from "@/lib/scanner/v2/profile.v2";
 import { MODEL_V3_CODE_HASH, MODEL_V3_VERSION } from "@/lib/scanner/v3/manifest";
 import type { V3Evaluation } from "@/lib/scanner/v3/profile.v3";
-import type { QCoreDecision } from "@/lib/qcore/types";
+import type { QCoreDecision, QCoreInput } from "@/lib/qcore/types";
 
 /** Hard ceiling for all research writes of one job, in milliseconds. */
 export const RESEARCH_WRITE_DEADLINE_MS = 500;
@@ -404,6 +404,7 @@ export function qCoreObservationRow(args: {
   instrument: string;
   direction: "long" | "short";
   decision: QCoreDecision;
+  input: QCoreInput;
   provenance?: DetectionProvenance | null;
 }): ObservationRow {
   return {
@@ -423,6 +424,9 @@ export function qCoreObservationRow(args: {
     signal_id: null,
     profile: {
       mode: args.decision.mode,
+      // Immutable decision-time vector. Historical rows without this field are
+      // not eligible for Q-Core backtesting; they must never be approximated.
+      input: args.input,
       engineVersion: args.decision.version,
       policyId: args.decision.policyId,
       featureSchemaVersion: args.decision.featureSchemaVersion,
