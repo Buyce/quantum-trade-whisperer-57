@@ -462,6 +462,8 @@ export async function submitDirectOrder(
 export interface SafetyRefresh {
   ok: true;
   freeMargin: number | null;
+  /** The balance the broker reports RIGHT NOW. */
+  balance: number | null;
   /** The equity the broker reports RIGHT NOW; the only basis for the volume. */
   equity: number | null;
   /** The deposit currency the broker reports right now. Never assumed. */
