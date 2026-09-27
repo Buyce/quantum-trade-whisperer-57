@@ -112,11 +112,19 @@ export async function accountExecutionPolicy(
     .eq("user_id", input.userId)
     .maybeSingle();
   if (accountError || !accountRow) {
-    return { ok: false, reason: "account_risk_policy", detail: "broker account identity unreadable" };
+    return {
+      ok: false,
+      reason: "account_risk_policy",
+      detail: "broker account identity unreadable",
+    };
   }
   const brokerAccount = accountRow as { metaapi_account_id: string | null; region: string | null };
   if (!brokerAccount.metaapi_account_id || !brokerAccount.region) {
-    return { ok: false, reason: "account_risk_policy", detail: "broker account identity incomplete" };
+    return {
+      ok: false,
+      reason: "account_risk_policy",
+      detail: "broker account identity incomplete",
+    };
   }
 
   let todayDeals;
@@ -128,7 +136,11 @@ export async function accountExecutionPolicy(
       new Date(now),
     );
   } catch {
-    return { ok: false, reason: "account_risk_policy", detail: "account-wide broker history unreadable" };
+    return {
+      ok: false,
+      reason: "account_risk_policy",
+      detail: "account-wide broker history unreadable",
+    };
   }
   let todayNetPnl = 0;
   for (const deal of todayDeals) {
