@@ -74,6 +74,7 @@ export async function resizeFromBrokerSnapshot(
       equity: snapshot.equity,
       balance: snapshot.balance ?? null,
       now,
+      excludeDeliveryId: request.deliveryId,
     });
     if (!policy.ok) return { ok: false, reason: policy.reason, detail: policy.detail };
     riskPercent = policy.riskPercent;
