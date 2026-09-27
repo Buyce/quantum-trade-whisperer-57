@@ -1,7 +1,7 @@
 /**
  * Wave 2 multi-asset foundation.
  *
- * These tests assert the REFUSALS. The value of this pass is not that four new
+ * These tests assert the REFUSALS. The value of this pass is not that five new
  * instruments exist; it is that none of them can be measured, sized, published or
  * executed on assumptions borrowed from FX.
  */
@@ -33,10 +33,10 @@ import { assetManifest, shadowBlockers } from "@/lib/scanner/manifests/asset-str
 import { INSTRUMENTS } from "@/lib/scanner/types";
 import { ALL_INSTRUMENTS } from "@/lib/db-types";
 
-const WAVE2 = ["XAGUSD", "USOIL", "UKOIL", "NAS100"];
+const WAVE2 = ["BTCUSD", "XAGUSD", "USOIL", "UKOIL", "NAS100"];
 
 describe("wave 2 registry", () => {
-  it("[INVARIANT] admits exactly the four Wave 2 instruments, and nothing else moves", () => {
+  it("[INVARIANT] admits exactly the five Wave 2 instruments, and nothing else moves", () => {
     expect([...WAVE2_SYMBOLS]).toEqual(WAVE2);
     // Wave 0 remains the scan universe, the settings list and the empty-preference
     // default. A definition is not an activation.
