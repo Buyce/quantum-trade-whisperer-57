@@ -87,6 +87,20 @@ export const MARKET_CALENDARS: readonly MarketCalendar[] = [
     note: "Spot metals follow the FX week on this broker class. Frozen for XAUUSD.",
   },
   {
+    key: "crypto_24x7",
+    version: 1,
+    assetClass: "crypto",
+    sourceTimezone: "UTC",
+    dstPolicy: "utc_fixed",
+    // A 24/7 market has no weekly closure. Using an impossible matching pair
+    // keeps the generic weekend predicate false without special-casing crypto.
+    weekClose: { day: -1, hour: 0 },
+    weekOpen: { day: -1, hour: 0 },
+    dailyBreaks: [],
+    holidays: [],
+    note: "Research/data-validation calendar for continuously traded crypto. Broker-specific CFD maintenance windows must still be sourced before lifecycle promotion.",
+  },
+  {
     key: "energy_cfd",
     version: 1,
     assetClass: "energy",

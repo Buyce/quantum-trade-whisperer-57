@@ -8,6 +8,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { ACTIVE_MODEL_VERSION } from "@/lib/versioning";
 import { REPLAY_V1_VERSION } from "@/lib/execution/replay-registry";
 import { buildReport, isoWeekKey, type ShadowRow, type WeeklyReport } from "./weekly";
+import { loadQCoreBacktestDataset } from "@/lib/qcore/dataset.server";
+import { buildQCoreWeeklyResearchReport, type QCoreWeeklyResearchReport } from "@/lib/qcore/weekly-report";
 
 export const REPORT_WINDOW_DAYS = 7;
 
@@ -54,7 +56,10 @@ const r = (v: number | null) =>
 const pts = (v: number | null) => (v === null ? "n/a" : `${(v * 100).toFixed(1)} pts`);
 
 /** Flattens the report into the primitives the email template renders. */
-export function reportEmailData(report: WeeklyReport): Record<string, unknown> {
+export function reportEmailData(
+  report: WeeklyReport,
+  qcore?: QCoreWeeklyResearchReport,
+): Record<string, unknown> {
   const tier = (t: WeeklyReport["high"]) => ({
     label: t.label,
     enrolled: t.enrolled,
@@ -85,6 +90,26 @@ export function reportEmailData(report: WeeklyReport): Record<string, unknown> {
     maturityHours: report.maturityHours,
     high: tier(report.high),
     low: tier(report.low),
+    qcore: qcore
+      ? {
+          policyId: qcore.policyId,
+          observations: qcore.observations,
+          resolved: qcore.resolved,
+          meanR: r(qcore.meanR),
+          winRate: pct(qcore.winRate),
+          cumulativeR: r(qcore.cumulativeR),
+          maxDrawdownR: r(-Math.abs(qcore.maxDrawdownR)),
+          stateCounts: qcore.stateCounts,
+          walkForward: {
+            folds: qcore.walkForward.folds,
+            outOfSampleN: qcore.walkForward.outOfSampleN,
+            outOfSampleMeanR: r(qcore.walkForward.outOfSampleMeanR),
+            outOfSampleCumulativeR: r(qcore.walkForward.outOfSampleCumulativeR),
+            outOfSampleMaxDrawdownR: r(-Math.abs(qcore.walkForward.outOfSampleMaxDrawdownR)),
+            blockers: qcore.walkForward.blockers,
+          },
+        }
+      : null,
     comparisons: report.comparisons.map((c) => ({
       label: c.label,
       highRate: pct(c.highRate),
@@ -133,6 +158,18 @@ export async function sendWeeklyReport(
   now: Date = new Date(),
 ): Promise<WeeklyReportSendResult> {
   const report = await loadWeeklyReport(db, now);
+  let qcore: QCoreWeeklyResearchReport | undefined;
+  try {
+    const qcoreDataset = await loadQCoreBacktestDataset(db);
+    qcore = buildQCoreWeeklyResearchReport(qcoreDataset, report.windowStart, report.windowEnd);
+  } catch (err) {
+    // Q-Core is research-only: its telemetry must never suppress the established
+    // weekly production shadow report.
+    console.error(
+      "[weekly-report] Q-Core evidence unavailable:",
+      err instanceof Error ? err.message : String(err),
+    );
+  }
   const week = isoWeekKey(now);
 
   const { data: claimed, error: claimError } = await db.rpc("claim_weekly_report", { _week: week });
@@ -145,7 +182,7 @@ export async function sendWeeklyReport(
     const { sendTemplateEmail } = await import("@/lib/email-templates/send-email");
     const result = await sendTemplateEmail("weekly-shadow-report", "", {
       idempotencyKey: `weekly-shadow-report-${week}`,
-      templateData: reportEmailData(report),
+      templateData: reportEmailData(report, qcore),
     });
     return {
       claimed: true,

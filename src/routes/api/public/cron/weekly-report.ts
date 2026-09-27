@@ -1,7 +1,10 @@
 /**
- * Weekly shadow-report cron. Aggregates the last 7 days of shadow_executions,
- * compares the A/A+ tier against B/C with a two-proportion z-test, and emails
- * the operator. Latched per ISO week in the database, so a retry cannot send twice.
+ * End-of-trading-week report endpoint. Aggregates the last 7 days of shadow_executions,
+ * compares A/A+ against B/C with dependence-aware day-cluster intervals, and
+ * emails the operator. Latched per ISO week so a retry cannot send twice.
+ *
+ * The versioned scheduler invokes this after the trading week and maturity
+ * horizon. The database latch remains authoritative if the scheduler retries.
  */
 import { createFileRoute } from "@tanstack/react-router";
 import { authorizeCronRequest, unauthorizedResponse } from "@/lib/cron-auth";

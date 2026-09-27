@@ -23,6 +23,7 @@ import { MODEL_V2_CODE_HASH, MODEL_V2_VERSION } from "@/lib/scanner/v2/manifest"
 import type { V2Evaluation } from "@/lib/scanner/v2/profile.v2";
 import { MODEL_V3_CODE_HASH, MODEL_V3_VERSION } from "@/lib/scanner/v3/manifest";
 import type { V3Evaluation } from "@/lib/scanner/v3/profile.v3";
+import type { QCoreDecision, QCoreInput } from "@/lib/qcore/types";
 
 /** Hard ceiling for all research writes of one job, in milliseconds. */
 export const RESEARCH_WRITE_DEADLINE_MS = 500;
@@ -388,6 +389,58 @@ export function v2ObservationRow(args: {
           reasons: p.reasons,
         }
       : null,
+  };
+}
+
+/**
+ * Q-Core is persisted as research model version 4 so it shares the same
+ * observation identity and lifecycle gate as V1/V2/V3 while remaining unable
+ * to publish or execute. Its state weights are research ensemble weights, not
+ * calibrated probabilities.
+ */
+export function qCoreObservationRow(args: {
+  runId: string | null;
+  observationKey: string | null;
+  instrument: string;
+  direction: "long" | "short";
+  decision: QCoreDecision;
+  input: QCoreInput;
+  provenance?: DetectionProvenance | null;
+}): ObservationRow {
+  return {
+    ...provenanceColumns(args.provenance),
+    run_id: args.runId,
+    observation_key: args.observationKey,
+    model_version: 4,
+    instrument: args.instrument,
+    decision: "candidate",
+    family: null,
+    grade: null,
+    direction: args.direction,
+    disposition: "observation_only",
+    reason: `qcore_v${args.decision.version}:${args.decision.state}`,
+    code_hash: args.decision.policyId,
+    latency_ms: null,
+    signal_id: null,
+    profile: {
+      mode: args.decision.mode,
+      // Immutable decision-time vector. Historical rows without this field are
+      // not eligible for Q-Core backtesting; they must never be approximated.
+      input: args.input,
+      engineVersion: args.decision.version,
+      policyId: args.decision.policyId,
+      featureSchemaVersion: args.decision.featureSchemaVersion,
+      state: args.decision.state,
+      confidence: args.decision.confidence,
+      stateWeights: args.decision.stateWeights,
+      directionalScore: args.decision.directionalScore,
+      evidenceCoverage: args.decision.evidenceCoverage,
+      coverageSufficient: args.decision.coverageSufficient,
+      executionDampener: args.decision.executionDampener,
+      factors: args.decision.factors,
+      reasons: args.decision.reasons,
+      executionEligible: args.decision.executionEligible,
+    },
   };
 }
 
