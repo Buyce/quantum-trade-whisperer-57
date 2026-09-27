@@ -30,7 +30,7 @@ function evaluation(stage: SetupEvaluation["stage"]): SetupEvaluation {
             },
             rrRatio: 2.2,
             maxR: 2.8,
-          } as SetupEvaluation["proposedProfile"])
+          } as unknown as SetupEvaluation["proposedProfile"])
         : null,
   };
 }
