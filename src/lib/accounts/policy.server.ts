@@ -243,7 +243,12 @@ export async function accountExecutionPolicy(
       .from("connected_account_risk_policies")
       .update({ high_watermark: trailingHighWatermark, updated_at: new Date(now).toISOString() })
       .eq("account_id", input.accountId)
-      .eq("user_id", input.userId);
+      .eq("user_id", input.userId)
+      // Conditional UPDATE is concurrency-safe under PostgreSQL READ COMMITTED:
+      // after waiting on a concurrent writer, the predicate is re-evaluated
+      // against the newest row version. A lower candidate therefore cannot
+      // overwrite a higher peak that committed first.
+      .or(`high_watermark.is.null,high_watermark.lt.${trailingHighWatermark}`);
     if (watermarkError) {
       return {
         ok: false,
@@ -270,6 +275,9 @@ export async function accountExecutionPolicy(
         submitted_at: string | null;
       };
       if (delivery.id === input.excludeDeliveryId) return false;
+      // A dry run can never reach the broker and therefore must not reserve a
+      // real-trade slot, including while it is still in the claimed state.
+      if (delivery.dry_run === true) return false;
       // Claimed is an in-flight reservation and uses enqueue time. Terminal rows
       // count only when there is evidence of an actual broker submission today.
       if (delivery.state === "claimed") {
