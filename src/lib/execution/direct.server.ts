@@ -49,6 +49,8 @@ export interface DirectTarget {
   mode: AccountMode;
   brokerSymbol: string;
   freeMargin: number | null;
+  /** Broker-reported balance from the same account snapshot. */
+  balance: number | null;
   accountType: AccountType;
   /** Broker-reported equity, used as the AUTHORITATIVE sizing equity. */
   equity: number | null;
@@ -83,6 +85,7 @@ interface AccountRow {
   investor_mode: boolean | null;
   broker_account_type: AccountType;
   broker_free_margin: number | null;
+  broker_balance: number | null;
   broker_equity: number | null;
   account_currency: string | null;
   broker_observed_at: string | null;
@@ -114,7 +117,7 @@ export async function loadDirectTarget(
   const { data } = await db
     .from("connected_trading_accounts")
     .select(
-      "id, metaapi_account_id, region, magic, mode, phase, intent_conflict, trade_allowed, investor_mode, broker_account_type, broker_free_margin, broker_equity, account_currency, broker_observed_at, max_account_open_positions, disconnected_at",
+      "id, metaapi_account_id, region, magic, mode, phase, intent_conflict, trade_allowed, investor_mode, broker_account_type, broker_free_margin, broker_balance, broker_equity, account_currency, broker_observed_at, max_account_open_positions, disconnected_at",
     )
     .eq("id", input.connectedAccountId)
     .eq("user_id", input.userId)
@@ -183,6 +186,7 @@ export async function loadDirectTarget(
       brokerSymbol,
       freeMargin: account.broker_free_margin === null ? null : Number(account.broker_free_margin),
       accountType: account.broker_account_type,
+      balance: account.broker_balance === null ? null : Number(account.broker_balance),
       equity: account.broker_equity === null ? null : Number(account.broker_equity),
       currency: account.account_currency,
       observedAt: account.broker_observed_at,
@@ -252,6 +256,7 @@ export async function submitDirectOrder(
   };
   if (resize) {
     const resized = await resize({
+      balance: refreshed.balance,
       equity: refreshed.equity,
       currency: refreshed.currency,
       observedAt: refreshed.observedAt,
@@ -458,6 +463,19 @@ export async function submitDirectOrder(
 export interface SafetyRefresh {
   ok: true;
   freeMargin: number | null;
+  /** Broker balance from the same final pre-submit refresh. */
+  balance: number | null;
+  /** Broker-reported equity, used as the AUTHORITATIVE sizing equity. */
+  equity: number | null;
+  /** The deposit currency the broker reports RIGHT NOW. */
+  currency: string | null;
+  /** When the broker observed these facts. */
+  observedAt: string | null;
+}
+
+/* legacy marker */
+interface _SafetyRefreshRemoved {
+  freeMargin: number | null;
   /** The equity the broker reports RIGHT NOW; the only basis for the volume. */
   equity: number | null;
   /** The deposit currency the broker reports right now. Never assumed. */
@@ -518,6 +536,7 @@ export async function refreshDirectPreflight(
     target: {
       ...target,
       freeMargin: accountResult.value.freeMargin,
+      balance: accountResult.value.balance,
       equity: accountResult.value.equity,
       currency: accountResult.value.currency,
       observedAt: accountResult.value.observedAt,
@@ -531,6 +550,7 @@ export async function refreshDirectPreflight(
  * by the dispatcher; absent only in tests that assert the gates themselves.
  */
 export type DirectResizer = (snapshot: {
+  balance: number | null;
   equity: number | null;
   currency: string | null;
   observedAt: string | null;
@@ -586,6 +606,7 @@ export async function refreshAccountSafety(
       trade_allowed: info.tradeAllowed ?? null,
       investor_mode: typeof info.investorMode === "boolean" ? info.investorMode : null,
       broker_free_margin: freeMargin,
+      broker_balance: typeof info.balance === "number" ? info.balance : null,
       broker_equity: typeof info.equity === "number" ? info.equity : null,
       ...(typeof info.currency === "string" && info.currency.trim()
         ? { account_currency: info.currency.trim() }
@@ -619,6 +640,8 @@ export async function refreshAccountSafety(
     return { ok: false, detail: "your broker did not report free margin for this account" };
   }
 
+  const balance =
+    typeof info.balance === "number" && Number.isFinite(info.balance) ? info.balance : null;
   const equity =
     typeof info.equity === "number" && Number.isFinite(info.equity) ? info.equity : null;
   const observedAt = facts.observedAt ?? null;
@@ -638,6 +661,7 @@ export async function refreshAccountSafety(
   return {
     ok: true,
     freeMargin,
+    balance,
     equity,
     currency:
       typeof info.currency === "string" && info.currency.trim() ? info.currency.trim() : null,
