@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { assetClassOf, instrumentDefinition, WAVE0_SYMBOLS, WAVE2_SYMBOLS } from "../registry";
 
 describe("BTCUSD dark admission", () => {
-  it("exists as crypto without guessed broker geometry", () => {
+  it("[INVARIANT] exists as crypto without guessed broker geometry", () => {
     const btc = instrumentDefinition("BTCUSD");
     expect(btc?.assetClass).toBe("crypto");
     expect(btc?.contractSize).toBeNull();
@@ -12,7 +12,7 @@ describe("BTCUSD dark admission", () => {
     expect(assetClassOf("BTCUSD")).toBe("crypto");
   });
 
-  it("does not widen the frozen production universe", () => {
+  it("[INVARIANT] does not widen the frozen production universe", () => {
     expect(WAVE0_SYMBOLS).not.toContain("BTCUSD");
     expect(WAVE2_SYMBOLS).toContain("BTCUSD");
   });
