@@ -48,7 +48,9 @@ export async function accountExecutionPolicy(
     return {
       ok: false,
       reason: "account_risk_policy",
-      detail: policyError ? "account risk policy unreadable" : "account risk policy is not configured",
+      detail: policyError
+        ? "account risk policy unreadable"
+        : "account risk policy is not configured",
     };
   }
 
@@ -105,7 +107,11 @@ export async function accountExecutionPolicy(
   ]);
 
   if (closed.error || deliveries.error) {
-    return { ok: false, reason: "account_risk_policy", detail: "account policy metrics unreadable" };
+    return {
+      ok: false,
+      reason: "account_risk_policy",
+      detail: "account policy metrics unreadable",
+    };
   }
 
   const byDay = new Map<string, number>();
