@@ -48,15 +48,27 @@ export function evaluateQCore(
   const sign = input.direction === "long" ? 1 : -1;
   const raw: Array<[QCoreFactor["name"], number | null, number]> = [
     ["trend", finite(input.trend) ? centered(input.trend) : null, policy.factorWeights.trend],
-    ["structure", finite(input.orderBlock) ? centered(input.orderBlock) : null, policy.factorWeights.structure],
-    ["momentum", finite(input.momentum) ? centered(input.momentum) : null, policy.factorWeights.momentum],
+    [
+      "structure",
+      finite(input.orderBlock) ? centered(input.orderBlock) : null,
+      policy.factorWeights.structure,
+    ],
+    [
+      "momentum",
+      finite(input.momentum) ? centered(input.momentum) : null,
+      policy.factorWeights.momentum,
+    ],
     [
       "volatility",
       finite(input.volatilityExpansion) ? centered(input.volatilityExpansion) : null,
       policy.factorWeights.volatility,
     ],
     ["payoff", payoffEvidence(input.rr, input.maxR), policy.factorWeights.payoff],
-    ["regime", regimeEvidence(input.regimeWinRate, input.regimeActive), policy.factorWeights.regime],
+    [
+      "regime",
+      regimeEvidence(input.regimeWinRate, input.regimeActive),
+      policy.factorWeights.regime,
+    ],
   ];
 
   const measuredWeight = raw.reduce((s, [, value, weight]) => s + (value == null ? 0 : weight), 0);
