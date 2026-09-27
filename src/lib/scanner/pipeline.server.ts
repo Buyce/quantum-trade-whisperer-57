@@ -29,7 +29,10 @@ import {
 } from "@/lib/research/enrol.server";
 
 import { atr } from "./indicators";
-import { qCoreFromV1Evaluation } from "@/lib/qcore/observation";
+import {
+  qCoreFromV1Evaluation,
+  qCoreInputFromV1Evaluation,
+} from "@/lib/qcore/observation";
 import { presentSignalBreakdown } from "./copy";
 import { ACTIVE_MODEL_VERSION, observationKey } from "@/lib/versioning";
 import { isTransientMetaApiReadFailure, MetaApiRequestAbortedError } from "@/lib/metaapi/errors";
@@ -418,8 +421,9 @@ export async function processNextJob(
       // the research ledger after the production result is fixed and cannot
       // affect publication, alerts, risk or broker execution.
       if (v1Evaluation && v1Direction) {
+        const qCoreInput = qCoreInputFromV1Evaluation(v1Evaluation);
         const qCore = qCoreFromV1Evaluation(v1Evaluation);
-        if (qCore) {
+        if (qCore && qCoreInput) {
           rows.push(
             qCoreObservationRow({
               runId: job.run_id ?? null,
@@ -427,6 +431,7 @@ export async function processNextJob(
               instrument: job.instrument,
               direction: v1Direction,
               decision: qCore,
+              input: qCoreInput,
               provenance,
             }),
           );
