@@ -162,9 +162,8 @@ export async function toAccountView(
     isBenchmark: row.is_benchmark === true,
     riskPolicy: riskPolicy.data
       ? {
-          kind: (
-            riskPolicy.data as { policy_kind: "standard" | "equity_edge_instant_50k" }
-          ).policy_kind,
+          kind: (riskPolicy.data as { policy_kind: "standard" | "equity_edge_instant_50k" })
+            .policy_kind,
           startingBalance: num(
             (riskPolicy.data as { starting_balance: unknown }).starting_balance,
           )!,
@@ -194,9 +193,8 @@ export async function toAccountView(
           maxTradesPerDay: num(
             (riskPolicy.data as { max_trades_per_day: unknown }).max_trades_per_day,
           ),
-          newsTradingAllowed: (
-            riskPolicy.data as { news_trading_allowed: boolean | null }
-          ).news_trading_allowed,
+          newsTradingAllowed: (riskPolicy.data as { news_trading_allowed: boolean | null })
+            .news_trading_allowed,
           highWatermark: num((riskPolicy.data as { high_watermark: unknown }).high_watermark),
         }
       : null,
