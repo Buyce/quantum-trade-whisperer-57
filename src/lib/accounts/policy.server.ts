@@ -165,7 +165,7 @@ export async function accountExecutionPolicy(
       .limit(5000),
     db
       .from("execution_deliveries")
-      .select("id, enqueued_at, state")
+      .select("id, enqueued_at, state, dry_run, submitted_at")
       .eq("connected_account_id", input.accountId)
       .eq("user_id", input.userId)
       .in("state", ["claimed", "sent", "acknowledged", "unknown"])
@@ -217,6 +217,7 @@ export async function accountExecutionPolicy(
     equity: input.equity,
     balance: input.balance,
     trailingHighWatermark: Math.max(
+      policy.startingBalance,
       num(row["high_watermark"]) ?? 0,
       num((riskState.data as { peak_equity?: unknown } | null)?.peak_equity) ?? 0,
       input.equity ?? 0,
