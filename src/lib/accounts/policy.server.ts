@@ -182,7 +182,9 @@ export async function accountExecutionPolicy(
       .eq("connected_account_id", input.accountId)
       .eq("user_id", input.userId)
       .in("state", ["claimed", "sent", "acknowledged", "unknown"])
-      .gte("enqueued_at", dayStart.toISOString())
+      // Include a small lookback so pre-midnight enqueues submitted after midnight
+      // are classified by their actual broker-submission timestamp below.
+      .gte("enqueued_at", new Date(dayStart.getTime() - 24 * 60 * 60 * 1000).toISOString())
       .limit(500),
     db
       .from("account_risk_state")
@@ -239,9 +241,24 @@ export async function accountExecutionPolicy(
     totalNetProfit,
     largestWinningDay,
     tradingDays: byDay.size,
-    tradesToday: (deliveries.data ?? []).filter(
-      (row) => (row as { id: number }).id !== input.excludeDeliveryId,
-    ).length,
+    tradesToday: (deliveries.data ?? []).filter((raw) => {
+      const delivery = raw as {
+        id: number;
+        enqueued_at: string;
+        state: string;
+        dry_run: boolean | null;
+        submitted_at: string | null;
+      };
+      if (delivery.id === input.excludeDeliveryId) return false;
+      // Claimed is an in-flight reservation and uses enqueue time. Terminal rows
+      // count only when there is evidence of an actual broker submission today.
+      if (delivery.state === "claimed") {
+        return new Date(delivery.enqueued_at).getTime() >= dayStart.getTime();
+      }
+      if (!delivery.submitted_at) return false;
+      const submittedAt = new Date(delivery.submitted_at).getTime();
+      return submittedAt >= dayStart.getTime() && submittedAt <= now;
+    }).length,
   });
 
   if (verdict.status === "block" || verdict.riskPercent === null) {
