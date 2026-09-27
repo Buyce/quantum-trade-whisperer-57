@@ -8,6 +8,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { evaluateAccountPolicy, type AccountRiskPolicy } from "./policy";
 import { fetchDeals } from "@/lib/metaapi/history.server";
+import { NEWS_ENFORCEMENT_PINNED_OFF } from "@/lib/news/gate.server";
 
 type Db = Pick<SupabaseClient, "from">;
 
@@ -84,6 +85,17 @@ export async function accountExecutionPolicy(
     policy.operatingRiskPerTradePercent > policy.hardRiskPerTradePercent
   ) {
     return { ok: false, reason: "account_risk_policy", detail: "account risk policy is invalid" };
+  }
+
+  // A policy that forbids news trading cannot be represented as executable while
+  // the platform news gate is deliberately pinned to observation-only. Refuse
+  // rather than pretend the prop/account restriction is enforced.
+  if (policy.newsTradingAllowed === false && NEWS_ENFORCEMENT_PINNED_OFF) {
+    return {
+      ok: false,
+      reason: "account_risk_policy",
+      detail: "account requires enforceable news blocking, but the calendar gate is observation-only",
+    };
   }
 
   const now = input.now ?? Date.now();
