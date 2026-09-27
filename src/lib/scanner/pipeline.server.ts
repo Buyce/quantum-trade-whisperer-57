@@ -29,10 +29,7 @@ import {
 } from "@/lib/research/enrol.server";
 
 import { atr } from "./indicators";
-import {
-  qCoreFromV1Evaluation,
-  qCoreInputFromV1Evaluation,
-} from "@/lib/qcore/observation";
+import { qCoreFromV1Evaluation, qCoreInputFromV1Evaluation } from "@/lib/qcore/observation";
 import { presentSignalBreakdown } from "./copy";
 import { ACTIVE_MODEL_VERSION, observationKey } from "@/lib/versioning";
 import { isTransientMetaApiReadFailure, MetaApiRequestAbortedError } from "@/lib/metaapi/errors";

@@ -84,7 +84,11 @@ function acquireLocal(token: symbol, signal?: AbortSignal): Promise<void> {
       waiter.settled = true;
       remove();
       signal?.removeEventListener("abort", onAbort);
-      reject(new MetaApiCapacityError(`Market-data capacity was unavailable for ${MARKET_DATA_WAIT_TIMEOUT_MS}ms`));
+      reject(
+        new MetaApiCapacityError(
+          `Market-data capacity was unavailable for ${MARKET_DATA_WAIT_TIMEOUT_MS}ms`,
+        ),
+      );
     }, MARKET_DATA_WAIT_TIMEOUT_MS);
     waiter.resolve = () => {
       clearTimeout(timer);

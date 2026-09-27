@@ -9,7 +9,10 @@ import { ACTIVE_MODEL_VERSION } from "@/lib/versioning";
 import { REPLAY_V1_VERSION } from "@/lib/execution/replay-registry";
 import { buildReport, isoWeekKey, type ShadowRow, type WeeklyReport } from "./weekly";
 import { loadQCoreBacktestDataset } from "@/lib/qcore/dataset.server";
-import { buildQCoreWeeklyResearchReport, type QCoreWeeklyResearchReport } from "@/lib/qcore/weekly-report";
+import {
+  buildQCoreWeeklyResearchReport,
+  type QCoreWeeklyResearchReport,
+} from "@/lib/qcore/weekly-report";
 
 export const REPORT_WINDOW_DAYS = 7;
 

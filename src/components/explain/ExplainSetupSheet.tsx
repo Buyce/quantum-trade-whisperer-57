@@ -58,7 +58,11 @@ export function ExplainSetupSheet({
             disabled={m.isPending || (!signalId && !text.trim())}
             onClick={() => m.mutate()}
           >
-            {m.isPending ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+            {m.isPending ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Sparkles className="size-4" />
+            )}
             {m.isPending ? "Thinking…" : "Explain"}
           </Button>
           {m.error ? <p className="text-xs text-destructive">{m.error.message}</p> : null}
@@ -71,7 +75,9 @@ export function ExplainSetupSheet({
               <div>
                 <p className="font-medium">Risk factors</p>
                 <ul className="mt-1 list-disc space-y-1 pl-5 text-xs">
-                  {r.riskFactors.map((f, i) => <li key={i}>{f}</li>)}
+                  {r.riskFactors.map((f, i) => (
+                    <li key={i}>{f}</li>
+                  ))}
                 </ul>
               </div>
               <div>
@@ -80,22 +86,38 @@ export function ExplainSetupSheet({
                   {r.ruleChecks.map((c, i) => (
                     <li key={i} className="flex gap-2">
                       <Badge
-                        variant={c.status === "conflict" ? "destructive" : c.status === "ok" ? "secondary" : "outline"}
+                        variant={
+                          c.status === "conflict"
+                            ? "destructive"
+                            : c.status === "ok"
+                              ? "secondary"
+                              : "outline"
+                        }
                         className="shrink-0"
                       >
-                        {c.status === "conflict" ? "Conflict" : c.status === "ok" ? "OK" : "Unknown"}
+                        {c.status === "conflict"
+                          ? "Conflict"
+                          : c.status === "ok"
+                            ? "OK"
+                            : "Unknown"}
                       </Badge>
-                      <span><strong>{c.rule}.</strong> {c.detail}</span>
+                      <span>
+                        <strong>{c.rule}.</strong> {c.detail}
+                      </span>
                     </li>
                   ))}
                 </ul>
-                {r.ruleNotes ? <p className="mt-2 text-xs text-muted-foreground">{r.ruleNotes}</p> : null}
+                {r.ruleNotes ? (
+                  <p className="mt-2 text-xs text-muted-foreground">{r.ruleNotes}</p>
+                ) : null}
               </div>
               {r.dataGaps.length ? (
                 <div>
                   <p className="font-medium">Missing information</p>
                   <ul className="mt-1 list-disc pl-5 text-xs text-muted-foreground">
-                    {r.dataGaps.map((g, i) => <li key={i}>{g}</li>)}
+                    {r.dataGaps.map((g, i) => (
+                      <li key={i}>{g}</li>
+                    ))}
                   </ul>
                 </div>
               ) : null}

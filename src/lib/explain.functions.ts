@@ -32,21 +32,32 @@ export const explainSetup = createServerFn({ method: "POST" })
     const db = context.supabase;
 
     let setup: ExplainSetup = {
-      instrument: null, direction: null, grade: null, entry: null, stop: null, target: null,
+      instrument: null,
+      direction: null,
+      grade: null,
+      entry: null,
+      stop: null,
+      target: null,
     };
     let signalFacts: Record<string, unknown> | null = null;
     if (data.signalId) {
       const { data: s, error } = await db
         .from("scanned_signals")
-        .select("instrument, direction, grade, entry_price, stop_loss, tp1, rr_ratio, confidence_score, detected_at")
+        .select(
+          "instrument, direction, grade, entry_price, stop_loss, tp1, rr_ratio, confidence_score, detected_at",
+        )
         .eq("id", data.signalId)
         .maybeSingle();
       if (error) throw new Error(error.message);
       if (!s) throw new Error("Signal not found.");
       signalFacts = s;
       setup = {
-        instrument: s.instrument, direction: s.direction, grade: s.grade,
-        entry: Number(s.entry_price), stop: Number(s.stop_loss), target: Number(s.tp1),
+        instrument: s.instrument,
+        direction: s.direction,
+        grade: s.grade,
+        entry: Number(s.entry_price),
+        stop: Number(s.stop_loss),
+        target: Number(s.tp1),
       };
     }
 
@@ -80,9 +91,13 @@ export const explainSetup = createServerFn({ method: "POST" })
       "Use ONLY the facts given. If something needed is missing, list it under dataGaps — never invent prices, news or statistics.",
       "Do not recommend taking or skipping the trade. Keep summary under 120 words, 3-6 risk factors, ruleNotes under 80 words explaining the rule checks.",
       signalFacts ? `P-Trades signal (engine-derived): ${JSON.stringify(signalFacts)}` : "",
-      data.text ? `Trader-provided notes / snapshot (self-reported, unverified):\n${data.text}` : "",
+      data.text
+        ? `Trader-provided notes / snapshot (self-reported, unverified):\n${data.text}`
+        : "",
       `Rule checks computed by P-Trades from the trader's settings: ${JSON.stringify(ruleChecks)}`,
-    ].filter(Boolean).join("\n\n");
+    ]
+      .filter(Boolean)
+      .join("\n\n");
 
     try {
       const result = streamText({
