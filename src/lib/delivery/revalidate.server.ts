@@ -174,6 +174,8 @@ export interface RevalidationApproved {
    * profile. Null ⇒ the account owner's own risk percentage applies.
    */
   riskPercentOverride: number | null;
+  /** Cohort reduction must survive the final broker-snapshot resize. */
+  riskScaleOverride: number;
 }
 
 export type Revalidation = RevalidationApproved | RevalidationRejected;
@@ -1153,8 +1155,9 @@ export async function revalidateDelivery(
       plan: approvedPlan,
       exposure,
       // Only the operator benchmark carries an override forward. Ordinary direct
-    // accounts MUST re-read their policy at the final broker-snapshot resize.
-    riskPercentOverride: isBenchmark ? accountRiskPercent : null,
+      // accounts MUST re-read their policy at the final broker-snapshot resize.
+      riskPercentOverride: isBenchmark ? accountRiskPercent : null,
+      riskScaleOverride: cohortRiskScale,
     };
   }
 
