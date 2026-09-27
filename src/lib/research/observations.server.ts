@@ -23,6 +23,7 @@ import { MODEL_V2_CODE_HASH, MODEL_V2_VERSION } from "@/lib/scanner/v2/manifest"
 import type { V2Evaluation } from "@/lib/scanner/v2/profile.v2";
 import { MODEL_V3_CODE_HASH, MODEL_V3_VERSION } from "@/lib/scanner/v3/manifest";
 import type { V3Evaluation } from "@/lib/scanner/v3/profile.v3";
+import { QCORE_MODEL_VERSION } from "@/lib/qcore/config";
 import type { QCoreDecision, QCoreInput } from "@/lib/qcore/types";
 
 /** Hard ceiling for all research writes of one job, in milliseconds. */
@@ -393,8 +394,8 @@ export function v2ObservationRow(args: {
 }
 
 /**
- * Q-Core is persisted as research model version 4 so it shares the same
- * observation identity and lifecycle gate as V1/V2/V3 while remaining unable
+ * Q-Core uses its versioned research model identity so policy upgrades cannot
+ * overwrite prior Q-Core observations while remaining unable
  * to publish or execute. Its state weights are research ensemble weights, not
  * calibrated probabilities.
  */
@@ -411,7 +412,7 @@ export function qCoreObservationRow(args: {
     ...provenanceColumns(args.provenance),
     run_id: args.runId,
     observation_key: args.observationKey,
-    model_version: 4,
+    model_version: QCORE_MODEL_VERSION,
     instrument: args.instrument,
     decision: "candidate",
     family: null,
