@@ -98,8 +98,7 @@ export const MARKET_CALENDARS: readonly MarketCalendar[] = [
     weekOpen: { day: -1, hour: 0 },
     dailyBreaks: [],
     holidays: [],
-    note:
-      "Research/data-validation calendar for continuously traded crypto. Broker-specific CFD maintenance windows must still be sourced before lifecycle promotion.",
+    note: "Research/data-validation calendar for continuously traded crypto. Broker-specific CFD maintenance windows must still be sourced before lifecycle promotion.",
   },
   {
     key: "energy_cfd",
