@@ -1,6 +1,6 @@
 import type { QCoreFactor } from "./types";
 
-export const QCORE_MODEL_VERSION = 4;
+export const QCORE_MODEL_VERSION = 5;
 export const QCORE_ENGINE_VERSION = 3;
 export const QCORE_FEATURE_SCHEMA_VERSION = 1;
 
