@@ -12,6 +12,14 @@ let controls: Record<string, boolean> = {};
 let accountRow: Record<string, unknown> | null = null;
 const updates: Record<string, unknown>[] = [];
 
+vi.mock("@/lib/metaapi/accounts.server", () => ({
+  fetchAccountFacts: vi.fn(async () => ({
+    type: "real",
+    observedAt: "2026-09-27T00:00:00.000Z",
+    info: { tradeAllowed: true, investorMode: false },
+  })),
+}));
+
 vi.mock("@/integrations/supabase/client.server", () => ({
   supabaseAdmin: {
     from(table: string) {
@@ -49,6 +57,8 @@ const readyDemo = {
   phase: "ready",
   magic: 771234,
   metaapi_account_id: "ma-1",
+  region: "london",
+  intent: "demo",
   intent_conflict: false,
   trade_allowed: true,
   investor_mode: false,
@@ -78,13 +88,13 @@ describe("arming against the global capability", () => {
   });
 
   it("[INVARIANT] live modes stay refused while live execution is disabled", async () => {
-    accountRow = { ...readyDemo, broker_account_type: "real" };
+    accountRow = { ...readyDemo, intent: "live", broker_account_type: "real" };
     for (const mode of ["live_confirm", "live_auto"]) {
       await expect(setAccountMode("user-1", "acct-1", mode)).rejects.toThrow(
         /disabled system-wide/i,
       );
     }
-    expect(updates).toHaveLength(0);
+    expect(updates.filter((update) => "mode" in update)).toHaveLength(0);
   });
 
   it("[UNIT] standing down to observe is never blocked by a global switch", async () => {

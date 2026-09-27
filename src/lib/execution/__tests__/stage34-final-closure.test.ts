@@ -163,6 +163,7 @@ describe("destination-account preflight", () => {
     mode: "demo_auto",
     brokerSymbol: "EURUSD.pro",
     freeMargin: 500,
+    balance: 500,
     accountType: "demo",
     equity: 500,
     currency: "USD",
@@ -458,6 +459,7 @@ function target(): DirectTarget {
     mode: "demo_auto",
     brokerSymbol: "XAUUSD",
     freeMargin: 100_000,
+    balance: 20_000,
     accountType: "demo",
     // The equity known at REVALIDATION time.
     equity: 20_000,
