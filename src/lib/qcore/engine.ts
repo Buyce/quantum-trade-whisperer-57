@@ -1,3 +1,4 @@
+import { QCORE_POLICY_V2, type QCorePolicy } from "./config";
 import type { QCoreDecision, QCoreFactor, QCoreInput, QState } from "./types";
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
@@ -40,19 +41,22 @@ function softmax3(longLogit: number, neutralLogit: number, shortLogit: number) {
  * strongly independent evidence supports or contradicts that hypothesis.
  * Nothing here can authorize execution.
  */
-export function evaluateQCore(input: QCoreInput): QCoreDecision {
+export function evaluateQCore(
+  input: QCoreInput,
+  policy: QCorePolicy = QCORE_POLICY_V2,
+): QCoreDecision {
   const sign = input.direction === "long" ? 1 : -1;
   const raw: Array<[QCoreFactor["name"], number | null, number]> = [
-    ["trend", finite(input.trend) ? centered(input.trend) : null, 0.26],
-    ["structure", finite(input.orderBlock) ? centered(input.orderBlock) : null, 0.2],
-    ["momentum", finite(input.momentum) ? centered(input.momentum) : null, 0.16],
+    ["trend", finite(input.trend) ? centered(input.trend) : null, policy.factorWeights.trend],
+    ["structure", finite(input.orderBlock) ? centered(input.orderBlock) : null, policy.factorWeights.structure],
+    ["momentum", finite(input.momentum) ? centered(input.momentum) : null, policy.factorWeights.momentum],
     [
       "volatility",
       finite(input.volatilityExpansion) ? centered(input.volatilityExpansion) : null,
-      0.12,
+      policy.factorWeights.volatility,
     ],
-    ["payoff", payoffEvidence(input.rr, input.maxR), 0.16],
-    ["regime", regimeEvidence(input.regimeWinRate, input.regimeActive), 0.1],
+    ["payoff", payoffEvidence(input.rr, input.maxR), policy.factorWeights.payoff],
+    ["regime", regimeEvidence(input.regimeWinRate, input.regimeActive), policy.factorWeights.regime],
   ];
 
   const measuredWeight = raw.reduce((s, [, value, weight]) => s + (value == null ? 0 : weight), 0);
@@ -75,6 +79,7 @@ export function evaluateQCore(input: QCoreInput): QCoreDecision {
     1,
   );
   const evidenceCoverage = clamp(measuredWeight, 0, 1);
+  const coverageSufficient = evidenceCoverage >= policy.minCoverage;
 
   // Execution quality cannot create a direction. Poor measured execution only
   // reduces certainty; missing quality remains neutral and visibly unmeasured.
@@ -86,9 +91,9 @@ export function evaluateQCore(input: QCoreInput): QCoreDecision {
   // Neutral grows as directional evidence weakens. These are ensemble weights,
   // explicitly not calibrated market probabilities.
   const stateWeights = softmax3(
-    effective * 2.4,
-    (1 - Math.abs(effective)) * 1.25,
-    -effective * 2.4,
+    effective * policy.stateTemperature,
+    (1 - Math.abs(effective)) * policy.neutralStrength,
+    -effective * policy.stateTemperature,
   );
   const entries = Object.entries(stateWeights) as Array<[QState, number]>;
   entries.sort((a, b) => b[1] - a[1]);
@@ -96,7 +101,10 @@ export function evaluateQCore(input: QCoreInput): QCoreDecision {
   const confidence = entries[0]![1];
 
   const reasons = [
-    `qcore_v1_shadow_only`,
+    `qcore_v${policy.engineVersion}_shadow_only`,
+    `policy=${policy.id}`,
+    `feature_schema=${policy.featureSchemaVersion}`,
+    `coverage_gate=${coverageSufficient ? "sufficient" : "insufficient"}`,
     `coverage=${round(evidenceCoverage)}`,
     `directional_score=${round(directionalScore)}`,
     input.regimeActive ? "regime_reporting_gate=active" : "regime_reporting_gate=inactive",
@@ -106,7 +114,9 @@ export function evaluateQCore(input: QCoreInput): QCoreDecision {
   ];
 
   return {
-    version: 1,
+    version: policy.engineVersion,
+    policyId: policy.id,
+    featureSchemaVersion: policy.featureSchemaVersion,
     mode: "shadow",
     state,
     confidence: round(confidence),
@@ -117,6 +127,7 @@ export function evaluateQCore(input: QCoreInput): QCoreDecision {
     },
     directionalScore: round(directionalScore),
     evidenceCoverage: round(evidenceCoverage),
+    coverageSufficient,
     executionDampener: round(executionDampener),
     factors,
     reasons,
