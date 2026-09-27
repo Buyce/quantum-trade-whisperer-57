@@ -107,10 +107,16 @@ export function evaluateAccountPolicy(
     policy.maxDailyLossPercent === null
       ? null
       : policy.startingBalance * (policy.maxDailyLossPercent / 100);
-  const dailyLossUsed =
-    finite(state.todayNetPnl) && state.todayNetPnl < 0 ? Math.abs(state.todayNetPnl) : 0;
-  const dailyLossRemaining = dailyLimit === null ? null : Math.max(0, dailyLimit - dailyLossUsed);
-  if (dailyLimit !== null && dailyLossRemaining <= riskAmount) reasons.push("daily_loss_budget_exhausted");
+  let dailyLossRemaining: number | null = null;
+  if (dailyLimit !== null) {
+    if (!finite(state.todayNetPnl)) {
+      reasons.push("daily_loss_state_unavailable");
+    } else {
+      const dailyLossUsed = state.todayNetPnl < 0 ? Math.abs(state.todayNetPnl) : 0;
+      dailyLossRemaining = Math.max(0, dailyLimit - dailyLossUsed);
+      if (dailyLossRemaining <= riskAmount) reasons.push("daily_loss_budget_exhausted");
+    }
+  }
 
   let totalLossRemaining: number | null = null;
   if (policy.maxTotalLossPercent !== null) {
@@ -151,12 +157,11 @@ export function evaluateAccountPolicy(
   const safetyBufferRemaining =
     safetyBuffer === null ? null : Math.max(0, safetyBuffer - Math.max(0, profit));
 
-  if (
-    policy.maxTradesPerDay !== null &&
-    finite(state.tradesToday) &&
-    state.tradesToday >= policy.maxTradesPerDay
-  ) {
-    reasons.push("p_trades_daily_trade_limit_reached");
+  if (policy.maxTradesPerDay !== null) {
+    if (!finite(state.tradesToday)) reasons.push("daily_trade_count_unavailable");
+    else if (state.tradesToday >= policy.maxTradesPerDay) {
+      reasons.push("p_trades_daily_trade_limit_reached");
+    }
   }
 
   if (policy.minTradingDays !== null && finite(state.tradingDays) && state.tradingDays < policy.minTradingDays) {
@@ -165,9 +170,11 @@ export function evaluateAccountPolicy(
 
   const hardBlocks = new Set([
     "daily_loss_budget_exhausted",
+    "daily_loss_state_unavailable",
     "total_loss_budget_exhausted",
     "trailing_high_watermark_unavailable",
     "p_trades_daily_trade_limit_reached",
+    "daily_trade_count_unavailable",
   ]);
   const status = reasons.some((reason) => hardBlocks.has(reason))
     ? "block"
