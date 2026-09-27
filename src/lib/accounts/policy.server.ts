@@ -16,6 +16,7 @@ export type AccountExecutionPolicyResult =
       riskPercent: number;
       status: "allow" | "warning";
       reasons: string[];
+      newsTradingAllowed: boolean | null;
     }
   | { ok: false; reason: "account_risk_policy"; detail: string };
 
@@ -165,5 +166,6 @@ export async function accountExecutionPolicy(
     riskPercent: verdict.riskPercent,
     status: verdict.status,
     reasons: verdict.reasons,
+    newsTradingAllowed: policy.newsTradingAllowed,
   };
 }
