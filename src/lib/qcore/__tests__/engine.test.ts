@@ -15,7 +15,7 @@ const strong = {
 };
 
 describe("Q-Core v1 shadow ensemble", () => {
-  it("supports a strong long hypothesis without becoming execution authority", () => {
+  it("[UNIT] supports a strong long hypothesis without becoming execution authority", () => {
     const q = evaluateQCore(strong);
     expect(q.mode).toBe("shadow");
     expect(q.version).toBeGreaterThanOrEqual(2);
@@ -27,14 +27,14 @@ describe("Q-Core v1 shadow ensemble", () => {
     expect(q.stateWeights.long).toBeGreaterThan(q.stateWeights.short);
   });
 
-  it("mirrors directional evidence for a short hypothesis", () => {
+  it("[UNIT] mirrors directional evidence for a short hypothesis", () => {
     const q = evaluateQCore({ ...strong, direction: "short" });
     expect(q.state).toBe("short");
     expect(q.directionalScore).toBeLessThan(0);
     expect(q.stateWeights.short).toBeGreaterThan(q.stateWeights.long);
   });
 
-  it("does not fabricate regime evidence when the reporting gate is inactive", () => {
+  it("[UNIT] does not fabricate regime evidence when the reporting gate is inactive", () => {
     const q = evaluateQCore({ ...strong, regimeActive: false, regimeWinRate: 0.99 });
     const regime = q.factors.find((f) => f.name === "regime");
     expect(regime?.measured).toBe(false);
@@ -42,7 +42,7 @@ describe("Q-Core v1 shadow ensemble", () => {
     expect(q.reasons).toContain("regime_reporting_gate=inactive");
   });
 
-  it("does not let execution quality create direction", () => {
+  it("[UNIT] does not let execution quality create direction", () => {
     const base = {
       direction: "long" as const,
       trend: 50,
@@ -62,7 +62,7 @@ describe("Q-Core v1 shadow ensemble", () => {
     expect(perfect.state).toBe("neutral");
   });
 
-  it("rejects weak short-hypothesis evidence into neutral instead of inventing long", () => {
+  it("[UNIT] rejects weak short-hypothesis evidence into neutral instead of inventing long", () => {
     const q = evaluateQCore({
       direction: "short",
       trend: 0,
@@ -80,7 +80,7 @@ describe("Q-Core v1 shadow ensemble", () => {
     expect(q.executionEligible).toBe(false);
   });
 
-  it("never increases winning confidence when execution quality deteriorates", () => {
+  it("[UNIT] never increases winning confidence when execution quality deteriorates", () => {
     const base = {
       direction: "long" as const,
       trend: 60,
@@ -98,7 +98,7 @@ describe("Q-Core v1 shadow ensemble", () => {
     expect(poor.executionEligible).toBe(false);
   });
 
-  it("keeps state weights bounded and approximately normalized", () => {
+  it("[UNIT] keeps state weights bounded and approximately normalized", () => {
     const q = evaluateQCore(strong);
     const sum = q.stateWeights.long + q.stateWeights.neutral + q.stateWeights.short;
     expect(sum).toBeCloseTo(1, 3);
@@ -108,7 +108,7 @@ describe("Q-Core v1 shadow ensemble", () => {
     }
   });
 
-  it("treats missing payoff as missing evidence rather than a default", () => {
+  it("[UNIT] treats missing payoff as missing evidence rather than a default", () => {
     const q = evaluateQCore({ ...strong, rr: null, maxR: null });
     const payoff = q.factors.find((f) => f.name === "payoff");
     expect(payoff?.measured).toBe(false);
@@ -116,7 +116,7 @@ describe("Q-Core v1 shadow ensemble", () => {
     expect(q.executionEligible).toBe(false);
   });
 
-  it("exposes an explicit evidence-coverage gate", () => {
+  it("[UNIT] exposes an explicit evidence-coverage gate", () => {
     const q = evaluateQCore({
       ...strong,
       rr: null,
@@ -128,7 +128,7 @@ describe("Q-Core v1 shadow ensemble", () => {
     expect(q.reasons.some((r) => r.startsWith("coverage_gate="))).toBe(true);
   });
 
-  it("supports future policy upgrades without changing the engine API", () => {
+  it("[UNIT] supports future policy upgrades without changing the engine API", () => {
     const q = evaluateQCore(strong, {
       id: "test_policy",
       engineVersion: 99,
