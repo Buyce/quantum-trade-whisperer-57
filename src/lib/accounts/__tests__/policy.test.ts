@@ -55,6 +55,24 @@ describe("account-scoped risk policy", () => {
     expect(v.reasons).toContain("consistency_above_payout_threshold");
   });
 
+  it("[INVARIANT] blocks when daily loss state is unavailable", () => {
+    const v = evaluateAccountPolicy(EQUITY_EDGE_INSTANT_50K, {
+      ...healthy,
+      todayNetPnl: null,
+    });
+    expect(v.status).toBe("block");
+    expect(v.reasons).toContain("daily_loss_state_unavailable");
+  });
+
+  it("[INVARIANT] blocks when today's trade count is unavailable", () => {
+    const v = evaluateAccountPolicy(EQUITY_EDGE_INSTANT_50K, {
+      ...healthy,
+      tradesToday: null,
+    });
+    expect(v.status).toBe("block");
+    expect(v.reasons).toContain("daily_trade_count_unavailable");
+  });
+
   it("[INVARIANT] enforces the P-Trades per-account trade cap", () => {
     const v = evaluateAccountPolicy(EQUITY_EDGE_INSTANT_50K, {
       ...healthy,
