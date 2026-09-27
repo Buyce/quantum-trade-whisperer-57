@@ -48,6 +48,30 @@ describe("Q-Core deterministic backtest", () => {
     expect(result.metrics.winRate).toBeCloseTo(1 / 3, 4);
   });
 
+  it("does not count a never-filled opportunity as a losing trade", () => {
+    const result = backtestQCore([
+      {
+        id: "filled-win",
+        detectedAt: "2026-01-01T00:00:00Z",
+        instrument: "XAUUSD",
+        input,
+        realizedR: 1,
+        filled: true,
+      },
+      {
+        id: "never-filled",
+        detectedAt: "2026-01-02T00:00:00Z",
+        instrument: "XAUUSD",
+        input,
+        realizedR: 0,
+        filled: false,
+      },
+    ]);
+    expect(result.metrics.meanR).toBe(0.5);
+    expect(result.metrics.winRate).toBe(1);
+    expect(result.metrics.filledN).toBe(1);
+  });
+
   it("never invents unresolved outcomes", () => {
     const result = backtestQCore([
       {
