@@ -473,17 +473,6 @@ export interface SafetyRefresh {
   observedAt: string | null;
 }
 
-/* legacy marker */
-interface _SafetyRefreshRemoved {
-  freeMargin: number | null;
-  /** The equity the broker reports RIGHT NOW; the only basis for the volume. */
-  equity: number | null;
-  /** The deposit currency the broker reports right now. Never assumed. */
-  currency: string | null;
-  /** When the broker observed the figures above. */
-  observedAt: string | null;
-}
-
 export type DirectPreflight =
   | { ok: true; target: DirectTarget; quote: BrokerQuote }
   | { ok: false; reason: "account_refresh_unavailable" | "quote_unavailable"; detail: string };
