@@ -163,6 +163,7 @@ describe("destination-account preflight", () => {
     mode: "demo_auto",
     brokerSymbol: "EURUSD.pro",
     freeMargin: 500,
+    balance: 500,
     accountType: "demo",
     equity: 500,
     currency: "USD",
@@ -458,6 +459,7 @@ function target(): DirectTarget {
     mode: "demo_auto",
     brokerSymbol: "XAUUSD",
     freeMargin: 100_000,
+    balance: 20_000,
     accountType: "demo",
     // The equity known at REVALIDATION time.
     equity: 20_000,
@@ -487,8 +489,8 @@ describe("final quantity comes from the pre-submit broker snapshot", () => {
     // Quantity authorised earlier, from 20,000 equity.
     const authorised = await resizeFromBrokerSnapshot(
       client,
-      { userId: "user-1", accountId: "acct-1", ...request },
-      { equity: 20_000, currency: "USD", observedAt: new Date(NOW).toISOString() },
+      { userId: "user-1", accountId: "acct-1", deliveryId: 42, ...request },
+      { balance: 20_000, equity: 20_000, currency: "USD", observedAt: new Date(NOW).toISOString() },
       NOW,
     );
     expect(authorised.ok).toBe(true);
@@ -526,7 +528,7 @@ describe("final quantity comes from the pre-submit broker snapshot", () => {
       async (snapshot) =>
         await resizeFromBrokerSnapshot(
           client,
-          { userId: "user-1", accountId: "acct-1", ...request },
+          { userId: "user-1", accountId: "acct-1", deliveryId: 42, ...request },
           snapshot,
           NOW,
         ),
@@ -537,8 +539,8 @@ describe("final quantity comes from the pre-submit broker snapshot", () => {
     const submitted = submitPendingOrder.mock.calls[0]?.[2] as { volume: number };
     const expected = await resizeFromBrokerSnapshot(
       client,
-      { userId: "user-1", accountId: "acct-1", ...request },
-      { equity: 10_000, currency: "USD", observedAt: new Date(NOW).toISOString() },
+      { userId: "user-1", accountId: "acct-1", deliveryId: 42, ...request },
+      { balance: 10_000, equity: 10_000, currency: "USD", observedAt: new Date(NOW).toISOString() },
       NOW,
     );
     expect(expected.ok).toBe(true);
@@ -572,7 +574,7 @@ describe("final quantity comes from the pre-submit broker snapshot", () => {
       async (snapshot) =>
         await resizeFromBrokerSnapshot(
           client,
-          { userId: "user-1", accountId: "acct-1", ...request },
+          { userId: "user-1", accountId: "acct-1", deliveryId: 42, ...request },
           snapshot,
           NOW,
         ),
