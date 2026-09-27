@@ -976,6 +976,7 @@ export async function revalidateDelivery(
       equity: directTarget.equity,
       balance: directTarget.balance,
       now,
+      excludeDeliveryId: delivery.id,
     });
     if (!accountPolicy.ok) return reject(accountPolicy.reason, accountPolicy.detail);
     accountRiskPercent = accountPolicy.riskPercent;
@@ -1128,7 +1129,9 @@ export async function revalidateDelivery(
       quantity,
       plan: approvedPlan,
       exposure,
-      riskPercentOverride: accountRiskPercent,
+      // Only the operator benchmark carries an override forward. Ordinary direct
+    // accounts MUST re-read their policy at the final broker-snapshot resize.
+    riskPercentOverride: isBenchmark ? accountRiskPercent : null,
     };
   }
 
