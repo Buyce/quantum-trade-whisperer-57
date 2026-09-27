@@ -35,7 +35,7 @@ export type InstrumentWave = 0 | 1 | 2;
  * index has no pip at all, and an oil CFD's "point" is a broker fact rather than
  * a decimal convention. Anything that used to assume "FX or Gold" must now ask.
  */
-export type AssetClass = "fx" | "metal" | "energy" | "index";
+export type AssetClass = "fx" | "metal" | "energy" | "index" | "crypto";
 
 /**
  * How a spread/distance is honestly reported for an instrument.
@@ -193,6 +193,25 @@ export const INSTRUMENT_DEFINITIONS: readonly InstrumentDefinition[] = [
     fallbackDigits: 5,
     spreadFloor: null,
     wave: 1,
+  },
+  // ---- Crypto: admitted dark for broker/data validation only. ----------------
+  //
+  // BTCUSD contract geometry varies materially by CFD venue. Keep all sizing
+  // fields broker-authoritative and null here; lifecycle must validate mapping,
+  // specification, quotes, sessions and costs before research can progress.
+  {
+    symbol: "BTCUSD",
+    label: "Bitcoin / USD",
+    base: "BTC",
+    quote: "USD",
+    assetClass: "crypto",
+    priceUnit: "price",
+    contractSize: null,
+    lotStep: null,
+    minLot: null,
+    fallbackDigits: 2,
+    spreadFloor: null,
+    wave: 2,
   },
   // ---- Wave 2: new asset classes, admitted as DEFINITIONS ONLY. -------------
   //
