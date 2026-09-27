@@ -33,6 +33,8 @@ export async function accountExecutionPolicy(
     equity: number | null;
     balance: number | null;
     now?: number;
+    /** Delivery currently being evaluated; never counts against its own daily cap. */
+    excludeDeliveryId?: number;
   },
 ): Promise<AccountExecutionPolicyResult> {
   const { data: policyRow, error: policyError } = await db
@@ -91,18 +93,20 @@ export async function accountExecutionPolicy(
   // where they are required by a hard limit.
   const [closed, deliveries] = await Promise.all([
     db
-      .from("broker_trade_outcomes")
-      .select("closed_at, profit")
-      .eq("connected_account_id", input.accountId)
-      .eq("user_id", input.userId)
-      .order("closed_at", { ascending: true })
+      .from("broker_trade_evidence")
+      .select("exit_at, gross_profit, commission, swap")
+      .eq("account_id", input.accountId)
+      .eq("state", "closed")
+      .not("exit_at", "is", null)
+      .order("exit_at", { ascending: true })
       .limit(5000),
     db
       .from("execution_deliveries")
-      .select("created_at")
+      .select("id, enqueued_at, state")
       .eq("connected_account_id", input.accountId)
       .eq("user_id", input.userId)
-      .gte("created_at", dayStart.toISOString())
+      .in("state", ["sent", "acknowledged", "unknown"])
+      .gte("enqueued_at", dayStart.toISOString())
       .limit(500),
   ]);
 
@@ -116,11 +120,18 @@ export async function accountExecutionPolicy(
 
   const byDay = new Map<string, number>();
   for (const raw of closed.data ?? []) {
-    const r = raw as { closed_at: string | null; profit: number | string | null };
-    if (!r.closed_at) continue;
-    const profit = num(r.profit);
-    if (profit === null) continue;
-    const day = r.closed_at.slice(0, 10);
+    const r = raw as {
+      exit_at: string | null;
+      gross_profit: number | string | null;
+      commission: number | string | null;
+      swap: number | string | null;
+    };
+    if (!r.exit_at) continue;
+    const gross = num(r.gross_profit) ?? 0;
+    const commission = num(r.commission) ?? 0;
+    const swap = num(r.swap) ?? 0;
+    const profit = gross + commission + swap;
+    const day = r.exit_at.slice(0, 10);
     byDay.set(day, (byDay.get(day) ?? 0) + profit);
   }
   const todayKey = new Date(now).toISOString().slice(0, 10);
@@ -136,7 +147,9 @@ export async function accountExecutionPolicy(
     totalNetProfit,
     largestWinningDay,
     tradingDays: byDay.size,
-    tradesToday: deliveries.data?.length ?? 0,
+    tradesToday: (deliveries.data ?? []).filter(
+      (row) => (row as { id: number }).id !== input.excludeDeliveryId,
+    ).length,
   });
 
   if (verdict.status === "block" || verdict.riskPercent === null) {
