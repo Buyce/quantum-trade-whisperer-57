@@ -94,7 +94,8 @@ export async function accountExecutionPolicy(
     return {
       ok: false,
       reason: "account_risk_policy",
-      detail: "account requires enforceable news blocking, but the calendar gate is observation-only",
+      detail:
+        "account requires enforceable news blocking, but the calendar gate is observation-only",
     };
   }
 
