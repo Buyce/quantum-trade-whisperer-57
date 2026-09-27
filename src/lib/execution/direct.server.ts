@@ -50,6 +50,8 @@ export interface DirectTarget {
   brokerSymbol: string;
   freeMargin: number | null;
   accountType: AccountType;
+  /** Broker-reported balance/equity, used only for this destination account. */
+  balance: number | null;
   /** Broker-reported equity, used as the AUTHORITATIVE sizing equity. */
   equity: number | null;
   /** Broker-reported deposit currency of this account. */
@@ -83,6 +85,7 @@ interface AccountRow {
   investor_mode: boolean | null;
   broker_account_type: AccountType;
   broker_free_margin: number | null;
+  broker_balance: number | null;
   broker_equity: number | null;
   account_currency: string | null;
   broker_observed_at: string | null;
@@ -114,7 +117,7 @@ export async function loadDirectTarget(
   const { data } = await db
     .from("connected_trading_accounts")
     .select(
-      "id, metaapi_account_id, region, magic, mode, phase, intent_conflict, trade_allowed, investor_mode, broker_account_type, broker_free_margin, broker_equity, account_currency, broker_observed_at, max_account_open_positions, disconnected_at",
+      "id, metaapi_account_id, region, magic, mode, phase, intent_conflict, trade_allowed, investor_mode, broker_account_type, broker_free_margin, broker_balance, broker_equity, account_currency, broker_observed_at, max_account_open_positions, disconnected_at",
     )
     .eq("id", input.connectedAccountId)
     .eq("user_id", input.userId)
@@ -183,6 +186,7 @@ export async function loadDirectTarget(
       brokerSymbol,
       freeMargin: account.broker_free_margin === null ? null : Number(account.broker_free_margin),
       accountType: account.broker_account_type,
+      balance: account.broker_balance === null ? null : Number(account.broker_balance),
       equity: account.broker_equity === null ? null : Number(account.broker_equity),
       currency: account.account_currency,
       observedAt: account.broker_observed_at,
