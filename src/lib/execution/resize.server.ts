@@ -39,6 +39,9 @@ export interface ResizeRequest {
   entryPrice: number;
   stopLoss: number;
   signalId: string;
+  deliveryId: number;
+  /** Reduction already authorized by cohort policy; never greater than 1. */
+  riskScale?: number;
   /** Operator-owned benchmark risk percentage; absent ⇒ the account owner's. */
   riskPercent?: number | null;
 }
@@ -96,7 +99,7 @@ export async function resizeFromBrokerSnapshot(
       signalId: request.signalId,
     },
     now,
-    { riskPercent },
+    { riskPercent, riskScale: request.riskScale ?? 1 },
   );
 
   if (isAccountSizingRefusal(sizing)) {
