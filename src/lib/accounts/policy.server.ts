@@ -228,15 +228,35 @@ export async function accountExecutionPolicy(
   const totalNetProfit = dailyPnls.length ? dailyPnls.reduce((a, b) => a + b, 0) : 0;
   const largestWinningDay = dailyPnls.filter((x) => x > 0).reduce((a, b) => Math.max(a, b), 0);
 
+  const trailingHighWatermark = Math.max(
+    policy.startingBalance,
+    num(row["high_watermark"]) ?? 0,
+    num((riskState.data as { peak_equity?: unknown } | null)?.peak_equity) ?? 0,
+    input.equity ?? 0,
+  );
+
+  // Persist every observed trailing peak independently of optional account brakes.
+  // A later drawdown must never lower the policy floor merely because another
+  // subsystem was disabled or had not yet written account_risk_state.
+  if (policy.trailingDrawdown && trailingHighWatermark > (num(row["high_watermark"]) ?? 0)) {
+    const { error: watermarkError } = await db
+      .from("connected_account_risk_policies")
+      .update({ high_watermark: trailingHighWatermark, updated_at: new Date(now).toISOString() })
+      .eq("account_id", input.accountId)
+      .eq("user_id", input.userId);
+    if (watermarkError) {
+      return {
+        ok: false,
+        reason: "account_risk_policy",
+        detail: "account trailing high-water mark could not be persisted",
+      };
+    }
+  }
+
   const verdict = evaluateAccountPolicy(policy, {
     equity: input.equity,
     balance: input.balance,
-    trailingHighWatermark: Math.max(
-      policy.startingBalance,
-      num(row["high_watermark"]) ?? 0,
-      num((riskState.data as { peak_equity?: unknown } | null)?.peak_equity) ?? 0,
-      input.equity ?? 0,
-    ),
+    trailingHighWatermark,
     todayNetPnl,
     totalNetProfit,
     largestWinningDay,
