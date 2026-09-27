@@ -142,7 +142,7 @@ export async function accountExecutionPolicy(
   // Only broker-confirmed closed outcomes and this account's delivery ledger are
   // allowed to influence the policy. Unknown metrics remain null and fail closed
   // where they are required by a hard limit.
-  const [closed, deliveries] = await Promise.all([
+  const [closed, deliveries, riskState] = await Promise.all([
     db
       .from("broker_trade_evidence")
       .select("exit_at, gross_profit, commission, swap")
@@ -159,9 +159,14 @@ export async function accountExecutionPolicy(
       .in("state", ["claimed", "sent", "acknowledged", "unknown"])
       .gte("enqueued_at", dayStart.toISOString())
       .limit(500),
+    db
+      .from("account_risk_state")
+      .select("peak_equity")
+      .eq("account_id", input.accountId)
+      .maybeSingle(),
   ]);
 
-  if (closed.error || deliveries.error) {
+  if (closed.error || deliveries.error || riskState.error) {
     return {
       ok: false,
       reason: "account_risk_policy",
@@ -192,7 +197,6 @@ export async function accountExecutionPolicy(
     const day = r.exit_at.slice(0, 10);
     byDay.set(day, (byDay.get(day) ?? 0) + profit);
   }
-  const todayKey = new Date(now).toISOString().slice(0, 10);
   const dailyPnls = [...byDay.values()];
   const totalNetProfit = dailyPnls.length ? dailyPnls.reduce((a, b) => a + b, 0) : 0;
   const largestWinningDay = dailyPnls.filter((x) => x > 0).reduce((a, b) => Math.max(a, b), 0);
@@ -200,7 +204,11 @@ export async function accountExecutionPolicy(
   const verdict = evaluateAccountPolicy(policy, {
     equity: input.equity,
     balance: input.balance,
-    trailingHighWatermark: num(row["high_watermark"]),
+    trailingHighWatermark: Math.max(
+      num(row["high_watermark"]) ?? 0,
+      num((riskState.data as { peak_equity?: unknown } | null)?.peak_equity) ?? 0,
+      input.equity ?? 0,
+    ),
     todayNetPnl,
     totalNetProfit,
     largestWinningDay,
