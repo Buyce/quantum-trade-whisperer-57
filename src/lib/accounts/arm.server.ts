@@ -30,7 +30,7 @@ export async function setAccountMode(
   const { data, error } = await supabaseAdmin
     .from(TABLE)
     .select(
-      "id, phase, mode, magic, metaapi_account_id, region, intent_conflict, trade_allowed, investor_mode, broker_account_type",
+      "id, phase, mode, magic, metaapi_account_id, region, intent, intent_conflict, trade_allowed, investor_mode, broker_account_type",
     )
     .eq("id", accountId)
     .eq("user_id", userId)
@@ -43,6 +43,7 @@ export async function setAccountMode(
     magic: number | null;
     metaapi_account_id: string | null;
     region: string;
+    intent: "demo" | "live";
     intent_conflict: boolean | null;
     trade_allowed: boolean | null;
     investor_mode: boolean | null;
@@ -55,8 +56,17 @@ export async function setAccountMode(
     if (!row.metaapi_account_id) throw new Error("This account has no broker connection.");
     const facts = await fetchAccountFacts(row.metaapi_account_id, row.region);
     if (!facts) throw new Error("The broker returned no account information.");
+    if (row.phase !== "ready") {
+      throw new Error("The broker connection is not READY, so live execution cannot be armed.");
+    }
     const info = facts.info as { tradeAllowed?: boolean | null; investorMode?: boolean | null };
     row.broker_account_type = facts.type;
+    row.intent_conflict =
+      facts.type === "unknown" || facts.type === "contest"
+        ? true
+        : row.intent === "live"
+          ? facts.type !== "real"
+          : facts.type !== "demo";
     row.trade_allowed = info.tradeAllowed ?? null;
     row.investor_mode =
       typeof info.investorMode === "boolean" ? info.investorMode : null;
@@ -65,6 +75,7 @@ export async function setAccountMode(
       .from(TABLE)
       .update({
         broker_account_type: facts.type,
+        intent_conflict: row.intent_conflict,
         trade_allowed: row.trade_allowed,
         investor_mode: row.investor_mode,
         broker_observed_at: facts.observedAt,
