@@ -32,6 +32,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { ControlCenter } from "@/components/accounts/ControlCenter";
+import { GuideDetail } from "@/components/GuideMode";
 import { RiskPolicyForm } from "@/components/accounts/RiskPolicyForm";
 import { RuntimeValidationPanel } from "@/components/admin/RuntimeValidationPanel";
 
@@ -318,7 +319,7 @@ function AccountsPage() {
           />
         ) : null}
         {list.length > 0 ? <RuntimeValidationPanel /> : null}
-REPLACE_KEEP
+
         {list.length > 0 ? (
           <GuideDetail
             className="mb-2"
