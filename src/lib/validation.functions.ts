@@ -1,12 +1,11 @@
 /**
- * Owner-only Runtime Validation (dry run). Never submits, arms or edits.
+ * Runtime Validation (dry run) for every signed-in user, scoped to their own
+ * connected accounts. Never submits, arms or edits.
  */
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { ValidationReport } from "@/lib/validation/report";
-
-const OWNER_EMAIL = "boatengampomah@gmail.com";
 
 export interface ValidationAccountOption {
   id: string;
@@ -18,11 +17,10 @@ export interface ValidationAccountOption {
 export const listValidationAccounts = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<ValidationAccountOption[]> => {
-    if (String(context.claims["email"] ?? "").toLowerCase() !== OWNER_EMAIL)
-      throw new Error("Forbidden");
     const { data, error } = await context.supabase
       .from("connected_trading_accounts")
       .select("id, label, broker_account_type, disconnected_at")
+      .eq("user_id", context.userId)
       .order("label");
     if (error) throw new Error(error.message);
     return (data ?? []).map((a) => ({
@@ -46,8 +44,15 @@ export const runRuntimeValidationFn = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }): Promise<ValidationReport[]> => {
-    if (String(context.claims["email"] ?? "").toLowerCase() !== OWNER_EMAIL)
-      throw new Error("Forbidden");
+    // Users may only validate their own accounts.
+    const { data: owned, error: ownErr } = await context.supabase
+      .from("connected_trading_accounts")
+      .select("id")
+      .eq("user_id", context.userId)
+      .in("id", data.accountIds);
+    if (ownErr) throw new Error(ownErr.message);
+    const ownedIds = new Set((owned ?? []).map((a) => a.id));
+    if (ownedIds.size !== data.accountIds.length) throw new Error("Forbidden");
     const { runRuntimeValidation } = await import("@/lib/validation/runtime.server");
     const out: ValidationReport[] = [];
     for (const accountId of data.accountIds) {
