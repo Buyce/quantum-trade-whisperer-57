@@ -255,37 +255,47 @@ function ConnectPage() {
 
         <section className="mt-10">
           <h2 className="text-lg font-semibold text-foreground">What your assistant can do</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            The same abilities work in ChatGPT, Claude, Claude Code, Gemini, any MCP app and the
+            P-Trades in-app assistant.
+          </p>
           <div className="mt-3 overflow-hidden rounded-md border border-border">
             <table className="w-full text-sm">
               <tbody className="divide-y divide-border">
-                {TOOL_ROWS.map(([tool, what, access]) => (
-                  <tr key={tool} className="bg-card align-top">
+                {ABILITIES.filter((a) => a.surfaces.includes("mcp")).map((a) => (
+                  <tr key={a.name} className="bg-card align-top">
                     <td className="num w-[42%] px-3 py-2 text-xs text-foreground sm:w-[34%] sm:text-sm">
-                      {tool}
+                      {a.name}
                     </td>
                     <td className="px-3 py-2 text-xs text-muted-foreground sm:text-sm">
                       <span
                         className={
-                          access === "read"
+                          a.access === "read"
                             ? "mr-2 inline-block rounded-sm border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground"
                             : "mr-2 inline-block rounded-sm border border-border bg-accent px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-accent-foreground"
                         }
                       >
-                        {access === "read" ? "Read-only" : "Writes"}
+                        {ACCESS_LABEL[a.access]}
                       </span>
-                      {what}
+                      {a.summary}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <p className="mt-3 text-xs text-muted-foreground">
-            Off-limits to assistants by design: webhook credentials, other users' data, admin
-            intelligence, and deleting your account or journal. Data-set reads are gated to the
-            account owner's own sign-in and strip account-identifying columns in the database itself
-            — there is no write path through them.
-          </p>
+          <div className="mt-3 rounded-md border border-border bg-card p-3">
+            <p className="text-sm font-medium text-foreground">What an AI can never do</p>
+            <ul className="mt-1 list-disc pl-5 text-xs text-muted-foreground">
+              {AI_NEVER.map((n) => (
+                <li key={n}>{n}</li>
+              ))}
+            </ul>
+            <p className="mt-2 text-xs text-muted-foreground">
+              When an outside AI proposes a change or a cancel, it gives you a P-Trades approval
+              link. Nothing happens until you open it and tap Approve (within 15 minutes).
+            </p>
+          </div>
         </section>
 
         <section className="mt-10 rounded-md border border-border bg-card p-4 sm:p-5">
