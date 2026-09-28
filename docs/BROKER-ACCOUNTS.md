@@ -133,7 +133,9 @@ grade, automatic-trading block/reduce) are computed in code
 explains them, lists risk factors and missing data, and never places orders.
 Pasted notes are labelled self-reported and are not rule-checked.
 
-## Runtime Validation (owner-only, dry run)
+## Runtime Validation (every user, own accounts, dry run)
+
+Broker Accounts → "Runtime validation" is available to every signed-in user for their own accounts (admins also see it under Intelligence).
 
 Admin → Intelligence → "Runtime validation" runs selected connected accounts through the real
 order-preparation chain and stops before submission: connection → fresh broker facts →
@@ -144,3 +146,9 @@ NOT_REACHED. It never calls `/trade`, never arms live modes and never edits risk
 side effect is the existing internal sizing-divergence audit row. Reports are built through an
 allow-list, so MetaApi ids and credentials are never returned. Proven by
 `src/lib/validation/__tests__/runtime-validation.test.ts`.
+
+## Account risk policy form
+
+Each account card on Broker Accounts has a "Risk policy" form (`src/components/accounts/RiskPolicyForm.tsx`).
+Writes go only through `saveAccountRiskPolicy` (ownership verified, zod-validated, operating ≤ hard cap);
+the table stays write-revoked for clients. The high-water mark stays server-managed. Missing policy = no automatic orders.
