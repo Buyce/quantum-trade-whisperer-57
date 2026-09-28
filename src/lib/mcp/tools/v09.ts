@@ -82,7 +82,7 @@ export const listNewsBlackouts = defineTool({
   inputSchema: { hours: z.number().int().optional(), instrument: z.string().optional() },
   annotations: ro,
   handler: async (input, ctx) =>
-    withUser(ctx, (db) => runListNewsBlackouts(db, input as { hours?: number })),
+    withUser(ctx, (db) => runListNewsBlackouts(db, input as { hours?: number; instrument?: string })),
 });
 
 export const runRuntimeValidationTool = defineTool({
