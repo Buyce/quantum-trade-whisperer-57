@@ -59,6 +59,7 @@ import { CleanupHealthPanel } from "@/components/admin/CleanupHealthPanel";
 import { GateEvidencePanel } from "@/components/admin/GateEvidencePanel";
 
 import { ExitVariantsPanel } from "@/components/admin/ExitVariantsPanel";
+import { RuntimeValidationPanel } from "@/components/admin/RuntimeValidationPanel";
 import { PromotionPanel } from "@/components/admin/PromotionPanel";
 import { StageLadderPanel } from "@/components/admin/StageLadderPanel";
 import { NewsPanel } from "@/components/admin/NewsPanel";
@@ -190,6 +191,10 @@ function AdminIntelligencePage() {
 
       <PanelBoundary name="Engine status">
         <EngineStatusPanel />
+      </PanelBoundary>
+
+      <PanelBoundary name="Runtime validation">
+        <RuntimeValidationPanel />
       </PanelBoundary>
 
       <PanelBoundary name="Execution switch">
