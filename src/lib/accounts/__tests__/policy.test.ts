@@ -85,4 +85,14 @@ describe("account-scoped risk policy", () => {
     expect(reached.status).toBe("block");
     expect(reached.reasons).toContain("p_trades_daily_profit_objective_reached");
   });
+  it("[INVARIANT] exposes remaining daily headroom and the 15% consistency denominator", () => {
+    const v = evaluateAccountPolicy(EQUITY_EDGE_INSTANT_50K, {
+      ...healthy,
+      todayNetPnl: 170,
+      totalNetProfit: 1_200,
+      largestWinningDay: 180,
+    });
+    expect(v.dailyProfitRemaining).toBe(30);
+    expect(v.requiredTotalProfitForConsistency).toBeCloseTo(1_333.333333, 5);
+  });
 });
