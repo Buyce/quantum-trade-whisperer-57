@@ -12,12 +12,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createFakeSupabase, type FakeCall } from "@/test/fakes/supabase";
 
 const fetchQuote = vi.fn();
+const fetchSymbols = vi.fn();
+const fetchQuoteFor = vi.fn();
 const adminInserts: { table: string; row: Record<string, unknown> }[] = [];
 let v2Enabled = false;
 
 vi.mock("@/lib/scanner/metaapi.server", () => ({
   fetchQuote: (symbol: string) => fetchQuote(symbol),
   fetchSymbolSpecification: vi.fn(),
+}));
+vi.mock("@/lib/metaapi/specs.server", () => ({
+  fetchSymbols: (...args: unknown[]) => fetchSymbols(...args),
+}));
+vi.mock("@/lib/metaapi/market.server", () => ({
+  fetchQuoteFor: (...args: unknown[]) => fetchQuoteFor(...args),
 }));
 
 vi.mock("@/integrations/supabase/client.server", () => ({
@@ -90,6 +98,8 @@ function accountDb(spec: Record<string, unknown>) {
   const handler = (call: FakeCall) => {
     if (call.table === "scanner_settings") return { data: [settingsRow], error: null };
     if (call.table === "connected_account_specs") return { data: [spec], error: null };
+    if (call.table === "connected_trading_accounts")
+      return { data: [{ metaapi_account_id: "concept-id", region: "london" }], error: null };
     if (call.table === "executed_trades") return { data: [], error: null };
     return { data: [], error: null };
   };
@@ -101,10 +111,52 @@ const setup = { instrument: "XAUUSD", entryPrice: 2400, stopLoss: 2390, finalTar
 beforeEach(() => {
   adminInserts.length = 0;
   fetchQuote.mockReset();
+  fetchSymbols.mockReset();
+  fetchQuoteFor.mockReset();
   v2Enabled = false;
 });
 
 describe("shared sizing service", () => {
+  it("[INVARIANT] EURUSD on an AUD demo sizes only with its own broker's AUDUSD.c rate", async () => {
+    fetchSymbols.mockResolvedValue(["EURUSD.c", "AUDUSD.c"]);
+    fetchQuoteFor.mockResolvedValue({
+      bid: 0.68,
+      ask: 0.6802,
+      sourceTime: new Date(NOW - 1000).toISOString(),
+    });
+    const fake = accountDb(
+      brokerRow({
+        broker_symbol: "EURUSD.c",
+        canonical_symbol: "EURUSD",
+        contract_size: 100_000,
+        tick_size: 0.00001,
+        tick_value: 1,
+        point: 0.00001,
+        digits: 5,
+        base_currency: "EUR",
+        profit_currency: "USD",
+        margin_currency: "EUR",
+      }),
+    );
+    const result = await resolveSizingForAccount(
+      fake.client as Parameters<typeof resolveSizingForAccount>[0],
+      "user-1",
+      {
+        id: "account-1",
+        equity: 10_000,
+        currency: "AUD",
+        equityAsOf: new Date(NOW - 1000).toISOString(),
+      },
+      { instrument: "EURUSD", entryPrice: 1.15, stopLoss: 1.148 },
+      NOW,
+    );
+    expect(fetchSymbols).toHaveBeenCalledWith("concept-id", "london");
+    expect(fetchQuoteFor).toHaveBeenCalledWith("concept-id", "london", "AUDUSD.c");
+    expect(fetchQuote).not.toHaveBeenCalled();
+    expect(result.available).toBe(true);
+    if (result.available) expect(result.conversionRate).toBeCloseTo(1 / 0.6801);
+  });
+
   it("[INVARIANT] loads the broker spec, runs V2 as shadow and returns V1 as authoritative", async () => {
     const fake = db(brokerRow({ volume_max: 0.05 }));
     const result = await resolveSizingForUser(

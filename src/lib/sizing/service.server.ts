@@ -24,6 +24,7 @@ import { loadBrokerSpec } from "@/lib/broker/specs.server";
 import { resolveSizing } from "@/lib/broker/sizing.server";
 import { equityFresh } from "@/lib/execution/equity-freshness";
 import { resolveConversion, QUOTE_MAX_AGE_MS } from "./conversion.server";
+import { resolveAccountConversion } from "./account-conversion.server";
 
 import { portfolioAdvisory, type AdvisoryTradeRow, type PortfolioAdvisory } from "./portfolio";
 
@@ -291,13 +292,21 @@ export async function resolveSizingForUser(
 
   const quoteCurrency =
     brokerSpec?.quote ?? staticSpec(request.instrument)?.quote ?? request.instrument.slice(3);
-  const { fetchQuote } = await import("@/lib/scanner/metaapi.server");
-  const conversion = await resolveConversion(
-    quoteCurrency,
-    profile.accountCurrency,
-    fetchQuote,
-    now,
-  );
+  const conversion = override
+    ? await resolveAccountConversion(
+        db,
+        userId,
+        override.accountId,
+        quoteCurrency,
+        profile.accountCurrency,
+        now,
+      )
+    : await resolveConversion(
+        quoteCurrency,
+        profile.accountCurrency,
+        (await import("@/lib/scanner/metaapi.server")).fetchQuote,
+        now,
+      );
 
   const resolved = resolveSizing(
     {
