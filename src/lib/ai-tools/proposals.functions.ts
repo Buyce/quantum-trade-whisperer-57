@@ -25,7 +25,7 @@ export interface ProposalView {
   decidedAt: string | null;
   result: { message?: string } | null;
   expired: boolean;
-  payload: Record<string, unknown> | null;
+  payload: Record<string, string | number | boolean | string[] | null> | null;
   clientId: string | null;
 }
 
@@ -53,7 +53,7 @@ export const getProposal = createServerFn({ method: "GET" })
       decidedAt: row.decided_at,
       result: (row.result ?? null) as { message?: string } | null,
       expired: row.status === "pending" && new Date(row.expires_at).getTime() < Date.now(),
-      payload: (row.payload ?? null) as Record<string, unknown> | null,
+      payload: (row.payload ?? null) as Record<string, string | number | boolean | string[] | null> | null,
       clientId: (row as { client_id?: string | null }).client_id ?? null,
     };
   });
