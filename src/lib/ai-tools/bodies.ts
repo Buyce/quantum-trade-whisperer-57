@@ -144,7 +144,7 @@ export async function runListNewsBlackouts(
     .select("event_family, currencies, affected_instruments, importance, scheduled_at, event_status")
     .gte("scheduled_at", now.toISOString())
     .lte("scheduled_at", new Date(now.getTime() + hours * 3_600_000).toISOString())
-    .in("importance", ["high", "3", "HIGH"])
+    .eq("importance", "high")
     .order("scheduled_at")
     .limit(40);
   if (input.instrument) q = q.contains("affected_instruments", [input.instrument.toUpperCase()]);
