@@ -93,7 +93,7 @@ const ACTION_LABEL: Record<string, string> = {
 };
 
 /** Lets the user narrow what the AI asked for before approving. */
-function GrantForm({ payload, onChange }: { payload: Record<string, unknown>; onChange: (g: GrantEdit) => void }) {
+function GrantForm({ payload, onChange }: { payload: Record<string, string | number | boolean | string[] | null>; onChange: (g: GrantEdit) => void }) {
   const asked = (payload["actions"] as string[] | undefined) ?? [];
   const [g, setG] = useState<GrantEdit>({
     actions: asked,
