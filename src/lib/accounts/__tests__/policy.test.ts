@@ -77,4 +77,12 @@ describe("account-scoped risk policy", () => {
     expect(v.status).toBe("block");
     expect(v.reasons).toContain("p_trades_daily_trade_limit_reached");
   });
+  it("[INVARIANT] closes P-Trades after the $200 daily objective without forcing trades before it", () => {
+    const below = evaluateAccountPolicy(EQUITY_EDGE_INSTANT_50K, { ...healthy, todayNetPnl: 199.99 });
+    expect(below.reasons).not.toContain("p_trades_daily_profit_objective_reached");
+
+    const reached = evaluateAccountPolicy(EQUITY_EDGE_INSTANT_50K, { ...healthy, todayNetPnl: 200 });
+    expect(reached.status).toBe("block");
+    expect(reached.reasons).toContain("p_trades_daily_profit_objective_reached");
+  });
 });
