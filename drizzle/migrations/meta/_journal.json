@@ -64,6 +64,13 @@
       "when": 1790571646251,
       "tag": "0008_create_ai_action_proposals",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790572631317,
+      "tag": "0009_ai_trading_grants",
+      "breakpoints": true
     }
   ]
 }
