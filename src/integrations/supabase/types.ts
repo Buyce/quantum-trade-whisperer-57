@@ -930,6 +930,77 @@ export type Database = {
           },
         ]
       }
+      connected_account_risk_policies: {
+        Row: {
+          account_id: string
+          configured_at: string
+          consistency_percent: number | null
+          daily_profit_objective: number | null
+          hard_risk_per_trade_percent: number
+          high_watermark: number | null
+          max_daily_loss_percent: number | null
+          max_total_loss_percent: number | null
+          max_trades_per_day: number | null
+          min_trading_days: number | null
+          news_trading_allowed: boolean | null
+          operating_risk_per_trade_percent: number
+          policy_kind: string
+          safety_buffer_percent: number | null
+          starting_balance: number
+          trailing_drawdown: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_id: string
+          configured_at?: string
+          consistency_percent?: number | null
+          daily_profit_objective?: number | null
+          hard_risk_per_trade_percent: number
+          high_watermark?: number | null
+          max_daily_loss_percent?: number | null
+          max_total_loss_percent?: number | null
+          max_trades_per_day?: number | null
+          min_trading_days?: number | null
+          news_trading_allowed?: boolean | null
+          operating_risk_per_trade_percent: number
+          policy_kind: string
+          safety_buffer_percent?: number | null
+          starting_balance: number
+          trailing_drawdown?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string
+          configured_at?: string
+          consistency_percent?: number | null
+          daily_profit_objective?: number | null
+          hard_risk_per_trade_percent?: number
+          high_watermark?: number | null
+          max_daily_loss_percent?: number | null
+          max_total_loss_percent?: number | null
+          max_trades_per_day?: number | null
+          min_trading_days?: number | null
+          news_trading_allowed?: boolean | null
+          operating_risk_per_trade_percent?: number
+          policy_kind?: string
+          safety_buffer_percent?: number | null
+          starting_balance?: number
+          trailing_drawdown?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "connected_account_risk_policies_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: true
+            referencedRelation: "connected_trading_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       connected_account_specs: {
         Row: {
           account_id: string
