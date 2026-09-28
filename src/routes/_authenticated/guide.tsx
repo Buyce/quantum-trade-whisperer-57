@@ -85,7 +85,7 @@ const SECTIONS: Section[] = [
         id: "tour",
         q: "What is each screen for?",
         a: [
-          "Feed: published setups eligible under your settings, each with an Explain button. Broker Accounts: the Control center, each account's risk policy, Runtime Validation, the emergency stop, and the mode choice (Observe, Demo auto, Live · confirm each, Live auto). History: your journal plus live orders waiting for your approval. Performance: three separate sources — My Journal, Broker Account and P-Trades Benchmark. Settings: manual risk inputs, filters, alerts, per-instrument allow/reduce/block for automatic orders, and scanner heartbeat. Assistant: ask anything about your signals, accounts and trades.",
+          "Feed: published setups eligible under your settings, each with an Explain button. Broker Accounts: the Control center, each account's risk policy, Runtime Validation, the emergency stop, and the mode choice (Observe, Demo auto, Live · confirm each, Live auto). History: your self-reported journal plus live orders waiting for your approval; skipped decisions do not appear there. Performance: three separate sources — My Journal, Broker Account and P-Trades Benchmark. Settings: manual risk inputs, filters, alerts, per-instrument allow/reduce/block for automatic orders, and scanner heartbeat. Assistant: ask anything about your signals, accounts and trades.",
         ],
         means: "Four working surfaces plus one integration page.",
         matters:

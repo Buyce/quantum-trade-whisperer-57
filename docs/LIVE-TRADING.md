@@ -2,6 +2,8 @@
 
 Plain-language guide for traders. Every step is per connected account.
 
+Provenance: account facts, permissions, prices and margin come from the broker; limits come from the trader's own risk policy.
+
 ## The steps
 1. **Connect** the account on Broker Accounts and press Refresh until it reads Ready.
 2. **Control center**: check the card says Connected, Trading allowed, and nothing to review.
