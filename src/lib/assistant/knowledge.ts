@@ -20,6 +20,7 @@ import researchDoc from "../../../docs/RESEARCH-AND-SHADOW.md?raw";
 import statsDoc from "../../../docs/PERFORMANCE-AND-STATISTICS.md?raw";
 import scannerDoc from "../../../docs/SCANNER.md?raw";
 import glossaryDoc from "../../../docs/GLOSSARY.md?raw";
+import liveDoc from "../../../docs/LIVE-TRADING.md?raw";
 
 export type KnowledgeDoc = { file: string; title: string; body: string };
 
@@ -49,6 +50,7 @@ export const KNOWLEDGE_DOCS: KnowledgeDoc[] = [
   },
   { file: "docs/SCANNER.md", title: "Scanner pipeline", body: scannerDoc },
   { file: "docs/GLOSSARY.md", title: "Glossary", body: glossaryDoc },
+  { file: "docs/LIVE-TRADING.md", title: "Live and automatic trading checklist", body: liveDoc },
 ];
 
 type Section = { file: string; docTitle: string; heading: string; text: string };

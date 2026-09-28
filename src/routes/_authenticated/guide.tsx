@@ -72,6 +72,7 @@ const SECTIONS: Section[] = [
         a: [
           "Open Settings and enter your account equity, account currency, leverage and risk per trade. Until those exist the terminal cannot size a position, and it will refuse rather than guess.",
           "Then choose your instruments, trading sessions and the minimum grade you want to be alerted about, and decide whether you want push, email or both. Finally, come back to the feed: it shows only setups that survived both the engine's rules and your own filters.",
+          "Want P-Trades to trade for you? Follow the checklist under Live and automatic trading: connect, set a risk policy, run a Runtime Validation, then arm the account.",
         ],
         means: "Settings are the inputs the whole terminal computes against.",
         matters:
@@ -84,7 +85,7 @@ const SECTIONS: Section[] = [
         id: "tour",
         q: "What is each screen for?",
         a: [
-          "Feed: published setups eligible under your settings. Broker Accounts: connect MetaTrader, inspect broker-reported facts and choose observe or an available execution mode. History: your self-reported journal; skipped decisions do not appear there. Performance: three separate sources — My Journal, Broker Account and P-Trades Benchmark. Settings: manual risk inputs, filters, alerts, execution controls and scanner heartbeat. Connect AI: attach an assistant to the currently exposed P-Trades tools.",
+          "Feed: published setups eligible under your settings, each with an Explain button. Broker Accounts: the Control center, each account's risk policy, Runtime Validation, the emergency stop, and the mode choice (Observe, Demo auto, Live · confirm each, Live auto). History: your self-reported journal plus live orders waiting for your approval; skipped decisions do not appear there. Performance: three separate sources — My Journal, Broker Account and P-Trades Benchmark. Settings: manual risk inputs, filters, alerts, per-instrument allow/reduce/block for automatic orders, and scanner heartbeat. Assistant: ask anything about your signals, accounts and trades.",
         ],
         means: "Four working surfaces plus one integration page.",
         matters:
@@ -142,11 +143,11 @@ const SECTIONS: Section[] = [
         id: "account-modes",
         q: "What do Observe, Demo auto and Live modes permit?",
         a: [
-          "Observe reads broker facts and places no orders. Demo auto can place orders only on a broker-confirmed demo account after the account is explicitly armed and the system-wide demo gate is enabled. Live on confirmation and Live auto are available only to broker-confirmed real accounts and remain blocked while their independent global live gates are off.",
-          "Every direct order still passes freshness, symbol, account-readiness, exposure, broker specification, volume and price checks. Missing broker data is a refusal, never a guessed replacement.",
+          "Observe reads broker facts and places no orders. Demo auto places orders only on a broker-confirmed demo account after you arm it. Live · confirm each and Live auto are available only on broker-confirmed real accounts; see Live and automatic trading below for the steps.",
+          "Every order still needs a risk policy on the account and passes freshness, symbol, exposure, broker specification, volume and price checks right before sending. Missing broker data is a refusal, never a guessed replacement.",
         ],
         assume:
-          "A Ready connection is not the same as an armed account, and an armed account is not enough when the matching system-wide gate is off.",
+          "A Ready connection is not the same as an armed account. An account without a risk policy cannot trade automatically.",
       },
       {
         id: "c-grade-automatic-orders",
@@ -660,6 +661,89 @@ const SECTIONS: Section[] = [
         todo: "Refresh the account if a figure reads unavailable and you expect it to exist.",
         assume:
           "They are not a performance claim about the engine, and they never mix with your self-reported journal.",
+      },
+    ],
+  },
+  {
+    id: "live-trading",
+    title: "Live and automatic trading",
+    blurb:
+      "The step-by-step path from a connected account to automatic or real-money orders, and what each safety feature does.",
+    entries: [
+      {
+        id: "live-checklist",
+        q: "What are the steps before P-Trades trades for me?",
+        a: [
+          "1. Connect the account on Broker Accounts and press Refresh until it reads Ready. 2. Check its card in the Control center: Connected, Trading allowed, and nothing to review. 3. Set its Risk policy. 4. Run a Runtime Validation and fix any FAIL. 5. Arm Demo auto first and watch a few orders. 6. On a real account, start with Live · confirm each, and move to Live auto only when you are comfortable.",
+          "Every step is per account. Each account has its own policy, its own validation and its own mode.",
+        ],
+        means: "The order in which an account becomes trusted to trade.",
+        matters: "Skipping a step usually shows up later as a refused order.",
+        todo: "Work through the steps top to bottom for each account you want to trade.",
+        assume:
+          "A green validation is a snapshot, not a promise: every real order is still re-checked right before it is sent.",
+      },
+      {
+        id: "risk-policy",
+        q: "What is an account risk policy?",
+        a: [
+          "Your limits for one connected account, set under Risk policy on that account's card. Starting balance is the size the limits are measured from. Normal risk per trade is what P-Trades sizes each order to; Hard cap is the most it may ever use. Max daily loss and Max total loss are percentages of the starting balance. 'Trails your highest balance' makes the total-loss floor move up as the account grows. Max trades per day and Stop after daily profit close P-Trades for the rest of the UTC day.",
+          "The Equity Edge Instant 50K preset fills in that programme's rules with a cautious 0.25% normal risk under its 1% cap. Blank fields mean no limit.",
+        ],
+        means: "Account-level limits every automatic order must fit inside.",
+        matters: "Without a policy, P-Trades will not send automatic orders on that account at all.",
+        todo: "Set it before arming. On a real-money account you will be asked to confirm each change.",
+        assume:
+          "The policy limits P-Trades only. Trades you place yourself are counted towards the daily loss, but P-Trades cannot stop you placing them.",
+      },
+      {
+        id: "runtime-validation",
+        q: "What does Runtime Validation check?",
+        a: [
+          "It runs one account through nine checks in order: connection, fresh broker facts, account type and trading permission, risk policy, symbol name at your broker, a fresh price and contract details, lot size for your risk, required margin from the broker, and open review flags. The first FAIL stops the run and later checks show Not reached.",
+          "It is a dry run. It never places, changes or cancels an order and never changes your settings, even on an armed account.",
+        ],
+        means: "A rehearsal of an order, stopped before sending.",
+        matters: "Each FAIL names exactly what would have refused a real order.",
+        todo: "Fix the first FAIL shown, then run it again.",
+      },
+      {
+        id: "control-center",
+        q: "What is the Control center and the Needs review list?",
+        a: [
+          "The Control center at the top of Broker Accounts shows each account at a glance: connection, mode, trading permission, risk policy, open and waiting P-Trades orders, and the emergency stop state. Tap a card to jump to its details.",
+          "Needs review appears when a scheduled check finds your broker and P-Trades disagree: an order P-Trades recorded that the broker doesn't have, a broker fill or open position P-Trades isn't tracking, or a balance change the fetched history doesn't explain. Nothing is fixed automatically.",
+        ],
+        todo: "Check the item in your trading platform, then tap Acknowledge. Items that disappear at the broker clear by themselves.",
+        assume:
+          "An open critical item makes Runtime Validation fail, so acknowledge only after you have looked.",
+      },
+      {
+        id: "cohort-policies",
+        q: "Can I block or reduce automatic trades on one instrument or direction?",
+        a: [
+          "Yes. In Settings, each instrument and direction (for example XAUUSD short) can be set to Allow, Reduce (25%, 50% or 75% of normal risk) or Block. Blocked setups still appear in the feed and alerts; they are just never sent automatically.",
+        ],
+        assume: "These choices affect automatic orders only, not grading or statistics.",
+      },
+      {
+        id: "explain-setup",
+        q: "What does Explain this setup do?",
+        a: [
+          "The Explain button on a signal card (or in the assistant) checks the setup against your own rules — stop and target on the right side, stop distance, instrument, minimum grade and any block or reduce — and an AI writes a plain summary with risk factors and missing information.",
+        ],
+        assume:
+          "It is an explanation, not a trade instruction, and it cannot place orders. Pasted text is explained but not rule-checked.",
+      },
+      {
+        id: "live-modes",
+        q: "Live · confirm each vs Live auto, and the emergency stop",
+        a: [
+          "Live · confirm each prepares the order and waits for you to approve it on Trade History. Live auto sends it without asking, after you sign off your current settings. Both only work on a broker-confirmed real account.",
+          "The emergency stop at the top of Broker Accounts stops new P-Trades orders immediately. It does not close anything already open at your broker — that stays your decision.",
+        ],
+        todo: "Keep the emergency stop in mind before you leave an account on Live auto.",
+        assume: "Demo results are never shown as a live track record.",
       },
     ],
   },

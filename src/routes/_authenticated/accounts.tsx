@@ -32,6 +32,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { ControlCenter } from "@/components/accounts/ControlCenter";
+import { GuideDetail } from "@/components/GuideMode";
 import { RiskPolicyForm } from "@/components/accounts/RiskPolicyForm";
 import { RuntimeValidationPanel } from "@/components/admin/RuntimeValidationPanel";
 
@@ -297,9 +298,37 @@ function AccountsPage() {
           </p>
         </div>
 
+        {list.length > 0 ? (
+          <GuideDetail
+            className="mb-2"
+            title="How do I get an account trading?"
+            what="Connect, check the Control center, set the account's risk policy, run a Runtime Validation, then arm Demo auto or a live mode."
+            todo="Work through it per account; fix the first failed check before arming."
+            assume="Every order is still re-checked just before sending."
+            anchor="live-checklist"
+          />
+        ) : null}
         {list.length > 0 ? <ControlCenter accounts={list} /> : null}
+        {list.length > 0 ? (
+          <GuideDetail
+            className="mb-2"
+            title="What does Runtime Validation do?"
+            what="A dry run of nine checks for one account — it never places an order."
+            todo="Fix the first FAIL, then run it again."
+            anchor="runtime-validation"
+          />
+        ) : null}
         {list.length > 0 ? <RuntimeValidationPanel /> : null}
 
+        {list.length > 0 ? (
+          <GuideDetail
+            className="mb-2"
+            title="What does the emergency stop do?"
+            what="Stops new P-Trades orders immediately."
+            assume="It does not close positions already open at your broker."
+            anchor="live-modes"
+          />
+        ) : null}
         {list.length > 0 ? <EmergencyStopPanel accounts={list} onChanged={invalidate} /> : null}
 
         {accounts.isLoading ? (
