@@ -39,6 +39,13 @@ import {
   runProposeRiskPolicy,
 } from "@/lib/ai-tools/bodies";
 import { ABILITIES, AI_NEVER } from "@/lib/ai-tools/registry";
+import {
+  armInput,
+  closePositionInput,
+  modifyOrderInput,
+  modifyPositionInput,
+  placeOrderInput,
+} from "@/lib/ai-tools/trading";
 
 /** The shared bodies return the MCP envelope; the model only needs the payload. */
 function unwrap(result: {
@@ -161,7 +168,6 @@ function v09Tools(supabase: unknown, userId: string) {
 /** v1.0 trading-session tools, same bodies as src/lib/mcp/v10.ts. Client id "in_app". */
 function v10Tools(supabase: unknown, userId: string) {
   const t = () => import("@/lib/ai-tools/trading.server");
-  const s = async () => import("@/lib/ai-tools/trading");
   return {
     request_trading_access: tool({
       description:
@@ -188,27 +194,27 @@ function v10Tools(supabase: unknown, userId: string) {
     place_order: tool({
       description:
         "Place a market or limit order inside the approved session. Stop loss and take profit required; P-Trades sets the size and re-runs every safety check.",
-      inputSchema: (await s()).placeOrderInput,
+      inputSchema: placeOrderInput,
       execute: async (a) => unwrap(await (await t()).runPlaceOrder(userId, "in_app", a)),
     }),
     modify_position: tool({
       description: "Move an open position's stop loss / take profit inside the approved session.",
-      inputSchema: (await s()).modifyPositionInput,
+      inputSchema: modifyPositionInput,
       execute: async (a) => unwrap(await (await t()).runModifyPosition(userId, "in_app", a)),
     }),
     close_position: tool({
       description: "Close all (or part, with volume) of an open position inside the approved session.",
-      inputSchema: (await s()).closePositionInput,
+      inputSchema: closePositionInput,
       execute: async (a) => unwrap(await (await t()).runClosePosition(userId, "in_app", a)),
     }),
     modify_resting_order: tool({
       description: "Change a waiting order's entry/stop/target inside the approved session. Never its size.",
-      inputSchema: (await s()).modifyOrderInput,
+      inputSchema: modifyOrderInput,
       execute: async (a) => unwrap(await (await t()).runModifyRestingOrder(userId, "in_app", a)),
     }),
     arm_account: tool({
       description: "Arm an account to observe, demo_auto or live_confirm inside the approved session.",
-      inputSchema: (await s()).armInput,
+      inputSchema: armInput,
       execute: async (a) => unwrap(await (await t()).runArmAccount(userId, "in_app", a)),
     }),
   };
