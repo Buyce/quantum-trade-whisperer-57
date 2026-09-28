@@ -9,8 +9,9 @@
  *   journal — writes only the user's self-reported journal
  *   change  — changes settings, needs the user's explicit approval
  *   cancel  — cancels a waiting order, only after the user taps Approve
+ *   trade   — acts at the broker, only inside a session the user approved
  */
-export type Access = "read" | "check" | "journal" | "change" | "cancel";
+export type Access = "read" | "check" | "journal" | "change" | "cancel" | "trade";
 
 export interface AbilityEntry {
   name: string;
@@ -48,6 +49,13 @@ export const ABILITIES: AbilityEntry[] = [
   { name: "propose_risk_policy", access: "change", summary: "Propose a risk policy; saved only after you approve.", surfaces: both },
   { name: "propose_cohort_policy", access: "change", summary: "Propose allow/reduce/block; saved only after you approve.", surfaces: both },
   { name: "propose_cancel_order", access: "cancel", summary: "Propose cancelling a waiting order; runs only after you approve.", surfaces: both },
+  { name: "request_trading_access", access: "change", summary: "Ask you for a time-limited trading session; nothing trades until you approve.", surfaces: both },
+  { name: "get_trading_access", access: "read", summary: "Show the active trading session and what's left.", surfaces: both },
+  { name: "place_order", access: "trade", summary: "Place a market or limit order inside your session. P-Trades sets the size.", surfaces: both },
+  { name: "modify_position", access: "trade", summary: "Move an open trade's stop loss or take profit inside your session.", surfaces: both },
+  { name: "close_position", access: "trade", summary: "Close all or part of an open trade inside your session.", surfaces: both },
+  { name: "modify_resting_order", access: "trade", summary: "Change a waiting order's prices inside your session (never its size).", surfaces: both },
+  { name: "arm_account", access: "trade", summary: "Switch an account to observe, demo auto or live confirm inside your session.", surfaces: both },
   { name: "log_trade_decision", access: "journal", summary: "Add a journal entry.", surfaces: ["mcp"] },
   { name: "update_trade_outcome", access: "journal", summary: "Record a journal outcome.", surfaces: ["mcp"] },
   { name: "describe_datasets", access: "read", summary: "Owner-only dataset catalogue.", surfaces: ["mcp"] },
@@ -56,9 +64,10 @@ export const ABILITIES: AbilityEntry[] = [
 
 /** Things no AI connected to P-Trades can ever do. */
 export const AI_NEVER = [
-  "Place a new order or change an order's price, stop, target or size.",
-  "Close an open position.",
-  "Arm an account for automatic or live trading.",
-  "Cancel an order or save a change without your tap on Approve.",
+  "Trade, change, close or arm anything without a trading session you approved.",
+  "Choose the order size — P-Trades always calculates it from your risk policy.",
+  "Skip the safety checks, your blocked instruments, news blackout or emergency stop.",
+  "Arm an account for live auto-execution (only you can, in P-Trades).",
+  "Save a setting change without your tap on Approve.",
   "See another user's accounts, money or trades.",
 ];
