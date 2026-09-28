@@ -136,7 +136,23 @@ export function evaluateAccountPolicy(
     }
   }
 
-  const dailyProfitRemaining =\n    policy.dailyProfitObjective === null || !finite(state.todayNetPnl)\n      ? null\n      : Math.max(0, policy.dailyProfitObjective - Math.max(0, state.todayNetPnl));\n\n  const projectedLargestWinningDay =\n    policy.dailyProfitObjective === null\n      ? state.largestWinningDay\n      : finite(state.largestWinningDay)\n        ? Math.max(state.largestWinningDay, policy.dailyProfitObjective)\n        : policy.dailyProfitObjective;\n  const requiredTotalProfitForConsistency =\n    policy.consistencyPercent !== null && finite(projectedLargestWinningDay)\n      ? projectedLargestWinningDay / (policy.consistencyPercent / 100)\n      : null;\n\n  const consistencyScore =
+  const dailyProfitRemaining =
+    policy.dailyProfitObjective === null || !finite(state.todayNetPnl)
+      ? null
+      : Math.max(0, policy.dailyProfitObjective - Math.max(0, state.todayNetPnl));
+
+  const projectedLargestWinningDay =
+    policy.dailyProfitObjective === null
+      ? state.largestWinningDay
+      : finite(state.largestWinningDay)
+        ? Math.max(state.largestWinningDay, policy.dailyProfitObjective)
+        : policy.dailyProfitObjective;
+  const requiredTotalProfitForConsistency =
+    policy.consistencyPercent !== null && finite(projectedLargestWinningDay)
+      ? projectedLargestWinningDay / (policy.consistencyPercent / 100)
+      : null;
+
+  const consistencyScore =
     policy.consistencyPercent !== null &&
     finite(state.totalNetProfit) &&
     state.totalNetProfit > 0 &&
