@@ -32,6 +32,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { ControlCenter } from "@/components/accounts/ControlCenter";
+import { RiskPolicyForm } from "@/components/accounts/RiskPolicyForm";
 import { RuntimeValidationPanel } from "@/components/admin/RuntimeValidationPanel";
 
 import { Input } from "@/components/ui/input";
@@ -923,6 +924,10 @@ function AccountCard({
             </ul>
           ) : null}
         </div>
+      ) : null}
+
+      {!account.disconnectedAt ? (
+        <RiskPolicyForm account={account} onSaved={onChanged} />
       ) : null}
 
       {account.symbols.length > 0 ? (
