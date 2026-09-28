@@ -278,3 +278,48 @@ export async function runProposeCohortPolicy(
       : `${p.policy === "block" ? "Block" : "Allow"} automatic ${p.instrument} ${p.direction} orders`;
   return insertProposal(db, userId, "cohort_policy", p, summary, source);
 }
+
+// ---------- trading sessions (approve once per session) ----------
+
+/**
+ * Ask the user for a time-limited trading session. Nothing can trade until the
+ * user approves it on P-Trades, where they can narrow accounts, actions,
+ * duration and limits. The session is bound to this AI app's client id.
+ */
+export async function runRequestTradingAccess(
+  db: Db,
+  userId: string,
+  raw: unknown,
+  source: "in_app" | "mcp",
+  clientId: string,
+) {
+  const { grantRequestInput } = await import("./trading");
+  const parsed = grantRequestInput.safeParse(raw);
+  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "invalid input");
+  const p = parsed.data;
+  const { data: accts, error } = await db
+    .from("connected_trading_accounts")
+    .select("id, label")
+    .eq("user_id", userId)
+    .in("id", p.account_ids);
+  if (error) return fail(error.message);
+  if ((accts ?? []).length !== p.account_ids.length) return fail("One or more accounts are not yours.");
+  const summary = `Let this AI ${p.actions.join(", ")} on ${(accts ?? []).map((a: { label: string }) => a.label).join(", ")} for ${p.minutes} min (max ${p.max_orders} orders, ≤${p.max_risk_percent}% risk each${p.include_live ? ", LIVE money included" : ", demo only"})`;
+  const { data, error: e } = await db
+    .from("ai_action_proposals")
+    .insert({ user_id: userId, kind: "trading_grant", payload: p, summary, source, client_id: clientId })
+    .select("id, expires_at")
+    .single();
+  if (e) return fail(e.message);
+  return envelope({
+    proposal_id: data.id,
+    status: "pending_user_approval",
+    summary,
+    approve_url: `${APP_ORIGIN}/approvals/${data.id}`,
+    expires_at: data.expires_at,
+    notes: {
+      nothing_changed:
+        "No trading is possible yet. The user must open approve_url within 15 minutes and approve. They may narrow the session. Then call get_trading_access to see what was granted.",
+    },
+  });
+}
