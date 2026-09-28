@@ -220,7 +220,7 @@ function AssistantChat({
                         </div>
                       );
                     }
-                    if (part.type.startsWith("tool-propose_") && state === "output-available") {
+                    if ((part.type.startsWith("tool-propose_") || part.type === "tool-request_trading_access") && state === "output-available") {
                       const out = (part as { output?: { proposal_id?: string; error?: string } })
                         .output;
                       if (out?.proposal_id) return <ProposalCard key={index} id={out.proposal_id} />;
