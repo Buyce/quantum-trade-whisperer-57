@@ -141,3 +141,44 @@ export async function modifyPositionProtection(
   });
   return interpretTradeResponse(res);
 }
+
+/**
+ * Change a waiting (pending) order's entry, stop loss and take profit
+ * (`ORDER_MODIFY`). Volume is never changed here — size is P-Trades' own
+ * broker-derived calculation.
+ */
+export async function modifyPendingOrder(
+  accountId: string,
+  region: string,
+  orderId: string,
+  openPrice: number,
+  stopLoss: number,
+  takeProfit: number,
+): Promise<TradeVerdict> {
+  const res = await metaApiRequest<TradeResponse>({
+    service: "client",
+    region,
+    method: "POST",
+    label: `modify order ${orderId}`,
+    path: `/users/current/accounts/${accountId}/trade`,
+    body: { actionType: "ORDER_MODIFY", orderId, openPrice, stopLoss, takeProfit },
+  });
+  return interpretTradeResponse(res);
+}
+
+/** Close a whole open position at market (`POSITION_CLOSE_ID`). */
+export async function closePositionById(
+  accountId: string,
+  region: string,
+  positionId: string,
+): Promise<TradeVerdict> {
+  const res = await metaApiRequest<TradeResponse>({
+    service: "client",
+    region,
+    method: "POST",
+    label: `close position ${positionId}`,
+    path: `/users/current/accounts/${accountId}/trade`,
+    body: { actionType: "POSITION_CLOSE_ID", positionId },
+  });
+  return interpretTradeResponse(res);
+}

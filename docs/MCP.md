@@ -125,3 +125,31 @@ result may make a Capital-Preservation claim.
 Reads: `get_risk_policy`, `list_review_items`, `list_resting_orders`, `get_cohort_policies`, `list_news_blackouts`.
 Check: `run_runtime_validation`, a nine-check dry run that never calls `/trade`.
 Proposals: `propose_risk_policy`, `propose_cohort_policy`, `propose_cancel_order`. Each one inserts a pending `ai_action_proposals` row and returns `approve_url` (`/approvals/<id>`). Nothing changes until the owner taps Approve. Proposals are single use and expire after 15 minutes. Approval runs the existing executors: `cancelDeliveryById`, the risk-policy upsert and the cohort-policy upsert. The shared catalogue lives in `src/lib/ai-tools/registry.ts`, and the in-app assistant uses the same bodies (`src/lib/ai-tools/bodies.ts`).
+
+## v1.0.0 — trading sessions
+
+Outside AI apps (and the in-app assistant) can now act at the broker, but only inside a
+**trading session** the user approved on P-Trades.
+
+1. `request_trading_access` — the AI asks for accounts, actions (`place`, `modify`,
+   `close`, `arm`), a duration (15, 60, 240 or 480 minutes), a maximum number of new
+   orders, a maximum risk per order (% of equity, never above the account risk policy)
+   and whether live accounts are included. It returns an `approve_url`.
+2. The user opens the link, may narrow any of those, and taps Approve. The session is
+   bound to that AI app's OAuth client id (`in_app` for the assistant). One active
+   session per AI app; a new approval replaces the old one.
+3. `get_trading_access`, `place_order`, `modify_position`, `close_position`,
+   `modify_resting_order`, `arm_account` then work until the session expires, its
+   order cap is used, the user revokes it (Accounts page, **AI trading sessions**), or
+   an emergency stop is pressed (which revokes every session).
+
+Every new order: stop loss and take profit required; size is always P-Trades'
+broker-derived sizing (the nine Runtime Validation gates run first) scaled down to the
+session risk and any reduce rule; blocked instruments, the ±30-minute high-impact news
+blackout (unless the account allows news trading), a 60-second duplicate guard, the
+emergency stop and the system-wide live switch all apply. `arm_account` accepts
+`observe`, `demo_auto` and `live_confirm` (live confirm needs a passing validation);
+live auto can only be armed by the user. Unknown broker outcomes are recorded and never
+resent. Every action is logged in `ai_trade_actions`.
+
+Tests that guard this: `src/lib/ai-tools/__tests__/trading-session.test.ts`.

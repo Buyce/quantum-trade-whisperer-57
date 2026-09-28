@@ -12,7 +12,7 @@
   "mcp": {
     "server": {
       "name": "p-trades-hub",
-      "version": "0.9.0",
+      "version": "1.0.0",
       "title": "P-Trades Hub"
     },
     "tools": [
@@ -1152,6 +1152,290 @@
           },
           "required": [
             "delivery_id"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "request_trading_access",
+        "title": "Request a trading session",
+        "description": "Ask the user for a time-limited session in which you may place, change and close trades or arm accounts. Returns approve_url; nothing can trade until the user approves there (they may narrow it). Sessions last 15, 60, 240 or 480 minutes.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "account_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "description": "Accounts from list_my_accounts."
+            },
+            "actions": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "place",
+                  "modify",
+                  "close",
+                  "arm"
+                ]
+              }
+            },
+            "minutes": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "max_orders": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "max_risk_percent": {
+              "description": "Max risk per new order, % of equity (≤5).",
+              "type": "number"
+            },
+            "include_live": {
+              "description": "true to include real-money accounts.",
+              "type": "boolean"
+            },
+            "reason": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "account_ids",
+            "actions"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_trading_access",
+        "title": "Get my trading session",
+        "description": "Shows this AI app's active trading session (accounts, actions, orders left, max risk, expiry), or none.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "place_order",
+        "title": "Place an order",
+        "description": "Place a market or limit order inside an approved session. Stop loss and take profit are required. Size is ALWAYS calculated by P-Trades from the account's risk policy and session limit — you cannot set it. Every order re-runs the nine safety checks, cohort rules, news blackout and duplicate guard first.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": true,
+          "openWorldHint": true
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "account_id": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "instrument": {
+              "type": "string"
+            },
+            "direction": {
+              "type": "string",
+              "enum": [
+                "long",
+                "short"
+              ]
+            },
+            "order_type": {
+              "type": "string",
+              "enum": [
+                "market",
+                "limit"
+              ]
+            },
+            "entry_price": {
+              "description": "Required for limit orders.",
+              "type": "number"
+            },
+            "stop_loss": {
+              "type": "number"
+            },
+            "take_profit": {
+              "type": "number"
+            },
+            "expiry_minutes": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "account_id",
+            "instrument",
+            "direction",
+            "order_type",
+            "stop_loss",
+            "take_profit"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "modify_position",
+        "title": "Change a position's stop or target",
+        "description": "Move an open position's stop loss (and optionally take profit) inside an approved session.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": true,
+          "openWorldHint": true
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "account_id": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "position_id": {
+              "type": "string"
+            },
+            "stop_loss": {
+              "type": "number"
+            },
+            "take_profit": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "account_id",
+            "position_id",
+            "stop_loss"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "close_position",
+        "title": "Close a position",
+        "description": "Close all of an open position, or part of it with volume, inside an approved session. Allowed even while an emergency stop is on.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": true,
+          "openWorldHint": true
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "account_id": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "position_id": {
+              "type": "string"
+            },
+            "volume": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "account_id",
+            "position_id"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "modify_resting_order",
+        "title": "Change a waiting order",
+        "description": "Change a waiting order's entry, stop loss and take profit inside an approved session. Size is never changed.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": true,
+          "openWorldHint": true
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "account_id": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "order_id": {
+              "type": "string"
+            },
+            "entry_price": {
+              "type": "number"
+            },
+            "stop_loss": {
+              "type": "number"
+            },
+            "take_profit": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "account_id",
+            "order_id",
+            "entry_price",
+            "stop_loss",
+            "take_profit"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "arm_account",
+        "title": "Arm an account",
+        "description": "Switch an account to observe, demo_auto or live_confirm inside an approved session. live_confirm requires a passing Runtime Validation. Live auto can only be armed by the user in P-Trades.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": true,
+          "openWorldHint": true
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "account_id": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "observe",
+                "demo_auto",
+                "live_confirm"
+              ]
+            }
+          },
+          "required": [
+            "account_id",
+            "mode"
           ]
         },
         "outputSchema": null

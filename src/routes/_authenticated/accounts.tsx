@@ -35,6 +35,7 @@ import { ControlCenter } from "@/components/accounts/ControlCenter";
 import { GuideDetail } from "@/components/GuideMode";
 import { RiskPolicyForm } from "@/components/accounts/RiskPolicyForm";
 import { RuntimeValidationPanel } from "@/components/admin/RuntimeValidationPanel";
+import { AiSessionsCard } from "@/components/accounts/AiSessionsCard";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -309,6 +310,7 @@ function AccountsPage() {
           />
         ) : null}
         {list.length > 0 ? <ControlCenter accounts={list} /> : null}
+        {list.length > 0 ? <AiSessionsCard /> : null}
         {list.length > 0 ? (
           <GuideDetail
             className="mb-2"

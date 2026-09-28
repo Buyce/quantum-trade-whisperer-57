@@ -61,6 +61,13 @@ export async function engageEmergencyStop(
     if (error) throw new Error(error.message);
   }
 
+  // Any AI trading session ends immediately.
+  await supabaseAdmin
+    .from("ai_trading_grants" as never)
+    .update({ revoked_at: stoppedAt, revoked_reason: "emergency_stop" } as never)
+    .eq("user_id", userId)
+    .is("revoked_at", null);
+
   // Cancel what is genuinely still ours to cancel.
   const { data: cancelled, error: cancelError } = await supabaseAdmin
     .from("execution_deliveries")

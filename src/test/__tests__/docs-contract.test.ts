@@ -423,6 +423,13 @@ describe("documentation contract: code constants", () => {
       "Twenty-seven",
       "Twenty-eight",
       "Twenty-nine",
+      "Thirty",
+      "Thirty-one",
+      "Thirty-two",
+      "Thirty-three",
+      "Thirty-four",
+      "Thirty-five",
+      "Thirty-six",
     ];
     const expected = words[registered.length];
     expect(expected, `add a word for ${registered.length} tools`).toBeTruthy();

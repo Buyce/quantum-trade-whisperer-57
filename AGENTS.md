@@ -44,3 +44,4 @@ A query returning zero rows only means **nothing matched that query**.
 Enforced by `src/lib/mcp/__tests__/list-signals.behavior.test.ts` and
 `src/test/__tests__/docs-contract.test.ts`.
 - Runtime validation (src/lib/validation/) is dependency-injected and import-isolated from trade/arm/delivery send paths — so it provably cannot place orders.
+- AI trading goes only through ai_trading_grants sessions (src/lib/ai-tools/trading.server.ts); size always from Runtime Validation sizing — one guarded path for MCP and in-app.

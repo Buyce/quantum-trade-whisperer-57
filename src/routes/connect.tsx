@@ -42,6 +42,7 @@ const ACCESS_LABEL: Record<Access, string> = {
   journal: "Journal",
   change: "Change · you approve",
   cancel: "Cancel · you approve",
+  trade: "Trade · inside a session you approve",
 };
 
 function useMcpUrl() {

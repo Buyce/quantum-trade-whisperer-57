@@ -343,6 +343,7 @@ export type Database = {
       }
       ai_action_proposals: {
         Row: {
+          client_id: string | null
           created_at: string
           decided_at: string | null
           expires_at: string
@@ -356,6 +357,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          client_id?: string | null
           created_at?: string
           decided_at?: string | null
           expires_at?: string
@@ -369,6 +371,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          client_id?: string | null
           created_at?: string
           decided_at?: string | null
           expires_at?: string
@@ -379,6 +382,110 @@ export type Database = {
           source?: string
           status?: string
           summary?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      ai_trade_actions: {
+        Row: {
+          account_id: string | null
+          account_type: string | null
+          action: string
+          broker_order_id: string | null
+          broker_position_id: string | null
+          created_at: string
+          detail: string | null
+          grant_id: string | null
+          id: number
+          outcome: string
+          request: Json
+          user_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          account_type?: string | null
+          action: string
+          broker_order_id?: string | null
+          broker_position_id?: string | null
+          created_at?: string
+          detail?: string | null
+          grant_id?: string | null
+          id?: never
+          outcome: string
+          request?: Json
+          user_id: string
+        }
+        Update: {
+          account_id?: string | null
+          account_type?: string | null
+          action?: string
+          broker_order_id?: string | null
+          broker_position_id?: string | null
+          created_at?: string
+          detail?: string | null
+          grant_id?: string | null
+          id?: never
+          outcome?: string
+          request?: Json
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_trade_actions_grant_id_fkey"
+            columns: ["grant_id"]
+            isOneToOne: false
+            referencedRelation: "ai_trading_grants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_trading_grants: {
+        Row: {
+          account_ids: string[]
+          actions: string[]
+          client_id: string
+          client_label: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          include_live: boolean
+          max_orders: number
+          max_risk_percent: number
+          orders_used: number
+          revoked_at: string | null
+          revoked_reason: string | null
+          user_id: string
+        }
+        Insert: {
+          account_ids: string[]
+          actions: string[]
+          client_id: string
+          client_label?: string | null
+          created_at?: string
+          expires_at: string
+          id?: string
+          include_live?: boolean
+          max_orders?: number
+          max_risk_percent: number
+          orders_used?: number
+          revoked_at?: string | null
+          revoked_reason?: string | null
+          user_id: string
+        }
+        Update: {
+          account_ids?: string[]
+          actions?: string[]
+          client_id?: string
+          client_label?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          include_live?: boolean
+          max_orders?: number
+          max_risk_percent?: number
+          orders_used?: number
+          revoked_at?: string | null
+          revoked_reason?: string | null
           user_id?: string
         }
         Relationships: []
@@ -6513,6 +6620,7 @@ export type Database = {
       }
       claim_weekly_report: { Args: { _week: string }; Returns: boolean }
       clear_starvation_incident: { Args: never; Returns: boolean }
+      consume_ai_grant_order: { Args: { _grant_id: string }; Returns: boolean }
       count_training_dataset: {
         Args: { _dataset: string; _since: string; _until: string }
         Returns: number
