@@ -24,6 +24,15 @@ import {
   PromptInputTextarea,
 } from "@/components/ai-elements/prompt-input";
 import { Shimmer } from "@/components/ai-elements/shimmer";
+import { ProposalCard } from "@/components/assistant/ProposalCard";
+
+const SUGGESTIONS = [
+  "What can you do?",
+  "Is my demo account ready for auto trading?",
+  "Show my waiting orders",
+  "Any high-impact news in the next 24 hours?",
+  "What's my best trade this month?",
+];
 
 function rowToUIMessage(row: { message_id: string; role: string; parts: unknown }): UIMessage {
   return {
@@ -125,10 +134,24 @@ function AssistantChat({
       <Conversation className="flex-1">
         <ConversationContent>
           {messages.length === 0 && (
-            <ConversationEmptyState
-              title="P-Trades Assistant"
-              description="Ask about your setups, automatic orders, risk holds, settings or performance — how the grading and brakes work, how you compare to the platform, or what's moving the markets right now."
-            />
+            <div className="space-y-3">
+              <ConversationEmptyState
+                title="P-Trades Assistant"
+                description="Ask about your setups, orders, accounts, risk policy or performance. It can run a dry-run check or propose changes — nothing changes until you tap Approve."
+              />
+              <div className="flex flex-wrap justify-center gap-2">
+                {SUGGESTIONS.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    className="rounded-full border border-border px-3 py-1 text-xs hover:bg-muted"
+                    onClick={() => void sendMessage({ text: s })}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
           {messages.map((message) => (
             <Message key={message.id} from={message.role}>
@@ -196,6 +219,17 @@ function AssistantChat({
                           </div>
                         </div>
                       );
+                    }
+                    if (part.type.startsWith("tool-propose_") && state === "output-available") {
+                      const out = (part as { output?: { proposal_id?: string; error?: string } })
+                        .output;
+                      if (out?.proposal_id) return <ProposalCard key={index} id={out.proposal_id} />;
+                      if (out?.error)
+                        return (
+                          <p key={index} className="text-xs text-destructive">
+                            {out.error}
+                          </p>
+                        );
                     }
                     return (
                       <p key={index} className="text-xs text-muted-foreground italic">
