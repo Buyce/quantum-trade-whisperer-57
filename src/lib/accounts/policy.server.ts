@@ -43,7 +43,7 @@ export async function accountExecutionPolicy(
   const { data: policyRow, error: policyError } = await db
     .from("connected_account_risk_policies")
     .select(
-      "policy_kind, starting_balance, operating_risk_per_trade_percent, hard_risk_per_trade_percent, max_daily_loss_percent, max_total_loss_percent, trailing_drawdown, consistency_percent, safety_buffer_percent, min_trading_days, max_trades_per_day, news_trading_allowed, high_watermark",
+      "policy_kind, starting_balance, operating_risk_per_trade_percent, hard_risk_per_trade_percent, max_daily_loss_percent, max_total_loss_percent, trailing_drawdown, consistency_percent, safety_buffer_percent, min_trading_days, max_trades_per_day, daily_profit_objective, news_trading_allowed, high_watermark",
     )
     .eq("account_id", input.accountId)
     .eq("user_id", input.userId)
@@ -72,6 +72,7 @@ export async function accountExecutionPolicy(
     safetyBufferPercent: num(row["safety_buffer_percent"]),
     minTradingDays: num(row["min_trading_days"]),
     maxTradesPerDay: num(row["max_trades_per_day"]),
+    dailyProfitObjective: num(row["daily_profit_objective"]),
     newsTradingAllowed:
       typeof row["news_trading_allowed"] === "boolean"
         ? (row["news_trading_allowed"] as boolean)
