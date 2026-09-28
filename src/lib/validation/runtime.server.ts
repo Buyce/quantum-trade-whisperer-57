@@ -221,7 +221,7 @@ export async function runRuntimeValidation(
   const { data: open, error: dErr } = await db
     .from("reconciliation_discrepancies")
     .select("id, severity")
-    .eq("account_id", input.accountId)
+    .eq("connected_account_id", input.accountId)
     .eq("status", "open");
   if (dErr) return finish("reconciliation", "reconciliation state unreadable");
   const critical = (open ?? []).filter((d) => (d as { severity?: string }).severity === "critical");
