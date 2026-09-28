@@ -114,8 +114,8 @@ function deps(over: Partial<RuntimeValidationDeps> = {}): RuntimeValidationDeps 
 
 const input = { accountId: ACCOUNT, symbol: "eurusd", direction: "long" as const, stopDistance: 0.002 };
 
-describe("[UNIT] runtime validation is non-trading", () => {
-  it("passes every gate on an armed account without touching trade endpoints or writing", async () => {
+describe("runtime validation is non-trading", () => {
+  it("[UNIT] passes every gate on an armed account without touching trade endpoints or writing", async () => {
     const { db, writes } = fakeDb();
     const d = deps();
     const r = await runRuntimeValidation(db, input, d);
@@ -130,7 +130,7 @@ describe("[UNIT] runtime validation is non-trading", () => {
     expect(writes).toEqual([]);
   });
 
-  it("never leaks the MetaApi account id or secrets", async () => {
+  it("[UNIT] never leaks the MetaApi account id or secrets", async () => {
     const { db } = fakeDb();
     const r = await runRuntimeValidation(db, input, deps());
     const text = JSON.stringify(r);
@@ -141,7 +141,7 @@ describe("[UNIT] runtime validation is non-trading", () => {
     expect(Object.keys(s)).not.toContain("password");
   });
 
-  it("module graph does not import trade, arm, or delivery send paths", () => {
+  it("[UNIT] module graph does not import trade, arm, or delivery send paths", () => {
     const src = readFileSync(resolve(__dirname, "../runtime.server.ts"), "utf8");
     const imports = [...src.matchAll(/from\s+"([^"]+)"/g)].map((m) => m[1]);
     for (const bad of ["trade.server", "arm.server", "dispatch", "send"])
@@ -150,7 +150,7 @@ describe("[UNIT] runtime validation is non-trading", () => {
   });
 });
 
-describe("[UNIT] runtime validation fails closed", () => {
+describe("runtime validation fails closed", () => {
   const cases: [string, Partial<RuntimeValidationDeps>, string][] = [
     [
       "account_permissions",
@@ -177,7 +177,7 @@ describe("[UNIT] runtime validation fails closed", () => {
     ["margin", { estimateMargin: async () => { throw new Error("bad"); } }, "margin calculation failed"],
   ];
   for (const [gate, over, reason] of cases) {
-    it(`stops at ${gate}`, async () => {
+    it(`[UNIT] stops at ${gate}`, async () => {
       const { db } = fakeDb();
       const r = await runRuntimeValidation(db, input, deps(over));
       const idx = r.gates.findIndex((g) => g.status === "FAIL");
@@ -188,7 +188,7 @@ describe("[UNIT] runtime validation fails closed", () => {
     });
   }
 
-  it("stops at reconciliation on an open critical discrepancy", async () => {
+  it("[UNIT] stops at reconciliation on an open critical discrepancy", async () => {
     const { db } = fakeDb({ discrepancies: [{ severity: "critical" }] });
     const r = await runRuntimeValidation(db, input, deps());
     expect(r.gates.at(-1)).toMatchObject({ gate: "reconciliation", status: "FAIL" });
