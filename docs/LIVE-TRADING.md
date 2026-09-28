@@ -48,3 +48,14 @@ The in-app assistant and outside AI apps (ChatGPT, Claude, Claude Code, Gemini, 
 - **Check:** run a Runtime Validation (dry run, never trades).
 - **Propose (you approve):** a risk policy, an allow/reduce/block rule, or cancelling a waiting order. A proposal changes nothing. In P-Trades an Approve card appears. Outside AI apps give you an approval link. Either way it expires after 15 minutes and works once.
 - **Never:** place or modify orders, close positions, arm accounts, or see other users' data.
+
+## Letting an AI trade for you (trading sessions)
+
+ChatGPT, Claude, Gemini or the P-Trades assistant can place, change and close trades
+and arm accounts — but only after you approve a **trading session** on P-Trades. You
+choose which accounts, which actions, how long (15 min to 8 hours), how many new orders
+and the maximum risk per order, and whether real-money accounts are included. P-Trades
+always sets the size and re-runs every safety check. See active sessions and recent AI
+actions under **AI trading sessions** on the Accounts page, where **Revoke now** ends
+a session at once; the emergency stop ends all of them. Live auto can only be switched
+on by you.
