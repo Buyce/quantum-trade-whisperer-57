@@ -51,7 +51,7 @@ function unwrap(result: {
   return { message: first?.text ?? "", error: result.isError === true || undefined };
 }
 
-/** v0.9 tools shared with MCP (src/lib/mcp/tools/v09.ts) via src/lib/ai-tools/bodies.ts. */
+/** v0.9 tools shared with MCP (src/lib/mcp/v09.ts) via src/lib/ai-tools/bodies.ts. */
 function v09Tools(supabase: unknown, userId: string) {
   return {
     what_can_you_do: tool({

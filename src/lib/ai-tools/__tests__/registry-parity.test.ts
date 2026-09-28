@@ -16,7 +16,7 @@ describe("AI ability registry", () => {
   it("[UNIT] every mcp ability is registered on the MCP server", async () => {
     const src = await import("node:fs").then((fs) =>
       fs.readFileSync("src/lib/mcp/index.ts", "utf8") +
-      fs.readFileSync("src/lib/mcp/tools/v09.ts", "utf8"),
+      fs.readFileSync("src/lib/mcp/v09.ts", "utf8"),
     );
     for (const a of ABILITIES.filter((x) => x.surfaces.includes("mcp"))) {
       const camel = a.name.replace(/_([a-z])/g, (_m, c: string) => c.toUpperCase());

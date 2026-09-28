@@ -5,7 +5,7 @@
  */
 import { defineTool, type ToolContext } from "@lovable.dev/mcp-js";
 import { z } from "zod";
-import { supabaseForUser } from "../supabase";
+import { supabaseForUser } from "./supabase";
 import {
   envelope,
   runGetCohortPolicies,

@@ -19,7 +19,7 @@ import getPlatformBenchmarks from "./tools/get-platform-benchmarks";
 import describeDatasets from "./tools/describe_datasets";
 import readDataset from "./tools/read_dataset";
 import diagnoseBrokerMargin from "./tools/diagnose-broker-margin";
-import { V09_TOOLS } from "./tools/v09";
+import { V09_TOOLS } from "./v09";
 
 // The OAuth issuer must be the direct Supabase host; the project ref is the only
 // Supabase value that survives publish unchanged.
