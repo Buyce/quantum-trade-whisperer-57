@@ -32,6 +32,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { ControlCenter } from "@/components/accounts/ControlCenter";
+import { RuntimeValidationPanel } from "@/components/admin/RuntimeValidationPanel";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -296,6 +297,7 @@ function AccountsPage() {
         </div>
 
         {list.length > 0 ? <ControlCenter accounts={list} /> : null}
+        {list.length > 0 ? <RuntimeValidationPanel /> : null}
 
         {list.length > 0 ? <EmergencyStopPanel accounts={list} onChanged={invalidate} /> : null}
 
