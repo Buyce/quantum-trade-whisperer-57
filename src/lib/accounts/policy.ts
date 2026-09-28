@@ -20,6 +20,8 @@ export interface AccountRiskPolicy {
   safetyBufferPercent: number | null;
   minTradingDays: number | null;
   maxTradesPerDay: number | null;
+  /** Positive daily objective in account currency; reaching it closes P-Trades for the day. */
+  dailyProfitObjective: number | null;
   newsTradingAllowed: boolean | null;
 }
 
@@ -36,6 +38,7 @@ export const EQUITY_EDGE_INSTANT_50K: Readonly<AccountRiskPolicy> = Object.freez
   safetyBufferPercent: 3,
   minTradingDays: 7,
   maxTradesPerDay: 2,
+  dailyProfitObjective: 200,
   newsTradingAllowed: false,
 });
 
@@ -160,6 +163,15 @@ export function evaluateAccountPolicy(
   }
 
   if (
+    policy.dailyProfitObjective !== null &&
+    finite(state.todayNetPnl) &&
+    state.todayNetPnl >= policy.dailyProfitObjective
+  ) {
+    // The objective is a stop-after-profit guard, never a requirement to force trades.
+    reasons.push("p_trades_daily_profit_objective_reached");
+  }
+
+  if (
     policy.minTradingDays !== null &&
     finite(state.tradingDays) &&
     state.tradingDays < policy.minTradingDays
@@ -174,6 +186,7 @@ export function evaluateAccountPolicy(
     "trailing_high_watermark_unavailable",
     "p_trades_daily_trade_limit_reached",
     "daily_trade_count_unavailable",
+    "p_trades_daily_profit_objective_reached",
   ]);
   const status = reasons.some((reason) => hardBlocks.has(reason))
     ? "block"
