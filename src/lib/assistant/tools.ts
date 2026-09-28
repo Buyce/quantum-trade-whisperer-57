@@ -158,9 +158,66 @@ function v09Tools(supabase: unknown, userId: string) {
   };
 }
 
+/** v1.0 trading-session tools, same bodies as src/lib/mcp/v10.ts. Client id "in_app". */
+function v10Tools(supabase: unknown, userId: string) {
+  const t = () => import("@/lib/ai-tools/trading.server");
+  const s = async () => import("@/lib/ai-tools/trading");
+  return {
+    request_trading_access: tool({
+      description:
+        "Ask the user for a time-limited trading session (accounts, actions place/modify/close/arm, minutes 15/60/240/480, max_orders, max_risk_percent, include_live). Shows an Approve card; nothing trades until they approve.",
+      inputSchema: z.object({
+        account_ids: z.array(z.string().uuid()),
+        actions: z.array(z.enum(["place", "modify", "close", "arm"])),
+        minutes: z.number().int().optional(),
+        max_orders: z.number().int().optional(),
+        max_risk_percent: z.number().optional(),
+        include_live: z.boolean().optional(),
+        reason: z.string().optional(),
+      }),
+      execute: async (a) => {
+        const { runRequestTradingAccess } = await import("@/lib/ai-tools/bodies");
+        return unwrap(await runRequestTradingAccess(supabase, userId, a, "in_app", "in_app"));
+      },
+    }),
+    get_trading_access: tool({
+      description: "The assistant's active trading session, or none.",
+      inputSchema: z.object({}),
+      execute: async () => unwrap(await (await t()).runGetTradingAccess(supabase, userId, "in_app")),
+    }),
+    place_order: tool({
+      description:
+        "Place a market or limit order inside the approved session. Stop loss and take profit required; P-Trades sets the size and re-runs every safety check.",
+      inputSchema: (await s()).placeOrderInput,
+      execute: async (a) => unwrap(await (await t()).runPlaceOrder(userId, "in_app", a)),
+    }),
+    modify_position: tool({
+      description: "Move an open position's stop loss / take profit inside the approved session.",
+      inputSchema: (await s()).modifyPositionInput,
+      execute: async (a) => unwrap(await (await t()).runModifyPosition(userId, "in_app", a)),
+    }),
+    close_position: tool({
+      description: "Close all (or part, with volume) of an open position inside the approved session.",
+      inputSchema: (await s()).closePositionInput,
+      execute: async (a) => unwrap(await (await t()).runClosePosition(userId, "in_app", a)),
+    }),
+    modify_resting_order: tool({
+      description: "Change a waiting order's entry/stop/target inside the approved session. Never its size.",
+      inputSchema: (await s()).modifyOrderInput,
+      execute: async (a) => unwrap(await (await t()).runModifyRestingOrder(userId, "in_app", a)),
+    }),
+    arm_account: tool({
+      description: "Arm an account to observe, demo_auto or live_confirm inside the approved session.",
+      inputSchema: (await s()).armInput,
+      execute: async (a) => unwrap(await (await t()).runArmAccount(userId, "in_app", a)),
+    }),
+  };
+}
+
 export function buildAssistantTools(supabase: unknown, userId: string) {
   return {
     ...v09Tools(supabase, userId),
+    ...v10Tools(supabase, userId),
     list_signals: tool({
       description:
         "List trade setups published by the live scanner. scope='all_published' (default) returns retained published rows; scope='my_scanner' returns rows currently eligible under this user's feed settings, retention window and daily cap. An empty result means nothing matched the filters — it is NOT evidence about the scanner's cycle.",
