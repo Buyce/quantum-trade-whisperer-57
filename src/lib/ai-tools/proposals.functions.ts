@@ -25,6 +25,8 @@ export interface ProposalView {
   decidedAt: string | null;
   result: { message?: string } | null;
   expired: boolean;
+  payload: Record<string, unknown> | null;
+  clientId: string | null;
 }
 
 const idInput = z.object({ id: z.string().uuid() });
@@ -35,7 +37,7 @@ export const getProposal = createServerFn({ method: "GET" })
   .handler(async ({ data, context }): Promise<ProposalView | null> => {
     const { data: row, error } = await context.supabase
       .from("ai_action_proposals")
-      .select("id, kind, summary, status, source, created_at, expires_at, decided_at, result")
+      .select("id, kind, summary, status, source, created_at, expires_at, decided_at, result, payload, client_id")
       .eq("id", data.id)
       .maybeSingle();
     if (error) throw new Error(error.message);
@@ -51,18 +53,26 @@ export const getProposal = createServerFn({ method: "GET" })
       decidedAt: row.decided_at,
       result: (row.result ?? null) as { message?: string } | null,
       expired: row.status === "pending" && new Date(row.expires_at).getTime() < Date.now(),
+      payload: (row.payload ?? null) as Record<string, unknown> | null,
+      clientId: (row as { client_id?: string | null }).client_id ?? null,
     };
   });
 
 export const decideProposal = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
-    z.object({ id: z.string().uuid(), decision: z.enum(["approve", "decline"]) }).parse(d),
+    z
+      .object({
+        id: z.string().uuid(),
+        decision: z.enum(["approve", "decline"]),
+        grant: z.record(z.string(), z.unknown()).optional(),
+      })
+      .parse(d),
   )
   .handler(async ({ data, context }) => {
     const { data: row, error } = await context.supabase
       .from("ai_action_proposals")
-      .select("id, user_id, kind, payload, status, expires_at")
+      .select("id, user_id, kind, payload, status, expires_at, client_id, source")
       .eq("id", data.id)
       .eq("user_id", context.userId)
       .maybeSingle();
@@ -115,6 +125,43 @@ export const decideProposal = createServerFn({ method: "POST" })
             r.action === "expired"
               ? "Cancelled — the broker confirmed the order is no longer waiting."
               : `Not cancelled: ${r.reason}. The order was left as it is.`,
+        });
+      }
+
+      if (row.kind === "trading_grant") {
+        const { grantRequestInput } = await import("@/lib/ai-tools/trading");
+        // The user may narrow (never widen beyond the validator) what the AI asked for.
+        const g = grantRequestInput.parse({ ...(row.payload as object), ...(data.grant ?? {}) });
+        const { data: accts } = await context.supabase
+          .from("connected_trading_accounts")
+          .select("id")
+          .eq("user_id", context.userId)
+          .in("id", g.account_ids);
+        if ((accts ?? []).length !== g.account_ids.length)
+          return settle("failed", { message: "One or more accounts are not yours." });
+        const clientId = (row as { client_id?: string | null }).client_id ?? (row.source === "in_app" ? "in_app" : null);
+        if (!clientId) return settle("failed", { message: "Unknown AI app." });
+        // One active session per AI app: replace any earlier one.
+        await supabaseAdmin
+          .from("ai_trading_grants")
+          .update({ revoked_at: new Date().toISOString(), revoked_reason: "replaced" })
+          .eq("user_id", context.userId)
+          .eq("client_id", clientId)
+          .is("revoked_at", null);
+        const { error: gErr } = await supabaseAdmin.from("ai_trading_grants").insert({
+          user_id: context.userId,
+          client_id: clientId,
+          client_label: row.source === "in_app" ? "P-Trades assistant" : clientId,
+          account_ids: g.account_ids,
+          actions: g.actions,
+          include_live: g.include_live,
+          max_orders: g.max_orders,
+          max_risk_percent: g.max_risk_percent,
+          expires_at: new Date(Date.now() + g.minutes * 60_000).toISOString(),
+        });
+        if (gErr) return settle("failed", { message: gErr.message });
+        return settle("approved", {
+          message: `Trading session started for ${g.minutes} minutes. Revoke it any time on the Accounts page.`,
         });
       }
 
@@ -192,4 +239,65 @@ export const decideProposal = createServerFn({ method: "POST" })
       if (e instanceof Error && e.message === "Proposal was already decided") throw e;
       return settle("failed", { message: e instanceof Error ? e.message : "Failed" });
     }
+  });
+
+export interface GrantView {
+  id: string;
+  client_label: string | null;
+  actions: string[];
+  account_ids: string[];
+  include_live: boolean;
+  max_orders: number;
+  orders_used: number;
+  max_risk_percent: number;
+  expires_at: string;
+}
+
+export const listMyTradingGrants = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const [g, a] = await Promise.all([
+      context.supabase
+        .from("ai_trading_grants")
+        .select("id, client_label, actions, account_ids, include_live, max_orders, orders_used, max_risk_percent, expires_at")
+        .eq("user_id", context.userId)
+        .is("revoked_at", null)
+        .gt("expires_at", new Date().toISOString())
+        .order("created_at", { ascending: false }),
+      context.supabase
+        .from("ai_trade_actions")
+        .select("id, action, account_type, outcome, detail, created_at, request")
+        .eq("user_id", context.userId)
+        .order("created_at", { ascending: false })
+        .limit(10),
+    ]);
+    if (g.error) throw new Error(g.error.message);
+    return {
+      grants: (g.data ?? []) as unknown as GrantView[],
+      actions: (a.data ?? []).map((r) => ({
+        id: r.id,
+        action: r.action,
+        account_type: r.account_type,
+        outcome: r.outcome,
+        detail: r.detail,
+        created_at: r.created_at,
+        instrument: String((r.request as Record<string, unknown> | null)?.["instrument"] ?? ""),
+      })),
+    };
+  });
+
+export const revokeTradingGrant = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid().optional() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    let q = supabaseAdmin
+      .from("ai_trading_grants")
+      .update({ revoked_at: new Date().toISOString(), revoked_reason: "revoked_by_user" })
+      .eq("user_id", context.userId)
+      .is("revoked_at", null);
+    if (data.id) q = q.eq("id", data.id);
+    const { error } = await q;
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });
