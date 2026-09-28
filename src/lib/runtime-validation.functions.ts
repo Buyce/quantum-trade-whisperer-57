@@ -51,7 +51,9 @@ export const runRuntimeValidation = createServerFn({ method: "POST" })
     if (!userId) throw new Error("Authenticated user id unavailable");
 
     const accountId = String(data.accountId ?? "").trim();
-    const logicalSymbol = String(data.logicalSymbol ?? "")\n      .trim()\n      .toUpperCase();
+    const logicalSymbol = String(data.logicalSymbol ?? "")
+      .trim()
+      .toUpperCase();
     const volume = Number(data.volume);
     const openPrice = Number(data.openPrice);
     if (!accountId || !logicalSymbol || !Number.isFinite(volume) || volume <= 0) {
@@ -61,9 +63,6 @@ export const runRuntimeValidation = createServerFn({ method: "POST" })
       throw new Error("A finite positive open price is required.");
     }
 
-    // Broker balance/equity are read from the latest broker-synchronized row.
-    // accountExecutionPolicy then performs its normal fail-closed account-wide
-    // evidence checks. It does not submit orders.
     const { data: account, error: accountError } = await context.supabase
       .from("connected_trading_accounts")
       .select("broker_equity, broker_balance, disconnected_at")
