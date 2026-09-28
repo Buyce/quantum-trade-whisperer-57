@@ -132,3 +132,15 @@ grade, automatic-trading block/reduce) are computed in code
 (`src/lib/explain/rules.ts`) from the trader's own settings; the model only
 explains them, lists risk factors and missing data, and never places orders.
 Pasted notes are labelled self-reported and are not rule-checked.
+
+## Runtime Validation (owner-only, dry run)
+
+Admin → Intelligence → "Runtime validation" runs selected connected accounts through the real
+order-preparation chain and stops before submission: connection → fresh broker facts →
+account type/permissions → risk policy → symbol mapping → fresh quote + account spec →
+account sizing (`resizeFromBrokerSnapshot`) → broker `calculate-margin` → open critical
+reconciliation discrepancies. The first FAIL ends the run with its exact reason; later gates show
+NOT_REACHED. It never calls `/trade`, never arms live modes and never edits risk settings. The only
+side effect is the existing internal sizing-divergence audit row. Reports are built through an
+allow-list, so MetaApi ids and credentials are never returned. Proven by
+`src/lib/validation/__tests__/runtime-validation.test.ts`.
