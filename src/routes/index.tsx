@@ -85,7 +85,7 @@ const METHOD = [
   },
   {
     k: "Built for AI assistants",
-    v: "Twenty-nine MCP tools let ChatGPT, Claude, Gemini or Claude Code read your setups, orders, accounts and risk holds, run a dry-run account check, size a position, keep your journal and propose changes you approve — using the same eligibility rules, sizing service and R mathematics as the screen.",
+    v: "Thirty-six MCP tools let ChatGPT, Claude, Gemini or Claude Code read your setups, orders, accounts and risk holds, run a dry-run account check, keep your journal, propose changes you approve — and, inside a time-limited trading session you approve, place, change and close trades on demo or live accounts, with P-Trades setting the size and re-running every safety check.",
   },
 ] as const;
 
