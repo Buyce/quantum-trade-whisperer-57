@@ -51,7 +51,7 @@ export const runRuntimeValidation = createServerFn({ method: "POST" })
     if (!userId) throw new Error("Authenticated user id unavailable");
 
     const accountId = String(data.accountId ?? "").trim();
-    const logicalSymbol = String(data.logicalSymbol ?? "").trim().toUpperCase();
+    const logicalSymbol = String(data.logicalSymbol ?? "")\n      .trim()\n      .toUpperCase();
     const volume = Number(data.volume);
     const openPrice = Number(data.openPrice);
     if (!accountId || !logicalSymbol || !Number.isFinite(volume) || volume <= 0) {
