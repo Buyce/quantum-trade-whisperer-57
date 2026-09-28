@@ -36,3 +36,6 @@ Live · confirm each waits for your approval on Trade History. Live auto sends w
 
 ## What the assistant can and cannot do
 It can explain these steps, look up your accounts and tell you which step is missing. It cannot arm accounts, save a policy or place orders.
+
+## Tests that guard this
+Runtime Validation's no-order guarantee is covered by `src/lib/validation/__tests__/runtime-validation.test.ts`; account policy limits by `src/lib/accounts/__tests__/policy.test.ts`.
