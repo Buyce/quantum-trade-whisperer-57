@@ -20,6 +20,8 @@ export interface AccountRiskPolicy {
   safetyBufferPercent: number | null;
   minTradingDays: number | null;
   maxTradesPerDay: number | null;
+  /** Positive daily objective in account currency; reaching it closes P-Trades for the day. */
+  dailyProfitObjective: number | null;
   newsTradingAllowed: boolean | null;
 }
 
@@ -36,6 +38,7 @@ export const EQUITY_EDGE_INSTANT_50K: Readonly<AccountRiskPolicy> = Object.freez
   safetyBufferPercent: 3,
   minTradingDays: 7,
   maxTradesPerDay: 2,
+  dailyProfitObjective: 200,
   newsTradingAllowed: false,
 });
 
@@ -60,6 +63,8 @@ export interface AccountPolicyVerdict {
   totalLossRemaining: number | null;
   consistencyScore: number | null;
   safetyBufferRemaining: number | null;
+  dailyProfitRemaining: number | null;
+  requiredTotalProfitForConsistency: number | null;
 }
 
 function finite(value: number | null): value is number {
@@ -80,6 +85,8 @@ export function evaluateAccountPolicy(
       totalLossRemaining: null,
       consistencyScore: null,
       safetyBufferRemaining: null,
+      dailyProfitRemaining: null,
+      requiredTotalProfitForConsistency: null,
     };
   }
 
@@ -94,6 +101,8 @@ export function evaluateAccountPolicy(
       totalLossRemaining: null,
       consistencyScore: null,
       safetyBufferRemaining: null,
+      dailyProfitRemaining: null,
+      requiredTotalProfitForConsistency: null,
     };
   }
 
@@ -126,6 +135,22 @@ export function evaluateAccountPolicy(
       if (totalLossRemaining <= riskAmount) reasons.push("total_loss_budget_exhausted");
     }
   }
+
+  const dailyProfitRemaining =
+    policy.dailyProfitObjective === null || !finite(state.todayNetPnl)
+      ? null
+      : Math.max(0, policy.dailyProfitObjective - Math.max(0, state.todayNetPnl));
+
+  const projectedLargestWinningDay =
+    policy.dailyProfitObjective === null
+      ? state.largestWinningDay
+      : finite(state.largestWinningDay)
+        ? Math.max(state.largestWinningDay, policy.dailyProfitObjective)
+        : policy.dailyProfitObjective;
+  const requiredTotalProfitForConsistency =
+    policy.consistencyPercent !== null && finite(projectedLargestWinningDay)
+      ? projectedLargestWinningDay / (policy.consistencyPercent / 100)
+      : null;
 
   const consistencyScore =
     policy.consistencyPercent !== null &&
@@ -160,6 +185,15 @@ export function evaluateAccountPolicy(
   }
 
   if (
+    policy.dailyProfitObjective !== null &&
+    finite(state.todayNetPnl) &&
+    state.todayNetPnl >= policy.dailyProfitObjective
+  ) {
+    // The objective is a stop-after-profit guard, never a requirement to force trades.
+    reasons.push("p_trades_daily_profit_objective_reached");
+  }
+
+  if (
     policy.minTradingDays !== null &&
     finite(state.tradingDays) &&
     state.tradingDays < policy.minTradingDays
@@ -174,6 +208,7 @@ export function evaluateAccountPolicy(
     "trailing_high_watermark_unavailable",
     "p_trades_daily_trade_limit_reached",
     "daily_trade_count_unavailable",
+    "p_trades_daily_profit_objective_reached",
   ]);
   const status = reasons.some((reason) => hardBlocks.has(reason))
     ? "block"
@@ -190,5 +225,7 @@ export function evaluateAccountPolicy(
     totalLossRemaining,
     consistencyScore,
     safetyBufferRemaining,
+    dailyProfitRemaining,
+    requiredTotalProfitForConsistency,
   };
 }
