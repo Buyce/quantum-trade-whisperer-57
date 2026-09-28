@@ -23,7 +23,7 @@ export interface ProposalView {
   createdAt: string;
   expiresAt: string;
   decidedAt: string | null;
-  result: unknown;
+  result: { message?: string } | null;
   expired: boolean;
 }
 
@@ -49,7 +49,7 @@ export const getProposal = createServerFn({ method: "GET" })
       createdAt: row.created_at,
       expiresAt: row.expires_at,
       decidedAt: row.decided_at,
-      result: row.result,
+      result: (row.result ?? null) as { message?: string } | null,
       expired: row.status === "pending" && new Date(row.expires_at).getTime() < Date.now(),
     };
   });
@@ -70,7 +70,7 @@ export const decideProposal = createServerFn({ method: "POST" })
     if (!row) throw new Error("Proposal not found");
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const settle = async (status: string, result: unknown) => {
+    const settle = async (status: string, result: { message: string }) => {
       // Single-use: only a still-pending row can be settled.
       const { data: done, error: e } = await supabaseAdmin
         .from("ai_action_proposals")

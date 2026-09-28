@@ -19,7 +19,7 @@ export function ProposalCard({ id }: { id: string }) {
 
   const load = () =>
     getProposal({ data: { id } })
-      .then(setP)
+      .then((v) => setP(v as ProposalView | null))
       .catch((e: Error) => setErr(e.message));
   useEffect(() => {
     void load();
@@ -39,7 +39,7 @@ export function ProposalCard({ id }: { id: string }) {
 
   if (p === undefined) return <p className="text-xs text-muted-foreground">Loading proposal…</p>;
   if (p === null) return <p className="text-xs text-destructive">Proposal not found.</p>;
-  const result = (p.result as { message?: string } | null)?.message;
+  const result = p.result?.message;
   const pending = p.status === "pending" && !p.expired;
 
   return (

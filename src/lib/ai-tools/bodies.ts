@@ -16,14 +16,14 @@ export const APP_ORIGIN = "https://getptrades.com";
 
 export type Envelope = {
   content: { type: "text"; text: string }[];
-  structuredContent?: unknown;
+  structuredContent?: Record<string, unknown>;
   isError?: boolean;
 };
 
 export function envelope(payload: unknown, isError = false): Envelope {
   return {
     content: [{ type: "text", text: JSON.stringify(payload) }],
-    structuredContent: payload,
+    structuredContent: payload as Record<string, unknown>,
     ...(isError ? { isError: true } : {}),
   };
 }
@@ -33,7 +33,7 @@ function fail(message: string) {
 }
 
 /** Risk policy per connected account. "Not set" means automatic orders stay blocked. */
-export async function runGetRiskPolicy(db: Db, userId: string, input: { account_id?: string }) {
+export async function runGetRiskPolicy(db: Db, userId: string, input: { account_id?: string | undefined }) {
   let accounts = db
     .from("connected_trading_accounts")
     .select("id, label, broker_account_type, account_mode, disconnected_at")
@@ -72,7 +72,7 @@ export async function runGetRiskPolicy(db: Db, userId: string, input: { account_
 export async function runListReviewItems(
   db: Db,
   userId: string,
-  input: { include_resolved?: boolean },
+  input: { include_resolved?: boolean | undefined },
 ) {
   let q = db
     .from("reconciliation_discrepancies")
@@ -135,7 +135,7 @@ export async function runGetCohortPolicies(db: Db, userId: string) {
 /** Upcoming high-impact economic events (the news blackout calendar). */
 export async function runListNewsBlackouts(
   db: Db,
-  input: { hours?: number; instrument?: string },
+  input: { hours?: number | undefined; instrument?: string | undefined },
 ) {
   const hours = Math.min(Math.max(input.hours ?? 48, 1), 168);
   const now = new Date();
