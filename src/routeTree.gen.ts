@@ -31,6 +31,7 @@ import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
 import { Route as AuthenticatedAdminIntelligenceRouteImport } from './routes/_authenticated/admin/intelligence'
+import { Route as AuthenticatedApprovalsIdRouteImport } from './routes/_authenticated/approvals.$id'
 import { Route as AuthenticatedAssistantIndexRouteImport } from './routes/_authenticated/assistant.index'
 import { Route as AuthenticatedAssistantThreadIdRouteImport } from './routes/_authenticated/assistant.$threadId'
 import { Route as ApiPublicQuotesRouteImport } from './routes/api/public/quotes'
@@ -175,6 +176,12 @@ const AuthenticatedAdminIntelligenceRoute =
     id: '/intelligence',
     path: '/intelligence',
     getParentRoute: () => AuthenticatedAdminRouteRoute,
+  } as any)
+const AuthenticatedApprovalsIdRoute =
+  AuthenticatedApprovalsIdRouteImport.update({
+    id: '/approvals/$id',
+    path: '/approvals/$id',
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedAssistantIndexRoute =
   AuthenticatedAssistantIndexRouteImport.update({
@@ -370,6 +377,7 @@ export interface FileRoutesByFullPath {
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/admin/intelligence': typeof AuthenticatedAdminIntelligenceRoute
+  '/approvals/$id': typeof AuthenticatedApprovalsIdRoute
   '/assistant/$threadId': typeof AuthenticatedAssistantThreadIdRoute
   '/api/public/quotes': typeof ApiPublicQuotesRoute
   '/assistant/': typeof AuthenticatedAssistantIndexRoute
@@ -422,6 +430,7 @@ export interface FileRoutesByTo {
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/admin/intelligence': typeof AuthenticatedAdminIntelligenceRoute
+  '/approvals/$id': typeof AuthenticatedApprovalsIdRoute
   '/assistant/$threadId': typeof AuthenticatedAssistantThreadIdRoute
   '/api/public/quotes': typeof ApiPublicQuotesRoute
   '/assistant': typeof AuthenticatedAssistantIndexRoute
@@ -477,6 +486,7 @@ export interface FileRoutesById {
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/_authenticated/admin/intelligence': typeof AuthenticatedAdminIntelligenceRoute
+  '/_authenticated/approvals/$id': typeof AuthenticatedApprovalsIdRoute
   '/_authenticated/assistant/$threadId': typeof AuthenticatedAssistantThreadIdRoute
   '/api/public/quotes': typeof ApiPublicQuotesRoute
   '/_authenticated/assistant/': typeof AuthenticatedAssistantIndexRoute
@@ -532,6 +542,7 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/admin/intelligence'
+    | '/approvals/$id'
     | '/assistant/$threadId'
     | '/api/public/quotes'
     | '/assistant/'
@@ -584,6 +595,7 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/admin/intelligence'
+    | '/approvals/$id'
     | '/assistant/$threadId'
     | '/api/public/quotes'
     | '/assistant'
@@ -638,6 +650,7 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/_authenticated/admin/intelligence'
+    | '/_authenticated/approvals/$id'
     | '/_authenticated/assistant/$threadId'
     | '/api/public/quotes'
     | '/_authenticated/assistant/'
@@ -869,6 +882,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/intelligence'
       preLoaderRoute: typeof AuthenticatedAdminIntelligenceRouteImport
       parentRoute: typeof AuthenticatedAdminRouteRoute
+    }
+    '/_authenticated/approvals/$id': {
+      id: '/_authenticated/approvals/$id'
+      path: '/approvals/$id'
+      fullPath: '/approvals/$id'
+      preLoaderRoute: typeof AuthenticatedApprovalsIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/assistant/': {
       id: '/_authenticated/assistant/'
@@ -1122,6 +1142,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedHistoryRoute: typeof AuthenticatedHistoryRoute
   AuthenticatedPerformanceRoute: typeof AuthenticatedPerformanceRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+  AuthenticatedApprovalsIdRoute: typeof AuthenticatedApprovalsIdRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -1133,6 +1154,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedHistoryRoute: AuthenticatedHistoryRoute,
   AuthenticatedPerformanceRoute: AuthenticatedPerformanceRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+  AuthenticatedApprovalsIdRoute: AuthenticatedApprovalsIdRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
