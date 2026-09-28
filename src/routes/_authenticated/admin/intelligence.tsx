@@ -51,6 +51,7 @@ import { LearningEvidencePanel } from "@/components/admin/LearningEvidencePanel"
 import { EngineStatusPanel } from "@/components/admin/EngineStatusPanel";
 import { RecentScanResults } from "@/components/admin/RecentScanResults";
 import { ExecutionSwitchPanel } from "@/components/admin/ExecutionSwitchPanel";
+import { RuntimeValidationPanel } from "@/components/admin/RuntimeValidationPanel";
 import { AutoTraderPanel } from "@/components/admin/AutoTraderPanel";
 import { TradeTotalsPanel } from "@/components/admin/TradeTotalsPanel";
 import { DatasetExportPanel } from "@/components/admin/DatasetExportPanel";
@@ -194,6 +195,10 @@ function AdminIntelligencePage() {
 
       <PanelBoundary name="Execution switch">
         <ExecutionSwitchPanel />
+      </PanelBoundary>
+
+      <PanelBoundary name="Runtime validation">
+        <RuntimeValidationPanel />
       </PanelBoundary>
 
       <PanelBoundary name="Exit variants">
