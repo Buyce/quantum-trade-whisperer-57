@@ -31,11 +31,11 @@ export function RuntimeValidationPanel() {
         arm Live Confirm/Live Auto and has no broker trade endpoint.
       </p>
       <div className="grid gap-2 md:grid-cols-5">
-        <input className="rounded border bg-background px-2 py-1 text-sm" value={accountId} onChange={(e) => setAccountId(e.target.value)} placeholder="Account UUID" />
-        <input className="rounded border bg-background px-2 py-1 text-sm" value={symbol} onChange={(e) => setSymbol(e.target.value)} placeholder="EURUSD" />
-        <input className="rounded border bg-background px-2 py-1 text-sm" value={volume} onChange={(e) => setVolume(e.target.value)} inputMode="decimal" placeholder="Volume" />
-        <input className="rounded border bg-background px-2 py-1 text-sm" value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" placeholder="Open price" />
-        <select className="rounded border bg-background px-2 py-1 text-sm" value={side} onChange={(e) => setSide(e.target.value as typeof side)}>
+        <input\n          className="rounded border bg-background px-2 py-1 text-sm"\n          value={accountId}\n          onChange={(e) => setAccountId(e.target.value)}\n          placeholder="Account UUID"\n        \/>
+        <input\n          className="rounded border bg-background px-2 py-1 text-sm"\n          value={symbol}\n          onChange={(e) => setSymbol(e.target.value)}\n          placeholder="EURUSD"\n        \/>
+        <input\n          className="rounded border bg-background px-2 py-1 text-sm"\n          value={volume}\n          onChange={(e) => setVolume(e.target.value)}\n          inputMode="decimal"\n          placeholder="Volume"\n        \/>
+        <input\n          className="rounded border bg-background px-2 py-1 text-sm"\n          value={price}\n          onChange={(e) => setPrice(e.target.value)}\n          inputMode="decimal"\n          placeholder="Open price"\n        \/>
+        <select\n          className="rounded border bg-background px-2 py-1 text-sm"\n          value={side}\n          onChange={(e) => setSide(e.target.value as typeof side)}\n        >
           <option value="ORDER_TYPE_BUY">Buy diagnostic</option>
           <option value="ORDER_TYPE_SELL">Sell diagnostic</option>
         </select>
