@@ -63,6 +63,8 @@ export interface AccountPolicyVerdict {
   totalLossRemaining: number | null;
   consistencyScore: number | null;
   safetyBufferRemaining: number | null;
+  dailyProfitRemaining: number | null;
+  requiredTotalProfitForConsistency: number | null;
 }
 
 function finite(value: number | null): value is number {
@@ -83,6 +85,8 @@ export function evaluateAccountPolicy(
       totalLossRemaining: null,
       consistencyScore: null,
       safetyBufferRemaining: null,
+      dailyProfitRemaining: null,
+      requiredTotalProfitForConsistency: null,
     };
   }
 
@@ -97,6 +101,8 @@ export function evaluateAccountPolicy(
       totalLossRemaining: null,
       consistencyScore: null,
       safetyBufferRemaining: null,
+      dailyProfitRemaining: null,
+      requiredTotalProfitForConsistency: null,
     };
   }
 
@@ -130,7 +136,7 @@ export function evaluateAccountPolicy(
     }
   }
 
-  const consistencyScore =
+  const dailyProfitRemaining =\n    policy.dailyProfitObjective === null || !finite(state.todayNetPnl)\n      ? null\n      : Math.max(0, policy.dailyProfitObjective - Math.max(0, state.todayNetPnl));\n\n  const projectedLargestWinningDay =\n    policy.dailyProfitObjective === null\n      ? state.largestWinningDay\n      : finite(state.largestWinningDay)\n        ? Math.max(state.largestWinningDay, policy.dailyProfitObjective)\n        : policy.dailyProfitObjective;\n  const requiredTotalProfitForConsistency =\n    policy.consistencyPercent !== null && finite(projectedLargestWinningDay)\n      ? projectedLargestWinningDay / (policy.consistencyPercent / 100)\n      : null;\n\n  const consistencyScore =
     policy.consistencyPercent !== null &&
     finite(state.totalNetProfit) &&
     state.totalNetProfit > 0 &&
@@ -203,5 +209,7 @@ export function evaluateAccountPolicy(
     totalLossRemaining,
     consistencyScore,
     safetyBufferRemaining,
+    dailyProfitRemaining,
+    requiredTotalProfitForConsistency,
   };
 }
