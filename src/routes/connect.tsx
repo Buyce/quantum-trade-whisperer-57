@@ -4,6 +4,7 @@ import { Check, Copy, ExternalLink } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ABILITIES, AI_NEVER, type Access } from "@/lib/ai-tools/registry";
 import ptradesMark from "@/assets/ptrades-mark.png.asset.json";
 
 export const Route = createFileRoute("/connect")({
@@ -35,97 +36,13 @@ export const Route = createFileRoute("/connect")({
 
 const SERVER_SLUG = "p-trades-hub";
 
-/** [tool name, what it does, whether it can change anything] */
-const TOOL_ROWS: [string, string, "read" | "write"][] = [
-  [
-    "list_signals",
-    "Published scanner setups with entry, stop, targets, R:R and confidence. An empty list means only that nothing matched the requested filters and scope — never that the scanner found no valid setup.",
-    "read",
-  ],
-  ["get_scanner_status", "Scan engine health, last run, and your active filters.", "read"],
-  [
-    "get_market_status",
-    "Which FX sessions are open right now and per-instrument broker feed health.",
-    "read",
-  ],
-  [
-    "get_automatic_orders",
-    "Your own automatic-order activity: what the queue decided (queued, or refused with the engine's exact reason) and how each order ended at the broker. A resting order is never reported as a fill.",
-    "read",
-  ],
-  [
-    "get_risk_holds",
-    "Whether your own risk brakes are currently holding new automatic orders, which rule caused it and when it lifts. Holds stop new orders only — nothing already at the broker is touched — and an unreadable state reads as unknown, never as not held.",
-    "read",
-  ],
-  [
-    "get_my_settings",
-    "Your instruments, sessions, alert grade, daily cap, risk profile, automatic-order rules, gates and brakes.",
-    "read",
-  ],
-  [
-    "update_my_settings",
-    "Change those preferences. Values are clamped to safe bounds server-side, and anything that changes how much money can be at risk needs your explicit confirmation.",
-    "write",
-  ],
-  [
-    "calculate_position_size",
-    "Lot size, cash risk and an estimated margin requirement for a setup, using your saved equity and risk percent. Margin is an estimate from the contract specification and your leverage, not a broker quote.",
-    "read",
-  ],
-  [
-    "get_intelligence",
-    "In-sample regime replay summaries: hierarchically shrunk fill, TP1-if-filled and joint rates, sample sizes, reporting-gate status and descriptive feature associations. Not a forecast, expected return or live track record.",
-    "read",
-  ],
-  [
-    "get_shadow_comparison",
-    "Weekly Replay-V1 comparison of A+/A against B/C, with sample sizes and diagnostic uncertainty. In-sample replay only — not broker performance, prediction or a placed order.",
-    "read",
-  ],
-  ["log_trade_decision", "Record that you took or skipped a signal.", "write"],
-  [
-    "update_trade_outcome",
-    "Set the outcome and, with real entry/exit prices, get self-reported R values computed server-side (never broker verified). Agent-written prices are permanently stamped as agent-entered and attributed to the assistant.",
-    "write",
-  ],
-  [
-    "list_my_trades",
-    "Your self-reported journal entries, price-backed and price-missing, including who entered each price. Notes only — it can be empty even when you traded.",
-    "read",
-  ],
-  [
-    "list_my_accounts",
-    "Your connected broker accounts, demo and live: mode, broker, currency, broker-reported balance, equity and margin, trade permission and connection state.",
-    "read",
-  ],
-  [
-    "list_broker_trades",
-    "Your broker-confirmed trades: entry and exit prices and times, volume, costs and R against plan and actual risk. The authority on what actually happened, sortable by R for your best and worst trades.",
-    "read",
-  ],
-  [
-    "get_performance_summary",
-    "Your expectancy and R-multiple performance, over all time or a chosen date window.",
-    "read",
-  ],
-  [
-    "get_platform_benchmarks",
-    "How the platform as a whole is performing across every connected account: outcome rates and average R by grade and instrument, published setup counts, replay coverage and instrument stages. Aggregated only — no other account's balance, profit, position sizes or identity is ever included.",
-    "read",
-  ],
-
-  [
-    "describe_datasets",
-    "The catalogue of data sets available for analysis and model training: what one row means, where its numbers come from, which columns are always withheld and what the data must not be read as. No rows are returned.",
-    "read",
-  ],
-  [
-    "read_dataset",
-    "Paged reads of real recorded rows from one named data set over a UTC date range, oldest first. Owner-gated in the database, account-identifying columns withheld, and no write path of any kind. An empty page only means nothing was recorded in that window.",
-    "read",
-  ],
-];
+const ACCESS_LABEL: Record<Access, string> = {
+  read: "Read-only",
+  check: "Dry-run check",
+  journal: "Journal",
+  change: "Change · you approve",
+  cancel: "Cancel · you approve",
+};
 
 function useMcpUrl() {
   const [url, setUrl] = useState("");
@@ -255,37 +172,47 @@ function ConnectPage() {
 
         <section className="mt-10">
           <h2 className="text-lg font-semibold text-foreground">What your assistant can do</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            The same abilities work in ChatGPT, Claude, Claude Code, Gemini, any MCP app and the
+            P-Trades in-app assistant.
+          </p>
           <div className="mt-3 overflow-hidden rounded-md border border-border">
             <table className="w-full text-sm">
               <tbody className="divide-y divide-border">
-                {TOOL_ROWS.map(([tool, what, access]) => (
-                  <tr key={tool} className="bg-card align-top">
+                {ABILITIES.filter((a) => a.surfaces.includes("mcp")).map((a) => (
+                  <tr key={a.name} className="bg-card align-top">
                     <td className="num w-[42%] px-3 py-2 text-xs text-foreground sm:w-[34%] sm:text-sm">
-                      {tool}
+                      {a.name}
                     </td>
                     <td className="px-3 py-2 text-xs text-muted-foreground sm:text-sm">
                       <span
                         className={
-                          access === "read"
+                          a.access === "read"
                             ? "mr-2 inline-block rounded-sm border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground"
                             : "mr-2 inline-block rounded-sm border border-border bg-accent px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-accent-foreground"
                         }
                       >
-                        {access === "read" ? "Read-only" : "Writes"}
+                        {ACCESS_LABEL[a.access]}
                       </span>
-                      {what}
+                      {a.summary}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <p className="mt-3 text-xs text-muted-foreground">
-            Off-limits to assistants by design: webhook credentials, other users' data, admin
-            intelligence, and deleting your account or journal. Data-set reads are gated to the
-            account owner's own sign-in and strip account-identifying columns in the database itself
-            — there is no write path through them.
-          </p>
+          <div className="mt-3 rounded-md border border-border bg-card p-3">
+            <p className="text-sm font-medium text-foreground">What an AI can never do</p>
+            <ul className="mt-1 list-disc pl-5 text-xs text-muted-foreground">
+              {AI_NEVER.map((n) => (
+                <li key={n}>{n}</li>
+              ))}
+            </ul>
+            <p className="mt-2 text-xs text-muted-foreground">
+              When an outside AI proposes a change or a cancel, it gives you a P-Trades approval
+              link. Nothing happens until you open it and tap Approve (within 15 minutes).
+            </p>
+          </div>
         </section>
 
         <section className="mt-10 rounded-md border border-border bg-card p-4 sm:p-5">

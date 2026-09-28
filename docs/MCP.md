@@ -119,3 +119,9 @@ entries.
 
 `src/lib/mcp/__tests__/*` — including invariants that no empty `list_signals`
 result may make a Capital-Preservation claim.
+
+## v0.9.0 tools
+
+Reads: `get_risk_policy`, `list_review_items`, `list_resting_orders`, `get_cohort_policies`, `list_news_blackouts`.
+Check: `run_runtime_validation`, a nine-check dry run that never calls `/trade`.
+Proposals: `propose_risk_policy`, `propose_cohort_policy`, `propose_cancel_order`. Each one inserts a pending `ai_action_proposals` row and returns `approve_url` (`/approvals/<id>`). Nothing changes until the owner taps Approve. Proposals are single use and expire after 15 minutes. Approval runs the existing executors: `cancelDeliveryById`, the risk-policy upsert and the cohort-policy upsert. The shared catalogue lives in `src/lib/ai-tools/registry.ts`, and the in-app assistant uses the same bodies (`src/lib/ai-tools/bodies.ts`).

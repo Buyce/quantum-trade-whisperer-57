@@ -39,3 +39,12 @@ It can explain these steps, look up your accounts and tell you which step is mis
 
 ## Tests that guard this
 Runtime Validation's no-order guarantee is covered by `src/lib/validation/__tests__/runtime-validation.test.ts`; account policy limits by `src/lib/accounts/__tests__/policy.test.ts`.
+
+## What AI assistants can do (v0.9)
+
+The in-app assistant and outside AI apps (ChatGPT, Claude, Claude Code, Gemini, any MCP app) share one list of abilities, shown on the Connect page.
+
+- **Read:** your setups, accounts, trades, performance, risk policies, review items, waiting orders, automatic-trading rules and upcoming high-impact news.
+- **Check:** run a Runtime Validation (dry run, never trades).
+- **Propose (you approve):** a risk policy, an allow/reduce/block rule, or cancelling a waiting order. A proposal changes nothing. In P-Trades an Approve card appears. Outside AI apps give you an approval link. Either way it expires after 15 minutes and works once.
+- **Never:** place or modify orders, close positions, arm accounts, or see other users' data.

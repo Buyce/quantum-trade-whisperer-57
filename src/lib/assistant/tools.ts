@@ -24,6 +24,21 @@ import { runListMyAccounts } from "@/lib/mcp/tools/list-my-accounts";
 import { runGetPerformanceSummary } from "@/lib/mcp/tools/get-performance-summary";
 import { runGetPlatformBenchmarks } from "@/lib/mcp/tools/get-platform-benchmarks";
 import { searchPlatformDocs } from "@/lib/assistant/knowledge";
+import {
+  cancelProposalInput,
+  cohortProposalInput,
+  riskPolicyProposalInput,
+  envelope,
+  runGetCohortPolicies,
+  runGetRiskPolicy,
+  runListNewsBlackouts,
+  runListRestingOrders,
+  runListReviewItems,
+  runProposeCancelOrder,
+  runProposeCohortPolicy,
+  runProposeRiskPolicy,
+} from "@/lib/ai-tools/bodies";
+import { ABILITIES, AI_NEVER } from "@/lib/ai-tools/registry";
 
 /** The shared bodies return the MCP envelope; the model only needs the payload. */
 function unwrap(result: {
@@ -36,8 +51,116 @@ function unwrap(result: {
   return { message: first?.text ?? "", error: result.isError === true || undefined };
 }
 
+/** v0.9 tools shared with MCP (src/lib/mcp/v09.ts) via src/lib/ai-tools/bodies.ts. */
+function v09Tools(supabase: unknown, userId: string) {
+  return {
+    what_can_you_do: tool({
+      description:
+        "List everything the assistant can read, check, change (with approval) or cancel (with approval), and what it can never do. Use when the user asks what you can do.",
+      inputSchema: z.object({}),
+      execute: async () => ({
+        abilities: ABILITIES.filter((a) => a.surfaces.includes("in_app")).map((a) => ({
+          name: a.name,
+          access: a.access,
+          summary: a.summary,
+        })),
+        never: AI_NEVER,
+      }),
+    }),
+    get_risk_policy: tool({
+      description:
+        "Each of the user's connected accounts with its risk policy. policy null = Not set (automatic orders stay blocked).",
+      inputSchema: z.object({ account_id: z.string().nullable().optional() }),
+      execute: async (a) =>
+        unwrap(await runGetRiskPolicy(supabase, userId, { account_id: a.account_id ?? undefined })),
+    }),
+    list_review_items: tool({
+      description:
+        "Broker-vs-platform mismatches flagged by the scheduled reconciliation for the user's accounts. Nothing is auto-corrected.",
+      inputSchema: z.object({ include_resolved: z.boolean().nullable().optional() }),
+      execute: async (a) =>
+        unwrap(
+          await runListReviewItems(supabase, userId, {
+            include_resolved: a.include_resolved ?? undefined,
+          }),
+        ),
+    }),
+    list_resting_orders: tool({
+      description:
+        "The user's unfilled orders P-Trades placed that are still waiting at the broker (delivery ids for propose_cancel_order).",
+      inputSchema: z.object({}),
+      execute: async () => unwrap(await runListRestingOrders(supabase, userId)),
+    }),
+    get_cohort_policies: tool({
+      description: "The user's allow / reduce / block automatic-trading rules per instrument and direction.",
+      inputSchema: z.object({}),
+      execute: async () => unwrap(await runGetCohortPolicies(supabase, userId)),
+    }),
+    list_news_blackouts: tool({
+      description: "Upcoming high-impact economic events (default next 48h), optionally for one instrument.",
+      inputSchema: z.object({
+        hours: z.number().int().nullable().optional(),
+        instrument: z.string().nullable().optional(),
+      }),
+      execute: async (a) =>
+        unwrap(
+          await runListNewsBlackouts(supabase, {
+            hours: a.hours ?? undefined,
+            instrument: a.instrument ?? undefined,
+          }),
+        ),
+    }),
+    run_runtime_validation: tool({
+      description:
+        "Run the nine-check Runtime Validation (dry run, never trades) on one of the user's own accounts. Needs account_id (from list_my_accounts), symbol, direction and stop_distance in price units.",
+      inputSchema: z.object({
+        account_id: z.string(),
+        symbol: z.string(),
+        direction: z.enum(["long", "short"]),
+        stop_distance: z.number(),
+      }),
+      execute: async (a) => {
+        const db = supabase as { from: (t: string) => any }; // eslint-disable-line @typescript-eslint/no-explicit-any
+        const { data } = await db
+          .from("connected_trading_accounts")
+          .select("id")
+          .eq("id", a.account_id)
+          .eq("user_id", userId)
+          .maybeSingle();
+        if (!data) return unwrap(envelope({ error: "Account not found among your accounts." }, true));
+        const { runRuntimeValidation } = await import("@/lib/validation/runtime.server");
+        return runRuntimeValidation(db as never, {
+          accountId: a.account_id,
+          symbol: a.symbol,
+          direction: a.direction,
+          stopDistance: a.stop_distance,
+        });
+      },
+    }),
+    propose_risk_policy: tool({
+      description:
+        "Propose a risk policy for one of the user's accounts. Creates a pending proposal the user approves in a card; nothing is saved before that.",
+      inputSchema: riskPolicyProposalInput,
+      execute: async (a) => unwrap(await runProposeRiskPolicy(supabase, userId, a, "in_app")),
+    }),
+    propose_cohort_policy: tool({
+      description:
+        "Propose allow / reduce (25, 50 or 75% risk) / block for automatic orders on one instrument and direction. Pending until the user approves.",
+      inputSchema: cohortProposalInput,
+      execute: async (a) => unwrap(await runProposeCohortPolicy(supabase, userId, a, "in_app")),
+    }),
+    propose_cancel_order: tool({
+      description:
+        "Propose cancelling one of the user's WAITING orders (delivery_id from list_resting_orders). Nothing is cancelled until the user taps Approve.",
+      inputSchema: cancelProposalInput,
+      execute: async (a) => unwrap(await runProposeCancelOrder(supabase, userId, a, "in_app")),
+    }),
+  };
+}
+
 export function buildAssistantTools(supabase: unknown, userId: string) {
   return {
+    ...v09Tools(supabase, userId),
     list_signals: tool({
       description:
         "List trade setups published by the live scanner. scope='all_published' (default) returns retained published rows; scope='my_scanner' returns rows currently eligible under this user's feed settings, retention window and daily cap. An empty result means nothing matched the filters — it is NOT evidence about the scanner's cycle.",

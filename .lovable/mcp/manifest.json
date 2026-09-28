@@ -12,7 +12,7 @@
   "mcp": {
     "server": {
       "name": "p-trades-hub",
-      "version": "0.8.0",
+      "version": "0.9.0",
       "title": "P-Trades Hub"
     },
     "tools": [
@@ -856,6 +856,302 @@
             "dataset",
             "since",
             "until"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_risk_policy",
+        "title": "Get my account risk policies",
+        "description": "Each of the user's connected accounts with its risk policy (normal and hard-cap risk per trade, daily/total loss limits, trades per day). policy null = Not set, which keeps automatic orders blocked on that account.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "account_id": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_review_items",
+        "title": "List reconciliation items to review",
+        "description": "Mismatches the scheduled reconciliation found between the broker and P-Trades records (missing orders, untracked positions, balance drift). Nothing is corrected automatically.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "include_resolved": {
+              "type": "boolean"
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_resting_orders",
+        "title": "List my waiting orders",
+        "description": "The user's unfilled orders that P-Trades placed and that are still waiting at the broker. Waiting is not filled.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_cohort_policies",
+        "title": "Get my automatic-trading rules",
+        "description": "The user's per instrument and direction automatic-trading rules (allow, reduce to 25/50/75% risk, block). Unlisted = allow.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_news_blackouts",
+        "title": "List upcoming high-impact news",
+        "description": "Upcoming high-impact economic events from the ingested calendar (default next 48h, max 168h), optionally for one instrument.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "hours": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "instrument": {
+              "type": "string"
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "run_runtime_validation",
+        "title": "Run a Runtime Validation (dry run)",
+        "description": "Runs the nine-check Runtime Validation on one of the user's own accounts: connection, fresh broker facts, permissions, risk policy, symbol mapping, quote and spec, sizing, margin and reconciliation. Strictly non-trading — it never calls /trade, never arms and never edits. The first failing check names the exact reason.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": false,
+          "openWorldHint": true
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "account_id": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "symbol": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 20
+            },
+            "direction": {
+              "type": "string",
+              "enum": [
+                "long",
+                "short"
+              ]
+            },
+            "stop_distance": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "Stop distance in price units, e.g. 0.0020."
+            }
+          },
+          "required": [
+            "account_id",
+            "symbol",
+            "direction",
+            "stop_distance"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "propose_risk_policy",
+        "title": "Propose an account risk policy",
+        "description": "Creates a pending risk-policy proposal for one of the user's accounts. Saved only after the user approves at approve_url.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "account_id": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "starting_balance": {
+              "type": "number"
+            },
+            "operating_risk_per_trade_percent": {
+              "type": "number"
+            },
+            "hard_risk_per_trade_percent": {
+              "type": "number"
+            },
+            "max_daily_loss_percent": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "max_total_loss_percent": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "trailing_drawdown": {
+              "type": "boolean"
+            },
+            "max_trades_per_day": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "account_id",
+            "starting_balance",
+            "operating_risk_per_trade_percent",
+            "hard_risk_per_trade_percent"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "propose_cohort_policy",
+        "title": "Propose an automatic-trading rule",
+        "description": "Creates a pending allow/reduce/block proposal for one instrument and direction of automatic orders. reduce needs risk_share_percent 25, 50 or 75. Saved only after the user approves.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "instrument": {
+              "type": "string"
+            },
+            "direction": {
+              "type": "string",
+              "enum": [
+                "long",
+                "short"
+              ]
+            },
+            "policy": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "reduce",
+                "block"
+              ]
+            },
+            "risk_share_percent": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "instrument",
+            "direction",
+            "policy"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "propose_cancel_order",
+        "title": "Propose cancelling a waiting order",
+        "description": "Creates a pending cancel proposal for one of the user's own WAITING orders (from list_resting_orders). Nothing is cancelled until the user opens approve_url and taps Approve within 15 minutes. Cannot place, change or close anything.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "delivery_id": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "reason": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "delivery_id"
           ]
         },
         "outputSchema": null

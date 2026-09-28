@@ -341,6 +341,48 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_action_proposals: {
+        Row: {
+          created_at: string
+          decided_at: string | null
+          expires_at: string
+          id: string
+          kind: string
+          payload: Json
+          result: Json | null
+          source: string
+          status: string
+          summary: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          decided_at?: string | null
+          expires_at?: string
+          id?: string
+          kind: string
+          payload: Json
+          result?: Json | null
+          source?: string
+          status?: string
+          summary: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          decided_at?: string | null
+          expires_at?: string
+          id?: string
+          kind?: string
+          payload?: Json
+          result?: Json | null
+          source?: string
+          status?: string
+          summary?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       assistant_messages: {
         Row: {
           created_at: string
