@@ -36,6 +36,7 @@ import { GuideDetail } from "@/components/GuideMode";
 import { RiskPolicyForm } from "@/components/accounts/RiskPolicyForm";
 import { RuntimeValidationPanel } from "@/components/admin/RuntimeValidationPanel";
 import { AiSessionsCard } from "@/components/accounts/AiSessionsCard";
+import { DirectMt5BridgeCard } from "@/components/accounts/DirectMt5BridgeCard";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -92,7 +93,7 @@ export const Route = createFileRoute("/_authenticated/accounts")({
       {
         name: "description",
         content:
-          "Connect your MetaTrader account to P-Trades Hub in observe mode. Your broker reports the account facts; P-Trades never stores your password.",
+          "Connect MetaTrader to P-Trades through MetaApi or the direct MT5 bridge. Broker facts remain broker-reported and P-Trades never stores your MT5 password.",
       },
       { property: "og:title", content: "Broker Accounts — P-Trades Hub" },
       {
@@ -280,6 +281,8 @@ function AccountsPage() {
           <h1 className="text-lg font-semibold tracking-tight sm:text-xl">Broker Accounts</h1>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{capabilityNote(list)}</p>
         </header>
+
+        <DirectMt5BridgeCard />
 
         <div className="mb-4 rounded-sm border border-border bg-surface p-3 text-xs text-muted-foreground">
           <div className="flex items-center gap-2 font-medium text-foreground">
