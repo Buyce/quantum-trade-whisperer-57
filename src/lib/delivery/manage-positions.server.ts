@@ -162,15 +162,44 @@ export async function manageDemoPositions(
   const states = new Map<string, StateRow>();
   for (const row of (stateRows ?? []) as StateRow[]) states.set(row.broker_position_id, row);
 
+  // Trailing is an owner opt-in and is reduce-only. Read it before deciding a
+  // position is "settled": otherwise a position whose break-even move was
+  // confirmed would disappear from this pass before the trail could ever run.
+  const userIds = Array.from(new Set(deliveries.map((d) => d.user_id)));
+  const { data: trailRows } = await db
+    .from("scanner_settings")
+    .select("user_id, auto_exit_trail_runner")
+    .in("user_id", userIds);
+  const trailEnabled = new Map<string, boolean>();
+  for (const row of (trailRows ?? []) as Array<{
+    user_id: string;
+    auto_exit_trail_runner: boolean | null;
+  }>) {
+    trailEnabled.set(row.user_id, row.auto_exit_trail_runner === true);
+  }
+
   const done = (v: string | null | undefined) =>
     v === "confirmed" || v === "refused" || v === "unknown" || v === "not_applicable";
 
   const settled = (delivery: DeliveryRow, s: StateRow | undefined): boolean => {
     if (!s) return false;
     if (!done(s.partial_state) || !done(s.stop_move_state)) return false;
-    if (delivery.execution_policy !== "ladder_tp1_tp2_runner_tp3") return true;
-    // A laddered position stays open for management while a later step can still
-    // act; a refused or unknown verdict settles that step for good.
+
+    // A confirmed first partial + break-even is normally terminal for the
+    // two-step policy. With trailing enabled it remains under management until
+    // the broker position itself closes, so the stop can ratchet behind new best
+    // prices. Disabling the option makes it terminal again on the next pass.
+    if (delivery.execution_policy !== "ladder_tp1_tp2_runner_tp3") {
+      return trailEnabled.get(delivery.user_id) !== true;
+    }
+
+    // A laddered position stays open while later steps can act. When trailing is
+    // enabled it remains open even after TP2 + the TP1 stop lift, allowing the
+    // final runner to trail. Without trailing, the historical terminal rule is
+    // preserved.
+    if (trailEnabled.get(delivery.user_id) === true && s.runner_stop_state === "confirmed") {
+      return false;
+    }
     return (
       s.partial_state !== "confirmed" || (done(s.second_partial_state) && done(s.runner_stop_state))
     );
