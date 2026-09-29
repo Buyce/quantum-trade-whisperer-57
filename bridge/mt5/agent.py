@@ -221,7 +221,15 @@ def main() -> None:
     interval = max(2, int(os.getenv("P_TRADES_BRIDGE_INTERVAL_SECONDS", "5")))
 
     require_terminal()
-    sequence = next_sequence(url, token, bridge_id) if url and token else 0
+    sequence = 0
+    if url and token:
+        while True:
+            try:
+                sequence = next_sequence(url, token, bridge_id)
+                break
+            except BridgeTransientError as exc:
+                print(f"bridge handshake degraded: {exc}")
+                time.sleep(interval)
     pending: dict[str, Any] | None = None
     try:
         while True:
