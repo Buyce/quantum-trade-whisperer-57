@@ -18,8 +18,7 @@ type PairingSecret = {
   intent: "demo" | "live";
 };
 
-const recent = (iso: string | null) =>
-  iso ? Date.now() - Date.parse(iso) <= 30_000 : false;
+const recent = (iso: string | null) => (iso ? Date.now() - Date.parse(iso) <= 30_000 : false);
 
 export function DirectMt5BridgeCard() {
   const client = useQueryClient();
@@ -60,7 +59,7 @@ export function DirectMt5BridgeCard() {
   const ingestUrl =
     secret && typeof window !== "undefined"
       ? `${window.location.origin}${secret.ingestPath}`
-      : secret?.ingestPath ?? "";
+      : (secret?.ingestPath ?? "");
 
   return (
     <section className="mb-5 rounded-sm border border-border bg-surface p-4">
@@ -135,7 +134,11 @@ export function DirectMt5BridgeCard() {
             >
               <div>
                 <p className="flex items-center gap-2 font-medium text-foreground">
-                  {online ? <ShieldCheck className="size-4 text-success" /> : <Cable className="size-4" />}
+                  {online ? (
+                    <ShieldCheck className="size-4 text-success" />
+                  ) : (
+                    <Cable className="size-4" />
+                  )}
                   {bridge.brokerName ?? "Direct MT5"} · {bridge.intent.toUpperCase()}
                 </p>
                 <p className="mt-1 text-muted-foreground">
@@ -143,7 +146,7 @@ export function DirectMt5BridgeCard() {
                     ? "Connected — broker snapshots are arriving."
                     : bridge.status === "awaiting_first_snapshot"
                       ? "Waiting for the first MT5 snapshot."
-                      : bridge.statusReason ?? "Bridge is not currently online."}
+                      : (bridge.statusReason ?? "Bridge is not currently online.")}
                   {bridge.brokerLoginMasked ? ` · ${bridge.brokerLoginMasked}` : ""}
                   {bridge.brokerServer ? ` · ${bridge.brokerServer}` : ""}
                 </p>
