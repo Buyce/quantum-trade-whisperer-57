@@ -38,6 +38,33 @@ function bearer(request: Request): string | null {
 export const Route = createFileRoute("/api/public/mt5-bridge/ingest")({
   server: {
     handlers: {
+      GET: async ({ request }) => {
+        const token = bearer(request);
+        const bridgeId = request.headers.get("x-p-trades-bridge-id")?.trim();
+        if (!token || !bridgeId) {
+          return json({ ok: false, error: "Bridge authentication required." }, 401);
+        }
+
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const db = supabaseAdmin as unknown as Db;
+        const { data, error } = await db
+          .from("mt5_bridge_connections" as never)
+          .select("last_sequence, status")
+          .eq("token_hash", hashToken(token))
+          .eq("bridge_id", bridgeId)
+          .is("revoked_at", null)
+          .maybeSingle();
+        if (error || !data) {
+          return json({ ok: false, error: "Bridge authentication failed." }, 401);
+        }
+        const row = data as unknown as { last_sequence: number; status: string };
+        return json({
+          ok: true,
+          protocolVersion: MT5_BRIDGE_PROTOCOL_VERSION,
+          nextSequence: Number(row.last_sequence) + 1,
+          status: row.status,
+        });
+      },
       POST: async ({ request }) => {
         const token = bearer(request);
         if (!token) return json({ ok: false, error: "Bridge authentication required." }, 401);
