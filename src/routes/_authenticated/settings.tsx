@@ -1095,9 +1095,11 @@ function SettingsPage() {
                     />
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Off by default. When on, the final remainder&apos;s stop is kept one risk
-                    distance behind the best price the broker has printed, and is never moved
-                    backwards.
+                    Off by default. When on, P-Trades first protects the runner at break-even.
+                    For the half-runner policy, trailing can then begin as price advances. For the
+                    laddered policy, trailing begins after the second target and the stop lift.
+                    The stop stays one original risk distance behind the best broker price and can
+                    only tighten — never widen.
                   </p>
                 </>
               ) : (
