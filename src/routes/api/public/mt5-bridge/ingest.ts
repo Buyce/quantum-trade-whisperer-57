@@ -35,9 +35,7 @@ function bearer(request: Request): string | null {
   return /^ptb_[A-Za-z0-9_-]{40,80}$/.test(token) ? token : null;
 }
 
-// The committed route tree is generated during the Vite build. The cast lets
-// pre-build tsc see a brand-new file route before that generator has run.
-export const Route = createFileRoute("/api/public/mt5-bridge/ingest" as never)({
+export const Route = createFileRoute("/api/public/mt5-bridge/ingest")({
   server: {
     handlers: {
       GET: async ({ request }) => {
