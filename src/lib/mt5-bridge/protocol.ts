@@ -33,14 +33,30 @@ export interface Mt5BridgeHealth {
   reason: string | null;
 }
 
-export function validateMt5BridgeSnapshot(value: Mt5BridgeSnapshot): string[] {
+export function validateMt5BridgeSnapshot(value: unknown): string[] {
   const errors: string[] = [];
-  if (value.protocolVersion !== MT5_BRIDGE_PROTOCOL_VERSION) errors.push("protocol_version");
-  if (!value.bridgeId.trim()) errors.push("bridge_id");
-  if (!Number.isSafeInteger(value.sequence) || value.sequence < 0) errors.push("sequence");
-  if (!Number.isFinite(Date.parse(value.observedAt))) errors.push("observed_at");
-  if (value.account.provider !== "mt5_direct") errors.push("provider");
-  if (value.account.platform !== "mt5") errors.push("platform");
-  if (!Number.isFinite(Date.parse(value.account.observedAt))) errors.push("account_observed_at");
+  if (!value || typeof value !== "object" || Array.isArray(value)) return ["snapshot"];
+  const row = value as Partial<Mt5BridgeSnapshot>;
+  if (row.protocolVersion !== MT5_BRIDGE_PROTOCOL_VERSION) errors.push("protocol_version");
+  if (typeof row.bridgeId !== "string" || !row.bridgeId.trim()) errors.push("bridge_id");
+  if (!Number.isSafeInteger(row.sequence) || (row.sequence ?? -1) < 0) errors.push("sequence");
+  if (typeof row.observedAt !== "string" || !Number.isFinite(Date.parse(row.observedAt))) {
+    errors.push("observed_at");
+  }
+  if (!row.terminal || typeof row.terminal !== "object") errors.push("terminal");
+  if (!row.account || typeof row.account !== "object") {
+    errors.push("account");
+  } else {
+    if (row.account.provider !== "mt5_direct") errors.push("provider");
+    if (row.account.platform !== "mt5") errors.push("platform");
+    if (
+      typeof row.account.observedAt !== "string" ||
+      !Number.isFinite(Date.parse(row.account.observedAt))
+    ) {
+      errors.push("account_observed_at");
+    }
+  }
+  if (!Array.isArray(row.positions)) errors.push("positions");
+  if (!Array.isArray(row.orders)) errors.push("orders");
   return errors;
 }
