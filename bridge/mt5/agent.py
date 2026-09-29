@@ -197,21 +197,26 @@ def main() -> None:
 
     require_terminal()
     sequence = 0
+    pending: dict[str, Any] | None = None
     try:
         while True:
             try:
-                payload = snapshot(bridge_id, sequence)
+                # Keep the exact payload until the cloud acknowledges it. If the
+                # response is lost after commit, retrying identical JSON at the
+                # same sequence is idempotent server-side.
+                if pending is None:
+                    pending = snapshot(bridge_id, sequence)
                 if url and token:
-                    post_snapshot(url, token, payload)
-                    print(f"snapshot {sequence} accepted at {payload['observedAt']}")
+                    post_snapshot(url, token, pending)
+                    print(f"snapshot {sequence} accepted at {pending['observedAt']}")
                 else:
                     # Diagnostic mode: no cloud transport, no trading.
-                    print(json.dumps(payload, separators=(",", ":")))
+                    print(json.dumps(pending, separators=(",", ":")))
                 sequence += 1
+                pending = None
             except BridgeFatalError:
                 raise
             except (BridgeTransientError, RuntimeError) as exc:
-                # Preserve sequence: only an accepted snapshot advances it.
                 print(f"bridge degraded: {exc}")
                 mt5.shutdown()
                 time.sleep(interval)
