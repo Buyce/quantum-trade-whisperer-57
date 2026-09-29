@@ -72,20 +72,23 @@ The TypeScript side adds:
 8. No provider failover may submit after an ambiguous result. P-Trades must
    reconcile broker orders/positions first.
 
-## Required Phase 2 before cloud use
+## Phase 2 — connection-ready pairing and ingestion
 
-Implement the authenticated P-Trades bridge registration/ingest path:
+The authenticated cloud path is implemented:
 
-- generate one-time pairing token;
-- store only its hash;
-- bind bridge id to one owned connected account;
-- ingest versioned snapshots;
-- enforce sequence monotonicity and freshness;
-- record last-seen/health;
-- expose direct-MT5 account facts to Runtime Validation.
+- the signed-in owner creates a demo/live pairing from Broker Accounts;
+- a cryptographically random bridge id + one-time token are returned;
+- only the SHA-256 token digest is stored;
+- the Windows/VPS agent performs an authenticated resume handshake;
+- snapshots are accepted only for the paired bridge id and account intent;
+- sequence numbers are monotonic, with exact-payload idempotency for lost HTTP responses;
+- timestamps outside the freshness window are refused;
+- last-seen, broker mode, masked login, broker/server identity and the latest snapshot are stored;
+- pairings are owner-revocable and revocation destroys the stored token digest;
+- the UI polls connection health and reports whether snapshots are arriving.
 
-Until that server-side pairing exists, `P_TRADES_BRIDGE_INGEST_URL` should be
-left unset and the agent is diagnostic/read-only.
+This makes the bridge ready to connect for **observation**. It still has no
+`order_send` capability and is not yet an execution provider.
 
 ## Required Phase 3 before demo execution
 
@@ -132,3 +135,41 @@ A direct bridge and MetaApi may coexist, but only one provider may own an
 execution intent. If the active provider returns an ambiguous outcome, another
 provider cannot retry the trade until broker reconciliation proves no order or
 position exists.
+
+
+## Provenance
+
+Direct-MT5 account, terminal, position and active-order facts come from the
+official MetaTrader5 Python integration attached to the owner's running MT5
+terminal. P-Trades stamps them as `mt5_direct` broker observations with bridge
+and broker observation times. The pairing intent is user configuration and is
+never substituted for broker-confirmed account mode.
+
+## Failure behaviour
+
+Missing/invalid tokens, revoked pairings, stale/replayed sequences, stale clocks,
+protocol mismatches and demo/live contradictions fail closed. Transient network
+or terminal failures leave the bridge degraded and retry the same unacknowledged
+snapshot rather than inventing success or advancing sequence. A bridge restart
+handshakes for the next server sequence before resuming.
+
+## Non-guarantees
+
+A healthy bridge does not mean an account is armed, Runtime Validation has
+passed, margin is sufficient, a strategy is eligible, or any order can be sent.
+Phase 2 is observation only. It also does not make a cloud Worker capable of
+using Windows-local MT5 IPC directly; the agent must keep running beside MT5.
+
+## Implementation
+
+`bridge/mt5/agent.py`, `bridge/mt5/setup.ps1`,
+`src/lib/broker-gateway/types.ts`, `src/lib/mt5-bridge/*`,
+`src/routes/api/public/mt5-bridge/ingest.ts`,
+`src/components/accounts/DirectMt5BridgeCard.tsx`, and
+`supabase/migrations/20260930080000_direct_mt5_bridge_pairing.sql`.
+
+## Tests
+
+`src/lib/mt5-bridge/__tests__/protocol.test.ts` protects protocol/provider and
+sequence invariants. Repository documentation-contract, database migration,
+typecheck, lint and build suites remain blocking in CI.
