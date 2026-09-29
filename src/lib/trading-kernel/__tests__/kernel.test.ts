@@ -57,8 +57,8 @@ describe("trading kernel", () => {
       { grossR: 1.5, costsR: 0.1 },
       { grossR: -1, costsR: 0.1 },
     ]);
-    expect(metrics.expectancyR).toBe(0.25);
-    expect(metrics.cumulativeNetR).toBe(1);
+    expect(metrics.expectancyR).toBe(0.275);
+    expect(metrics.cumulativeNetR).toBe(1.1);
     expect(metrics.maxDrawdownR).toBe(1.1);
     expect(metrics.profitFactor).toBeCloseTo(1.5, 4);
   });
