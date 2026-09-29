@@ -27,8 +27,8 @@ function ApprovalPage() {
     <div className="mx-auto max-w-lg space-y-4 p-4">
       <h1 className="text-xl font-semibold">Your AI assistant asked for approval</h1>
       <p className="text-sm text-muted-foreground">
-        An assistant (in P-Trades, ChatGPT, Claude, Gemini or another AI app) proposed this. It
-        only happens if you tap Approve.
+        An assistant (in P-Trades, ChatGPT, Claude, Gemini or another AI app) proposed this. It only
+        happens if you tap Approve.
       </p>
       <ProposalCard id={id} />
       <Link to="/accounts" className="text-sm text-primary underline">

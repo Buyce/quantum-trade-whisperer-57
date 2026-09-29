@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { grantAllows, protectionOk, scaleLots, type Grant } from "../trading";
-import { runArmAccount, runClosePosition, runPlaceOrder, type TradingDeps } from "../trading.server";
+import {
+  runArmAccount,
+  runClosePosition,
+  runPlaceOrder,
+  type TradingDeps,
+} from "../trading.server";
 
 const NOW = Date.parse("2026-09-28T10:00:00Z");
 const ACC = "11111111-1111-4111-8111-111111111111";
@@ -21,12 +26,29 @@ const grant = (over: Partial<Grant> = {}): Grant => ({
 });
 
 /** Minimal chainable fake of the admin client. */
-function fakeAdmin(opts: { grant: Grant | null; account: Record<string, unknown>; consumed?: boolean }) {
+function fakeAdmin(opts: {
+  grant: Grant | null;
+  account: Record<string, unknown>;
+  consumed?: boolean;
+}) {
   const inserted: unknown[] = [];
   const builder = (table: string) => {
     const q: Record<string, unknown> = {};
     const chain = () => q;
-    for (const m of ["select", "eq", "is", "gt", "gte", "lte", "in", "order", "limit", "contains", "update"]) q[m] = chain;
+    for (const m of [
+      "select",
+      "eq",
+      "is",
+      "gt",
+      "gte",
+      "lte",
+      "in",
+      "order",
+      "limit",
+      "contains",
+      "update",
+    ])
+      q[m] = chain;
     q["insert"] = (row: unknown) => {
       inserted.push({ table, row });
       return q;
@@ -64,14 +86,30 @@ const demoAccount = {
 };
 
 function deps(admin: unknown, over: Partial<TradingDeps> = {}): TradingDeps {
-  const verdict = { outcome: "accepted" as const, numericCode: 10009, stringCode: null, message: "ok", orderId: "o1", positionId: null, safeToResubmit: false };
+  const verdict = {
+    outcome: "accepted" as const,
+    numericCode: 10009,
+    stringCode: null,
+    message: "ok",
+    orderId: "o1",
+    positionId: null,
+    safeToResubmit: false,
+  };
   return {
     admin: async () => admin,
-    runValidation: vi.fn(async () => ({ passed: true, lots: 1, risk_percent: 1, broker_symbol: "EURUSD", gates: [] })),
+    runValidation: vi.fn(async () => ({
+      passed: true,
+      lots: 1,
+      risk_percent: 1,
+      broker_symbol: "EURUSD",
+      gates: [],
+    })),
     resolveBrokerSymbol: async () => "EURUSD",
     quote: async () => ({ bid: 1.1, ask: 1.1002 }),
     spec: async () => ({ lotStep: 0.01, minLot: 0.01 }),
-    positions: async () => [{ id: "p1", type: "POSITION_TYPE_BUY", volume: 0.5, currentPrice: 1.1 }],
+    positions: async () => [
+      { id: "p1", type: "POSITION_TYPE_BUY", volume: 0.5, currentPrice: 1.1 },
+    ],
     orders: async () => [],
     submitMarket: vi.fn(async () => verdict),
     submitPending: vi.fn(async () => verdict),
@@ -85,11 +123,24 @@ function deps(admin: unknown, over: Partial<TradingDeps> = {}): TradingDeps {
   };
 }
 
-const order = { account_id: ACC, instrument: "EURUSD", direction: "long", order_type: "market", stop_loss: 1.098, take_profit: 1.105 };
+const order = {
+  account_id: ACC,
+  instrument: "EURUSD",
+  direction: "long",
+  order_type: "market",
+  stop_loss: 1.098,
+  take_profit: 1.105,
+};
 
 describe("AI trading sessions", () => {
   it("[UNIT] refuses without a grant, wrong client, expired, revoked, wrong account, cap, live", () => {
-    const q = { action: "place" as const, accountId: ACC, isLive: false, clientId: "chatgpt", now: NOW };
+    const q = {
+      action: "place" as const,
+      accountId: ACC,
+      isLive: false,
+      clientId: "chatgpt",
+      now: NOW,
+    };
     expect(grantAllows(null, q).ok).toBe(false);
     expect(grantAllows(grant(), { ...q, clientId: "claude" }).ok).toBe(false);
     expect(grantAllows(grant({ expires_at: new Date(NOW - 1).toISOString() }), q).ok).toBe(false);
@@ -121,16 +172,26 @@ describe("AI trading sessions", () => {
     const d = deps(fakeAdmin({ grant: grant(), account: demoAccount }));
     const r = await runPlaceOrder("u1", "chatgpt", { ...order, volume: 50 }, d);
     expect(r.isError).toBeUndefined();
-    const sent = (d.submitMarket as ReturnType<typeof vi.fn>).mock.calls[0]?.[2] as { volume: number };
+    const sent = (d.submitMarket as ReturnType<typeof vi.fn>).mock.calls[0]?.[2] as {
+      volume: number;
+    };
     expect(sent.volume).toBe(0.5); // 1 lot at 1% policy, capped to 0.5% session risk
   });
 
   it("[UNIT] a failed safety check or missing stop refuses the order", async () => {
     const d = deps(fakeAdmin({ grant: grant(), account: demoAccount }), {
-      runValidation: vi.fn(async () => ({ passed: false, lots: null, risk_percent: null, broker_symbol: null, gates: [{ gate: "margin", status: "FAIL", reason: "no margin" }] })),
+      runValidation: vi.fn(async () => ({
+        passed: false,
+        lots: null,
+        risk_percent: null,
+        broker_symbol: null,
+        gates: [{ gate: "margin", status: "FAIL", reason: "no margin" }],
+      })),
     });
     expect((await runPlaceOrder("u1", "chatgpt", order, d)).isError).toBe(true);
-    expect((await runPlaceOrder("u1", "chatgpt", { ...order, stop_loss: undefined }, d)).isError).toBe(true);
+    expect(
+      (await runPlaceOrder("u1", "chatgpt", { ...order, stop_loss: undefined }, d)).isError,
+    ).toBe(true);
     expect(d.submitMarket).not.toHaveBeenCalled();
   });
 
@@ -145,13 +206,17 @@ describe("AI trading sessions", () => {
     const stopped = { ...demoAccount, emergency_stop_at: new Date(NOW).toISOString() };
     const d = deps(fakeAdmin({ grant: grant(), account: stopped }));
     expect((await runPlaceOrder("u1", "chatgpt", order, d)).isError).toBe(true);
-    expect((await runClosePosition("u1", "chatgpt", { account_id: ACC, position_id: "p1" }, d)).isError).toBeUndefined();
+    expect(
+      (await runClosePosition("u1", "chatgpt", { account_id: ACC, position_id: "p1" }, d)).isError,
+    ).toBeUndefined();
     expect(d.closeFull).toHaveBeenCalled();
   });
 
   it("[UNIT] live auto can never be armed by an AI", async () => {
     const d = deps(fakeAdmin({ grant: grant(), account: demoAccount }));
-    expect((await runArmAccount("u1", "chatgpt", { account_id: ACC, mode: "live_auto" }, d)).isError).toBe(true);
+    expect(
+      (await runArmAccount("u1", "chatgpt", { account_id: ACC, mode: "live_auto" }, d)).isError,
+    ).toBe(true);
     expect(d.arm).not.toHaveBeenCalled();
   });
 });

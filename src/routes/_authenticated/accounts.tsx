@@ -957,9 +957,7 @@ function AccountCard({
         </div>
       ) : null}
 
-      {!account.disconnectedAt ? (
-        <RiskPolicyForm account={account} onSaved={onChanged} />
-      ) : null}
+      {!account.disconnectedAt ? <RiskPolicyForm account={account} onSaved={onChanged} /> : null}
 
       {account.symbols.length > 0 ? (
         <div className="border-t border-border p-3 text-xs">

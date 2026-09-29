@@ -82,7 +82,9 @@ export const listNewsBlackouts = defineTool({
   inputSchema: { hours: z.number().int().optional(), instrument: z.string().optional() },
   annotations: ro,
   handler: async (input, ctx) =>
-    withUser(ctx, (db) => runListNewsBlackouts(db, input as { hours?: number; instrument?: string })),
+    withUser(ctx, (db) =>
+      runListNewsBlackouts(db, input as { hours?: number; instrument?: string }),
+    ),
 });
 
 export const runRuntimeValidationTool = defineTool({
@@ -99,7 +101,12 @@ export const runRuntimeValidationTool = defineTool({
   annotations: { readOnlyHint: true, idempotentHint: false, openWorldHint: true },
   handler: async (input, ctx) =>
     withUser(ctx, async (db, uid) => {
-      const i = input as { account_id: string; symbol: string; direction: "long" | "short"; stop_distance: number };
+      const i = input as {
+        account_id: string;
+        symbol: string;
+        direction: "long" | "short";
+        stop_distance: number;
+      };
       const { data } = await db
         .from("connected_trading_accounts")
         .select("id")

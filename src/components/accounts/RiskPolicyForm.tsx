@@ -166,8 +166,8 @@ export function RiskPolicyForm({
             Total loss limit trails your highest balance
           </label>
           <p className="text-muted-foreground">
-            Blank fields mean no limit. Every order is re-checked against these limits right
-            before it is sent.
+            Blank fields mean no limit. Every order is re-checked against these limits right before
+            it is sent.
           </p>
           {error ? <p className="text-destructive">{error}</p> : null}
           <Button size="sm" onClick={submit} disabled={mutation.isPending}>

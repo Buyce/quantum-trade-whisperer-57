@@ -51,7 +51,10 @@ function fakeDb(opts: { discrepancies?: { severity: string }[] } = {}) {
         order: chain,
         maybeSingle: async () => ({ data: rows[table] ?? null, error: null }),
         then: (res: (v: unknown) => void) =>
-          res({ data: table === "reconciliation_discrepancies" ? (opts.discrepancies ?? []) : [], error: null }),
+          res({
+            data: table === "reconciliation_discrepancies" ? (opts.discrepancies ?? []) : [],
+            error: null,
+          }),
         insert: () => {
           writes.push(table);
           return q;
@@ -76,31 +79,58 @@ function fakeDb(opts: { discrepancies?: { severity: string }[] } = {}) {
   return { db: db as never, writes };
 }
 
-function deps(over: Partial<RuntimeValidationDeps> = {}): RuntimeValidationDeps & { calls: string[] } {
+function deps(
+  over: Partial<RuntimeValidationDeps> = {},
+): RuntimeValidationDeps & { calls: string[] } {
   const calls: string[] = [];
   const d: RuntimeValidationDeps = {
     now: () => NOW,
     fetchAccountFacts: async () => {
       calls.push("GET account-information");
       return {
-        info: { balance: 10000, equity: 10050, freeMargin: 9000, currency: "USD", tradeAllowed: true, investorMode: false },
+        info: {
+          balance: 10000,
+          equity: 10050,
+          freeMargin: 9000,
+          currency: "USD",
+          tradeAllowed: true,
+          investorMode: false,
+        },
         type: "demo",
         observedAt: new Date(NOW).toISOString(),
       };
     },
     fetchQuoteFor: async () => {
       calls.push("GET current-price");
-      return { bid: 1.1, ask: 1.1002, sourceTime: new Date(NOW).toISOString(), receivedAt: new Date(NOW).toISOString() };
+      return {
+        bid: 1.1,
+        ask: 1.1002,
+        sourceTime: new Date(NOW).toISOString(),
+        receivedAt: new Date(NOW).toISOString(),
+      };
     },
     estimateMargin: async () => {
       calls.push("POST calculate-margin");
       return 220;
     },
-    accountExecutionPolicy: async () => ({ ok: true, riskPercent: 1, status: "allow", reasons: [], newsTradingAllowed: null }),
+    accountExecutionPolicy: async () => ({
+      ok: true,
+      riskPercent: 1,
+      status: "allow",
+      reasons: [],
+      newsTradingAllowed: null,
+    }),
     loadAccountSizingSpec: async () => ({ symbol: "EURUSD.a" }) as never,
     accountSpecStale: () => false,
     resolveMapping: async () =>
-      ({ canonical: "EURUSD", providerSymbol: "EURUSD.a", usable: true, status: "exact", refusal: null, detail: "" }) as never,
+      ({
+        canonical: "EURUSD",
+        providerSymbol: "EURUSD.a",
+        usable: true,
+        status: "exact",
+        refusal: null,
+        detail: "",
+      }) as never,
     resizeFromBrokerSnapshot: async () => ({
       ok: true,
       quantity: { lots: 0.5, sizingModel: 2, specSource: "broker" } as never,
@@ -112,7 +142,12 @@ function deps(over: Partial<RuntimeValidationDeps> = {}): RuntimeValidationDeps 
   return Object.assign(d, { calls });
 }
 
-const input = { accountId: ACCOUNT, symbol: "eurusd", direction: "long" as const, stopDistance: 0.002 };
+const input = {
+  accountId: ACCOUNT,
+  symbol: "eurusd",
+  direction: "long" as const,
+  stopDistance: 0.002,
+};
 
 describe("runtime validation is non-trading", () => {
   it("[UNIT] passes every gate on an armed account without touching trade endpoints or writing", async () => {
@@ -125,7 +160,11 @@ describe("runtime validation is non-trading", () => {
     expect(r.lots).toBe(0.5);
     expect(r.required_margin).toBe(220);
     expect(r.policy_id).toBe("pol-1");
-    expect(d.calls).toEqual(["GET account-information", "GET current-price", "POST calculate-margin"]);
+    expect(d.calls).toEqual([
+      "GET account-information",
+      "GET current-price",
+      "POST calculate-margin",
+    ]);
     for (const fn of Object.values(trade)) expect(fn).not.toHaveBeenCalled();
     expect(writes).toEqual([]);
   });
@@ -163,18 +202,52 @@ describe("runtime validation fails closed", () => {
       },
       "investor",
     ],
-    ["risk_policy", { accountExecutionPolicy: async () => ({ ok: false, reason: "account_risk_policy", detail: "account risk policy is not configured" }) }, "not configured"],
+    [
+      "risk_policy",
+      {
+        accountExecutionPolicy: async () => ({
+          ok: false,
+          reason: "account_risk_policy",
+          detail: "account risk policy is not configured",
+        }),
+      },
+      "not configured",
+    ],
     [
       "symbol_mapping",
-      { resolveMapping: async () => ({ usable: false, providerSymbol: null, status: "ambiguous", refusal: "ambiguous_broker_symbols", detail: "ambiguous" }) as never },
+      {
+        resolveMapping: async () =>
+          ({
+            usable: false,
+            providerSymbol: null,
+            status: "ambiguous",
+            refusal: "ambiguous_broker_symbols",
+            detail: "ambiguous",
+          }) as never,
+      },
       "ambiguous_broker_symbols",
     ],
     [
       "quote_and_spec",
-      { fetchQuoteFor: async () => ({ bid: 1, ask: 1.0001, sourceTime: new Date(NOW - 10 * 60_000).toISOString(), receivedAt: "" }) },
+      {
+        fetchQuoteFor: async () => ({
+          bid: 1,
+          ask: 1.0001,
+          sourceTime: new Date(NOW - 10 * 60_000).toISOString(),
+          receivedAt: "",
+        }),
+      },
       "stale",
     ],
-    ["margin", { estimateMargin: async () => { throw new Error("bad"); } }, "margin calculation failed"],
+    [
+      "margin",
+      {
+        estimateMargin: async () => {
+          throw new Error("bad");
+        },
+      },
+      "margin calculation failed",
+    ],
   ];
   for (const [gate, over, reason] of cases) {
     it(`[UNIT] stops at ${gate}`, async () => {

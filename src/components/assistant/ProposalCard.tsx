@@ -31,7 +31,15 @@ export function ProposalCard({ id }: { id: string }) {
     setBusy(true);
     setErr(null);
     try {
-      await decideProposal({ data: { id, decision, ...(grant && decision === "approve" ? { grant: grant as unknown as Record<string, unknown> } : {}) } });
+      await decideProposal({
+        data: {
+          id,
+          decision,
+          ...(grant && decision === "approve"
+            ? { grant: grant as unknown as Record<string, unknown> }
+            : {}),
+        },
+      });
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Failed");
     }
@@ -62,7 +70,12 @@ export function ProposalCard({ id }: { id: string }) {
             <Button size="sm" disabled={busy} onClick={() => void decide("approve")}>
               Approve
             </Button>
-            <Button size="sm" variant="outline" disabled={busy} onClick={() => void decide("decline")}>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={busy}
+              onClick={() => void decide("decline")}
+            >
               Decline
             </Button>
           </div>
@@ -93,7 +106,13 @@ const ACTION_LABEL: Record<string, string> = {
 };
 
 /** Lets the user narrow what the AI asked for before approving. */
-function GrantForm({ payload, onChange }: { payload: Record<string, string | number | boolean | string[] | null>; onChange: (g: GrantEdit) => void }) {
+function GrantForm({
+  payload,
+  onChange,
+}: {
+  payload: Record<string, string | number | boolean | string[] | null>;
+  onChange: (g: GrantEdit) => void;
+}) {
   const asked = (payload["actions"] as string[] | undefined) ?? [];
   const [g, setG] = useState<GrantEdit>({
     actions: asked,
@@ -113,7 +132,9 @@ function GrantForm({ payload, onChange }: { payload: Record<string, string | num
               type="checkbox"
               checked={g.actions.includes(a)}
               onChange={(e) =>
-                set({ actions: e.target.checked ? [...g.actions, a] : g.actions.filter((x) => x !== a) })
+                set({
+                  actions: e.target.checked ? [...g.actions, a] : g.actions.filter((x) => x !== a),
+                })
               }
             />
             {ACTION_LABEL[a] ?? a}
@@ -122,7 +143,11 @@ function GrantForm({ payload, onChange }: { payload: Record<string, string | num
       </div>
       <label className="flex items-center justify-between gap-2">
         How long
-        <select className="rounded border border-border bg-background px-1" value={g.minutes} onChange={(e) => set({ minutes: Number(e.target.value) })}>
+        <select
+          className="rounded border border-border bg-background px-1"
+          value={g.minutes}
+          onChange={(e) => set({ minutes: Number(e.target.value) })}
+        >
           <option value={15}>15 min</option>
           <option value={60}>1 hour</option>
           <option value={240}>4 hours</option>
@@ -131,20 +156,45 @@ function GrantForm({ payload, onChange }: { payload: Record<string, string | num
       </label>
       <label className="flex items-center justify-between gap-2">
         Max new orders
-        <input type="number" min={1} max={50} className="w-16 rounded border border-border bg-background px-1" value={g.max_orders} onChange={(e) => set({ max_orders: Math.max(1, Math.min(50, Number(e.target.value) || 1)) })} />
+        <input
+          type="number"
+          min={1}
+          max={50}
+          className="w-16 rounded border border-border bg-background px-1"
+          value={g.max_orders}
+          onChange={(e) =>
+            set({ max_orders: Math.max(1, Math.min(50, Number(e.target.value) || 1)) })
+          }
+        />
       </label>
       <label className="flex items-center justify-between gap-2">
         Max risk per order (% of equity)
-        <input type="number" step={0.05} min={0.05} max={5} className="w-16 rounded border border-border bg-background px-1" value={g.max_risk_percent} onChange={(e) => set({ max_risk_percent: Math.max(0.05, Math.min(5, Number(e.target.value) || 0.05)) })} />
+        <input
+          type="number"
+          step={0.05}
+          min={0.05}
+          max={5}
+          className="w-16 rounded border border-border bg-background px-1"
+          value={g.max_risk_percent}
+          onChange={(e) =>
+            set({ max_risk_percent: Math.max(0.05, Math.min(5, Number(e.target.value) || 0.05)) })
+          }
+        />
       </label>
       {payload["include_live"] === true && (
         <label className="flex items-start gap-1 text-destructive">
-          <input type="checkbox" checked={g.include_live} onChange={(e) => set({ include_live: e.target.checked })} />
-          Include LIVE (real-money) accounts. The AI can place and close real trades without asking again until the session ends.
+          <input
+            type="checkbox"
+            checked={g.include_live}
+            onChange={(e) => set({ include_live: e.target.checked })}
+          />
+          Include LIVE (real-money) accounts. The AI can place and close real trades without asking
+          again until the session ends.
         </label>
       )}
       <p className="text-muted-foreground">
-        P-Trades still sets the size, runs every safety check, and never goes above your account risk policy. You can revoke on the Accounts page, and the emergency stop ends it at once.
+        P-Trades still sets the size, runs every safety check, and never goes above your account
+        risk policy. You can revoke on the Accounts page, and the emergency stop ends it at once.
       </p>
     </div>
   );

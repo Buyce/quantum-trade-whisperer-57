@@ -11,7 +11,14 @@ export const GRANT_MINUTES = [15, 60, 240, 480] as const;
 export const grantRequestInput = z.object({
   account_ids: z.array(z.string().uuid()).min(1).max(20),
   actions: z.array(z.enum(GRANT_ACTIONS)).min(1),
-  minutes: z.number().int().refine((m) => (GRANT_MINUTES as readonly number[]).includes(m), "minutes must be 15, 60, 240 or 480").default(60),
+  minutes: z
+    .number()
+    .int()
+    .refine(
+      (m) => (GRANT_MINUTES as readonly number[]).includes(m),
+      "minutes must be 15, 60, 240 or 480",
+    )
+    .default(60),
   max_orders: z.number().int().min(1).max(50).default(5),
   max_risk_percent: z.number().gt(0).max(5).default(0.5),
   include_live: z.boolean().default(false),
@@ -39,24 +46,47 @@ export function grantAllows(
   grant: Grant | null,
   q: { action: GrantAction; accountId: string; isLive: boolean; clientId: string; now: number },
 ): GrantCheck {
-  if (!grant) return { ok: false, reason: "No active trading session. Call request_trading_access and ask the user to approve it." };
-  if (grant.client_id !== q.clientId) return { ok: false, reason: "This session belongs to a different AI app." };
+  if (!grant)
+    return {
+      ok: false,
+      reason:
+        "No active trading session. Call request_trading_access and ask the user to approve it.",
+    };
+  if (grant.client_id !== q.clientId)
+    return { ok: false, reason: "This session belongs to a different AI app." };
   if (grant.revoked_at) return { ok: false, reason: "The user revoked this trading session." };
-  if (Date.parse(grant.expires_at) <= q.now) return { ok: false, reason: "The trading session has expired." };
-  if (!grant.actions.includes(q.action)) return { ok: false, reason: `The session does not allow '${q.action}'.` };
-  if (!grant.account_ids.includes(q.accountId)) return { ok: false, reason: "That account is not part of this session." };
-  if (q.isLive && !grant.include_live) return { ok: false, reason: "Live (real-money) accounts are not included in this session." };
-  if (q.action === "place" && grant.orders_used >= grant.max_orders) return { ok: false, reason: "The session's order limit is used up." };
+  if (Date.parse(grant.expires_at) <= q.now)
+    return { ok: false, reason: "The trading session has expired." };
+  if (!grant.actions.includes(q.action))
+    return { ok: false, reason: `The session does not allow '${q.action}'.` };
+  if (!grant.account_ids.includes(q.accountId))
+    return { ok: false, reason: "That account is not part of this session." };
+  if (q.isLive && !grant.include_live)
+    return { ok: false, reason: "Live (real-money) accounts are not included in this session." };
+  if (q.action === "place" && grant.orders_used >= grant.max_orders)
+    return { ok: false, reason: "The session's order limit is used up." };
   return { ok: true };
 }
 
 /** Stop below / target above entry for longs, the reverse for shorts. */
-export function protectionOk(direction: "long" | "short", entry: number, stop: number, target: number): GrantCheck {
-  if (![entry, stop, target].every((n) => Number.isFinite(n) && n > 0)) return { ok: false, reason: "Prices must be positive numbers." };
+export function protectionOk(
+  direction: "long" | "short",
+  entry: number,
+  stop: number,
+  target: number,
+): GrantCheck {
+  if (![entry, stop, target].every((n) => Number.isFinite(n) && n > 0))
+    return { ok: false, reason: "Prices must be positive numbers." };
   if (direction === "long" && !(stop < entry && target > entry))
-    return { ok: false, reason: "For a long trade the stop loss must be below entry and the take profit above it." };
+    return {
+      ok: false,
+      reason: "For a long trade the stop loss must be below entry and the take profit above it.",
+    };
   if (direction === "short" && !(stop > entry && target < entry))
-    return { ok: false, reason: "For a short trade the stop loss must be above entry and the take profit below it." };
+    return {
+      ok: false,
+      reason: "For a short trade the stop loss must be above entry and the take profit below it.",
+    };
   return { ok: true };
 }
 

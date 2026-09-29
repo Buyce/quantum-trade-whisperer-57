@@ -33,7 +33,11 @@ function fail(message: string) {
 }
 
 /** Risk policy per connected account. "Not set" means automatic orders stay blocked. */
-export async function runGetRiskPolicy(db: Db, userId: string, input: { account_id?: string | undefined }) {
+export async function runGetRiskPolicy(
+  db: Db,
+  userId: string,
+  input: { account_id?: string | undefined },
+) {
   let accounts = db
     .from("connected_trading_accounts")
     .select("id, label, broker_account_type, account_mode, disconnected_at")
@@ -141,7 +145,9 @@ export async function runListNewsBlackouts(
   const now = new Date();
   let q = db
     .from("economic_events")
-    .select("event_family, currencies, affected_instruments, importance, scheduled_at, event_status")
+    .select(
+      "event_family, currencies, affected_instruments, importance, scheduled_at, event_status",
+    )
     .gte("scheduled_at", now.toISOString())
     .lte("scheduled_at", new Date(now.getTime() + hours * 3_600_000).toISOString())
     .eq("importance", "high")
@@ -154,7 +160,8 @@ export async function runListNewsBlackouts(
     window_hours: hours,
     events: data ?? [],
     notes: {
-      source: "Ingested economic calendar provider rows. An empty list means no high-impact event matched this window.",
+      source:
+        "Ingested economic calendar provider rows. An empty list means no high-impact event matched this window.",
     },
   });
 }
@@ -181,7 +188,10 @@ export const cohortProposalInput = z.object({
   instrument: z.string().min(3).max(20),
   direction: z.enum(["long", "short"]),
   policy: z.enum(["allow", "reduce", "block"]),
-  risk_share_percent: z.union([z.literal(25), z.literal(50), z.literal(75)]).nullable().optional(),
+  risk_share_percent: z
+    .union([z.literal(25), z.literal(50), z.literal(75)])
+    .nullable()
+    .optional(),
 });
 
 type Kind = "cancel_order" | "risk_policy" | "cohort_policy";
@@ -233,7 +243,14 @@ export async function runProposeCancelOrder(
     return fail(`Order is ${data.state} — only waiting (unfilled) orders can be cancelled.`);
   }
   const summary = `Cancel waiting ${data.account_mode ?? ""} order #${data.id} on ${data.broker_symbol ?? "?"}${data.submitted_entry ? ` at ${data.submitted_entry}` : ""}`;
-  return insertProposal(db, userId, "cancel_order", parsed.data, summary.replace(/\s+/g, " "), source);
+  return insertProposal(
+    db,
+    userId,
+    "cancel_order",
+    parsed.data,
+    summary.replace(/\s+/g, " "),
+    source,
+  );
 }
 
 export async function runProposeRiskPolicy(
@@ -303,11 +320,19 @@ export async function runRequestTradingAccess(
     .eq("user_id", userId)
     .in("id", p.account_ids);
   if (error) return fail(error.message);
-  if ((accts ?? []).length !== p.account_ids.length) return fail("One or more accounts are not yours.");
+  if ((accts ?? []).length !== p.account_ids.length)
+    return fail("One or more accounts are not yours.");
   const summary = `Let this AI ${p.actions.join(", ")} on ${(accts ?? []).map((a: { label: string }) => a.label).join(", ")} for ${p.minutes} min (max ${p.max_orders} orders, ≤${p.max_risk_percent}% risk each${p.include_live ? ", LIVE money included" : ", demo only"})`;
   const { data, error: e } = await db
     .from("ai_action_proposals")
-    .insert({ user_id: userId, kind: "trading_grant", payload: p, summary, source, client_id: clientId })
+    .insert({
+      user_id: userId,
+      kind: "trading_grant",
+      payload: p,
+      summary,
+      source,
+      client_id: clientId,
+    })
     .select("id, expires_at")
     .single();
   if (e) return fail(e.message);

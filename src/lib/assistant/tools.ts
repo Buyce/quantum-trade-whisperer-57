@@ -99,12 +99,14 @@ function v09Tools(supabase: unknown, userId: string) {
       execute: async () => unwrap(await runListRestingOrders(supabase, userId)),
     }),
     get_cohort_policies: tool({
-      description: "The user's allow / reduce / block automatic-trading rules per instrument and direction.",
+      description:
+        "The user's allow / reduce / block automatic-trading rules per instrument and direction.",
       inputSchema: z.object({}),
       execute: async () => unwrap(await runGetCohortPolicies(supabase, userId)),
     }),
     list_news_blackouts: tool({
-      description: "Upcoming high-impact economic events (default next 48h), optionally for one instrument.",
+      description:
+        "Upcoming high-impact economic events (default next 48h), optionally for one instrument.",
       inputSchema: z.object({
         hours: z.number().int().nullable().optional(),
         instrument: z.string().nullable().optional(),
@@ -134,7 +136,8 @@ function v09Tools(supabase: unknown, userId: string) {
           .eq("id", a.account_id)
           .eq("user_id", userId)
           .maybeSingle();
-        if (!data) return unwrap(envelope({ error: "Account not found among your accounts." }, true));
+        if (!data)
+          return unwrap(envelope({ error: "Account not found among your accounts." }, true));
         const { runRuntimeValidation } = await import("@/lib/validation/runtime.server");
         return runRuntimeValidation(db as never, {
           accountId: a.account_id,
@@ -189,7 +192,8 @@ function v10Tools(supabase: unknown, userId: string) {
     get_trading_access: tool({
       description: "The assistant's active trading session, or none.",
       inputSchema: z.object({}),
-      execute: async () => unwrap(await (await t()).runGetTradingAccess(supabase, userId, "in_app")),
+      execute: async () =>
+        unwrap(await (await t()).runGetTradingAccess(supabase, userId, "in_app")),
     }),
     place_order: tool({
       description:
@@ -203,17 +207,20 @@ function v10Tools(supabase: unknown, userId: string) {
       execute: async (a) => unwrap(await (await t()).runModifyPosition(userId, "in_app", a)),
     }),
     close_position: tool({
-      description: "Close all (or part, with volume) of an open position inside the approved session.",
+      description:
+        "Close all (or part, with volume) of an open position inside the approved session.",
       inputSchema: closePositionInput,
       execute: async (a) => unwrap(await (await t()).runClosePosition(userId, "in_app", a)),
     }),
     modify_resting_order: tool({
-      description: "Change a waiting order's entry/stop/target inside the approved session. Never its size.",
+      description:
+        "Change a waiting order's entry/stop/target inside the approved session. Never its size.",
       inputSchema: modifyOrderInput,
       execute: async (a) => unwrap(await (await t()).runModifyRestingOrder(userId, "in_app", a)),
     }),
     arm_account: tool({
-      description: "Arm an account to observe, demo_auto or live_confirm inside the approved session.",
+      description:
+        "Arm an account to observe, demo_auto or live_confirm inside the approved session.",
       inputSchema: armInput,
       execute: async (a) => unwrap(await (await t()).runArmAccount(userId, "in_app", a)),
     }),

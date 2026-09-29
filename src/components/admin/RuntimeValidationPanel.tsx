@@ -46,11 +46,17 @@ export function RuntimeValidationPanel() {
             {a.label} · {a.accountType ?? "?"}
           </button>
         ))}
-        {accounts.isLoading ? <span className="text-xs text-muted-foreground">Loading…</span> : null}
+        {accounts.isLoading ? (
+          <span className="text-xs text-muted-foreground">Loading…</span>
+        ) : null}
       </div>
 
       <div className="mt-3 grid gap-2 sm:grid-cols-4">
-        <Input value={symbol} onChange={(e) => setSymbol(e.target.value.toUpperCase())} aria-label="Symbol" />
+        <Input
+          value={symbol}
+          onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+          aria-label="Symbol"
+        />
         <select
           aria-label="Direction"
           value={direction}
@@ -60,8 +66,15 @@ export function RuntimeValidationPanel() {
           <option value="long">Long</option>
           <option value="short">Short</option>
         </select>
-        <Input value={stop} onChange={(e) => setStop(e.target.value)} aria-label="Stop distance (price)" />
-        <Button disabled={selected.length === 0 || mutation.isPending} onClick={() => mutation.mutate()}>
+        <Input
+          value={stop}
+          onChange={(e) => setStop(e.target.value)}
+          aria-label="Stop distance (price)"
+        />
+        <Button
+          disabled={selected.length === 0 || mutation.isPending}
+          onClick={() => mutation.mutate()}
+        >
           {mutation.isPending ? "Validating…" : "Validate"}
         </Button>
       </div>
@@ -91,11 +104,13 @@ function ReportCard({ r }: { r: ValidationReport }) {
         {r.broker_observed_at ? new Date(r.broker_observed_at).toUTCString() : "—"}
       </p>
       <p className="mt-1">
-        Balance {fmt(r.balance)} · Equity {fmt(r.equity)} · Free margin {fmt(r.free_margin)} {r.currency ?? ""}
+        Balance {fmt(r.balance)} · Equity {fmt(r.equity)} · Free margin {fmt(r.free_margin)}{" "}
+        {r.currency ?? ""}
       </p>
       <p className="mt-1">
-        Policy {r.policy_id?.slice(0, 8) ?? "—"} · risk {fmt(r.risk_percent)}% = {fmt(r.risk_amount)} ·{" "}
-        {r.canonical_symbol}→{r.broker_symbol ?? "—"} · {fmt(r.lots, 2)} lots · margin {fmt(r.required_margin)}
+        Policy {r.policy_id?.slice(0, 8) ?? "—"} · risk {fmt(r.risk_percent)}% ={" "}
+        {fmt(r.risk_amount)} · {r.canonical_symbol}→{r.broker_symbol ?? "—"} · {fmt(r.lots, 2)} lots
+        · margin {fmt(r.required_margin)}
       </p>
       <ul className="mt-2 space-y-0.5">
         {r.gates.map((g) => (
