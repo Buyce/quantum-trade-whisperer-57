@@ -13,6 +13,7 @@ Trading is not enabled merely by running this agent.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import time
@@ -42,6 +43,12 @@ def mask_login(login: Any) -> str | None:
         return None
     value = str(login)
     return "***" + value[-3:] if value else None
+
+
+def account_key(bridge_id: str, login: Any, server: Any) -> str:
+    """Stable pseudonymous key; never transmit the full broker login."""
+    raw = f"{bridge_id}|{login}|{server or ''}".encode("utf-8")
+    return "mt5_" + hashlib.sha256(raw).hexdigest()[:24]
 
 
 def mode_name(value: Any) -> str:
@@ -97,7 +104,7 @@ def snapshot(bridge_id: str, sequence: int) -> dict[str, Any]:
             "provider": "mt5_direct",
             "observedAt": observed,
             # Account key is only a correlation key. UI should continue masking it.
-            "accountKey": str(account.login),
+            "accountKey": account_key(bridge_id, account.login, getattr(account, "server", None)),
             "platform": "mt5",
             "mode": mode_name(account.trade_mode),
             "loginMasked": mask_login(account.login),
