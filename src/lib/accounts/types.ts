@@ -143,6 +143,7 @@ export interface ConnectedAccountView {
     safetyBufferPercent: number | null;
     minTradingDays: number | null;
     maxTradesPerDay: number | null;
+    dailyProfitObjective: number | null;
     newsTradingAllowed: boolean | null;
     highWatermark: number | null;
   } | null;

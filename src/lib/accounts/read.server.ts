@@ -86,7 +86,7 @@ export async function toAccountView(
     db
       .from("connected_account_risk_policies" as never)
       .select(
-        "policy_kind, starting_balance, operating_risk_per_trade_percent, hard_risk_per_trade_percent, max_daily_loss_percent, max_total_loss_percent, trailing_drawdown, consistency_percent, safety_buffer_percent, min_trading_days, max_trades_per_day, news_trading_allowed, high_watermark",
+        "policy_kind, starting_balance, operating_risk_per_trade_percent, hard_risk_per_trade_percent, max_daily_loss_percent, max_total_loss_percent, trailing_drawdown, consistency_percent, safety_buffer_percent, min_trading_days, max_trades_per_day, daily_profit_objective, news_trading_allowed, high_watermark",
       )
       .eq("account_id", row.id)
       .maybeSingle(),
@@ -193,6 +193,9 @@ export async function toAccountView(
           maxTradesPerDay: num(
             (riskPolicy.data as { max_trades_per_day: unknown }).max_trades_per_day,
           ),
+          dailyProfitObjective: num(
+            (riskPolicy.data as { daily_profit_objective: unknown }).daily_profit_objective,
+          ),
           newsTradingAllowed: (riskPolicy.data as { news_trading_allowed: boolean | null })
             .news_trading_allowed,
           highWatermark: num((riskPolicy.data as { high_watermark: unknown }).high_watermark),
@@ -272,8 +275,8 @@ export async function loadQuota(userId: string): Promise<AccountQuotaView> {
   const used = (rows ?? []) as { intent: "demo" | "live" }[];
 
   return {
-    maxDemo: first?.max_demo ?? 1,
-    maxLive: first?.max_live ?? 1,
+    maxDemo: first?.max_demo ?? 2,
+    maxLive: first?.max_live ?? 2,
     usedDemo: used.filter((r) => r.intent === "demo").length,
     usedLive: used.filter((r) => r.intent === "live").length,
   };
