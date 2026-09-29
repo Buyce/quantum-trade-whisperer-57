@@ -63,9 +63,7 @@ export const listMt5BridgeConnections = createServerFn({ method: "GET" })
 
 export const createMt5BridgePairing = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
-    z.object({ intent: z.enum(["demo", "live"]) }).parse(input),
-  )
+  .inputValidator((input: unknown) => z.object({ intent: z.enum(["demo", "live"]) }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const db = supabaseAdmin as unknown as Db;
