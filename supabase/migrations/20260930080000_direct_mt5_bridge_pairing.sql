@@ -68,6 +68,13 @@ begin
   if _row.revoked_at is not null then
     raise exception 'bridge pairing is revoked';
   end if;
+  -- Idempotent retry: if P-Trades committed the previous upload but the HTTP
+  -- response was lost, the bridge may safely repeat the exact same sequence and
+  -- JSON snapshot. A different payload at the same/lower sequence is a replay.
+  if _sequence = _row.last_sequence and _snapshot = _row.snapshot then
+    return query select _row.id, _row.user_id, _row.status;
+    return;
+  end if;
   if _sequence <= _row.last_sequence then
     raise exception 'bridge sequence is stale or replayed';
   end if;
