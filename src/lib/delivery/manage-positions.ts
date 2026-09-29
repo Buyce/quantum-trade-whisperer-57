@@ -186,6 +186,32 @@ function partialFor(
   return close(step, part);
 }
 
+/** Reduce-only one-risk-unit trail after break-even is confirmed. */
+function decideTrail(facts: ManagedPositionFacts, open: number): ManagedPositionDecision {
+  const risk = finite(facts.riskDistance);
+  const best = finite(facts.bestPrice);
+  const current = finite(facts.currentPrice);
+  if (risk === null || risk <= 0) {
+    return unknown("The original risk distance for this position is unknown.");
+  }
+  if (best === null) return unknown("No best price has been recorded for this position yet.");
+  if (current === null) return unknown("The broker reported no current price.");
+
+  const candidate = Number((facts.side === "long" ? best - risk : best + risk).toFixed(8));
+  const improvesBreakEven = facts.side === "long" ? candidate > open : candidate < open;
+  if (!improvesBreakEven) {
+    return hold("The trailing stop has not advanced beyond break-even yet.");
+  }
+  if (reached(facts.side, candidate, current)) {
+    return hold("A trailing stop there would sit at or beyond the current price.");
+  }
+  const stop = finite(facts.currentStop);
+  if (stop !== null && reached(facts.side, stop, candidate)) {
+    return hold("The trailing stop already sits at or beyond that price.");
+  }
+  return move("trail", candidate);
+}
+
 /**
  * What (if anything) to do with a managed position right now.
  *
@@ -218,7 +244,10 @@ export function decideManagedStep(
     return move("stop_to_entry", open);
   }
 
-  if (!plan.laddered) return hold("The partial exit and the break-even stop are both done.");
+  if (!plan.laddered) {
+    if (plan.trailRunner) return decideTrail(facts, open);
+    return hold("The partial exit and the break-even stop are both done.");
+  }
 
   // 3 — part out at the second target, when the split asks for it.
   if (plan.shares[1] > 0 && !progress.secondPartialDone) {
@@ -241,26 +270,8 @@ export function decideManagedStep(
     return move("stop_to_first_target", tp1);
   }
 
-  // 5 — optional trail behind the best price the broker has printed.
-  if (plan.trailRunner) {
-    const risk = finite(facts.riskDistance);
-    const best = finite(facts.bestPrice);
-    const current = finite(facts.currentPrice);
-    if (risk === null || risk <= 0) {
-      return unknown("The original risk distance for this position is unknown.");
-    }
-    if (best === null) return unknown("No best price has been recorded for this position yet.");
-    if (current === null) return unknown("The broker reported no current price.");
-    const candidate = Number((facts.side === "long" ? best - risk : best + risk).toFixed(8));
-    if (reached(facts.side, candidate, current)) {
-      return hold("A trailing stop there would sit at or beyond the current price.");
-    }
-    const stop = finite(facts.currentStop);
-    if (stop !== null && reached(facts.side, stop, candidate)) {
-      return hold("The trailing stop already sits at or beyond that price.");
-    }
-    return move("trail", candidate);
-  }
+  // 5 — optional reduce-only trail behind the best broker price.
+  if (plan.trailRunner) return decideTrail(facts, open);
 
   return hold("Every managed step for this position is done.");
 }
