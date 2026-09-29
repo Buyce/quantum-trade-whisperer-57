@@ -16,6 +16,21 @@ const MAX_ACTIVE_BRIDGES = 4;
 
 const hashToken = (value: string) => createHash("sha256").update(value).digest("hex");
 
+interface Mt5BridgeRow {
+  id: string;
+  bridge_id: string;
+  intent: "demo" | "live";
+  status: Mt5BridgeConnectionView["status"];
+  status_reason: string | null;
+  last_seen_at: string | null;
+  last_observed_at: string | null;
+  broker_login_masked: string | null;
+  broker_server: string | null;
+  broker_name: string | null;
+  broker_mode: string | null;
+  created_at: string;
+}
+
 export interface Mt5BridgeConnectionView {
   id: string;
   bridgeId: string;
@@ -44,19 +59,18 @@ export const listMt5BridgeConnections = createServerFn({ method: "GET" })
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
 
-    return ((data ?? []) as unknown as Array<Record<string, unknown>>).map((row) => ({
+    return ((data ?? []) as unknown as Mt5BridgeRow[]).map((row) => ({
       id: String(row.id),
       bridgeId: String(row.bridge_id),
       intent: row.intent as "demo" | "live",
       status: row.status as Mt5BridgeConnectionView["status"],
-      statusReason: typeof row.status_reason === "string" ? row.status_reason : null,
-      lastSeenAt: typeof row.last_seen_at === "string" ? row.last_seen_at : null,
-      lastObservedAt: typeof row.last_observed_at === "string" ? row.last_observed_at : null,
-      brokerLoginMasked:
-        typeof row.broker_login_masked === "string" ? row.broker_login_masked : null,
-      brokerServer: typeof row.broker_server === "string" ? row.broker_server : null,
-      brokerName: typeof row.broker_name === "string" ? row.broker_name : null,
-      brokerMode: typeof row.broker_mode === "string" ? row.broker_mode : null,
+      statusReason: row.status_reason,
+      lastSeenAt: row.last_seen_at,
+      lastObservedAt: row.last_observed_at,
+      brokerLoginMasked: row.broker_login_masked,
+      brokerServer: row.broker_server,
+      brokerName: row.broker_name,
+      brokerMode: row.broker_mode,
       createdAt: String(row.created_at),
     }));
   });
