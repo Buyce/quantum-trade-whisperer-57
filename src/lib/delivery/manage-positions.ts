@@ -4,8 +4,9 @@
  * Two policies act on a position AFTER it fills:
  *
  *  - `partial_tp1_runner_tp2`: close part of the position at the first target,
- *    move the remaining stop to the fill price (break-even), let the rest run to
- *    the submitted second target.
+ *    move the remaining stop to the fill price (break-even), then optionally
+ *    trail the runner one original risk unit behind the best broker price while
+ *    it runs to the submitted second target.
  *  - `ladder_tp1_tp2_runner_tp3`: the same first two steps, then close another
  *    part once the second target is reached and move the remaining stop up to the
  *    first target, so the runner to the third target can no longer lose money.
