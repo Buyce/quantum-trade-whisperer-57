@@ -187,6 +187,39 @@ function partialFor(
 }
 
 /**
+ * One-risk-unit trailing stop after break-even protection is confirmed.
+ *
+ * The candidate is based only on the best broker price observed since fill.
+ * It must be strictly better than break-even and strictly behind the current
+ * market. An existing stop may only improve, never widen.
+ */
+function decideTrail(facts: ManagedPositionFacts, open: number): ManagedPositionDecision {
+  const risk = finite(facts.riskDistance);
+  const best = finite(facts.bestPrice);
+  const current = finite(facts.currentPrice);
+  if (risk === null || risk <= 0) {
+    return unknown("The original risk distance for this position is unknown.");
+  }
+  if (best === null) return unknown("No best price has been recorded for this position yet.");
+  if (current === null) return unknown("The broker reported no current price.");
+
+  const candidate = Number((facts.side === "long" ? best - risk : best + risk).toFixed(8));
+  const improvesBreakEven = facts.side === "long" ? candidate > open : candidate < open;
+  if (!improvesBreakEven) {
+    return hold("The trailing stop has not advanced beyond break-even yet.");
+  }
+  if (reached(facts.side, candidate, current)) {
+    return hold("A trailing stop there would sit at or beyond the current price.");
+  }
+
+  const stop = finite(facts.currentStop);
+  if (stop !== null && reached(facts.side, stop, candidate)) {
+    return hold("The trailing stop already sits at or beyond that price.");
+  }
+  return move("trail", candidate);
+}
+
+/**
  * What (if anything) to do with a managed position right now.
  *
  * Each `progress` flag says whether that step has already been CONFIRMED. While
@@ -218,7 +251,14 @@ export function decideManagedStep(
     return move("stop_to_entry", open);
   }
 
-  if (!plan.laddered) return hold("The partial exit and the break-even stop are both done.");
+  // A two-step runner may start trailing as soon as break-even is confirmed.
+  // The trail is reduce-only: it must improve on the fill price and can never
+  // widen an existing stop. Until the best broker price has moved far enough to
+  // produce an improvement beyond break-even, the stop simply stays at entry.
+  if (!plan.laddered) {
+    if (plan.trailRunner) return decideTrail(facts, open);
+    return hold("The partial exit and the break-even stop are both done.");
+  }
 
   // 3 — part out at the second target, when the split asks for it.
   if (plan.shares[1] > 0 && !progress.secondPartialDone) {
@@ -242,25 +282,7 @@ export function decideManagedStep(
   }
 
   // 5 — optional trail behind the best price the broker has printed.
-  if (plan.trailRunner) {
-    const risk = finite(facts.riskDistance);
-    const best = finite(facts.bestPrice);
-    const current = finite(facts.currentPrice);
-    if (risk === null || risk <= 0) {
-      return unknown("The original risk distance for this position is unknown.");
-    }
-    if (best === null) return unknown("No best price has been recorded for this position yet.");
-    if (current === null) return unknown("The broker reported no current price.");
-    const candidate = Number((facts.side === "long" ? best - risk : best + risk).toFixed(8));
-    if (reached(facts.side, candidate, current)) {
-      return hold("A trailing stop there would sit at or beyond the current price.");
-    }
-    const stop = finite(facts.currentStop);
-    if (stop !== null && reached(facts.side, stop, candidate)) {
-      return hold("The trailing stop already sits at or beyond that price.");
-    }
-    return move("trail", candidate);
-  }
+  if (plan.trailRunner) return decideTrail(facts, open);
 
   return hold("Every managed step for this position is done.");
 }
