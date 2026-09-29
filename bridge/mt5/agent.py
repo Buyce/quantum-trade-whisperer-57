@@ -17,6 +17,7 @@ import hashlib
 import json
 import os
 import time
+import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 from typing import Any
@@ -24,6 +25,14 @@ from typing import Any
 import MetaTrader5 as mt5
 
 PROTOCOL_VERSION = 1
+
+
+class BridgeFatalError(RuntimeError):
+    pass
+
+
+class BridgeTransientError(RuntimeError):
+    pass
 
 
 def iso_now() -> str:
@@ -164,9 +173,20 @@ def post_snapshot(url: str, token: str, payload: dict[str, Any]) -> None:
             "User-Agent": "P-Trades-MT5-Bridge/1",
         },
     )
-    with urllib.request.urlopen(request, timeout=15) as response:
-        if response.status < 200 or response.status >= 300:
-            raise RuntimeError(f"P-Trades bridge ingest returned HTTP {response.status}")
+    try:
+        with urllib.request.urlopen(request, timeout=15) as response:
+            if response.status < 200 or response.status >= 300:
+                raise BridgeTransientError(
+                    f"P-Trades bridge ingest returned HTTP {response.status}"
+                )
+    except urllib.error.HTTPError as exc:
+        # Authentication, replay/mode mismatch and malformed snapshots require
+        # operator intervention. Retrying them would only hammer the endpoint.
+        if exc.code in (400, 401, 409, 413):
+            raise BridgeFatalError(f"P-Trades refused bridge snapshot (HTTP {exc.code})") from exc
+        raise BridgeTransientError(f"P-Trades ingest unavailable (HTTP {exc.code})") from exc
+    except urllib.error.URLError as exc:
+        raise BridgeTransientError("P-Trades ingest is temporarily unreachable") from exc
 
 
 def main() -> None:
@@ -179,13 +199,24 @@ def main() -> None:
     sequence = 0
     try:
         while True:
-            payload = snapshot(bridge_id, sequence)
-            if url and token:
-                post_snapshot(url, token, payload)
-            else:
-                # Diagnostic mode: no cloud transport, no trading.
-                print(json.dumps(payload, separators=(",", ":")))
-            sequence += 1
+            try:
+                payload = snapshot(bridge_id, sequence)
+                if url and token:
+                    post_snapshot(url, token, payload)
+                    print(f"snapshot {sequence} accepted at {payload['observedAt']}")
+                else:
+                    # Diagnostic mode: no cloud transport, no trading.
+                    print(json.dumps(payload, separators=(",", ":")))
+                sequence += 1
+            except BridgeFatalError:
+                raise
+            except (BridgeTransientError, RuntimeError) as exc:
+                # Preserve sequence: only an accepted snapshot advances it.
+                print(f"bridge degraded: {exc}")
+                mt5.shutdown()
+                time.sleep(interval)
+                require_terminal()
+                continue
             time.sleep(interval)
     finally:
         mt5.shutdown()
