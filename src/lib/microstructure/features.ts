@@ -1,9 +1,4 @@
-import type {
-  TradeFlowFeatures,
-  TradePrint,
-  VolumeProfile,
-  VolumeProfileLevel,
-} from "./types";
+import type { TradeFlowFeatures, TradePrint, VolumeProfile, VolumeProfileLevel } from "./types";
 
 const finitePositive = (value: number) => Number.isFinite(value) && value > 0;
 const round = (value: number, dp = 8) => Number(value.toFixed(dp));
@@ -93,8 +88,7 @@ export function computeTradeFlowFeatures(
     .filter((trade) => finitePositive(trade.price) && finitePositive(trade.size))
     .sort(
       (a, b) =>
-        Date.parse(a.eventTime) - Date.parse(b.eventTime) ||
-        (a.sequence ?? 0) - (b.sequence ?? 0),
+        Date.parse(a.eventTime) - Date.parse(b.eventTime) || (a.sequence ?? 0) - (b.sequence ?? 0),
     );
 
   let buyVolume = 0;
@@ -122,8 +116,7 @@ export function computeTradeFlowFeatures(
     deltaRatio: classifiedVolume > 0 ? round(delta / classifiedVolume) : null,
     firstPrice,
     lastPrice,
-    priceChange:
-      firstPrice !== null && lastPrice !== null ? round(lastPrice - firstPrice) : null,
+    priceChange: firstPrice !== null && lastPrice !== null ? round(lastPrice - firstPrice) : null,
     volumeProfile: buildVolumeProfile(valid, tickSize),
   };
 }

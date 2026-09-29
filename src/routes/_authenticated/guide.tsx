@@ -691,7 +691,8 @@ const SECTIONS: Section[] = [
           "The Equity Edge Instant 50K preset fills in that programme's rules with a cautious 0.25% normal risk under its 1% cap. Blank fields mean no limit.",
         ],
         means: "Account-level limits every automatic order must fit inside.",
-        matters: "Without a policy, P-Trades will not send automatic orders on that account at all.",
+        matters:
+          "Without a policy, P-Trades will not send automatic orders on that account at all.",
         todo: "Set it before arming. On a real-money account you will be asked to confirm each change.",
         assume:
           "The policy limits P-Trades only. Trades you place yourself are counted towards the daily loss, but P-Trades cannot stop you placing them.",

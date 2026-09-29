@@ -14,10 +14,11 @@ describe("AI ability registry", () => {
   });
 
   it("[UNIT] every mcp ability is registered on the MCP server", async () => {
-    const src = await import("node:fs").then((fs) =>
-      fs.readFileSync("src/lib/mcp/index.ts", "utf8") +
-      fs.readFileSync("src/lib/mcp/v09.ts", "utf8") +
-      fs.readFileSync("src/lib/mcp/v10.ts", "utf8"),
+    const src = await import("node:fs").then(
+      (fs) =>
+        fs.readFileSync("src/lib/mcp/index.ts", "utf8") +
+        fs.readFileSync("src/lib/mcp/v09.ts", "utf8") +
+        fs.readFileSync("src/lib/mcp/v10.ts", "utf8"),
     );
     for (const a of ABILITIES.filter((x) => x.surfaces.includes("mcp"))) {
       const camel = a.name.replace(/_([a-z])/g, (_m, c: string) => c.toUpperCase());
@@ -40,7 +41,9 @@ function fakeDb(row: unknown) {
     q["insert"] = (v: unknown) => {
       inserts.push({ table, v });
       return {
-        select: () => ({ single: async () => ({ data: { id: "p1", expires_at: "x" }, error: null }) }),
+        select: () => ({
+          single: async () => ({ data: { id: "p1", expires_at: "x" }, error: null }),
+        }),
       };
     };
     return q;
@@ -50,7 +53,12 @@ function fakeDb(row: unknown) {
 
 describe("proposal tools", () => {
   it("[UNIT] propose_cancel_order only inserts a pending proposal and never touches the order", async () => {
-    const f = fakeDb({ id: 7, state: "acknowledged", broker_symbol: "EURUSD", account_mode: "demo_auto" });
+    const f = fakeDb({
+      id: 7,
+      state: "acknowledged",
+      broker_symbol: "EURUSD",
+      account_mode: "demo_auto",
+    });
     const r = await runProposeCancelOrder(f.db, "u", { delivery_id: 7 }, "mcp");
     expect(r.isError).toBeUndefined();
     expect(f.inserts).toHaveLength(1);
@@ -60,9 +68,13 @@ describe("proposal tools", () => {
 
   it("[UNIT] propose_cancel_order refuses filled or foreign orders", async () => {
     const filled = fakeDb({ id: 7, state: "filled" });
-    expect((await runProposeCancelOrder(filled.db, "u", { delivery_id: 7 }, "mcp")).isError).toBe(true);
+    expect((await runProposeCancelOrder(filled.db, "u", { delivery_id: 7 }, "mcp")).isError).toBe(
+      true,
+    );
     const foreign = fakeDb(null);
-    expect((await runProposeCancelOrder(foreign.db, "u", { delivery_id: 7 }, "mcp")).isError).toBe(true);
+    expect((await runProposeCancelOrder(foreign.db, "u", { delivery_id: 7 }, "mcp")).isError).toBe(
+      true,
+    );
     expect(filled.inserts.length + foreign.inserts.length).toBe(0);
   });
 

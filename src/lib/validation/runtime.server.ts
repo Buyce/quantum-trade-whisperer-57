@@ -17,7 +17,13 @@ import { accountExecutionPolicy } from "@/lib/accounts/policy.server";
 import { loadAccountSizingSpec, accountSpecStale } from "@/lib/accounts/specs.server";
 import { resolveMapping } from "@/lib/instruments/mapping.server";
 import { resizeFromBrokerSnapshot } from "@/lib/execution/resize.server";
-import { GATES, sanitizeReport, type GateName, type GateResult, type ValidationReport } from "./report";
+import {
+  GATES,
+  sanitizeReport,
+  type GateName,
+  type GateResult,
+  type ValidationReport,
+} from "./report";
 
 export interface RuntimeValidationDeps {
   fetchAccountFacts: typeof fetchAccountFacts;
@@ -84,7 +90,8 @@ export async function runRuntimeValidation(
     )
     .eq("id", input.accountId)
     .maybeSingle();
-  if (error || !acct) return finish("connection", error ? "account unreadable" : "account not found");
+  if (error || !acct)
+    return finish("connection", error ? "account unreadable" : "account not found");
   const a = acct as Record<string, unknown>;
   r["label"] = a["label"];
   r["connection_state"] = a["connection_status"] ?? null;
@@ -96,7 +103,10 @@ export async function runRuntimeValidation(
   if (a["provisioning_state"] && a["provisioning_state"] !== "DEPLOYED")
     return finish("connection", `provisioning state is ${String(a["provisioning_state"])}`);
   if (a["connection_status"] !== "CONNECTED")
-    return finish("connection", `connection status is ${String(a["connection_status"] ?? "unknown")}`);
+    return finish(
+      "connection",
+      `connection status is ${String(a["connection_status"] ?? "unknown")}`,
+    );
   pass("connection");
 
   // 2. Fresh broker facts
@@ -192,7 +202,12 @@ export async function runRuntimeValidation(
       deliveryId: -1,
       riskPercent: policy.riskPercent,
     },
-    { equity, balance: facts.info.balance ?? null, currency: facts.info.currency ?? null, observedAt: facts.observedAt },
+    {
+      equity,
+      balance: facts.info.balance ?? null,
+      currency: facts.info.currency ?? null,
+      observedAt: facts.observedAt,
+    },
     deps.now(),
   );
   if (!sized.ok) return finish("sizing", `${sized.reason}: ${sized.detail}`);

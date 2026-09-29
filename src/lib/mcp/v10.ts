@@ -38,14 +38,21 @@ export const requestTradingAccess = defineTool({
   annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
   handler: async (input, ctx) => {
     if (!ctx.isAuthenticated()) return unauth;
-    return runRequestTradingAccess(supabaseForUser(ctx), ctx.getUserId() as string, input, "mcp", clientOf(ctx));
+    return runRequestTradingAccess(
+      supabaseForUser(ctx),
+      ctx.getUserId() as string,
+      input,
+      "mcp",
+      clientOf(ctx),
+    );
   },
 });
 
 export const getTradingAccess = defineTool({
   name: "get_trading_access",
   title: "Get my trading session",
-  description: "Shows this AI app's active trading session (accounts, actions, orders left, max risk, expiry), or none.",
+  description:
+    "Shows this AI app's active trading session (accounts, actions, orders left, max risk, expiry), or none.",
   inputSchema: {},
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
   handler: async (_i, ctx) => {
@@ -80,7 +87,8 @@ export const placeOrder = defineTool({
 export const modifyPosition = defineTool({
   name: "modify_position",
   title: "Change a position's stop or target",
-  description: "Move an open position's stop loss (and optionally take profit) inside an approved session.",
+  description:
+    "Move an open position's stop loss (and optionally take profit) inside an approved session.",
   inputSchema: {
     account_id: z.string().uuid(),
     position_id: z.string(),
@@ -97,8 +105,13 @@ export const modifyPosition = defineTool({
 export const closePosition = defineTool({
   name: "close_position",
   title: "Close a position",
-  description: "Close all of an open position, or part of it with volume, inside an approved session. Allowed even while an emergency stop is on.",
-  inputSchema: { account_id: z.string().uuid(), position_id: z.string(), volume: z.number().optional() },
+  description:
+    "Close all of an open position, or part of it with volume, inside an approved session. Allowed even while an emergency stop is on.",
+  inputSchema: {
+    account_id: z.string().uuid(),
+    position_id: z.string(),
+    volume: z.number().optional(),
+  },
   annotations: act,
   handler: async (input, ctx) => {
     if (!ctx.isAuthenticated()) return unauth;
@@ -109,7 +122,8 @@ export const closePosition = defineTool({
 export const modifyRestingOrder = defineTool({
   name: "modify_resting_order",
   title: "Change a waiting order",
-  description: "Change a waiting order's entry, stop loss and take profit inside an approved session. Size is never changed.",
+  description:
+    "Change a waiting order's entry, stop loss and take profit inside an approved session. Size is never changed.",
   inputSchema: {
     account_id: z.string().uuid(),
     order_id: z.string(),
@@ -129,7 +143,10 @@ export const armAccount = defineTool({
   title: "Arm an account",
   description:
     "Switch an account to observe, demo_auto or live_confirm inside an approved session. live_confirm requires a passing Runtime Validation. Live auto can only be armed by the user in P-Trades.",
-  inputSchema: { account_id: z.string().uuid(), mode: z.enum(["observe", "demo_auto", "live_confirm"]) },
+  inputSchema: {
+    account_id: z.string().uuid(),
+    mode: z.enum(["observe", "demo_auto", "live_confirm"]),
+  },
   annotations: act,
   handler: async (input, ctx) => {
     if (!ctx.isAuthenticated()) return unauth;

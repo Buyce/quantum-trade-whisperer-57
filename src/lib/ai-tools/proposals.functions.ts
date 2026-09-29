@@ -37,7 +37,9 @@ export const getProposal = createServerFn({ method: "GET" })
   .handler(async ({ data, context }): Promise<ProposalView | null> => {
     const { data: row, error } = await context.supabase
       .from("ai_action_proposals")
-      .select("id, kind, summary, status, source, created_at, expires_at, decided_at, result, payload, client_id")
+      .select(
+        "id, kind, summary, status, source, created_at, expires_at, decided_at, result, payload, client_id",
+      )
       .eq("id", data.id)
       .maybeSingle();
     if (error) throw new Error(error.message);
@@ -53,7 +55,10 @@ export const getProposal = createServerFn({ method: "GET" })
       decidedAt: row.decided_at,
       result: (row.result ?? null) as { message?: string } | null,
       expired: row.status === "pending" && new Date(row.expires_at).getTime() < Date.now(),
-      payload: (row.payload ?? null) as Record<string, string | number | boolean | string[] | null> | null,
+      payload: (row.payload ?? null) as Record<
+        string,
+        string | number | boolean | string[] | null
+      > | null,
       clientId: (row as { client_id?: string | null }).client_id ?? null,
     };
   });
@@ -139,7 +144,9 @@ export const decideProposal = createServerFn({ method: "POST" })
           .in("id", g.account_ids);
         if ((accts ?? []).length !== g.account_ids.length)
           return settle("failed", { message: "One or more accounts are not yours." });
-        const clientId = (row as { client_id?: string | null }).client_id ?? (row.source === "in_app" ? "in_app" : null);
+        const clientId =
+          (row as { client_id?: string | null }).client_id ??
+          (row.source === "in_app" ? "in_app" : null);
         if (!clientId) return settle("failed", { message: "Unknown AI app." });
         // One active session per AI app: replace any earlier one.
         await supabaseAdmin
@@ -179,29 +186,27 @@ export const decideProposal = createServerFn({ method: "POST" })
           .select("policy_kind, max_trades_per_day, daily_profit_objective, news_trading_allowed")
           .eq("account_id", p.account_id)
           .maybeSingle();
-        const { error: upErr } = await supabaseAdmin
-          .from("connected_account_risk_policies")
-          .upsert(
-            {
-              account_id: p.account_id,
-              user_id: context.userId,
-              policy_kind: existing?.policy_kind ?? "standard",
-              starting_balance: p.starting_balance,
-              operating_risk_per_trade_percent: p.operating_risk_per_trade_percent,
-              hard_risk_per_trade_percent: p.hard_risk_per_trade_percent,
-              max_daily_loss_percent: p.max_daily_loss_percent ?? null,
-              max_total_loss_percent: p.max_total_loss_percent ?? null,
-              trailing_drawdown: p.trailing_drawdown ?? false,
-              max_trades_per_day:
-                p.max_trades_per_day !== undefined
-                  ? p.max_trades_per_day
-                  : (existing?.max_trades_per_day ?? null),
-              daily_profit_objective: existing?.daily_profit_objective ?? null,
-              news_trading_allowed: existing?.news_trading_allowed ?? null,
-              updated_at: new Date().toISOString(),
-            },
-            { onConflict: "account_id" },
-          );
+        const { error: upErr } = await supabaseAdmin.from("connected_account_risk_policies").upsert(
+          {
+            account_id: p.account_id,
+            user_id: context.userId,
+            policy_kind: existing?.policy_kind ?? "standard",
+            starting_balance: p.starting_balance,
+            operating_risk_per_trade_percent: p.operating_risk_per_trade_percent,
+            hard_risk_per_trade_percent: p.hard_risk_per_trade_percent,
+            max_daily_loss_percent: p.max_daily_loss_percent ?? null,
+            max_total_loss_percent: p.max_total_loss_percent ?? null,
+            trailing_drawdown: p.trailing_drawdown ?? false,
+            max_trades_per_day:
+              p.max_trades_per_day !== undefined
+                ? p.max_trades_per_day
+                : (existing?.max_trades_per_day ?? null),
+            daily_profit_objective: existing?.daily_profit_objective ?? null,
+            news_trading_allowed: existing?.news_trading_allowed ?? null,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "account_id" },
+        );
         if (upErr) return settle("failed", { message: upErr.message });
         return settle("approved", { message: "Risk policy saved." });
       }
@@ -259,7 +264,9 @@ export const listMyTradingGrants = createServerFn({ method: "GET" })
     const [g, a] = await Promise.all([
       context.supabase
         .from("ai_trading_grants")
-        .select("id, client_label, actions, account_ids, include_live, max_orders, orders_used, max_risk_percent, expires_at")
+        .select(
+          "id, client_label, actions, account_ids, include_live, max_orders, orders_used, max_risk_percent, expires_at",
+        )
         .eq("user_id", context.userId)
         .is("revoked_at", null)
         .gt("expires_at", new Date().toISOString())

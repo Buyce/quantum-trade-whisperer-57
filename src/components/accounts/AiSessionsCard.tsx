@@ -4,14 +4,21 @@
  */
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { listMyTradingGrants, revokeTradingGrant, type GrantView } from "@/lib/ai-tools/proposals.functions";
+import {
+  listMyTradingGrants,
+  revokeTradingGrant,
+  type GrantView,
+} from "@/lib/ai-tools/proposals.functions";
 
 type Data = Awaited<ReturnType<typeof listMyTradingGrants>>;
 
 export function AiSessionsCard() {
   const [d, setD] = useState<Data | null>(null);
   const [busy, setBusy] = useState(false);
-  const load = () => listMyTradingGrants().then(setD).catch(() => setD(null));
+  const load = () =>
+    listMyTradingGrants()
+      .then(setD)
+      .catch(() => setD(null));
   useEffect(() => {
     void load();
   }, []);
@@ -35,17 +42,22 @@ export function AiSessionsCard() {
         )}
       </div>
       {d.grants.length === 0 ? (
-        <p className="text-xs text-muted-foreground">No active session. AI apps cannot trade right now.</p>
+        <p className="text-xs text-muted-foreground">
+          No active session. AI apps cannot trade right now.
+        </p>
       ) : (
         d.grants.map((g: GrantView) => (
-          <div key={g.id} className="flex flex-wrap items-center justify-between gap-2 rounded border border-border p-2 text-xs">
+          <div
+            key={g.id}
+            className="flex flex-wrap items-center justify-between gap-2 rounded border border-border p-2 text-xs"
+          >
             <div>
               <p className="font-medium">
                 {g.client_label ?? "AI app"} · {g.include_live ? "LIVE + demo" : "demo only"}
               </p>
               <p className="text-muted-foreground">
-                {g.actions.join(", ")} · {g.orders_used}/{g.max_orders} orders · ≤{g.max_risk_percent}% risk · ends{" "}
-                {new Date(g.expires_at).toLocaleTimeString()}
+                {g.actions.join(", ")} · {g.orders_used}/{g.max_orders} orders · ≤
+                {g.max_risk_percent}% risk · ends {new Date(g.expires_at).toLocaleTimeString()}
               </p>
             </div>
             <Button size="sm" variant="outline" disabled={busy} onClick={() => void revoke(g.id)}>
@@ -59,8 +71,9 @@ export function AiSessionsCard() {
           <p className="text-xs font-medium text-muted-foreground">Recent AI actions</p>
           {d.actions.map((a) => (
             <p key={a.id} className="text-xs">
-              <span className="font-mono">{new Date(a.created_at).toLocaleString()}</span> · {a.account_type?.toUpperCase()} ·{" "}
-              {a.action} {a.instrument} · <span className="font-medium">{a.outcome}</span>
+              <span className="font-mono">{new Date(a.created_at).toLocaleString()}</span> ·{" "}
+              {a.account_type?.toUpperCase()} · {a.action} {a.instrument} ·{" "}
+              <span className="font-medium">{a.outcome}</span>
               {a.detail ? ` — ${a.detail}` : ""}
             </p>
           ))}

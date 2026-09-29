@@ -71,7 +71,7 @@ zero evidence.
 
 ### Phase 2 — shadow feature join
 
-At scanner decision time, attach the latest *past-only* microstructure snapshot to
+At scanner decision time, attach the latest _past-only_ microstructure snapshot to
 the research observation. Never fetch future data during replay.
 
 Candidate features:
