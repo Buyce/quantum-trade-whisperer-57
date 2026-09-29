@@ -161,6 +161,31 @@ def snapshot(bridge_id: str, sequence: int) -> dict[str, Any]:
     }
 
 
+def next_sequence(url: str, token: str, bridge_id: str) -> int:
+    request = urllib.request.Request(
+        url,
+        method="GET",
+        headers={
+            "Authorization": f"Bearer {token}",
+            "X-P-Trades-Bridge-Id": bridge_id,
+            "User-Agent": "P-Trades-MT5-Bridge/1",
+        },
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=15) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+            value = payload.get("nextSequence")
+            if not isinstance(value, int) or value < 0:
+                raise BridgeFatalError("P-Trades returned an invalid bridge sequence")
+            return value
+    except urllib.error.HTTPError as exc:
+        if exc.code in (400, 401, 409):
+            raise BridgeFatalError(f"P-Trades bridge handshake refused (HTTP {exc.code})") from exc
+        raise BridgeTransientError(f"P-Trades handshake unavailable (HTTP {exc.code})") from exc
+    except urllib.error.URLError as exc:
+        raise BridgeTransientError("P-Trades handshake is temporarily unreachable") from exc
+
+
 def post_snapshot(url: str, token: str, payload: dict[str, Any]) -> None:
     body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
     request = urllib.request.Request(
@@ -196,7 +221,7 @@ def main() -> None:
     interval = max(2, int(os.getenv("P_TRADES_BRIDGE_INTERVAL_SECONDS", "5")))
 
     require_terminal()
-    sequence = 0
+    sequence = next_sequence(url, token, bridge_id) if url and token else 0
     pending: dict[str, Any] | None = None
     try:
         while True:
