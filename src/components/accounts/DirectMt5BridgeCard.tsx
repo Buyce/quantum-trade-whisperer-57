@@ -60,6 +60,13 @@ export function DirectMt5BridgeCard() {
     secret && typeof window !== "undefined"
       ? `${window.location.origin}${secret.ingestPath}`
       : (secret?.ingestPath ?? "");
+  const credentials: Array<[string, string]> = secret
+    ? [
+        ["Bridge ID", secret.bridgeId],
+        ["Bridge token", secret.token],
+        ["Ingest URL", ingestUrl],
+      ]
+    : [];
 
   return (
     <section className="mb-5 rounded-sm border border-border bg-surface p-4">
@@ -100,11 +107,7 @@ export function DirectMt5BridgeCard() {
           <p className="mt-1 text-muted-foreground">
             Copy these now. P-Trades stores only the token hash and cannot show the token again.
           </p>
-          {[
-            ["Bridge ID", secret.bridgeId],
-            ["Bridge token", secret.token],
-            ["Ingest URL", ingestUrl],
-          ].map(([label, value]) => (
+          {credentials.map(([label, value]) => (
             <div key={label} className="mt-2 flex items-center gap-2">
               <span className="w-20 shrink-0 text-muted-foreground">{label}</span>
               <code className="min-w-0 flex-1 overflow-x-auto rounded bg-background px-2 py-1">
