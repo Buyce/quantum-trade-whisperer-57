@@ -11,7 +11,7 @@ const trades: TradePrint[] = [
 ];
 
 describe("microstructure trade-flow features", () => {
-  it("computes exchange-side delta without treating unknown prints as directional", () => {
+  it("[UNIT] computes exchange-side delta without treating unknown prints as directional", () => {
     const result = computeTradeFlowFeatures(trades, 0.1);
 
     expect(result.tradeCount).toBe(5);
@@ -24,7 +24,7 @@ describe("microstructure trade-flow features", () => {
     expect(result.priceChange).toBeCloseTo(0.2);
   });
 
-  it("builds a deterministic price profile and POC", () => {
+  it("[UNIT] builds a deterministic price profile and POC", () => {
     const profile = buildVolumeProfile(trades, 0.1);
 
     expect(profile.totalVolume).toBe(14);
@@ -34,7 +34,7 @@ describe("microstructure trade-flow features", () => {
     expect(profile.valueAreaHigh).toBe(4100.2);
   });
 
-  it("fails closed on an invalid tick size", () => {
+  it("[INVARIANT] fails closed on an invalid tick size", () => {
     expect(() => buildVolumeProfile(trades, 0)).toThrow("tickSize must be positive");
   });
 });
