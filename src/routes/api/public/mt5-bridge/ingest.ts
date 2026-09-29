@@ -115,8 +115,7 @@ export const Route = createFileRoute("/api/public/mt5-bridge/ingest")({
 
         if (error) {
           const message = error.message.toLowerCase();
-          const authFailure =
-            message.includes("authentication") || message.includes("revoked");
+          const authFailure = message.includes("authentication") || message.includes("revoked");
           const stale =
             message.includes("sequence") ||
             message.includes("freshness") ||
