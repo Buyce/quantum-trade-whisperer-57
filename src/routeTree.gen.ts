@@ -52,6 +52,7 @@ import { Route as ApiPublicCronShadowResolveRouteImport } from './routes/api/pub
 import { Route as ApiPublicCronTelemetryRollupRouteImport } from './routes/api/public/cron/telemetry-rollup'
 import { Route as ApiPublicCronVerifyRemindersRouteImport } from './routes/api/public/cron/verify-reminders'
 import { Route as ApiPublicCronWeeklyReportRouteImport } from './routes/api/public/cron/weekly-report'
+import { Route as ApiPublicMt5BridgeIngestRouteImport } from './routes/api/public/mt5-bridge/ingest'
 import { Route as ApiPublicWorkerDispatchRouteImport } from './routes/api/public/worker/dispatch'
 import { Route as ApiPublicWorkerProcessRouteImport } from './routes/api/public/worker/process'
 import { Route as ApiPublicWorkerReconcileRouteImport } from './routes/api/public/worker/reconcile'
@@ -299,6 +300,12 @@ const ApiPublicCronWeeklyReportRoute =
     path: '/api/public/cron/weekly-report',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicMt5BridgeIngestRoute =
+  ApiPublicMt5BridgeIngestRouteImport.update({
+    id: '/api/public/mt5-bridge/ingest',
+    path: '/api/public/mt5-bridge/ingest',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicWorkerDispatchRoute = ApiPublicWorkerDispatchRouteImport.update({
   id: '/api/public/worker/dispatch',
   path: '/api/public/worker/dispatch',
@@ -398,6 +405,7 @@ export interface FileRoutesByFullPath {
   '/api/public/cron/telemetry-rollup': typeof ApiPublicCronTelemetryRollupRoute
   '/api/public/cron/verify-reminders': typeof ApiPublicCronVerifyRemindersRoute
   '/api/public/cron/weekly-report': typeof ApiPublicCronWeeklyReportRoute
+  '/api/public/mt5-bridge/ingest': typeof ApiPublicMt5BridgeIngestRoute
   '/api/public/worker/dispatch': typeof ApiPublicWorkerDispatchRoute
   '/api/public/worker/process': typeof ApiPublicWorkerProcessRoute
   '/api/public/worker/reconcile': typeof ApiPublicWorkerReconcileRoute
@@ -451,6 +459,7 @@ export interface FileRoutesByTo {
   '/api/public/cron/telemetry-rollup': typeof ApiPublicCronTelemetryRollupRoute
   '/api/public/cron/verify-reminders': typeof ApiPublicCronVerifyRemindersRoute
   '/api/public/cron/weekly-report': typeof ApiPublicCronWeeklyReportRoute
+  '/api/public/mt5-bridge/ingest': typeof ApiPublicMt5BridgeIngestRoute
   '/api/public/worker/dispatch': typeof ApiPublicWorkerDispatchRoute
   '/api/public/worker/process': typeof ApiPublicWorkerProcessRoute
   '/api/public/worker/reconcile': typeof ApiPublicWorkerReconcileRoute
@@ -507,6 +516,7 @@ export interface FileRoutesById {
   '/api/public/cron/telemetry-rollup': typeof ApiPublicCronTelemetryRollupRoute
   '/api/public/cron/verify-reminders': typeof ApiPublicCronVerifyRemindersRoute
   '/api/public/cron/weekly-report': typeof ApiPublicCronWeeklyReportRoute
+  '/api/public/mt5-bridge/ingest': typeof ApiPublicMt5BridgeIngestRoute
   '/api/public/worker/dispatch': typeof ApiPublicWorkerDispatchRoute
   '/api/public/worker/process': typeof ApiPublicWorkerProcessRoute
   '/api/public/worker/reconcile': typeof ApiPublicWorkerReconcileRoute
@@ -563,6 +573,7 @@ export interface FileRouteTypes {
     | '/api/public/cron/telemetry-rollup'
     | '/api/public/cron/verify-reminders'
     | '/api/public/cron/weekly-report'
+    | '/api/public/mt5-bridge/ingest'
     | '/api/public/worker/dispatch'
     | '/api/public/worker/process'
     | '/api/public/worker/reconcile'
@@ -616,6 +627,7 @@ export interface FileRouteTypes {
     | '/api/public/cron/telemetry-rollup'
     | '/api/public/cron/verify-reminders'
     | '/api/public/cron/weekly-report'
+    | '/api/public/mt5-bridge/ingest'
     | '/api/public/worker/dispatch'
     | '/api/public/worker/process'
     | '/api/public/worker/reconcile'
@@ -671,6 +683,7 @@ export interface FileRouteTypes {
     | '/api/public/cron/telemetry-rollup'
     | '/api/public/cron/verify-reminders'
     | '/api/public/cron/weekly-report'
+    | '/api/public/mt5-bridge/ingest'
     | '/api/public/worker/dispatch'
     | '/api/public/worker/process'
     | '/api/public/worker/reconcile'
@@ -715,6 +728,7 @@ export interface RootRouteChildren {
   ApiPublicCronTelemetryRollupRoute: typeof ApiPublicCronTelemetryRollupRoute
   ApiPublicCronVerifyRemindersRoute: typeof ApiPublicCronVerifyRemindersRoute
   ApiPublicCronWeeklyReportRoute: typeof ApiPublicCronWeeklyReportRoute
+  ApiPublicMt5BridgeIngestRoute: typeof ApiPublicMt5BridgeIngestRoute
   ApiPublicWorkerDispatchRoute: typeof ApiPublicWorkerDispatchRoute
   ApiPublicWorkerProcessRoute: typeof ApiPublicWorkerProcessRoute
   ApiPublicWorkerReconcileRoute: typeof ApiPublicWorkerReconcileRoute
@@ -1030,6 +1044,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicCronWeeklyReportRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/mt5-bridge/ingest': {
+      id: '/api/public/mt5-bridge/ingest'
+      path: '/api/public/mt5-bridge/ingest'
+      fullPath: '/api/public/mt5-bridge/ingest'
+      preLoaderRoute: typeof ApiPublicMt5BridgeIngestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/worker/dispatch': {
       id: '/api/public/worker/dispatch'
       path: '/api/public/worker/dispatch'
@@ -1193,6 +1214,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicCronTelemetryRollupRoute: ApiPublicCronTelemetryRollupRoute,
   ApiPublicCronVerifyRemindersRoute: ApiPublicCronVerifyRemindersRoute,
   ApiPublicCronWeeklyReportRoute: ApiPublicCronWeeklyReportRoute,
+  ApiPublicMt5BridgeIngestRoute: ApiPublicMt5BridgeIngestRoute,
   ApiPublicWorkerDispatchRoute: ApiPublicWorkerDispatchRoute,
   ApiPublicWorkerProcessRoute: ApiPublicWorkerProcessRoute,
   ApiPublicWorkerReconcileRoute: ApiPublicWorkerReconcileRoute,
