@@ -96,7 +96,8 @@ begin
         last_sequence = _sequence,
         broker_mode = _mode
     where id = _row.id;
-    raise exception 'broker-confirmed account mode does not match pairing intent';
+    return query select _row.id, _row.user_id, 'refused'::text;
+    return;
   end if;
 
   _terminal_connected := coalesce((_snapshot#>>'{terminal,connected}')::boolean, false);
