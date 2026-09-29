@@ -21,10 +21,11 @@ import readDataset from "./tools/read_dataset";
 import diagnoseBrokerMargin from "./tools/diagnose-broker-margin";
 import { V09_TOOLS } from "./v09";
 import { V10_TOOLS } from "./v10";
+import { supabaseProjectRef } from "./env";
 
-// The OAuth issuer must be the direct Supabase host; the project ref is the only
-// Supabase value that survives publish unchanged.
-const projectRef = import.meta.env["VITE_SUPABASE_PROJECT_ID"] ?? "project-ref-unset";
+// Resolve from either runtime or Vite build-time Supabase integration values.
+// Never publish an invalid "project-ref-unset" OAuth issuer.
+const projectRef = supabaseProjectRef();
 
 export default defineMcp({
   name: "p-trades-hub",
