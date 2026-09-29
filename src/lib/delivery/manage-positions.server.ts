@@ -190,7 +190,9 @@ export async function manageDemoPositions(
     // the broker position itself closes, so the stop can ratchet behind new best
     // prices. Disabling the option makes it terminal again on the next pass.
     if (delivery.execution_policy !== "ladder_tp1_tp2_runner_tp3") {
-      return trailEnabled.get(delivery.user_id) !== true;
+      const protectedRunner =
+        s.partial_state === "confirmed" && s.stop_move_state === "confirmed";
+      return !(trailEnabled.get(delivery.user_id) === true && protectedRunner);
     }
 
     // A laddered position stays open while later steps can act. When trailing is
