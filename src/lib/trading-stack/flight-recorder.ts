@@ -1,4 +1,4 @@
-import type { TradingDecision } from "@/lib/trading-kernel";
+import type { DecisionGate, TradingDecision } from "@/lib/trading-kernel";
 
 export interface DecisionFlightRecord {
   version: 1;
@@ -17,14 +17,39 @@ export interface DecisionFlightRecord {
   modelVersions: Record<string, string | number>;
 }
 
+export type FrozenTradingDecision = Omit<Readonly<TradingDecision>, "blockers" | "gates"> & {
+  readonly blockers: readonly Readonly<DecisionGate>[];
+  readonly gates: readonly Readonly<DecisionGate>[];
+};
+
+export type FrozenDecisionFlightRecord = Omit<
+  Readonly<DecisionFlightRecord>,
+  "decision" | "modelVersions"
+> & {
+  readonly decision: FrozenTradingDecision;
+  readonly modelVersions: Readonly<Record<string, string | number>>;
+};
+
+function freezeGate(gate: DecisionGate): Readonly<DecisionGate> {
+  return Object.freeze({ ...gate });
+}
+
+function freezeDecision(decision: TradingDecision): FrozenTradingDecision {
+  return Object.freeze({
+    ...decision,
+    blockers: Object.freeze(decision.blockers.map(freezeGate)),
+    gates: Object.freeze(decision.gates.map(freezeGate)),
+  });
+}
+
 /**
- * Builds the immutable payload shape to persist at the execution boundary.
+ * Builds a deeply immutable execution-boundary snapshot.
  * Storage is deliberately separate so decision construction stays testable.
  */
-export function flightRecord(input: DecisionFlightRecord): Readonly<DecisionFlightRecord> {
+export function flightRecord(input: DecisionFlightRecord): FrozenDecisionFlightRecord {
   return Object.freeze({
     ...input,
     modelVersions: Object.freeze({ ...input.modelVersions }),
-    decision: Object.freeze({ ...input.decision }),
+    decision: freezeDecision(input.decision),
   });
 }
