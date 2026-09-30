@@ -81,8 +81,7 @@ const capabilityRegistry = {
     id: "exchange_microstructure",
     mode: "shadow",
     executionAuthority: false,
-    reason:
-      "COMEX/venue microstructure contracts are research-only until holdout evidence exists.",
+    reason: "COMEX/venue microstructure contracts are research-only until holdout evidence exists.",
   },
   digital_twin: {
     id: "digital_twin",
@@ -100,9 +99,8 @@ const capabilityRegistry = {
 
 for (const state of Object.values(capabilityRegistry)) Object.freeze(state);
 
-export const TRADING_CAPABILITIES: Readonly<
-  Record<TradingCapability, Readonly<CapabilityState>>
-> = Object.freeze(capabilityRegistry);
+export const TRADING_CAPABILITIES: Readonly<Record<TradingCapability, Readonly<CapabilityState>>> =
+  Object.freeze(capabilityRegistry);
 
 export function mayInfluenceExecution(id: TradingCapability): boolean {
   const state = TRADING_CAPABILITIES[id];
