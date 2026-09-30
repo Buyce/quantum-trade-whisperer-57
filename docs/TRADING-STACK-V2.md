@@ -114,6 +114,14 @@ the complete three-layer decision and model versions. Persistence at every
 broker-submission boundary is the next wiring step; the type exists now so new
 providers cannot invent incompatible audit records.
 
+## Test coverage
+
+Blocking tests cover the V2 capability boundary, projected prop-risk refusal,
+per-account volume eligibility, digital-twin cost accounting, and managed-exit
+break-even/trailing invariants. The repository-wide verification pipeline must
+pass lint, typecheck, blocking tests, and build before this stack is merged.
+Shadow/unavailable capabilities remain non-executable even when their tests pass.
+
 ## Capability modes
 
 `src/lib/trading-stack/capabilities.ts` is the explicit registry.
