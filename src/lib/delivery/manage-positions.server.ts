@@ -184,8 +184,7 @@ export async function manageDemoPositions(
     if (!s) return false;
     if (!done(s.partial_state) || !done(s.stop_move_state)) return false;
     if (delivery.execution_policy !== "ladder_tp1_tp2_runner_tp3") {
-      const protectedRunner =
-        s.partial_state === "confirmed" && s.stop_move_state === "confirmed";
+      const protectedRunner = s.partial_state === "confirmed" && s.stop_move_state === "confirmed";
       return !(trailEnabled.get(delivery.user_id) === true && protectedRunner);
     }
     if (trailEnabled.get(delivery.user_id) === true && s.runner_stop_state === "confirmed") {
