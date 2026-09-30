@@ -3,8 +3,6 @@ type RuntimeGlobals = typeof globalThis & {
   process?: { env?: Record<string, string | undefined> };
 };
 
-type BuildEnv = Record<string, string | boolean | undefined>;
-
 function clean(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
@@ -15,11 +13,22 @@ export function runtimeEnv(name: string): string | undefined {
 }
 
 export function buildEnv(name: string): string | undefined {
-  // Vite replaces import.meta.env values at build time. Lovable deployments can
-  // expose the Supabase integration here even when the same VITE_* names are
-  // not present in process.env at server runtime.
-  const env = import.meta.env as BuildEnv;
-  return clean(env[name]);
+  // IMPORTANT: Vite production replacement requires the complete static
+  // import.meta.env.<NAME> expression. Dynamic access such as env[name] is not
+  // reliably replaced in production bundles. Keep this allow-list explicit and
+  // limited to public VITE_* Supabase integration values.
+  switch (name) {
+    case "VITE_SUPABASE_URL":
+      return clean(import.meta.env.VITE_SUPABASE_URL);
+    case "VITE_SUPABASE_PROJECT_ID":
+      return clean(import.meta.env.VITE_SUPABASE_PROJECT_ID);
+    case "VITE_SUPABASE_PUBLISHABLE_KEY":
+      return clean(import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY);
+    case "VITE_SUPABASE_ANON_KEY":
+      return clean(import.meta.env.VITE_SUPABASE_ANON_KEY);
+    default:
+      return undefined;
+  }
 }
 
 export function configuredEnv(names: readonly string[]): string | undefined {
