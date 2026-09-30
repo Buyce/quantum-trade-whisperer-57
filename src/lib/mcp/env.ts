@@ -41,8 +41,10 @@ export function configuredEnv(names: readonly string[]): string | undefined {
 
 export function supabaseProjectUrl(): string {
   const url = configuredEnv(["SUPABASE_URL", "VITE_SUPABASE_URL"]);
-  if (!url) throw new Error("P_TRADES_SUPABASE_URL_UNAVAILABLE");
-  return url.replace(/\/$/, "");
+  // The project URL is public configuration and the repository is bound to one
+  // Supabase project in supabase/config.toml. Keep a deterministic fallback so
+  // MCP handlers do not depend on Lovable exposing a Vite variable at runtime.
+  return (url ?? "https://qbraqpolgduqporknacx.supabase.co").replace(/\/$/, "");
 }
 
 export function supabaseProjectRef(): string {
@@ -50,8 +52,7 @@ export function supabaseProjectRef(): string {
   if (explicit) return explicit;
 
   const match = /^https:\/\/([a-z0-9-]+)\.supabase\.co$/i.exec(supabaseProjectUrl());
-  if (!match?.[1]) throw new Error("P_TRADES_SUPABASE_PROJECT_REF_UNAVAILABLE");
-  return match[1];
+  return match?.[1] ?? "qbraqpolgduqporknacx";
 }
 
 export function supabasePublishableKey(): string {

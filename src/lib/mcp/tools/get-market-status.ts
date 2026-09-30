@@ -47,6 +47,18 @@ export default defineTool({
     if (!ctx.isAuthenticated()) {
       return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
     }
-    return runGetMarketStatus(supabaseForUser(ctx));
+    try {
+      return await runGetMarketStatus(supabaseForUser(ctx));
+    } catch (error) {
+      const code =
+        error instanceof Error && /^P_TRADES_[A-Z0-9_]+$/.test(error.message)
+          ? error.message
+          : "P_TRADES_MCP_BOOTSTRAP_FAILED";
+      return {
+        content: [{ type: "text", text: code }],
+        structuredContent: { error: code },
+        isError: true,
+      };
+    }
   },
 });
