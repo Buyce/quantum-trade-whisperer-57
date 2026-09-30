@@ -38,7 +38,8 @@ export function runDigitalTwin(trades: readonly TwinTrade[]): TwinResult {
     if (!values.every(Number.isFinite)) continue;
     resolved.push({
       grossR: trade.grossR,
-      costsR: Math.max(0, trade.spreadR) + Math.max(0, trade.slippageR) + Math.max(0, trade.commissionR),
+      costsR:
+        Math.max(0, trade.spreadR) + Math.max(0, trade.slippageR) + Math.max(0, trade.commissionR),
     });
   }
   const metrics = calculateBotQuality(resolved);
