@@ -162,15 +162,34 @@ export async function manageDemoPositions(
   const states = new Map<string, StateRow>();
   for (const row of (stateRows ?? []) as StateRow[]) states.set(row.broker_position_id, row);
 
+  // Trailing is an owner opt-in. Read it before declaring a protected runner
+  // settled, otherwise the position would disappear from management at break-even.
+  const userIds = Array.from(new Set(deliveries.map((d) => d.user_id)));
+  const { data: trailRows } = await db
+    .from("scanner_settings")
+    .select("user_id, auto_exit_trail_runner")
+    .in("user_id", userIds);
+  const trailEnabled = new Map<string, boolean>();
+  for (const row of (trailRows ?? []) as Array<{
+    user_id: string;
+    auto_exit_trail_runner: boolean | null;
+  }>) {
+    trailEnabled.set(row.user_id, row.auto_exit_trail_runner === true);
+  }
+
   const done = (v: string | null | undefined) =>
     v === "confirmed" || v === "refused" || v === "unknown" || v === "not_applicable";
 
   const settled = (delivery: DeliveryRow, s: StateRow | undefined): boolean => {
     if (!s) return false;
     if (!done(s.partial_state) || !done(s.stop_move_state)) return false;
-    if (delivery.execution_policy !== "ladder_tp1_tp2_runner_tp3") return true;
-    // A laddered position stays open for management while a later step can still
-    // act; a refused or unknown verdict settles that step for good.
+    if (delivery.execution_policy !== "ladder_tp1_tp2_runner_tp3") {
+      const protectedRunner = s.partial_state === "confirmed" && s.stop_move_state === "confirmed";
+      return !(trailEnabled.get(delivery.user_id) === true && protectedRunner);
+    }
+    if (trailEnabled.get(delivery.user_id) === true && s.runner_stop_state === "confirmed") {
+      return false;
+    }
     return (
       s.partial_state !== "confirmed" || (done(s.second_partial_state) && done(s.runner_stop_state))
     );

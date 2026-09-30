@@ -133,6 +133,96 @@ describe("decideManagedPosition", () => {
   });
 });
 
+describe("decideManagedStep — break-even trailing runner", () => {
+  const progress: ManagedProgress = {
+    partialDone: true,
+    stopMoved: true,
+    secondPartialDone: false,
+    runnerStopMoved: false,
+  };
+  const plan = {
+    laddered: false,
+    shares: [0.5, 0, 0.5] as const,
+    trailRunner: true,
+  };
+
+  it("[INVARIANT] waits at break-even until the trail can improve a long stop", () => {
+    const waiting = decideManagedStep(
+      facts({
+        openPrice: 100,
+        currentPrice: 101,
+        currentStop: 100,
+        bestPrice: 101,
+        riskDistance: 1,
+      }),
+      progress,
+      plan,
+    );
+    expect(waiting.step).toBeNull();
+    expect(waiting.reason).toContain("break-even");
+
+    const advancing = decideManagedStep(
+      facts({
+        openPrice: 100,
+        currentPrice: 102.5,
+        currentStop: 100,
+        bestPrice: 103,
+        riskDistance: 1,
+      }),
+      progress,
+      plan,
+    );
+    expect(advancing.step).toBe("trail");
+    expect(advancing.moveStopTo).toBe(102);
+  });
+
+  it("[INVARIANT] advances a short trail without ever widening it", () => {
+    const advancing = decideManagedStep(
+      facts({
+        side: "short",
+        openPrice: 100,
+        currentPrice: 97.5,
+        currentStop: 100,
+        bestPrice: 97,
+        riskDistance: 1,
+      }),
+      progress,
+      plan,
+    );
+    expect(advancing.moveStopTo).toBe(98);
+
+    const noWiden = decideManagedStep(
+      facts({
+        side: "short",
+        openPrice: 100,
+        currentPrice: 97.5,
+        currentStop: 97.8,
+        bestPrice: 97,
+        riskDistance: 1,
+      }),
+      progress,
+      plan,
+    );
+    expect(noWiden.step).toBeNull();
+  });
+
+  it("[INVARIANT] break-even remains mandatory before trailing", () => {
+    const decision = decideManagedStep(
+      facts({
+        openPrice: 100,
+        currentPrice: 103,
+        currentStop: 99,
+        bestPrice: 103,
+        riskDistance: 1,
+      }),
+      { ...progress, stopMoved: false },
+      plan,
+    );
+    expect(decision.step).toBe("stop_to_entry");
+    expect(decision.moveStopTo).toBe(100);
+  });
+});
+
 describe("roundDownToStep", () => {
   it("[INVARIANT] never rounds up", () => {
     expect(roundDownToStep(0.199, 0.01)).toBe(0.19);
