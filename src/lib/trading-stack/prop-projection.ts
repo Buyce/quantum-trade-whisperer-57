@@ -63,7 +63,7 @@ export function evaluateProjectedPropRisk(
       const limit = policy.startingBalance * (policy.maxDailyLossPercent / 100);
       const used = Math.max(0, -state.todayNetPnl);
       projectedDailyLossRemaining = limit - used - risk;
-      if (projectedDailyLossRemaining < 0) blockers.push("projected_daily_loss_breach");
+      if (projectedDailyLossRemaining <= 0) blockers.push("projected_daily_loss_breach");
     }
   }
 
@@ -82,7 +82,7 @@ export function evaluateProjectedPropRisk(
         : policy.startingBalance;
       const floor = basis - policy.startingBalance * (policy.maxTotalLossPercent / 100);
       projectedTotalLossRemaining = state.equity - risk - floor;
-      if (projectedTotalLossRemaining < 0) blockers.push("projected_total_loss_breach");
+      if (projectedTotalLossRemaining <= 0) blockers.push("projected_total_loss_breach");
     }
   }
 
