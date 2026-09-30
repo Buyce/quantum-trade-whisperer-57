@@ -148,7 +148,13 @@ describe("decideManagedStep — break-even trailing runner", () => {
 
   it("[INVARIANT] waits at break-even until the trail can improve a long stop", () => {
     const waiting = decideManagedStep(
-      facts({ openPrice: 100, currentPrice: 101, currentStop: 100, bestPrice: 101, riskDistance: 1 }),
+      facts({
+        openPrice: 100,
+        currentPrice: 101,
+        currentStop: 100,
+        bestPrice: 101,
+        riskDistance: 1,
+      }),
       progress,
       plan,
     );
@@ -156,7 +162,13 @@ describe("decideManagedStep — break-even trailing runner", () => {
     expect(waiting.reason).toContain("break-even");
 
     const advancing = decideManagedStep(
-      facts({ openPrice: 100, currentPrice: 102.5, currentStop: 100, bestPrice: 103, riskDistance: 1 }),
+      facts({
+        openPrice: 100,
+        currentPrice: 102.5,
+        currentStop: 100,
+        bestPrice: 103,
+        riskDistance: 1,
+      }),
       progress,
       plan,
     );
@@ -166,14 +178,28 @@ describe("decideManagedStep — break-even trailing runner", () => {
 
   it("[INVARIANT] advances a short trail without ever widening it", () => {
     const advancing = decideManagedStep(
-      facts({ side: "short", openPrice: 100, currentPrice: 97.5, currentStop: 100, bestPrice: 97, riskDistance: 1 }),
+      facts({
+        side: "short",
+        openPrice: 100,
+        currentPrice: 97.5,
+        currentStop: 100,
+        bestPrice: 97,
+        riskDistance: 1,
+      }),
       progress,
       plan,
     );
     expect(advancing.moveStopTo).toBe(98);
 
     const noWiden = decideManagedStep(
-      facts({ side: "short", openPrice: 100, currentPrice: 97.5, currentStop: 97.8, bestPrice: 97, riskDistance: 1 }),
+      facts({
+        side: "short",
+        openPrice: 100,
+        currentPrice: 97.5,
+        currentStop: 97.8,
+        bestPrice: 97,
+        riskDistance: 1,
+      }),
       progress,
       plan,
     );
@@ -182,7 +208,13 @@ describe("decideManagedStep — break-even trailing runner", () => {
 
   it("[INVARIANT] break-even remains mandatory before trailing", () => {
     const decision = decideManagedStep(
-      facts({ openPrice: 100, currentPrice: 103, currentStop: 99, bestPrice: 103, riskDistance: 1 }),
+      facts({
+        openPrice: 100,
+        currentPrice: 103,
+        currentStop: 99,
+        bestPrice: 103,
+        riskDistance: 1,
+      }),
       { ...progress, stopMoved: false },
       plan,
     );
