@@ -22,14 +22,13 @@ export type TradingCapability =
   | "adaptive_learning";
 
 export interface CapabilityState {
-  id: TradingCapability;
-  mode: CapabilityMode;
-  executionAuthority: boolean;
-  reason: string;
+  readonly id: TradingCapability;
+  readonly mode: CapabilityMode;
+  readonly executionAuthority: boolean;
+  readonly reason: string;
 }
 
-export const TRADING_CAPABILITIES: Readonly<Record<TradingCapability, CapabilityState>> =
-  Object.freeze({
+const capabilityRegistry = {
     strategy_kernel: {
       id: "strategy_kernel",
       mode: "enforced",
@@ -97,7 +96,13 @@ export const TRADING_CAPABILITIES: Readonly<Record<TradingCapability, Capability
       executionAuthority: false,
       reason: "No self-modifying production policy; evidence promotion remains separate.",
     },
-  });
+};
+
+for (const state of Object.values(capabilityRegistry)) Object.freeze(state);
+
+export const TRADING_CAPABILITIES: Readonly<
+  Record<TradingCapability, Readonly<CapabilityState>>
+> = Object.freeze(capabilityRegistry);
 
 export function mayInfluenceExecution(id: TradingCapability): boolean {
   const state = TRADING_CAPABILITIES[id];
