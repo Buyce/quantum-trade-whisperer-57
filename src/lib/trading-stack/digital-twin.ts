@@ -1,4 +1,4 @@
-import { qualityMetrics, type TradeR } from "@/lib/trading-kernel/quality";
+import { calculateBotQuality, type ClosedTradeR } from "@/lib/trading-kernel/quality";
 
 export interface TwinTrade {
   grossR: number;
@@ -27,7 +27,7 @@ export interface TwinResult {
  * gross R and explicit cost assumptions with provenance.
  */
 export function runDigitalTwin(trades: readonly TwinTrade[]): TwinResult {
-  const resolved: TradeR[] = [];
+  const resolved: ClosedTradeR[] = [];
   let rejected = 0;
   for (const trade of trades) {
     if (trade.rejected) {
@@ -41,7 +41,7 @@ export function runDigitalTwin(trades: readonly TwinTrade[]): TwinResult {
       costsR: Math.max(0, trade.spreadR) + Math.max(0, trade.slippageR) + Math.max(0, trade.commissionR),
     });
   }
-  const metrics = qualityMetrics(resolved);
+  const metrics = calculateBotQuality(resolved);
   return {
     version: 1,
     mode: "shadow",
