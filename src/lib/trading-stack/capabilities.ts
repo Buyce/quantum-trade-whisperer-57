@@ -82,7 +82,8 @@ export const TRADING_CAPABILITIES: Readonly<Record<TradingCapability, Capability
       id: "exchange_microstructure",
       mode: "shadow",
       executionAuthority: false,
-      reason: "COMEX/venue microstructure contracts are research-only until holdout evidence exists.",
+      reason:
+        "COMEX/venue microstructure contracts are research-only until holdout evidence exists.",
     },
     digital_twin: {
       id: "digital_twin",
