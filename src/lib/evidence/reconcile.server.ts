@@ -59,6 +59,23 @@ export const RECONCILE_WINDOW_HOURS = 168;
  */
 const SUBMITTED_STATES = ["sent", "acknowledged", "unknown"] as const;
 
+/**
+ * Accepted orders older than the recent window stay in scope until the broker
+ * gives a settled answer, bounded so one pass never reads unbounded history.
+ */
+export const UNSETTLED_LOOKBACK_DAYS = 60;
+const UNSETTLED_MAX_ROWS = 200;
+/** No broker answer yet, or only a non-final one. */
+const UNSETTLED_BROKER_STATE_FILTER =
+  "broker_order_state.is.null,broker_order_state.in.(open,resting,unresolved)";
+
+/**
+ * Wall-clock budget for one pass. The scheduler gives up after 30 s, so the pass
+ * stops starting new accounts well before that and records why instead of being
+ * cut off silently with no health written.
+ */
+export const RECONCILE_PASS_BUDGET_MS = 22_000;
+
 /** PostgREST filter: still in flight, OR provably submitted at some point. */
 const RECONCILABLE_FILTER = [
   `state.in.(${SUBMITTED_STATES.join(",")})`,
@@ -225,6 +242,34 @@ export async function reconcileBrokerEvidence(
   for (const delivery of (deliveryRows ?? []) as unknown as DeliveryRow[]) {
     if (delivery.client_id && delivery.connected_account_id)
       deliveryById.set(delivery.id, delivery);
+  }
+
+  // Orders the broker ACCEPTED that are older than the recent window but still
+  // have no settled broker answer. Without this, an order whose result failed to
+  // save stays "awaiting evidence" forever once it ages past the window.
+  const staleDeliveryIds = new Set<number>();
+  const { data: staleRows, error: staleError } = await db
+    .from("execution_deliveries")
+    .select(
+      "id, user_id, signal_id, connected_account_id, client_id, magic, broker_symbol, published_entry, submitted_entry, submitted_stop, submitted_target, submitted_at, account_mode, broker_order_id, execution_policy",
+    )
+    .eq("destination_type", "metaapi_direct")
+    .in("state", [...SUBMITTED_STATES])
+    .not("client_id", "is", null)
+    .or(UNSETTLED_BROKER_STATE_FILTER)
+    .lt("submitted_at", since.toISOString())
+    .gte("submitted_at", new Date(now - UNSETTLED_LOOKBACK_DAYS * 86_400_000).toISOString())
+    .order("submitted_at", { ascending: true })
+    .limit(UNSETTLED_MAX_ROWS);
+  if (staleError) {
+    result.errors.push(`older unsettled deliveries unreadable: ${staleError.message}`);
+  } else {
+    for (const delivery of (staleRows ?? []) as unknown as DeliveryRow[]) {
+      if (delivery.client_id && delivery.connected_account_id && !deliveryById.has(delivery.id)) {
+        deliveryById.set(delivery.id, delivery);
+        staleDeliveryIds.add(delivery.id);
+      }
+    }
   }
 
   const unresolvedDeliveryIds = [
