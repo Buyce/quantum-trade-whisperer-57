@@ -244,6 +244,49 @@ export function brokerOrderDestination(
   return { kind: "unknown", label: "Destination not recorded" };
 }
 
+/** The account's last broker-check outcome, as recorded by reconciliation. */
+export interface AccountReconciliationHealth {
+  lastSuccessAt: string | null;
+  lastErrorAt: string | null;
+  lastError: string | null;
+}
+
+/** Grace period before an unanswered accepted order is blamed on the check. */
+export const BROKER_CHECK_STALE_MS = 6 * 3_600_000;
+
+function shortUtc(iso: string): string {
+  return `${iso.slice(0, 16).replace("T", " ")} UTC`;
+}
+
+/**
+ * When the broker check has not succeeded since this order was submitted (and
+ * the order is old enough that a result should exist), say THAT, instead of the
+ * neutral "awaiting evidence" which hides a broken check.
+ */
+export function brokerCheckFailing(
+  submittedAt: string | null,
+  health: AccountReconciliationHealth | null,
+  nowMs: number = Date.now(),
+): BrokerOrderStatus | null {
+  if (!health || !submittedAt) return null;
+  const submittedMs = Date.parse(submittedAt);
+  if (!Number.isFinite(submittedMs) || nowMs - submittedMs < BROKER_CHECK_STALE_MS) return null;
+  const successMs = health.lastSuccessAt ? Date.parse(health.lastSuccessAt) : Number.NaN;
+  if (Number.isFinite(successMs) && successMs > submittedMs) return null;
+  const since = health.lastSuccessAt
+    ? `P-Trades has not managed to check this account with your broker since ${shortUtc(health.lastSuccessAt)}`
+    : "P-Trades has not yet managed to check this account with your broker";
+  const reason =
+    health.lastError && health.lastErrorAt && Date.parse(health.lastErrorAt) > submittedMs
+      ? ` Last reason: ${health.lastError.slice(0, 240)}`
+      : "";
+  return {
+    kind: "accepted",
+    label: "Accepted by broker — broker check failing",
+    detail: `${since}, so this order's result has not been read yet. The trade itself is still in your broker's history.${reason}`,
+  };
+}
+
 /**
  * What the user is told about this order.
  *
@@ -257,6 +300,7 @@ export function brokerOrderStatus(
     "state" | "reason" | "broker_retcode_string" | "submitted_at" | "broker_order_state"
   >,
   evidence: Pick<BrokerOrderEvidenceRow, "state"> | null,
+  reconciliation: AccountReconciliationHealth | null = null,
 ): BrokerOrderStatus {
   if (evidence) {
     if (evidence.state === "open") {
@@ -334,6 +378,10 @@ export function brokerOrderStatus(
           detail:
             "Your broker no longer holds this order and no position resulted from it, so its slot was freed.",
         };
+      }
+      {
+        const failing = brokerCheckFailing(delivery.submitted_at, reconciliation);
+        if (failing) return failing;
       }
       return {
         kind: "accepted",

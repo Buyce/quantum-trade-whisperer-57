@@ -59,6 +59,23 @@ export const RECONCILE_WINDOW_HOURS = 168;
  */
 const SUBMITTED_STATES = ["sent", "acknowledged", "unknown"] as const;
 
+/**
+ * Accepted orders older than the recent window stay in scope until the broker
+ * gives a settled answer, bounded so one pass never reads unbounded history.
+ */
+export const UNSETTLED_LOOKBACK_DAYS = 60;
+const UNSETTLED_MAX_ROWS = 200;
+/** No broker answer yet, or only a non-final one. */
+const UNSETTLED_BROKER_STATE_FILTER =
+  "broker_order_state.is.null,broker_order_state.in.(open,resting,unresolved)";
+
+/**
+ * Wall-clock budget for one pass. The scheduler gives up after 30 s, so the pass
+ * stops starting new accounts well before that and records why instead of being
+ * cut off silently with no health written.
+ */
+export const RECONCILE_PASS_BUDGET_MS = 22_000;
+
 /** PostgREST filter: still in flight, OR provably submitted at some point. */
 const RECONCILABLE_FILTER = [
   `state.in.(${SUBMITTED_STATES.join(",")})`,
@@ -227,6 +244,34 @@ export async function reconcileBrokerEvidence(
       deliveryById.set(delivery.id, delivery);
   }
 
+  // Orders the broker ACCEPTED that are older than the recent window but still
+  // have no settled broker answer. Without this, an order whose result failed to
+  // save stays "awaiting evidence" forever once it ages past the window.
+  const staleDeliveryIds = new Set<number>();
+  const { data: staleRows, error: staleError } = await db
+    .from("execution_deliveries")
+    .select(
+      "id, user_id, signal_id, connected_account_id, client_id, magic, broker_symbol, published_entry, submitted_entry, submitted_stop, submitted_target, submitted_at, account_mode, broker_order_id, execution_policy",
+    )
+    .eq("destination_type", "metaapi_direct")
+    .in("state", [...SUBMITTED_STATES])
+    .not("client_id", "is", null)
+    .or(UNSETTLED_BROKER_STATE_FILTER)
+    .lt("submitted_at", since.toISOString())
+    .gte("submitted_at", new Date(now - UNSETTLED_LOOKBACK_DAYS * 86_400_000).toISOString())
+    .order("submitted_at", { ascending: true })
+    .limit(UNSETTLED_MAX_ROWS);
+  if (staleError) {
+    result.errors.push(`older unsettled deliveries unreadable: ${staleError.message}`);
+  } else {
+    for (const delivery of (staleRows ?? []) as unknown as DeliveryRow[]) {
+      if (delivery.client_id && delivery.connected_account_id && !deliveryById.has(delivery.id)) {
+        deliveryById.set(delivery.id, delivery);
+        staleDeliveryIds.add(delivery.id);
+      }
+    }
+  }
+
   const unresolvedDeliveryIds = [
     ...new Set(
       openEvidence
@@ -278,8 +323,21 @@ export async function reconcileBrokerEvidence(
     .in("id", [...accountIds]);
   const accounts = (accountRows ?? []) as unknown as AccountRow[];
 
+  const passStartedAt = Date.now();
   for (const account of accounts) {
     if (!account.metaapi_account_id) continue;
+
+    if (Date.now() - passStartedAt > RECONCILE_PASS_BUDGET_MS) {
+      const message = "not checked this pass — the pass ran out of time on earlier accounts";
+      result.errors.push(`${account.id}: ${message}`);
+      const writeError = await recordReconciliationHealth(db, account.id, {
+        ok: false,
+        at: new Date(now).toISOString(),
+        error: message,
+      });
+      if (writeError) result.errors.push(`${account.id}: health not recorded — ${writeError}`);
+      continue;
+    }
     result.accountsChecked += 1;
 
     // Errors are collected PER ACCOUNT. The previous prefix-matching approach
@@ -291,13 +349,21 @@ export async function reconcileBrokerEvidence(
       result.errors.push(message);
     };
 
+    // Anything that throws below still ends with this account's health written,
+    // so a failing check can never look like "nothing to report".
+    try {
     const accountDeliveries = deliveries.filter((d) => d.connected_account_id === account.id);
 
     let deals;
     const accountSince = accountDeliveries.reduce((earliest, delivery) => {
       const evidence = openEvidenceByDelivery.get(delivery.id);
-      if (!evidence) return earliest;
-      const candidates = [delivery.submitted_at, evidence.entry_at, evidence.first_observed_at]
+      const candidates = (
+        evidence
+          ? [delivery.submitted_at, evidence.entry_at, evidence.first_observed_at]
+          : staleDeliveryIds.has(delivery.id)
+            ? [delivery.submitted_at]
+            : []
+      )
         .map((value) => (value ? Date.parse(value) : Number.NaN))
         .filter(Number.isFinite);
       return candidates.length ? Math.min(earliest, ...candidates) : earliest;
@@ -364,8 +430,6 @@ export async function reconcileBrokerEvidence(
 
       try {
         const summaryState = summariseGroup(group).state;
-        if (summaryState === "open" || summaryState === "closed")
-          evidenceStateByDelivery.set(delivery.id, summaryState);
         const written = await writeEvidence(db, {
           group,
           delivery,
@@ -377,7 +441,13 @@ export async function reconcileBrokerEvidence(
         });
         if (typeof written === "object")
           pushError(`${group.clientId}: evidence write failed — ${written.error}`);
-        else if (written === "written") result.evidenceWritten += 1;
+        else {
+          if (written === "written") result.evidenceWritten += 1;
+          // Only a SAVED result may settle the order. Marking it closed while the
+          // write failed is how results went missing without anyone noticing.
+          if (summaryState === "open" || summaryState === "closed")
+            evidenceStateByDelivery.set(delivery.id, summaryState);
+        }
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         pushError(`${group.clientId}: evidence invalid — ${message}`);
@@ -451,6 +521,10 @@ export async function reconcileBrokerEvidence(
       });
       if (typeof flagged === "number") result.discrepanciesFlagged += flagged;
       else pushError(`${account.id}: discrepancies not recorded — ${flagged.error}`);
+    }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      pushError(`${account.id}: reconciliation stopped — ${message}`);
     }
 
     const healthWriteError = await recordReconciliationHealth(
