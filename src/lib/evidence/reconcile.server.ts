@@ -119,6 +119,7 @@ const OPEN_EVIDENCE_MAX_PAGES = 10;
 
 interface AccountRow {
   id: string;
+  connection_status?: string | null;
   user_id: string;
   metaapi_account_id: string | null;
   region: string;
@@ -318,7 +319,7 @@ export async function reconcileBrokerEvidence(
   const { data: accountRows, error: accountError } = await db
     .from("connected_trading_accounts")
     .select(
-      "id, user_id, metaapi_account_id, region, magic, broker_account_type, research_consent, research_consent_version, research_consent_at, research_account_ref, broker_balance, broker_currency:account_currency, broker_observed_at",
+      "id, user_id, metaapi_account_id, region, magic, broker_account_type, research_consent, research_consent_version, research_consent_at, research_account_ref, broker_balance, broker_currency:account_currency, broker_observed_at, connection_status",
     )
     .in("id", [...accountIds]);
   // An unreadable account list must FAIL LOUDLY. Ignoring this error is how the
@@ -327,7 +328,13 @@ export async function reconcileBrokerEvidence(
     result.errors.push(`accounts unreadable: ${accountError.message}`);
     return result;
   }
-  const accounts = (accountRows ?? []) as unknown as AccountRow[];
+  // Accounts the broker last reported connected go first: a disconnected one
+  // spends its whole read timeout and must not starve the healthy ones.
+  const accounts = ((accountRows ?? []) as unknown as AccountRow[]).sort(
+    (a, b) =>
+      Number(a.connection_status === "DISCONNECTED") -
+      Number(b.connection_status === "DISCONNECTED"),
+  );
 
   const passStartedAt = Date.now();
   for (const account of accounts) {
@@ -358,176 +365,179 @@ export async function reconcileBrokerEvidence(
     // Anything that throws below still ends with this account's health written,
     // so a failing check can never look like "nothing to report".
     try {
-    const accountDeliveries = deliveries.filter((d) => d.connected_account_id === account.id);
+      const accountDeliveries = deliveries.filter((d) => d.connected_account_id === account.id);
 
-    let deals;
-    const accountSince = accountDeliveries.reduce((earliest, delivery) => {
-      const evidence = openEvidenceByDelivery.get(delivery.id);
-      const candidates = (
-        evidence
-          ? [delivery.submitted_at, evidence.entry_at, evidence.first_observed_at]
-          : staleDeliveryIds.has(delivery.id)
-            ? [delivery.submitted_at]
-            : []
-      )
-        .map((value) => (value ? Date.parse(value) : Number.NaN))
-        .filter(Number.isFinite);
-      return candidates.length ? Math.min(earliest, ...candidates) : earliest;
-    }, since.getTime());
-    const historyStart = new Date(accountSince);
-    try {
-      deals = await fetchDeals(
-        account.metaapi_account_id,
-        account.region,
-        historyStart,
-        new Date(now),
-      );
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      pushError(`${account.id}: broker history unavailable — ${message}`);
-      const writeError = await recordReconciliationHealth(db, account.id, {
-        ok: false,
-        at: new Date(now).toISOString(),
-        error: `broker history unavailable — ${message}`,
-      });
-      if (writeError) result.errors.push(`${account.id}: health not recorded — ${writeError}`);
-      continue;
-    }
-
-    // Broker-held stops (F): read once per account, never derived from what we
-    // submitted. Unavailable history simply leaves the stop unknown.
-    let positions: Awaited<ReturnType<typeof fetchPositions>> = [];
-    let historyOrders: Awaited<ReturnType<typeof fetchHistoryOrders>> = [];
-    let restingOrders: Awaited<ReturnType<typeof fetchOrders>> = [];
-    let brokerReadable = true;
-    try {
-      positions = await fetchPositions(account.metaapi_account_id, account.region);
-    } catch {
-      positions = [];
-      brokerReadable = false;
-    }
-    try {
-      restingOrders = await fetchOrders(account.metaapi_account_id, account.region);
-    } catch {
-      restingOrders = [];
-      brokerReadable = false;
-    }
-    try {
-      historyOrders = await fetchHistoryOrders(
-        account.metaapi_account_id,
-        account.region,
-        historyStart,
-        new Date(now),
-      );
-    } catch {
-      historyOrders = [];
-      brokerReadable = false;
-    }
-
-    /** Evidence state matched to each delivery this pass. */
-    const evidenceStateByDelivery = new Map<number, "open" | "closed">();
-
-    const groups = groupOwnedDeals(deals, account.magic ?? null);
-    for (const group of groups) {
-      const delivery = byClientId.get(group.clientId);
-      // No positively associated delivery ⇒ not our evidence to claim.
-      if (!delivery || delivery.connected_account_id !== account.id) continue;
-      result.dealsAssociated += 1;
-
+      let deals;
+      const accountSince = accountDeliveries.reduce((earliest, delivery) => {
+        const evidence = openEvidenceByDelivery.get(delivery.id);
+        const candidates = (
+          evidence
+            ? [delivery.submitted_at, evidence.entry_at, evidence.first_observed_at]
+            : staleDeliveryIds.has(delivery.id)
+              ? [delivery.submitted_at]
+              : []
+        )
+          .map((value) => (value ? Date.parse(value) : Number.NaN))
+          .filter(Number.isFinite);
+        return candidates.length ? Math.min(earliest, ...candidates) : earliest;
+      }, since.getTime());
+      const historyStart = new Date(accountSince);
       try {
-        const summaryState = summariseGroup(group).state;
-        const written = await writeEvidence(db, {
-          group,
-          delivery,
-          account,
-          brokerStop: resolveBrokerStop(group, positions, historyOrders),
-          isBenchmark:
-            !!options.benchmarkAccountId &&
-            options.benchmarkAccountId === account.metaapi_account_id,
-        });
-        if (typeof written === "object")
-          pushError(`${group.clientId}: evidence write failed — ${written.error}`);
-        else {
-          if (written === "written") result.evidenceWritten += 1;
-          // Only a SAVED result may settle the order. Marking it closed while the
-          // write failed is how results went missing without anyone noticing.
-          if (summaryState === "open" || summaryState === "closed")
-            evidenceStateByDelivery.set(delivery.id, summaryState);
-        }
+        deals = await fetchDeals(
+          account.metaapi_account_id,
+          account.region,
+          historyStart,
+          new Date(now),
+        );
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        pushError(`${group.clientId}: evidence invalid — ${message}`);
+        pushError(`${account.id}: broker history unavailable — ${message}`);
+        const writeError = await recordReconciliationHealth(db, account.id, {
+          ok: false,
+          at: new Date(now).toISOString(),
+          error: `broker history unavailable — ${message}`,
+        });
+        if (writeError) result.errors.push(`${account.id}: health not recorded — ${writeError}`);
+        continue;
       }
-    }
 
-    // Every submitted order gets a broker-confirmed lifecycle answer, so
-    // capacity, expiry and History stop guessing from age.
-    const historyOrderStates = new Map<string, string>();
-    for (const order of historyOrders as readonly { id?: string | null; state?: string | null }[]) {
-      if (order.id) historyOrderStates.set(String(order.id), String(order.state ?? ""));
-    }
-    const restingIds = (restingOrders as readonly { id?: string | null }[])
-      .map((o) => (o.id ? String(o.id) : null))
-      .filter((id): id is string => id !== null);
-    const positionIds = (
-      positions as readonly { id?: string | null; positionId?: string | null }[]
-    ).flatMap((p) =>
-      [p.id, p.positionId].filter((id): id is string => typeof id === "string" && id.length > 0),
-    );
+      // Broker-held stops (F): read once per account, never derived from what we
+      // submitted. Unavailable history simply leaves the stop unknown.
+      let positions: Awaited<ReturnType<typeof fetchPositions>> = [];
+      let historyOrders: Awaited<ReturnType<typeof fetchHistoryOrders>> = [];
+      let restingOrders: Awaited<ReturnType<typeof fetchOrders>> = [];
+      let brokerReadable = true;
+      try {
+        positions = await fetchPositions(account.metaapi_account_id, account.region);
+      } catch {
+        positions = [];
+        brokerReadable = false;
+      }
+      try {
+        restingOrders = await fetchOrders(account.metaapi_account_id, account.region);
+      } catch {
+        restingOrders = [];
+        brokerReadable = false;
+      }
+      try {
+        historyOrders = await fetchHistoryOrders(
+          account.metaapi_account_id,
+          account.region,
+          historyStart,
+          new Date(now),
+        );
+      } catch {
+        historyOrders = [];
+        brokerReadable = false;
+      }
 
-    // clientIds the broker itself still mentions anywhere. Used only to resolve
-    // deliveries that never obtained a broker order id.
-    const brokerClientIds = new Set<string>();
-    for (const deal of deals as readonly { clientId?: string | null }[]) {
-      if (deal.clientId) brokerClientIds.add(String(deal.clientId));
-    }
-    for (const row of [
-      ...(positions as readonly { clientId?: string | null }[]),
-      ...(restingOrders as readonly { clientId?: string | null }[]),
-      ...(historyOrders as readonly { clientId?: string | null }[]),
-    ]) {
-      if (row.clientId) brokerClientIds.add(String(row.clientId));
-    }
+      /** Evidence state matched to each delivery this pass. */
+      const evidenceStateByDelivery = new Map<number, "open" | "closed">();
 
-    const brokerStateByDelivery = new Map<number, string>();
-    for (const delivery of accountDeliveries) {
-      const brokerState = resolveBrokerOrderState({
-        brokerOrderId: delivery.broker_order_id ?? null,
-        evidenceState: evidenceStateByDelivery.get(delivery.id) ?? null,
-        restingOrderIds: restingIds,
-        positionIds,
-        historyOrderStates,
-        brokerReadable,
-        clientIdSeenAtBroker: delivery.client_id
-          ? brokerClientIds.has(String(delivery.client_id))
-          : true,
-      });
-      brokerStateByDelivery.set(delivery.id, brokerState);
-      const { error } = await db
-        .from("execution_deliveries")
-        .update({
-          broker_order_state: brokerState,
-          broker_state_at: new Date(now).toISOString(),
-        } as never)
-        .eq("id", delivery.id);
-      if (error) pushError(`${account.id}: order state not recorded — ${error.message}`);
-      else result.orderStatesRecorded += 1;
-    }
+      const groups = groupOwnedDeals(deals, account.magic ?? null);
+      for (const group of groups) {
+        const delivery = byClientId.get(group.clientId);
+        // No positively associated delivery ⇒ not our evidence to claim.
+        if (!delivery || delivery.connected_account_id !== account.id) continue;
+        result.dealsAssociated += 1;
 
-    if (brokerReadable) {
-      const flagged = await flagDiscrepancies(db, {
-        account,
-        deliveries: accountDeliveries,
-        brokerStateByDelivery,
-        ownedDealClientIds: groups.map((g) => g.clientId),
-        positions,
-        deals,
-        historyStart,
-        now,
-      });
-      if (typeof flagged === "number") result.discrepanciesFlagged += flagged;
-      else pushError(`${account.id}: discrepancies not recorded — ${flagged.error}`);
-    }
+        try {
+          const summaryState = summariseGroup(group).state;
+          const written = await writeEvidence(db, {
+            group,
+            delivery,
+            account,
+            brokerStop: resolveBrokerStop(group, positions, historyOrders),
+            isBenchmark:
+              !!options.benchmarkAccountId &&
+              options.benchmarkAccountId === account.metaapi_account_id,
+          });
+          if (typeof written === "object")
+            pushError(`${group.clientId}: evidence write failed — ${written.error}`);
+          else {
+            if (written === "written") result.evidenceWritten += 1;
+            // Only a SAVED result may settle the order. Marking it closed while the
+            // write failed is how results went missing without anyone noticing.
+            if (summaryState === "open" || summaryState === "closed")
+              evidenceStateByDelivery.set(delivery.id, summaryState);
+          }
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          pushError(`${group.clientId}: evidence invalid — ${message}`);
+        }
+      }
+
+      // Every submitted order gets a broker-confirmed lifecycle answer, so
+      // capacity, expiry and History stop guessing from age.
+      const historyOrderStates = new Map<string, string>();
+      for (const order of historyOrders as readonly {
+        id?: string | null;
+        state?: string | null;
+      }[]) {
+        if (order.id) historyOrderStates.set(String(order.id), String(order.state ?? ""));
+      }
+      const restingIds = (restingOrders as readonly { id?: string | null }[])
+        .map((o) => (o.id ? String(o.id) : null))
+        .filter((id): id is string => id !== null);
+      const positionIds = (
+        positions as readonly { id?: string | null; positionId?: string | null }[]
+      ).flatMap((p) =>
+        [p.id, p.positionId].filter((id): id is string => typeof id === "string" && id.length > 0),
+      );
+
+      // clientIds the broker itself still mentions anywhere. Used only to resolve
+      // deliveries that never obtained a broker order id.
+      const brokerClientIds = new Set<string>();
+      for (const deal of deals as readonly { clientId?: string | null }[]) {
+        if (deal.clientId) brokerClientIds.add(String(deal.clientId));
+      }
+      for (const row of [
+        ...(positions as readonly { clientId?: string | null }[]),
+        ...(restingOrders as readonly { clientId?: string | null }[]),
+        ...(historyOrders as readonly { clientId?: string | null }[]),
+      ]) {
+        if (row.clientId) brokerClientIds.add(String(row.clientId));
+      }
+
+      const brokerStateByDelivery = new Map<number, string>();
+      for (const delivery of accountDeliveries) {
+        const brokerState = resolveBrokerOrderState({
+          brokerOrderId: delivery.broker_order_id ?? null,
+          evidenceState: evidenceStateByDelivery.get(delivery.id) ?? null,
+          restingOrderIds: restingIds,
+          positionIds,
+          historyOrderStates,
+          brokerReadable,
+          clientIdSeenAtBroker: delivery.client_id
+            ? brokerClientIds.has(String(delivery.client_id))
+            : true,
+        });
+        brokerStateByDelivery.set(delivery.id, brokerState);
+        const { error } = await db
+          .from("execution_deliveries")
+          .update({
+            broker_order_state: brokerState,
+            broker_state_at: new Date(now).toISOString(),
+          } as never)
+          .eq("id", delivery.id);
+        if (error) pushError(`${account.id}: order state not recorded — ${error.message}`);
+        else result.orderStatesRecorded += 1;
+      }
+
+      if (brokerReadable) {
+        const flagged = await flagDiscrepancies(db, {
+          account,
+          deliveries: accountDeliveries,
+          brokerStateByDelivery,
+          ownedDealClientIds: groups.map((g) => g.clientId),
+          positions,
+          deals,
+          historyStart,
+          now,
+        });
+        if (typeof flagged === "number") result.discrepanciesFlagged += flagged;
+        else pushError(`${account.id}: discrepancies not recorded — ${flagged.error}`);
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       pushError(`${account.id}: reconciliation stopped — ${message}`);
