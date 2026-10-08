@@ -323,8 +323,21 @@ export async function reconcileBrokerEvidence(
     .in("id", [...accountIds]);
   const accounts = (accountRows ?? []) as unknown as AccountRow[];
 
+  const passStartedAt = Date.now();
   for (const account of accounts) {
     if (!account.metaapi_account_id) continue;
+
+    if (Date.now() - passStartedAt > RECONCILE_PASS_BUDGET_MS) {
+      const message = "not checked this pass — the pass ran out of time on earlier accounts";
+      result.errors.push(`${account.id}: ${message}`);
+      const writeError = await recordReconciliationHealth(db, account.id, {
+        ok: false,
+        at: new Date(now).toISOString(),
+        error: message,
+      });
+      if (writeError) result.errors.push(`${account.id}: health not recorded — ${writeError}`);
+      continue;
+    }
     result.accountsChecked += 1;
 
     // Errors are collected PER ACCOUNT. The previous prefix-matching approach
@@ -336,13 +349,21 @@ export async function reconcileBrokerEvidence(
       result.errors.push(message);
     };
 
+    // Anything that throws below still ends with this account's health written,
+    // so a failing check can never look like "nothing to report".
+    try {
     const accountDeliveries = deliveries.filter((d) => d.connected_account_id === account.id);
 
     let deals;
     const accountSince = accountDeliveries.reduce((earliest, delivery) => {
       const evidence = openEvidenceByDelivery.get(delivery.id);
-      if (!evidence) return earliest;
-      const candidates = [delivery.submitted_at, evidence.entry_at, evidence.first_observed_at]
+      const candidates = (
+        evidence
+          ? [delivery.submitted_at, evidence.entry_at, evidence.first_observed_at]
+          : staleDeliveryIds.has(delivery.id)
+            ? [delivery.submitted_at]
+            : []
+      )
         .map((value) => (value ? Date.parse(value) : Number.NaN))
         .filter(Number.isFinite);
       return candidates.length ? Math.min(earliest, ...candidates) : earliest;
