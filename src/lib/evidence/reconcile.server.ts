@@ -430,8 +430,6 @@ export async function reconcileBrokerEvidence(
 
       try {
         const summaryState = summariseGroup(group).state;
-        if (summaryState === "open" || summaryState === "closed")
-          evidenceStateByDelivery.set(delivery.id, summaryState);
         const written = await writeEvidence(db, {
           group,
           delivery,
@@ -443,7 +441,13 @@ export async function reconcileBrokerEvidence(
         });
         if (typeof written === "object")
           pushError(`${group.clientId}: evidence write failed — ${written.error}`);
-        else if (written === "written") result.evidenceWritten += 1;
+        else {
+          if (written === "written") result.evidenceWritten += 1;
+          // Only a SAVED result may settle the order. Marking it closed while the
+          // write failed is how results went missing without anyone noticing.
+          if (summaryState === "open" || summaryState === "closed")
+            evidenceStateByDelivery.set(delivery.id, summaryState);
+        }
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         pushError(`${group.clientId}: evidence invalid — ${message}`);
