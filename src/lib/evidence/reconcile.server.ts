@@ -518,6 +518,10 @@ export async function reconcileBrokerEvidence(
       if (typeof flagged === "number") result.discrepanciesFlagged += flagged;
       else pushError(`${account.id}: discrepancies not recorded — ${flagged.error}`);
     }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      pushError(`${account.id}: reconciliation stopped — ${message}`);
+    }
 
     const healthWriteError = await recordReconciliationHealth(
       db,
