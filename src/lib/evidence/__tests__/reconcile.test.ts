@@ -37,6 +37,7 @@ interface FakeQuery extends PromiseLike<{ data: unknown[]; error: null }> {
   or: (...args: unknown[]) => FakeQuery;
   order: (...args: unknown[]) => FakeQuery;
   range: (...args: unknown[]) => FakeQuery;
+  limit: (...args: unknown[]) => FakeQuery;
   update: (...args: unknown[]) => FakeQuery;
 }
 
@@ -59,8 +60,12 @@ const oldDelivery = {
 /** Every update payload the pass wrote, by table. */
 const updates: { table: string; payload: unknown }[] = [];
 
+/** When on: no open evidence, and the old delivery is only found by the unsettled query. */
+const staleMode = { on: false };
+
 function resultFor(table: string, calls: QueryCall[]): { data: unknown[]; error: null } {
   if (table === "broker_trade_evidence") {
+    if (staleMode.on) return { data: [], error: null };
     return {
       data: [
         {
@@ -74,6 +79,10 @@ function resultFor(table: string, calls: QueryCall[]): { data: unknown[]; error:
     };
   }
   if (table === "execution_deliveries") {
+    if (staleMode.on) {
+      const staleQuery = calls.some((call) => call.method === "lt");
+      return { data: staleQuery ? [oldDelivery] : [], error: null };
+    }
     const recentOnly = calls.some((call) => call.method === "gte");
     return { data: recentOnly ? [] : [oldDelivery], error: null };
   }
@@ -111,6 +120,7 @@ function queryFor(table: string): FakeQuery {
     "or",
     "order",
     "range",
+    "limit",
     "update",
     "upsert",
     "neq",
@@ -133,6 +143,7 @@ beforeEach(() => {
   broker.fetchPositions.mockResolvedValue([]);
   broker.fetchOrders.mockResolvedValue([]);
   updates.length = 0;
+  staleMode.on = false;
 });
 
 describe("broker evidence reconciliation window", () => {
@@ -196,5 +207,32 @@ describe("broker order lifecycle recording", () => {
       .map((u) => (u.payload as { broker_order_state?: string }).broker_order_state);
     expect(states).toContain("unresolved");
     expect(states).not.toContain("absent");
+  });
+});
+
+describe("accepted orders older than the recent window", () => {
+  it("[INVARIANT] an accepted order with no saved result is still checked after 7 days", async () => {
+    staleMode.on = true;
+    const db = { from: vi.fn((table: string) => queryFor(table)), rpc: vi.fn() };
+
+    const result = await reconcileBrokerEvidence(db as never, {
+      now: Date.parse("2026-08-23T12:00:00.000Z"),
+    });
+
+    expect(result.accountsChecked).toBe(1);
+    expect(broker.fetchDeals.mock.calls[0]?.[2]).toEqual(new Date("2026-08-01T09:00:00.000Z"));
+  });
+
+  it("[INVARIANT] a failing broker read is recorded on the account, never left silent", async () => {
+    staleMode.on = true;
+    broker.fetchDeals.mockRejectedValue(new Error("MetaApi 504 for history deals page 1"));
+    const db = { from: vi.fn((table: string) => queryFor(table)), rpc: vi.fn() };
+
+    await reconcileBrokerEvidence(db as never, { now: Date.parse("2026-08-23T12:00:00.000Z") });
+
+    const health = updates
+      .filter((u) => u.table === "connected_trading_accounts")
+      .map((u) => u.payload as { reconciliation_last_error?: string });
+    expect(health.some((h) => h.reconciliation_last_error?.includes("MetaApi 504"))).toBe(true);
   });
 });
