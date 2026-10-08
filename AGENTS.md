@@ -46,3 +46,4 @@ Enforced by `src/lib/mcp/__tests__/list-signals.behavior.test.ts` and
 
 - Runtime validation (src/lib/validation/) is dependency-injected and import-isolated from trade/arm/delivery send paths — so it provably cannot place orders.
 - AI trading goes only through ai_trading_grants sessions (src/lib/ai-tools/trading.server.ts); size always from Runtime Validation sizing — one guarded path for MCP and in-app.
+- Broker reconciliation keeps every accepted order without a saved result in scope (up to 60 days), not just the recent window, and every unreadable read is recorded as a failure on the account — why: a silently ignored query error and a 7-day window left accepted trades "awaiting evidence" for weeks.
