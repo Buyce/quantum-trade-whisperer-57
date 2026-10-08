@@ -7,6 +7,7 @@ import { R_MATH_VERSION } from "./journal/r-math";
 import {
   toBrokerOrderView,
   toRecoveredEvidenceView,
+  type AccountReconciliationHealth,
   type BrokerOrderDeliveryRow,
   type BrokerOrderEvidenceRow,
   type BrokerOrderSignalRow,
