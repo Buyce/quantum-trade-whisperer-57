@@ -315,12 +315,18 @@ export async function reconcileBrokerEvidence(
     accountIds.add(d.connected_account_id);
   }
 
-  const { data: accountRows } = await db
+  const { data: accountRows, error: accountError } = await db
     .from("connected_trading_accounts")
     .select(
-      "id, user_id, metaapi_account_id, region, magic, broker_account_type, research_consent, research_consent_version, research_consent_at, research_account_ref, broker_balance, broker_currency, broker_observed_at",
+      "id, user_id, metaapi_account_id, region, magic, broker_account_type, research_consent, research_consent_version, research_consent_at, research_account_ref, broker_balance, broker_currency:account_currency, broker_observed_at",
     )
     .in("id", [...accountIds]);
+  // An unreadable account list must FAIL LOUDLY. Ignoring this error is how the
+  // check reported "0 accounts checked, no errors" for two weeks.
+  if (accountError) {
+    result.errors.push(`accounts unreadable: ${accountError.message}`);
+    return result;
+  }
   const accounts = (accountRows ?? []) as unknown as AccountRow[];
 
   const passStartedAt = Date.now();
