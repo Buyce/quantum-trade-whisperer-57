@@ -146,7 +146,7 @@ export function brokerOrdersQuery(userId: string | undefined) {
       const { data, error } = await supabase
         .from("execution_deliveries" as never)
         .select(
-          `id, signal_id, state, reason, dry_run, account_mode, destination_type, broker_symbol, broker_order_id, broker_retcode_string, entry_mode, broker_order_state, submitted_volume, submitted_entry, submitted_stop, submitted_target, submitted_at, enqueued_at,
+          `id, signal_id, state, reason, dry_run, account_mode, destination_type, connected_account_id, broker_symbol, broker_order_id, broker_retcode_string, entry_mode, broker_order_state, submitted_volume, submitted_entry, submitted_stop, submitted_target, submitted_at, enqueued_at,
            broker_trade_evidence(state, broker_account_type, direction, volume, entry_price, exit_price, entry_at, exit_at, gross_profit, commission, swap, profit_currency, r_vs_plan, r_vs_actual_risk, r_availability, stop_provenance, published_entry, slippage_price, slippage_availability, slippage_basis, signal_instrument, signal_grade, signal_grade_source),
            scanned_signals(instrument, grade, direction, detected_at, entry_price, stop_loss, tp1, rr_ratio)`,
         )
@@ -159,8 +159,42 @@ export function brokerOrdersQuery(userId: string | undefined) {
           scanned_signals?: BrokerOrderSignalRow[] | BrokerOrderSignalRow | null;
         }
       >;
+
+      // Each account's last broker-check outcome, so an order stuck because the
+      // check is failing says so. Unreadable health simply omits that label.
+      const accountIds = [
+        ...new Set(rows.map((r) => r.connected_account_id).filter((id): id is string => !!id)),
+      ];
+      const healthByAccount = new Map<string, AccountReconciliationHealth>();
+      if (accountIds.length) {
+        const { data: accounts } = await supabase
+          .from("connected_trading_accounts")
+          .select(
+            "id, reconciliation_last_success_at, reconciliation_last_error_at, reconciliation_last_error",
+          )
+          .in("id", accountIds);
+        for (const a of (accounts ?? []) as Array<{
+          id: string;
+          reconciliation_last_success_at: string | null;
+          reconciliation_last_error_at: string | null;
+          reconciliation_last_error: string | null;
+        }>) {
+          healthByAccount.set(a.id, {
+            lastSuccessAt: a.reconciliation_last_success_at,
+            lastErrorAt: a.reconciliation_last_error_at,
+            lastError: a.reconciliation_last_error,
+          });
+        }
+      }
+
       const views = rows.map((row) =>
-        toBrokerOrderView(row, one(row.broker_trade_evidence), one(row.scanned_signals)),
+        toBrokerOrderView(
+          row,
+          one(row.broker_trade_evidence),
+          one(row.scanned_signals),
+          undefined,
+          row.connected_account_id ? (healthByAccount.get(row.connected_account_id) ?? null) : null,
+        ),
       );
 
       // Broker trades whose order record was deleted by retention still happened.

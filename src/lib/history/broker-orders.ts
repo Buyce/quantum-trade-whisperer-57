@@ -34,6 +34,8 @@ export interface BrokerOrderDeliveryRow {
   entry_mode: string | null;
   /** Last broker-confirmed lifecycle state for this order, when reconciled. */
   broker_order_state?: string | null;
+  /** The connected account this order went to, when it went to one. */
+  connected_account_id?: string | null;
   submitted_volume: number | null;
   submitted_entry: number | null;
   submitted_stop: number | null;
@@ -435,8 +437,9 @@ export function toBrokerOrderView(
   evidence: BrokerOrderEvidenceRow | null,
   signal: BrokerOrderSignalRow | null,
   basis: RBasis = "actual_risk",
+  reconciliation: AccountReconciliationHealth | null = null,
 ): BrokerOrderView {
-  const status = brokerOrderStatus(delivery, evidence);
+  const status = brokerOrderStatus(delivery, evidence, reconciliation);
   const open = evidence?.state === "open";
   // An open position has no realized R, so any R still on the row is in-flight
   // bookkeeping and must not be rendered as a result.
