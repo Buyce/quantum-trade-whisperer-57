@@ -148,3 +148,10 @@ max(1, 0.1%), only when fetched history covers the gap). Nothing is corrected
 automatically. Re-seen items update in place; items no longer seen resolve.
 Checks are skipped when the broker could not be read. Owners review and
 acknowledge them in the Accounts page control center.
+
+## Orders stuck on "awaiting evidence" (fixed 8 Oct 2026)
+
+- The check now keeps every accepted order with no saved result in scope for up to 60 days, reading broker history from the oldest such order.
+- An order is only marked settled once its result is actually saved.
+- Any unreadable step (account list, broker history) is recorded on the account as a failure; a pass that runs low on time records which accounts it skipped. Connected accounts are checked before disconnected ones.
+- History shows "Accepted by broker — broker check failing" with the last successful check time and reason when the check has not succeeded since the order was submitted.
