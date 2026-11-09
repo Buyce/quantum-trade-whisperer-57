@@ -48,7 +48,10 @@ export function RiskHoldBanner() {
       <div className="rounded-md border border-warning/40 bg-warning/10 px-4 py-3 text-sm">
         <p className="text-warning">
           Your automatic-order holds could not be read just now, so nothing is claimed here about
-          whether one is active.
+          whether one is active. Hold status: unknown.
+          <button type="button" className="ml-2 underline" onClick={() => void holds.refetch()}>
+            Retry
+          </button>
         </p>
       </div>
     );

@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { friendlyLoadError } from "@/lib/auth/clock-skew";
 import { AlertTriangle, Download, Filter, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -504,7 +505,15 @@ function FeedPage() {
         </div>
       ) : signals.isError ? (
         <p className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm">
-          Could not load signals. Try refreshing.
+          Could not load signals, so nothing is claimed about the scanner or whether any setup
+          exists. {friendlyLoadError(signals.error, "")}
+          <button
+            type="button"
+            className="ml-2 underline"
+            onClick={() => void signals.refetch()}
+          >
+            Retry
+          </button>
         </p>
       ) : visible.length === 0 ? (
         <div className="rounded-md border border-border bg-card px-4 py-10 text-center sm:px-6 sm:py-16">
