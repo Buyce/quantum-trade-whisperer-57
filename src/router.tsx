@@ -7,7 +7,7 @@ export const getRouter = () => {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: shouldRetryQuery, retryDelay },
-      mutations: { retry: (n, e) => isClockSkewError(e) && n < 2, retryDelay },
+      mutations: { retry: false },
     },
   });
 
