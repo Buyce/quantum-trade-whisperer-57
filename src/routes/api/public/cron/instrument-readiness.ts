@@ -8,6 +8,7 @@
  *
  * It writes evidence. It never promotes, demotes or enables anything.
  */
+import { describeError } from "@/lib/errors/describe";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { authorizeCronRequest, unauthorizedResponse } from "@/lib/cron-auth";
@@ -44,7 +45,7 @@ export const Route = createFileRoute("/api/public/cron/instrument-readiness")({
             console.error("[cron/instrument-readiness]", symbol, err);
             results.push({
               instrument: symbol,
-              error: err instanceof Error ? err.message : String(err),
+              error: describeError(err),
             });
           }
         }

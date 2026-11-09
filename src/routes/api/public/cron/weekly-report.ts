@@ -6,6 +6,7 @@
  * The versioned scheduler invokes this after the trading week and maturity
  * horizon. The database latch remains authoritative if the scheduler retries.
  */
+import { describeError } from "@/lib/errors/describe";
 import { createFileRoute } from "@tanstack/react-router";
 import { authorizeCronRequest, unauthorizedResponse } from "@/lib/cron-auth";
 
@@ -36,7 +37,7 @@ export const Route = createFileRoute("/api/public/cron/weekly-report")({
             })),
           });
         } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
+          const message = describeError(err);
           console.error("[cron/weekly-report] failed:", message);
           return Response.json({ ok: false, error: message }, { status: 500 });
         }

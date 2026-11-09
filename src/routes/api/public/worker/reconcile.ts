@@ -6,6 +6,7 @@
  * evidence. It never publishes, never scans, and never touches a statistic, so
  * a slow broker here cannot delay a scan cycle.
  */
+import { describeError } from "@/lib/errors/describe";
 import { createFileRoute } from "@tanstack/react-router";
 import { authorizeCronRequest, unauthorizedResponse } from "@/lib/cron-auth";
 
@@ -27,7 +28,7 @@ export const Route = createFileRoute("/api/public/worker/reconcile")({
           const result = await reconcileBrokerEvidence(adminClient(), { benchmarkAccountId });
           return Response.json({ ok: true, ...result });
         } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
+          const message = describeError(err);
           console.error("[worker/reconcile]", message);
           return Response.json({ ok: false, error: message }, { status: 500 });
         }

@@ -7,6 +7,7 @@
  *
  * It never grades, publishes, alerts or executes.
  */
+import { describeError } from "@/lib/errors/describe";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { authorizeCronRequest, unauthorizedResponse } from "@/lib/cron-auth";
@@ -44,7 +45,7 @@ export const Route = createFileRoute("/api/public/cron/sample-spreads")({
         } catch (err) {
           console.error("[cron/sample-spreads]", err);
           return Response.json(
-            { ok: false, error: err instanceof Error ? err.message : String(err) },
+            { ok: false, error: describeError(err) },
             { status: 500 },
           );
         }

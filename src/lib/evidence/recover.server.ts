@@ -17,6 +17,7 @@
  * It never writes to `executed_trades`, never resurrects a signal and never
  * touches a delivery row.
  */
+import { describeError } from "@/lib/errors/describe";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { computeR, R_MATH_VERSION } from "@/lib/journal/r-math";
@@ -101,7 +102,7 @@ export async function recoverOrphanEvidence(
       deals = await fetchDeals(account.metaapi_account_id, account.region, start, new Date(now));
     } catch (err) {
       result.errors.push(
-        `${account.id}: broker history unavailable — ${err instanceof Error ? err.message : String(err)}`,
+        `${account.id}: broker history unavailable — ${describeError(err)}`,
       );
       continue;
     }

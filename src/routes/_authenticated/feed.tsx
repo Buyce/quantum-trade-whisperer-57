@@ -453,7 +453,7 @@ function FeedPage() {
           >
             {filterSummary}
           </Badge>
-          <span className="num">{visible.length} shown</span>
+          <span className="num">{signals.isError ? "— shown" : `${visible.length} shown`}</span>
           <span className="num w-full sm:ml-auto sm:w-auto">
             Daily quota (A+/A/B){" "}
             {cap > 0 ? (

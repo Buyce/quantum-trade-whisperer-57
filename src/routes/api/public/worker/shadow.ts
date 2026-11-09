@@ -3,6 +3,7 @@
  * by pg_cron, or manually with the shared secret. Bounded so a single request
  * can never run long.
  */
+import { describeError } from "@/lib/errors/describe";
 import { createFileRoute } from "@tanstack/react-router";
 import { authorizeCronRequest, unauthorizedResponse } from "@/lib/cron-auth";
 
@@ -39,7 +40,7 @@ export const Route = createFileRoute("/api/public/worker/shadow")({
           }
           return Response.json({ ok: true, processed, drained: processed.length, budgetExhausted });
         } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
+          const message = describeError(err);
           console.error("[worker/shadow]", message);
           return Response.json({ ok: false, error: message }, { status: 500 });
         }

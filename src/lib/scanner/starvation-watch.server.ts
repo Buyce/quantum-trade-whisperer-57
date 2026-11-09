@@ -11,6 +11,7 @@
  * repeatedly), and closes it as soon as real analysis resumes. It never derives
  * or fills in a figure: every number quoted comes from `get_admin_engine_status`.
  */
+import { describeError } from "@/lib/errors/describe";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { classifyScanStarvation } from "@/lib/engine-status";
 import { isWeekendClosed } from "@/lib/market-hours";
@@ -111,6 +112,6 @@ export async function runStarvationWatch(db: SupabaseClient): Promise<Starvation
 
     return { checked: true, starved: true, incidentOpened: true, notified: sent, cleared: false };
   } catch (err) {
-    return { ...idle, reason: err instanceof Error ? err.message : String(err) };
+    return { ...idle, reason: describeError(err) };
   }
 }

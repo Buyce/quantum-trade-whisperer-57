@@ -654,7 +654,7 @@ export async function processNextJob(
     } catch (err) {
       // The crash itself is an observation: keep it instead of dropping V2.
       v2 = null;
-      v2Error = err instanceof Error ? err.message : String(err);
+      v2Error = describeError(err);
       v2Disposition = "none";
     }
 
@@ -688,7 +688,7 @@ export async function processNextJob(
     } catch (err) {
       // The crash itself is an observation: keep it instead of dropping V3.
       v3 = null;
-      v3Error = err instanceof Error ? err.message : String(err);
+      v3Error = describeError(err);
       v3Disposition = "none";
     }
 

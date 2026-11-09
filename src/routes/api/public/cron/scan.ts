@@ -5,6 +5,7 @@
  * and returns. All fetching/grading happens in the worker chain, so this
  * request never risks a timeout.
  */
+import { describeError } from "@/lib/errors/describe";
 import { createFileRoute } from "@tanstack/react-router";
 import { authorizeCronRequest, unauthorizedResponse } from "@/lib/cron-auth";
 
@@ -30,7 +31,7 @@ export const Route = createFileRoute("/api/public/cron/scan")({
           // here: this endpoint must stay a lightweight enqueue-and-return.
           return Response.json({ ok: true, ...result, starvation });
         } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
+          const message = describeError(err);
           console.error("[cron/scan]", message);
           return Response.json({ ok: false, error: message }, { status: 500 });
         }

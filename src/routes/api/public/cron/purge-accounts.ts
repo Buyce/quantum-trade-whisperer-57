@@ -2,6 +2,7 @@
  * Daily purge of accounts whose 30-day cancellation grace period has expired.
  * Secured with the shared cron secret — never publicly triggerable.
  */
+import { describeError } from "@/lib/errors/describe";
 import { createFileRoute } from "@tanstack/react-router";
 import { authorizeCronRequest, unauthorizedResponse } from "@/lib/cron-auth";
 
@@ -16,7 +17,7 @@ export const Route = createFileRoute("/api/public/cron/purge-accounts")({
           const report = await purgeExpiredAccounts(accountAdminClient());
           return Response.json({ ok: true, ...report });
         } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
+          const message = describeError(err);
           console.error("[cron/purge-accounts]", message);
           return Response.json({ ok: false, error: message }, { status: 500 });
         }
