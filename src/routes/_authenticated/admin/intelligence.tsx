@@ -14,6 +14,7 @@ import { ChevronsDownUp, RefreshCw } from "lucide-react";
 import { getAdminAutoTraderOutcomes, getAdminIntelligence } from "@/lib/admin.functions";
 import { getWeeklyShadowReport } from "@/lib/reports/weekly.functions";
 import { getUserReportAudit } from "@/lib/user-audit.functions";
+import { friendlyLoadError } from "@/lib/auth/clock-skew";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -140,7 +141,15 @@ function AdminIntelligencePage() {
       <div className="mx-auto max-w-2xl p-6">
         <PanelShell title="Terminal unavailable">
           <EmptyNote>
-            {error instanceof Error ? error.message : "Failed to load intelligence."}
+            {friendlyLoadError(error, "Failed to load intelligence.")}
+            <div className="mt-3">
+              <button
+                onClick={() => void refetch()}
+                className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground"
+              >
+                Retry
+              </button>
+            </div>
           </EmptyNote>
         </PanelShell>
       </div>
