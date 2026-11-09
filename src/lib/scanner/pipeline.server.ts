@@ -3,7 +3,6 @@
  * single request approaches any CPU/memory ceiling. Each stage is independent
  * and idempotent; failures flag the instrument and move on.
  */
-import { describeError } from "@/lib/errors/describe";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { evaluateSetup, type SetupEvaluation } from "./profile";
 import { effectiveManifestHash } from "./gate-thresholds";
