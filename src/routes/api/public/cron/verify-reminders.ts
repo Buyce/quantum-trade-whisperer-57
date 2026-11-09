@@ -3,6 +3,7 @@
  * has closed trades logged without the actual entry/exit prices. Latched per
  * user per ISO week in the database, so a retry cannot send twice.
  */
+import { describeError } from "@/lib/errors/describe";
 import { createFileRoute } from "@tanstack/react-router";
 import { authorizeCronRequest, unauthorizedResponse } from "@/lib/cron-auth";
 
@@ -26,7 +27,7 @@ export const Route = createFileRoute("/api/public/cron/verify-reminders")({
             skipped: result.results.filter((r) => !r.claimed).length,
           });
         } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
+          const message = describeError(err);
           console.error("[cron/verify-reminders] failed:", message);
           return Response.json({ ok: false, error: message }, { status: 500 });
         }

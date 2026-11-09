@@ -3,6 +3,7 @@
  * single request approaches any CPU/memory ceiling. Each stage is independent
  * and idempotent; failures flag the instrument and move on.
  */
+import { describeError } from "@/lib/errors/describe";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { evaluateSetup, type SetupEvaluation } from "./profile";
 import { effectiveManifestHash } from "./gate-thresholds";
@@ -654,7 +655,7 @@ export async function processNextJob(
     } catch (err) {
       // The crash itself is an observation: keep it instead of dropping V2.
       v2 = null;
-      v2Error = err instanceof Error ? err.message : String(err);
+      v2Error = describeError(err);
       v2Disposition = "none";
     }
 
@@ -688,7 +689,7 @@ export async function processNextJob(
     } catch (err) {
       // The crash itself is an observation: keep it instead of dropping V3.
       v3 = null;
-      v3Error = err instanceof Error ? err.message : String(err);
+      v3Error = describeError(err);
       v3Disposition = "none";
     }
 

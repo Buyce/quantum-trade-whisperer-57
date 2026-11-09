@@ -9,6 +9,7 @@
  * a signal, never touches a statistic, and never invents a price. If the broker
  * says nothing, nothing is written.
  */
+import { describeError } from "@/lib/errors/describe";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import {
@@ -390,7 +391,7 @@ export async function reconcileBrokerEvidence(
           new Date(now),
         );
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
+        const message = describeError(err);
         pushError(`${account.id}: broker history unavailable — ${message}`);
         const writeError = await recordReconciliationHealth(db, account.id, {
           ok: false,
@@ -462,7 +463,7 @@ export async function reconcileBrokerEvidence(
               evidenceStateByDelivery.set(delivery.id, summaryState);
           }
         } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
+          const message = describeError(err);
           pushError(`${group.clientId}: evidence invalid — ${message}`);
         }
       }
@@ -539,7 +540,7 @@ export async function reconcileBrokerEvidence(
         else pushError(`${account.id}: discrepancies not recorded — ${flagged.error}`);
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      const message = describeError(err);
       pushError(`${account.id}: reconciliation stopped — ${message}`);
     }
 

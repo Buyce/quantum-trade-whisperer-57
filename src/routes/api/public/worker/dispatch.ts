@@ -6,6 +6,7 @@
  * Every pass first expires abandoned leases (fail closed to `unknown`), then
  * drains a small batch of `pending` deliveries.
  */
+import { describeError } from "@/lib/errors/describe";
 import { createFileRoute } from "@tanstack/react-router";
 import { authorizeCronRequest, unauthorizedResponse } from "@/lib/cron-auth";
 
@@ -57,7 +58,7 @@ export const Route = createFileRoute("/api/public/worker/dispatch")({
             budgetExhausted,
           });
         } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
+          const message = describeError(err);
           console.error("[worker/dispatch]", message);
           return Response.json({ ok: false, error: message }, { status: 500 });
         }

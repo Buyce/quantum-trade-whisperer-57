@@ -15,6 +15,7 @@
  * drain safety nets (every minute, guarded on pending work OR an expired
  * claim), or manually with the shared secret.
  */
+import { describeError } from "@/lib/errors/describe";
 import { createFileRoute } from "@tanstack/react-router";
 import { authorizeCronRequest, unauthorizedResponse } from "@/lib/cron-auth";
 
@@ -153,7 +154,7 @@ export const Route = createFileRoute("/api/public/worker/process")({
             }
             return {};
           } catch (err) {
-            const message = err instanceof Error ? err.message : String(err);
+            const message = describeError(err);
             console.error("[worker/process]", message);
             return { failed: message };
           }

@@ -6,6 +6,7 @@
  * most `MAX_EXPIRIES_PER_RUN` deliveries and only ever frees a slot it can prove
  * is not resting at a broker.
  */
+import { describeError } from "@/lib/errors/describe";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { authorizeCronRequest, unauthorizedResponse } from "@/lib/cron-auth";
@@ -29,7 +30,7 @@ export const Route = createFileRoute("/api/public/cron/expire-orders")({
             outcomes,
           });
         } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
+          const message = describeError(err);
           console.error("[cron/expire-orders]", message);
           return Response.json({ ok: false, error: message }, { status: 500 });
         }

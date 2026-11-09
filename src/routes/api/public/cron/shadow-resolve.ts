@@ -3,6 +3,7 @@
  * every open shadow row against fresh M15 candles. Never touches live user
  * data or the live scan path.
  */
+import { describeError } from "@/lib/errors/describe";
 import { createFileRoute } from "@tanstack/react-router";
 import { authorizeCronRequest, unauthorizedResponse } from "@/lib/cron-auth";
 import { ACTIVE_MODEL_VERSION } from "@/lib/versioning";
@@ -184,7 +185,7 @@ export const Route = createFileRoute("/api/public/cron/shadow-resolve")({
             ...summary,
           });
         } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
+          const message = describeError(err);
           console.error("[cron/shadow-resolve]", message);
           await noteShadowRun(db, { failure: true, error: message });
           return Response.json({ ok: false, error: message }, { status: 500 });

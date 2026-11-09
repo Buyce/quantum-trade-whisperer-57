@@ -7,6 +7,7 @@
  * is durable, so running this endpoint more often than daily still issues at
  * most one MetaApi specification request per symbol per 24 hours.
  */
+import { describeError } from "@/lib/errors/describe";
 import { createFileRoute } from "@tanstack/react-router";
 import { authorizeCronRequest, unauthorizedResponse } from "@/lib/cron-auth";
 
@@ -21,7 +22,7 @@ export const Route = createFileRoute("/api/public/cron/refresh-specs")({
           const specs = await refreshSymbolSpecs(adminClient());
           return Response.json({ ok: true, specs });
         } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
+          const message = describeError(err);
           console.error("[cron/refresh-specs]", message);
           return Response.json({ ok: false, error: message }, { status: 500 });
         }

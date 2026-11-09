@@ -15,6 +15,7 @@
  * break-even. Every action is recorded before it is attempted and only marked
  * confirmed on a definite broker acceptance.
  */
+import { describeError } from "@/lib/errors/describe";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { authorizeCronRequest, unauthorizedResponse } from "@/lib/cron-auth";
@@ -40,12 +41,12 @@ export const Route = createFileRoute("/api/public/worker/reconcile-active")({
           } catch (err) {
             console.error(
               "[worker/reconcile-active] managed exits",
-              err instanceof Error ? err.message : String(err),
+              describeError(err),
             );
           }
           return Response.json({ ok: true, ...outcome, managedExits: managed });
         } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
+          const message = describeError(err);
           console.error("[worker/reconcile-active]", message);
           return Response.json({ ok: false, error: message }, { status: 500 });
         }
