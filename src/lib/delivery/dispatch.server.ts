@@ -180,12 +180,15 @@ export async function readDeliveryDeadline(
 export async function processNextDelivery(
   db: Db,
   now = Date.now(),
+  opts: { onClaimError?: (message: string) => void } = {},
 ): Promise<DispatchResult | null> {
   const { data, error } = await db.rpc("claim_execution_delivery", {
     lease_seconds: LEASE_SECONDS,
   });
   if (error) {
+    // Unreadable is not "queue empty": the caller is told so the pass reports failure.
     console.error("[dispatch] claim failed", error.message);
+    opts.onClaimError?.(error.message);
     return null;
   }
   const rows = (data ?? []) as DeliveryRow[];

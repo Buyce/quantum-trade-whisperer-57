@@ -39,14 +39,29 @@ export const Route = createFileRoute("/api/public/worker/dispatch")({
           const startedAt = Date.now();
           const processed = [];
           let budgetExhausted = false;
+          let claimError: string | null = null;
           for (let i = 0; i < MAX_DELIVERIES_PER_REQUEST; i++) {
             if (Date.now() - startedAt > TIME_BUDGET_MS) {
               budgetExhausted = true;
               break;
             }
-            const result = await processNextDelivery(db);
+            const result = await processNextDelivery(db, Date.now(), {
+              onClaimError: (m) => (claimError = m),
+            });
             if (!result) break;
             processed.push(result);
+          }
+
+          // A queue that could not be read is a failed pass, never "nothing to send".
+          if (claimError || expireError) {
+            return Response.json(
+              {
+                ok: false,
+                error: `queue unreadable: ${claimError ?? expireError?.message}`,
+                processed,
+              },
+              { status: 503 },
+            );
           }
 
           return Response.json({
