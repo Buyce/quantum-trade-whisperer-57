@@ -24,9 +24,25 @@ export const Route = createFileRoute("/api/public/cron/refresh-specs")({
       POST: async ({ request }) => {
         if (!authorizeCronRequest(request)) return unauthorizedResponse();
         try {
-          const { adminClient } = await import("@/lib/scanner/pipeline.server");
+          const { adminClient, scanUniverse } = await import("@/lib/scanner/pipeline.server");
           const { refreshSymbolSpecs } = await import("@/lib/broker/specs.server");
-          const specs = await refreshSymbolSpecs(adminClient());
+          const db = adminClient();
+
+          /**
+           * Refresh exactly what the scanner is allowed to analyse. If the
+           * lifecycle read fails, `scanUniverse` itself falls back to the frozen
+           * Wave 0 list; if the call throws outright we still refresh Wave 0
+           * rather than skip the day's broker re-verification entirely.
+           */
+          let symbols: string[];
+          try {
+            symbols = await scanUniverse(db);
+          } catch {
+            const { INSTRUMENTS } = await import("@/lib/scanner/types");
+            symbols = [...INSTRUMENTS];
+          }
+
+          const specs = await refreshSymbolSpecs(db, Date.now(), symbols);
           return Response.json({ ok: true, specs });
         } catch (err) {
           const message = describeError(err);
