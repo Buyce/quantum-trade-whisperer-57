@@ -44,7 +44,11 @@ export async function runStarvationWatch(db: SupabaseClient): Promise<Starvation
   };
 
   try {
-    const { data, error } = await db.rpc("get_admin_engine_status");
+    // `build_engine_status` is the same aggregate the Admin panel reads, reached
+    // through the service-role-only function: this watch runs from the pg_cron
+    // scan cycle, whose client carries no user email, so the admin-gated
+    // `get_admin_engine_status` would refuse it with 'forbidden' every cycle.
+    const { data, error } = await db.rpc("build_engine_status");
     if (error) return { ...idle, reason: error.message };
 
     const status = data as {

@@ -6519,6 +6519,7 @@ export type Database = {
         Returns: number
       }
       admin_reset_shadow_breaker: { Args: never; Returns: Json }
+      build_engine_status: { Args: never; Returns: Json }
       claim_account_telemetry: {
         Args: {
           _account_id: string

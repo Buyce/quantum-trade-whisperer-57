@@ -78,6 +78,13 @@
       "when": 1791457316299,
       "tag": "0010_align_broker_evidence_stop_source",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1794477719195,
+      "tag": "0011_engine_status_service_role_read",
+      "breakpoints": true
     }
   ]
 }
