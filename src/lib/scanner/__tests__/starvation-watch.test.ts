@@ -59,7 +59,7 @@ describe("scanner starvation watch", () => {
     expect(outcome.reason).toBe("forbidden");
   });
 
-  it("opens an incident from the measured stale and analysed counts", async () => {
+  it("[INVARIANT] opens an incident from the measured stale and analysed counts", async () => {
     const fake = createFakeSupabase(
       () => ({ data: [], error: null }),
       (fn) => {
@@ -90,5 +90,26 @@ describe("scanner starvation watch", () => {
     expect(claim?.args).toMatchObject({ _stale: 30, _analysed: 0 });
     expect(outcome.checked).toBe(true);
     expect(outcome.starved).toBe(true);
+  });
+
+  it("[INVARIANT] an empty window on an open market never clears an open incident", async () => {
+    const fake = createFakeSupabase(
+      () => ({ data: [], error: null }),
+      (fn) => {
+        if (fn === "build_engine_status")
+          return { data: { scan: { window_minutes: 60, total: 0, stale: 0, analysed: 0 } }, error: null };
+        if (fn === "claim_starvation_incident") return { data: null, error: null };
+        return { data: true, error: null };
+      },
+    );
+    const realNow = Date.now;
+    Date.now = () => Date.parse("2026-11-10T13:00:00Z");
+    try {
+      const outcome = await run(fake);
+      expect(outcome.cleared).toBe(false);
+      expect(fake.rpcCalls.map((c: { fn: string }) => c.fn)).not.toContain("clear_starvation_incident");
+    } finally {
+      Date.now = realNow;
+    }
   });
 });
