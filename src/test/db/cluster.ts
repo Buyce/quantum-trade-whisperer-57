@@ -84,12 +84,43 @@ function psql(c: Cluster, db: string, args: string[], input?: string): string {
 }
 
 /** Migration files in apply order, with the two uninstallable extensions skipped. */
+const DRIZZLE_DIR = path.resolve("drizzle/migrations");
+
+/**
+ * First Drizzle journal idx replayed by the harness. Earlier entries (0000-0009)
+ * were written against the live schema, which has drifted from a pure replay of
+ * `supabase/migrations` (e.g. 0001 indexes signal_retention_archive.detected_at,
+ * a column production has but the legacy replay does not). Lower this bound only
+ * after reconciling that drift; never paraphrase a migration to make it apply.
+ */
+export const DRIZZLE_REPLAY_FROM = 10;
+
+/** Drizzle migrations in journal order; they apply after the legacy stream. */
+function drizzleFiles(): string[] {
+  try {
+    const journal = JSON.parse(
+      readFileSync(path.join(DRIZZLE_DIR, "meta/_journal.json"), "utf8"),
+    ) as { entries: { idx: number; tag: string }[] };
+    return [...journal.entries]
+      .filter((e) => e.idx >= DRIZZLE_REPLAY_FROM)
+      .sort((a, b) => a.idx - b.idx)
+      .map((e) => path.join(DRIZZLE_DIR, `${e.tag}.sql`));
+  } catch {
+    return [];
+  }
+}
+
 export function migrationPlan(): { file: string; sql: string; skipped: string[] }[] {
-  return readdirSync(MIGRATIONS_DIR)
+  const legacy = readdirSync(MIGRATIONS_DIR)
     .filter((f) => f.endsWith(".sql"))
     .sort()
-    .map((file) => {
-      const raw = readFileSync(path.join(MIGRATIONS_DIR, file), "utf8");
+    .map((f) => path.join(MIGRATIONS_DIR, f));
+  return [...legacy, ...drizzleFiles()]
+    .map((full) => {
+      const file = path.relative(process.cwd(), full);
+      const raw = readFileSync(full, "utf8")
+        .split("--> statement-breakpoint")
+        .join("\n");
       const skipped: string[] = [];
       const sql = raw
         .split("\n")
@@ -133,7 +164,7 @@ export function provisionDatabase(c: Cluster, label: string): Db {
 
   const scratch = mkdtempSync(path.join(tmpdir(), "ptrades-mig-"));
   for (const { file, sql } of migrationPlan()) {
-    const p = path.join(scratch, file);
+    const p = path.join(scratch, file.replace(/[\\/]/g, "__"));
     writeFileSync(p, sql);
     psql(c, name, ["-f", p]);
   }

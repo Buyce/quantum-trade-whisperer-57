@@ -140,3 +140,14 @@ promote or hold — it never demotes.
 - [x] Apply atomic market-slot, short-lease, queue-index, trigger-timeout, and health-attribution migration.
 - [x] Verify focused failure-injection tests, full test suite, and build.
 - [ ] Publish and verify four consecutive live market hours without cancellation, stale work, or capacity-induced breakers.
+
+## 2026-11-12 — Codex audit verification
+
+- [x] Probe uses finished analysis + universe coverage; idle/stale never green.
+- [x] Probe shares the scanner weekend calendar (21:00 UTC).
+- [x] Starvation incident clears only on real analysis.
+- [x] Test labels fixed; full suite green (1,928 pass).
+- [x] DB harness replays Drizzle 0010+; role tests for 0011/0012.
+- [ ] Reconcile drift so Drizzle 0000–0009 replay (0001 detected_at mismatch).
+- [ ] MCP: publish, then refresh the connector and re-test read-only tools (blocked: publish approval).
+- [ ] Databento CME daily futures for shadow research (blocked: API key).

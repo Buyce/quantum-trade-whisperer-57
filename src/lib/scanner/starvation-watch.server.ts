@@ -70,16 +70,25 @@ export async function runStarvationWatch(db: SupabaseClient): Promise<Starvation
     const scan = status?.scan;
     if (!scan) return { ...idle, reason: "no scan window reported" };
 
+    const weekendClosed = isWeekendClosed(new Date());
+    const analysed = Number(scan.analysed ?? 0);
+    const finished = Number(scan.stale ?? 0) + analysed;
     const starvation = classifyScanStarvation({
       total: Number(scan.total ?? 0),
       stale: Number(scan.stale ?? 0),
-      analysed: Number(scan.analysed ?? 0),
-      weekendClosed: isWeekendClosed(new Date()),
+      analysed,
+      weekendClosed,
     });
 
-    // Recovery first: analysis resuming closes any open incident, so the next
-    // outage is a fresh notification rather than a suppressed one.
-    if (!starvation.isFault) {
+    // Scheduled pause: neither clears nor opens an incident.
+    if (finished === 0 && weekendClosed) {
+      return { ...idle, checked: true, reason: "weekend pause" };
+    }
+    // Recovery requires positive evidence: real analysis inside the window.
+    // An empty window (failures aged out, nothing finished) is not recovery.
+    const noObservations = finished === 0;
+    if (!starvation.isFault && !noObservations) {
+      if (analysed <= 0) return { ...idle, checked: true };
       const { data: cleared } = await db.rpc("clear_starvation_incident");
       return { ...idle, checked: true, cleared: cleared === true };
     }
