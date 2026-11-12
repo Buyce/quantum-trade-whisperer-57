@@ -85,6 +85,13 @@
       "when": 1794477719195,
       "tag": "0011_engine_status_service_role_read",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1794478062268,
+      "tag": "0012_scan_queue_admin_only_read",
+      "breakpoints": true
     }
   ]
 }
