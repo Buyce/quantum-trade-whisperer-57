@@ -154,7 +154,7 @@ export function provisionDatabase(c: Cluster, label: string): Db {
 
   const scratch = mkdtempSync(path.join(tmpdir(), "ptrades-mig-"));
   for (const { file, sql } of migrationPlan()) {
-    const p = path.join(scratch, file);
+    const p = path.join(scratch, file.replace(/[\\/]/g, "__"));
     writeFileSync(p, sql);
     psql(c, name, ["-f", p]);
   }
