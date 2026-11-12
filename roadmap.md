@@ -22,6 +22,10 @@ items still open.
 - [ ] Live go-live (2026-09-25 audit): run one minimum-lot live confirm-each-trade order on the owner's real account end to end — blocked on owner connecting a real account.
 - [ ] Choose the first invited live customer group — blocked on owner decision.
 - [ ] Clear the outstanding backend security-linter findings.
+- [ ] After publishing, point an external uptime monitor at
+      `/api/public/health/pipeline` on getptrades.com — the probe answers 503
+      whenever the scanner has no successful pass in 30 min, which is the alarm
+      that was missing through the 18-day outage.
 
 Current stage ladder: `EURUSD`, `GBPAUD`, `XAUUSD` execution-approved; `AUDUSD`,
 `USDJPY` in shadow; `GBPUSD`, `USDCAD`, `USDCHF`, `NAS100` in data validation;
