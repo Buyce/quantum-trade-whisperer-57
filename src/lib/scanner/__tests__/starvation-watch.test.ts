@@ -6,7 +6,7 @@
  * could never open or clear an incident. These tests pin the read to the
  * service-role-only aggregate and pin the measured numbers it acts on.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createFakeSupabase } from "@/test/fakes/supabase";
 
 import { runStarvationWatch } from "../starvation-watch.server";
@@ -102,14 +102,14 @@ describe("scanner starvation watch", () => {
         return { data: true, error: null };
       },
     );
-    const realNow = Date.now;
-    Date.now = () => Date.parse("2026-11-10T13:00:00Z");
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-10T13:00:00Z"));
     try {
       const outcome = await run(fake);
       expect(outcome.cleared).toBe(false);
       expect(fake.rpcCalls.map((c: { fn: string }) => c.fn)).not.toContain("clear_starvation_incident");
     } finally {
-      Date.now = realNow;
+      vi.useRealTimers();
     }
   });
 });
