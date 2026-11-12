@@ -8,7 +8,7 @@ import { isWeekendClosed } from "@/lib/market-hours";
 export const SCAN_STALE_MS = 30 * 60_000;
 
 /** Results that prove the engine finished an analysis of fresh data. */
-export const ANALYSED_RESULTS = new Set(["published", "no_trade", "duplicate", "rejected"]);
+export const ANALYSED_RESULTS = new Set(["published", "no_trade", "duplicate"]);
 
 export type ScanOutcome = { instrument: string; result: string | null; finishedAt: string };
 
