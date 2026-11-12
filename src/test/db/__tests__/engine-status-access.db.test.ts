@@ -45,7 +45,12 @@ describe("engine status and scan queue access", () => {
   });
   it("[INVARIANT] a signed-in non-admin sees no scan queue rows", () => {
     guard();
-    const rows = db.asRole("authenticated", "select id from public.scan_queue", user);
+    let rows: unknown[] = [];
+    try {
+      rows = db.asRole("authenticated", "select id from public.scan_queue", user);
+    } catch (err) {
+      expect(String(err)).toMatch(/permission denied/);
+    }
     expect(rows).toHaveLength(0);
   });
   it("[INVARIANT] the migration plan includes the Drizzle stream", async () => {
