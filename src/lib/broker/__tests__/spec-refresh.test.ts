@@ -91,6 +91,23 @@ describe("spec refresh budget", () => {
     expect(fetchSymbolSpecification).not.toHaveBeenCalled();
     expect(outcomes[0]?.action).toBe("claim_unavailable");
   });
+
+  it("[INVARIANT] re-verifies an instrument outside Wave 0 so its stale broker name can clear", async () => {
+    fetchSymbolSpecification.mockResolvedValue({ contractSize: 100, volumeStep: 0.01, digits: 2 });
+    const fake = createFakeSupabase(
+      () => ({ data: [], error: null }),
+      (fn) => ({ data: fn === "claim_spec_refresh" ? true : null, error: null }),
+    );
+    const outcomes = await refreshSymbolSpecs(
+      fake.client as Parameters<typeof refreshSymbolSpecs>[0],
+      Date.now(),
+      ["GBPUSD"],
+    );
+    expect(fetchSymbolSpecification).toHaveBeenCalledTimes(1);
+    expect(outcomes[0]).toMatchObject({ symbol: "GBPUSD", action: "refreshed" });
+    const written = fake.calls.find((c) => c.table === "broker_symbol_specs");
+    expect(written?.payload).toMatchObject({ symbol: "GBPUSD" });
+  });
 });
 
 describe("cron separation", () => {
@@ -104,5 +121,14 @@ describe("cron separation", () => {
     const src = readFileSync("src/routes/api/public/cron/refresh-specs.ts", "utf8");
     expect(src).toMatch(/authorizeCronRequest/);
     expect(src).toMatch(/refreshSymbolSpecs/);
+  });
+
+  it("[INVARIANT] the refresh cron re-verifies the scanned universe, not just Wave 0", () => {
+    const src = readFileSync("src/routes/api/public/cron/refresh-specs.ts", "utf8");
+    // The list must come from the lifecycle-driven scan universe...
+    expect(src).toMatch(/scanUniverse/);
+    // ...and be passed through, so the refresher cannot silently fall back to
+    // its Wave 0 default and leave Wave 1+ names permanently stale.
+    expect(src).toMatch(/refreshSymbolSpecs\(db, Date\.now\(\), symbols\)/);
   });
 });
