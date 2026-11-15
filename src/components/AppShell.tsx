@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 
 import { useQueryClient, useQuery } from "@tanstack/react-query";
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -23,28 +23,8 @@ import { AssistantWidget } from "@/components/assistant/AssistantWidget";
 
 import ptradesMark from "@/assets/ptrades-mark.png.asset.json";
 
-/**
- * Mobile navigation is capped at five items on purpose: a sixth column makes the
- * labels truncate to unreadable stubs at ~360px. `/guide` is therefore reached
- * from the header Guide control (visible at every width) rather than the bottom
- * bar, and `/admin/*` stays in the header for the owner only.
- */
-const MOBILE_NAV = [
-  { to: "/feed", label: "Signal Feed", short: "Feed", icon: Activity },
-  { to: "/history", label: "Trade History", short: "History", icon: History },
-  { to: "/performance", label: "Performance", short: "Performance", icon: BarChart3 },
-  // The in-app assistant takes the mobile slot that "Connect AI" (an
-  // external-client page) held; Connect stays in the desktop nav and Settings.
-  { to: "/assistant", label: "Assistant", short: "Assistant", icon: Bot },
-  { to: "/settings", label: "Settings", short: "Settings", icon: SettingsIcon },
-] as const;
-
-/**
- * From md up there is room for Broker accounts and the Guide entry inline. On
- * phones Accounts stays reachable from Settings → Account, because a sixth
- * bottom-bar column truncates every label at ~360px.
- */
-const DESKTOP_NAV = [
+/** One list for every width; the row scrolls sideways when it doesn't fit. */
+const NAV = [
   { to: "/feed", label: "Signal Feed", short: "Feed", icon: Activity },
   { to: "/history", label: "Trade History", short: "History", icon: History },
   { to: "/performance", label: "Performance", short: "Performance", icon: BarChart3 },
@@ -54,6 +34,46 @@ const DESKTOP_NAV = [
   { to: "/settings", label: "Settings", short: "Settings", icon: SettingsIcon },
   { to: "/guide", label: "Guide", short: "Guide", icon: BookOpen },
 ] as const;
+
+function NavRow({ pathname, className }: { pathname: string; className?: string }) {
+  const ref = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = ref.current?.querySelector<HTMLElement>('[data-active="true"]');
+    el?.scrollIntoView({ inline: "nearest", block: "nearest" });
+  }, [pathname]);
+  return (
+    <nav
+      ref={ref}
+      aria-label="Main"
+      className={cn(
+        "flex snap-x items-center gap-1 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+        className,
+      )}
+    >
+      {NAV.map((item) => {
+        const active = pathname.startsWith(item.to);
+        return (
+          <Link
+            key={item.to}
+            to={item.to}
+            aria-label={item.label}
+            data-active={active}
+            className={cn(
+              "flex shrink-0 snap-start items-center gap-1.5 whitespace-nowrap rounded-sm px-3 py-2 text-sm transition-colors",
+              active
+                ? "bg-secondary text-foreground"
+                : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
+            )}
+          >
+            <item.icon className="size-4 shrink-0" />
+            <span className="hidden xl:inline">{item.label}</span>
+            <span className="xl:hidden">{item.short}</span>
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -102,27 +122,10 @@ export function AppShell({ children }: { children: ReactNode }) {
               </span>
             </Link>
 
-            <nav className="hidden items-center gap-1 md:flex">
-              {DESKTOP_NAV.map((item) => {
-                const active = pathname.startsWith(item.to);
-                return (
-                  <Link
-                    key={item.to}
-                    to={item.to}
-                    className={cn(
-                      "flex items-center gap-2 rounded-sm px-3 py-1.5 text-sm transition-colors",
-                      active
-                        ? "bg-secondary text-foreground"
-                        : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
-                    )}
-                  >
-                    <item.icon className="size-4 shrink-0" />
-                    <span className="hidden lg:inline">{item.label}</span>
-                    <span className="lg:hidden">{item.short}</span>
-                  </Link>
-                );
-              })}
-            </nav>
+            <NavRow
+              pathname={pathname}
+              className="hidden min-w-0 flex-1 lg:flex [mask-image:linear-gradient(to_right,black_92%,transparent)]"
+            />
 
             <div className="ml-auto flex shrink-0 items-center gap-1">
               {isOwner ? (
@@ -133,19 +136,6 @@ export function AppShell({ children }: { children: ReactNode }) {
                   </Link>
                 </Button>
               ) : null}
-              {/* Guide is not in the five-item mobile bar; this is its entry point there. */}
-              <Button
-                variant="ghost"
-                size="sm"
-                asChild
-                aria-label="Guide and help"
-                className="md:hidden"
-              >
-                <Link to="/guide">
-                  <BookOpen className="size-4" />
-                  <span className="hidden lg:inline">Guide</span>
-                </Link>
-              </Button>
               <GuideModeToggle />
               <Button
                 variant="ghost"
@@ -159,27 +149,10 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           </div>
 
-          <nav className="grid grid-cols-5 border-t border-border md:hidden">
-            {MOBILE_NAV.map((item) => {
-              const active = pathname.startsWith(item.to);
-              return (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  aria-label={item.label}
-                  className={cn(
-                    "flex min-h-11 flex-col items-center justify-center gap-0.5 border-b-2 text-[11px] transition-colors",
-                    active
-                      ? "border-primary text-foreground"
-                      : "border-transparent text-muted-foreground",
-                  )}
-                >
-                  <item.icon className="size-4" />
-                  <span className="truncate px-1">{item.short}</span>
-                </Link>
-              );
-            })}
-          </nav>
+          <NavRow
+            pathname={pathname}
+            className="-mx-3 border-t border-border px-2 py-1 sm:-mx-4 lg:hidden [mask-image:linear-gradient(to_right,black_90%,transparent)]"
+          />
         </div>
       </header>
 
