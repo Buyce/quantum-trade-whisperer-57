@@ -14,7 +14,7 @@
 import { describeError } from "@/lib/errors/describe";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { classifyScanStarvation } from "@/lib/engine-status";
-import { isWeekendClosed } from "@/lib/market-hours";
+import { isWeekendClosed, isWithinReopenGrace } from "@/lib/market-hours";
 
 export interface StarvationWatchOutcome {
   checked: boolean;
@@ -70,7 +70,12 @@ export async function runStarvationWatch(db: SupabaseClient): Promise<Starvation
     const scan = status?.scan;
     if (!scan) return { ...idle, reason: "no scan window reported" };
 
-    const weekendClosed = isWeekendClosed(new Date());
+    const now = new Date();
+    const weekendClosed = isWeekendClosed(now);
+    // The 60-minute window right after reopen is still mostly weekend: never open or clear.
+    if (isWithinReopenGrace(now)) {
+      return { ...idle, checked: true, reason: "reopen grace" };
+    }
     const analysed = Number(scan.analysed ?? 0);
     const finished = Number(scan.stale ?? 0) + analysed;
     const starvation = classifyScanStarvation({
