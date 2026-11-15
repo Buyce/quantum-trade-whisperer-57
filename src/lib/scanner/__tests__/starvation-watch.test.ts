@@ -84,7 +84,9 @@ describe("scanner starvation watch", () => {
       },
     );
 
-    const outcome = await run(fake);
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-10T13:00:00Z"));
+    const outcome = await run(fake).finally(() => vi.useRealTimers());
 
     const claim = fake.rpcCalls.find((c) => c.fn === "claim_starvation_incident");
     expect(claim?.args).toMatchObject({ _stale: 30, _analysed: 0 });
