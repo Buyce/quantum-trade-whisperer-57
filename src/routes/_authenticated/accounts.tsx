@@ -491,7 +491,7 @@ function LinkExistingAccount({
             disabled={!canAddLive}
             onClick={() => setIntent("live")}
           >
-            Live account (observe only)
+            Live account (automatic trading available)
           </Button>
         </div>
         <div>
@@ -600,7 +600,7 @@ function ConnectWizard({
               disabled={!canAddLive}
               onClick={() => setIntent("live")}
             >
-              Live account (observe only)
+              Live account (automatic trading available)
             </Button>
           </div>
           <Button size="sm" onClick={() => setStep(2)}>

@@ -97,7 +97,7 @@ export function DirectMt5BridgeCard() {
           disabled={createMutation.isPending}
           onClick={() => createMutation.mutate("live")}
         >
-          Pair live MT5 (observe only)
+          Pair live MT5 (read-only bridge)
         </Button>
       </div>
 
