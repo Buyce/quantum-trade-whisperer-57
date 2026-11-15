@@ -40,10 +40,9 @@ const ScannerStarvedEmail = ({
         <Text style={brandBar}>P-Trades Hub · Scanner health</Text>
         <Heading style={h1}>Scanner not analysing</Heading>
         <Text style={text}>
-          Scan jobs are being closed without any candle read because they waited past their
-          freshness limit. The queue therefore looks like it is completing work while the strategy
-          is not being run on the market at all, so no setups can be published. This is a queue
-          throughput fault, not an absence of setups.
+          {typeof stale === "number" && stale > 0
+            ? "Scan jobs are being closed without any candle read because they waited past their freshness limit. The queue therefore looks like it is completing work while the strategy is not being run on the market at all, so no setups can be published. This is a queue throughput fault, not an absence of setups."
+            : `No scan jobs finished in the last ${windowMinutes ?? "unknown"} minutes during market hours, so the strategy has not been run on the market in that window.`}
         </Text>
         <Hr style={hr} />
         <Text style={mono}>window: last {windowMinutes ?? "unknown"} minutes</Text>
@@ -69,7 +68,7 @@ const ScannerStarvedEmail = ({
 
 export const template = {
   component: ScannerStarvedEmail,
-  subject: "P-Trades Hub — scanner not analysing (work discarded before candle fetch)",
+  subject: "P-Trades Hub — scanner not analysing",
   displayName: "Scanner starvation (admin)",
   to: "boatengampomah@gmail.com",
   previewData: {

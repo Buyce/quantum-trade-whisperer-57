@@ -52,6 +52,11 @@ export function isWeekendClosed(now: Date): boolean {
   return false;
 }
 
+/** First hour after the Sunday 21:00 UTC reopen: look-back windows still cover the closed weekend. */
+export function isWithinReopenGrace(now: Date): boolean {
+  return now.getUTCDay() === 0 && now.getUTCHours() === 21;
+}
+
 export interface SessionStatus extends FxSession {
   open: boolean;
   /** Minutes until this session's next open (when closed) or close (when open). */

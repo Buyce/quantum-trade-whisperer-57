@@ -84,7 +84,9 @@ describe("scanner starvation watch", () => {
       },
     );
 
-    const outcome = await run(fake);
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-10T13:00:00Z"));
+    const outcome = await run(fake).finally(() => vi.useRealTimers());
 
     const claim = fake.rpcCalls.find((c) => c.fn === "claim_starvation_incident");
     expect(claim?.args).toMatchObject({ _stale: 30, _analysed: 0 });
@@ -111,5 +113,59 @@ describe("scanner starvation watch", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  const emptyWindow = () =>
+    createFakeSupabase(
+      () => ({ data: [], error: null }),
+      (fn) => {
+        if (fn === "build_engine_status")
+          return { data: { scan: { window_minutes: 60, total: 0, stale: 0, analysed: 0 } }, error: null };
+        if (fn === "claim_starvation_incident") return { data: 7, error: null };
+        return { data: true, error: null };
+      },
+    );
+
+  for (const at of ["2026-11-15T21:00:00Z", "2026-11-15T21:59:00Z"]) {
+    it(`[INVARIANT] no incident opens in the reopen grace hour (${at})`, async () => {
+      const fake = emptyWindow();
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date(at));
+      try {
+        const outcome = await run(fake);
+        expect(outcome.incidentOpened).toBe(false);
+        expect(outcome.reason).toBe("reopen grace");
+        const fns = fake.rpcCalls.map((c: { fn: string }) => c.fn);
+        expect(fns).not.toContain("claim_starvation_incident");
+        expect(fns).not.toContain("clear_starvation_incident");
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  }
+
+  it("[INVARIANT] an empty window after the grace hour still opens an incident", async () => {
+    const fake = emptyWindow();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-15T22:01:00Z"));
+    try {
+      await run(fake);
+      expect(fake.rpcCalls.map((c: { fn: string }) => c.fn)).toContain("claim_starvation_incident");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe("scanner starvation email", () => {
+  it("[INVARIANT] omits the freshness-limit claim when nothing was discarded", async () => {
+    const { render } = await import("@react-email/components");
+    const { template } = await import("@/lib/email-templates/scanner-starved");
+    const React = await import("react");
+    const html0 = await render(React.createElement(template.component, { stale: 0, analysed: 0, windowMinutes: 60 }));
+    expect(html0).not.toContain("freshness limit");
+    expect(html0).toContain("No scan jobs finished");
+    const html5 = await render(React.createElement(template.component, { stale: 5, analysed: 0, windowMinutes: 60 }));
+    expect(html5).toContain("freshness limit");
   });
 });
