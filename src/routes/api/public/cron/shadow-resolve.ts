@@ -121,10 +121,17 @@ export const Route = createFileRoute("/api/public/cron/shadow-resolve")({
             const { runWalkForwardPass } = await import("@/lib/learning/walk-forward.server");
             walkForward = await runWalkForwardPass(db);
           } catch (wfErr) {
-            console.error(
-              "[cron/shadow-resolve] walk-forward pass failed:",
-              wfErr instanceof Error ? wfErr.message : String(wfErr),
-            );
+            const msg = wfErr instanceof Error ? wfErr.message : String(wfErr);
+            console.error("[cron/shadow-resolve] walk-forward pass failed:", msg);
+            // Surface in the response and the research failure log, never only
+            // in console: a swallowed failure looked like a healthy pass.
+            walkForward = { ran: false, error: msg };
+            try {
+              const { noteResearchFailure } = await import("@/lib/research/observations.server");
+              await noteResearchFailure(db, `walk-forward pass failed: ${msg}`);
+            } catch {
+              /* best-effort */
+            }
           }
 
           /**
@@ -138,10 +145,17 @@ export const Route = createFileRoute("/api/public/cron/shadow-resolve")({
             const { runExitVariantPass } = await import("@/lib/learning/exit-variants.server");
             exitVariants = await runExitVariantPass(db);
           } catch (evErr) {
-            console.error(
-              "[cron/shadow-resolve] exit-variant pass failed:",
-              evErr instanceof Error ? evErr.message : String(evErr),
-            );
+            const msg = evErr instanceof Error ? evErr.message : String(evErr);
+            console.error("[cron/shadow-resolve] exit-variant pass failed:", msg);
+            // Surface in the response and the research failure log, never only
+            // in console: a swallowed failure looked like a healthy pass.
+            exitVariants = { ran: false, error: msg };
+            try {
+              const { noteResearchFailure } = await import("@/lib/research/observations.server");
+              await noteResearchFailure(db, `exit-variant pass failed: ${msg}`);
+            } catch {
+              /* best-effort */
+            }
           }
 
           /**
@@ -156,10 +170,17 @@ export const Route = createFileRoute("/api/public/cron/shadow-resolve")({
             const { runGateChangeAutomation } = await import("@/lib/learning/automation.server");
             gateAutomation = await runGateChangeAutomation(db);
           } catch (autoErr) {
-            console.error(
-              "[cron/shadow-resolve] gate automation failed:",
-              autoErr instanceof Error ? autoErr.message : String(autoErr),
-            );
+            const msg = autoErr instanceof Error ? autoErr.message : String(autoErr);
+            console.error("[cron/shadow-resolve] gate automation failed:", msg);
+            // Surface in the response and the research failure log, never only
+            // in console: a swallowed failure looked like a healthy pass.
+            gateAutomation = { ran: false, error: msg };
+            try {
+              const { noteResearchFailure } = await import("@/lib/research/observations.server");
+              await noteResearchFailure(db, `gate automation failed: ${msg}`);
+            } catch {
+              /* best-effort */
+            }
           }
 
           // Every attempted provider fetch failing is a source-level problem;

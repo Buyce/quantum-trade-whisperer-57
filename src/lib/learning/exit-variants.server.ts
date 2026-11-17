@@ -35,8 +35,9 @@ import { EVIDENCE_TIERS } from "@/lib/stats/evidence";
 
 /** Maturity horizon, matching the other research passes. */
 export const MATURITY_HOURS = 24;
-/** Bound on rows read per pass. */
-const ROW_LIMIT = 2000;
+/** Page size (the Data API caps a single read at 1,000 rows) and hard ceiling. */
+const PAGE = 1000;
+const ROW_LIMIT = 50_000;
 /**
  * Floors come from the shared `chronological_period` tier (instrument-day
  * clusters), the same bar the walk-forward evaluator uses. No local numbers.
@@ -50,6 +51,23 @@ interface PathRow {
   detected_at: string;
   instrument: string;
   post_entry_path: unknown;
+  ambiguous_bars?: number | null;
+}
+
+/**
+ * Replay V2 always records the ordinary (non-gap) fill bar as ambiguous, and
+ * the simulators stop at the first ambiguous bar — so every path was
+ * undecidable (observed: 539 of 539 on 2026-11-17). The replay engine counts a
+ * fill bar as an ambiguous bar ONLY when it touched the stop or a target. With
+ * `ambiguous_bars = 0` the leading fill bar therefore decided nothing and is
+ * dropped; any other row keeps it and stays conservatively undecidable.
+ */
+export function clearUndecisiveFillBar(row: PathRow): PathRow {
+  if (row.ambiguous_bars !== 0) return row;
+  const p = row.post_entry_path as { bars?: Array<{ amb?: unknown }> } | null;
+  if (!p || !Array.isArray(p.bars) || p.bars.length < 2 || p.bars[0]?.amb !== true) return row;
+  if (p.bars.slice(1).some((b) => b?.amb === true)) return row;
+  return { ...row, post_entry_path: { ...p, bars: p.bars.slice(1) } };
 }
 
 export interface VariantSummary {
@@ -193,21 +211,26 @@ export async function runExitVariantPass(
 ): Promise<ExitVariantPassResult> {
   let rows: PathRow[];
   try {
-    const { data, error } = await db
-      .from("shadow_executions")
-      .select("detected_at, instrument, post_entry_path")
-      .eq("replay_version", REPLAY_V2_VERSION)
-      .eq("execution_policy", EXECUTION_POLICY_V2)
-      .eq("status", "resolved")
-      .not("post_entry_path", "is", null)
-      .order("detected_at", { ascending: true })
-      .limit(ROW_LIMIT);
-    if (error) throw new Error(error.message);
-    rows = (data ?? []) as unknown as PathRow[];
-    // Ascending + limit keeps the OLDEST rows and drops newer evidence while
-    // computed_at still looks fresh. Refuse a truncated population.
-    if (rows.length >= ROW_LIMIT)
-      throw new Error(`input reached the ${ROW_LIMIT}-row read limit; refusing a truncated computation`);
+    rows = [];
+    for (let start = 0; ; start += PAGE) {
+      const { data, error } = await db
+        .from("shadow_executions")
+        .select("id, detected_at, instrument, post_entry_path, ambiguous_bars")
+        .eq("replay_version", REPLAY_V2_VERSION)
+        .eq("execution_policy", EXECUTION_POLICY_V2)
+        .eq("status", "resolved")
+        .not("post_entry_path", "is", null)
+        .order("detected_at", { ascending: true })
+        .order("id", { ascending: true })
+        .range(start, start + PAGE - 1);
+      if (error) throw new Error(error.message);
+      const page = (data ?? []) as unknown as PathRow[];
+      rows.push(...page.map(clearUndecisiveFillBar));
+      if (page.length < PAGE) break;
+      // Never an ascending capped read: refuse rather than hide newer evidence.
+      if (rows.length >= ROW_LIMIT)
+        throw new Error(`input exceeded ${ROW_LIMIT} rows; refusing a truncated computation`);
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[exit-variants] read failed:", message);

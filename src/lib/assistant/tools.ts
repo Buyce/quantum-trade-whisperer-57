@@ -531,7 +531,7 @@ export function buildAssistantTools(supabase: unknown, userId: string) {
     }),
     get_platform_benchmarks: tool({
       description:
-        "Platform-wide learning and outcome evidence aggregated across ALL accounts: published setup counts, per-grade and per-instrument broker-verified outcome rates and average R, replay/shadow coverage, and instrument lifecycle stages. Aggregate-only by construction: it never contains another user's money, equity, lot sizes, account names or identity. Use it to compare the user's own results (from get_performance_summary) against the platform in R-multiples and percentages only. Cohorts below the minimum group size are withheld.",
+        "Platform-wide learning and outcome evidence aggregated across ALL accounts: published setup counts, per-grade and per-instrument self-reported journal outcome rates and average R (user-entered, not broker verified), replay/shadow coverage, and instrument lifecycle stages. Aggregate-only by construction: it never contains another user's money, equity, lot sizes, account names or identity. Use it to compare the user's own results (from get_performance_summary) against the platform in R-multiples and percentages only. Cohorts below the minimum group size are withheld.",
       inputSchema: z.object({}),
       execute: async () => unwrap(await runGetPlatformBenchmarks(supabase)),
     }),

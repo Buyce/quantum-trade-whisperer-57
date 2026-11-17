@@ -156,6 +156,13 @@ export async function collectAdvancementEvidence(
 
   if (stages.error) warnings.push(`lifecycle stages unreadable: ${stages.error.message}`);
   if (replay.error) warnings.push(`replay outcomes unreadable: ${replay.error.message}`);
+  // Visibility only (no behaviour change): the Data API returns at most 1,000
+  // rows per read, so a full page means newer-first evidence was cut off.
+  // Complete paging here would change promotion inputs and is a separate proposal.
+  if (!replay.error && (replay.data ?? []).length >= 1000)
+    warnings.push(
+      `replay outcomes truncated: read returned ${(replay.data ?? []).length} rows (server page cap); older rows in the ${ADVANCEMENT_WINDOW_DAYS}-day window were not seen`,
+    );
   if (readiness.error) warnings.push(`readiness history unreadable: ${readiness.error.message}`);
   if (transitions.error)
     warnings.push(`transition history unreadable: ${transitions.error.message}`);

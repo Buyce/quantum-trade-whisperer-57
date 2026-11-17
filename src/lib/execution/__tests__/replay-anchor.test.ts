@@ -80,3 +80,21 @@ describe("windowCoversRow", () => {
     ).toBe(false);
   });
 });
+
+describe("anchorForRows across the weekend closure", () => {
+  it("[INVARIANT] a Friday-evening row gets a window that reaches past the reopen", () => {
+    // Real stuck row: XAUUSD candidate cursor 2026-08-28 19:45 UTC (Friday).
+    const cursor = "2026-08-28T19:45:00.000Z";
+    const anchor = anchorForRows(
+      [{ detected_at: cursor, replay_cursor: cursor }],
+      200,
+      Date.parse("2026-11-17T14:00:00.000Z"),
+    );
+    // Old wall-clock anchor was Sunday 21:15 — inside the closure, so the window
+    // held no bar after the row's cursor. It must now land after Sunday reopen
+    // with at least ~190 open bars between cursor and anchor.
+    const end = Date.parse(anchor.startTime!);
+    expect(end).toBeGreaterThan(Date.parse("2026-08-30T21:00:00.000Z") + 150 * 15 * 60_000);
+    expect(anchor.oldestStart).toBe(cursor);
+  });
+});

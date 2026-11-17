@@ -17,7 +17,16 @@ export async function runGetPlatformBenchmarks(supabase: unknown) {
   if (error) {
     return { content: [{ type: "text" as const, text: error.message }], isError: true };
   }
-  const payload = (data ?? {}) as Record<string, unknown>;
+  const raw = (data ?? {}) as Record<string, unknown>;
+  // The database aggregate reads the SELF-REPORTED journal (executed_trades) but
+  // names its block `broker_verified_trades`. Relabel here (additive: the old key
+  // stays for compatibility) so no caller presents journal figures as broker truth.
+  const payload: Record<string, unknown> = {
+    ...raw,
+    journal_trades: raw.broker_verified_trades ?? null,
+    trades_provenance:
+      "self-reported journal (user-entered prices; NOT broker verified). The legacy key broker_verified_trades is a mislabel of the same journal block and must not be quoted as broker-verified.",
+  };
   return {
     content: [{ type: "text" as const, text: JSON.stringify(payload) }],
     structuredContent: payload,
@@ -28,7 +37,7 @@ export default defineTool({
   name: "get_platform_benchmarks",
   title: "Get platform-wide benchmarks",
   description:
-    "Platform-wide learning and outcome evidence aggregated across all connected accounts: broker-verified trade counts, win rates and average R overall and per grade and instrument, published setup counts, shadow-replay coverage and instrument lifecycle stages. Aggregate-only by construction: no account identity, no money amounts, no lot sizes, and cohorts below the minimum group size are withheld. Comparisons against a user's own results are expressed in R-multiples and percentages only. Descriptive, never a forecast.",
+    "Platform-wide learning and outcome evidence aggregated across all connected accounts: self-reported journal trade counts, win rates and average R overall and per grade and instrument (user-entered, NOT broker verified), published setup counts, shadow-replay coverage and instrument lifecycle stages. Aggregate-only by construction: no account identity, no money amounts, no lot sizes, and cohorts below the minimum group size are withheld. Comparisons against a user's own results are expressed in R-multiples and percentages only. Descriptive, never a forecast.",
   inputSchema: {},
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
   handler: async (_input, ctx) => {

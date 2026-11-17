@@ -16,7 +16,27 @@
  * instant it returns nothing and the rows simply stay unresolved — an unmeasured
  * candidate remains unmeasured.
  */
+import { isWeekendClosed } from "@/lib/market-hours";
 import { M15_BAR_MS, type ReplayWindowRow } from "./replay-window";
+
+/**
+ * Advance `fromMs` by `bars` M15 bars of OPEN market time, skipping the weekend
+ * closure (scanner calendar). A wall-clock offset from a Friday-evening row
+ * landed the window end inside the closure, so the provider returned only the
+ * bars the row had already consumed and the row could never progress (observed:
+ * research candidates frozen since 2026-08-28).
+ */
+export function advanceOpenBars(fromMs: number, bars: number): number {
+  let t = fromMs;
+  let counted = 0;
+  // Hard bound: bars plus one full closed weekend of M15 bars, twice over.
+  const maxSteps = bars + 2 * 200;
+  for (let step = 0; counted < bars && step < maxSteps; step++) {
+    t += M15_BAR_MS;
+    if (!isWeekendClosed(new Date(t))) counted++;
+  }
+  return t;
+}
 
 export interface ReplayAnchor {
   /** Newest bar of the window to request, or null to read the live tail. */
@@ -50,7 +70,7 @@ export function anchorForRows(
   }
   const oldest = Math.min(...starts);
   const forwardBars = Math.max(1, maxCandleDepth - overlapBars);
-  const anchorMs = oldest + forwardBars * M15_BAR_MS;
+  const anchorMs = advanceOpenBars(oldest, forwardBars);
   // Within the live tail already: no historical read, use the ordinary path.
   if (anchorMs >= nowMs) {
     return {

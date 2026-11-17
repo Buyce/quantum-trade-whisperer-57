@@ -1,10 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { readAllPages } from "@/lib/db/read-all-pages";
 import { REPLAY_V2_VERSION, EXECUTION_POLICY_V2 } from "@/lib/execution/replay-registry";
 import { QCORE_MODEL_VERSION, QCORE_POLICY_V2 } from "./config";
 import type { QCoreBacktestObservation } from "./backtest";
 import type { QCoreInput } from "./types";
 
-const ROW_LIMIT = 5000;
+const ROW_LIMIT = 100_000;
 
 interface ObservationDbRow {
   observation_key: string | null;
@@ -125,37 +126,41 @@ export function joinQCoreOutcomes(
 export async function loadQCoreBacktestDataset(
   db: SupabaseClient,
 ): Promise<QCoreBacktestObservation[]> {
-  const [{ data: observations, error: observationError }, { data: outcomes, error: outcomeError }] =
-    await Promise.all([
-      db
-        .from("model_observations")
-        .select("observation_key, instrument, code_hash, profile")
-        .eq("model_version", QCORE_MODEL_VERSION)
-        .eq("code_hash", QCORE_POLICY_V2.id)
-        .order("observation_key", { ascending: true })
-        .limit(ROW_LIMIT),
-      db
-        .from("shadow_executions")
-        .select(
-          "observation_key, instrument, detected_at, status, resolved_outcome, data_quality_outcome, realized_r, filled_at",
-        )
-        // Corrected Replay-V2 outcomes live in the production cohort. The schema
-        // pins research_candidate rows to plan_origin='counterfactual', so the
-        // old research_candidate+production filter could never match a row.
-        .eq("cohort", "production")
-        .eq("plan_origin", "production")
-        .eq("replay_version", REPLAY_V2_VERSION)
-        .eq("execution_policy", EXECUTION_POLICY_V2)
-        .order("observation_key", { ascending: true })
-        .limit(ROW_LIMIT),
-    ]);
-  if (observationError)
-    throw new Error(`Q-Core observation read failed: ${observationError.message}`);
-  if (outcomeError)
-    throw new Error(`Q-Core Replay-V2 outcome read failed: ${outcomeError.message}`);
-  // Refuse a silently truncated population rather than backtesting a subset.
-  if ((observations ?? []).length >= ROW_LIMIT || (outcomes ?? []).length >= ROW_LIMIT)
-    throw new Error(`Q-Core dataset reached the ${ROW_LIMIT}-row read limit; refusing a truncated backtest`);
+  // Complete paging: the Data API caps each read at 1,000 rows, so the old
+  // limit(5000) + refuse-at-5000 silently returned a 1,000-row subset.
+  const [observations, outcomes] = await Promise.all([
+    readAllPages<unknown>(
+      (from, to) =>
+        db
+          .from("model_observations")
+          .select("observation_key, instrument, code_hash, profile")
+          .eq("model_version", QCORE_MODEL_VERSION)
+          .eq("code_hash", QCORE_POLICY_V2.id)
+          .order("observation_key", { ascending: true })
+          .range(from, to),
+      "Q-Core observation",
+      ROW_LIMIT,
+    ),
+    readAllPages<unknown>(
+      (from, to) =>
+        db
+          .from("shadow_executions")
+          .select(
+            "observation_key, instrument, detected_at, status, resolved_outcome, data_quality_outcome, realized_r, filled_at",
+          )
+          // Corrected Replay-V2 outcomes live in the production cohort. The schema
+          // pins research_candidate rows to plan_origin='counterfactual'.
+          .eq("cohort", "production")
+          .eq("plan_origin", "production")
+          .eq("replay_version", REPLAY_V2_VERSION)
+          .eq("execution_policy", EXECUTION_POLICY_V2)
+          .order("observation_key", { ascending: true })
+          .order("id", { ascending: true })
+          .range(from, to),
+      "Q-Core Replay-V2 outcome",
+      ROW_LIMIT,
+    ),
+  ]);
   return joinQCoreOutcomes(
     (observations ?? []) as unknown as ObservationDbRow[],
     (outcomes ?? []) as unknown as OutcomeDbRow[],
