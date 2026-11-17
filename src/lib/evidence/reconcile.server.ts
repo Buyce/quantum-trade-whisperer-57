@@ -778,6 +778,8 @@ async function writeEvidence(
     entry_at: summary.entryAt,
     exit_at: summary.exitAt,
     commission: summary.commission,
+    // Deposit currency from MetaApi account-information (MT5 profit is in it).
+    profit_currency: account.broker_currency ?? null,
     swap: summary.swap,
     gross_profit: summary.grossProfit,
     r_vs_plan: r.rVsPlan,

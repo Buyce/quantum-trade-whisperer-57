@@ -662,6 +662,59 @@ export type Database = {
           },
         ]
       }
+      broker_evidence_annotations: {
+        Row: {
+          annotated_value: string | null
+          created_at: string
+          created_by: string
+          detail: Json
+          evidence_id: string
+          id: string
+          kind: string
+          raw_value: string | null
+          rule: string
+          source: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          annotated_value?: string | null
+          created_at?: string
+          created_by?: string
+          detail?: Json
+          evidence_id: string
+          id?: string
+          kind: string
+          raw_value?: string | null
+          rule: string
+          source: string
+          status: string
+          user_id: string
+        }
+        Update: {
+          annotated_value?: string | null
+          created_at?: string
+          created_by?: string
+          detail?: Json
+          evidence_id?: string
+          id?: string
+          kind?: string
+          raw_value?: string | null
+          rule?: string
+          source?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "broker_evidence_annotations_evidence_id_fkey"
+            columns: ["evidence_id"]
+            isOneToOne: false
+            referencedRelation: "broker_trade_evidence"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       broker_order_associations: {
         Row: {
           account_mode: string | null
