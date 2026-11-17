@@ -113,6 +113,7 @@ export function groupOwnedDeals(
     const owners = ownersByPosition.get(deal.positionId);
     if (!owners || owners.length !== 1) continue;
     const owner = owners[0];
+    if (!owner) continue;
     if (owner.symbol && deal.symbol && owner.symbol !== deal.symbol) continue;
     if (owner.deals.some((d) => d.id && d.id === deal.id)) continue;
     owner.deals.push(deal);
