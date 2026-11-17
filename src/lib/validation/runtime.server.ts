@@ -179,7 +179,12 @@ export async function runRuntimeValidation(
   if (!quote) return finish("quote_and_spec", "broker returned no valid quote");
   const quoteTime = Date.parse(quote.sourceTime ?? quote.receivedAt);
   if (!Number.isFinite(quoteTime) || deps.now() - quoteTime > QUOTE_MAX_AGE_MS)
-    return finish("quote_and_spec", "quote is stale");
+    return finish(
+      "quote_and_spec",
+      Number.isFinite(quoteTime)
+        ? `quote is stale (broker price time ${quote.sourceTime ?? "none"}, ${Math.round((deps.now() - quoteTime) / 1000)}s old, bid ${quote.bid})`
+        : "quote is stale (broker sent no price time)",
+    );
   const spec = await deps.loadAccountSizingSpec(db, input.accountId, canonical);
   if (!spec) return finish("quote_and_spec", "account symbol specification missing");
   if (deps.accountSpecStale(spec, deps.now()))

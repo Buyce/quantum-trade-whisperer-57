@@ -7,7 +7,7 @@
 import type { Candle, Timeframe } from "@/lib/scanner/types";
 import { withBenchmarkAccount } from "./benchmark.server";
 import { withMarketDataSlot } from "./market-gate.server";
-import { validQuoteGeometry } from "./quote";
+import { correctBrokerClockOffset, validQuoteGeometry } from "./quote";
 import { metaApiRequest } from "./request.server";
 
 const TF_MAP: Record<Timeframe, string> = { H4: "4h", H1: "1h", M15: "15m" };
@@ -32,6 +32,8 @@ export interface BrokerQuote {
   sourceTime: string | null;
   /** When this process received the response (display/diagnostics only). */
   receivedAt: string;
+  /** Whole-hour broker clock mislabel corrected in sourceTime, when present. */
+  brokerClockOffsetHours?: number;
 }
 
 /**
@@ -128,11 +130,17 @@ export async function fetchQuoteFor(
   const ask = Number(raw?.ask);
   if (!validQuoteGeometry(bid, ask)) return null;
   const parsed = raw?.time ? Date.parse(raw.time) : Number.NaN;
+  const receivedAtMs = Date.now();
+  const corrected = correctBrokerClockOffset(
+    Number.isFinite(parsed) ? new Date(parsed).toISOString() : null,
+    receivedAtMs,
+  );
   return {
     bid,
     ask,
-    sourceTime: Number.isFinite(parsed) ? new Date(parsed).toISOString() : null,
-    receivedAt: new Date().toISOString(),
+    sourceTime: corrected.sourceTime,
+    receivedAt: new Date(receivedAtMs).toISOString(),
+    ...(corrected.offsetHours !== 0 ? { brokerClockOffsetHours: corrected.offsetHours } : {}),
   };
 }
 
