@@ -1,4 +1,4 @@
-import { parseClientId } from "@/lib/evidence/associate";
+import { parseClientId } from "@/lib/metaapi/client-id";
 
 /** Broker deal types that move money without being a trading result. */
 const NON_TRADING = new Set(["DEAL_TYPE_BALANCE", "DEAL_TYPE_CREDIT", "DEAL_TYPE_BONUS"]);
