@@ -1308,6 +1308,7 @@ export type Database = {
           last_error: string | null
           last_reconciled_at: string | null
           leverage: number | null
+          live_auto_default_applied_at: string | null
           magic: number | null
           margin_mode: string | null
           max_account_exposure_note: string | null
@@ -1360,6 +1361,7 @@ export type Database = {
           last_error?: string | null
           last_reconciled_at?: string | null
           leverage?: number | null
+          live_auto_default_applied_at?: string | null
           magic?: number | null
           margin_mode?: string | null
           max_account_exposure_note?: string | null
@@ -1412,6 +1414,7 @@ export type Database = {
           last_error?: string | null
           last_reconciled_at?: string | null
           leverage?: number | null
+          live_auto_default_applied_at?: string | null
           magic?: number | null
           margin_mode?: string | null
           max_account_exposure_note?: string | null

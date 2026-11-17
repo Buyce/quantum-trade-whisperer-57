@@ -699,9 +699,9 @@ export async function revalidateDelivery(
       if (!globallyLive) {
         return reject("live_execution_globally_disabled", "live execution is disabled system-wide");
       }
-      if (!liveConfirmationValid(settings, currentVersion)) {
-        return reject("live_authorization_stale", `configuration v${currentVersion}`);
-      }
+      // Connected live accounts need no separate signed confirmation: the
+      // account's own armed mode (default on at connect, switchable off on its
+      // card) is the authorisation. live_confirm still needs per-order approval.
     }
   }
 

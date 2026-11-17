@@ -143,7 +143,7 @@ const SECTIONS: Section[] = [
         id: "account-modes",
         q: "What do Observe, Demo auto and Live modes permit?",
         a: [
-          "Observe reads broker facts and places no orders. Demo auto places orders only on a broker-confirmed demo account after you arm it. Live · confirm each and Live auto are available only on broker-confirmed real accounts; see Live and automatic trading below for the steps.",
+          "Observe reads broker facts and places no orders. Demo auto places orders only on a broker-confirmed demo account after you arm it. A broker-confirmed real account switches to Live auto automatically when it first connects; choose Observe on its card to turn that off, or Live · confirm each to approve every order.",
           "Every order still needs a risk policy on the account and passes freshness, symbol, exposure, broker specification, volume and price checks right before sending. Missing broker data is a refusal, never a guessed replacement.",
         ],
         assume:
@@ -674,7 +674,7 @@ const SECTIONS: Section[] = [
         id: "live-checklist",
         q: "What are the steps before P-Trades trades for me?",
         a: [
-          "1. Connect the account on Broker Accounts and press Refresh until it reads Ready. 2. Check its card in the Control center: Connected, Trading allowed, and nothing to review. 3. Set its Risk policy. 4. Run a Runtime Validation and fix any FAIL. 5. Arm Demo auto first and watch a few orders. 6. On a real account, start with Live · confirm each, and move to Live auto only when you are comfortable.",
+          "1. Connect the account on Broker Accounts and press Refresh until it reads Ready. 2. Check its card in the Control center: Connected, Trading allowed, and nothing to review. 3. Set its Risk policy. 4. Run a Runtime Validation and fix any FAIL. 5. A real account starts in Live auto as soon as the broker confirms it is a real, trade-allowed account, with a standard risk policy (0.25% per trade) you can edit. 6. To stop it, choose Observe on its card; to approve each order instead, choose Live · confirm each.",
           "Every step is per account. Each account has its own policy, its own validation and its own mode.",
         ],
         means: "The order in which an account becomes trusted to trade.",
@@ -740,7 +740,7 @@ const SECTIONS: Section[] = [
         id: "live-modes",
         q: "Live · confirm each vs Live auto, and the emergency stop",
         a: [
-          "Live · confirm each prepares the order and waits for you to approve it on Trade History. Live auto sends it without asking, after you sign off your current settings. Both only work on a broker-confirmed real account.",
+          "Live · confirm each prepares the order and waits for you to approve it on Trade History. Live auto sends it without asking and is the default for a newly connected real account; no separate sign-off is needed. Both only work on a broker-confirmed real account.",
           "The emergency stop at the top of Broker Accounts stops new P-Trades orders immediately. It does not close anything already open at your broker — that stays your decision.",
         ],
         todo: "Keep the emergency stop in mind before you leave an account on Live auto.",

@@ -43,7 +43,7 @@ import {
   type ConnectionIntent,
 } from "./lifecycle";
 import { isOfferedRegion } from "./guidance";
-import { isAccountMode, modeAfterReconcile } from "./mode";
+import { defaultLiveAutoOnConnect, isAccountMode, modeAfterReconcile } from "./mode";
 import { buildAccountSpecRow } from "./spec-row";
 import { mapSymbols } from "./symbol-map";
 
@@ -550,6 +550,32 @@ export async function reconcileConnection(
     });
     patch["mode"] = outcome.mode;
     patch["stand_down_reason"] = outcome.standDownReason;
+    {
+      const applied =
+        (row as unknown as { live_auto_default_applied_at?: string | null })
+          .live_auto_default_applied_at != null;
+      const ctx = {
+        brokerAccountType: type,
+        ready: !verdict.conflict && type !== "unknown",
+        intentConflict: verdict.conflict,
+        tradeAllowed: info.tradeAllowed ?? null,
+        investorMode: info.investorMode ?? null,
+        hasBrokerConnection: true,
+        hasMagic: typeof row.magic === "number" && row.magic > 0,
+        emergencyStopped: false,
+      };
+      const defaulted = defaultLiveAutoOnConnect(outcome.mode, applied, ctx);
+      if (defaulted) {
+        patch["mode"] = defaulted;
+        patch["mode_armed_at"] = new Date().toISOString();
+        patch["live_auto_default_applied_at"] = new Date().toISOString();
+        await ensureDefaultLiveRiskPolicy(db, row, info);
+      } else if (!applied && type === "real") {
+        // Not yet tradable (e.g. trading not allowed): try again on a later refresh.
+      } else if (!applied && type !== "unknown") {
+        patch["live_auto_default_applied_at"] = new Date().toISOString();
+      }
+    }
     patch["phase"] = (
       verdict.conflict || type === "unknown" ? "connected" : "ready"
     ) satisfies AccountPhase;
@@ -571,6 +597,31 @@ export async function reconcileConnection(
     }
     return await writeAndReturn(db, row.id, patch);
   }
+}
+
+/** Standard starting policy so a new live account can trade straight away (editable on its card). */
+async function ensureDefaultLiveRiskPolicy(
+  db: Admin,
+  row: ConnectedAccountRow,
+  info: BrokerAccountInformation,
+): Promise<void> {
+  const balance = Number(info.balance);
+  if (!Number.isFinite(balance) || balance <= 0) return; // never invent a balance
+  await db.from("connected_account_risk_policies" as never).upsert(
+    {
+      account_id: row.id,
+      user_id: row.user_id,
+      policy_kind: "standard",
+      starting_balance: balance,
+      operating_risk_per_trade_percent: 0.25,
+      hard_risk_per_trade_percent: 1,
+      max_daily_loss_percent: 3,
+      max_total_loss_percent: 5,
+      trailing_drawdown: false,
+      max_trades_per_day: 2,
+    } as never,
+    { onConflict: "account_id", ignoreDuplicates: true },
+  );
 }
 
 function brokerFactsPatch(
