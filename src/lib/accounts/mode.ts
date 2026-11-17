@@ -145,3 +145,20 @@ export function describeMode(mode: AccountMode): { label: string; detail: string
       };
   }
 }
+
+/**
+ * Live accounts trade automatically by default: the FIRST time a connected
+ * account is confirmed by the broker as a REAL, trade-allowed account, it is
+ * switched to live_auto. Applied once per account (marker), so an owner who
+ * later turns it off (Observe) is never re-armed by a refresh.
+ */
+export function defaultLiveAutoOnConnect(
+  current: AccountMode,
+  alreadyApplied: boolean,
+  ctx: ModeContext,
+): AccountMode | null {
+  if (alreadyApplied) return null;
+  if (current !== "observe") return null;
+  if (ctx.brokerAccountType !== "real") return null;
+  return canArm(ctx, "live_auto").ok ? "live_auto" : null;
+}
