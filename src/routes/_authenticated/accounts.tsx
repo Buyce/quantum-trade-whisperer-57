@@ -603,6 +603,10 @@ function ConnectWizard({
               Live account (automatic trading available)
             </Button>
           </div>
+          <p className="text-xs text-muted-foreground">
+            A live account places real trades automatically once your broker confirms it. You can
+            turn this off at any time with Observe on its card.
+          </p>
           <Button size="sm" onClick={() => setStep(2)}>
             Continue
           </Button>
@@ -749,7 +753,7 @@ const MODE_NOTES: Record<AccountMode, string> = {
   live_confirm:
     "P-Trades will prepare real-money orders on this account and send nothing until you confirm each one.",
   live_auto:
-    "P-Trades will place REAL-MONEY orders on this account automatically. Only arm this if you accept losses without any further prompt.",
+    "P-Trades places REAL-MONEY orders on this account automatically. This is on by default for live accounts — choose Observe to turn it off at any time.",
 };
 
 function AccountCard({
@@ -1187,7 +1191,12 @@ function ArmingSection({
 
   return (
     <div className="border-t border-border p-3 text-xs">
-      <p className="font-medium">Automatic orders</p>
+      <p className="font-medium">
+        Automatic orders:{" "}
+        <span className={account.mode === "observe" ? "text-muted-foreground" : "text-primary"}>
+          {account.mode === "observe" ? "Off" : "On"}
+        </span>
+      </p>
       <p className="mt-1 text-muted-foreground">{MODE_NOTES[account.mode]}</p>
 
       {options.length === 1 ? (
