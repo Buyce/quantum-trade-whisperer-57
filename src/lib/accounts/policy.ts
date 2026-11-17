@@ -48,6 +48,12 @@ export interface AccountPolicyState {
   /** Highest broker-confirmed balance/equity basis used by the account program. */
   trailingHighWatermark: number | null;
   todayNetPnl: number | null;
+  /**
+   * Today's net from P-Trades-placed deals only. The stop-after-profit target
+   * uses this, so manual profit never stops the auto-trader. Loss limits keep
+   * using the account-wide todayNetPnl. Omitted → falls back to todayNetPnl.
+   */
+  todayPTradesNetPnl?: number | null;
   totalNetProfit: number | null;
   largestWinningDay: number | null;
   tradingDays: number | null;
@@ -136,10 +142,12 @@ export function evaluateAccountPolicy(
     }
   }
 
+  const ptradesToday =
+    state.todayPTradesNetPnl === undefined ? state.todayNetPnl : state.todayPTradesNetPnl;
   const dailyProfitRemaining =
-    policy.dailyProfitObjective === null || !finite(state.todayNetPnl)
+    policy.dailyProfitObjective === null || !finite(ptradesToday)
       ? null
-      : Math.max(0, policy.dailyProfitObjective - Math.max(0, state.todayNetPnl));
+      : Math.max(0, policy.dailyProfitObjective - Math.max(0, ptradesToday));
 
   const projectedLargestWinningDay =
     policy.dailyProfitObjective === null
@@ -186,8 +194,8 @@ export function evaluateAccountPolicy(
 
   if (
     policy.dailyProfitObjective !== null &&
-    finite(state.todayNetPnl) &&
-    state.todayNetPnl >= policy.dailyProfitObjective
+    finite(ptradesToday) &&
+    ptradesToday >= policy.dailyProfitObjective
   ) {
     // The objective is a stop-after-profit guard, never a requirement to force trades.
     reasons.push("p_trades_daily_profit_objective_reached");

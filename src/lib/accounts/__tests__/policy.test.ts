@@ -101,4 +101,28 @@ describe("account-scoped risk policy", () => {
     expect(v.dailyProfitRemaining).toBe(30);
     expect(v.requiredTotalProfitForConsistency).toBeCloseTo(1_333.333333, 5);
   });
+  it("[INVARIANT] manual-trade profit over $200 does not stop the auto-trader", () => {
+    const v = evaluateAccountPolicy(EQUITY_EDGE_INSTANT_50K, {
+      ...healthy,
+      todayNetPnl: 372,
+      todayPTradesNetPnl: 0,
+    });
+    expect(v.reasons).not.toContain("p_trades_daily_profit_objective_reached");
+  });
+  it("[INVARIANT] P-Trades profit of $200 today still stops new automatic trades", () => {
+    const v = evaluateAccountPolicy(EQUITY_EDGE_INSTANT_50K, {
+      ...healthy,
+      todayNetPnl: 200,
+      todayPTradesNetPnl: 200,
+    });
+    expect(v.reasons).toContain("p_trades_daily_profit_objective_reached");
+  });
+  it("[INVARIANT] manual losses still count toward the account daily loss limit", () => {
+    const v = evaluateAccountPolicy(EQUITY_EDGE_INSTANT_50K, {
+      ...healthy,
+      todayNetPnl: -1_450,
+      todayPTradesNetPnl: 0,
+    });
+    expect(v.status).toBe("block");
+  });
 });

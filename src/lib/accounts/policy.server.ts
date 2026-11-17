@@ -8,7 +8,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { evaluateAccountPolicy, type AccountRiskPolicy } from "./policy";
 import { fetchDeals } from "@/lib/metaapi/history.server";
-import { isNonTradingDeal } from "@/lib/accounts/deal-kind";
+import { isNonTradingDeal, isPTradesDeal } from "@/lib/accounts/deal-kind";
 import { NEWS_ENFORCEMENT_PINNED_OFF } from "@/lib/news/gate.server";
 
 type Db = Pick<SupabaseClient, "from">;
@@ -110,7 +110,7 @@ export async function accountExecutionPolicy(
   // P-Trades orders, so it is not authoritative for a prop-account daily limit.
   const { data: accountRow, error: accountError } = await db
     .from("connected_trading_accounts")
-    .select("metaapi_account_id, region")
+    .select("metaapi_account_id, region, magic")
     .eq("id", input.accountId)
     .eq("user_id", input.userId)
     .maybeSingle();
@@ -121,7 +121,11 @@ export async function accountExecutionPolicy(
       detail: "broker account identity unreadable",
     };
   }
-  const brokerAccount = accountRow as { metaapi_account_id: string | null; region: string | null };
+  const brokerAccount = accountRow as {
+    metaapi_account_id: string | null;
+    region: string | null;
+    magic?: number | null;
+  };
   if (!brokerAccount.metaapi_account_id || !brokerAccount.region) {
     return {
       ok: false,
@@ -146,6 +150,7 @@ export async function accountExecutionPolicy(
     };
   }
   let todayNetPnl = 0;
+  let todayPTradesNetPnl = 0;
   for (const deal of todayDeals) {
     // Deposits, withdrawals and broker credit are not trading results: counting a
     // deposit as profit would trip the stop-after-profit guard (and hide a loss).
@@ -166,7 +171,9 @@ export async function accountExecutionPolicy(
         detail: "account-wide broker history contains incomplete money fields",
       };
     }
-    todayNetPnl += deal.profit + deal.commission + deal.swap;
+    const net = deal.profit + deal.commission + deal.swap;
+    todayNetPnl += net;
+    if (isPTradesDeal(deal, brokerAccount.magic ?? null)) todayPTradesNetPnl += net;
   }
 
   // Only broker-confirmed closed outcomes and this account's delivery ledger are
@@ -268,6 +275,7 @@ export async function accountExecutionPolicy(
     balance: input.balance,
     trailingHighWatermark,
     todayNetPnl,
+    todayPTradesNetPnl,
     totalNetProfit,
     largestWinningDay,
     tradingDays: byDay.size,
