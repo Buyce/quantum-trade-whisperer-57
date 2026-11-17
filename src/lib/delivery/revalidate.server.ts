@@ -528,7 +528,10 @@ export async function revalidateDelivery(
     sessions: settings.sessions ?? [],
     min_grade: alertGrade,
     alert_min_grade: alertGrade,
-    daily_setup_cap: settings.daily_setup_cap ?? 0,
+    // A customer's daily SETUP allowance governs feed/alerts only; their order
+    // ceilings were already enforced at enqueue from real deliveries. The
+    // benchmark's cap here IS its policy order cap, so it still applies.
+    daily_setup_cap: isBenchmark ? (settings.daily_setup_cap ?? 0) : 0,
   };
   const target: EligibilitySignal = toEligibilitySignal({
     id: signal.id,

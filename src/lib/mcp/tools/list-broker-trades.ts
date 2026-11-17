@@ -54,7 +54,7 @@ export async function runListBrokerTrades(supabase: unknown, args: BrokerTradesA
       lte: (c: string, v: string) => typeof out;
     };
     if (state) out = out.eq("state", state);
-    if (accountType) out = out.eq("broker_account_type", accountType);
+    if (accountType) out = out.eq("broker_account_type", accountType === "live" ? "real" : accountType);
     if (args.account_id) out = out.eq("account_id", args.account_id);
     if (args.instrument) {
       const symbol = args.instrument.toUpperCase();

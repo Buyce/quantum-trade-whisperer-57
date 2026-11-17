@@ -214,7 +214,7 @@ describe("enqueueDirectDeliveries", () => {
     expect(out.filtered).toBe(1);
   });
 
-  it("[INVARIANT] applies the owner's daily cap using the whole UTC-day frame", async () => {
+  it("[INVARIANT] earlier setups that placed no order do not use up automatic-order capacity", async () => {
     // Two earlier eligible A-Grade setups already consumed a cap of 2.
     const frame = [
       {
@@ -232,11 +232,12 @@ describe("enqueueDirectDeliveries", () => {
         market_context: { trading_session: "london" },
       },
     ];
+    // A setup cap of 2 already "used" by two setups with no delivery must not
+    // block this setup: the cap governs feed/alerts; order ceilings govern orders.
     const f = fake({ settings: { daily_setup_cap: 2 }, frame });
     const out = await enqueueDirectDeliveries(f.client as SupabaseClient, SIGNAL, NOW);
-    expect(out).toMatchObject({ enqueued: 0, filtered: 1 });
+    expect(out.enqueued).toBe(1);
 
-    // Cap 0 means unlimited: the same frame enqueues.
     const unlimited = fake({ settings: { daily_setup_cap: 0 }, frame });
     const out2 = await enqueueDirectDeliveries(unlimited.client as SupabaseClient, SIGNAL, NOW);
     expect(out2.enqueued).toBe(1);

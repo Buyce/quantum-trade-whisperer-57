@@ -1092,11 +1092,13 @@ async function runDirectEnqueue(
       sessions: row.sessions ?? [],
       min_grade: grade,
       alert_min_grade: grade,
-      daily_setup_cap: row.daily_setup_cap ?? 0,
+      // The daily SETUP allowance governs feed and alerts only. Automatic orders
+      // are limited by the explicit order ceilings (concurrent / daily /
+      // per-instrument), counted from real deliveries. Applying the setup cap
+      // here let gate-refused setups use up the allowance, blocking every later
+      // setup of the day with zero trades placed.
+      daily_setup_cap: 0,
     };
-    // Evidence-based ordering of the execution slots only. Ranking swaps WHICH
-    // setups spend a small cap, never how many: the cap count is unchanged, and a
-    // cohort with no measured replay evidence keeps its chronological place.
     const cappedOutIds = buildCapFrame(frame, settings, "alert", nowMs, executionRanker);
     const verdict = evaluateEligibility({
       signal: target,
