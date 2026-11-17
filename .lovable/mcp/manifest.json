@@ -137,7 +137,7 @@
       {
         "name": "get_platform_benchmarks",
         "title": "Get platform-wide benchmarks",
-        "description": "Platform-wide learning and outcome evidence aggregated across all connected accounts: broker-verified trade counts, win rates and average R overall and per grade and instrument, published setup counts, shadow-replay coverage and instrument lifecycle stages. Aggregate-only by construction: no account identity, no money amounts, no lot sizes, and cohorts below the minimum group size are withheld. Comparisons against a user's own results are expressed in R-multiples and percentages only. Descriptive, never a forecast.",
+        "description": "Platform-wide learning and outcome evidence aggregated across all connected accounts: self-reported journal trade counts, win rates and average R overall and per grade and instrument (user-entered, NOT broker verified), published setup counts, shadow-replay coverage and instrument lifecycle stages. Aggregate-only by construction: no account identity, no money amounts, no lot sizes, and cohorts below the minimum group size are withheld. Comparisons against a user's own results are expressed in R-multiples and percentages only. Descriptive, never a forecast.",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": true,
