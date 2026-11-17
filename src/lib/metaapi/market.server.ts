@@ -32,6 +32,8 @@ export interface BrokerQuote {
   sourceTime: string | null;
   /** When this process received the response (display/diagnostics only). */
   receivedAt: string;
+  /** Whole-hour broker clock mislabel corrected in sourceTime, when present. */
+  brokerClockOffsetHours?: number;
 }
 
 /**
@@ -128,11 +130,17 @@ export async function fetchQuoteFor(
   const ask = Number(raw?.ask);
   if (!validQuoteGeometry(bid, ask)) return null;
   const parsed = raw?.time ? Date.parse(raw.time) : Number.NaN;
+  const receivedAtMs = Date.now();
+  const corrected = correctBrokerClockOffset(
+    Number.isFinite(parsed) ? new Date(parsed).toISOString() : null,
+    receivedAtMs,
+  );
   return {
     bid,
     ask,
-    sourceTime: Number.isFinite(parsed) ? new Date(parsed).toISOString() : null,
-    receivedAt: new Date().toISOString(),
+    sourceTime: corrected.sourceTime,
+    receivedAt: new Date(receivedAtMs).toISOString(),
+    ...(corrected.offsetHours !== 0 ? { brokerClockOffsetHours: corrected.offsetHours } : {}),
   };
 }
 
