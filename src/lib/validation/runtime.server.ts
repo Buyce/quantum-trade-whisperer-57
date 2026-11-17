@@ -182,7 +182,7 @@ export async function runRuntimeValidation(
     return finish(
       "quote_and_spec",
       Number.isFinite(quoteTime)
-        ? `quote is stale (broker price time ${quote.sourceTime ?? "none"}, ${Math.round((deps.now() - quoteTime) / 1000)}s old)`
+        ? `quote is stale (broker price time ${quote.sourceTime ?? "none"}, ${Math.round((deps.now() - quoteTime) / 1000)}s old, bid ${quote.bid})`
         : "quote is stale (broker sent no price time)",
     );
   const spec = await deps.loadAccountSizingSpec(db, input.accountId, canonical);
