@@ -143,6 +143,7 @@ export function brokerOrdersQuery(userId: string | undefined) {
   return queryOptions({
     queryKey: ["broker-orders", userId],
     enabled: !!userId,
+    refetchInterval: 60_000,
     queryFn: async (): Promise<BrokerOrderView[]> => {
       const { data, error } = await supabase
         .from("execution_deliveries" as never)

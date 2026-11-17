@@ -120,3 +120,37 @@ describe("evidence classes stay separate", () => {
     expect(evidenceClassFor(false)).toBe("customer");
   });
 });
+
+describe("closing leg linked by broker position id", () => {
+  const open = deal({ volume: 0.09 });
+  const close = (over: Partial<BrokerDeal> = {}) =>
+    deal({ id: "d2", entryType: "DEAL_ENTRY_OUT", clientId: null, magic: 0, volume: 0.09, price: 1.08, profit: 4.23, ...over });
+
+  it("[UNIT] an untagged close on our position closes the trade", () => {
+    const groups = groupOwnedDeals([open, close()], 140714);
+    expect(groups[0]!.deals).toHaveLength(2);
+    expect(groups[0]!.basis).toBe("position_id");
+    expect(summariseGroup(groups[0]!).state).toBe("closed");
+  });
+
+  it("[UNIT] an untagged close-by also joins", () => {
+    const groups = groupOwnedDeals([open, close({ entryType: "DEAL_ENTRY_OUT_BY" })], 140714);
+    expect(groups[0]!.deals).toHaveLength(2);
+  });
+
+  it("[INVARIANT] a close on a different position is not absorbed", () => {
+    const groups = groupOwnedDeals([open, close({ positionId: "p9" })], 140714);
+    expect(groups[0]!.deals).toHaveLength(1);
+  });
+
+  it("[INVARIANT] a position with a foreign opening leg is refused", () => {
+    const foreign = deal({ id: "d3", clientId: "manual", volume: 0.1 });
+    const groups = groupOwnedDeals([open, foreign, close()], 140714);
+    expect(groups[0]!.deals).toHaveLength(1);
+  });
+
+  it("[INVARIANT] a partial untagged close keeps the trade open", () => {
+    const groups = groupOwnedDeals([open, close({ volume: 0.04 })], 140714);
+    expect(summariseGroup(groups[0]!).state).toBe("open");
+  });
+});

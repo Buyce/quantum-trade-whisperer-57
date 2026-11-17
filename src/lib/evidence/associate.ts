@@ -86,6 +86,39 @@ export function groupOwnedDeals(
     });
   }
 
+  // Second pass: a closing leg (OUT/OUT_BY) the broker wrote without our
+  // clientId — e.g. stop/target hit or closed by hand in MT5 — joins an already
+  // proven P-Trades position by EXACT broker position id + symbol. Refused when
+  // the position has a foreign opening leg, more than one P-Trades owner, or the
+  // close carries a different recognised P-Trades reference.
+  const ownersByPosition = new Map<string, DealGroup[]>();
+  for (const g of groups.values()) {
+    for (const d of g.deals) {
+      if (!isEntry(d) || !d.positionId) continue;
+      const list = ownersByPosition.get(d.positionId) ?? [];
+      if (!list.includes(g)) list.push(g);
+      ownersByPosition.set(d.positionId, list);
+    }
+  }
+  const foreignOpen = new Set<string>();
+  for (const deal of deals) {
+    if (!isEntry(deal) || !deal.positionId) continue;
+    if (!groups.has(deal.clientId ?? "") ) foreignOpen.add(deal.positionId);
+  }
+  for (const deal of deals) {
+    if (!isExit(deal) || !deal.positionId) continue;
+    if (groups.has(deal.clientId ?? "")) continue; // already absorbed
+    if (parseClientId(deal.clientId ?? null)) continue; // a different P-Trades ref
+    if (foreignOpen.has(deal.positionId)) continue;
+    const owners = ownersByPosition.get(deal.positionId);
+    if (!owners || owners.length !== 1) continue;
+    const owner = owners[0];
+    if (owner.symbol && deal.symbol && owner.symbol !== deal.symbol) continue;
+    if (owner.deals.some((d) => d.id && d.id === deal.id)) continue;
+    owner.deals.push(deal);
+    owner.basis = "position_id";
+  }
+
   return [...groups.values()];
 }
 
