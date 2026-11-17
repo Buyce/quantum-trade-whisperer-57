@@ -8,6 +8,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { evaluateAccountPolicy, type AccountRiskPolicy } from "./policy";
 import { fetchDeals } from "@/lib/metaapi/history.server";
+import { isNonTradingDeal } from "@/lib/accounts/deal-kind";
 import { NEWS_ENFORCEMENT_PINNED_OFF } from "@/lib/news/gate.server";
 
 type Db = Pick<SupabaseClient, "from">;
@@ -146,6 +147,9 @@ export async function accountExecutionPolicy(
   }
   let todayNetPnl = 0;
   for (const deal of todayDeals) {
+    // Deposits, withdrawals and broker credit are not trading results: counting a
+    // deposit as profit would trip the stop-after-profit guard (and hide a loss).
+    if (isNonTradingDeal(deal)) continue;
     // Missing money fields are unknown, never zero. A hard daily-loss limit must
     // not authorize from a partial broker outcome.
     if (
