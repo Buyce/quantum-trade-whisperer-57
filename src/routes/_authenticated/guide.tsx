@@ -687,7 +687,7 @@ const SECTIONS: Section[] = [
         id: "risk-policy",
         q: "What is an account risk policy?",
         a: [
-          "Your limits for one connected account, set under Risk policy on that account's card. Starting balance is the size the limits are measured from. Normal risk per trade is what P-Trades sizes each order to; Hard cap is the most it may ever use. Max daily loss and Max total loss are percentages of the starting balance. 'Trails your highest balance' makes the total-loss floor move up as the account grows. Max trades per day and Stop after daily profit close P-Trades for the rest of the UTC day.",
+          "Your limits for one connected account, set under Risk policy on that account's card. Starting balance is the size the limits are measured from. Normal risk per trade is what P-Trades sizes each order to; Hard cap is the most it may ever use. Max daily loss and Max total loss are percentages of the starting balance. 'Trails your highest balance' makes the total-loss floor move up as the account grows. Max trades per day and Stop after daily profit close P-Trades for the rest of the UTC day; the daily profit stop counts only trades P-Trades placed, so your manual profits never stop it, while manual losses still count toward Max daily loss.",
           "The Equity Edge Instant 50K preset fills in that programme's rules with a cautious 0.25% normal risk under its 1% cap. Blank fields mean no limit.",
         ],
         means: "Account-level limits every automatic order must fit inside.",

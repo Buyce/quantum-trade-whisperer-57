@@ -159,7 +159,7 @@ export function RiskPolicyForm({
             {field("trades", "Max trades per day", trades, setTrades)}
             {field("daily", "Max daily loss %", daily, setDaily)}
             {field("total", "Max total loss %", total, setTotal)}
-            {field("obj", "Stop after daily profit", objective, setObjective)}
+            {field("obj", "Stop after daily P-Trades profit", objective, setObjective)}
           </div>
           <label className="flex items-center gap-2">
             <Switch checked={trailing} onCheckedChange={setTrailing} />
