@@ -101,8 +101,18 @@ function setup(opts: {
         error: null,
       };
     }
+    if (call.table === "instrument_lifecycle") {
+      const syms = [...new Set((opts.candidates as { instrument: string }[]).map((c) => c.instrument))];
+      return { data: syms.map((symbol) => ({ symbol })), error: null };
+    }
     if (call.table === "shadow_executions" && call.op === "select") {
-      if (call.eq["cohort"] === "research_candidate") return { data: opts.candidates, error: null };
+      if (call.eq["cohort"] === "research_candidate")
+        return {
+          data: (opts.candidates as { instrument: string }[]).filter(
+            (c) => !call.eq["instrument"] || c.instrument === call.eq["instrument"],
+          ),
+          error: null,
+        };
       if (call.eq["cohort"] === "production" && call.eq["model_version"] === 1) {
         return { data: opts.production, error: null };
       }
@@ -318,5 +328,19 @@ describe("candidate resolution capacity and provider budget", () => {
 
     expect(fetchCandles.mock.calls.map((c) => c[0])).toEqual(["EURUSD"]);
     expect(summary.candidateBacklogNoCandles).toBe(1);
+  });
+});
+
+describe("per-instrument candidate budget", () => {
+  it("[INVARIANT] an older backlog on one instrument does not starve the others", async () => {
+    const s = setup({
+      production: [],
+      candidates: [row("x1", "XAUUSD"), row("e1", "EURUSD"), row("g1", "GBPAUD")],
+    });
+    await resolveShadowExecutions(s.db);
+    const reads = s.calls.filter(
+      (c) => c.table === "shadow_executions" && c.op === "select" && c.eq["cohort"] === "research_candidate",
+    );
+    expect(reads.map((r) => r.eq["instrument"]).sort()).toEqual(["EURUSD", "GBPAUD", "XAUUSD"]);
   });
 });

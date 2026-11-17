@@ -269,20 +269,47 @@ async function loadResearchRows(db: SupabaseClient): Promise<ShadowRow[]> {
 async function loadCandidateRows(db: SupabaseClient): Promise<ShadowRow[]> {
   const budget = await candidateBudget(db);
   if (budget <= 0) return [];
-  const res = await db
-    .from("shadow_executions")
-    .select(OPEN_ROW_COLUMNS)
-    .in("status", ["pending", "open"])
-    .eq("cohort", CANDIDATE_COHORT)
-    .eq("replay_version", REPLAY_V1_VERSION)
-    .or(`research_window_status.is.null,research_window_status.neq.${OUTSIDE_REPLAY_WINDOW}`)
-    .order("detected_at", { ascending: true })
-    .limit(budget);
-  if (res.error) {
-    console.error("[shadow-resolve] candidate read failed:", res.error.message);
+  /**
+   * Per-instrument budget. A single global oldest-first read gave the whole
+   * budget to whichever instrument had the oldest backlog (XAUUSD), so seven
+   * other instruments waited behind it for weeks. Each instrument now gets its
+   * own oldest-first slice; provider reads stay bounded by
+   * CANDIDATE_BACKFILL_FETCH_BUDGET (one read per instrument group).
+   */
+  const { data: instruments, error: instErr } = await db
+    .from("instrument_lifecycle")
+    .select("symbol");
+  if (instErr) {
+    console.error("[shadow-resolve] candidate instrument list failed:", instErr.message);
     return [];
   }
-  return (res.data ?? []) as unknown as ShadowRow[];
+  const symbols = ((instruments ?? []) as { symbol: string }[])
+    .map((r) => r.symbol)
+    .filter((sym): sym is string => typeof sym === "string")
+    .slice(0, CANDIDATE_BACKFILL_FETCH_BUDGET);
+  const reads = await Promise.all(
+    symbols.map((symbol) =>
+      db
+        .from("shadow_executions")
+        .select(OPEN_ROW_COLUMNS)
+        .in("status", ["pending", "open"])
+        .eq("cohort", CANDIDATE_COHORT)
+        .eq("instrument", symbol)
+        .eq("replay_version", REPLAY_V1_VERSION)
+        .or(`research_window_status.is.null,research_window_status.neq.${OUTSIDE_REPLAY_WINDOW}`)
+        .order("detected_at", { ascending: true })
+        .limit(budget),
+    ),
+  );
+  const rows: ShadowRow[] = [];
+  for (const res of reads) {
+    if (res.error) {
+      console.error("[shadow-resolve] candidate read failed:", res.error.message);
+      continue;
+    }
+    rows.push(...((res.data ?? []) as unknown as ShadowRow[]));
+  }
+  return rows;
 }
 
 function toReplayInput(row: ShadowRow): ReplayInput {
