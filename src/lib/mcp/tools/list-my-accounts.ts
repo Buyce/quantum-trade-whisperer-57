@@ -28,7 +28,11 @@ export async function runListMyAccounts(supabase: unknown, args: MyAccountsArgs 
   const db = supabase as ReturnType<typeof supabaseForUser>;
   let query = db.from("connected_trading_accounts").select(COLUMNS);
   const mode = args.mode && args.mode !== "all" ? args.mode : undefined;
-  if (mode) query = query.eq("mode", mode);
+  // "live"/"demo" mean the broker account type (real/demo); stored execution
+  // modes are observe/demo_auto/live_auto/live_confirm, so mode="live" matched nothing.
+  if (mode === "live") query = query.eq("broker_account_type", "real");
+  else if (mode === "demo") query = query.eq("broker_account_type", "demo");
+  else if (mode) query = query.eq("mode", mode);
   if (args.include_disconnected !== true) query = query.is("disconnected_at", null);
 
   const { data, error } = await query.order("created_at", { ascending: true });
