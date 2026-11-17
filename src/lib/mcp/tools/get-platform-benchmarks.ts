@@ -23,7 +23,7 @@ export async function runGetPlatformBenchmarks(supabase: unknown) {
   // stays for compatibility) so no caller presents journal figures as broker truth.
   const payload: Record<string, unknown> = {
     ...raw,
-    journal_trades: raw.broker_verified_trades ?? null,
+    journal_trades: raw["broker_verified_trades"] ?? null,
     trades_provenance:
       "self-reported journal (user-entered prices; NOT broker verified). The legacy key broker_verified_trades is a mislabel of the same journal block and must not be quoted as broker-verified.",
   };
