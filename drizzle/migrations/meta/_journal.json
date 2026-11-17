@@ -92,6 +92,13 @@
       "when": 1794478062268,
       "tag": "0012_scan_queue_admin_only_read",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1794913387875,
+      "tag": "0013_live_auto_default_marker",
+      "breakpoints": true
     }
   ]
 }
