@@ -112,9 +112,12 @@ export function chronologicalHoldout(rows: RObservation[]): HoldoutEvidence | nu
 }
 
 /** Realised research R for one replay row, or null when it is not usable. */
-function replayR(row: Record<string, unknown>): number | null {
+export function replayR(row: Record<string, unknown>): number | null {
   for (const key of ["net_r", "realized_r"]) {
-    const value = Number(row[key]);
+    const raw = row[key];
+    // Number(null) is 0: a missing net_r must fall through, never become 0R.
+    if (raw === null || raw === undefined || raw === "") continue;
+    const value = Number(raw);
     if (Number.isFinite(value)) return value;
   }
   return null;

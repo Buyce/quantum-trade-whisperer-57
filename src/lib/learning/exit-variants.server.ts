@@ -204,6 +204,10 @@ export async function runExitVariantPass(
       .limit(ROW_LIMIT);
     if (error) throw new Error(error.message);
     rows = (data ?? []) as unknown as PathRow[];
+    // Ascending + limit keeps the OLDEST rows and drops newer evidence while
+    // computed_at still looks fresh. Refuse a truncated population.
+    if (rows.length >= ROW_LIMIT)
+      throw new Error(`input reached the ${ROW_LIMIT}-row read limit; refusing a truncated computation`);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[exit-variants] read failed:", message);

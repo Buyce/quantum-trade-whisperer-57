@@ -91,6 +91,11 @@ export function groupOwnedDeals(
   // proven P-Trades position by EXACT broker position id + symbol. Refused when
   // the position has a foreign opening leg, more than one P-Trades owner, or the
   // close carries a different recognised P-Trades reference.
+  // Track the exact deal objects accepted in pass one — group membership of a
+  // clientId is NOT proof that a particular deal was accepted.
+  const accepted = new Set<BrokerDeal>();
+  for (const g of groups.values()) for (const d of g.deals) accepted.add(d);
+
   const ownersByPosition = new Map<string, DealGroup[]>();
   for (const g of groups.values()) {
     for (const d of g.deals) {
@@ -100,23 +105,33 @@ export function groupOwnedDeals(
       ownersByPosition.set(d.positionId, list);
     }
   }
-  const foreignOpen = new Set<string>();
+  // A position is mixed (fallback refused) when any opening leg was not
+  // accepted, or it contains an INOUT reversal.
+  const mixed = new Set<string>();
   for (const deal of deals) {
-    if (!isEntry(deal) || !deal.positionId) continue;
-    if (!groups.has(deal.clientId ?? "") ) foreignOpen.add(deal.positionId);
+    if (!deal.positionId) continue;
+    const t = (deal.entryType ?? "").toUpperCase();
+    if (t === "DEAL_ENTRY_INOUT") mixed.add(deal.positionId);
+    else if (isEntry(deal) && !accepted.has(deal)) mixed.add(deal.positionId);
   }
+  const seenIds = new Set<string>();
+  for (const g of groups.values()) for (const d of g.deals) if (d.id) seenIds.add(String(d.id));
   for (const deal of deals) {
     if (!isExit(deal) || !deal.positionId) continue;
-    if (groups.has(deal.clientId ?? "")) continue; // already absorbed
-    if (parseClientId(deal.clientId ?? null)) continue; // a different P-Trades ref
-    if (foreignOpen.has(deal.positionId)) continue;
+    if (accepted.has(deal)) continue;
+    if (mixed.has(deal.positionId)) continue;
     const owners = ownersByPosition.get(deal.positionId);
     if (!owners || owners.length !== 1) continue;
     const owner = owners[0];
     if (!owner) continue;
-    if (owner.symbol && deal.symbol && owner.symbol !== deal.symbol) continue;
-    if (owner.deals.some((d) => d.id && d.id === deal.id)) continue;
+    // A recognised P-Trades reference must be the SAME owner's reference.
+    if (parseClientId(deal.clientId ?? null) && deal.clientId !== owner.clientId) continue;
+    // Contract: exact position id AND exact instrument; missing symbol refused.
+    if (!owner.symbol || !deal.symbol || owner.symbol !== deal.symbol) continue;
+    if (deal.id && seenIds.has(String(deal.id))) continue;
     owner.deals.push(deal);
+    accepted.add(deal);
+    if (deal.id) seenIds.add(String(deal.id));
     owner.basis = "position_id";
   }
 
@@ -157,6 +172,17 @@ export function weightedPrice(legs: readonly BrokerDeal[]): {
   }
   if (volume <= 0) return { price: null, volume: null };
   return { price: notional / volume, volume };
+}
+
+/**
+ * Canonical UTC instant of a deal. MetaApi `time` is ISO UTC; `brokerTime` is
+ * the broker's local wall clock with no zone and is only used when it carries
+ * an explicit zone. A bare broker-local time is never reinterpreted as UTC.
+ */
+function canonicalTime(d: BrokerDeal): string | null {
+  if (d.time) return d.time;
+  const b = d.brokerTime ?? null;
+  return b && /(Z|[+-]\d{2}:?\d{2})$/.test(b) ? b : null;
 }
 
 function earliest(times: (string | null | undefined)[]): string | null {
@@ -211,8 +237,8 @@ export function summariseGroup(group: DealGroup): DealSummary {
     volume: entry.volume,
     entryPrice: entry.price,
     exitPrice: closed ? exit.price : null,
-    entryAt: earliest(entries.map((d) => d.brokerTime ?? d.time)),
-    exitAt: closed ? latest(exits.map((d) => d.brokerTime ?? d.time)) : null,
+    entryAt: earliest(entries.map(canonicalTime)),
+    exitAt: closed ? latest(exits.map(canonicalTime)) : null,
     commission: sum((d) => d.commission),
     swap: sum((d) => d.swap),
     grossProfit: closed ? sum((d) => d.profit) : null,

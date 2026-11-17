@@ -25,7 +25,6 @@ import {
 /** Maturity horizon, matching `recompute_filter_lift`. */
 export const MATURITY_HOURS = 24;
 /** Bound on rows read per pass. */
-const ROW_LIMIT = 5000;
 
 interface CandidateRow {
   detected_at: string;
@@ -96,20 +95,33 @@ export async function runWalkForwardPass(
 ): Promise<WalkForwardPassResult> {
   let rows: CandidateRow[];
   try {
-    const { data, error } = await db
-      .from("shadow_executions")
-      .select(
-        "detected_at, instrument, resolved_outcome, data_quality_outcome, realized_r, research_candidates!inner(gates)",
-      )
-      .eq("cohort", "research_candidate")
-      .eq("plan_origin", "counterfactual")
-      .eq("replay_version", 1)
-      .eq("execution_policy", "legacy_best_target_touched")
-      .eq("status", "resolved")
-      .order("detected_at", { ascending: true })
-      .limit(ROW_LIMIT);
-    if (error) throw new Error(error.message);
-    rows = (data ?? []) as unknown as CandidateRow[];
+    // Complete chronological paging: an ascending capped read silently kept
+    // only the oldest rows. Bounded by a hard ceiling that refuses rather than
+    // truncates.
+    rows = [];
+    const PAGE = 1000;
+    const MAX_ROWS = 50_000;
+    for (let start = 0; ; start += PAGE) {
+      const { data, error } = await db
+        .from("shadow_executions")
+        .select(
+          "id, detected_at, instrument, resolved_outcome, data_quality_outcome, realized_r, research_candidates!inner(gates)",
+        )
+        .eq("cohort", "research_candidate")
+        .eq("plan_origin", "counterfactual")
+        .eq("replay_version", 1)
+        .eq("execution_policy", "legacy_best_target_touched")
+        .eq("status", "resolved")
+        .order("detected_at", { ascending: true })
+        .order("id", { ascending: true })
+        .range(start, start + PAGE - 1);
+      if (error) throw new Error(error.message);
+      const page = (data ?? []) as unknown as CandidateRow[];
+      rows.push(...page);
+      if (page.length < PAGE) break;
+      if (rows.length >= MAX_ROWS)
+        throw new Error(`input exceeded ${MAX_ROWS} rows; refusing a truncated computation`);
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[walk-forward] read failed:", message);

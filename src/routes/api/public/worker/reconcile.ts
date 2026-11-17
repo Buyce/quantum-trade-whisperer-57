@@ -26,7 +26,10 @@ export const Route = createFileRoute("/api/public/worker/reconcile")({
             ? readBenchmarkAccount().accountId
             : null;
           const result = await reconcileBrokerEvidence(adminClient(), { benchmarkAccountId });
-          return Response.json({ ok: true, ...result });
+          // A pass with read/write errors is a FAILED pass for the scheduler: a 200
+          // here would hide that some evidence was not imported.
+          const ok = result.errors.length === 0;
+          return Response.json({ ok, ...result }, { status: ok ? 200 : 502 });
         } catch (err) {
           const message = describeError(err);
           console.error("[worker/reconcile]", message);

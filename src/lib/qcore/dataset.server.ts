@@ -132,22 +132,30 @@ export async function loadQCoreBacktestDataset(
         .select("observation_key, instrument, code_hash, profile")
         .eq("model_version", QCORE_MODEL_VERSION)
         .eq("code_hash", QCORE_POLICY_V2.id)
+        .order("observation_key", { ascending: true })
         .limit(ROW_LIMIT),
       db
         .from("shadow_executions")
         .select(
           "observation_key, instrument, detected_at, status, resolved_outcome, data_quality_outcome, realized_r, filled_at",
         )
-        .eq("cohort", "research_candidate")
+        // Corrected Replay-V2 outcomes live in the production cohort. The schema
+        // pins research_candidate rows to plan_origin='counterfactual', so the
+        // old research_candidate+production filter could never match a row.
+        .eq("cohort", "production")
         .eq("plan_origin", "production")
         .eq("replay_version", REPLAY_V2_VERSION)
         .eq("execution_policy", EXECUTION_POLICY_V2)
+        .order("observation_key", { ascending: true })
         .limit(ROW_LIMIT),
     ]);
   if (observationError)
     throw new Error(`Q-Core observation read failed: ${observationError.message}`);
   if (outcomeError)
     throw new Error(`Q-Core Replay-V2 outcome read failed: ${outcomeError.message}`);
+  // Refuse a silently truncated population rather than backtesting a subset.
+  if ((observations ?? []).length >= ROW_LIMIT || (outcomes ?? []).length >= ROW_LIMIT)
+    throw new Error(`Q-Core dataset reached the ${ROW_LIMIT}-row read limit; refusing a truncated backtest`);
   return joinQCoreOutcomes(
     (observations ?? []) as unknown as ObservationDbRow[],
     (outcomes ?? []) as unknown as OutcomeDbRow[],
