@@ -43,7 +43,7 @@ import {
   type ConnectionIntent,
 } from "./lifecycle";
 import { isOfferedRegion } from "./guidance";
-import { defaultLiveAutoOnConnect, isAccountMode, modeAfterReconcile } from "./mode";
+import { defaultLiveAutoOnConnect, isAccountMode, modeAfterReconcile, standDownPatch } from "./mode";
 import { buildAccountSpecRow } from "./spec-row";
 import { mapSymbols } from "./symbol-map";
 
@@ -549,7 +549,11 @@ export async function reconcileConnection(
       emergencyStopped: false,
     });
     patch["mode"] = outcome.mode;
-    patch["stand_down_reason"] = outcome.standDownReason;
+    const standDown = standDownPatch(row.mode, outcome);
+    if (standDown !== undefined) patch["stand_down_reason"] = standDown;
+    if (outcome.standDownReason && row.mode !== "observe") {
+      await notifyStandDown(db, row, outcome.standDownReason);
+    }
     {
       const applied =
         (row as unknown as { live_auto_default_applied_at?: string | null })
@@ -569,6 +573,7 @@ export async function reconcileConnection(
         patch["mode"] = defaulted;
         patch["mode_armed_at"] = new Date().toISOString();
         patch["live_auto_default_applied_at"] = new Date().toISOString();
+        patch["stand_down_reason"] = null;
         await ensureDefaultLiveRiskPolicy(db, row, info);
       } else if (!applied && type === "real") {
         // Not yet tradable (e.g. trading not allowed): try again on a later refresh.
@@ -646,6 +651,21 @@ function brokerFactsPatch(
     broker_margin_level: num(info.marginLevel),
     broker_observed_at: new Date().toISOString(),
   };
+}
+
+/** Best-effort phone alert when P-Trades stops automatic orders on an account. Never throws. */
+async function notifyStandDown(db: Admin, row: ConnectedAccountRow, reason: string): Promise<void> {
+  try {
+    const { sendPushToUsers } = await import("@/lib/scanner/push.server");
+    await sendPushToUsers(db as never, [row.user_id], {
+      title: `Automatic orders stopped: ${row.label}`,
+      body: `Switched to Observe: ${reason}`,
+      url: "/accounts",
+      tag: `stand-down-${row.id}`,
+    });
+  } catch {
+    // alerts are best-effort
+  }
 }
 
 async function writeAndReturn(

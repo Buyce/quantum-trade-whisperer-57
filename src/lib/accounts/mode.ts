@@ -116,6 +116,22 @@ export function modeAfterReconcile(
   return { mode: "observe", standDownReason: verdict.detail };
 }
 
+/**
+ * What to write to stand_down_reason after a refresh: the new reason when the
+ * account was just stood down, null when it is (still) armed, and undefined —
+ * leave the saved reason alone — when it was already in Observe. A later
+ * refresh must never erase why automatic orders stopped.
+ */
+export function standDownPatch(
+  previous: string | null | undefined,
+  outcome: { mode: AccountMode; standDownReason: string | null },
+): string | null | undefined {
+  if (outcome.standDownReason) return outcome.standDownReason;
+  if (outcome.mode !== "observe") return null;
+  void previous;
+  return undefined;
+}
+
 /** Plain-language description of what a mode does. Used by the UI and the guide. */
 export function describeMode(mode: AccountMode): { label: string; detail: string } {
   switch (mode) {

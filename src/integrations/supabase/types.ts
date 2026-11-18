@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_mode_changes: {
+        Row: {
+          account_id: string
+          actor_role: string | null
+          cause: string
+          changed_at: string
+          id: number
+          new_mode: string
+          old_mode: string | null
+          reason: string | null
+          user_id: string
+        }
+        Insert: {
+          account_id: string
+          actor_role?: string | null
+          cause: string
+          changed_at?: string
+          id?: never
+          new_mode: string
+          old_mode?: string | null
+          reason?: string | null
+          user_id: string
+        }
+        Update: {
+          account_id?: string
+          actor_role?: string | null
+          cause?: string
+          changed_at?: string
+          id?: never
+          new_mode?: string
+          old_mode?: string | null
+          reason?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       account_quota_defaults: {
         Row: {
           id: boolean

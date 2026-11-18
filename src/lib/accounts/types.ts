@@ -189,6 +189,8 @@ export interface ConnectedAccountView {
   /** Non-null means the account is emergency-stopped and behaves as observe. */
   emergencyStopAt: string | null;
   emergencyStopReason: string | null;
+  /** Why P-Trades last stopped automatic orders on its own, kept until re-armed. */
+  standDownReason: string | null;
   createdAt: string;
 }
 

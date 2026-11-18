@@ -238,6 +238,7 @@ export async function toAccountView(
     disconnectedAt: row.disconnected_at,
     emergencyStopAt: row.emergency_stop_at,
     emergencyStopReason: row.emergency_stop_reason,
+    standDownReason: (row as { stand_down_reason?: string | null }).stand_down_reason ?? null,
     createdAt: row.created_at,
   };
 }

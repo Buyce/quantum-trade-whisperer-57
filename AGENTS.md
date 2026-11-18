@@ -55,3 +55,4 @@ Enforced by `src/lib/mcp/__tests__/list-signals.behavior.test.ts` and
 - Broker deal times use MetaApi `time` (ISO UTC); `brokerTime` is zone-less broker-local and is never parsed as UTC — why: it saved ticket 49064728's entry one hour late.
 - A position-id closing fallback tracks accepted deal objects, requires exact position id and symbol, and refuses positions with any unaccepted opening leg or INOUT — why: `groups.has(clientId)` stranded a mobile close (same clientId, magic 0) as open.
 - Learning reads page completely or refuse at a hard ceiling; never an ascending capped read — why: oldest-N reads hid newer evidence behind a fresh computed_at.
+- Every connected-account mode change is recorded append-only in `account_mode_changes` by a DB trigger, and a refresh never erases `stand_down_reason` while the account stays in Observe — why: a wiped reason and no history made an unexplained live-auto stop impossible to diagnose.

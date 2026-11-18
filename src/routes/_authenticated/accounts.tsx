@@ -1198,6 +1198,11 @@ function ArmingSection({
         </span>
       </p>
       <p className="mt-1 text-muted-foreground">{MODE_NOTES[account.mode]}</p>
+      {account.mode === "observe" && account.standDownReason ? (
+        <p className="mt-1 text-destructive">
+          P-Trades stopped automatic orders on its own: {account.standDownReason}
+        </p>
+      ) : null}
 
       {options.length === 1 ? (
         <p className="mt-2 text-muted-foreground">
