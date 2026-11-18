@@ -1012,7 +1012,8 @@ function AccountCard({
             <AlertDialogDescription>
               P-Trades will stop this connection and remove it from your broker-connection provider.
               Your broker account itself is untouched, and everything already recorded in P-Trades
-              is kept.
+              is kept. Automatic orders stop, and this connection is deleted for good. Reconnecting
+              creates a new one and needs your current MT5 master password again.
             </AlertDialogDescription>
           </AlertDialogHeader>
           {disconnectError ? (

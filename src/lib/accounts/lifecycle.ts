@@ -110,9 +110,9 @@ export function describePhase(phase: AccountPhase): PhaseCopy {
       return {
         label: "Started, not yet talking to your broker",
         detail:
-          "The connection is running but your broker has not accepted it yet. This is normal for the first few minutes, and can also mean the broker server name is slightly wrong.",
+          "The connection is running but your broker has not accepted the login yet. This is normal for the first few minutes. If it lasts longer, the password is usually wrong: it must be your current MT5 master (trading) password, not the investor password. A wrong server name can also cause it.",
         tone: "working",
-        nextAction: "Wait a few minutes, then refresh. If it stays here, re-check the server name.",
+        nextAction: "Wait a few minutes, then refresh. If it stays here, open Secure login page and re-enter your current MT5 master password, then check the server name.",
       };
     case "broker_rejected":
       return {
